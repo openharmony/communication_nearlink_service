@@ -1,0 +1,110 @@
+# Copyright (C) 2024-2024 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+
+config("nearlink_dft_public_config") {
+  include_dirs = [
+    "$NEARLINK_ROOT/services/dft/api",
+    "$NEARLINK_ROOT/services/dft/include",
+  ]
+}
+
+config("nearlink_dft_internal_config") {
+  include_dirs = [
+    "$NEARLINK_ROOT/services/dft/api",
+    "$NEARLINK_ROOT/services/dft/include",
+  ]
+}
+
+ohos_shared_library("nearlink_dft_manager") {
+  defines =  [
+    "LOG_TAG = \"nearlink_dft\"",
+    "LOG_DOMAIN = 0xD000152",
+  ]
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  cflags = [
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  configs = [ ":nearlink_dft_internal_config" ]
+  public_configs = [ ":nearlink_dft_public_config" ]
+
+  sources = [
+    "src/nearlink_dft_manager.cpp",
+    "src/nearlink_dft_database.cpp",
+    "src/nearlink_dft_manager_c.cpp",
+    "src/nearlink_dft_utils.cpp",
+    "src/nearlink_dft_exception.cpp",
+    "src/nearlink_dft_ue.cpp",
+    "src/nearlink_dft_excep.cpp",
+    "src/nearlink_dft_ue_c.cpp",
+    "src/nearlink_dft_excep_c.cpp",
+    "src/nearlink_dft_device_data.cpp",
+    "src/nearlink_dft_common_event_helper.cpp",
+    "src/nearlink_cemap_report_loader.cpp",
+    "src/nearlink_dft_car_key_loader.cpp",
+  ]
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "c_utils:utils",
+    "ffrt:libffrt",
+    "preferences:native_preferences",
+    "ability_base:want",
+    "ability_runtime:abilitykit_native",
+    "samgr:samgr_proxy",
+    "ipc:ipc_single",
+    "cJSON:cjson",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}

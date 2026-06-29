@@ -1,0 +1,50 @@
+/*
+ * Copyright (C) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef DIALOG_UTILS_H
+#define DIALOG_UTILS_H
+#include <cstdint>
+#include <string>
+#include "ability_connection.h"
+#include "ability_connect_callback.h"
+#include "datashare_helper.h"
+#include "data_ability_observer_stub.h"
+namespace OHOS {
+namespace Nearlink {
+
+class NearlinkAbilityConnection : public AAFwk::AbilityConnectionStub {
+public:
+    explicit NearlinkAbilityConnection(const std::string commandStr,
+        const std::string bundleName, const std::string abilityName)
+    {
+        commandStr_ = commandStr;
+        bundleName_ = bundleName;
+        abilityName_ = abilityName;
+    }
+
+    virtual ~NearlinkAbilityConnection() = default;
+    void OnAbilityConnectDone(const AppExecFwk::ElementName &element,
+        const sptr<IRemoteObject> &remoteObject, int32_t resultCode) override;
+    void OnAbilityDisconnectDone(const AppExecFwk::ElementName &element, int32_t resultCode) override;
+
+private:
+    std::string commandStr_;
+    std::string bundleName_;
+    std::string abilityName_;
+};
+} // namespace Nearlink
+} // namespace OHOS
+
+#endif // DIALOG_UTILS_H

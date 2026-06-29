@@ -1,0 +1,414 @@
+# Copyright (C) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+
+service_cflags = [
+    "-fPIC",
+    "-Wno-format",
+    "-Wno-pessimizing-move",
+    "-Wno-unused-parameter",
+    "-Wreorder",
+    "-Wmissing-braces",
+    "-Wimplicit-fallthrough",
+    "-Wlogical-op-parentheses",
+    "-Wmissing-field-initializers",
+    "-Wparentheses-equality",
+    "-Wparentheses",
+    "-Wdelete-non-abstract-non-virtual-dtor",
+    "-Wignored-qualifiers",
+    "-Wdelete-abstract-non-virtual-dtor",
+    "-Wuninitialized",
+    "-Woverloaded-virtual",
+    "-Wdangling-else",
+    "-Woverloaded-virtual",
+    "-Wno-non-c-typedef-for-linkage",
+    "-Wno-unused-but-set-variable",
+    "-Wno-array-parameter",
+    "-Wno-unused-lambda-capture",
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+config("nearlink_service_config") {
+  cflags = service_cflags
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  include_dirs = [
+    "include",
+    "common",
+    "src/common",
+    "src/util",
+    "src/base",
+    "src/powermgr",
+    "src/adapter",
+    "src/advertiser",
+    "src/adapter/sle_scan_filter/include",
+    "src/hadm",
+    "src/hid",
+    "src/ssap",
+    "src/controllerManager",
+    "src/datatransfer",
+    "src/dis",
+    "src/lis",
+    "src/icce",
+    "src/datashare",
+    "src/scan",
+    "src/dialog",
+    "src/port",
+    "src/cdsm",
+    "src/mcp",
+    "src/sl_host",
+    "src/tws",
+    "src/vcp",
+    "src/asc",
+    "src/bas",
+    "src/ccp",
+    "src/vas",
+    "src/cloudpair",
+    "src/mic",
+    "src/audio",
+    "src/ServiceManagerPluginLoader",
+    "src/controller",
+  ]
+}
+
+config("nearlink_service_public_config") {
+  include_dirs = [
+    "include",
+  ]
+}
+
+ohos_shared_library("nearlink_service_impl") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+
+  # Used to control the export of dynamic library symbols.
+  # version_script = "libnearlink_service_impl.versionscript"
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+      cfi = true                             # Enable/disable control flow integrity detection
+      cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+      boundary_sanitize = true               # Enable boundary san detection
+      cfi_cross_dso = true                   # Cross-SO CFI Checks
+      integer_overflow = true                # Enable integer overflow detection
+      ubsan = true                           # Enable some Ubsan options
+      debug = false
+      blocklist = "./libsleservice_blocklist.txt"
+  }
+
+  configs = [ ":nearlink_service_config" ]
+  public_configs = [ ":nearlink_service_public_config" ]
+  sources = [
+    "src/common/AdapterStateMachine.cpp",
+    "src/common/ClassCreator.cpp",
+    "src/common/Compat.cpp",
+    "src/common/ProfileInfo.cpp",
+    "src/common/ProfileServiceManager.cpp",
+    "src/common/SleServiceManager.cpp",
+    "src/common/SleCollaborationManager.cpp",
+    "src/common/SleHiviewUe.cpp",
+    "src/common/SleCommonEventSubscriber.cpp",
+    "src/common/SleSwitchDependency.cpp",
+    "src/common/SysStateMachine.cpp",
+    "src/common/SleMultiScanData.cpp",
+    "src/common/DeviceBatteryManager.cpp",
+    "src/util/semaphore.cpp",
+    "src/adapter/SleAdapterWrapper.cpp",
+    "src/adapter/SleAdapter.cpp",
+    "src/adapter/SleRemoteDeviceAdapter.cpp",
+    "src/adapter/SleCoexist.cpp",
+    "src/adapter/SleProperties.cpp",
+    "src/adapter/SleSecurity.cpp",
+    "src/adapter/SleProfileConnectManager.cpp",
+    "src/adapter/SleFeature.cpp",
+    "src/adapter/SleReconnectManager.cpp",
+    "src/advertiser/SleAdvertiserAdapter.cpp",
+    "src/advertiser/SleAdvertiserImpl.cpp",
+    "src/scan/ScanService.cpp",
+    "src/scan/ScanStackAdapter.cpp",
+    "src/ssap/ssap_client_service.cpp",
+    "src/ssap/ssap_client_stack_adapter.cpp",
+    "src/ssap/ssap_server_service.cpp",
+    "src/ssap/ssap_server_stack_adapter.cpp",
+    "src/ssap/ssap_utils.cpp",
+    "src/ssap/ssap_based_services_manager.cpp",
+    "src/hid/HidHostService.cpp",
+    "src/hadm/nearlink_hadm_stack_adapter.cpp",
+    "src/hadm/nearlink_hadm_client_service.cpp",
+    "src/hid/HidHostStackAdapter.cpp",
+    "src/hid/HidHostUhid.cpp",
+    "src/dis/DisService.cpp",
+    "src/dis/DisClientStackAdapter.cpp",
+    "src/dis/DisServerStackAdapter.cpp",
+    "src/bas/BasService.cpp",
+    "src/bas/BasClientStackAdapter.cpp",
+    "src/lis/LisService.cpp",
+    "src/lis/LisServer.cpp",
+    "src/icce/IcceService.cpp",
+    "src/icce/IcceClientStackAdapter.cpp",
+    "src/icce/IcceServerStackAdapter.cpp",
+    "src/icce/icce_utils.cpp",
+    "src/datashare/nearlink_datashare_helper.cpp",
+    "src/datashare/SleNameChangeManager.cpp",
+    "src/datatransfer/nearlink_sle_datatransfer_cache.cpp",
+    "src/datatransfer/nearlink_sle_datatransfer_service.cpp",
+    "src/common/UnloadSa.cpp",
+    "src/port/PortService.cpp",
+    "src/port/PortClientStackAdapter.cpp",
+    "src/port/PortServerStackAdapter.cpp",
+    "src/dialog/DialogGenerate.cpp",
+    "src/dialog/DialogPairing.cpp",
+    "src/dialog/DialogUtils.cpp",
+    "src/cdsm/CdsmService.cpp",
+    "src/cdsm/CdsmClient.cpp",
+    "src/tws/TwsClient.cpp",
+    "src/tws/TwsService.cpp",
+    "src/tws/TwsHiBoxParser.cpp",
+    "src/tws/TwsSharedLibApi.cpp",
+    "src/cloudpair/SleCloudPairService.cpp",
+    "src/mcp/McpServerServiceManagerLoader.cpp",
+    "src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
+    "src/controller/SleControllerService.cpp",
+  ]
+
+  if (nearlink_service_edm_enable) {
+    sources += [
+      "src/common/SleEdmManager.cpp",
+    ]
+  }
+
+  if (nearlink_deps_audio_exist) {
+    sources += [
+      "src/mcp/McpServerService.cpp",
+      "src/asc/ASCService.cpp",
+      "src/asc/QosM.cpp",
+      "src/asc/ASCUtils.cpp",
+      "src/adapter/SleASC.cpp",
+      "src/vcp/VcpService.cpp",
+      "src/vcp/VcpStackAdapter.cpp",
+      "src/mic/MicService.cpp",
+      "src/mic/MicClientStackAdapter.cpp",
+      "src/audio/SleAudioFrameworkAdapter.cpp",
+    ]
+  }
+
+  if (nearlink_deps_telephony_exist) {
+    sources += [
+      "src/ccp/CcpService.cpp",
+      "src/ccp/CcpStackAdapter.cpp",
+      "src/ccp/CcpSystemInterface.cpp",
+      "src/vas/VasService.cpp",
+      "src/vas/VasStackAdapter.cpp",
+    ]
+  }
+
+  deps = [
+    "$NEARLINK_ROOT/services/stack:nearlink_stack",
+    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/socket:nearlink_socket",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+    "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+    "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
+  ]
+
+  external_deps = [
+    "ability_base:want",
+    "ability_base:zuri",
+    "ability_runtime:extension_manager",
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+    "access_token:libprivacy_sdk",
+    "c_utils:utils",
+    "cJSON:cjson",
+    "ffrt:libffrt",
+    "hilog:libhilog",
+    "huks:libhukssdk",
+    "init:libbegetutil",
+    "init:libbeget_proxy",
+    "ipc:ipc_core",
+    "samgr:samgr_proxy",
+    "data_share:datashare_common",
+    "data_share:datashare_consumer",
+    "ability_runtime:wantagent_innerkits",
+    "time_service:time_client",
+    "os_account:os_account_innerkits",
+    "qos_manager:qos",
+    "openssl:libcrypto_shared",
+    "os_account:libaccountkits",
+    "openssl:libcrypto_shared",
+    "os_account:libaccountkits",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  defines =  [
+    "LOG_TAG = \"nearlink_service\"",
+    "LOG_DOMAIN = 0xD000152",
+  ]
+
+  if (nearlink_service_kia_enable) {
+    defines += [ "NEARLINK_KIA_ENABLE" ]
+    external_deps += [ "security_guard:libsg_collect_sdk" ]
+  }
+
+  if (nearlink_service_edm_enable) {
+    defines += [ "NEARLINK_EDM_ENABLE" ]
+  }
+
+  if (nearlink_deps_audio_exist) {
+    external_deps += [
+      "audio_framework:audio_policy_manager",
+      "audio_framework:audio_engine_manager",
+      "audio_framework:audio_foundation",
+    ]
+  }
+
+  if (nearlink_deps_telephony_exist) {
+    external_deps += [
+      "call_manager:tel_call_manager_api",
+      "core_service:tel_core_service_api",
+      "state_registry:tel_state_registry_api"
+    ]
+  }
+
+  if (nearlink_service_host_dynamic_running) {
+    external_deps += [ "hdf_core:libhdi" ]
+    defines += ["NEARLINK_HOST_DYNAMIC_RUNING"]
+  }
+
+  if (nearlink_deps_device_manager_exist) {
+    external_deps += [ "device_manager:devicemanagersdk" ]
+    defines += ["DEVICE_MANAGER"]
+  }
+
+  if (nearlink_service_no_pairing_dialog) {
+    defines += ["NO_PAIRING_DIALOG"]
+  }
+
+  if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
+    external_deps += [ "resource_schedule_service:ressched_client" ]
+    defines += [ "RES_SCHED_SUPPORT" ]
+  }
+
+  if (factory == true) {
+    defines += ["CONFIG_FACTORY_VERSION"]
+  }
+
+  defines += product_defines
+
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}
+
+########################### mcp_manager ###############################
+config("nearlink_mcp_manager_config") {
+  cflags = service_cflags
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  include_dirs = [
+    "src/base",
+    "src/common",
+    "src/util",
+    "src/mcp",
+    "include",
+  ]
+}
+
+ohos_shared_library("nearlink_mcp_manager") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  stack_protector_ret = false
+  
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+      cfi = true                             # Enable/disable control flow integrity detection
+      cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+      boundary_sanitize = true               # Enable boundary san detection
+      cfi_cross_dso = true                   # Cross-SO CFI Checks
+      integer_overflow = true                # Enable integer overflow detection
+      ubsan = true                           # Enable some Ubsan options
+      debug = false
+  }
+
+  configs = [ ":nearlink_mcp_manager_config" ]
+
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_mcp_service.versionscript"
+
+  deps = [
+    "$NEARLINK_ROOT/services/stack:nearlink_stack",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
+    "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "ability_base:want",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+  sources = []
+
+  if (nearlink_deps_audio_exist) {
+    external_deps += [
+      "ability_runtime:wantagent_innerkits",
+      "av_session:avsession_client",
+      "audio_framework:audio_policy_manager",
+      "audio_framework:audio_engine_manager",
+      "audio_framework:audio_foundation",
+      "input:libmmi-client",
+      "ipc:ipc_core",
+      "c_utils:utils",
+    ]
+  }
+
+  if (nearlink_deps_audio_exist) {
+    sources += [
+      "src/mcp/McpServerServiceManager.cpp",
+    ]
+  }
+
+   subsystem_name = "communication"
+   part_name = "nearlink_service"
+}

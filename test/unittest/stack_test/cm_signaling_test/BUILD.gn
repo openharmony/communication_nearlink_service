@@ -1,0 +1,124 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+import("../../../utils/stack_tdd.gni")
+
+config("stack_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = shared_stack_include_dirs
+  include_dirs += [ "$NEARLINK_ROOT/test/unittest/stack_test/stack_util/include", ]
+
+  defines =  [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  cflags_cc = [ "-fexceptions" ]
+  cflags = [ "--coverage" ]
+  ldflags = [ "--coverage" ]
+}
+
+unit_test_deps = [
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+]
+
+unit_test_external_deps = [
+  "c_utils:utils",
+  "hilog:libhilog",
+  "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
+  "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
+  "openssl:libcrypto_shared",
+  "init:libbegetutil",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+]
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_stack_cm_signaling_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  source_base = [
+    "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_map.c",
+    "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_slist.c",
+    "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_vector.c",
+    "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_buff.c",
+    "$STACK_DIR/src/sdf/sdffwk/src/sdf_util.c",
+    "$STACK_DIR/src/sdf/dfx/log/src/sdf_log_api.c",
+    "$STACK_DIR/src/sdf/dfx/errno/src/sdf_errno.c",
+    "$STACK_DIR/src/sdf/dfx/trace/src/sdf_trace.c",
+    "$STACK_DIR/src/nai/dft/src/nai_dft.c",
+    "$STACK_DIR/src/sdf/oal/memm/src/sdf_mem.c",
+    "$STACK_DIR/src/sdf/oal/evc/src/sdf_evc.c",
+    "$STACK_DIR/src/sdf/oal/evc/src/sdf_event.c",
+    "$STACK_DIR/src/sdf/oal/thread/src/sdf_thread.c",
+    "$STACK_DIR/src/sdf/oal/thread/src/sdf_worker.c",
+    "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_mutex.c",
+    "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_sem.c",
+    "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_lock.c",
+    "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_sem.c",
+    "$STACK_DIR/src/sdf/oal/timer/src/sdf_timer.c",
+    "$STACK_DIR/src/sdf/utils/src/sdf_addr.c",
+    "$STACK_DIR/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c",
+  ]
+
+  src_function = [
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_util/CP_Timer_mocker.cpp",
+    "$STACK_DIR/src/cp/bsl/sle/cm/link/src/sle_logic_link_mgr.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_cap.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_internal.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_manage.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_trans_channel.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_version.c",
+  ]
+
+  src_test = [
+    "cm_trans_chan_signaling_test.cpp",
+    "cm_signaling_version_test.cpp",
+    "cm_cap_signaling_test.cpp",
+    "cm_signaling_internal_test.cpp",
+  ]
+
+  sources = source_base + src_function + src_test
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+  external_deps += [ "ffrt:libffrt" ]
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_stack_cm_signaling_unittest") {
+  testonly = true
+  deps = [
+    ":nl_stack_cm_signaling_test",
+  ]
+}

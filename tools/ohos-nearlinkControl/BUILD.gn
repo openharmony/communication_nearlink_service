@@ -1,0 +1,78 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+import("//build/ohos/cli/ohos_cli_executable.gni")
+
+ohos_cli_executable("ohos-nearlinkControl") {
+  cli_config_file = "ohos-nearlinkControl.json"
+  sources = [
+    "src/main.cpp",
+  ]
+
+  include_dirs = [
+    "src",
+    "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/frameworks/native/include",
+    "$NEARLINK_ROOT/utils/include",
+  ]
+
+  deps = [
+    "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+  ]
+
+  external_deps = [
+    "cJSON:cjson",
+    "c_utils:utils",
+  ]
+
+  branch_protector_ret = "pac_ret"
+
+  cflags = [
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+  cflags_cc = cflags
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+    cfi = true
+    cfi_vcall_icall_only = true
+    cfi_cross_dso = true
+    debug = false
+  }
+
+  defines =  [
+    "LOG_TAG = \"ohos-nearlinkControl\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+
+  install_enable = true
+  install_images = ["system"]
+  relative_install_dir = "cli_tool/executable"
+
+  part_name = "nearlink_service"
+  subsystem_name = "communication"
+}

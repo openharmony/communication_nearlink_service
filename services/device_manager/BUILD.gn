@@ -1,0 +1,127 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+
+service_cflags = [
+    "-fPIC",
+    "-Wno-format",
+    "-Wno-pessimizing-move",
+    "-Wno-unused-parameter",
+    "-Wreorder",
+    "-Wmissing-braces",
+    "-Wimplicit-fallthrough",
+    "-Wlogical-op-parentheses",
+    "-Wmissing-field-initializers",
+    "-Wparentheses-equality",
+    "-Wparentheses",
+    "-Wdelete-non-abstract-non-virtual-dtor",
+    "-Wignored-qualifiers",
+    "-Wdelete-abstract-non-virtual-dtor",
+    "-Wuninitialized",
+    "-Woverloaded-virtual",
+    "-Wdangling-else",
+    "-Woverloaded-virtual",
+    "-Wno-non-c-typedef-for-linkage",
+    "-Wno-unused-but-set-variable",
+    "-Wno-array-parameter",
+    "-Wno-unused-lambda-capture",
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+]
+
+########################### nearlink_device_manager ###############################
+config("nearlink_device_manager_config") {
+  cflags = service_cflags
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  include_dirs = [
+    "include",
+    "$NEARLINK_ROOT/services/stack/src/nai/api/include/common",
+    "$NEARLINK_ROOT/services/stack/src/sdf/interface",
+  ]
+}
+
+config("nearlink_device_manager_public_config") {
+  include_dirs = [
+    "include",
+  ]
+}
+
+ohos_shared_library("nearlink_device_manager") {
+  branch_protector_ret = "pac_ret"
+  stack_protector_ret = false
+  
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+      cfi = true
+      cfi_vcall_icall_only = true
+      boundary_sanitize = true
+      cfi_cross_dso = true
+      integer_overflow = true
+      ubsan = true
+      debug = false
+  }
+
+  configs = [ ":nearlink_device_manager_config" ]
+  public_configs = [ ":nearlink_device_manager_public_config" ]
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "c_utils:utils",
+    "huks:libhukssdk",  # hks_api.h
+    "libxml2:libxml2",  # xml_parase.cpp
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  sources = [
+    "src/SleConfig.cpp",
+    "src/SleHuksTool.cpp",
+    "src/SleUtils.cpp",
+    "src/xml_parse.cpp",
+    "src/AdapterDeviceConfig.cpp",
+    "src/nearlink_device_manager.cpp",
+    "src/SleRemoteDeviceManager.cpp",
+    "src/ManufacturerAbilityLoader.cpp",
+    "src/SleCoexistManager.cpp",
+  ]
+
+  defines = [
+    "LOG_TAG = \"nearlink_device_manager\"",
+    "LOG_DOMAIN = 0xD000152",
+  ]
+
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}

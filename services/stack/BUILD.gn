@@ -1,0 +1,509 @@
+# Copyright (C) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/ohos.gni")
+import("//build/ohos_var.gni")
+import("../../nearlink_config.gni")
+
+config("nearlink_stack_config") {
+  include_dirs = [
+    "stack/src/cp/bal/audioctl/actm/include",
+    "stack/src/cp/bal/audioctl/actm/include/inner",
+    "stack/src/cp/bal/audioctl/cctl/include",
+    "stack/src/cp/bal/audioctl/cctl/include/inner",
+    "stack/src/cp/bal/audioctl/cctl/src",
+    "stack/src/cp/bal/audioctl/cdsm/include",
+    "stack/src/cp/bal/audioctl/cdsm/include/inner",
+    "stack/src/cp/bal/audioctl/mctl/include",
+    "stack/src/cp/bal/audioctl/mctl/include/inner",
+    "stack/src/cp/bal/audioctl/mctl/src",
+    "stack/src/cp/bal/profile/bas/include",
+    "stack/src/cp/bal/profile/bas/src",
+    "stack/src/cp/bal/profile/dis/include",
+    "stack/src/cp/bal/profile/dis/src",
+    "stack/src/cp/bal/profile/icce/include",
+    "stack/src/cp/bal/profile/icce/include/inner",
+    "stack/src/cp/bal/profile/icce/src",
+    "stack/src/cp/bal/profile/port/include",
+    "stack/src/cp/bal/profile/port/include/inner",
+    "stack/src/cp/bal/profile/port/src",
+    "stack/src/cp/bal/profile/hid/include",
+    "stack/src/cp/bal/profile/hid/include/inner",
+    "stack/src/cp/bal/profile/hid/src",
+    "stack/src/cp/bsl/sle/cm/common/include",
+    "stack/src/cp/bsl/sle/cm/dyntrans/include",
+    "stack/src/cp/bsl/sle/cm/icb/include",
+    "stack/src/cp/bsl/sle/cm/interface",
+    "stack/src/cp/bsl/sle/cm/internal",
+    "stack/src/cp/bsl/sle/cm/link/include",
+    "stack/src/cp/bsl/sle/cm/signaling/include",
+    "stack/src/cp/bsl/sle/devd/include",
+    "stack/src/cp/bsl/sle/devd/include/inner",
+    "stack/src/cp/bsl/sle/devd/src",
+    "stack/src/cp/bsl/sle/hadm/include",
+    "stack/src/cp/bsl/sle/hadm/include/inner",
+    "stack/src/cp/bsl/sle/hadm/src",
+    "stack/src/cp/bsl/sle/qosm/autorate/include",
+    "stack/src/cp/bsl/sle/qosm/include",
+    "stack/src/cp/bsl/sle/qosm/interface",
+    "stack/src/cp/bsl/sle/servm/ssap/include",
+    "stack/src/cp/bsl/sle/servm/ssap/include/inner",
+    "stack/src/cp/bsl/sle/servm/ssap/src",
+    "stack/src/cp/bsl/sle/sm/include",
+    "stack/src/cp/bsl/sle/sm/include/inner",
+    "stack/src/cp/bsl/sle/sm/src",
+    "stack/src/cp/nlstkfwk/cfgdb/include",
+    "stack/src/cp/nlstkfwk/cfgdb/include/inner",
+    "stack/src/cp/nlstkfwk/dft/include",
+    "stack/src/cp/nlstkfwk/dft/include/inner",
+    "stack/src/cp/nlstkfwk/dfx/include",
+    "stack/src/cp/nlstkfwk/log/include/inner",
+    "stack/src/cp/nlstkfwk/public/include",
+    "stack/src/cp/nlstkfwk/schedule/include/inner",
+    "stack/src/dp/dpfwk/errcode",
+    "stack/src/dp/dpfwk/log",
+    "stack/src/dp/dtap/include",
+    "stack/src/dp/dtap/interface",
+    "stack/src/dp/transport/include",
+    "stack/src/dp/transport/interface",
+    "stack/src/nai/api/include/common",
+    "stack/src/nai/api/include/uapi_func",
+    "stack/src/nai/crypto/include",
+    "stack/src/nai/dft/include",
+    "stack/src/nai/naifwk/include",
+    "stack/src/nai/nlm/include",
+    "stack/src/nai/slem/include",
+    "stack/src/utils/include",
+    "stack/src/cp/bal/profile/bas/src",
+    "stack/src/adapter/include",
+    "stack/include/ext",
+  ]
+}
+
+config("nearlink_stack_public_config") {
+  include_dirs = [
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/actm/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/actm/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cctl/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cctl/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cctl/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cdsm/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cdsm/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/mctl/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/mctl/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/mctl/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/bas/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/bas/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/micp/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/micp/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/dis/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/dis/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/icce/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/icce/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/icce/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/port/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/port/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/port/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/hid/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/hid/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/hid/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/common/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/dyntrans/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/icb/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/interface",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/internal",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/link/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/signaling/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/devd/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/devd/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/devd/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bnl/proxy/interface",
+    "$NEARLINK_ROOT/services/stack/src/collaboration/interface",
+    "$NEARLINK_ROOT/services/stack/src/collaboration/internal",
+    "$NEARLINK_ROOT/services/stack/src/collaboration/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/hadm/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/hadm/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/hadm/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/qosm/autorate/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/qosm/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/qosm/interface",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/servm/ssap/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/servm/ssap/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/servm/ssap/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/sm/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/sm/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/sm/src",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/cfgdb/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/cfgdb/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/dft/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/dft/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/dfx/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/log/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/public/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/schedule/include/inner",
+    "$NEARLINK_ROOT/services/stack/src/dp/dpfwk/errcode",
+    "$NEARLINK_ROOT/services/stack/src/dp/dpfwk/log",
+    "$NEARLINK_ROOT/services/stack/src/dp/dtap/include",
+    "$NEARLINK_ROOT/services/stack/src/dp/dtap/interface",
+    "$NEARLINK_ROOT/services/stack/src/dp/transport/include",
+    "$NEARLINK_ROOT/services/stack/src/dp/transport/interface",
+    "$NEARLINK_ROOT/services/stack/src/nai/api/include/common",
+    "$NEARLINK_ROOT/services/stack/src/nai/api/include/uapi_func",
+    "$NEARLINK_ROOT/services/stack/src/nai/crypto/include",
+    "$NEARLINK_ROOT/services/stack/src/nai/dft/include",
+    "$NEARLINK_ROOT/services/stack/src/nai/naifwk/include",
+    "$NEARLINK_ROOT/services/stack/src/nai/nlm/include",
+    "$NEARLINK_ROOT/services/stack/src/nai/slem/include",
+    "$NEARLINK_ROOT/services/stack/src/utils/include",
+    "$NEARLINK_ROOT/services/stack/src/adapter/include",
+    "$NEARLINK_ROOT/services/stack/src/dli/interface",
+    "$NEARLINK_ROOT/services/stack/src/sdf/interface",
+    "$NEARLINK_ROOT/services/stack/include/ext",
+  ]
+}
+
+nearlink_stack_sources = [
+    "src/cp/bal/audioctl/actm/src/actm.c",
+    "src/cp/bal/audioctl/actm/src/actm_api.c",
+    "src/cp/bal/audioctl/actm/src/actm_callback.c",
+    "src/cp/bal/audioctl/actm/src/actm_control.c",
+    "src/cp/bal/audioctl/actm/src/actm_l2hc.c",
+    "src/cp/bal/audioctl/actm/src/actm_qosm_adapter.c",
+    "src/cp/bal/audioctl/actm/src/actm_ssap.c",
+    "src/cp/bal/audioctl/actm/src/actm_tbl.c",
+    "src/cp/bal/audioctl/cctl/src/ccp_ccs_server.c",
+    "src/cp/bal/audioctl/cctl/src/ccp_utils.c",
+    "src/cp/bal/audioctl/cctl/src/ccp_vas_server.c",
+    "src/cp/bal/audioctl/cctl/src/nlstk_ccp.c",
+    "src/cp/bal/audioctl/cctl/src/nlstk_ccp_ccs_server.c",
+    "src/cp/bal/audioctl/cctl/src/nlstk_ccp_vas_server.c",
+    "src/cp/bal/audioctl/cdsm/src/cdsm.c",
+    "src/cp/bal/audioctl/cdsm/src/cdsm_api.c",
+    "src/cp/bal/audioctl/cdsm/src/cdsm_control.c",
+    "src/cp/bal/audioctl/cdsm/src/cdsm_encp.c",
+    "src/cp/bal/audioctl/cdsm/src/cdsm_tbl.c",
+    "src/cp/bal/audioctl/mctl/src/mcp_media_server.c",
+    "src/cp/bal/audioctl/mctl/src/mcp_utils.c",
+    "src/cp/bal/audioctl/mctl/src/mcp_volume_client.c",
+    "src/cp/bal/audioctl/mctl/src/mcp_volume_dev.c",
+    "src/cp/bal/audioctl/mctl/src/nlstk_mcp_media_server.c",
+    "src/cp/bal/audioctl/mctl/src/nlstk_mcp_volume_client.c",
+    "src/cp/bal/audioctl/micp/src/micp_callback.c",
+    "src/cp/bal/audioctl/micp/src/micp_client.c",
+    "src/cp/bal/audioctl/micp/src/micp_dev.c",
+    "src/cp/bal/audioctl/micp/src/nlstk_micp_client.c",
+    "src/cp/bal/profile/dis/src/dis_client.c",
+    "src/cp/bal/profile/dis/src/dis_common.c",
+    "src/cp/bal/profile/dis/src/dis_server.c",
+    "src/cp/bal/profile/dis/src/dis_stm.c",
+    "src/cp/bal/profile/dis/src/nlstk_dis_client.c",
+    "src/cp/bal/profile/dis/src/nlstk_dis_server.c",
+    "src/cp/bal/profile/icce/src/icce_client.c",
+    "src/cp/bal/profile/icce/src/icce_common.c",
+    "src/cp/bal/profile/icce/src/icce_server.c",
+    "src/cp/bal/profile/icce/src/icce_stm.c",
+    "src/cp/bal/profile/icce/src/icce_utils.c",
+    "src/cp/bal/profile/icce/src/nlstk_icce_client.c",
+    "src/cp/bal/profile/icce/src/nlstk_icce_server.c",
+    "src/cp/bal/profile/port/src/port_client.c",
+    "src/cp/bal/profile/port/src/port_server.c",
+    "src/cp/bal/profile/port/src/port_stm.c",
+    "src/cp/bal/profile/port/src/nlstk_port_client.c",
+    "src/cp/bal/profile/port/src/nlstk_port_server.c",
+    "src/cp/bal/profile/hid/src/hid_client.c",
+    "src/cp/bal/profile/bas/src/bas_client.c",
+    "src/cp/bal/profile/bas/src/bas_common.c",
+    "src/cp/bal/profile/bas/src/bas_ssap_cbk.c",
+    "src/cp/bal/profile/bas/src/bas_stm.c",
+    "src/cp/bal/profile/bas/src/nlstk_bas_client.c",
+    "src/cp/bal/profile/hid/src/hid_client_api.c",
+    "src/cp/bal/profile/hid/src/hid_common.c",
+    "src/cp/bal/profile/hid/src/hid_ssap.c",
+    "src/cp/bal/profile/hid/src/hid_stm.c",
+    "src/cp/bal/profile/hid/src/hid_utils.c",
+    "src/cp/bsl/sle/cm/common/src/cm_dli_adapter.c",
+    "src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_tcid.c",
+    "src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_chan_state_mgr.c",
+    "src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_channel_mgr.c",
+    "src/cp/bsl/sle/cm/icb/src/cm_icb_api.c",
+    "src/cp/bsl/sle/cm/icb/src/cm_icb_init.c",
+    "src/cp/bsl/sle/cm/icb/src/cm_icb_mgr.c",
+    "src/cp/bsl/sle/cm/link/src/cm_access_mgr.c",
+    "src/cp/bsl/sle/cm/link/src/cm_api.c",
+    "src/cp/bsl/sle/cm/link/src/cm_concurrent_conn.c",
+    "src/cp/bsl/sle/cm/link/src/cm_link_collab_func.c",
+    "src/cp/bsl/sle/cm/link/src/cm_event_core.c",
+    "src/cp/bsl/sle/cm/link/src/cm_exter_cbks_mgr.c",
+    "src/cp/bsl/sle/cm/link/src/cm_logic_link_listener_mgr.c",
+    "src/cp/bsl/sle/cm/link/src/cm_trans_channel_mgr.c",
+    "src/cp/bsl/sle/cm/link/src/cm_util.c",
+    "src/cp/bsl/sle/cm/link/src/sle_access_dli.c",
+    "src/cp/bsl/sle/cm/link/src/sle_connect_param.c",
+    "src/cp/bsl/sle/cm/link/src/sle_logic_link_mgr.c",
+    "src/cp/bsl/sle/cm/signaling/src/cm_signaling_cap.c",
+    "src/cp/bsl/sle/cm/signaling/src/cm_signaling_internal.c",
+    "src/cp/bsl/sle/cm/signaling/src/cm_signaling_manage.c",
+    "src/cp/bsl/sle/cm/signaling/src/cm_signaling_trans_channel.c",
+    "src/cp/bsl/sle/cm/signaling/src/cm_signaling_version.c",
+    "src/cp/bsl/sle/devd/src/devd.c",
+    "src/cp/bsl/sle/devd/src/devd_adv.c",
+    "src/cp/bsl/sle/devd/src/devd_local.c",
+    "src/cp/bsl/sle/devd/src/devd_scan.c",
+    "src/cp/bsl/sle/devd/src/devd_tbl.c",
+    "src/cp/bsl/sle/devd/src/nlstk_devd_api.c",
+    "src/cp/bsl/sle/devd/src/nlstk_scan_api.c",
+    "src/cp/bsl/sle/devd/src/devd_scan_api.c",
+    "src/cp/bsl/sle/devd/src/devd_scan_manager.c",
+    "src/cp/bsl/sle/devd/src/devd_scan_stm.c",
+    "src/cp/bsl/sle/devd/src/devd_scan_filter.c",
+    "src/cp/bsl/sle/devd/src/devd_report_parse.c",
+    "src/cp/bsl/sle/devd/src/devd_scan_util.c",
+    "src/cp/bsl/sle/hadm/src/hadm_dft.c",
+    "src/cp/bsl/sle/hadm/src/hadm_api.c",
+    "src/cp/bsl/sle/hadm/src/hadm_config_cm.c",
+    "src/cp/bsl/sle/hadm/src/hadm_config_dli.c",
+    "src/cp/bsl/sle/hadm/src/hadm_init.c",
+    "src/cp/bsl/sle/hadm/src/hadm_link_manager.c",
+    "src/cp/bsl/sle/hadm/src/hadm_listen_cm.c",
+    "src/cp/bsl/sle/hadm/src/hadm_listen_dli.c",
+    "src/cp/bsl/sle/hadm/src/hadm_parser_iq.c",
+    "src/cp/bsl/sle/hadm/src/hadm_sm.c",
+    "src/cp/bsl/sle/hadm/src/hadm_user_proc.c",
+    "src/cp/bnl/proxy/src/bnl_proxy.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_icg_mgr.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_table_mgr.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_antenna_dfx.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_autorate.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_audio_dfx.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_uevent.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_notify.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_report.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_common.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_timeout_process.c",
+    "src/cp/bsl/sle/qosm/autorate/src/qosm_icg_callback.c",
+    "src/cp/bsl/sle/qosm/src/qosm.c",
+    "src/cp/bsl/sle/qosm/src/qosm_trans_channel.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_app_link.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_common.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_handle.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_link.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_link_state.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_manager.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssap_utils.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_app.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_app_link_sm.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_app_util.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_cache.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_client.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssapc_client_api.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_server.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_server_write.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_server_api.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_server_app.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_server_find.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_service.c",
+    "src/cp/bsl/sle/servm/ssap/src/ssaps_service_param.c",
+    "src/cp/bsl/sle/servm/ssap/src/nlstk_ssap_app_client.c",
+    "src/cp/bsl/sle/servm/ssap/src/nlstk_ssap_app_link.c",
+    "src/cp/bsl/sle/servm/ssap/src/nlstk_ssap_app_server.c",
+    "src/cp/bsl/sle/sm/src/sm.c",
+    "src/cp/bsl/sle/sm/src/sm_algos.c",
+    "src/cp/bsl/sle/sm/src/sm_auth.c",
+    "src/cp/bsl/sle/sm/src/sm_dft.c",
+    "src/cp/bsl/sle/sm/src/sm_dhkey.c",
+    "src/cp/bsl/sle/sm/src/sm_encp.c",
+    "src/cp/bsl/sle/sm/src/sm_nego.c",
+    "src/cp/bsl/sle/sm/src/sm_noentry.c",
+    "src/cp/bsl/sle/sm/src/sm_numcmp.c",
+    "src/cp/bsl/sle/sm/src/sm_oob.c",
+    "src/cp/bsl/sle/sm/src/sm_passcode.c",
+    "src/cp/bsl/sle/sm/src/sm_password.c",
+    "src/cp/bsl/sle/sm/src/sm_psk.c",
+    "src/cp/bsl/sle/sm/src/sm_slink.c",
+    "src/cp/bsl/sle/sm/src/sm_stm.c",
+    "src/cp/bsl/sle/sm/src/sm_img.c",
+    "src/cp/bsl/sle/sm/src/nlstk_sm_api.c",
+    "src/cp/nlstkfwk/cfgdb/src/nlstk_cfgdb.c",
+    "src/cp/nlstkfwk/dft/src/nlstk_dft.c",
+    "src/cp/nlstkfwk/schedule/src/cp_worker.c",
+    "src/cp/nlstkfwk/schedule/src/nlstk_schedule.c",
+    "src/dp/dtap/src/dtap.c",
+    "src/dp/dtap/src/dtap_channel.c",
+    "src/dp/dtap/src/dtap_frame.c",
+    "src/dp/dtap/src/dtap_scheduler.c",
+    "src/dp/dtap/src/dtap_frame_basic.c",
+    "src/dp/dtap/src/dtap_frame_enhance.c",
+    "src/dp/dtap/src/dtap_trans_stream.c",
+    "src/dp/dtap/src/dtap_trans.c",
+    "src/dp/dtap/src/dtap_trans_basic.c",
+    "src/dp/dtap/src/dtap_trans_transparent.c",
+    "src/dp/dtap/src/dtap_trans_reliable.c",
+    "src/dp/transport/src/transport.c",
+    "src/dp/transport/src/transport_cltp.c",
+    "src/nai/crypto/src/sle_crypto.c",
+    "src/nai/dft/src/nai_dft.c",
+    "src/nai/nlm/src/nlstk_init.c",
+    "src/nai/slem/src/sle_dli_layer.c",
+    "src/nai/slem/src/slem.c",
+    "src/utils/src/time_utils.c",
+    "src/utils/src/parameter_wrapper.c",
+    "src/utils/src/crc16.c",
+    "src/adapter/src/dli_reg_ext_func.c",
+    "src/adapter/src/collab_ext_func_wrapper.c",
+    "src/adapter/src/collab_reg_ext_func.c",
+    "src/adapter/src/common_ext_func_wrapper.c",
+    "src/adapter/src/common_reg_ext_func.c",
+    "src/adapter/src/qosm_ext_func_wrapper.c",
+    "src/adapter/src/qosm_reg_ext_func.c",
+    "src/adapter/src/devd_ext_func_wrapper.c",
+    "src/adapter/src/devd_reg_ext_func.c",
+    "src/adapter/src/dli_ext_func_wrapper.c",
+    "src/adapter/src/bnl_ext_func_wrapper.c",
+    "src/adapter/src/bnl_reg_ext_func.c",
+    "src/adapter/src/hadm_ext_func_wrapper.c",
+    "src/adapter/src/hadm_reg_ext_func.c",
+  ]
+
+ohos_shared_library("nearlink_stack") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  cflags = [
+    "-Wno-implicit-fallthrough",
+    "-D_POSIX_C_SOURCE=200112L",
+    "-D_GNU_SOURCE",
+    "-Os",
+    "-D_FORTIFY_SOURCE=2",
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  defines =  [
+    "LOG_TAG = \"nearlink_stack\"",
+    "LOG_DOMAIN = 0xD000153",
+  ]
+  defines += product_defines
+  # version_script = "libnearlink_stack.versionscript"
+
+  configs = [ ":nearlink_stack_config" ]
+  public_configs = [ ":nearlink_stack_public_config" ]
+  sources = nearlink_stack_sources
+  if (nearlink_service_power_manager_enhance) {
+    defines += ["SLE_POWER_MANAGER_SUPPORT"]
+  }
+
+  deps = [
+    "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+    "$NEARLINK_ROOT/services/stack/src/dli:nearlink_stack_base",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "init:libbegetutil",
+    "openssl:libcrypto_shared",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+    "bounds_checking_function:libsec_shared",
+  ]
+
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}
+
+# only for test
+ohos_static_library("nearlink_stack_static") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  cflags = [
+    "-Wno-implicit-fallthrough",
+    "-D_POSIX_C_SOURCE=200112L",
+    "-D_GNU_SOURCE",
+    "-O2",
+    "-D_FORTIFY_SOURCE=2",
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+  ]
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  defines =  []
+  defines += product_defines
+
+  configs = [ ":nearlink_stack_config" ]
+  public_configs = [ ":nearlink_stack_public_config" ]
+  sources = nearlink_stack_sources
+  if (nearlink_service_power_manager_enhance) {
+    defines += ["SLE_POWER_MANAGER_SUPPORT"]
+  }
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+    "$NEARLINK_ROOT/services/stack/src/dli:nearlink_stack_base",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "init:libbegetutil",
+    "openssl:libcrypto_shared",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}

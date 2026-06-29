@@ -1,0 +1,8 @@
+{
+  global:
+    "*McpServerServiceManagerInterface*";
+    "*CreateMcpMediaInterface*";
+    "*DestroyMcpMediaInterface*";
+  local:
+    *;
+};

@@ -1,0 +1,92 @@
+# Copyright (C) 2024-2024 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+domain: NEARLINK_UE
+
+NEARLINK_PAIRING_START_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: pairing start ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  CALLING_NAME: {type: STRING, desc: calling name}
+
+NEARLINK_PAIRING_CANCEL_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: pairing cancel ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  CALLING_NAME: {type: STRING, desc: calling name}
+
+NEARLINK_PAIRING_CFM_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: pairing confirmation ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  CALLING_NAME: {type: STRING, desc: calling name}
+
+NEARLINK_DIS_EXPOSED_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: dis exposed ue event}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  SLE_DEVICE_NAME: {type: STRING, desc: sle device name}
+
+NEARLINK_ICCE_CAR_PROFILE_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: icce profile ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+
+NEARLINK_MEASURE_STATE_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: measure state ue event}
+  INDEX: {type: INT32, desc: measure index}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+
+NEARLINK_AUDIO_SINK_DEVICE_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: audio sink device ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  CHANGE_REASONE: {type: UINT16, desc: change reason}
+
+NEARLINK_AUDIO_SOURCE_DEVICE_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: audio source device ue event}
+  CURRENT_DEVICE_ADDR: {type: STRING, desc: current device addr}
+  CURRENT_DEVICE_NAME: {type: STRING, desc: current device name}
+  CURRENT_DEVICE_APPEARANCE: {type: INT32, desc: current decive appearance}
+  OLD_DEVICE_ADDR: {type: STRING, desc: new device addr}
+  OLD_DEVICE_NAME: {type: STRING, desc: new device name}
+  OLD_DEVICE_APPEARANCE: {type: INT32, desc: new decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+
+NEARLINK_AUDIO_MUTE_STREAM_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: audio empty mute stream ue event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+  MUTE_CHECK_TIME: {type: INT32, desc: mute check time}
+  DEBOUNCE_TIME: {type: INT32, desc: debounce time when synchronization is paused}
+  APP_NAME: {type: STRING, desc: calling app name}

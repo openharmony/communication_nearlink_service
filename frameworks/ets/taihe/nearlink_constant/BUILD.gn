@@ -1,0 +1,109 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/components/ets_frontend/ets2abc_config.gni")
+import("//build/ohos.gni")
+import("//build/ohos/taihe_idl/taihe.gni")
+
+SLE_PART_DIR = "../../../../"
+
+copy_taihe_idl("nearlink_constant_taihe") {
+  sources = [
+    "idl/ohos.nearlink.constant.taihe"
+  ]
+}
+
+subsystem_name = "communication"
+part_name = "nearlink_service"
+taihe_generated_file_path_constant = "$taihe_file_path/out/$subsystem_name/$part_name/constant"
+
+ohos_taihe("run_taihe") {
+  taihe_generated_file_path = "${taihe_generated_file_path_constant}"
+  deps = [ ":nearlink_constant_taihe" ]
+  outputs = [
+    "$taihe_generated_file_path/src/ohos.nearlink.constant.ani.cpp",
+    "$taihe_generated_file_path/src/ohos.nearlink.constant.abi.c",
+  ]
+}
+
+taihe_shared_library("nearlinkConstant_taihe_native") {
+  taihe_generated_file_path = "${taihe_generated_file_path_constant}"
+  part_name = "$part_name"
+  subsystem_name = "$subsystem_name"
+  sources = get_target_outputs(":run_taihe")
+  include_dirs = [
+    "include",
+    "src",
+    "$SLE_PART_DIR/utils/include",
+    "$SLE_PART_DIR/interfaces/inner_api/include",
+  ]
+  sources += [
+    "src/ani_constructor.cpp",
+  ]
+  deps = [
+    ":run_taihe",
+    "$SLE_PART_DIR/utils:nearlink_utils",
+    "$SLE_PART_DIR/frameworks/native:nearlink_framework",
+  ]
+  external_deps = [
+    "hilog:libhilog",
+  ]
+  sanitize = {
+    cfi = true  # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true  # CFI optimization, limit CFI check scope
+    boundary_sanitize = true  # Enable boundary san detection
+    cfi_cross_dso = true  # Cross-SO CFI Checks
+    integer_overflow = true  # Enable integer overflow detection
+    ubsan = true  # Enable some Ubsan options
+    debug = false
+  }
+
+  cflags = [
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+}
+
+generate_static_abc("nearlinkConstant_abc") {
+  base_url = "${taihe_generated_file_path_constant}"
+  files = [ "$taihe_generated_file_path_constant/@ohos.nearlink.constant.ets" ]
+  is_boot_abc = "True"
+  device_dst_file = "/system/framework/nearlinkConstant_abc.abc"
+  dependencies = [ ":run_taihe" ]
+}
+
+ohos_prebuilt_etc("nearlinkConstant_etc") {
+  source = "$target_out_dir/nearlinkConstant_abc.abc"
+  module_install_dir = "framework"
+  part_name = "$part_name"
+  subsystem_name = "$subsystem_name"
+  deps = [ ":nearlinkConstant_abc" ]
+}
+
+group("nearlinkConstant_taihe") {
+  deps = [
+    ":nearlinkConstant_etc",
+    ":nearlinkConstant_taihe_native"
+  ]
+}

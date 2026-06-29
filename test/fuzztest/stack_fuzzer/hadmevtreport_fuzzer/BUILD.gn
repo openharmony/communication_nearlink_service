@@ -1,0 +1,75 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/ohos.gni")
+import("//build/ohos_var.gni")
+
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+import("../../../../test/utils/stack_fuzz.gni")
+
+##############################fuzztest##########################################
+ohos_fuzztest("HadmEvtReportFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/stack_fuzzer/hadmevtreport_fuzzer"
+  include_dirs = shared_stack_include_dirs
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-fno-omit-frame-pointer",
+    ]
+  cflags_cc = [
+    "-fstack-protector-all",
+    "-Wno-implicit-fallthrough",
+    "-D_POSIX_C_SOURCE=200112L",
+    "-D_GNU_SOURCE",
+    "-DNEARLINK_SERVICE_STACK_LOCAL_TEST",
+  ]
+  sources = [
+    "hadmevtreport_fuzzer.cpp",
+    "stub.c",
+  ]
+  foreach (s, shared_stack_source) {
+    if (s != "$STACK_DIR/src/dli/dli.c") {
+      sources += [ s ]
+    }
+  }
+
+  deps = [ 
+          "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
+          "$NEARLINK_ROOT/utils:nearlink_utils",
+          "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+  ]
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "openssl:libcrypto_shared",
+    "init:libbegetutil",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+}
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":HadmEvtReportFuzzTest",
+  ]
+}
+###############################################################################
