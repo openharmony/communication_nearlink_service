@@ -1,0 +1,339 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+import("../../../../test/utils/stack_tdd.gni")
+NEW_STACK_DIR = "$NEARLINK_ROOT/services/stack/src"
+
+config("stack_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = shared_stack_include_dirs + [
+    "$NEARLINK_ROOT/test/unittest/stack_test/qosm_autorate_test/"
+  ]
+
+  defines =  [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  cflags_cc = [ "-fexceptions" ]
+  cflags = [ "--coverage" ]
+  ldflags = [ "--coverage" ]
+  cflags += [ "-DNEARLINK_SERVICE_STACK_LOCAL_TEST" ]
+}
+
+unit_test_deps = [
+  "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+]
+
+unit_test_external_deps = [
+  "c_utils:utils",
+  "hilog:libhilog",
+  "googletest:gtest_main",
+  "googletest:gmock_main",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+]
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_stack_qosm_audio_dfx_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_audio_dfx.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_antenna_dfx.c",
+    "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_reg_ext_func.c",
+
+    "qosm_autorate_test_log.cpp",
+    "qosm_audio_dfx_test.cpp",
+  ]
+
+  defines =  [
+    "UT_TEST = 1",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_autorate_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate.c",
+    "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
+
+    "qosm_autorate_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_icg_mgr_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_table_mgr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_icg_mgr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate_notify.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate_report.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate_common.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate_timeout_process.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_icg_callback.c",
+    "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_reg_ext_func.c",
+
+    "qosm_autorate_test_log.cpp",
+    "qosm_icg_mgr_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_table_mgr_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_table_mgr.c",
+
+    "qosm_table_mgr_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_trans_channel_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_map.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm_trans_channel.c",
+    "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
+
+    "qosm_trans_channel_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_uevent_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_map.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/sdf/sdffwk/src/sdf_util.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_uevent.c",
+
+    "qosm_autorate_test_log.cpp",
+    "qosm_uevent_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_qosm_antenna_dfx_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_antenna_dfx.c",
+    "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_ext_func_wrapper.c",
+    "$NEW_STACK_DIR/adapter/src/qosm_reg_ext_func.c",
+    "qosm_autorate_test_log.cpp",
+    "qosm_antenna_dfx_test.cpp",
+  ]
+
+  defines = [
+    "UT_TEST = 1",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += ["${nearlink_test_utils_path}:test_utils_config"]
+
+  deps = unit_test_deps
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_stack_qosm_autorate_unittest") {
+  testonly = true
+  deps = [
+    ":nl_stack_qosm_audio_dfx_test",
+    ":nl_stack_qosm_autorate_test",
+    ":nl_stack_qosm_antenna_dfx_test",
+    ":nl_stack_qosm_icg_mgr_test",
+    ":nl_stack_qosm_table_mgr_test",
+    ":nl_stack_qosm_trans_channel_test",
+    ":nl_stack_qosm_uevent_test",
+  ]
+}

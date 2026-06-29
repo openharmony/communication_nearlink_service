@@ -1,0 +1,155 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+ 
+@!namespace("@ohos.nearlink.manager", "manager")
+@!sts_inject("""
+static { loadLibrary("nearlinkManager_taihe_native.z") }
+""")
+from ohos.nearlink.constant use PairingState;
+from ohos.nearlink.constant use ConnectionState;
+from ohos.nearlink.constant use AcbState;
+
+enum NearlinkState: i32{
+    STATE_TURNING_ON = 0,
+    STATE_ON = 1,
+    STATE_TURNING_OFF = 2,
+    STATE_OFF = 3
+}
+
+struct PairingStateParam {
+    address: String;
+    preState: PairingState;
+    state: PairingState;
+    reason: PairingReason;
+}
+
+enum PairingReason: i32{
+    PAIRING_REASON_SUCCESS = 0,
+    PAIRING_REASON_FAILURE = 1,
+    PAIRING_REASON_PROFILE_UNSUPPORTED = 2,
+    PAIRING_REASON_EXCEED_ACB_MAX = 3,
+    PAIRING_REASON_REMOTE_CANCELED = 4,
+    PAIRING_REASON_LOCAL_CANCELED = 5
+}
+
+struct PairingRequestParam {
+    address: String;
+    passkey: String;
+    pairingType: PairingType;
+}
+
+enum PairingType: i32{
+    NO_PASSKEY_CONFIRMATION = 0,
+    PAIRING_TYPE_PASSCODE = 1,
+    PAIRING_TYPE_NUMBER_COMPARE = 2
+}
+
+struct ConnectionStateParam {
+    address: String;
+    preState: ConnectionState;
+    state: ConnectionState;
+    connectionReason: ConnectionReason;
+}
+
+enum ConnectionReason: i32{
+    CONNECTION_SUCCESS = 0,
+    CONNECTION_FAILURE = 1
+}
+
+enum ConnectionMode: i32{
+    SLE_MODE_UNCONNECTABLE = 0,
+    SLE_MODE_CONNECTABLE = 1
+}
+
+struct AcbStateParam {
+    address: String;
+    state: AcbState;
+}
+
+function enable(): void;
+
+function disable(): void;
+
+function getState(): NearlinkState;
+
+function getPairedDevices(): Array<String>;
+
+function getLocalAddress(): String;
+
+function getLocalName(): String;
+
+function setConnectionMode(mode: ConnectionMode, duration: i32): void;
+ 
+function factoryReset(): void;
+
+@!sts_inject("""
+export function on(type: string, cb: (arg_0: Any) => void): void {
+    switch(type) {
+        case "stateChange":
+            return onStateChange(cb);
+        case "pairingRequest":
+            return onPairingRequest(cb);
+        case "pairingStateChange":
+            return onPairingStateChange(cb);
+        case "connectionStateChange":
+            return onConnectionStateChange(cb);
+        case "acbStateChange":
+            return onAcbStateChange(cb);
+        default:
+            throw new Error(`Unknown type: ${type}`);
+    }
+}
+export function off(type: string, cb?: (arg_0: Any) => void): void {
+    switch(type) {
+        case "stateChange":
+            return offStateChange(cb as (((data: NearlinkState) => void) | undefined));
+        case "pairingRequest":
+            return offPairingRequest(cb as (((data: PairingRequestParam) => void) | undefined));
+        case "pairingStateChange":
+            return offPairingStateChange(cb as (((data: PairingStateParam) => void) | undefined));
+        case "connectionStateChange":
+            return offConnectionStateChange(cb as (((data: ConnectionStateParam) => void) | undefined));
+        case "acbStateChange":
+            return offAcbStateChange(cb as (((data: AcbStateParam) => void) | undefined));
+        default:
+            throw new Error(`Unknown type: ${type}`);
+    }
+}
+""")
+
+// @on_off("stateChange")
+function onStateChange(callback: (data: NearlinkState) => void): void;
+// @on_off("stateChange")
+function offStateChange(callback: Optional<(data: NearlinkState) => void>): void;
+
+// @on_off("pairingRequest")
+function onPairingRequest(callback: (data: PairingRequestParam) => void): void;
+// @on_off("pairingRequest")
+function offPairingRequest(callback: Optional<(data: PairingRequestParam) => void>): void;
+
+// @on_off("pairingStateChange")
+function onPairingStateChange(callback: (data: PairingStateParam) => void): void;
+// @on_off("pairingStateChange")
+function offPairingStateChange(callback: Optional<(data: PairingStateParam) => void>): void;
+
+// @on_off("connectionStateChange")
+function onConnectionStateChange(callback: (data: ConnectionStateParam) => void): void;
+// @on_off("connectionStateChange")
+function offConnectionStateChange(callback: Optional<(data: ConnectionStateParam) => void>): void;
+
+// @on_off("acbStateChange")
+function onAcbStateChange(callback: (data: AcbStateParam) => void): void;
+// @on_off("acbStateChange")
+function offAcbStateChange(callback: Optional<(data: AcbStateParam) => void>): void;

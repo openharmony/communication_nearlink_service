@@ -1,0 +1,387 @@
+/*
+ * Copyright (C) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef NEARLINK_SERVICE_IPC_INTERFACE_CODE_H
+#define NEARLINK_SERVICE_IPC_INTERFACE_CODE_H
+
+#include "ipc_types.h"
+
+namespace OHOS {
+namespace Nearlink {
+enum NearlinkSleCentralManagerCallbackInterfaceCode {
+    NL_SLE_CENTRAL_MANAGER_CALLBACK = 0,
+    NL_SLE_CENTRAL_MANAGER_BLE_BATCH_CALLBACK,
+    NL_SLE_CENTRAL_MANAGER_CALLBACK_SCAN_FAILED,
+    NL_SLE_LPDEVICE_CALLBACK_NOTIFY_MSG_REPORT,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_CENTRAL_MANAGER_CALLBACK_BUTT
+};
+
+enum NearlinkHidHostInterfaceCode {
+    NL_SET_REPORT = 0,
+    // The last code, if you want to add a new code, please add it before this
+    NL_HID_HOST_BUTT
+};
+
+enum NearlinkHostObserverInterfaceCode {
+    NL_HOST_OBSERVER_STATE_CHANGE = 0,
+    NL_HOST_OBSERVER_PAIR_CONFIRMED,
+    NL_HOST_OBSERVER_SCAN_MODE_CHANGED,
+    NL_HOST_OBSERVER_DEVICE_NAME_CHANGED,
+    NL_HOST_OBSERVER_DEVICE_ADDR_CHANGED,
+    NL_HOST_OBSERVER_FULL_STATE_CHANGE,
+    NL_HOST_OBSERVER_SWITCH_STATE_CHANGED,
+    NL_HOST_OBSERVER_DISABLE_RESPONSE,
+    // The last code, if you want to add a new code, please add it before this
+    NL_HOST_OBSERVER_BUTT
+};
+
+enum NearlinkHostInterfaceCode {
+    NL_REGISTER_OBSERVER = 0,
+    NL_DEREGISTER_OBSERVER,
+    NL_ENABLE,
+    NL_DISABLE,
+    NL_GETPROFILE,
+    NL_GET_SLE,
+    NL_DISABLE_SLE,
+    NL_ENABLE_SLE,
+    NL_DISABLE_SLE_TO_OFF,
+    NL_ENABLE_SLE_TO_HALF,
+    NL_GET_SLE_FULL_STATE,
+    NL_IS_SLE_ENABLED,
+    NL_GET_ACB_STATE,
+    NL_GET_ADAPTER_CONNECTION_STATE,
+    NL_GET_PROFILE_CONNECTION_STATE,
+    NL_GET_LOCAL_NAME,
+    NL_SET_LOCAL_NAME,
+    NL_GET_LOCAL_ADDR,
+    NL_GET_PAIRED_DEVICES,
+    NL_REMOVE_PAIR,
+    NL_REMOVE_ALL_PAIRS,
+    NL_REGISTER_SLE_PERIPHERAL_OBSERVER,
+    NL_DEREGISTER_SLE_PERIPHERAL_OBSERVER,
+    NL_REGISTER_DEVICE_BATTERY_OBSERVER,
+    NL_DEREGISTER_DEVICE_BATTERY_OBSERVER,
+    NL_REGISTER_DEVICE_RSSI_OBSERVER,
+    NL_DEREGISTER_DEVICE_RSSI_OBSERVER,
+    NL_REGISTER_SLE_ADAPTER_OBSERVER,
+    NL_DEREGISTER_SLE_ADAPTER_OBSERVER,
+    NL_GET_SLE_MAX_ADVERTISING_DATALENGTH,
+    NL_GET_DEVICE_TYPE,
+    NL_GET_DEVICE_NAME,
+    NL_GET_DEVICE_ALIAS,
+    NL_SET_DEVICE_ALIAS,
+    NL_GET_PAIR_STATE,
+    NL_START_PAIR,
+    NL_START_CREDIBLE_PAIR,
+    NL_CANCEL_PAIRING,
+    NL_IS_BONDED_FROM_LOCAL,
+    NL_IS_ACB_CONNECTED,
+    NL_IS_ACB_ENCRYPTED,
+    NL_GET_LINK_ROLE,
+    NL_GET_DEVICE_UUIDS,
+    NL_PAIR_REQUEST_PEPLY,
+    NL_SET_CONNECTION_INTERVAL,
+    NL_READ_REMOTE_RSSI_VALUE,
+    NL_GET_DEVICE_APPEARANCE,
+    NL_CONNECT_ALLOWED_PROFILES,
+    NL_DISCONNECT_ALLOWED_PROFILES,
+    NL_GET_DEVICE_PRODUCT_ID,
+    NL_GET_DEVICE_VENDOR_ID,
+    NL_FACTORY_RESET,
+    NL_SET_FREQ_HOPPING,
+    NL_CHECK_PERMISSION_FOR_NAPI,
+    NL_SET_CONNECTION_MODE,
+    NL_SET_PASSCODE,
+    NL_SET_CFM,
+    NL_IS_SLE_HALF_DISABLED,
+    NL_IS_SLE_DISABLED,
+    NL_IS_SLE_AVAILABLE,
+    NL_GET_DEVICE_MODEL,
+    NL_UPDATE_SLE_VIRTUAL_DEVICE,
+    NL_SET_BT_ADDR,
+    NL_GET_BT_ADDR,
+    NL_GET_SLE_ADDR,
+    NL_IS_SLE_FEATURE_SUPPORTED,
+    NL_IS_SLE_CONNECTION_EXIST,
+    NL_UPDATE_REFUSE_POLICY,
+    NL_GET_BATTERY_LEVEL,
+    NL_GET_DEVICE_INFORMATION,
+    // The last code, if you want to add a new code, please add it before this
+    NL_HOST_BUTT,
+};
+
+enum NearlinkSsapClientInterfaceCode {
+    NL_SSAP_CLIENT_REGISTER_APP = 0,
+    NL_SSAP_CLIENT_DEREGISTER_APP,
+    NL_SSAP_CLIENT_CONNECT,
+    NL_SSAP_CLIENT_DIS_CONNECT,
+    NL_SSAP_CLIENT_DISCOVERY_SERVICES,
+    NL_SSAP_CLIENT_DISCOVERY_SERVICES_BY_UUID,
+    NL_SSAP_CLIENT_READ_PROPERTY,
+    NL_SSAP_CLIENT_WRITE_PROPERTY,
+    NL_SSAP_CLIENT_SIGNED_WRITE_CHARACTERISTIC,
+    NL_SSAP_CLIENT_READ_DESCRIPTOR,
+    NL_SSAP_CLIENT_WRITE_DESCRIPTOR,
+    NL_SSAP_CLIENT_REQUEST_EXCHANGE_MTU,
+    NL_SSAP_CLIENT_GET_ALL_DEVICE,
+    NL_SSAP_CLIENT_REQUEST_CONNECTION_PRIORITY,
+    NL_SSAP_CLIENT_GET_SERVICES,
+    NL_SSAP_CLIENT_GET_SERVICES_BY_UUID,
+    NL_SSAP_CLIENT_REQUEST_FASTEST_CONNECTION,
+    NL_SSAP_CLIENT_READ_REMOTE_RSSI_VALUE,
+    NL_SSAP_CLIENT_REQUEST_NOTIFICATION,
+    NL_SSAP_CLIENT_CALL_METHOD,
+    NL_SSAP_CLIENT_REQUEST_INDICATION,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SSAP_CLIENT_BUTT
+};
+
+enum NearlinkASCInterfaceCode {
+    NL_ASC_REGISTER_APP = 0,
+    NL_ASC_DEREGISTER_APP,
+    NL_ASC_CONTROL,
+    NL_ASC_GET_AUDIO_DEVICE_LIST,
+    NL_ASC_GET_VIRTUAL_AUDIO_DEVICE_LIST,
+    NL_ASC_GET_SUPPORT_STREAM_TYPE,
+    NL_ASC_GET_AUDIO_DEVICE_CODEC_INFO,
+    NL_ASC_SET_ACTIVE_SINK_DEVICE,
+    NL_ASC_GET_DUAL_RECORD_CAP,
+    NL_ASC_GET_KARAOKE_ABILITY,
+    NL_ASC_BUTT
+};
+
+enum NearlinkSsapServerCallbackInterfaceCode {
+    SSAP_SERVER_CALLBACK_MTU_CHANGED = 0,
+    SSAP_SERVER_CALLBACK_ADD_SERVICE,
+    SSAP_SERVER_CALLBACK_PROPERTY_READ_REQUEST,
+    SSAP_SERVER_CALLBACK_DESCRIPTOR_READ_REQUEST,
+    SSAP_SERVER_CALLBACK_PROPERTY_WRITE_REQUEST,
+    SSAP_SERVER_CALLBACK_DESCRIPTOR_WRITE_REQUEST,
+    SSAP_SERVER_CALLBACK_NOTIFY_PROPERTY_CHANGED,
+    SSAP_SERVER_CALLBACK_NOTIFY_EVENT_CHANGED,
+    SSAP_SERVER_CALLBACK_CONNECTION_STATE_CHANGED,
+    // The last code, if you want to add a new code, please add it before this
+    SSAP_SERVER_CALLBACK_BUTT
+};
+
+enum NearlinkSsapServerInterfaceCode {
+    SSAP_SERVER_CLEAR_SERVICES = 0,
+    SSAP_SERVER_ADD_SERVICE,
+    SSAP_SERVER_REGISTER,
+    SSAP_SERVER_DEREGISTER,
+    SSAP_SERVER_CANCEL_CONNECTION,
+    SSAP_SERVER_NOTIFY_CLIENT,
+    SSAP_SERVER_NOTIFY_EVENT,
+    SSAP_SERVER_SET_PROPERTY,
+    SSAP_SERVER_SET_DESCRIPTOR,
+    SSAP_SERVER_CONNECT,
+    SSAP_SERVER_REMOVE_SERVICE,
+    SSAP_SERVER_AUTHORIZE_RESPONSE,
+    // The last code, if you want to add a new code, please add it before this
+    SSAP_SERVER_BUTT
+};
+
+enum NearlinkSleAdvertiseCallbackInterfaceCode {
+    NL_SLE_ADVERTISE_CALLBACK_RESULT_EVENT = 0,
+    NL_SLE_ADVERTISE_CALLBACK_AUTO_STOP_EVENT,
+    NL_SLE_ADVERTISE_CALLBACK_STOP_RESULT_EVENT,
+    NL_SLE_ADVERTISE_CALLBACK_SET_ADV_DATA,
+    NL_SLE_ADVERTISE_CALLBACK_ENABLE_RESULT_EVENT,
+    NL_SLE_ADVERTISE_CALLBACK_DISABLE_RESULT_EVENT,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_ADVERTISE_CALLBACK_BUTT
+};
+enum NearlinkSlePeripheralObserverInterfaceCode {
+    NL_SLE_ON_READ_REMOTE_RSSI_EVENT = 0,
+    NL_SLE_PAIR_STATUS_CHANGED,
+    NL_SLE_ACB_STATE_CHANGED,
+    NL_SLE_CONNECT_STATE_CHANGED,
+    NL_SLE_PAIRING_REQUEST,
+    NL_SLE_LINK_FREQ_BAND_CHANGED,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_PERIPHERAL_OBSERVER_BUTT
+};
+
+enum NearlinkDeviceBatteryObserverInterfaceCode {
+    NL_SLE_GET_BATTERYLEVEL_EVENT,
+    NL_SLE_BATTERYLEVEL_CHANGED,
+    // The last code, if you want to add a new code, please add it before this
+    NL_DEVICE_BATTERY_OBSERVER_BUTT
+};
+
+enum NearlinkDeviceRssiObserverInterfaceCode {
+    NL_SLE_GET_RSSI_EVENT,
+    // The last code, if you want to add a new code, please add it before this
+    NL_DEVICE_RSSI_OBSERVER_BUTT
+};
+
+enum NearlinkSleDataTransferCallbackInterfaceCode {
+    NL_SLE_DATATRANSFER_CALLBACK_CONNECION_STATE_CHANGE_EVENT = 0,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_DATATRANSFER_CALLBACK_BUTT
+};
+
+enum NearlinkSsapClientCallbackInterfaceCode {
+    NL_SSAP_CLIENT_CALLBACK_CONNECT_STATE_CHANGE = 0,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_CHANGE,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_READ,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_WRITE,
+    NL_SSAP_CLIENT_CALLBACK_DESCRIPTOR_READ,
+    NL_SSAP_CLIENT_CALLBACK_DESCRIPTOR_WRITE,
+    NL_SSAP_CLIENT_CALLBACK_MTU_UPDATE,
+    NL_SSAP_CLIENT_CALLBACK_SERVICES_DISCOVER,
+    NL_SSAP_CLIENT_CALLBACK_SERVICES_DISCOVER_BY_UUID,
+    NL_SSAP_CLIENT_CALLBACK_CONNECTION_PARA_CHANGE,
+    NL_SSAP_CLIENT_CALLBACK_SERVICES_REDISCOVERED,
+    NL_SSAP_CLIENT_CALLBACK_SERVICE_CHANGED,
+    NL_SSAP_CLIENT_CALLBACK_READ_REMOTE_RSSI_VALUE,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_SET_NOTIFY,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_READ_BY_UUID,
+    NL_SSAP_CLIENT_CALLBACK_METHOD_CALL,
+    NL_SSAP_CLIENT_CALLBACK_EVENT_NOTIFY,
+    NL_SSAP_CLIENT_CALLBACK_PROPERTY_SET_INDICATE,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SSAP_CLIENT_CALLBACK_BUTT
+};
+
+enum NearlinkASCCallbackInterfaceCode {
+    NL_ASC_CALLBACK_CONTROL                       = 0,
+    NL_ASC_CALLBACK_ADD_DEVICE                    = 1,
+    NL_ASC_CALLBACK_DELETE_DEVICE                 = 2,
+    NL_ASC_CALLBACK_DEVICE_ACTION_CHANGED         = 3,
+    NL_ASC_CALLBACK_ADD_VIRTUAL_AUDIO_DEVICE      = 4,
+    NL_ASC_CALLBACK_DELETE_VIRTUAL_AUDIO_DEVICE   = 5,
+    // The last code, if you want to add a new code, please add it before this
+    NL_ASC_CALLBACK_BUTT
+};
+
+enum NearlinkTwsClientInterfaceCode {
+    NL_TWS_REGISTER_APP = 0,
+    NL_TWS_DEREGISTER_APP,
+    NL_ENABLE_WEAR_DETECTION,
+    NL_DISABLE_WEAR_DETECTION,
+    NL_GET_WEAR_DETECTION_STATE,
+    NL_IS_DEVICE_WEARING,
+    NL_IS_WEAR_DETECTION_SUPPORTED,
+    NL_GET_TWS_ROLE_INFO,
+    NL_GET_TWS_AUDIO_DELAY,
+    NL_SEND_USER_SELECTION,
+    NL_IS_SUPPORT_VIRTUAL_AUTO_CONNECT,
+    NL_SET_VIRTUAL_AUTO_CONNECT_TYPE,
+    NL_QUERY_STREAM_STATE,
+    // The last code, if you want to add a new code, please add it before this
+    NL_TWS_CLIENT_BUTT
+};
+
+enum NearlinkTwsClientObserverInterfaceCode {
+    NL_TWS_OBSERVER_REMOTE_INFO                  = 0,
+    // The last code, if you want to add a new code, please add it before this
+    NL_TWS_CLIENT_CALLBACK_BUTT
+};
+
+enum NearlinkSleAdvertiserInterfaceCode {
+    SLE_REGISTER_SLE_ADVERTISER_CALLBACK = 0,
+    SLE_DE_REGISTER_SLE_ADVERTISER_CALLBACK,
+    SLE_START_ADVERTISING,
+    SLE_START_ADVERTISING_WITH_RAWDATA,
+    SLE_STOP_ADVERTISING,
+    SLE_GET_ADVERTISER_HANDLE,
+    SLE_SET_ADVERTISING_DATA,
+    SLE_ENABLE_ADVERTISING,
+    SLE_DISABLE_ADVERTISING,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_ADVERTISER_BUTT
+};
+
+enum NearlinkSleDataTransferInterfaceCode {
+    SLE_REGISTER_SLE_DATATRANSFER_CALLBACK = 0,
+    SLE_DE_REGISTER_SLE_DATATRANSFER_CALLBACK,
+    SLE_CREATE_PORT,
+    SLE_DESTROY_PORT,
+    SLE_SOCKET_EMPTY_PORT,
+    SLE_CONNECT,
+    SLE_DISCONNECT,
+    SLE_GET_CONNECTION_STATE,
+    SLE_UPDATE_INTERVAL,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_DATATRANSFER_BUTT
+};
+
+enum NearlinkSleCentralManagerInterfaceCode {
+    SLE_REGISTER_SLE_CENTRAL_MANAGER_CALLBACK = 0,
+    SLE_DE_REGISTER_SLE_CENTRAL_MANAGER_CALLBACK,
+    SLE_START_SCAN_WITH_FILTER,
+    SLE_START_FULL_SCAN,
+    SLE_STOP_SCAN,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_CENTRAL_MANAGER_BUTT
+};
+
+enum NearlinkHadmClientInterfaceCode {
+    NL_REGISTER_HADM_CLIENT_CALLBACK = 0,
+    NL_DE_REGISTER_HADM_CLIENT_CALLBACK,
+    NL_HADM_CLIENT_START_SOUNDING,
+    NL_HADM_CLIENT_STOP_SOUNDING,
+    NL_GET_HADM_FEATURE,
+    // The last code, if you want to add a new code, please add it before this
+    NL_HADM_CLIENT_MANAGER_BUTT
+};
+
+enum NearlinkHadmClientCallbackInterfaceCode {
+    NL_HADM_CLIENT_CALLBACK_RESULT_EVENT = 0,
+    NL_HADM_CLIENT_CALLBACK_STATE_EVENT,
+    // The last code, if you want to add a new code, please add it before this
+    NL_HADM_CLIENT_CALLBACK_BUTT
+};
+
+enum NearlinkVcpInterfaceCode {
+    NL_VCP_CLIENT_SET_DEVICE_ABSOLUTE_VOLUME = 0,
+    NL_VCP_CLIENT_GET_MEDIA_VOLUME,
+    NL_VCP_CLIENT_GET_CALL_VOLUME,
+    // The last code, if you want to add a new code, please add it before this
+    NL_VCP_CLIENT_BUTT
+};
+
+enum NearlinkSleControllerInterfaceCode {
+    NL_SET_SLE_COEX_PARAM = 0,
+    NL_SLE_UPDATE_INTERVAL,
+    // The last code, if you want to add a new code, please add it before this
+    NL_SLE_CONTROLLER_BUTT
+};
+
+enum NearlinkCdsmClientInterfaceCode {
+    NL_REGISTER_CDSM_CLIENT_CALLBACK = 0,
+    NL_DE_REGISTER_CDSM_CLIENT_CALLBACK,
+    NL_CDSM_CLIENT_GET_CDS_INFO,
+    // The last code, if you want to add a new code, please add it before this
+    NL_CDSM_CLIENT_MANAGER_BUTT
+};
+
+enum NearlinkCdsmClientCallbackInterfaceCode {
+    NL_CDSM_CLIENT_CALLBACK_RESULT_EVENT = 0,
+    // The last code, if you want to add a new code, please add it before this
+    NL_CDSM_CLIENT_CALLBACK_BUTT
+};
+
+enum NearlinkCloudPairInterfaceCode {
+    NL_UPDATE_CLOUD_DEVICE_INFO_LIST = 0,
+    NL_GET_CLOUD_PAIR_STATE,
+    // The last code, if you want to add a new code, please add it before this
+    NL_CLOUD_PAIR_BUTT
+};
+}  // namespace Nearlink
+}  // namespace OHOS
+#endif  // NEARLINK_SERVICE_IPC_INTERFACE_CODE_H

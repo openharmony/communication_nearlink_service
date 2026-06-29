@@ -1,0 +1,369 @@
+# Copyright (C) 2024-2024 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#    http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+domain: NEARLINK_SERVICE
+
+# nearLink dft event begin
+NEARLINK_SWITCH_EXCEPTION:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink switch exception event}
+  SWITCH_TYPE_INFO: {type: UINT16, desc: switch close|open|reset|restore}
+  SWITCH_OPER_RES: {type: UINT16, desc: operation result success or fail}
+  SWITCH_ERR_CODE: {type: UINT16, desc: operation failed error code}
+  SWITCH_INFO_MSG: {type: STRING, desc: operation result info message}
+  SWITCH_USED_APP: {type: STRING, desc: who operated nearlink}
+  SWITCH_START_TIME: {type: STRING, desc: nearlink switch oper start time}
+  SWITCH_END_TIME: {type: STRING, desc: nearlink switch oper end time}
+  SUB_STATE_FLOW: {type: STRING, desc: sub event switch state flow}
+
+NEARLINK_DISCONN_EXCEPTION:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink disconn exception event}
+  DISCONN_PEER_ADDR: {type: STRING, desc: peer device addr}
+  DISCONN_PEER_TYPE: {type: UINT16, desc: peer device type sle/slb}
+  DISCONN_SCENE: {type: UINT16, desc: the scene of disconn}
+  DISCONN_ERRORCODE: {type: INT32, desc: disconn error code}
+  DISCONN_INFO_MSG: {type: STRING, desc: disconn info message}
+  DISCONN_TIME: {type: STRING, desc: when disconn}
+  DISCONN_DEVICE_RSSI: {type: INT32, desc: the rssi value of device}
+  SUB_PEER_INFO: {type: STRING, desc: sub event peer info}
+  SUB_CONN_INFO: {type: STRING, desc: sub event connection info}
+
+NEARLINK_ACCURATESEARCH:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink accuratesearch event}
+  PEER_ADDR: {type: STRING, desc: peer device addr}
+  PATH: {type: UINT16, desc: which step in accuratesearch path}
+  CONN_RESULT: {type: UINT16, desc: connect result}
+  CONN_FAIL_ERROR_CODE: {type: INT32, desc: why connect failed}
+  MEASURE_RESULT: {type: UINT16, desc: measure result}
+  MEASURE_FAIL_ERROR_CODE: {type: INT32, desc: why mearsure failed}
+  MEASURE_START_TIME: {type: STRING, desc: when start the measure}
+  MEASURE_END_TIME: {type: STRING, desc: when end the measure}
+  DISCONN_ERROR_CODE: {type: INT32, desc: why disconnected}
+  RSSI_VALUE: {type: INT32, desc: the value of rssi}
+
+NEARLINK_PAIR_EXCEPTION:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink pairing event}
+  SLE_DEVICE_ADDR: {type: STRING, desc: device addr}
+  SLE_DEVICE_TYPE: {type: UINT16, desc: device type}
+  SLE_APP_NAME: {type: STRING, desc: nearlink app name}
+  SLE_CONN_PATH: {type: UINT16, desc: nearlink pair conn stage}
+  SLE_ACL_START_TIME: {type: STRING, desc: when request acl link}
+  SLE_ACL_FINISH_TIME: {type: STRING, desc: when recv response acl link}
+  SLE_SSAP_START_TIME: {type: STRING, desc: when request ssap link}
+  SLE_SSAP_FINISH_TIME: {type: STRING, desc: when recv response nearlink}
+  SLE_DIS_START_TIME: {type: STRING, desc: when request dis link}
+  SLE_DIS_FINISH_TIME: {type: STRING, desc: when recv response nearlink}
+  SLE_HID_START_TIME: {type: STRING, desc: when request dis link}
+  SLE_HID_FINISH_TIME: {type: STRING, desc: when recv response nearlink}
+  SLE_CONN_ERROR_CODE: {type: INT32, desc: nearlink pair conn error code}
+  SLE_CONN_DEV_COUNT: {type: UINT16, desc: nearlink pair conn device count}
+  SLE_PAIR_TYPE: {type: UINT16, desc: nearlink pair type}
+  SLE_CONN_TYPE: {type: UINT16, desc: nearlink conn type}
+  SLE_CONN_RESULT: {type: UINT16, desc: nearlink connback result}
+  SLE_PAIR_RESULT: {type: UINT16, desc: nearlink pairconn result}
+  SLE_CONN_ERROR_REASON: {type: STRING, desc: nearlink conn error reason}
+  SLE_DISCON_RSSI: {type: INT32, desc: disconnect rssi value}
+  SLE_NOISE_VALUE: {type: STRING, desc: channel noise value}
+  SLE_ICCE_START_TIME: {type: STRING, desc: icce profile start connecting time}
+  SLE_ICCE_FINISH_TIME: {type: STRING, desc: icce profile finish connecting time}
+  REPORT_ADDR: {type: STRING, desc: Nearlink coordinated devices set management report address}
+  NUMBER_OF_MEMBERS: {type: UINT16, desc: Nearlink coordinated devices set management number of member}
+  ADDR_OF_MEMBERS: {type: STRING, desc: Nearlink coordinated devices set management address of member}
+
+NEARLINK_UNPAIR_EXCEPTION:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink unpairing event}
+  UNPAIR_DEVICE_ADDR: {type: STRING, desc: device addr}
+  UNPAIR_DEVICE_TYPE: {type: UINT16, desc: device type}
+  UNPAIR_APP_NAME: {type: STRING, desc: nearlink app name}
+  UNPAIR_CONSTATE: {type: UINT16, desc: nearlink conn state pre unpair}
+  UNPAIR_SCENE: {type: UINT16, desc: how to up unpair}
+  UNPAIR_DELETEKEY_RESULT: {type: UINT16, desc: the result of delete linkkey}
+  UNPAIR_DELETEKEY_TIME: {type: STRING, desc: when delete linkkey}
+  UNPAIR_RESULT: {type: UINT16, desc: the result of unpair}
+  UNPAIR_ERRORCODE: {type: INT32, desc: unpair error code}
+  UNPAIR_START_TIME: {type: STRING, desc: when start unpair}
+  UNPAIR_END_TIME: {type: STRING, desc: when finish unpair}
+
+NEARLINK_MULDEVICE_CONN:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: multidevice conn event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  CONN_MODULE_NAME: {type: STRING, desc: calling conn moudle name}
+  DEVICE_CONN_STATE: {type: UINT16, desc: decive conn state}
+  DEVICE_SERVICE_STATE: {type: UINT16, desc: device service state}
+  DEVICE_CONN_LAST_TIME: {type: STRING, desc: device conn last time}
+  DEVICE_DISCONN_LAST_TIME: {type: STRING, desc: device disconn last time}
+  DEVICE_UPDATE_TIME: {type: STRING, desc: when update the msg}
+
+NEARLINK_DIS_EXPOSED_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: dis exposed excep event}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
+  SLE_DEVICE_NAME: {type: STRING, desc: sle device name}
+
+NEARLINK_ICCE_EXPOSED_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: icce exposed excep event}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
+
+NEARLINK_ICCE_CAR_PROFILE_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: icce profile excep event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: decive appearance}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
+
+NEARLINK_AUDIO_PROFILE_EXCEP:
+  __BASE: { type: FAULT, level: CRITICAL, desc: audio profile excep event }
+  PROFILE_DEVICE_ADDR: { type: STRING, desc: device addr }
+  PROFILE_DEVICE_NAME: { type: STRING, desc: device name }
+  PROFILE_DEVICE_APPEARANCE: { type: INT32, desc: device appearance }
+  PROFILE_ERROR_CODE: { type: UINT16, desc: error code }
+  PROFILE_SUB_ERROR_CODE: { type: UINT16, desc: sub error code }
+  PROFILE_EXTRA_PARAM: { type: STRING, desc: extra error param }
+
+NEARLINK_STACK_SSAP_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: stack ssap ue event}
+  PEER_INFO : {type: STRING, desc: peer info}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
+
+NEARLINK_STACK_SM_G_NEGO_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack G node pair nego event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  PEER_INFO: {type: STRING, desc: peer device info}
+  START_PAIR_TIME: {type: STRING, desc: pair start timestamp}
+  GEN_KEY_TIME: {type: STRING, desc: timestamp that begin to gen key}
+  RECV_PAIR_START_TIME: {type: STRING, desc: timestamp that receive pairing start msg}
+  SEND_PAIR_REQ_TIME: {type: STRING, desc: timestamp that send pairing request msg}
+  RECV_PAIR_RESP_TIME: {type: STRING, desc: timestamp that receive pairing response msg}
+  SEND_PAIR_CFM_TIME: {type: STRING, desc: timestamp that send pairing confirm msg}
+  RECV_PAIR_INIT_TIME: {type: STRING, desc: timestamp that receive pairing init msg}
+  ERR_CODE: {type: UINT16, desc: specific error code}
+  NEGO_RES: {type: UINT16, desc: G node pairing negotiation result}
+
+NEARLINK_STACK_SM_T_NEGO_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack T node pair nego event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  PEER_INFO: {type: STRING, desc: peer device info}
+  START_PAIR_TIME: {type: STRING, desc: pair start timestamp}
+  GEN_KEY_TIME: {type: STRING, desc: timestamp that begin to gen key}
+  SEND_PAIR_START_TIME: {type: STRING, desc: timestamp that receive pairing start msg}
+  RECV_PAIR_REQ_TIME: {type: STRING, desc: timestamp that send pairing request msg}
+  SEND_PAIR_RESP_TIME: {type: STRING, desc: timestamp that receive pairing response msg}
+  RECV_PAIR_CFM_TIME: {type: STRING, desc: timestamp that receive pairing init msg}
+  SEND_PAIR_INIT_TIME: {type: STRING, desc: timestamp that receive pairing init msg}
+  ERR_CODE: {type: UINT16, desc: specific error code}
+  NEGO_RES: {type: UINT16, desc: T node pairing negotiation result}
+
+NEARLINK_STACK_SM_G_AUTH_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack G node pair nego event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  PEER_INFO: {type: STRING, desc: peer device info}
+  AUTH_METHOD: {type: UINT16, desc: auth method}
+  GEN_PASSCODE_TIME: {type: STRING, desc: gen mixed passcode time}
+  RECV_CFM_TIME: {type: STRING, desc: receive cfm time}
+  SEND_RA_TIME: {type: STRING, desc: send Ra time}
+  RECV_RB_TIME: {type: STRING, desc: receive Rb time}
+  USER_CFM_TIME: {type: STRING, desc: user confirm six digits code time}
+  GEN_KEY_TIME: {type: STRING, desc: gen dhkey and link key time}
+  GEN_CFMKEY_TIME: {type: STRING, desc: gen cfm key time}
+  SEND_CFMKEY_TIME: {type: STRING, desc: send cfm key time}
+  RECV_CFMKEY_TIME: {type: STRING, desc: receive cfm key time}
+  ERR_CODE: {type: UINT16, desc: specific error code}
+  AUTH_RES: {type: UINT16, desc: G node pairing negotiation result}
+
+NEARLINK_STACK_SM_T_AUTH_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack T node pair auth event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  PEER_INFO: {type: STRING, desc: peer device info}
+  AUTH_METHOD: {type: UINT16, desc: auth method}
+  GEN_CFM_TIME: {type: STRING, desc: gen cfm code time}
+  RECV_CFM_TIME: {type: STRING, desc: receive cfm code time}
+  RECV_RA_TIME: {type: STRING, desc: receive Ra time}
+  SEND_CFM_TIME: {type: STRING, desc: send cfm code time}
+  SEND_RB_TIME: {type: STRING, desc: send Rb time}
+  USER_CFM_TIME: {type: STRING, desc: user confirm six digits code time}
+  GEN_KEY_TIME: {type: STRING, desc: gen dhkey and link key time}
+  RECV_CFMKEY_TIME: {type: STRING, desc: receive cfm key time}
+  GEN_CFMKEY_TIME: {type: STRING, desc: gen cfm key time}
+  SEND_CFMKEY_TIME: {type: STRING, desc: send cfm key time}
+  ERR_CODE: {type: UINT16, desc: specific error code}
+  AUTH_RES: {type: UINT16, desc: G node pairing negotiation result}
+
+NEARLINK_STACK_SM_ENCP_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack encp event}
+  DEVICE_ADDR: {type: STRING, desc: device addr}
+  PEER_INFO: {type: STRING, desc: peer device info}
+  ENABLE_TIME: {type: STRING, desc: encryp enable start timestamp}
+  REQ_PARAM_TIME: {type: STRING, desc: request encp param begin time}
+  ERR_CODE: {type: UINT16, desc: specific error code}
+  ENCP_RES: {type: UINT16, desc: pairing encryp result}
+
+NEARLINK_DTFR_CONN:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: data transfer connect event}
+  DEVICE_ADDR: {type: STRING, desc: peer device address}
+  TIMESTAMP: {type: STRING, desc: timestamp of event occurs}
+  DEVICE_NAME: {type: STRING, desc: peer device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: peer device appearance}
+  CALLING_NAME: {type: STRING, desc: calling app name}
+  SCENE_CODE: {type: INT32, desc: scene code}
+  SUB_SCENE_CODE: {type: INT32, desc: sub scene code}
+
+NEARLINK_DTFR_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nealink data transfer exception}
+  DEVICE_ADDR: {type: STRING, desc: peer device address}
+  TIMESTAMP: {type: STRING, desc: timestamp of event occurs}
+  DEVICE_NAME: {type: STRING, desc: peer device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: peer device appearance}
+  CALLING_NAME: {type: STRING, desc: calling app name}
+  TYPE: {type: INT32, desc: type}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
+
+NEARLINK_AUDIO_HEADSET_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nealink audio headset exception}
+  AUDIO_DEVICE_ADDR: {type: STRING, desc: peer device address}
+  AUDIO_DEVICE_APPEARANCE: {type: INT32, desc: device appearance}
+  AUDIO_DEVICE_NAME: {type: STRING, desc: peer audio device name}
+  FREQ_BAND: {type: UINT16, desc: frequency band}
+  AUDIO_SCENE_CODE: {type: UINT16, desc: audio scene code}
+  USER_SCENE_CODE: {type: UINT16, desc: scene codes for users}
+  ERROR_CODE: {type: UINT16, desc: error code}
+  AUDIO_SOURCE_RSSI: {type: INT32, desc: audio source rssi}
+  OTHER_EAR_RSSI: {type: INT32, desc: other ear rssi}
+  WRONG_PACKAGE_RATE: {type: UINT16, desc: wrong package rate}
+  MISORDER_CNT_RXSEQ: {type: UINT16, desc: repetitive package rate}
+  NOSYNC_RATE: {type: UINT16, desc: miss other ear package rate}
+  LNA_SWITCH: {type: UINT16, desc: lna switch}
+  DOUBLE_TUNED_STATE: {type: UINT16, desc: double tuned state}
+  CODEC_TYPE: {type: UINT16, desc: codec type}
+  BITRATE_INFO: {type: UINT16, desc: bitrate infomation}
+  DEVICE_NUM_IN_LINK: {type: UINT16, desc: number of linked device}
+  STRONG_CHANNEL_NUM: {type: UINT16, desc: strong interference channel num}
+  MID_CHANNEL_NUM: {type: UINT16, desc: mediate interference channel num}
+  WEAK_CHANNEL_NUM: {type: UINT16, desc: weak interference channel num}
+  NOISE_AVG_VALUE: {type: INT32, desc: average noise value}
+
+NEARLINK_AUDIO_STREAM_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink audio stream exception event}
+  STREAM_DEVICE_ADDR: {type: STRING, desc: device address}
+  STREAM_DEVICE_NAME: {type: STRING, desc: device name}
+  STREAM_DEVICE_APPEARANCE: {type: INT32, desc: device appearance}
+  STREAM_REPORT_ADDR: {type: STRING, desc: report address}
+  STREAM_OPERATION_TYPE: {type: UINT16, desc: operation type}
+  STREAM_RUNNING_TYPE: {type: UINT8, desc: current type}
+  STREAM_ASC_STATE: {type: INT32, desc: ascstate connecting|opening|starting|stopping|releasing|connected|released|started}
+  STREAM_START_BUFF_TYPE: {type: STRING, desc: cached audio stream type}
+  STREAM_JUDGE_RECONFIG: {type: UINT16, desc: judge reconfig}
+  STREAM_CONFIG_PARAM: {type: STRING, desc: config param}
+  STREAM_CONFIGURING_TIME: {type: STRING, desc: stream configuring time}
+  STREAM_OPENING_TIME: {type: STRING, desc: stream opening time}
+  STREAM_STARTING_TIME: {type: STRING, desc: stream starting time}
+  STREAM_STOPPING_TIME: {type: STRING, desc: stream stopping time}
+  STREAM_RELEASING_TIME: {type: STRING, desc: stream releasing time}
+  STREAM_RESULT_TIME: {type: STRING, desc: stream result time success|fail}
+  STREAM_POINT_TYPE: {type: UINT8, desc: point type}
+  STREAM_OPERATOR_RESULT: {type: UINT8, desc: operation type}
+  STREAM_OPERATOR_ERROR_CODE: {type: INT32, desc: error code}
+
+NEARLINK_DSP_CODEC_EXCEPTION:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink dsp codec exception}
+  TIME: {type: STRING, desc: fault occurrence time}
+  CODEC_TYPE: {type: INT32, desc: codec type}
+  CODEC_ALGO: {type: INT32, desc: codec algorithm}
+  ERROR_CODE: {type: INT32, desc: error code}
+
+NEARLINK_DSP_CHOPPY_EXCEPTION:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink dsp choppiness exception}
+  TIME: {type: STRING, desc: fault occurrence time}
+  CHOPPY_CNT: {type: UINT8, desc: choppy count}
+  DSP_DEVICE_ADDR: {type: STRING, desc: fault occurrence time}
+  DSP_DEVICE_TYPE: {type: INT32, desc: choppy count}
+  DSP_DEVICE_NAME: {type: STRING, desc: name of the peer device}
+  DSP_REPORT_ADDR: {type: STRING, desc: anonymized report address of cooperating cluster}
+  DSP_SCENE_CODE: {type: UINT32, desc: main scene error type}
+  DSP_SUBSCENE_CODE: {type: UINT32, desc: sub-scene error code based on main scene}
+  DSP_BITRATE_INFO: {type: UINT32, desc: current audio bitrate in kbps}
+  DSP_CONFIG_PARAM: {type: STRING, desc: codec info}
+  DSP_FREQ_BAND: {type: UINT32, desc: frequency band information}
+  DSP_POWER_INFO: {type: UINT32, desc: power level}
+  DSP_MAC_INFO: {type: UINT32, desc: channel information}
+  DSP_PEER_RSSI: {type: INT32, desc: RSSI}
+  DSP_TXFLUSH_NUM: {type: UINT32, desc: TX flush count}
+  DSP_ACK_RATE: {type: UINT32, desc: ACK rate}
+  DSP_CHANNEL_STATUS_24G: {type: STRING, desc: interference status in 2.4G band}
+  DSP_NOISE_AVG_VALUE_24G: {type: INT32, desc: average noise floor in 2.4G band}
+  DSP_CHANNEL_STATUS_5G: {type: STRING, desc: interference status in 5.8G band}
+  DSP_NOISE_AVG_VALUE_5G: {type: INT32, desc: average noise floor value in 5.8G}
+
+NEARLINK_DSP_OFFLOAD_STATS:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink dsp offload statistics}
+  START_TIME: {type: STRING, desc: Starlink audio start time}
+  DURATION: {type: UINT32, desc: Audio duration}
+  L2HC_VERSION: {type: UINT8, desc: L2HC version information}
+  CODEC_TYPE: {type: UINT8, desc: Codec type}
+  SAMPLE_RATE: {type: UINT8, desc: Sampling rate}
+  BITDEPTH: {type: UINT8, desc: Bit depth}
+  CHANNEL_MODE: {type: UINT8, desc: Channel mode}
+  DEVICE_NUM_IN_COOPERATION_SET: {type: UINT8, desc: Number of devices in the cooperation set}
+  SDU_INTERVAL: {type: UINT8, desc: packet interval}
+  FLUSH_TIMEOUT: {type: UINT8, desc: flush timeout value}
+  BURST_NUM: {type: UINT8, desc: burst parameter}
+  MAX_DOWN_BITRATE: {type: UINT16, desc: Maximum downlink bitrate during this session}
+  MAX_DOWN_BITRATE_DURATION: {type: UINT32, desc: Duration of maximum bitrate}
+  PCM_WRITE_CNT: {type: UINT32, desc: Number of times DSP writes PCM data to Starlink module}
+  PCM_WRITE_MAX_INTERVAL: {type: UINT32, desc: Maximum interval between PCM data writes}
+  PCM_WRITE_AVG_INTERVAL: {type: UINT32, desc: Average interval between PCM data writes}
+  PCM_WRITE_GT_FT_CNT: {type: UINT32, desc: Number of times PCM write interval exceeds flush timeout}
+  ENCODER_MEM_ALLOC_FAILED_CNT: {type: UINT32, desc: Number of memory allocation failures during encoding}
+  ENCODER_FAILED_CNT: {type: UINT32, desc: Number of L2HC encoding interface call failures}
+  LEFT_TX_PKT_CNT: {type: INT32, desc: Total number of packets sent from left ear}
+  LEFT_TX_NO_LINK_DROP_CNT: {type: UINT32, desc: Number of packets dropped due to no link on left ear}
+  LEFT_TX_FLUSH_CNT: {type: UINT32, desc: Number of packets flushed due to exceeding flush timeout on left ear}
+  LEFT_TX_UART_FAILED_CNT: {type: UINT32, desc: Number of packets failed to send via UART on left ear}
+  LEFT_TX_FLOW_CTRL_CNT: {type: UINT32, desc: Number of flow control events on left ear}
+  LEFT_TX_FLOW_CTRL_MAX_PKT_CNT: {type: UINT32, desc: Maximum number of packets buffered during flow control on left ear}
+  RIGHT_TX_PKT_CNT: {type: UINT32, desc: Total number of packets sent from right ear}
+  RIGHT_TX_NO_LINK_DROP_CNT: {type: UINT32, desc: Number of packets dropped due to no link on right ear}
+  RIGHT_TX_FLUSH_CNT: {type: UINT32, desc: Number of packets flushed due to exceeding flush timeout on right ear}
+  RIGHT_TX_UART_FAILED_CNT: {type: UINT32, desc: Number of packets failed to send via UART on right ear}
+  RIGHT_TX_FLOW_CTRL_CNT: {type: UINT32, desc: Number of flow control events on right ear}
+  RIGHT_TX_FLOW_CTRL_MAX_PKT_CNT: {type: UINT32, desc: Maximum number of packets buffered during flow control on right ear}
+  INTR_EVENT_ENQUEUE_FAILED_CNT: {type: UINT32, desc: Number of event enqueue failures in interrupt context}
+  INTR_DATA_ENQUEUE_FAILED_CNT: {type: UINT32, desc: Number of data enqueue failures in interrupt context}
+  DATA_INVALID_FORMAT_CNT: {type: UINT32, desc: Number of packets with invalid format}
+  BAD_PKT_CNT: {type: UINT32, desc: Number of packets marked as bad}
+  INVALID_CONN_HANDLE_CNT: {type: UINT32, desc: Number of packets with invalid connection handle}
+  LEFT_DATA_MEM_ALLOC_FAILED_CNT: {type: UINT32, desc: Number of memory allocation failures during left ear reception}
+  LEFT_OLD_DATA_DROP_CNT: {type: INT32, desc: Number of old sequence number packets dropped on left ear}
+  LEFT_DECODER_FAILED_CNT: {type: UINT32, desc: Number of decoding failures on left ear}
+  LEFT_PCM_SIZE_NOT_MATCH_CNT: {type: UINT32, desc: Number of PCM size mismatches after decoding on left ear}
+  LEFT_DECODED_PCM_DROP_CNT: {type: UINT32, desc: Number of PCM packets dropped due to buffer full on left ear}
+  LEFT_READ_PCM_LOSS_CNT: {type: UINT32, desc: Number of PCM loss detected when DSP reads from left ear}
+  LEFT_READ_PCM_MISORDER_CNT: {type: UINT32, desc: Number of misordered packets when DSP reads from left ear}
+  RIGHT_DATA_MEM_ALLOC_FAILED_CNT: {type: UINT32, desc: Number of memory allocation failures during right ear reception}
+  RIGHT_OLD_DATA_DROP_CNT: {type: UINT32, desc: Number of old sequence number packets dropped on right ear}
+  RIGHT_DECODER_FAILED_CNT: {type: UINT32, desc: Number of decoding failures on right ear}
+  RIGHT_PCM_SIZE_NOT_MATCH_CNT: {type: UINT32, desc: Number of PCM size mismatches after decoding on right ear}
+  RIGHT_DECODED_PCM_DROP_CNT: {type: UINT32, desc: Number of PCM packets dropped due to buffer full on right ear}
+  RIGHT_READ_PCM_LOSS_CNT: {type: UINT32, desc: Number of PCM loss detected when DSP reads from right ear}
+  RIGHT_READ_PCM_MISORDER_CNT: {type: UINT32, desc: Number of misordered packets when DSP reads from right ear}
+  BIRATE_UPGRADE_CNT: {type: UINT32, desc: Number of bitrate upgrades}
+  BITRATE_DOWN_CNT: {type: UINT32, desc: Number of bitrate downgrades}
+  BITRATE_DOWN_FAILED_CNT: {type: INT32, desc: Number of failed bitrate downgrade attempts}
+  BITRATE_DOWN_FAILED_REASON: {type: STRING, desc: Bitrate downgrade failure reason}
+  BITRATE_DOWN_LABEL_FAILED_CNT: {type: UINT32, desc: Number of label switching failures during bitrate downgrade}
+  CHANNEL_CONT_TIME_24G: {type: STRING, desc: 2G band using time}
+  CHANNEL_CONT_TIME_58G: {type: STRING, desc: 5G2 band using time}
+  CHANNEL_FREQ_BAND_CHANGE_TIMES: {type: UINT32, desc: Band change count}
+# nearLink dft event end

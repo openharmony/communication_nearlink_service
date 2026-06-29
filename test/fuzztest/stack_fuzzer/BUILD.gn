@@ -1,0 +1,68 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+group("stackfuzz") {
+  testonly = true
+  deps = []
+  deps += [
+    "hadm_fuzzer:HadmFuzzTest",
+    "dli_fuzzer:DliFuzzTest",
+    "dlilayer_fuzzer:DliLayerFuzzTest",
+    "sm_fuzzer:SmFuzzTest",
+    "smcbknego_fuzzer:SmCbknegoFuzzTest",
+    "smdigit_fuzzer:SmDigitFuzzTest",
+    "smdisp_fuzzer:SmDispFuzzTest",
+    "smencp_fuzzer:SmEncpFuzzTest",
+    "smncmp_fuzzer:SmNcmpFuzzTest",
+    "smnego_fuzzer:SmNegoFuzzTest",
+    "smntry_fuzzer:SmNtryFuzzTest",
+    "smoob_fuzzer:SmOobFuzzTest",
+    "smpscode_fuzzer:SmPsCodeFuzzTest",
+    "smpsk_fuzzer:SmPskFuzzTest",
+    "smpsword_fuzzer:SmPsWordFuzzTest",
+    "smrecov_fuzzer:SmRecovFuzzTest",
+    "smrmv_fuzzer:SmRmvFuzzTest",
+    "smset_fuzzer:SmSetFuzzTest",
+
+    "adv_fuzzer:AdvFuzzTest",
+    "advfree_fuzzer:AdvFreeFuzzTest",
+    "advuapi_fuzzer:AdvUapiFuzzTest",
+    "scan_fuzzer:ScanFuzzTest",
+    "scanuapi_fuzzer:ScanUapiFuzzTest",
+    "scancbk_fuzzer:ScanCbkFuzzTest",
+    "scanuapicbk_fuzzer:ScanUapiCbkFuzzTest",
+    "dtap_fuzzer:DtapFuzzTest",
+    "cm_fuzzer:CmFuzzTest",
+    "transport_fuzzer:TransportFuzzTest",
+
+    "ssapclientnew_fuzzer:SsapClientNewFuzzTest",
+    "ssapservernew_fuzzer:SsapServerNewFuzzTest",
+    "ssap_fuzzer:SsapFuzzTest",
+    "ssapclientuapi_fuzzer:SsapClientUapiFuzzTest",
+    "ssapappserverapi_fuzzer:SsapAppServerApiFuzzTest",
+    "ssapserverfind_fuzzer:SsapServerFindFuzzTest",
+    "dis_fuzzer:DisFuzzTest",
+    "port_fuzzer:PortFuzzTest",
+    "icce_fuzzer:IcceFuzzTest",
+
+    "qosm_fuzzer:QOSMFuzzTest",
+    "qosmdfx_fuzzer:QOSMDFXFuzzTest",
+
+    "cmsignaling_fuzzer:CmSignalingFuzzTest",
+    "hadmevtreport_fuzzer:HadmEvtReportFuzzTest",
+    "hadmstm_fuzzer:HadmStmFuzzTest",
+    "uapitrans_fuzzer:UapiTransFuzzTest",
+    "hidstack_fuzzer:HidStackFuzzTest",
+    "stackapi_fuzzer:StackApiFuzzTest"
+  ]
+}

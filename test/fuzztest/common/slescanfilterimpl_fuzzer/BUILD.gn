@@ -1,0 +1,69 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../utils/test_utils.gni")
+
+##############################fuzztest##########################################
+ohos_fuzztest("SleScanFilterImplFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/common/slescanfilterimpl_fuzzer"
+
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-fno-omit-frame-pointer",
+  ]
+  include_dirs = [
+    "$NEARLINK_ROOT/utils/include",
+    "$NEARLINK_ROOT/frameworks/inner/include",
+    "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/services/ipc/include",
+    "$NEARLINK_ROOT/services/server/include",
+    "$NEARLINK_ROOT/services/service/src/permission",
+  ]
+
+  configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
+
+  sources = [ "slescanfilterimpl_fuzzer.cpp",
+              "../../nl_utils/fuzztest_utils.cpp", ]
+
+  deps = [
+    "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
+    "$NEARLINK_ROOT/services/server:nearlink_server",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+  ]
+
+  external_deps = [
+    "bounds_checking_function:libsec_shared",
+    "hilog:libhilog",
+    "ipc:ipc_single",
+  ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":SleScanFilterImplFuzzTest",
+  ]
+}
+###############################################################################

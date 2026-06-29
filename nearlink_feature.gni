@@ -1,0 +1,69 @@
+# Copyright (c) 2024 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# feature定义，需要在part_config.json中配置打开，同时需要在bundle.json中配置
+declare_args() {
+    nearlink_service_power_manager_enhance = false
+    nearlink_service_host_dynamic_running = false
+    nearlink_service_host_avoid_sleep = false
+    nearlink_service_no_pairing_dialog = false
+    nearlink_service_kia_enable = false
+    nearlink_service_edm_enable = false
+    nearlink_service_rss_background_task = false
+    nearlink_service_bas_enable = false
+    nearlink_service_pluggable_supported = false
+}
+
+# 弱耦合部件依赖检查
+declare_args() {
+    nearlink_deps_power_manager_exist = false
+    nearlink_deps_audio_exist = false
+    nearlink_deps_telephony_exist = false
+    nearlink_deps_device_manager_exist = false
+    nearlink_deps_hicollie_exist = false
+    nearlink_deps_resource_schedule_service_exist = false
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.powermgr_power_manager)) {
+        nearlink_deps_power_manager_exist = true
+    }
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.multimedia_av_session) &&
+        defined(global_parts_info.multimedia_audio_framework) &&
+        defined(global_parts_info.multimodalinput_input)) {
+        nearlink_deps_audio_exist = true
+    }
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.telephony_call_manager) &&
+        defined(global_parts_info.telephony_core_service) &&
+        defined(global_parts_info.telephony_state_registry)) {
+        nearlink_deps_telephony_exist = true
+    }
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.distributedhardware_device_manager)) {
+        nearlink_deps_device_manager_exist = true
+    }
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.hiviewdfx_hicollie)) {
+        nearlink_deps_hicollie_exist = true
+    }
+
+    if (defined(global_parts_info) &&
+        defined(global_parts_info.resourceschedule_resource_schedule_service)) {
+        nearlink_deps_resource_schedule_service_exist = true
+    }
+}

@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+persist.nearlink.switch_enable=1
+// When this parameter is written, nearlink service will be reset immediately
+persist.nearlink.reset_service=0
+// If nearlink SA need to be reloaded, this parameter should be set to 1 while service is stopping, otherwise it is 0
+persist.nearlink.reload_sa=0
+persist.nearlink.reconn_device_bluetooth_address=00:00:00:00:00:00

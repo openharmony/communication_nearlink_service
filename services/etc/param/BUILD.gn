@@ -1,0 +1,43 @@
+# Copyright (C) 2024 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## Install nearlink.para to /system/etc/param/nearlink.para
+## Install nearlink.para.dac to /system/etc/param/nearlink.para.dac
+
+import("../../../nearlink_config.gni")
+import("//build/config/components/init/param/param_fixer.gni")
+
+group("etc") {
+    deps = [
+        ":nearlink.para",
+        ":nearlink.para.dac",
+    ]
+}
+
+ohos_prebuilt_para("nearlink.para") {
+    source = "nearlink.para"
+    extra_paras = []
+    if (nearlink_product_watch_standard) {
+        extra_paras += [ "persist.nearlink.switch_enable=0" ]
+    }
+    part_name = "nearlink_service"
+    subsystem_name = "communication"
+    module_install_dir = "etc/param"
+}
+
+ohos_prebuilt_para("nearlink.para.dac") {
+    source = "nearlink.para.dac"
+    part_name = "nearlink_service"
+    subsystem_name = "communication"
+    module_install_dir = "etc/param"
+}

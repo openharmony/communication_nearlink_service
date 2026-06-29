@@ -1,0 +1,193 @@
+# Copyright (C) 2023-2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+
+
+
+FwkSrc = [
+    "nearlink_host_load_callback.cpp",
+    "nearlink_host.cpp",
+    "nearlink_hid_host.cpp",
+    "nearlink_sa_manager.cpp",
+    "nearlink_remote_device.cpp",
+    "nearlink_sle_advertiser.cpp",
+    "nearlink_sle_scanner.cpp",
+    "nearlink_sle_datatransfer.cpp",
+    "nearlink_ssap_client.cpp",
+    "nearlink_ssap_descriptor.cpp",
+    "nearlink_ssap_event.cpp",
+    "nearlink_ssap_method.cpp",
+    "nearlink_ssap_property.cpp",
+    "nearlink_ssap_service.cpp",
+    "nearlink_ssap_server.cpp",
+    "nearlink_switch_module.cpp",
+    "nearlink_sle_ranging.cpp",
+    "nearlink_uuid.cpp",
+    "nearlink_ASC_source.cpp",
+    "nearlink_vcp_client.cpp",
+    "nearlink_tws_client.cpp",
+    "nearlink_cdsm_client.cpp",
+    "nearlink_sle_controller.cpp"
+]
+
+NL_IPCSRC_DIR = "../ipc/src"
+FwkIpcSrc = [
+    "$NL_IPCSRC_DIR/nearlink_device_battery_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_hid_host_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_advertise_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_advertiser_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_central_manager_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_central_manager_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_ssap_client_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_ssap_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_ssap_server_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_ssap_server_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_hadm_client_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_hadm_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_asc_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_asc_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_vcp_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_tws_client_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_tws_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_cdsm_client_callback_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_cdsm_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy.cpp",
+]
+
+RangAlgSrc = [
+    "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/src/ranging_alogorithm_adapter.cpp",
+]
+
+config("nl_framework_public") {
+    include_dirs = [
+      "include",
+      "$NEARLINK_ROOT/interfaces/inner_api/include",
+      "$NEARLINK_ROOT/interfaces/def",
+    ]
+}
+
+config("nearlink_framework_config") {
+  cflags = [
+    "-fPIC",
+    "-Wno-unused-parameter",
+    "-Wunused-private-field",
+    "-fdata-sections",
+    "-ffunction-sections",
+    "-fno-asynchronous-unwind-tables",
+    "-fno-unwind-tables",
+    "-Os",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-flto",
+  ]
+
+  if (build_variant == "user") {
+    cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+  }
+
+  cflags_cc = cflags
+
+  include_dirs = [
+    "include",
+    "../ipc/include",
+    "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",
+    "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/src",
+  ]
+}
+
+ohos_shared_library("nearlink_framework") {
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+
+  configs = [ ":nearlink_framework_config" ]
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  defines =  [
+    "LOG_TAG = \"nearlink_fwk\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  defines += product_defines
+
+  if (nearlink_service_kia_enable) {
+    defines += [ "NEARLINK_KIA_ENABLE" ]
+  }
+
+  if (nearlink_service_bas_enable) {
+      defines += [ "NEARLINK_BAS_ENABLE" ]
+  }
+
+  sources = []
+  sources += FwkSrc
+  sources += FwkIpcSrc
+  sources += RangAlgSrc
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/socket:nearlink_socket",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "init:libbegetutil",
+    "ipc:ipc_core",
+    "samgr:samgr_proxy",
+    "ffrt:libffrt",
+  ]
+
+  if (nearlink_deps_power_manager_exist && nearlink_service_host_avoid_sleep) {
+    external_deps += [ "power_manager:powermgr_client" ]
+    defines += ["NEARLINK_HOST_AVOID_SLEEP"]
+  }
+
+  if(nearlink_service_pluggable_supported) {
+      defines += ["NEARLINK_PLUGGABLE_SUPPORTED"]
+  }
+
+  public_configs = [":nl_framework_public"]
+
+  part_name = "nearlink_service"
+  innerapi_tags = [ "platformsdk" ]
+  subsystem_name = "communication"
+}
+
+ohos_shared_headers("ranging_alogorithm_headers") {
+  include_dirs = [
+    "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",
+  ]
+  deps = []
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}

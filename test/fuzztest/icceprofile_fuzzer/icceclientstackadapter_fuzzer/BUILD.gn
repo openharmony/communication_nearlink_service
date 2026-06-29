@@ -1,0 +1,76 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../utils/test_utils.gni")
+STACK_DIR = "$NEARLINK_ROOT/services/stack"
+
+##############################fuzztest##########################################
+ohos_fuzztest("IcceClientStackAdapterFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/icceprofile_fuzzer/icceclientstackadapter_fuzzer"
+
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-fno-omit-frame-pointer",
+  ]
+  include_dirs = [
+    "$NEARLINK_ROOT/utils/include",
+    "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/services/service/src/icce",
+    "$NEARLINK_ROOT/services/service/src/util",
+    "$NEARLINK_ROOT/services/service/src/base",
+    "$NEARLINK_ROOT/services/service/include",
+    "$STACK_DIR/src/nai/slem/include",
+  ]
+
+  configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
+
+  sources = [ "icceclientstackadapter_fuzzer.cpp",
+              "../../nl_utils/fuzztest_utils.cpp", ]
+
+  deps = [
+    "$NEARLINK_ROOT/interfaces:nearlink_inner_api_headers",
+    "$NEARLINK_ROOT/services/stack:nearlink_stack",
+    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+    "${nearlink_fuzztest_utils_path}:fuzztest_utils_static",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "ipc:ipc_single",
+    "ability_runtime:wantagent_innerkits",
+    "ffrt:libffrt"
+  ]
+
+  defines = [
+    "private = public"
+  ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":IcceClientStackAdapterFuzzTest",
+  ]
+}
+###############################################################################

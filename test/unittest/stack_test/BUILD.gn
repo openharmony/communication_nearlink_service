@@ -1,0 +1,76 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+
+group("nl_stack_test") {
+  testonly = true
+  deps = [
+    "cm_acb_test:nl_stack_cm_acb_unittest",
+    "cm_dyntrans_test:nl_stack_cm_dyntrans_unittest",
+    "cm_signaling_test:nl_stack_cm_signaling_unittest",
+    "dli_test:nl_stack_dli_unittest",
+    "devd_test:nl_stack_devd_unittest",
+    "devd_api_test:nl_stack_devd_api_unittest",
+    "devd_scan_test:nl_stack_devd_scan_unittest",
+    "sm_test:nl_stack_sm_unittest",
+    "sm_oob_test:nl_stack_sm_oob_unittest",
+    "sm_passcode_test:nl_stack_sm_passcode_unittest",
+    "sm_psk_test:nl_stack_sm_psk_unittest",
+    "dli_layer_test:nl_stack_dli_layer_test",
+    "trans_test:nl_stack_trans_unittest",
+    "dtap_test:nl_stack_dtap_unittest",
+    "cm_icb_test:nl_stack_cm_icb_unittest",
+    "dtap_channel_test:nl_stack_dtap_channel_unittest",
+    "dtap_scheduler_test:nl_stack_dtap_scheduler_unittest",
+    "ssap_client_exchangeInfo_test:nl_stack_ssap_client_exchangeInfo_unittest",
+    "ssap_client_find_test:nl_stack_ssap_client_find_unittest",
+    "ssap_client_read_test:nl_stack_ssap_client_read_unittest",
+    "ssap_client_write_test:nl_stack_ssap_client_write_unittest",
+    "ssap_control_test:nl_stack_ssap_control_unittest",
+    "ssap_server_find_test:nl_stack_ssap_server_find_unittest",
+    "ssap_server_find_sdf_fail_test:nl_stack_ssap_server_find_sdf_fail_unittest",
+    "ssap_server_read_test:nl_stack_ssap_server_read_unittest",
+    "ssap_server_write_test:nl_stack_ssap_server_write_unittest",
+    "ssap_server_multi_rw_test:nl_stack_ssap_server_multi_rw_unittest",
+    "ssap_value_ack_test:nl_stack_ssap_value_ack_unittest",
+    "ssap_write_cmd_test:nl_stack_ssap_write_cmd_unittest",
+    "cm_link_test:nl_stack_cm_link_unittest",
+    "hadm_test:nl_stack_hadm_unittest",
+    "icce_test:nl_stack_icce_unittest",
+    "hid_test:nl_stack_hid_unittest",
+    "port_test:nl_stack_port_unittest",
+    "dis_client_test:nl_stack_dis_client_unittest",
+    "dis_server_test:nl_stack_dis_server_unittest",
+    "actm_test:nl_stack_actm_unittest",
+    "ssap_server_find_api_test:nl_stack_ssap_server_find_api_unittest",
+    "ssap_server_exchange_test:nl_stack_ssap_server_exchange_unittest",
+    "ssap_server_find_hisiold_test:nl_stack_ssap_server_find_hisiold_unittest",
+    "qosm_autorate_test:nl_stack_qosm_autorate_unittest",
+    "cdsm_test:nl_stack_cdsm_unittest",
+    "mcp_media_test:nl_stack_mcp_media_unittest",
+    "mcp_volume_test:nl_stack_mcp_volume_unittest",
+    "ccp_ccs_test:nl_stack_ccp_ccs_unittest",
+    "ccp_vas_test:nl_stack_ccp_vas_unittest",
+    "ssap_client_find_api_test:nl_stack_ssap_client_find_api_unittest",
+    "micp_test:nl_stack_micp_unittest",
+    "cfgdb_test:nl_stack_cfgdb_unittest",
+    "schedule_test:nl_stack_schedule_unittest",
+    "ssap_app_test:nl_stack_ssap_app_unittest",
+    "ssapc_client_test:nl_stack_ssapc_client_unittest",
+    "ssapc_value_ntf_test:nl_stack_ssapc_value_ntf_unittest",
+    "ssap_client_hisiold_test:nl_stack_ssap_client_hisiold_unittest",
+    "ssaps_server_test:nl_stack_ssaps_server_unittest",
+    "ssap_test:nl_stack_ssap_unittest",
+  ]
+}

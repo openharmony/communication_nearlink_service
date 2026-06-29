@@ -1,0 +1,233 @@
+1.0 {
+  global:
+      "*SLE_Addr_S*";
+      "*slem_initialize*";
+      "*slem_registerCallbacks*";
+      "*slem_deregisterCallbacks*";
+      "*slem_close*";
+      "*slem_disable*";
+      "*slem_enable*";
+
+      "*NLSTK_CfgdbSetManufacturerAbility*";
+      "*NLSTK_CfgdbRemoveManufacturerAbility*";
+
+      "*CM_Init*";
+      "*CM_SetPhy*";
+      "*CM_GetRssi*";
+      "*CM_SetHostChannelClassification*";
+      "*CM_ConnectUpdateParamReq*";
+      "*CM_ListenFreqBandSwitchEvent*";
+      "*CM_RegConnectCbks*";
+      "*CM_UnlistenFreqBandSwitchEvent*";
+      "*CM_BackgroundConnectAdd*";
+      "*CM_RegLogicLinkListener*";
+      "*CM_DirectConnectAdd*";
+      "*CM_DirectConnectRemove*";
+      "*CM_BackgroundConnectClear*";
+      "*CM_BackgroundConnectRemove*";
+      "*CM_GetLcidByConnHandle*";
+      "*CM_ReadAcceptFilterListSize*";
+
+      "*COLLAB_Init*";
+      "*COLLAB_DeInit*";
+      "*COLLAB_RecvOnMsg";
+
+      "*NLSTK_DevdSetTxPower*";
+      "*NLSTK_SmRecoverKey*";
+      "*NLSTK_CfgdbGetPublicAddress*";
+      "*NLSTK_SmRegExternalCbks*";
+      "*NLSTK_SmRegAlgoFuncs*";
+      "*NLSTK_SmRemovePairing*";
+      "*NLSTK_SmStartPairing*";
+      "*NLSTK_SmSendImgSecuConfig*";
+      "*NLSTK_DevdRemoveAdv*";
+      "*NLSTK_DevdSetAdvData*";
+
+      "*NLSTK_DevdStartAdv*";
+      "*NLSTK_DevdEnableAdv*";
+
+      "*NLSTK_SsapCleanClientApp*";
+      "*NLSTK_SsapClientRegApp*";
+      "*NLSTK_SsapClientDeregApp*";
+      "*NLSTK_SsapClientExchangeMtu*";
+      "*NLSTK_SsapClientDiscoverServices*";
+      "*NLSTK_SsapClientDiscoverServicesByUuid*";
+      "*NLSTK_SsapClientGetServices*";
+      "*NLSTK_SsapClientGetServicesByUuid*";
+      "*NLSTK_SsapClientReadProperty*";
+      "*NLSTK_SsapClientCallMethod*";
+      "*NLSTK_SsapClientReadDescriptor*";
+      "*NLSTK_SsapClientReadPropertyByUuid*";
+      "*NLSTK_SsapClientWriteProperty*";
+      "*NLSTK_SsapClientWriteDescriptor*";
+      "*NLSTK_SsapClientGetPropertyNtf*";
+      "*NLSTK_SsapClientSetPropertyNtf*";
+      "*NLSTK_SsapClientGetPropertyInd*";
+      "*NLSTK_SsapClientSetPropertyInd*";
+      "*NLSTK_SsapClientConnect*";
+      "*NLSTK_SsapClientDisconnect*";
+      "*SDF_VectorElementAt*";
+      "*NLSTK_SsapCleanServerApp*";
+      "*NLSTK_SsapServerRegApp*";
+      "*NLSTK_SsapServerDeregisterApplication*";
+      "*NLSTK_SsapServerSetMtu*";
+      "*NLSTK_SsapServerAddService*";
+      "*NLSTK_SsapServerRemoveService*";
+      "*NLSTK_SsapServerClearServices*";
+      "*NLSTK_SsapServerCheckServiceExistByUuid*";
+      "*NLSTK_SsapServerUpdatePropertyValue*";
+      "*NLSTK_SsapServerUpdateDescriptorValue*";
+      "*NLSTK_SsapServerAuthorizeResult*";
+      "*NLSTK_SsapServerUpdateAndNotifyProperty*";
+
+      "*HadmRegCbk*";
+      "*HadmStartSounding*";
+      "*HadmStopSounding*";
+      "*HadmGetSoundingState*";
+      "*HadmGetSoundingAddrInfo*";
+
+      "*HidRegClientCbk*";
+      "*HidConnect*";
+      "*HidDisconnect*";
+      "*HidGetInformation*";
+      "*HidReadProperty*";
+      "*HidWriteProperty*";
+      "*HidGetConnectState*";
+      "*HidGetConnectedDevice*";
+
+      "*NLSTK_DisRegisterCallbBack*";
+      "*NLSTK_DisProfileConnect*";
+      "*NLSTK_DisProfileDisconnect*";
+      "*NLSTK_DisReadInfo*";
+      "*NLSTK_DisReadAllInfo*";
+      "*NLSTK_DisReadAppearanceInfo*";
+      "*NLSTK_GetConnectedDeviceNum*";
+      "*NLSTK_DisCreateInstance*";
+      "*NLSTK_DisUpdateLocalDeviceName*";
+      "*NLSTK_DisDestroyInstance*";
+
+      "*NLSTK_IcceClientCallBack_S*";
+      "*NLSTK_IcceRegisterReadInfoCallBack*";
+      "*NLSTK_IcceConnect*";
+      "*NLSTK_IcceDisconnect*";
+      "*NLSTK_IcceGetPort*";
+      "*NLSTK_GetConnectionsDeviceNum*";
+      "*NLSTK_IcceCreateIcceInstance*";
+      "*NLSTK_IcceDestroyIcceInstance*";
+
+      "*NLSTK_PortClientRegCbk*";
+      "*NLSTK_PortClientDeregCbk*";
+      "*NLSTK_PortConnect*";
+      "*NLSTK_PortDisconnect*";
+      "*NLSTK_PortGetConnectState*";
+      "*NLSTK_PortGetDevicePortIdByUuid*";
+      "*NLSTK_PortGetConnectDeviceNum*";
+      "*NLSTK_PortAddByUuid*";
+      "*NLSTK_PortDeleteByUuid*";
+
+      "*NLSTK_BasRegisterCallBack*";
+      "*NLSTK_BasProfileConnect*";
+      "*NLSTK_BasProfileDisconnect*";
+      "*NLSTK_GetConnectedBasDeviceNum*";
+      "*NLSTK_GetBatteryLevel*";
+      "*TRANS_RegisterCbks*";
+      "*TRANS_UnregisterCbks*";
+      "*TRANS_SendData*";
+      "*TRANS_ChannelSetStatus*";
+      "*QOSM_TransChannelCbksRegister*";
+      "*QOSM_TransChannelCbksUnregister*";
+      "*QOSM_TransChannelCreate*";
+      "*QOSM_TransChannelDestroy*";
+      "*QOSM_AutoRateSetCoexistSuggestion*";
+      "*QOSM_AudioDfxGetDspStatus*";
+
+      "*NLSTK_CdsmCreateSet*";
+      "*NLSTK_CdsmRemoveSet*";
+      "*NLSTK_CdsmRecoverMeb*";
+      "*NLSTK_CdsmStartAdv*";
+      "*NLSTK_CdsmStopAdv*";
+      "*NLSTK_CdsmConnect*";
+      "*NLSTK_CdsmDisconnect*";
+      "*NLSTK_CdsmFindGidByAddr*";
+      "*NLSTK_CdsmFindAllAddrByGid*";
+      "*NLSTK_CdsmRegisterEventCbk*";
+
+      "*NLSTK_McpCreateMediaInstance*";
+      "*NLSTK_McpPlayControlResult*";
+      "*NLSTK_McpMediaAuthorizeResult*";
+      "*NLSTK_McpUpdateMediaProperty*";
+      "*NLSTK_McpDeleteMediaInstance*";
+      "*NLSTK_McpRegVolumeClientCbk*";
+
+      "*NLSTK_McpVolumeConnect*";
+      "*NLSTK_McpVolumeDisconnect*";
+      "*NLSTK_McpGetVolume*";
+      "*NLSTK_McpSetVolume*";
+      "*NLSTK_McpSetStreamVolume*";
+      "*NLSTK_McpGetStreamVolumeAbility*";
+
+      "*NLSTK_CcpCreateCcsInstance*";
+      "*NLSTK_CcpCallControlResult*";
+      "*NLSTK_CcpCcsAuthorizeResult*";
+      "*NLSTK_CcpUpdateCcsProperty*";
+      "*NLSTK_CcpDeleteCcsInstance*";
+      "*NLSTK_CcpCreateVoiceAssistantService*";
+      "*NLSTK_CcpVasControlResult*";
+      "*NLSTK_CcpVasStateAuthorizeResult*";
+      "*NLSTK_CcpUpdateVasState*";
+      "*NLSTK_CcpDeleteVoiceAssistantService*";
+      "*NLSTK_CcpVasInfo_S*";
+
+      "*NLSTK_ActmReadRemoteProp*";
+      "*NLSTK_ActmDisconnect*";
+      "*NLSTK_ActmCreateStream*";
+      "*NLSTK_ActmDeleteStream*";
+      "*NLSTK_ActmConfigAudioStream*";
+      "*NLSTK_ActmStartAudioStream*";
+      "*NLSTK_ActmOpenAudioStream*";
+      "*NLSTK_ActmChangeAudioStream*";
+      "*NLSTK_ActmReleaseAudioStream*";
+      "*NLSTK_ActmRegisterCallback*";
+      "*NLSTK_ActmSetDirection*";
+      "*NLSTK_ActmUpdateBitrate*";
+      "*NLSTK_ActmRecvAutoRateMsg*";
+
+      "*NLSTK_MicpConnect*";
+      "*NLSTK_MicpDisconnect*";
+      "*NLSTK_MicpRegisterCallback*";
+
+      "*Crypto_RandNumGenerate*";
+      "*Crypto_PubPriKeyPairGenerate*";
+      "*Crypto_SecKeyGenerate*";
+      "*Crypto_DerivedKeyGenerate*";
+      "*Crypto_Sha256*";
+
+      "*SDF_FormatLog*";
+
+      "*DLI_CmdCbkReg*";
+      "*DLI_CmdCbkUnReg*";
+      "*DLI_SetCmd*";
+      "*DLI_GetCbk*";
+
+      "*SDF_MemZalloc*";
+      "*SDF_MemFree*";
+      "*CP_PostTask*";
+      "*CP_PostTaskBlocked*";
+      "*CP_TimerAdd*";
+      "*CP_TimerDel*";
+      "*SDF_GetSemHooks*";
+      "*StateMachineSoftBaseDtor*";
+      "*StateMachineSoftBaseCtor*";
+      "*StateDtor*";
+      "*StateCtor*";
+      "*GetEncryptAddr*";
+      "*NLSTK_DevdRegScanModule*";
+      "*NLSTK_DevdDeregScanModule*";
+      "*NLSTK_DevdAllocScannerId*";
+      "*NLSTK_DevdRemoveScannerId*";
+      "*NLSTK_DevdStartScan*";
+      "*NLSTK_DevdStopScan*";
+      "*NLSTK_DevdStopAllScan*";
+  local:
+    *;
+};

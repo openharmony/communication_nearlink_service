@@ -1,0 +1,114 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../nearlink_config.gni")
+
+ohos_source_set("nl_service_ipc") {
+    branch_protector_ret = "pac_ret"  # Enable PAC CFI
+    sanitize = {
+        cfi = true                             # Enable/disable control flow integrity detection
+        cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+        boundary_sanitize = true               # Enable boundary san detection
+        cfi_cross_dso = true                   # Cross-SO CFI Checks
+        integer_overflow = true                # Enable integer overflow detection
+        ubsan = true                           # Enable some Ubsan options
+        debug = false
+    }
+
+    defines =  [
+        "LOG_TAG = \"nearlink_server\"",
+        "LOG_DOMAIN = 0xD000152",
+    ]
+
+    cflags = [
+        "-fdata-sections",
+        "-ffunction-sections",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-Os",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-flto",
+    ]
+
+    if (build_variant == "user") {
+        cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+    }
+
+    cflags_cc = cflags
+
+    ldflags = [
+        "-flto",
+        "-Wl,--gc-sections",
+    ]
+
+    include_dirs = [
+        "include",
+    ]
+
+    sources = [
+        "src/nearlink_host_observer_proxy.cpp",
+        "src/nearlink_host_stub.cpp",
+        "src/nearlink_hid_host_stub.cpp",
+        "src/nearlink_sle_advertiser_callback_proxy.cpp",
+        "src/nearlink_sle_advertiser_stub.cpp",
+        "src/nearlink_sle_central_manager_callback_proxy.cpp",
+        "src/nearlink_sle_central_manager_stub.cpp",
+        "src/nearlink_sle_controller_stub.cpp",
+        "src/nearlink_sle_datatransfer_callback_proxy.cpp",
+        "src/nearlink_sle_datatransfer_stub.cpp",
+        "src/nearlink_sle_peripheral_observer_proxy.cpp",
+        "src/nearlink_ssap_client_stub.cpp",
+        "src/nearlink_ssap_client_callback_proxy.cpp",
+        "src/nearlink_ssap_server_callback_proxy.cpp",
+        "src/nearlink_ssap_server_stub.cpp",
+        "src/nearlink_hadm_client_callback_proxy.cpp",
+        "src/nearlink_hadm_client_stub.cpp",
+        "src/nearlink_asc_stub.cpp",
+        "src/nearlink_asc_callback_proxy.cpp",
+        "src/nearlink_vcp_client_stub.cpp",
+        "src/nearlink_tws_client_observer_proxy.cpp",
+        "src/nearlink_tws_client_stub.cpp",
+        "src/nearlink_cdsm_client_callback_proxy.cpp",
+        "src/nearlink_cdsm_client_stub.cpp",
+        "src/nearlink_cloud_pair_stub.cpp",
+        "src/nearlink_device_battery_observer_proxy.cpp",
+        "src/nearlink_device_rssi_observer_proxy.cpp",
+    ]
+
+    deps = [
+        "$NEARLINK_ROOT/utils:nearlink_utils",
+        "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+        "$NEARLINK_ROOT/services/common:nearlink_service_common",
+    ]
+
+    external_deps = [
+        "c_utils:utils",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "access_token:libaccesstoken_sdk",
+        "access_token:libtokenid_sdk",
+        "data_share:datashare_consumer",
+    ]
+
+    if (nearlink_deps_hicollie_exist) {
+        external_deps += [ "hicollie:libhicollie" ]
+        defines += [ "HICOLLIE_ENABLE" ]
+        sources += [ "src/nearlink_hicollie_adapter.cpp" ]
+    }
+
+    defines += product_defines
+
+    part_name = "nearlink_service"
+    subsystem_name = "communication"
+}

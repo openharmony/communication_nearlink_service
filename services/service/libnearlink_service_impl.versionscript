@@ -1,0 +1,89 @@
+{
+  global:
+    # ============ 接口服务类 (精确类名) ============
+    "*InterfaceAdvertiserService*";
+    "*InterfaceCloudPairService*";
+    "*InterfaceControllerManager*";
+    "*InterfaceHadmClientService*";
+    "*InterfaceScanService*";
+    "*InterfaceSleController*";
+    "*InterfaceMeshService*";
+
+    # ============ SSAP 接口类 (精确类名 + 通配符) ============
+    "*InterfaceProfileSsapClient*";
+    "*InterfaceProfileSsapServer*";
+    "*InterfaceSsapClientCallback*";
+    "*InterfaceSsapServerCallback*";
+
+    # ============ Adapter 相关类 (精确类名 + 通配符) ============
+    "*SleInterfaceAdapter*";
+    "*SleInterfaceAdapterWrapper*";
+    "*IAdapterSleObserver*";
+    "*ISlePeripheralCallback*";
+    "*ISleDeviceRssiCallback*";
+    "*ISleConnectionCallback*";
+
+    # ============ Manager 相关类 (精确类名 + struct) ============
+    "*SleInterfaceManager*";
+    "*SwitchCallerInfo*";
+    "*IAdapterStateObserver*";
+    "*IDeviceBatteryCallback*";
+    "*ISystemStateObserver*";
+
+    # ============ Profile 基类 (精确类名) ============
+    "*SleInterfaceProfile*";
+    "*SleInterfaceProfileManager*";
+
+    # ============ Profile 实现类 (通配符) ============
+    "*ProfileASC*";
+    "*ProfileBas*";
+    "*ProfileCdsm*";
+    "*ProfileDis*";
+    "*ProfileHidHost*";
+    "*ProfileIcce*";
+    "*ProfileMic*";
+    "*ProfilePort*";
+    "*ProfileTws*";
+    "*ProfileVcp*";
+
+    # ============ Observer 类 (通配符) ============
+    "*ASCObserver*";
+    "*BasObserver*";
+    "*CdsmObserver*";
+    "*DisObserver*";
+    "*HidHostObserver*";
+    "*IcceObserver*";
+    "*MicObserver*";
+    "*MicStateObserver*";
+    "*PortObserver*";
+    "*TwsObserver*";
+    "*VcpClientObserver*";
+
+    # ============ Callback 接口类 (通配符 + ISle* 系列) ============
+    "*InterfaceASCCallback*";
+    "*InterfaceCdsmClientServiceCallback*";
+    "*InterfaceTwsClientObserver*";
+    "*ISleAdvertiserCallback*";
+    "*ISleCentralManagerCallback*";
+    "*ISleDataTransferServiceCallback*";
+    "*IControllerManagerServiceCallback*";
+    "*InterfaceHadmClientServiceCallback*";
+    "*ISleMeshServiceCallback*";
+
+    # ============ Data 类 (精确类名 + struct) ============
+    "*NearlinkCdsmInfo*";
+    "*TwsDeviceInfo*";
+    "*TwsDevWearStatus*";
+
+    # ============ DataTransfer 类 (精确类名) ============
+    "*SleInterfaceDataTransfer*";
+
+    # ============ MultiScan 实现类 (精确类名) ============
+    "*SleScanSettingsImpl*";
+    "*SleScanFilterImpl*";
+
+    "*ServiceManagerPluginInterface*";
+
+  local:
+    *;
+};

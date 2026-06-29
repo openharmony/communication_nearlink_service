@@ -1,0 +1,193 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/ohos.gni")
+import("//build/ohos_var.gni")
+
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+NEW_STACK_DIR = "$NEARLINK_ROOT/services/stack/src"
+
+##############################fuzztest##########################################
+ohos_fuzztest("SlFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/stack_fuzzer/sl_fuzzer"
+  include_dirs = [
+    "$NEW_STACK_DIR/dli",
+    "$NEW_STACK_DIR/dli/common",
+    "$NEW_STACK_DIR/dli/cmd/include",
+    "$NEW_STACK_DIR/dli/data/include",
+    "$NEW_STACK_DIR/dli/event/include",
+    "$NEW_STACK_DIR/dli/sapi/include",
+    "$NEW_STACK_DIR/dli/thread/include",
+    "$NEW_STACK_DIR/dli/layer/include",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/include",
+    "$NEW_STACK_DIR/sdf/sdffwk/include",
+    "$NEW_STACK_DIR/sdf/dfx/log/include",
+    "$NEW_STACK_DIR/sdf/dfx/errno/include",
+    "$NEW_STACK_DIR/sdf/dfx/trace/include",
+    "$NEW_STACK_DIR/dli/dft/include",
+    "$NEW_STACK_DIR/nai/dft/include",
+    "$NEW_STACK_DIR/sdf/oal/memm/include",
+    "$NEW_STACK_DIR/sdf/oal/evc/include",
+    "$NEW_STACK_DIR/sdf/oal/thread/include",
+    "$NEW_STACK_DIR/sdf/oal/sig/lock/include",
+    "$NEW_STACK_DIR/sdf/oal/timer/include",
+    "$NEW_STACK_DIR/sdf/utils/include",
+    "$NEW_STACK_DIR/nai/api/include/common",
+    "$NEW_STACK_DIR/sdf/interface",
+    "$NEW_STACK_DIR/dp/data/include",
+    "$NEW_STACK_DIR/dp/dtap/include",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/include",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/include/inner",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src",
+
+    "$NEW_STACK_DIR/cp/nlstkfwk/dft/include",
+    "$NEW_STACK_DIR/cp/nlstkfwk/cfgdb/include",
+    "$NEW_STACK_DIR/cp/nlstkfwk/public/include",
+    "$NEW_STACK_DIR/cp/nlstkfwk/log/include/inner",
+    "$NEW_STACK_DIR/cp/nlstkfwk/schedule/include/inner",
+    "$NEW_STACK_DIR/cp/nlstkfwk/dfx/include",
+    "$NEW_STACK_DIR/cp/nlstkfwk/dft/include/inner",
+    "$NEW_STACK_DIR/cp/nlstkfwk/cfgdb/include/inner",
+    "$NEW_STACK_DIR/cfg/init/include",
+
+    "$NEW_STACK_DIR/utils/include",
+    "$NEW_STACK_DIR/sl/include",
+    "$NEW_STACK_DIR/sl/interface",
+    "$NEARLINK_ROOT/services/stack/src/sdf/bsl/stm/include",
+    "$NEW_STACK_DIR/sdf/bsl/stm/include",
+
+    "$NEARLINK_ROOT/utils/include",
+    "$NEARLINK_ROOT/services/hardware/include",
+    "$NEARLINK_ROOT/test/fuzztest/nl_utils",
+  ]
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-fno-omit-frame-pointer",
+    ]
+  cflags_cc = [
+    "-fstack-protector-all",
+    "-Wno-implicit-fallthrough",
+    "-D_POSIX_C_SOURCE=200112L",
+    "-D_GNU_SOURCE",
+  ]
+
+  sources = [
+    "$NEW_STACK_DIR/dli/dli.c",
+    "$NEW_STACK_DIR/dli/cmd/src/dli_cmd.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_event.c",
+    "$NEW_STACK_DIR/dli/cmd/src/dli_sl_cmd.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_sl_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_connect_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_dev_discovery_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_hadm_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_secu_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_factory_event.c",
+    "$NEW_STACK_DIR/dli/event/src/dli_nbc_event.c",
+    "$NEW_STACK_DIR/dli/layer/src/dli_layer_callback.c",
+    "$NEW_STACK_DIR/dli/layer/src/dli_layer_config.c",
+    "$NEW_STACK_DIR/dli/layer/src/dli_layer_utils.c",
+    "$NEW_STACK_DIR/dli/layer/src/dli_layer.c",
+    "$NEW_STACK_DIR/dli/thread/src/dli_thread.c",
+    "$NEW_STACK_DIR/dli/sapi/src/dli_data_stub.c",
+    "$NEW_STACK_DIR/dli/sapi/src/dli_sapi.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_map.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_slist.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_vector.c",
+    "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_buff.c",
+    "$NEW_STACK_DIR/sdf/sdffwk/src/sdf_util.c",
+    "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "$NEW_STACK_DIR/sdf/dfx/errno/src/sdf_errno.c",
+    "$NEW_STACK_DIR/sdf/dfx/trace/src/sdf_trace.c",
+    "$NEW_STACK_DIR/nai/dft/src/nai_dft.c",
+    "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/oal/evc/src/sdf_evc.c",
+    "$NEW_STACK_DIR/sdf/oal/evc/src/sdf_event.c",
+    "$NEW_STACK_DIR/sdf/oal/thread/src/sdf_thread.c",
+    "$NEW_STACK_DIR/sdf/oal/thread/src/sdf_worker.c",
+    "$NEW_STACK_DIR/sdf/oal/sig/lock/src/lock_mutex.c",
+    "$NEW_STACK_DIR/sdf/oal/sig/lock/src/lock_sem.c",
+    "$NEW_STACK_DIR/sdf/oal/sig/lock/src/sdf_lock.c",
+    "$NEW_STACK_DIR/sdf/oal/sig/lock/src/sdf_sem.c",
+    "$NEW_STACK_DIR/sdf/oal/timer/src/sdf_timer.c",
+    "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
+
+    "$NEW_STACK_DIR/sdf/bsl/stm/src/sdf_stm.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_local.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_tbl.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_adv.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/nlstk_devd_api.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/nlstk_scan_api.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan_api.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan_manager.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan_stm.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan_filter.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_report_parse.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/devd/src/devd_scan_util.c",
+
+    "$NEW_STACK_DIR/cp/nlstkfwk/cfgdb/src/nlstk_cfgdb.c",
+    "$NEW_STACK_DIR/cp/nlstkfwk/dft/src/nlstk_dft.c",
+    #"$NEW_STACK_DIR/cp/nlstkfwk/schedule/src/cp_worker.c",
+    "$NEW_STACK_DIR/cp/nlstkfwk/schedule/src/nlstk_schedule.c",
+
+    "$NEW_STACK_DIR/utils/src/crc16.c",
+    "$NEW_STACK_DIR/utils/src/time_utils.c",
+
+    "$NEW_STACK_DIR/sl/src/sl_host_api.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_dli.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_group_manage.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_proto_ctrl.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_proto_trans.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_proto.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_stm.c",
+    "$NEW_STACK_DIR/sl/src/sl_host_util.c",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliSnoop.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliThreadUtil.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliLayerAdapter.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliCallbacks.cpp",
+    "sl_fuzzer.cpp",
+    "$NEARLINK_ROOT/test/fuzztest/nl_utils/fuzztest_utils.cpp",
+  ]
+  deps = [
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+  ]
+  external_deps = [
+    "hilog:libhilog",
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
+    "c_utils:utils",
+    "init:libbegetutil",
+  ]
+
+  external_deps += [ "ffrt:libffrt" ]
+
+}
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":SlFuzzTest",
+  ]
+}
+###############################################################################

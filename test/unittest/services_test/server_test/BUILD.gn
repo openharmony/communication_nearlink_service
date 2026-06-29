@@ -1,0 +1,136 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+
+config("server_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = [
+    "$NEARLINK_ROOT/frameworks/native/include",
+    "$NEARLINK_ROOT/frameworks/ipc/include",
+    "$NEARLINK_ROOT/services/server/include",
+    "$NEARLINK_ROOT/services/server/src",
+    "$NEARLINK_ROOT/services/dft/include",
+    "$NEARLINK_ROOT/services/dft/src",
+    "$NEARLINK_ROOT/services/ipc/include",
+    "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/services/common/include",
+    "$NEARLINK_ROOT/services/service/src/util",
+    "$NEARLINK_ROOT/services/service/src/adapter",
+    "$NEARLINK_ROOT/services/service/src/datashare",
+    "$NEARLINK_ROOT/services/service/src/common",
+    "$NEARLINK_ROOT/services/service/src/base",
+    "$NEARLINK_ROOT/services/service/src/collaboration",
+  ]
+
+  defines =  [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+    "private = public",
+    "protected=public"
+  ]
+  cflags_cc = [ "-fexceptions" ]
+  cflags = [ "--coverage" ]
+  ldflags = [ "--coverage" ]
+}
+
+unit_test_deps = [
+  "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  "$NEARLINK_ROOT/socket:nearlink_socket",
+  "$NEARLINK_ROOT/utils:nearlink_utils",
+  "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
+  "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
+  "$NEARLINK_ROOT/services/server:nearlink_server_static",
+  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+  "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+  "$NEARLINK_ROOT/services/stack:nearlink_stack",
+  "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+  "$NEARLINK_ROOT/test/utils:test_utils_static",
+]
+
+unit_test_external_deps = [
+  "c_utils:utils",
+  "hilog:libhilog",
+  "ipc:ipc_core",
+  "safwk:system_ability_fwk",
+  "samgr:samgr_proxy",
+  "huks:libhukssdk",
+  "preferences:native_preferences",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtokenid_sdk",
+  "googletest:gmock_main",
+  "googletest:gtest_main",
+  "init:libbegetutil",
+]
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_server_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = true
+  }
+
+  sources = [
+    "nearlink_host_server_test.cpp",
+    "nearlink_sle_controller_server_test.cpp",
+    "nearlink_hadm_client_server_test.cpp",
+    # "nearlink_ssap_server_server_test.cpp",
+    # "nearlink_ssap_client_server_test.cpp",
+    "nearlink_hid_host_server_test.cpp",
+    "nearlink_tws_client_server_test.cpp",
+    "nearlink_cdsm_client_server_test.cpp",
+    "nearlink_sle_datatransfer_server_test.cpp",
+    "nearlink_central_manager_server_test.cpp",
+    "nearlink_sle_advertiser_server_test.cpp",
+    "nearlink_vcp_client_server_test.cpp",
+    "nearlink_asc_server_test.cpp",
+  ]
+  sources += [
+    "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_host_server.cpp",
+    "$NEARLINK_ROOT/test/unittest/mock/mock_nlskt_scan_api_service.c",
+    "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_system_config.cpp",
+  ]
+
+  configs = [ ":server_unit_test_config" ]
+  configs += ["$NEARLINK_ROOT/test/utils:test_utils_config"]
+
+  deps = unit_test_deps
+
+  external_deps = unit_test_external_deps
+  external_deps += [
+    "ffrt:libffrt",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_server_unittest") {
+  testonly = true
+  deps = [
+    ":nl_server_test",
+  ]
+}

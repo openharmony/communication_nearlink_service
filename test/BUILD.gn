@@ -1,0 +1,62 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+group("nearlink_unittest") {
+  testonly = true
+  deps = [
+    "unittest/frameworks_test:nl_frameworks_test",
+    "unittest/services_test:nl_services_test",
+    "unittest/stack_test:nl_stack_test",
+  ]
+}
+
+group("nearlink_fuzztest") {
+  testonly = true
+  deps = [
+    "fuzztest/stack_fuzzer:stackfuzz",
+    "fuzztest/ssapservices_fuzzer:SsapServicesFuzz",
+    "fuzztest/advertiser_fuzzer:AdvertiserFuzzTest",
+    "fuzztest/ssapclient_fuzzer:SsapClientFuzzTest",
+    "fuzztest/ssapserver_fuzzer:SsapServerFuzzTest",
+    "fuzztest/centralmanager_fuzzer:CentralManagerFuzzTest",
+    "fuzztest/common/advertiserdata_fuzzer:AdvertiserDataFuzzTest",
+    "fuzztest/common/advertisersettings_fuzzer:AdvertiserSettingsFuzzTest",
+    "fuzztest/common/enable_fuzzer:EnableFuzzTest",
+    "fuzztest/common/scanfilter_fuzzer:ScanFilterFuzzTest",
+    "fuzztest/common/scanresult_fuzzer:ScanResultFuzzTest",
+    "fuzztest/common/scansettings_fuzzer:ScanSettingsFuzzTest",
+    "fuzztest/common/sleadvertiserdataimpl_fuzzer:SleAdvertiserDataImplFuzzTest",
+    "fuzztest/common/sleadvertisersettingsimpl_fuzzer:SleAdvertiserSettingsImplFuzzTest",
+    "fuzztest/common/sleperipheraldevice_fuzzer:SlePeripheralDeviceFuzzTest",
+    "fuzztest/common/slescanfilterimpl_fuzzer:SleScanFilterImplFuzzTest",
+    "fuzztest/common/slescanresultimpl_fuzzer:SleScanResultImplFuzzTest",
+    "fuzztest/common/slescansettingsimpl_fuzzer:SleScanSettingsImplFuzzTest",
+    "fuzztest/native/nearlinkhostloadcallback_fuzzer:NearlinkHostLoadCallBackFuzzTest",
+    "fuzztest/native/nearlinkloadsystemability_fuzzer:NearlinkLoadSystemAbilityFuzzTest",
+    "fuzztest/native/nearlinkobserverlist_fuzzer:NearlinkObserverListFuzzTest",
+    "fuzztest/native/nearlinkobservermap_fuzzer:NearlinkObserverMapFuzzTest",
+    "fuzztest/hadmclient_fuzzer:HadmClientFuzzTest",
+    "fuzztest/host_fuzzer:HostFuzzTest",
+    "fuzztest/hidhost_fuzzer:HidHostFuzzTest",
+    "fuzztest/lisserver_fuzzer:LisServerFuzzTest",
+    "fuzztest/disserver_fuzzer:DisServerFuzzTest",
+    "fuzztest/icceprofile_fuzzer:IcceProfileFuzz",
+    "fuzztest/datatransfer_fuzzer:DataTransferFuzz",
+    "fuzztest/ascservice_fuzzer:AscServiceFuzzTest",
+    "fuzztest/vcpservice_fuzzer:VcpServiceFuzzTest",
+    "fuzztest/twsprofile_fuzzer:TwsProfileFuzz",
+    "fuzztest/cdsmservice_fuzzer:CdsmServiceFuzzTest",
+    "fuzztest/cloudpair_fuzzer:CloudPairFuzzTest",
+    "fuzztest/slecontroller_fuzzer:SleControllerFuzzTest",
+  ]
+}
