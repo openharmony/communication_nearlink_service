@@ -1,7 +1,7 @@
 {
     "name": "@ohos/nearlink_service",
     "description": "nearlink frameworks and services",
-    "version": "4.1",
+    "version": "7.0",
     "license": "",
     "repository": "",
     "homePage": "",
@@ -15,7 +15,7 @@
     ],
     "publishAs": "code-segment",
     "segment": {
-        "destPath": "//vendor/huawei/foundation/communication/nearlink"
+        "destPath": "//foundation/communication/nearlink"
     },
     "envs": [],
     "dirs": [],
@@ -45,8 +45,8 @@
         "rom": "",
         "ram": "",
         "hisysevent_config": [
-            "//vendor/huawei/foundation/communication/nearlink/hisysevent.yaml",
-            "//vendor/huawei/foundation/communication/nearlink/hisysevent_ue.yaml"
+            "//foundation/communication/nearlink/hisysevent.yaml",
+            "//foundation/communication/nearlink/hisysevent_ue.yaml"
         ],
         "deps": {
             "components": [
@@ -97,77 +97,77 @@
         "build": {
             "group_type": {
                 "base_group": [
-                    "//vendor/huawei/foundation/communication/nearlink/socket:nearlink_socket",
-                    "//vendor/huawei/foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel",
-                    "//vendor/huawei/foundation/communication/nearlink/utils:nearlink_utils"
+                    "//foundation/communication/nearlink/socket:nearlink_socket",
+                    "//foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel",
+                    "//foundation/communication/nearlink/utils:nearlink_utils"
                 ],
                 "fwk_group": [
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/native:nearlink_framework",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/manager:manager",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/constant:constant",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/remoteDevice:remotedevice",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/scan:scan",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/advertising:advertising",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/datatransfer:datatransfer",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/ssap:ssap",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/js/napi/src/cdsm:cdsm",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",
-                    "//vendor/huawei/foundation/communication/nearlink/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe"
+                    "//foundation/communication/nearlink/frameworks/native:nearlink_framework",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/manager:manager",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/constant:constant",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/remoteDevice:remotedevice",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/scan:scan",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/advertising:advertising",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/datatransfer:datatransfer",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/ssap:ssap",
+                    "//foundation/communication/nearlink/frameworks/js/napi/src/cdsm:cdsm",
+                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
+                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
+                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",
+                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe"
                 ],
                 "service_group": [
-                    "//vendor/huawei/foundation/communication/nearlink/sa_profile:communication_nearlink_sa_profile",
-                    "//vendor/huawei/foundation/communication/nearlink/services/server:nearlink_server",
-                    "//vendor/huawei/foundation/communication/nearlink/services/service:nearlink_service_impl",
-                    "//vendor/huawei/foundation/communication/nearlink/services/stack:nearlink_stack",
-                    "//vendor/huawei/foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base",
-                    "//vendor/huawei/foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf",
-                    "//vendor/huawei/foundation/communication/nearlink/services/hibox:nearlink_hibox",
-                    "//vendor/huawei/foundation/communication/nearlink/services/hardware:nearlink_dli_adapter",
-                    "//vendor/huawei/foundation/communication/nearlink/services/dft:nearlink_dft_manager",
-                    "//vendor/huawei/foundation/communication/nearlink/services/common:nearlink_service_common",
-                    "//vendor/huawei/foundation/communication/nearlink/services/service:nearlink_mcp_manager",
-                    "//vendor/huawei/foundation/communication/nearlink/services/device_manager:nearlink_device_manager",
-                    "//vendor/huawei/foundation/communication/nearlink/tools/ohos-nearlinkControl:ohos-nearlinkControl"
+                    "//foundation/communication/nearlink/sa_profile:communication_nearlink_sa_profile",
+                    "//foundation/communication/nearlink/services/server:nearlink_server",
+                    "//foundation/communication/nearlink/services/service:nearlink_service_impl",
+                    "//foundation/communication/nearlink/services/stack:nearlink_stack",
+                    "//foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base",
+                    "//foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf",
+                    "//foundation/communication/nearlink/services/hibox:nearlink_hibox",
+                    "//foundation/communication/nearlink/services/hardware:nearlink_dli_adapter",
+                    "//foundation/communication/nearlink/services/dft:nearlink_dft_manager",
+                    "//foundation/communication/nearlink/services/common:nearlink_service_common",
+                    "//foundation/communication/nearlink/services/service:nearlink_mcp_manager",
+                    "//foundation/communication/nearlink/services/device_manager:nearlink_device_manager",
+                    "//foundation/communication/nearlink/tools/ohos-nearlinkControl:ohos-nearlinkControl"
                 ]
             },
             "inner_kits": [
                 {
                     "header": {
-                        "header_base": "//vendor/huawei/foundation/communication/nearlink/interfaces/inner_api/include",
+                        "header_base": "//foundation/communication/nearlink/interfaces/inner_api/include",
                         "header_files": []
                     },
-                    "name": "//vendor/huawei/foundation/communication/nearlink/frameworks/native:nearlink_framework"
+                    "name": "//foundation/communication/nearlink/frameworks/native:nearlink_framework"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/utils:nearlink_utils"
+                    "name": "//foundation/communication/nearlink/utils:nearlink_utils"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/services/common:nearlink_service_common"
+                    "name": "//foundation/communication/nearlink/services/common:nearlink_service_common"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base"
+                    "name": "//foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf"
+                    "name": "//foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/services/device_manager:nearlink_device_manager"
+                    "name": "//foundation/communication/nearlink/services/device_manager:nearlink_device_manager"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel"
+                    "name": "//foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/services/dft:nearlink_dft_manager"
+                    "name": "//foundation/communication/nearlink/services/dft:nearlink_dft_manager"
                 },
                 {
-                    "name": "//vendor/huawei/foundation/communication/nearlink/frameworks/native:ranging_alogorithm_headers"
+                    "name": "//foundation/communication/nearlink/frameworks/native:ranging_alogorithm_headers"
                 }
             ],
             "test": [
-                "//vendor/huawei/foundation/communication/nearlink/test:nearlink_unittest",
-                "//vendor/huawei/foundation/communication/nearlink/test:nearlink_fuzztest"
+                "//foundation/communication/nearlink/test:nearlink_unittest",
+                "//foundation/communication/nearlink/test:nearlink_fuzztest"
             ]
         }
     }
