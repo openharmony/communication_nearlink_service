@@ -6,7 +6,7 @@ NearLink 控制工具 - 用于启用和禁用 NearLink（星闪）功能
 
 ```bash
 # 在 OpenHarmony 构建环境中
-hb build -f -p //vendor/huawei/foundation/communication/nearlink/tools/ohos-nearlinkControl:ohos-nearlinkControl
+hb build -f -p //foundation/communication/nearlink/tools/ohos-nearlinkControl:ohos-nearlinkControl
 ```
 
 ## 使用方法
