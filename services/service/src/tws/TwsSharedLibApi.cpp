@@ -222,7 +222,7 @@ bool TwsSharedLibApi::InitLibCallBack()
 /* 对外接口：（手机发送）编码请求/响应消息 */
 bool TwsSharedLibApi::EncodeMessage(const TwsMessage event)
 {
-    NL_CHECK_RETURN_RET(event.serviceDataLen_ != 0, false,
+    NL_CHECK_RETURN_RET(event.serviceDataLen_ != 0 && event.serviceDataLen_ <= TWS_SERVICE_DATA_MAX_LEN, false,
         "[Tws LibApi]:encode request/response message failed,length invalid!");
 
     LibFuncEncodeMsg encodeMsgHandle = nullptr;

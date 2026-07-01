@@ -29,57 +29,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-Uuid Uuid::Random()
-{
-    Uuid random;
-
-    struct timeval tv = {};
-    struct timezone tz = {};
-    struct tm randomTime = {};
-    unsigned int randNum = 0;
-    unsigned long int tvUsec = 0;
-
-    rand_r(&randNum);
-    gettimeofday(&tv, &tz);
-    localtime_r(&tv.tv_sec, &randomTime);
-
-    tvUsec = static_cast<unsigned long int>(tv.tv_usec);
-
-    random.uuid_[UUID_NODE_SIXTH_BYTE] =
-        static_cast<uint8_t>(tvUsec & 0x00000000000000FF);
-    random.uuid_[UUID_NODE_FIFTH_BYTE] =
-        static_cast<uint8_t>((tvUsec & 0x000000000000FF00) >> BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_NODE_FOURTH_BYTE] =
-        static_cast<uint8_t>((tvUsec & 0x0000000000FF0000) >> BIT_OPT_TWO_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_NODE_THIRD_BYTE] =
-        static_cast<uint8_t>((tvUsec & 0x00000000FF000000) >> BIT_OPT_THREE_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_NODE_FIRST_BYTE] =
-        static_cast<uint8_t>((tvUsec & 0x000000FF00000000) >> BIT_OPT_FOUR_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_CLOCK_SEQ] =
-        static_cast<uint8_t>((tvUsec & 0x0000FF0000000000) >> BIT_OPT_FIVE_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_VARIANT] =
-        static_cast<uint8_t>((tvUsec & 0x00FF000000000000) >> BIT_OPT_SIX_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_TIME_HIGH] =
-        static_cast<uint8_t>((tvUsec & 0xFF00000000000000) >> BIT_OPT_SEVEN_BYTE * BASE_BIT_OPT_SIZE);
-    random.uuid_[UUID_VERSION] =
-        static_cast<uint8_t>((static_cast<unsigned int>(randomTime.tm_sec) + randNum) & 0xFF);
-    random.uuid_[UUID_TIME_MID_SECOND_BYTE] =
-        static_cast<uint8_t>((static_cast<unsigned int>(randomTime.tm_min) + (randNum >> BASE_BIT_OPT_SIZE)) & 0xFF);
-    random.uuid_[UUID_TIME_MID_FIRST_BYTE] =
-        static_cast<uint8_t>((static_cast<unsigned int>(randomTime.tm_hour) +
-        (randNum >> BIT_OPT_TWO_BYTE * BASE_BIT_OPT_SIZE)) & 0xFF);
-    random.uuid_[UUID_TIME_LOW_FOURTH_BYTE] =
-        static_cast<uint8_t>((static_cast<unsigned int>(randomTime.tm_mday) +
-        (randNum >> BIT_OPT_THREE_BYTE * BASE_BIT_OPT_SIZE)) & 0xFF);
-    random.uuid_[UUID_TIME_LOW_THIRD_BYTE] =
-        static_cast<uint8_t>(static_cast<unsigned int>(randomTime.tm_mon) & 0xFF);
-    random.uuid_[UUID_TIME_LOW_SECOND_BYTE] =
-        static_cast<uint8_t>(static_cast<unsigned int>(randomTime.tm_year) & 0xFF);
-    random.uuid_[UUID_TIME_LOW_FIRST_BYTE] =
-        static_cast<uint8_t>((static_cast<unsigned int>(randomTime.tm_year) & 0xFF00) >> BASE_BIT_OPT_SIZE);
-
-    return random;
-}
 
 Uuid Uuid::ConvertFromString(const std::string &name)
 {

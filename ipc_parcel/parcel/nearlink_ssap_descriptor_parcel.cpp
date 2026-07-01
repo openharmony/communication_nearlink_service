@@ -28,7 +28,7 @@ bool NearlinkSsapDescriptorParcel::Marshalling(Parcel &parcel) const
     if (!parcel.WriteUint8(type_)) {
         return false;
     }
-    if (!parcel.WriteUint32(value_.size())|| value_.size() > SSAP_DESCRIPTOR_PARCEL_SIZE_MAX) {
+    if (value_.size() > SSAP_DESCRIPTOR_PARCEL_SIZE_MAX || !parcel.WriteUint32(value_.size())) {
         return false;
     }
     for (size_t i = 0; i < value_.size(); i++) {

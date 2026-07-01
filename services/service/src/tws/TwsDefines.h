@@ -73,6 +73,7 @@ enum class TwsHiBoxMsgType : uint8_t {
 
 constexpr int TWS_PROFILE_SSAP_THREAD_WAIT_TIMEOUT = 5;
 constexpr uint32_t TWS_PROFILE_PROPERTY_MAX_LEN = 256;
+constexpr uint32_t TWS_SERVICE_DATA_MAX_LEN = 65535;
 
 /* 私有服务，状态机状态值定义，单设备连接状态复用（取值范围：0-9） */
 enum class TwsClientState : uint8_t {

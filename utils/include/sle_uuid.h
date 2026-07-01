@@ -125,13 +125,6 @@ public:
     ~Uuid() = default;
 
     /**
-     * @brief Create a random uuid.
-     *
-     * @return @c Uuid : The function return a random uuid.
-     */
-    static Uuid Random();
-
-    /**
      * @brief Constructor a new Uuid from string.
      *
      * @param name The value of string to create Uuid.
