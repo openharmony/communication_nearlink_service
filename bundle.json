@@ -15,7 +15,7 @@
     ],
     "publishAs": "code-segment",
     "segment": {
-        "destPath": "//foundation/communication/nearlink"
+        "destPath": "//foundation/communication/nearlink_service"
     },
     "envs": [],
     "dirs": [],
@@ -42,11 +42,11 @@
         "adapted_system_type": [
             "standard"
         ],
-        "rom": "",
-        "ram": "",
+        "rom": "8028KB",
+        "ram": "9145kB",
         "hisysevent_config": [
-            "//foundation/communication/nearlink/hisysevent.yaml",
-            "//foundation/communication/nearlink/hisysevent_ue.yaml"
+            "//foundation/communication/nearlink_service/hisysevent.yaml",
+            "//foundation/communication/nearlink_service/hisysevent_ue.yaml"
         ],
         "deps": {
             "components": [
@@ -97,77 +97,77 @@
         "build": {
             "group_type": {
                 "base_group": [
-                    "//foundation/communication/nearlink/socket:nearlink_socket",
-                    "//foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel",
-                    "//foundation/communication/nearlink/utils:nearlink_utils"
+                    "//foundation/communication/nearlink_service/socket:nearlink_socket",
+                    "//foundation/communication/nearlink_service/ipc_parcel:nearlink_ipc_parcel",
+                    "//foundation/communication/nearlink_service/utils:nearlink_utils"
                 ],
                 "fwk_group": [
-                    "//foundation/communication/nearlink/frameworks/native:nearlink_framework",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/manager:manager",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/constant:constant",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/remoteDevice:remotedevice",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/scan:scan",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/advertising:advertising",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/datatransfer:datatransfer",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/ssap:ssap",
-                    "//foundation/communication/nearlink/frameworks/js/napi/src/cdsm:cdsm",
-                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
-                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
-                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",
-                    "//foundation/communication/nearlink/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe"
+                    "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/manager:manager",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/constant:constant",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/remoteDevice:remotedevice",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/scan:scan",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/advertising:advertising",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/datatransfer:datatransfer",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/ssap:ssap",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/cdsm:cdsm",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe"
                 ],
                 "service_group": [
-                    "//foundation/communication/nearlink/sa_profile:communication_nearlink_sa_profile",
-                    "//foundation/communication/nearlink/services/server:nearlink_server",
-                    "//foundation/communication/nearlink/services/service:nearlink_service_impl",
-                    "//foundation/communication/nearlink/services/stack:nearlink_stack",
-                    "//foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base",
-                    "//foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf",
-                    "//foundation/communication/nearlink/services/hibox:nearlink_hibox",
-                    "//foundation/communication/nearlink/services/hardware:nearlink_dli_adapter",
-                    "//foundation/communication/nearlink/services/dft:nearlink_dft_manager",
-                    "//foundation/communication/nearlink/services/common:nearlink_service_common",
-                    "//foundation/communication/nearlink/services/service:nearlink_mcp_manager",
-                    "//foundation/communication/nearlink/services/device_manager:nearlink_device_manager",
-                    "//foundation/communication/nearlink/tools/ohos-nearlinkControl:ohos-nearlinkControl"
+                    "//foundation/communication/nearlink_service/sa_profile:communication_nearlink_sa_profile",
+                    "//foundation/communication/nearlink_service/services/server:nearlink_server",
+                    "//foundation/communication/nearlink_service/services/service:nearlink_service_impl",
+                    "//foundation/communication/nearlink_service/services/stack:nearlink_stack",
+                    "//foundation/communication/nearlink_service/services/stack/src/dli:nearlink_stack_base",
+                    "//foundation/communication/nearlink_service/services/stack/src/sdf:nearlink_stack_sdf",
+                    "//foundation/communication/nearlink_service/services/hibox:nearlink_hibox",
+                    "//foundation/communication/nearlink_service/services/hardware:nearlink_dli_adapter",
+                    "//foundation/communication/nearlink_service/services/dft:nearlink_dft_manager",
+                    "//foundation/communication/nearlink_service/services/common:nearlink_service_common",
+                    "//foundation/communication/nearlink_service/services/service:nearlink_mcp_manager",
+                    "//foundation/communication/nearlink_service/services/device_manager:nearlink_device_manager",
+                    "//foundation/communication/nearlink_service/tools/ohos-nearlinkControl:ohos-nearlinkControl"
                 ]
             },
             "inner_kits": [
                 {
                     "header": {
-                        "header_base": "//foundation/communication/nearlink/interfaces/inner_api/include",
+                        "header_base": "//foundation/communication/nearlink_service/interfaces/inner_api/include",
                         "header_files": []
                     },
-                    "name": "//foundation/communication/nearlink/frameworks/native:nearlink_framework"
+                    "name": "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/utils:nearlink_utils"
+                    "name": "//foundation/communication/nearlink_service/utils:nearlink_utils"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/services/common:nearlink_service_common"
+                    "name": "//foundation/communication/nearlink_service/services/common:nearlink_service_common"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/services/stack/src/dli:nearlink_stack_base"
+                    "name": "//foundation/communication/nearlink_service/services/stack/src/dli:nearlink_stack_base"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/services/stack/src/sdf:nearlink_stack_sdf"
+                    "name": "//foundation/communication/nearlink_service/services/stack/src/sdf:nearlink_stack_sdf"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/services/device_manager:nearlink_device_manager"
+                    "name": "//foundation/communication/nearlink_service/services/device_manager:nearlink_device_manager"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/ipc_parcel:nearlink_ipc_parcel"
+                    "name": "//foundation/communication/nearlink_service/ipc_parcel:nearlink_ipc_parcel"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/services/dft:nearlink_dft_manager"
+                    "name": "//foundation/communication/nearlink_service/services/dft:nearlink_dft_manager"
                 },
                 {
-                    "name": "//foundation/communication/nearlink/frameworks/native:ranging_alogorithm_headers"
+                    "name": "//foundation/communication/nearlink_service/frameworks/native:ranging_alogorithm_headers"
                 }
             ],
             "test": [
-                "//foundation/communication/nearlink/test:nearlink_unittest",
-                "//foundation/communication/nearlink/test:nearlink_fuzztest"
+                "//foundation/communication/nearlink_service/test:nearlink_unittest",
+                "//foundation/communication/nearlink_service/test:nearlink_fuzztest"
             ]
         }
     }

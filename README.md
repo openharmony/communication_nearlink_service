@@ -1,5 +1,30 @@
 # Nearlink Service
 
+## Table of Contents
+
+- [Introduction](#introduction)
+  - [System Architecture](#system-architecture)
+    - [Module Function Description](#module-function-description)
+    - [Typical Business Flows](#typical-business-flows)
+      - [Nearlink Switch](#flow-switch)
+      - [Nearlink Advertising](#flow-advertising)
+- [Directory Structure](#directory-structure)
+- [Constraints](#constraints)
+- [Build](#build)
+  - [Compilation](#compilation)
+  - [Configurable Enhanced Features](#configurable-enhanced-features)
+- [Usage Guide](#usage-guide)
+  - [Native-side Usage Guide](#native-side)
+    - [Nearlink Switch](#native-switch)
+    - [Nearlink Advertising](#native-advertising)
+    - [Nearlink Scanning](#native-scan)
+  - [Application-side Usage Guide](#application-side-usage-guide)
+    - [Nearlink Capability Query](#nearlink-capability-query)
+    - [Nearlink Switch](#app-switch)
+    - [Nearlink Advertising](#app-advertising)
+    - [Nearlink Scanning](#app-scan)
+- [Repositories Involved](#repositories-involved)
+
 ## Introduction
 
 NearLink is a new-generation short-range wireless connection technology with features such as low power consumption, high reliability, and low latency. It is widely used in smart home, smart mobility, smart terminals, and other fields. For more information, see the [NearLink Alliance Official Website](https://www.isla.org.cn/).
@@ -10,30 +35,64 @@ The Nearlink service component is a system service in the OpenHarmony system tha
 - **Connection Management**: Provides full lifecycle management for device connection establishment, maintenance, and disconnection.
 - **Service-oriented Data Interaction**: A service discovery framework based on the SSAP (SparkLink Service Access Protocol) property protocol, supporting server/client mode for property read/write and notifications between devices.
 
-
-
 ### System Architecture
 
 The Nearlink service adopts a layered architecture design, divided from top to bottom into the application layer, framework layer, system service layer, and driver layer. The application layer accesses through ArkTS API or C++ Inner API; the framework layer provides unified interface encapsulation; the system service layer implements core business logic; and the driver layer is responsible for interacting with hardware chips. Each layer is decoupled through standardized interfaces to ensure system maintainability and scalability.
 
-![Nearlink Architecture Diagram](figure/nearlink-architecture.png)
+![Nearlink Architecture Diagram](figure/nearlink-architecture_en.png)
 
 #### Module Function Description
 
 The overall architecture is divided into the application layer, framework layer, system service layer, and driver layer.
 
 - **Application Layer**
-  * **Northbound Applications**: settings, systemUI, ecosystem applications, etc., which call Nearlink capabilities through ArkTS API.
-  * **Native Services**: Other system services call Nearlink capabilities through Inner API (C++).
+
+  As the upper-layer caller of Nearlink service, it uses Nearlink capabilities through ArkTS API to implement functions such as device discovery, connection management, and data transmission. The application layer includes two types of callers: system applications and third-party applications.
+
+  * **System Applications**: Provides essential basic functions for OpenHarmony standard edition, such as desktop, SystemUI, status bar, system settings, etc., calling Nearlink capabilities through ArkTS API.
+  * **Third-party Applications**: Independently developed by external developers and vendors, not included in system essential components, used to expand business scenarios; distributed and installed as independent HAP packages, running in standard user sandbox, only able to call standardized open SDK capabilities, calling Nearlink capabilities through ArkTS API.
 
 - **Framework Layer**
-  * **ArkTS APIs**: Provides ArkTS interfaces for local device management, remote device discovery, connection, and management through [Connectivity Kit](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/connectivity/Readme-CN.md).
-  * **Inner API**: Provides C++ interfaces such as NearlinkHost API, SleAdvertiser API, SsapServer API, etc., offering core capabilities such as Nearlink device management, advertising control, and service discovery for other system services (SA).
+
+  As the middle capability encapsulation layer of Nearlink service, it connects with the internal interfaces of the system service layer downward, and provides unified standardized call interfaces for the application layer upward, managing core business logic such as scanning, advertising, device connection, data interaction, and cooperative device set, shielding the differences of underlying services and drivers, and uniformly outputting standardized capability interfaces for upper-layer system applications and third-party applications to call through ArkTS API.
+
+  The responsibilities of each module in this layer are divided as follows:
+  * **Local Device Management**: Provides local Nearlink device management related interfaces, supporting hardware capability verification, Nearlink switch on/off control, switch status query and change monitoring, local device name reading, paired device list maintenance, and other basic capabilities;
+  * **Advertising Module**: Provides Nearlink advertising related interfaces, supporting advertising data configuration, advertising parameter settings, advertising start/stop control, and continuously sending local advertising data outward;
+  * **Scanning Module**: Provides Nearlink device scanning related interfaces, supporting configuration of multiple filter conditions, custom scanning mode and scanning duration, providing start and stop scanning capabilities; supports subscribing/unsubscribing device discovery events, reporting complete scanning results including peripheral device addresses, device names, RSSI, advertising data, etc.;
+  * **Remote Device Management**: Provides remote Nearlink device management related interfaces, supporting creating device instances and initiating pairing operations based on device addresses; supports querying remote device names, device types, and other operations.
+  * **SSAP Data Transmission**: Provides Nearlink SSAP (SparkLink Service Access Protocol) protocol data interaction related interfaces, supporting creation of client and server instances, enabling service enumeration, property read/write, MTU (Maximum Transmission Unit) negotiation, and other functions, completing standardized protocol data interaction between Nearlink devices.
+  * **General Data Transmission**: Provides Nearlink general data transmission related interfaces, supporting creation and destruction of data transmission ports, implementing connection and disconnection of remote device port channels; supports custom MTU (Maximum Transmission Unit) parameters, basic/reliable transmission mode configuration, completing device-to-device data sending and receiving; can query port connection status, subscribe to connection changes, data reception, and other events, ensuring efficient data transmission for Nearlink devices.
+  * **Coordinated Devices Set Management**: Provides Nearlink Coordinated Devices Set Management (CDSM, Coordinated Devices Set Management) related interfaces, supporting creation of coordinated devices set client instances, querying all members of the coordinated devices set and each device's connection status; supports subscribing and unsubscribing coordinated devices set information change events, synchronizing networking member status in real time.
+  * **Public Constants**: Provides Nearlink global enumeration constant interfaces, uniformly defining common enumerations such as pairing status, physical connection status, ACB logical link status, device type, etc., providing standard status identifier reuse for various framework modules.
 
 - **System Service Layer**
-  * **Basic Capabilities**: Provides atomic capability encapsulation including device information management and state maintenance, human-machine interaction and collaborative operations, battery information monitoring and management, cooperative device discovery and networking, audio stream management and transmission, etc., providing unified and reusable basic service interfaces for upper-layer applications.
-  * **Control Plane**: Provides complete control plane functions including device discovery and pairing, security authentication and key management, connection establishment and maintenance, service discovery and registration, QoS policy control, etc.
-  * **Data Plane**: Provides complete data plane functions including basic frame transmission, basic mode low-latency communication, stream mode high-speed data interaction, enhanced mode reliable transmission, reliable mode data guarantee, etc., meeting data transmission requirements for low latency, high throughput, and strong reliability in various scenarios.
+
+  As the core business logic implementation layer of Nearlink service, it provides complete Nearlink business function support for the framework layer upward, and connects with the driver layer for hardware interaction downward. This layer includes three core modules: basic services, control plane, and data plane, responsible for atomic capability encapsulation, connection control management, and data transmission services respectively.
+
+  The responsibilities of each module in this layer are divided as follows:
+
+  * **Basic Services**: Provides atomic capability encapsulation including device management, human-machine interaction, battery information service, coordinated devices set service, audio stream service, etc., providing unified and reusable basic service interfaces for the upper-layer framework; specifically including:
+    * **Device Management**: Manages basic information (device name, address, type, etc.) of local and remote Nearlink devices, maintains runtime status information such as device connection status, pairing status, signal strength, etc., supporting status change notification and query;
+    * **Human-Machine Interaction Service**: Provides Nearlink human-machine interaction device configuration and management capabilities, standardizing the access adaptation, parameter configuration, pairing authorization, and operation control processes for Human Interface Device (HID, Human Interface Device) peripherals, achieving compliant access, unified management, and secure interaction of human-machine interaction devices;
+    * **Battery Information Service**: Provides Nearlink device battery information collection, reporting, and management capabilities, standardizing remote device battery status query, information synchronization, and status maintenance processes, supporting device low-power control and status awareness;
+    * **Coordinated Devices Set Service**: Provides Nearlink coordinated device set networking and control capabilities, supporting set member management, role assignment, status query, and information synchronization, ensuring stable operation of multi-device collaborative networking;
+    * **Audio Stream Service**: Provides Nearlink audio stream parameter configuration, link control, and data transmission capabilities, standardizing audio parameter adaptation, streaming transmission, and status management processes, ensuring low-latency, high-fidelity, stable and reliable Nearlink audio transmission;
+
+  * **Control Plane**: Provides complete control plane functions, including:
+    * **Service Management**: Supports registration and publishing of server services, discovery and subscription of client services, managing service attributes and descriptors, implementing SSAP protocol-based service interaction;
+    * **Security Management**: Implements security authentication mechanisms between devices, managing generation, distribution, update, and destruction of pairing keys and session keys, ensuring the security of communication links;
+    * **Connection Management**: Supports establishment of multiple connection modes (point-to-point, one-to-many), managing connection lifecycle (establishment, maintenance, reconnection, disconnection), handling connection exceptions and recovery;
+    * **Device Discovery**: Supports active scanning to discover nearby Nearlink devices, initiating pairing requests and processing pairing processes, managing paired device lists, supporting persistent storage and query of pairing information;
+    * **QoS Management**: Configures connection parameters (latency, throughput, reliability, etc.) according to business requirements, implements quality of service strategies, supports dynamic adjustment of transmission parameters to meet different scenario requirements;
+    * **Measurement Management**: Provides Nearlink ranging capabilities, supporting start/stop of ranging sessions, querying ranging capabilities, configuring ranging parameters; processing ranging result calculation and reporting (distance value, signal strength, confidence), monitoring and reporting ranging status changes;
+
+  * **Data Plane**: Provides complete data plane functions, meeting data transmission requirements for low latency, high throughput, strong reliability, and other scenarios, including:
+    * **Basic Frame Transmission**: Implements basic data frame encapsulation, parsing, and transmission of Nearlink protocol, supporting processing of control frames and data frames, ensuring correctness and completeness of underlying data transmission;
+    * **Basic Mode Low-latency Communication**: Provides low-latency data transmission channels, suitable for latency-sensitive business scenarios such as real-time control and command delivery, supporting fast transmission of small packets;
+    * **Stream Mode High-speed Data Interaction**: Provides high-throughput streaming data transmission capabilities, suitable for large data volume scenarios such as file transfer, audio streams, video streams, supporting flow control and congestion management;
+    * **Enhanced Mode Reliable Transmission**: Provides reliability enhancement mechanisms on top of basic transmission, supporting data retransmission, sequence guarantee, packet loss recovery, and other functions, suitable for scenarios with high data integrity requirements;
+    * **Reliable Mode Data Guarantee**: Provides the highest level of data transmission reliability guarantee, combining acknowledgment mechanisms, retransmission strategies, data error correction, and other technologies, ensuring zero-loss transmission of critical data;
 
 - **Driver Layer**
   * **DLI (Data Link Interface) Service**: Provides device logic layer interface encapsulation, implementing efficient communication and command interaction between upper-layer services and underlying chips.
@@ -41,10 +100,28 @@ The overall architecture is divided into the application layer, framework layer,
   * **FD Event Listening Management**: Implements efficient monitoring and distribution of chip asynchronous events, data arrival, and exception states through file descriptor event-driven model.
   * **Nearlink Address Management**: Responsible for generation, allocation, maintenance, and query of device Nearlink addresses, ensuring uniqueness and correctness of addressing and identity identification between devices.
 
+#### Typical Business Flows
+
+This section uses Nearlink switch and Nearlink advertising as examples to introduce the architecture design and interaction mechanisms at each layer for typical business flows, helping developers understand the complete call chain from the application layer to the driver layer.
+
+<span id="flow-switch"></span>
+##### Nearlink Switch
+
+The Nearlink switch enabling process involves collaborative work across system layers. First, the system application (such as settings) calls <a href="#app-switch" style="color: #0366d6;">`manager.enableNearlink()`</a> through the ArkTS interface to initiate an enabling request; then, the local device management module in the Nearlink framework layer starts the Nearlink service and sends a message to enable Nearlink; after receiving the message, the Nearlink service layer sends a message to enable Nearlink to the driver layer through the device management and service management modules; finally, the DLI (Data Link Interface) service in the Nearlink device driver layer sends a message to enable Nearlink to the vendor chip, completing the entire enabling process.
+
+<img src="figure/nearlink_architecture_enable_en.png" alt="Nearlink Switch Business Flow" width="600" />
+
+<span id="flow-advertising"></span>
+##### Nearlink Advertising
+
+The Nearlink advertising process involves collaborative work across system layers. First, the system application calls advertising-related APIs through the ArkTS interface to initiate an advertising request, configuring advertising data, advertising parameters, and other information; then, the advertising module in the Nearlink framework layer receives the request and sends the advertising configuration information to the Nearlink service layer; the Nearlink service layer processes the advertising data through the device management and service management modules, sending a message to start advertising to the driver layer; finally, the DLI (Data Link Interface) service in the Nearlink device driver layer sends an advertising command to the vendor chip, starting to continuously send local advertising data outward.
+
+<img src="figure/nearlink_architecture_advertising_en.png" alt="Nearlink Advertising Business Flow" width="600" />
+
 ## Directory Structure
 
 ```
-/foundation/communication/nearlink
+/foundation/communication/nearlink_service
 ├── interfaces                               # External API files provided by the module
 │    └── inner_api                           # Internal interfaces
 ├── frameworks                               # Framework layer code directory
@@ -60,7 +137,7 @@ The overall architecture is divided into the application layer, framework layer,
 ├── test                                     # Testing
 │    ├── unittest                            # TDD tests
 │    └── fuzztest                            # Fuzz tests
-└── LICENSE                                  # License declaration file
+├── LICENSE                                  # License declaration file
 └── bundle.json                              # Component description file
 ```
 
@@ -96,46 +173,51 @@ Use the following commands to compile for different target platforms:
 
 > **Note:** {product_name} is the name of the currently supported platform.
 
-### Configurable Features
+### Configurable Enhanced Features
 
-This component supports feature trimming through product configuration files on demand. The default values for all feature switches are as follows.
+This component supports on-demand enabling of enhanced features through product configuration (Standard System only). The feature switch configurations are as follows:
 
-| Feature Name | Default Value | Description | Applicable System |
-|--------------|---------------|-------------|-------------------|
-| nearlink_service_kia_enable | false | KIA (key information assets) disables Nearlink data transmission in specific scenarios | Standard System |
-| nearlink_service_edm_enable | false | EDM (Enterprise Device Management) disables Nearlink functions in enterprise management scenarios | Standard System |
-| nearlink_service_rss_background_task | false | Background task support, resource scheduling service integration | Standard System |
-| nearlink_service_bas_enable | false | BAS (Battery Management Service) battery management service | Standard System |
-| nearlink_service_power_manager_enhance | false | Power management enhancement, optimizing power consumption strategy | Standard System |
-| nearlink_service_host_dynamic_running | false | Dynamic loading/unloading of driver processes | Standard System |
-| nearlink_service_host_avoid_sleep | false | Avoid sleep, keeping service active | Standard System |
-| nearlink_service_no_pairing_dialog | false | Skip pairing dialog, authenticate through other methods | Standard System |
-| nearlink_service_pluggable_supported | false | Pluggable support, dynamic loading/unloading of modules | Standard System/Small System |
+| Feature Name | Default Value | Feature Description and Applicable Scenarios |
+|--------------|---------------|----------------------------------------------|
+| nearlink_service_kia_enable | false | Feature: Disable Nearlink data transmission to protect key information asset security<br>Scenario: When applications/system services open key assets, disable data transmission |
+| nearlink_service_edm_enable | false | Feature: Disable Nearlink functions in enterprise management scenarios to meet enterprise device management policy requirements<br>Scenario: Enterprise Device Management (EDM, Enterprise Device Management) scenarios, such as enterprise-customized devices needing to disable Nearlink functions to meet security compliance requirements |
+| nearlink_service_rss_background_task | false | Feature: Support background task execution, managing tasks and allocating resources through Resource Schedule Service (RSS, Resource Schedule Service)<br>Scenario: Applications need to continuously execute Nearlink-related tasks in the background, and require system resource scheduling service to coordinate resource allocation |
+| nearlink_service_bas_enable | false | Feature: Provide battery management service, supporting Nearlink device battery information collection, monitoring, and management capabilities<br>Scenario: Application scenarios requiring querying peer device battery status, such as peripheral battery display, low battery alerts, battery-based connection strategy optimization, etc. |
+| nearlink_service_host_dynamic_running | false | Feature: Support dynamic loading and unloading of Nearlink driver processes, achieving flexible management of driver services<br>Scenario: Scenarios requiring on-demand start/stop of Nearlink driver services, such as system resource optimization, low-power management, driver fault recovery, etc. |
+| nearlink_service_host_avoid_sleep | false | Feature: Prevent system sleep during critical Nearlink operations, keeping service processes active by acquiring running locks<br>Scenario: Critical operations such as Nearlink service enabling require the system to remain awake, ensuring service initialization, state switching, and other operations are not interrupted by system sleep |
+| nearlink_service_no_pairing_dialog | false | Feature: Support skipping pairing confirmation popups during Nearlink pairing process, directly handling pairing requests through callback, achieving pairing without popups<br>Scenario: Scenarios requiring automated pairing or pairing without user interaction, such as seamless pairing for wearables like watches, enterprise device batch configuration, etc. |
+| nearlink_service_pluggable_supported | false | Feature: Support dynamic control of Nearlink feature availability through system parameter (persist.nearlink.pluggable.state), achieving pluggable management of Nearlink modules<br>Scenario: Suitable for devices with pluggable Nearlink hardware modules; when detecting plug state changes, modify system parameters to dynamically control Nearlink feature availability |
 
 Products can override configurations in `vendor/{vendor}/{product}/config.json`. Refer to [Component-based Compilation Best Practices](https://gitcode.com/openharmony/build/blob/master/docs/%E9%83%A8%E4%BB%B6%E5%8C%96%E7%BC%96%E8%AF%91%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5.md).
 
-Configuration Example (e.g., to enable EDM capability):
+For example, for the P7885 development board, if you need to enable EDM functionality, configure in vendor/hardmony/oriole/config.json as follows:
 
 > ```json
 > {
->   "component": {
->     "name": "nearlink_service",
->     "subsystem": "communication",
->     "features": [
->       "nearlink_service_edm_enable=true"
->     ]
->   }
+>   "subsystem": "communication",
+>   "components": [
+>     {
+>       "component": "nearlink_service",
+>       "features": [
+>         "nearlink_service_edm_enable = true"
+>       ]
+>     }
+>   ]
 > }
 > ```
+
+> <small>Note: P7885 Nearlink function is under debugging, feature pending release</small>
 
 ## Usage Guide
 
 This chapter introduces the usage of Nearlink core modules, covering functions such as Nearlink switch, Nearlink advertising, and Nearlink scanning, providing standard call examples for both Native side (C++) and application side (ArkTS).
 
+<span id="native-side"></span>
 ### Native-side Usage Guide
 
 The following are the standard usage patterns for Nearlink core modules on the Native side. The Native side provides Nearlink capability access for other system services through C++ Inner API. The interfaces are defined in header files under the `interfaces/inner_api/include/` directory, covering core functions such as Nearlink switch control, device advertising, and scanning.
 
+<span id="native-switch"></span>
 ### Nearlink Switch
 
 Provides Nearlink switch start/stop control, status query, and status change monitoring capabilities, adopting a global singleton pattern. The core interfaces are defined in the `nearlink_host.h` header file.
@@ -208,6 +290,8 @@ void NearlinkSwitchDemo()
     host.DeregisterObserver(observer);
 }
 ```
+
+<span id="native-advertising"></span>
 #### Nearlink Advertising
 
 Provides Nearlink advertising start and stop capabilities, supporting custom advertising parameters, advertising data, and scan response data. The core interfaces are defined in the `nearlink_sle_advertiser.h` header file.
@@ -329,8 +413,9 @@ void NearlinkAdvertiseDemo()
 
 - `SleAdvertiser` is created through the factory method `CreateSleAdvertiser()`, and its lifecycle is managed by the caller.
 - The `duration` parameter unit is 10ms; setting to 0 means continuous advertising until actively stopped.
-- Complete error code definitions can be found in the `nearlink_errorcode.h` header file.
 
+
+<span id="native-scan"></span>
 #### Nearlink Scanning
 
 Provides Nearlink device scanning and discovery capabilities, supporting full scan and scan with filter conditions. The core interfaces are defined in the `nearlink_sle_scanner.h` header file.
@@ -464,7 +549,7 @@ void NearlinkScanDemo()
 - `SleCentralManager` is created through the factory method `CreateSleCentralManager()`, and its lifecycle is managed by the caller.
 - `SCAN_MODE` enumeration includes: `SCAN_MODE_LOW_POWER` (low power), `SCAN_MODE_BALANCED` (balanced mode), `SCAN_MODE_LOW_LATENCY` (low latency), etc.
 - Filter conditions support multiple `SleScanFilter`, with OR relationship between multiple filter conditions.
-- Complete error code definitions can be found in the `nearlink_errorcode.h` header file.
+
 
 ### Application-side Usage Guide
 
@@ -504,6 +589,7 @@ if (isSupported) {
 - The underlying implementation determines whether the device has Nearlink capability through the system property `const.nearlink.enable`.
 - In application business code, this interface should be called first for pre-validation, otherwise calling other interfaces on devices that do not support Nearlink may result in error codes or other exceptions.
 
+<span id="app-switch"></span>
 #### Nearlink Switch
 
 Provides Nearlink switch start/stop control, status query, and status change monitoring capabilities, provided through the `manager` module in [@kit.ConnectivityKit](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/connectivity/Readme-CN.md).
@@ -573,6 +659,7 @@ try {
 }
 ```
 
+<span id="app-advertising"></span>
 #### Nearlink Advertising
 
 Provides Nearlink advertising start and stop capabilities, supporting custom advertising parameters and advertising data, provided through the `advertising` module in [@kit.ConnectivityKit](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/connectivity/Readme-CN.md).
@@ -693,6 +780,7 @@ try {
 }
 ```
 
+<span id="app-scan"></span>
 #### Nearlink Scanning
 
 Provides Nearlink device scanning and discovery capabilities, supporting full scan and scan with filter conditions, provided through the `scan` module in [@kit.ConnectivityKit](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/connectivity/Readme-CN.md).
@@ -776,6 +864,4 @@ try {
 
 ## Repositories Involved
 
-[Nearlink Service](https://gitcode.com/openharmony-sig/communication_nearlink)
-
-[Nearlink Driver Service](https://gitcode.com/openharmony/drivers_peripheral)
+[Distributed Soft Bus](https://gitcode.com/openharmony/communication_dsoftbus)
