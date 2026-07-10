@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "nearlink_service",
+    "License": "Apache-2.0",
+    "License File": "LICENSE",
+    "Version Number": "v1.0.0",
+    "Owner": "lilong32@huawei.com",
+    "Upstream URL": "https://gitcode.com/openharmony/communication_nearlink_service",
+    "Description": "提供星闪无线通信能力的系统服务。"
+  }
+]
