@@ -85,6 +85,7 @@ ohos_shared_library("remotedevice") {
     "ipc:ipc_single",
     "libuv:uv",
     "napi:ace_napi",
+    "node:node_header_notice",
     "hiappevent:hiappevent_innerapi",
     "ffrt:libffrt",
   ]

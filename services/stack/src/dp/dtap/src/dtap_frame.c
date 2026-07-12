@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #include "dtap_frame.h"
 
 #include "securec.h"
-#include "byte_codec.h"
 #include "crc16.h"
 #include "dli_layer.h"
 #include "dtap_errno.h"

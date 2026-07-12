@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,9 +102,6 @@ HWTEST_F(SleServiceDataTest, SetGetInfo001, TestSize.Level1)
     std::string encryptGroupKeyStr = "123456789";
     uint64_t giv = 4;
     bool isUserDisconnected = true;
-    std::vector<std::string> cdsmDevList;
-    std::vector<std::string> cdsmDevList1;
-    cdsmDevList.push_back("12345");
     dev->SetCurrentRawAddress(address);
     dev->GetServiceData(index);
     dev->GetServiceDataUUID();
@@ -126,8 +123,6 @@ HWTEST_F(SleServiceDataTest, SetGetInfo001, TestSize.Level1)
     EXPECT_EQ(giv, dev->GetGiv());
     dev->SetIsUserDisconnected(isUserDisconnected);
     EXPECT_EQ(isUserDisconnected, dev->GetIsUserDisconnected());
-    dev->SaveCdsmDeviceList(cdsmDevList);
-    dev->GetCdsmDeviceList(cdsmDevList1);
     HILOGI("SetGetInfo001 end");
 }
 }  // namespace TEST

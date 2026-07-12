@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 #include "nearlink_host.h"
 #include "nearlink_tws_client.h"
 #include "nearlink_ASC_source.h"
-#include "TwsClient.h"
 #include "log.h"
 #include "sle_uuid.h"
 #include "log_util.h"

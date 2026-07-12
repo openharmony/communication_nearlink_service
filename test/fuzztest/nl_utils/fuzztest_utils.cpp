@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,5 +79,23 @@ Uuid BuildUuid(FuzzedDataProvider &provider)
     Uuid uuid = Uuid::ConvertFromBytesSle(ptr, dataVec.size());
     return uuid;
 }
+std::string BuildHexChars(const uint8_t *data, size_t size, uint32_t len)
+{
+    const char *hexChars = "0123456789ABCDEF";
+    std::string result;
+    for (uint32_t i = 0; i < len && i < size; i++)
+        result += hexChars[data[i] % 16];
+    return result;
+}
+
+std::string BuildMixedHexChars(const uint8_t *data, size_t size, uint32_t len)
+{
+    const char *mixedChars = "0123456789ABCDEFabcdef!@%XYZ";
+    std::string result;
+    for (uint32_t i = 0; i < len && i < size; i++)
+        result += mixedChars[data[i] % 26];
+    return result;
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS

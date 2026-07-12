@@ -58,6 +58,8 @@ public:
         std::shared_ptr<SleRangingCallback> callbackSptr = nearlinkSleRangingSptr->pimpl->callback_.lock();
         NL_CHECK_RETURN(callbackSptr, "callbackSptr is nullptr.");
         RangingResult rangingResult(addr.GetAddress(), ret, hdamRangingResult.disSmoothed);
+        rangingResult.SetProb(hdamRangingResult.prob);
+        rangingResult.SetRssi(hdamRangingResult.rssi);
         HILOGI("sle ranging dis:%{public}f, ret:%{public}d, hadmId:%{public}u", hdamRangingResult.disSmoothed,
             ret, nearlinkSleRangingSptr->pimpl->hadmId_);
         callbackSptr->OnSleRangingResult(rangingResult);

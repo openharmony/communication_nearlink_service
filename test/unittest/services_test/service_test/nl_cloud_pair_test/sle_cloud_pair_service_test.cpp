@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -897,6 +897,24 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest034, TestSize.Level1)
     HILOGI("SleCloudPairServiceTest034 end");
 }
 
+/**
+ * @tc.name: SleCloudPairServiceTest035
+ * @tc.desc: 测试HandleAcbConnectedTask - PAIRING状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest035, TestSize.Level1)
+{
+    HILOGI("SleCloudPairServiceTest035 start");
+    ProcDownCloudDevice(DEVICE_NAME, DEVICE_TOKEN);
+    SleCloudPairService::GetInstance().UpdateCloudState(DEVICE_SLE_REPORT_ADDR,
+        NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRING);
+
+    SleCloudPairService::GetInstance().HandleAcbConnectedTask(
+        RawAddress(DEVICE_SLE_REPORT_ADDR), NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRING);
+
+    // 验证设备仍然在map中
+    EXPECT_EQ(SleCloudPairService::GetInstance().cloudDevicesMap_.Size(), 1);
+}
 
 } // namespace TEST
 } // namespace Nearlink

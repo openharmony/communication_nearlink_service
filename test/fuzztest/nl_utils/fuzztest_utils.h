@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ uint16_t GetU16IntData(const uint8_t* data);
 std::string BuildAddressString(FuzzedDataProvider &provider);
 RawAddress BuildRawAddress(FuzzedDataProvider &provider);
 Uuid BuildUuid(FuzzedDataProvider &provider);
+std::string BuildHexChars(const uint8_t *data, size_t size, uint32_t len);
+std::string BuildMixedHexChars(const uint8_t *data, size_t size, uint32_t len);
 }  // namespace Nearlink
 }  // namespace OHOS
 #endif  // TEST_FUZZTEST_COMMON_H

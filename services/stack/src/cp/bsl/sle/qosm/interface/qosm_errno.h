@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -54,6 +54,7 @@ extern "C" {
 #define QOSM_GET_CAP_INFO_ERR CP_MAKE_NCP_QOSM_ERRNO(22)
 #define QOSM_EXCEED_MAX_NUM_ERR CP_MAKE_NCP_QOSM_ERRNO(23)
 #define QOSM_UNSUPPORTED_ERR CP_MAKE_NCP_QOSM_ERRNO(24)
+#define QOSM_INVALID_MTU_ERR CP_MAKE_NCP_QOSM_ERRNO(25)
 
 #ifdef __cplusplus
 }

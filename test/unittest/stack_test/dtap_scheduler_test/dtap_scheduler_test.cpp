@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,93 @@
 
 #include "gtest/gtest.h"
 #include "securec.h"
+#include "cm_dli_adapter.h"
 #include "cm_errno.h"
+#include "collab_ext_func_wrapper.h"
 #include "cp_worker.h"
+#include "dli_callback.h"
+#include "dli_layer_callback.h"
 #include "dtap_channel.h"
 #include "dtap_scheduler.h"
 #include "dtap_errno.h"
 #include "dli_layer_config.h"
 #include "sdf_mem.h"
-
 #include "stack_schedule_mock.h"
 #include "stack_schedule_stub.h"
 #include "stack_dli_event_mock.h"
 #include "stack_dli_event_stub.h"
 #include "stack_dli_layer_mock.h"
 #include "stack_dli_layer_stub.h"
+
+static CM_DliCbk g_connectCbk = NULL;
+static CM_DliCbk g_disconnectCbk = NULL;
+static COLLAB_TransFuncExt g_collabTransFunc = {};
+static DLI_DataNumChangecbk g_dliDataNumCbk = NULL;
+static uint8_t g_connHandle1 = 1;
+static uint8_t g_connHandle2 = 2;
+
+extern "C" uint32_t CM_RegisterDliAdapterCbk(CM_DLI_ADAPTER_MODULE module, CM_DLI_ADAPTER_TYPE type, CM_DliCbk cbk)
+{
+    if (module != CM_DLI_ADAPTER_DTAP) {
+        return CM_SUCCESS;
+    }
+    if (type == CM_DLI_ADAPTER_CONNECT) {
+        g_connectCbk = cbk;
+    } else if (type == CM_DLI_ADAPTER_DISCONNECT) {
+        g_disconnectCbk = cbk;
+    }
+    return CM_SUCCESS;
+}
+
+extern "C" uint32_t CM_UnregisterDliAdapterCbk(CM_DLI_ADAPTER_MODULE module, CM_DLI_ADAPTER_TYPE type)
+{
+    return CM_SUCCESS;
+}
+
+extern "C" uint32_t COLLAB_TransFuncRegister(const COLLAB_TransFuncExt *func)
+{
+    g_collabTransFunc.dliAcbNumChangeRegister = func->dliAcbNumChangeRegister;
+    g_collabTransFunc.dliAcbNumGet = func->dliAcbNumGet;
+    g_collabTransFunc.setApBufferNum = func->setApBufferNum;
+    return 0;
+}
+
+extern "C" void DLI_DataNumChangeRegister(DLI_DataNumChangecbk cbk)
+{
+    g_dliDataNumCbk = cbk;
+}
+
+extern "C" void DLI_DataNumChange(DLI_DataType type, uint16_t dataNum)
+{}
+
+extern "C" uint32_t COLLAB_ContinueAssignTransBuffer(uint8_t apOccupiedBufferNum)
+{
+    return 0;
+}
+
+static void TEST_DtapConnectCbk(uint16_t connHandle)
+{
+    DLI_ConnectionCompleteEvt param = {0};
+    param.status = 0;
+    param.connHandle = connHandle;
+    DLI_ExecuteCmdRetParam cmdRes = {};
+    cmdRes.cmdOpcode = DLI_CREATE_CONNECTION;
+    cmdRes.size = sizeof(param);
+    cmdRes.eventParameter = &param;
+    g_connectCbk(NULL, 0, &cmdRes);
+}
+
+static void TEST_DtapDisconnectCbk(uint16_t connHandle)
+{
+    DLI_DisconnectEvt param = {0};
+    param.status = 0;
+    param.connHandle = connHandle;
+    DLI_ExecuteCmdRetParam cmdRes = {};
+    cmdRes.cmdOpcode = DLI_DISCONNECT;
+    cmdRes.size = sizeof(param);
+    cmdRes.eventParameter = &param;
+    g_disconnectCbk(NULL, 0, &cmdRes);
+}
 
 using namespace testing;
 using namespace testing::ext;
@@ -42,7 +115,7 @@ public:
     NiceMock<DliEventMock> dliEventMock;
     NiceMock<DliLayerMock> dliLayerMock;
 protected:
-    // SetUP 在每一个 TEST_F 测试开始前执行一次
+    // SetUP 在每一个用例测试开始前执行一次
     virtual void SetUp()
     {
         TEST_ScheduleInit();
@@ -59,19 +132,19 @@ protected:
         EXPECT_CALL(dliLayerMock, DLI_DataSend).WillRepeatedly(TEST_DLI_DataSendStub);
     }
 
-    // TearDown 在每一个 TEST_F 测试完成后执行一次
+    // TearDown 在每一个用例测试完成后执行一次
     virtual void TearDown()
     {
         TEST_StackScheduleDeInit();
         TEST_DliEventDeInit();
     }
 
-    // SetUpTestCase 在所有 TEST_F 测试开始前执行一次
+    // SetUpTestCase 在所有用例测试开始前执行一次
     static void SetUpTestCase()
     {
     }
 
-    // TearDownTestCase 在所有 TEST_F 测试完成后执行一次
+    // TearDownTestCase 在所有用例测试完成后执行一次
     static void TearDownTestCase()
     {
     }
@@ -82,6 +155,38 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_SchedulerInitTest)
     EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
     EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
     EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
+}
+
+static uint16_t g_dliAcbNum = 0;
+static void TEST_DliAcbNumChangeCbk(uint16_t dataNum)
+{
+    g_dliAcbNum = dataNum;
+}
+
+static void TEST_DtapSchedulerInit(void)
+{
+    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
+    EXPECT_NE(g_collabTransFunc.dliAcbNumChangeRegister, NULL);
+    EXPECT_NE(g_collabTransFunc.dliAcbNumGet, NULL);
+    EXPECT_NE(g_collabTransFunc.setApBufferNum, NULL);
+
+    g_collabTransFunc.dliAcbNumChangeRegister(TEST_DliAcbNumChangeCbk);
+
+    uint16_t dataNum = 8;
+    g_dliDataNumCbk(ACB_DATA_TYPE, dataNum);
+    EXPECT_EQ(g_dliAcbNum, dataNum);
+
+    g_collabTransFunc.setApBufferNum(dataNum);
+
+    TEST_DtapConnectCbk(g_connHandle1);
+    TEST_DtapConnectCbk(g_connHandle2);
+}
+
+static void TEST_DtapSchedulerDeinit(void)
+{
+    TEST_DtapDisconnectCbk(g_connHandle1);
+    TEST_DtapDisconnectCbk(g_connHandle2);
     EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
 }
 
@@ -108,76 +213,80 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPriorityInvalidPriTest)
     EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
 }
 
+static DTAP_Channel_S *TEST_DtapChannelCreate(uint16_t connHandle, DTAP_ChannelPriority priority, uint8_t srcTcid)
+{
+    DTAP_Channel_S *channel = (DTAP_Channel_S *)SDF_MemZalloc(sizeof(DTAP_Channel_S));
+    if (channel == NULL) {
+        return NULL;
+    }
+    SDF_DListHeadInit(&channel->pktList);
+    SDF_DListEntryInit(&channel->schedEntry);
+    SDF_DListEntryInit(&channel->entry);
+    channel->priority = priority;
+    channel->lcid = connHandle;
+    channel->srcTcid = srcTcid;
+    return channel;
+}
+
 TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySuccessTest)
 {
-    DTAP_Channel_S channel;
-    (void)memset_s(&channel, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    SDF_DListHeadInit(&channel.pktList);
-    SDF_DListEntryInit(&channel.schedEntry);
-    SDF_DListEntryInit(&channel.entry);
-    channel.priority = DTAP_PRIORITY_CMD;
+    TEST_DtapSchedulerInit();
 
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
+    DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 0);
+    EXPECT_NE(channel, NULL);
 
     DLI_AllDataSet(100, 8, 0, 0);
-    SDF_Buff_S *buf1 = SDF_BuffNewWithReserve(100);
+    SDF_Buff_S *buf1 = SDF_BuffNewWithReserve(20000);
     EXPECT_NE(buf1, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf1, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel, buf1), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel, buf1), DTAP_SUCCESS);
     // same lcid and tcid
     SDF_Buff_S *buf2 = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf2, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf2, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel, buf2), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel, buf2), DTAP_SUCCESS);
     // same lcid and different tcid
-    DTAP_Channel_S channel2;
-    (void)memset_s(&channel2, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    channel2.priority = DTAP_PRIORITY_CMD;
-    SDF_DListHeadInit(&channel2.pktList);
-    SDF_DListEntryInit(&channel2.schedEntry);
-    SDF_DListEntryInit(&channel2.entry);
-    channel2.srcTcid = 1;
+    DTAP_Channel_S *channel2 = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 1);
+    EXPECT_NE(channel2, NULL);
     SDF_Buff_S *buf3 = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf3, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf3, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel2, buf3), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel2, buf3), DTAP_SUCCESS);
     // different lcid
-    DTAP_Channel_S channel3;
-    (void)memset_s(&channel3, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    channel3.priority = DTAP_PRIORITY_CMD;
-    SDF_DListHeadInit(&channel3.pktList);
-    SDF_DListEntryInit(&channel3.schedEntry);
-    SDF_DListEntryInit(&channel3.entry);
-    channel3.lcid = 1;
+    DTAP_Channel_S *channel3 = TEST_DtapChannelCreate(g_connHandle2, DTAP_PRIORITY_CMD, 0);
+    EXPECT_NE(channel3, NULL);
     SDF_Buff_S *buf4 = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf4, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf4, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel3, buf4), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel3, buf4), DTAP_SUCCESS);
 
     DLI_AllDataSet(100, 4, 0, 0);
     EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, 0, 1), DTAP_SUCCESS);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
+    TEST_DtapSchedulerDeinit();
+
+    SDF_MemFree(channel);
+    SDF_MemFree(channel2);
+    SDF_MemFree(channel3);
 }
 
 TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySingleNumTest)
 {
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
+    TEST_DtapSchedulerInit();
     DLI_AllDataSet(1, 1, 0, 0);
-    DTAP_Channel_S channel;
-    (void)memset_s(&channel, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    SDF_DListHeadInit(&channel.pktList);
-    SDF_DListEntryInit(&channel.schedEntry);
-    SDF_DListEntryInit(&channel.entry);
-    channel.priority = DTAP_PRIORITY_HIGH;
+    DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_HIGH, 0);
+    EXPECT_NE(channel, NULL);
     SDF_Buff_S *buf = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf, 100), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel, buf), DTAP_SUCCESS);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel, buf), DTAP_SUCCESS);
+    TEST_DtapSchedulerDeinit();
+
+    SDF_MemFree(channel);
 }
 
 TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySendFailedTest)
 {
+    TEST_DtapSchedulerInit();
     DTAP_Channel_S channel;
     (void)memset_s(&channel, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
     SDF_DListHeadInit(&channel.pktList);
@@ -187,116 +296,37 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySendFailedTest)
     channel.lcid = 0xffff;
 
     DLI_AllDataSet(100, 1, 0, 0);
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
     SDF_Buff_S *buf = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf, 10), nullptr);
     EXPECT_EQ(DTAP_DataSendWithPriority(&channel, buf), DTAP_SUCCESS);
 
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
+    TEST_DtapSchedulerDeinit();
 }
 
 TEST_F(UT_DTAP_SCHEDULER, DTAP_ChannelDownTest)
 {
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
+    TEST_DtapSchedulerInit();
     DLI_AllDataSet(100, 0, 0, 0);
-    DTAP_Channel_S channel;
-    (void)memset_s(&channel, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    channel.priority = DTAP_PRIORITY_CMD;
-    SDF_DListHeadInit(&channel.pktList);
-    SDF_DListEntryInit(&channel.schedEntry);
-    SDF_DListEntryInit(&channel.entry);
+    DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 0);
+    EXPECT_NE(channel, NULL);
     SDF_Buff_S *buf = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf, 100), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel, buf), DTAP_SUCCESS);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel, buf), DTAP_SUCCESS);
 
-    DTAP_Channel_S channel2;
-    (void)memset_s(&channel2, sizeof(DTAP_Channel_S), 0, sizeof(DTAP_Channel_S));
-    channel2.priority = DTAP_PRIORITY_CMD;
-    SDF_DListHeadInit(&channel2.pktList);
-    SDF_DListEntryInit(&channel2.schedEntry);
-    SDF_DListEntryInit(&channel2.entry);
-    channel2.srcTcid = 1;
+    DTAP_Channel_S *channel2 = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 1);
+    EXPECT_NE(channel2, NULL);
     SDF_Buff_S *buf2 = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf2, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf2, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(&channel2, buf2), DTAP_SUCCESS);
-    DTAP_ChannelDown(1, 0);
-    DTAP_ChannelDown(0, 2);
-    DTAP_ChannelDown(0, 0);
-    DTAP_ChannelDown(0, 1);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel2, buf2), DTAP_SUCCESS);
+    DTAP_ChannelDown(g_connHandle2, 0);
+    DTAP_ChannelDown(g_connHandle1, 2);
+    DTAP_ChannelDown(g_connHandle1, 0);
+    DTAP_ChannelDown(g_connHandle1, 1);
+    TEST_DtapSchedulerDeinit();
 
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_ChipBufferLessThanTwo)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(1, 1, 0, 0);  // acbLen=1, acbNum=1 which is less than DTAP_SHARED_BUFFER_MODULES(2)
-    // DTAP_NotifyAcbLinkNum(1, 1);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_TotalLinksZero)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 4, 0, 0);  // acbNum=4, enough for DTAP_SHARED_BUFFER_MODULES
-    // DTAP_NotifyAcbLinkNum(0, 0);  // totalLinks == 0
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_NormalDistribution)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 4, 0, 0);  // acbNum=4
-    // DTAP_NotifyAcbLinkNum(1, 1);  // apLinkNum=1, shLinkNum=1, totalLinks=2
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_ApLinkNumGreaterThanShLinkNum)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 5, 0, 0);  // acbNum=5
-    // DTAP_NotifyAcbLinkNum(3, 1);  // apLinkNum > shLinkNum, remaining should go to ap
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_ShLinkNumGreaterThanApLinkNum)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 5, 0, 0);  // acbNum=5
-    // DTAP_NotifyAcbLinkNum(1, 3);  // shLinkNum > apLinkNum, remaining should go to sh
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_IsNeedTransCollabFalse)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 4, 0, 0);
-    // DTAP_NotifyAcbLinkNum(1, 1);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_MinBufferDistribution)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 2, 0, 0);  // acbNum=2, exactly DTAP_SHARED_BUFFER_MODULES
-    // DTAP_NotifyAcbLinkNum(1, 1);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_NotifyAcbLinkNum_LargeLinkDifference)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 10, 0, 0);  // acbNum=10
-    // DTAP_NotifyAcbLinkNum(8, 1);  // large imbalance, remaining should go to ap
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
-}
-
-TEST_F(UT_DTAP_SCHEDULER, DTAP_SchedulerInit_DataNumChangeCallbackPath)
-{
-    EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
-    DLI_AllDataSet(100, 4, 0, 0);
-    // DTAP_NotifyAcbLinkNum(1, 1);
-    EXPECT_EQ(DTAP_SchedulerDeinit(), DTAP_SUCCESS);
+    SDF_MemFree(channel);
+    SDF_MemFree(channel2);
 }

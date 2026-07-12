@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 #include "log.h"
 #include "log_util.h"
 #include "extension_manager_client.h"
-#include "ability_connection.h"
-#include "ability_connect_callback.h"
 #include "int_wrapper.h"
 #include "string_wrapper.h"
 #include "want_params_wrapper.h"

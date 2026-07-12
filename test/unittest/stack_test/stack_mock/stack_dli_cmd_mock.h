@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 
 #include <gmock/gmock.h>
 #include <stdint.h>
+#include "dli_cmd_struct.h"
 
 namespace OHOS {
 class DliCmdMockInterface {
 public:
     DliCmdMockInterface() {};
     virtual ~DliCmdMockInterface() {};
-    virtual uint32_t DLI_GetPublicAddress(void) = 0;
+    virtual uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param) = 0;
     virtual uint32_t DLI_ReadLocalFeatures(void) = 0;
     virtual uint32_t DLI_ReadLocalVersion(void) = 0;
     virtual uint32_t DLI_ReadMaximumAdvDataLen(void) = 0;
@@ -37,7 +38,7 @@ class DliCmdMock : public DliCmdMockInterface {
 public:
     DliCmdMock();
     ~DliCmdMock() override;
-    MOCK_METHOD(uint32_t, DLI_GetPublicAddress, (), (override));
+    MOCK_METHOD(uint32_t, DLI_GetPublicAddress, (DLI_PublicAddrParam *param), (override));
     MOCK_METHOD(uint32_t, DLI_ReadLocalFeatures, (), (override));
     MOCK_METHOD(uint32_t, DLI_ReadLocalVersion, (), (override));
     MOCK_METHOD(uint32_t, DLI_ReadMaximumAdvDataLen, (), (override));

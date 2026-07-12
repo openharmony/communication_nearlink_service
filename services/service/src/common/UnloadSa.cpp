@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,16 @@
 #include "system_ability_definition.h"
 #include "iservice_registry.h"
 #include "SleCollaborationManager.h"
+#include "ThreadUtil.h"
+#include <dlfcn.h>
 
 namespace OHOS {
 namespace Nearlink {
 
+namespace {
 constexpr int32_t UNLOAD_SA_DELAY_MS = 15000;
+static constexpr const char *NEARLINK_PLUGIN_PATH_NAME = "/system/lib64/libnearlink_server_ext_plugin.z.so";
+} // namespace
 
 UnloadSa& UnloadSa::GetInstance()
 {
@@ -71,6 +76,30 @@ void UnloadSa::StopUnloadNearlinkSaTimer()
     HILOGI("stop unload sa timer");
     unloadSaTimer_->Stop();
     isTimerStarted_.store(false);
+}
+
+void UnloadSa::NearlinkHostExtOnIdle()
+{
+    DoInAdapterThread([this]() {
+        NearlinkHostExtOnIdleInner();
+    });
+}
+
+void UnloadSa::NearlinkHostExtOnIdleInner()
+{
+    void *handle = dlopen(NEARLINK_PLUGIN_PATH_NAME, RTLD_NOW);
+    if (handle == nullptr) {
+        return;
+    }
+    typedef int32_t (*NearlinkHostExtOnIdleFunc)();
+    NearlinkHostExtOnIdleFunc onIdleFunc =
+        (NearlinkHostExtOnIdleFunc)dlsym(handle, "NearlinkHostExtOnIdle");
+    if (onIdleFunc == nullptr) {
+        dlclose(handle);
+        return;
+    }
+    onIdleFunc();
+    dlclose(handle);
 }
 } // namespace Nearlink
 } // namespace OHOS

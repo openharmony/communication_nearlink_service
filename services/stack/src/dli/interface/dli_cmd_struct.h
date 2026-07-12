@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,6 @@ extern "C" {
 #define SLE_MEASURE_PM_24G_BAND_LEN 10
 #define SLE_SM_PLAINTEXT_LEN 16
 #define SLE_SM_ENCRYPT_KEY_LEN 16
-#if defined(TV_STANDARD) || defined(SLE_POWER_MANAGER_SUPPORT)
-#define SLE_DATA_FILTER_CODE_LEN 8
-#endif
 #define SLE_IMG_ENCRYPTION_IV_LEN 8
 #define SLE_IMG_ENCRYPTION_GROUP_KEY_LEN 16
 

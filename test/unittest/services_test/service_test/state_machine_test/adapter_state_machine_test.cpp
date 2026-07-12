@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #include "gmock/gmock.h"
 
 #include "nearlink_errorcode.h"
-#include "nearlink_access_token_mock.h"
 #include "AdapterStateMachine.h"
 #include "mock_profile_service_manager.cpp"
 #include "mock_sle_adapter.cpp"
@@ -40,7 +39,6 @@ public:
     static void SetUpTestCase()
     {
         HILOGI("nearlink AdapterStateMachineTest.");
-        NearlinkAccessTokenMock::SetNativeTokenInfo();
     }
     static void TearDownTestCase()
     {

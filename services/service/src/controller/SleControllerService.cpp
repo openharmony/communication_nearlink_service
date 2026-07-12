@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ constexpr uint8_t SLE_CONN_INTERVAL_SCALE_FACTOR_2 = 2;     //  连接interval�
 constexpr uint8_t SLE_CONN_TIMEOUT_UNIT_10MS = 10;     // 连接链路超时时间单位10ms
 constexpr uint16_t SLE_CONN_TIMEOUT_EXTRA_500MS = 500;     // 连接链路超时时间额外增加单位500ms
 
-const std::map<uint16_t, QOSM_AutoBitrate_T> bitRateMap = {
+const std::map<uint16_t, QOSM_AutoBitrate_E> bitRateMap = {
     { static_cast<uint16_t>(SLEBitRate::BITRATE_4600), QOSM_AUTO_BITRATE_4600 },
     { static_cast<uint16_t>(SLEBitRate::BITRATE_2300), QOSM_AUTO_BITRATE_2300 },
     { static_cast<uint16_t>(SLEBitRate::BITRATE_1500), QOSM_AUTO_BITRATE_1500 },
@@ -52,7 +52,7 @@ const std::map<uint16_t, QOSM_AutoBitrate_T> bitRateMap = {
 };
 
 // Duty cycle mapping table
-const std::map<uint8_t, QOSM_AutoDutyCycle_T> dutyCycleMap = {
+const std::map<uint8_t, QOSM_AutoDutyCycle_E> dutyCycleMap = {
     {static_cast<uint8_t>(SledutyCycle::DUTY_CYCLE_100P), QOSM_DUTY_CYCLE_100P},
     {static_cast<uint8_t>(SledutyCycle::DUTY_CYCLE_50P),  QOSM_DUTY_CYCLE_50P},
     {static_cast<uint8_t>(SledutyCycle::DUTY_CYCLE_20P),  QOSM_DUTY_CYCLE_20P},

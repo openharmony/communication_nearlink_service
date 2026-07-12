@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #include "nearlink_datatransfer_parcel.h"
 #include "nearlink_sle_datatransfer_service.cpp"
 #include "SleInterfaceDataTransfer.h"
-#include "nearlink_access_token_mock.h"
 #include "ClassCreator.h"
 #include "log.h"
 #include <thread>
@@ -77,7 +76,6 @@ public:
 void NearlinkDataTransferTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start");
-    OHOS::Nearlink::NearlinkAccessTokenMock::SetNativeTokenInfo();
     HILOGI("SetUpTestCase end");
 }
 

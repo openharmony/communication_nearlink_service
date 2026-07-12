@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "securec.h"
 #include "cm_log.h"
 #include "cm_errno.h"
+#include "cm_def.h"
 #include "cm_dyn_tcid.h"
 #include "cm_signaling_trans_channel.h"
 #include "cm_dyn_trans_channel_api.h"
@@ -456,6 +457,22 @@ static bool CM_DynTransChannelEstablishedCheck(uint16_t srcPort, uint16_t dstPor
     return g_channelCbks.establishedCheckCbk(&param);
 }
 
+static bool CM_DynTransChannelMtuCheck(uint16_t mtu)
+{
+    return mtu >= CM_CAP_MIN_MTU;
+}
+
+static void CM_DynTransChanSendEstablishedErrResp(const CM_DynTransChanParam_S *param, uint8_t result)
+{
+    CM_SignalingTransChanEstablishRsp_S establishRsp = { 0 };
+    establishRsp.srcTcid = param->remoteTcid;  // 被动请求回复响应，srcTcid 为对端的 tcid
+    establishRsp.dstTcid = CM_TRANS_INVALID_TCID;
+    establishRsp.result = result;
+    if (CM_SignalingTransChanEstablishRspSend(param->lcid, param->reqId, &establishRsp) != CM_SUCCESS) {
+        CM_LOGE("signaling establish rsp sent failed, lcid:0x%04x, reqId:0x%02x", param->lcid, param->reqId);
+    }
+}
+
 /**
  * @brief 收到传输通道建立请求事件
  */
@@ -467,15 +484,14 @@ static uint32_t CM_DynTransChanPassiveEstablishedReqHandler(uint8_t curState, co
         "nextState:%hhu, localTcid:0x%02x, remoteTcid:0x%02x, srcPort: 0x%04x, dstPort: 0x%04x",
         param->state, param->expectedTransportMode, param->result, nextState, param->localTcid, param->remoteTcid,
         param->srcPort, param->dstPort);
+    if (!CM_DynTransChannelMtuCheck(param->transModeConfig.mtu)) {
+        CM_LOGW("established req check failed, invalid mtu: %hu", param->transModeConfig.mtu);
+        CM_DynTransChanSendEstablishedErrResp(param, CM_RESULT_UNSUPPORTED_MTU_SIZE);
+        return CM_FAIL;
+    }
     if (!CM_DynTransChannelEstablishedCheck(param->srcPort, param->dstPort)) {
         CM_LOGW("established req check failed, srcPort: 0x%04x, dstPort: 0x%04x", param->srcPort, param->dstPort);
-        CM_SignalingTransChanEstablishRsp_S establishRsp = { 0 };
-        establishRsp.srcTcid = param->remoteTcid;  // 被动请求回复响应，srcTcid 为对端的 tcid
-        establishRsp.dstTcid = CM_TRANS_INVALID_TCID;
-        establishRsp.result = CM_RESULT_INSUFFICIENT_RESOURCE;
-        if (CM_SignalingTransChanEstablishRspSend(param->lcid, param->reqId, &establishRsp) != CM_SUCCESS) {
-            CM_LOGE("signaling establish rsp sent failed, lcid:0x%04x, reqId:0x%02x", param->lcid, param->reqId);
-        }
+        CM_DynTransChanSendEstablishedErrResp(param, CM_RESULT_INSUFFICIENT_RESOURCE);
         return CM_FAIL;
     }
 

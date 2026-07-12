@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -612,6 +612,11 @@ void SleProfileConnectManager::ProcessProfileDisconnected(const std::string &pro
     }
 
     if (profConnInst->GetConnectedProfileNumInner() == 0) {
+        NL_CHECK_RETURN(funcs_.onAllProfileDisconnected, "funcs_.onAllProfileDisconnected is nullptr");
+        auto onAllProfileDisconnected = funcs_.onAllProfileDisconnected;
+        DoInAdapterThread([onAllProfileDisconnected, device]() -> void {
+            onAllProfileDisconnected(device);
+        });
         ClearProfileConnectInfo(device);
     }
 }

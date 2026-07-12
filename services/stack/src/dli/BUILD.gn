@@ -101,9 +101,6 @@ ohos_shared_library("nearlink_stack_base") {
   configs = [ ":nearlink_base_config" ]
   public_configs = [ ":nearlink_base_public_config" ]
   sources = nearlink_base_sources
-  if (nearlink_service_power_manager_enhance) {
-    defines += ["SLE_POWER_MANAGER_SUPPORT"]
-  }
 
   deps = [
     "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",

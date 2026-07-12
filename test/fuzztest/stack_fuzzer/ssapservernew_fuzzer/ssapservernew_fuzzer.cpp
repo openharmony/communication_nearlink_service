@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 #include "nai_log.h"
 #include "nlstk_init_api.h"
 #include "cm_api.h"
-#include "datatype.h"
 #include "sle_logic_link_mgr.h"
 #include "cm_signaling_version.h"
 #include "SleDliLayerAdapter.h"

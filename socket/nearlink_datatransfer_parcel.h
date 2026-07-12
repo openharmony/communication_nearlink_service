@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ public:
      * @return Pointer to the next position in the buffer after writing.
      * @since 6
      */
-    static uint8_t* WriteLengthAndData(uint8_t* out, size_t &offset, const std::string &data);
+    static bool WriteLengthAndData(uint8_t* out, size_t &offset, const std::string &data);
 };
 } // namespace OHOS::Nearlink
 

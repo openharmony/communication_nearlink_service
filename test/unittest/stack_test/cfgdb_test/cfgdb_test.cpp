@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,7 @@ TEST_F(UT_CFGDB_TEST, UT_CFGDB_001)
 TEST_F(UT_CFGDB_TEST, UT_CFGDB_002)
 {
     EXPECT_CALL(dliCmdMock, DLI_ReadLocalVersion).WillRepeatedly(TEST_DLI_ReadLocalVersion);
+    EXPECT_CALL(dliCmdMock, DLI_GetPublicAddress).WillRepeatedly(TEST_DLI_GetPublicAddressFail);
     uint32_t ret = CfgdbInit();
     ASSERT_EQ(ret, 0);
 
@@ -96,6 +97,7 @@ TEST_F(UT_CFGDB_TEST, UT_CFGDB_002)
 TEST_F(UT_CFGDB_TEST, UT_CFGDB_003)
 {
     EXPECT_CALL(dliCmdMock, DLI_ReadLocalVersion).WillRepeatedly(TEST_DLI_ReadLocalVersion);
+    EXPECT_CALL(dliCmdMock, DLI_GetPublicAddress).WillRepeatedly(TEST_DLI_GetPublicAddress);
     EXPECT_CALL(dliCmdMock, DLI_ReadMaximumAdvDataLen).WillRepeatedly(TEST_DLI_ReadMaximumAdvDataLenFail);
     uint32_t ret = CfgdbInit();
     ASSERT_EQ(ret, 0);
@@ -109,6 +111,7 @@ TEST_F(UT_CFGDB_TEST, UT_CFGDB_003)
 TEST_F(UT_CFGDB_TEST, UT_CFGDB_004)
 {
     EXPECT_CALL(dliCmdMock, DLI_ReadLocalVersion).WillRepeatedly(TEST_DLI_ReadLocalVersion);
+    EXPECT_CALL(dliCmdMock, DLI_GetPublicAddress).WillRepeatedly(TEST_DLI_GetPublicAddress);
     EXPECT_CALL(dliCmdMock, DLI_ReadMaximumAdvDataLen).WillRepeatedly(TEST_DLI_ReadMaximumAdvDataLen);
     EXPECT_CALL(dliCmdMock, DLI_ReadAdvSetsNum).WillRepeatedly(TEST_DLI_ReadAdvSetsNumFail);
     uint32_t ret = CfgdbInit();
@@ -123,6 +126,7 @@ TEST_F(UT_CFGDB_TEST, UT_CFGDB_004)
 TEST_F(UT_CFGDB_TEST, UT_CFGDB_005)
 {
     EXPECT_CALL(dliCmdMock, DLI_ReadLocalVersion).WillRepeatedly(TEST_DLI_ReadLocalVersion);
+    EXPECT_CALL(dliCmdMock, DLI_GetPublicAddress).WillRepeatedly(TEST_DLI_GetPublicAddress);
     EXPECT_CALL(dliCmdMock, DLI_ReadMaximumAdvDataLen).WillRepeatedly(TEST_DLI_ReadMaximumAdvDataLen);
     EXPECT_CALL(dliCmdMock, DLI_ReadAdvSetsNum).WillRepeatedly(TEST_DLI_ReadAdvSetsNum);
     EXPECT_CALL(dliCmdMock, DLI_ReadSupportCryptoAlgo).WillRepeatedly(TEST_DLI_ReadSupportCryptoAlgoFail);
@@ -138,6 +142,7 @@ TEST_F(UT_CFGDB_TEST, UT_CFGDB_005)
 TEST_F(UT_CFGDB_TEST, UT_CFGDB_006)
 {
     EXPECT_CALL(dliCmdMock, DLI_ReadLocalVersion).WillRepeatedly(TEST_DLI_ReadLocalVersion);
+    EXPECT_CALL(dliCmdMock, DLI_GetPublicAddress).WillRepeatedly(TEST_DLI_GetPublicAddress);
     EXPECT_CALL(dliCmdMock, DLI_ReadMaximumAdvDataLen).WillRepeatedly(TEST_DLI_ReadMaximumAdvDataLen);
     EXPECT_CALL(dliCmdMock, DLI_ReadAdvSetsNum).WillRepeatedly(TEST_DLI_ReadAdvSetsNum);
     EXPECT_CALL(dliCmdMock, DLI_ReadSupportCryptoAlgo).WillRepeatedly(TEST_DLI_ReadSupportCryptoAlgo);

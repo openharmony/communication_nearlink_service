@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@
 #include "nlstk_port_server.h"
 #include "param_wrapper.h"
 #include "log_util.h"
+#include <charconv>
 #include <string>
-#include <sstream>
 
 namespace OHOS {
 namespace Nearlink {
 
 namespace {
+
+constexpr unsigned int MANUFACTURE_ID_HEX_BASE = 16;
+constexpr size_t MANUFACTURE_ID_HEX_CHARS_PER_BYTE = 2;
+constexpr size_t MANUFACTURE_ID_MAX_HEX_LEN = sizeof(uint16_t) * MANUFACTURE_ID_HEX_CHARS_PER_BYTE;
 
 NLSTK_SsapUuid_S ConvertToStackUuid(const Uuid &uuid)
 {
@@ -61,15 +65,25 @@ void PortServerStackAdapter::DeletePortByUuid(const Uuid::UUID128Bit& uuid, cons
 
 uint16_t PortServerStackAdapter::LoadManufactureInfo() const
 {
+    // load manufacture ID from system parameter and parse hex string to uint16_t
+    // validation is required to prevent UB from untrusted input (empty, non-hex, or overflow)
     std::string manufactureInfo = "";
     int res = OHOS::system::GetStringParameter("const.nearlink.dis.manufacture_id",
         manufactureInfo, "");
     NL_CHECK_RETURN_RET((res == PORT_SUCCESS), res,
         "read manufacture id err, manufactureInfo = %{public}s, res=%{public}d", manufactureInfo.c_str(), res);
-    std::stringstream ss;
-    uint16_t manufactureId_;
-    ss << std::hex << manufactureInfo;
-    ss >> manufactureId_;
+    if (manufactureInfo.empty() || manufactureInfo.size() > MANUFACTURE_ID_MAX_HEX_LEN) {
+        HILOGE("[PORT Adapter] manufactureInfo invalid length: %{public}s", manufactureInfo.c_str());
+        return 0;
+    }
+    uint16_t manufactureId_ = 0;
+    const char *first = manufactureInfo.data();
+    const char *last = first + manufactureInfo.size();
+    std::from_chars_result parseRes = std::from_chars(first, last, manufactureId_, MANUFACTURE_ID_HEX_BASE);
+    if (parseRes.ec != std::errc{} || parseRes.ptr != last) {
+        HILOGE("[PORT Adapter] manufactureInfo parse failed: %{public}s", manufactureInfo.c_str());
+        return 0;
+    }
     HILOGI("[PORT Adapter] manufactureInfo = %{public}s, manufactureId_=%{public}hu",
         manufactureInfo.c_str(), manufactureId_);
     return manufactureId_;

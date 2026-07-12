@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -30,10 +30,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define DEFAULT_TRANSPORT_MAX_PACKET_HEADER_LEN 21  // 传输层帧支持各模式的报文头部最大长度（有连接）
-#define DEFAULT_DTAP_MAX_PACKET_HEADER_LEN 11       // DTAP帧支持各模式头部最大长度（可靠模式）
-#define DEFAULT_MAX_PACKET_HEADER_LEN (DEFAULT_TRANSPORT_MAX_PACKET_HEADER_LEN + DEFAULT_DTAP_MAX_PACKET_HEADER_LEN)
 
 typedef enum : uint8_t {
     QOSM_TRANS_CHANNEL_ESTABLISHED,     // 建立完成
@@ -56,7 +52,7 @@ typedef enum : uint8_t {
     TRANSPORT_MODE_RELIABLE,     // 可靠模式
 
     TRANSPORT_MODE_MAX,  // 传输模式数目
-} QOSM_TransMode_T;
+} QOSM_TransMode_E;
 
 typedef struct {
     uint8_t mode;  // 传输模式
@@ -73,7 +69,7 @@ typedef enum : uint8_t {
     SLE_MODE_ICB = 0,  // 同步数据链路
     SLE_MODE_ACB,  // 异步数据链路
     SLE_MODE_MAX,
-} QOSM_SleMode_T;
+} QOSM_SleMode_E;
 
 typedef enum : uint8_t {
     ACCESS_TRANS_MODE_UNICAST = 0,        // 单播
@@ -82,12 +78,12 @@ typedef enum : uint8_t {
     ACCESS_TRANS_MODE_BIDI_MCST,      // 双向组播
     ACCESS_TRANS_MODE_SEND_BCST,      // 广播发送
     ACCESS_TRANS_MODE_RECV_BCST,      // 广播接收
-} QOSM_AccessTransMode_T;
+} QOSM_AccessTransMode_E;
 
 typedef struct {
     SLE_Addr_S addr;                 // 星闪设备地址
-    uint8_t linkMode;                // 逻辑链路模式，SLE见QOSM_SleMode_T
-    uint8_t accessTransMode;         // 星闪接入层数据传输方式，当前仅支持单播,见QOSM_AccessTransMode_T
+    uint8_t linkMode;                // 逻辑链路模式，SLE见QOSM_SleMode_E
+    uint8_t accessTransMode;         // 星闪接入层数据传输方式，当前仅支持单播,见QOSM_AccessTransMode_E
     uint16_t srcPort;                // 业务源端口号
     uint16_t dstPort;                // 业务目的端口号
     QOSM_TransChannelSlqi_E slqi;    // 星闪QoS参数索引

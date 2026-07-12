@@ -34,6 +34,7 @@ class NearlinkHostServer : public SystemAbility, public NearlinkHostStub {
 public:
     void OnStart() override;
     void OnStop() override;
+    int32_t OnIdle(const SystemAbilityOnDemandReason &idleReason) override;
     int32_t OnSvcCmd(int32_t fd, const std::vector<std::u16string>& args) override;
 
     NlErrCode EnableSle(const SleAutoConnectPolicy autoConnPolicy =
@@ -116,6 +117,7 @@ private:
     static sptr<NearlinkHostServer> instance_;
     bool Init();
     bool PublishHostServer();
+    void NearlinkHostExtOnIdle();
 
     ServiceRunningState state_ = ServiceRunningState::STATE_IDLE;
 

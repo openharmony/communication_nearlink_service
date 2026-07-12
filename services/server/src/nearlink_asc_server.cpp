@@ -232,7 +232,7 @@ NlErrCode NearlinkASCServer::RegisterApplication(const sptr<INearlinkASCCallback
     pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
 
     HILOGI("[NearlinkASCServer]Register Callback success");
-    return NL_ERR_INTERNAL_ERROR;
+    return NL_NO_ERROR;
 }
 
 NlErrCode NearlinkASCServer::DeregisterApplication(const sptr<INearlinkASCCallback> &callback)

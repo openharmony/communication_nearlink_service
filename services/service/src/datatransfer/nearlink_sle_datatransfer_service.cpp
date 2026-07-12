@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -702,8 +702,7 @@ void SleDataTransferService::GetRemotePortByConnectionState(const std::string &a
             std::unordered_map<uint16_t, DataTransferConnectionParams> &paramMap = item->second->appConnectReqMap_;
             for (const auto &v : paramMap) {
                 DataTransferConnectionParams params = v.second;
-                params.state_ = static_cast<int32_t>(SleConnectState::DISCONNECTED);
-                pimpl->callback_->OnConnectionStateChanged(params, INVALID_FD); // 上报断连状态
+                ReportDisconnectState(params);
             }
             pimpl->ClearConnectReqAndTimer(addr);
         } else if (oldState == static_cast<int>(SleConnectState::CONNECTED)) {
@@ -862,7 +861,7 @@ void SleDataTransferService::ConnectPeerPortInner(const DataTransferConnectionPa
         HILOGI("portId: %{public}d, addr: %{public}s, connectParam state: %{public}d",
             params.GetPort(), GET_ENCRYPT_ADDR(device), temp.state_);
         pimpl->callback_->OnConnectionStateChanged(temp, INVALID_FD);
-    } else { // 音频管家 直接创建PORT CHANNEL
+    } else { // 若ACB和PORT PROFILE已连接 直接创建PORT CHANNEL
         GetRemotePortCreateChannel(params);
     }
 }
@@ -954,26 +953,35 @@ void SleDataTransferService::ConnectTimeout(const std::string addr, const uint16
     NL_CHECK_RETURN(item != pimpl->appConnectInfo_.end(), "no appConnectInfo.");
     std::unordered_map<uint16_t, DataTransferConnectionParams> &connParam = item->second->appConnectReqMap_;
     DataTransferConnectionParams params = connParam[portId];
-    params.state_ = static_cast<int32_t>(SleConnectState::DISCONNECTED);
     connParam.erase(portId);
     if (connParam.empty()) {
         pimpl->ClearConnectReqAndTimer(addr);
     }
 
     // change connect state
+    ReportDisconnectState(params);
+}
+
+void SleDataTransferService::ReportDisconnectState(const DataTransferConnectionParams &params)
+{
     AppConnectParamMapping temp;
-    bool has = pimpl->GetAppConnectParamMapping(portId, addr, temp);
+    DataTransferConnectionParams reportParam(params);
+    bool has = pimpl->GetAppConnectParamMapping(params.GetPort(), params.GetAddress(), temp);
+
     NL_CHECK_RETURN(has, "can not find appConnectParam");
     if (temp.state == static_cast<int32_t>(SleConnectState::CONNECTING)) {
         temp.state = static_cast<int32_t>(SleConnectState::DISCONNECTED);
-        pimpl->UpdateAppConnectParamMapping(portId, temp);
+        reportParam.SetState(static_cast<int32_t>(SleConnectState::DISCONNECTED));
+        pimpl->UpdateAppConnectParamMapping(params.GetPort(), temp);
         HILOGI("set appConnectParam disconnect.");
-        pimpl->callback_->OnConnectionStateChanged(params, INVALID_FD); // 上报状态更新为断链信息
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
+        pimpl->callback_->OnConnectionStateChanged(reportParam, INVALID_FD); // 上报状态更新为断链信息
     }
 }
 
 void SleDataTransferService::GetRemotePortCreateChannel(const DataTransferConnectionParams &params)
 {
+    NL_CHECK_RETURN(TryUpdateConnectReqParam(params), "tryUpdateConnectReqParam failed");
     // 1.获取对端port
     PortService *portService = PortService::GetPortService();
     NL_CHECK_RETURN(portService, "PortService empty");
@@ -982,9 +990,9 @@ void SleDataTransferService::GetRemotePortCreateChannel(const DataTransferConnec
     if (remotePort == 0) {
         DftReportDtfrExcepInfo(params.GetAddress(), params.GetUuid(), EXCEP_CONNECT, GET_PEER_PORT_FAIL);
         HILOGE("dt getRemotePort failed");
+        ReportDisconnectState(params);
         return;
     }
-    NL_CHECK_RETURN(TryUpdateConnectReqParam(params), "tryUpdateConnectReqParam failed");
 
     // 2.获取对端tcid
     QOSM_TransChannelParams_S channelParams;
@@ -1008,6 +1016,7 @@ void SleDataTransferService::GetRemotePortCreateChannel(const DataTransferConnec
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         DftReportDtfrExcepInfo(params.address_, params.GetUuid(), EXCEP_CONNECT, CONNECT_GET_TCID_ERR);
         HILOGE("DT stack create channel failed");
+        ReportDisconnectState(params);
         return;
     }
 }

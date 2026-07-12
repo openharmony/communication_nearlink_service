@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 #include "qosm_audio_dfx.h"
 #include "qosm_antenna_dfx.h"
 #include <time.h>
@@ -43,6 +43,7 @@
 #define QOSM_REPORT_CNT_IN_FIRST_STARTED 1
 
 enum {
+    QOSM_BITRATE_32,
     QOSM_BITRATE_64,
     QOSM_BITRATE_96,
     QOSM_BITRATE_192,
@@ -134,10 +135,11 @@ struct QOSM_AudioDfx {
     uint32_t bitrateChangeFailCnt;
 
     uint32_t powerLevelIndex;
+    uint32_t frameType;
 
     uint32_t curBand;
     uint64_t curBandStartTs;
-    uint64_t bandContinousTime[QOSM_AUDIO_DFX_BAND_MAX][QOSM_POWER_LEVEL_CNT];
+    uint64_t bandContinousTime[QOSM_AUDIO_DFX_BAND_MAX][QOSM_POWER_LEVEL_CNT][QOSM_FRAME_TYPE_MAX];
 
     uint64_t choppyReportedTs;
 
@@ -154,7 +156,7 @@ static QOSM_AudioDfxDspStatusCb g_qosmAudioDfxDspStatusCb = NULL;
 static QOSM_AudioDfxFlowCtrlCb g_qosmAudioDfxFlowCtrlCb = NULL;
 
 static const uint32_t g_qosmAudioDfxBitrateArray[QOSM_BITRATE_MAX] = {
-    64, 96, 192, 256, 320, 640, 960, 1500, 2300, 4600,
+    32, 64, 96, 192, 256, 320, 640, 960, 1500, 2300, 4600,
 };
 
 static const unsigned char g_decodingTable[DECODE_TABLE_LEN] = {
@@ -771,6 +773,7 @@ void QOSM_AudioDfxStart(struct QOSM_AudioDfxInfo *info)
     g_qosmAudioDfx.curBand = QOSM_AUDIO_DFX_BAND_2G;
     g_qosmAudioDfx.curBandStartTs = QOSM_GetCurrTimeMs();
     g_qosmAudioDfx.powerLevelIndex = QOSM_POWER_LEVEL_CNT;
+    g_qosmAudioDfx.frameType = QOSM_FRAME_TYPE_MAX;
 
     g_qosmAudioDfx.stats.sduInterval = info->param.sduInterval / QOSM_US_TO_MS;
     g_qosmAudioDfx.stats.flushTimeout = info->param.ft;
@@ -810,14 +813,32 @@ void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected)
     }
 }
 
+static uint64_t QOSM_GetBandFrameLevelDuration(uint32_t band, uint8_t frameType, uint8_t powerLevel)
+{
+    if (band >= QOSM_AUDIO_DFX_BAND_MAX ||
+        frameType >= QOSM_FRAME_TYPE_MAX ||
+        powerLevel < QOSM_POWER_LEVEL_MIN || powerLevel > QOSM_POWER_LEVEL_MAX) {
+        return 0;
+    }
+
+    uint32_t levelIndex = powerLevel - QOSM_POWER_LEVEL_MIN;
+    if (levelIndex >= QOSM_POWER_LEVEL_CNT) {
+        return 0;
+    }
+
+    return g_qosmAudioDfx.bandContinousTime[band][levelIndex][frameType];
+}
+
 static void QOSM_AudioDfxBandFormat(void)
 {
     QOSM_LOGI("band change cnt: %u", g_qosmAudioDfx.stats.bandChangeCnt);
 
     for (uint32_t i = 0; i < QOSM_AUDIO_DFX_BAND_MAX; i++) {
         for (uint32_t j = 0; j < QOSM_POWER_LEVEL_CNT; j++) {
-            QOSM_LOGI("band: %u, power level: %u, duration: %" PRIu64,
-                i, j + QOSM_POWER_LEVEL_MIN, g_qosmAudioDfx.bandContinousTime[i][j]);
+            QOSM_LOGI("band: %u, power level: %u, frame type 1, duration: %" PRIu64
+                ", frame type 4, duration : %" PRIu64, i, j + QOSM_POWER_LEVEL_MIN,
+                g_qosmAudioDfx.bandContinousTime[i][j][QOSM_FRAME_TYPE_1],
+                g_qosmAudioDfx.bandContinousTime[i][j][QOSM_FRAME_TYPE_4]);
         }
 
         if (i == QOSM_AUDIO_DFX_BAND_5G_1) {
@@ -826,17 +847,29 @@ static void QOSM_AudioDfxBandFormat(void)
 
         char *buf = (i == QOSM_AUDIO_DFX_BAND_2G) ? g_qosmAudioDfx.stats.band2GInfo : g_qosmAudioDfx.stats.band5GInfo;
         uint32_t bufLen = DFX_STR_LEN;
-        uint64_t timeInLevel5 = g_qosmAudioDfx.bandContinousTime[i][QOSM_POWER_LEVEL_5 - QOSM_POWER_LEVEL_MIN];
-        uint64_t timeInLevel6 = g_qosmAudioDfx.bandContinousTime[i][QOSM_POWER_LEVEL_6 - QOSM_POWER_LEVEL_MIN];
-        uint64_t timeInLevel7 = g_qosmAudioDfx.bandContinousTime[i][QOSM_POWER_LEVEL_7 - QOSM_POWER_LEVEL_MIN];
-        uint64_t timeInLevel8 = g_qosmAudioDfx.bandContinousTime[i][QOSM_POWER_LEVEL_8 - QOSM_POWER_LEVEL_MIN];
-        uint64_t totalTime = timeInLevel5 + timeInLevel6 + timeInLevel7 + timeInLevel8;
-        int ret = sprintf_s(buf, bufLen, "{%u.%u,%u.%u,%u.%u,%u.%u,%u.%u}",
-            timeInLevel5 / QOSM_MS_TO_SEC, timeInLevel5 % QOSM_MS_TO_SEC,
-            timeInLevel6 / QOSM_MS_TO_SEC, timeInLevel6 % QOSM_MS_TO_SEC,
-            timeInLevel7 / QOSM_MS_TO_SEC, timeInLevel7 % QOSM_MS_TO_SEC,
-            timeInLevel8 / QOSM_MS_TO_SEC, timeInLevel8 % QOSM_MS_TO_SEC,
-            totalTime    / QOSM_MS_TO_SEC, totalTime    % QOSM_MS_TO_SEC);
+        uint64_t timeF1_L5 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_1, QOSM_POWER_LEVEL_5);
+        uint64_t timeF1_L6 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_1, QOSM_POWER_LEVEL_6);
+        uint64_t timeF1_L7 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_1, QOSM_POWER_LEVEL_7);
+        uint64_t timeF1_L8 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_1, QOSM_POWER_LEVEL_8);
+        uint64_t timeF4_L5 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_4, QOSM_POWER_LEVEL_5);
+        uint64_t timeF4_L6 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_4, QOSM_POWER_LEVEL_6);
+        uint64_t timeF4_L7 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_4, QOSM_POWER_LEVEL_7);
+        uint64_t timeF4_L8 = QOSM_GetBandFrameLevelDuration(i, QOSM_FRAME_TYPE_4, QOSM_POWER_LEVEL_8);
+
+        uint64_t grandTotalTime = timeF1_L5 + timeF1_L6 + timeF1_L7 + timeF1_L8 +
+                                 timeF4_L5 + timeF4_L6 + timeF4_L7 + timeF4_L8;
+
+        int ret = sprintf_s(buf, bufLen, "{%u.%u,%u.%u,%u.%u,%u.%u,%u.%u,%u.%u,%u.%u,%u.%u,%u.%u}",
+            timeF1_L5 / QOSM_MS_TO_SEC, timeF1_L5 % QOSM_MS_TO_SEC,
+            timeF1_L6 / QOSM_MS_TO_SEC, timeF1_L6 % QOSM_MS_TO_SEC,
+            timeF1_L7 / QOSM_MS_TO_SEC, timeF1_L7 % QOSM_MS_TO_SEC,
+            timeF1_L8 / QOSM_MS_TO_SEC, timeF1_L8 % QOSM_MS_TO_SEC,
+            timeF4_L5 / QOSM_MS_TO_SEC, timeF4_L5 % QOSM_MS_TO_SEC,
+            timeF4_L6 / QOSM_MS_TO_SEC, timeF4_L6 % QOSM_MS_TO_SEC,
+            timeF4_L7 / QOSM_MS_TO_SEC, timeF4_L7 % QOSM_MS_TO_SEC,
+            timeF4_L8 / QOSM_MS_TO_SEC, timeF4_L8 % QOSM_MS_TO_SEC,
+            grandTotalTime / QOSM_MS_TO_SEC, grandTotalTime % QOSM_MS_TO_SEC);
+
         if (ret <= 0) {
             QOSM_LOGE("format failed failed");
         } else {
@@ -880,8 +913,11 @@ void QOSM_AudioDfxStop(void)
     }
 
     uint64_t bandDuration = cur - g_qosmAudioDfx.curBandStartTs;
-    if (g_qosmAudioDfx.curBand < QOSM_AUDIO_DFX_BAND_MAX && g_qosmAudioDfx.powerLevelIndex < QOSM_POWER_LEVEL_CNT) {
-        g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand][g_qosmAudioDfx.powerLevelIndex] += bandDuration;
+    if (g_qosmAudioDfx.curBand < QOSM_AUDIO_DFX_BAND_MAX &&
+        g_qosmAudioDfx.powerLevelIndex < QOSM_POWER_LEVEL_CNT &&
+        g_qosmAudioDfx.frameType < QOSM_FRAME_TYPE_MAX) {
+        g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand]
+            [g_qosmAudioDfx.powerLevelIndex][g_qosmAudioDfx.frameType] += bandDuration;
     }
 
     QOSM_LOGI("stop at %" PRIu64 ", total duration: %" PRIu64 ", dsp duration: %u, dsp report cnt: %u,"
@@ -954,21 +990,26 @@ void QOSM_AudioDfxUpdateBitrate(uint32_t bitrate)
         g_qosmAudioDfx.curBitrateStartTs = cur;
         g_qosmAudioDfx.curBitrate = bitrate;
         g_qosmAudioDfx.curBitrateIdx = nextBitrateIdx;
+        // 仅帧4通话支持码率 <= 32
+        uint8_t framType = (nextBitrateIdx <= QOSM_BITRATE_32) ? QOSM_FRAME_TYPE_4 : QOSM_FRAME_TYPE_1;
+        QOSM_AudioDfxUpdateFrameType(framType);
     }
 }
 
 static void QOSM_AudioDfxUpdateBandTime(void)
 {
-    if (g_qosmAudioDfx.powerLevelIndex >= QOSM_POWER_LEVEL_CNT) {
+    if (g_qosmAudioDfx.powerLevelIndex >= QOSM_POWER_LEVEL_CNT || g_qosmAudioDfx.frameType >= QOSM_FRAME_TYPE_MAX) {
         return;
     }
     uint64_t cur = QOSM_GetCurrTimeMs();
     uint64_t duration = cur - g_qosmAudioDfx.curBandStartTs;
-    g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand][g_qosmAudioDfx.powerLevelIndex] += duration;
+    g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand]
+        [g_qosmAudioDfx.powerLevelIndex][g_qosmAudioDfx.frameType] += duration;
     g_qosmAudioDfx.curBandStartTs = cur;
-    QOSM_LOGI("band %u, power level %hhu, duration: %" PRIu64 ", total duration: %" PRIu64,
-        g_qosmAudioDfx.curBand, g_qosmAudioDfx.powerLevelIndex + QOSM_POWER_LEVEL_MIN, duration,
-        g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand][g_qosmAudioDfx.powerLevelIndex]);
+    QOSM_LOGI("band %u, power level %hhu, frame type %hhu, duration: %" PRIu64 ", total duration: %" PRIu64,
+        g_qosmAudioDfx.curBand, g_qosmAudioDfx.powerLevelIndex + QOSM_POWER_LEVEL_MIN, g_qosmAudioDfx.frameType,
+        duration, g_qosmAudioDfx.bandContinousTime[g_qosmAudioDfx.curBand]
+            [g_qosmAudioDfx.powerLevelIndex][g_qosmAudioDfx.frameType]);
 }
 
 void QOSM_AudioDfxUpdateBand(uint32_t band)
@@ -1047,6 +1088,24 @@ void QOSM_AudioDfxUpdatePowerLevel(uint16_t connHandle, uint8_t level)
         g_qosmAudioDfx.powerLevelIndex + QOSM_POWER_LEVEL_MIN, newLevelIdx + QOSM_POWER_LEVEL_MIN);
     QOSM_AudioDfxUpdateBandTime();
     g_qosmAudioDfx.powerLevelIndex = newLevelIdx;
+}
+
+void QOSM_AudioDfxUpdateFrameType(uint8_t frameType)
+{
+    if (frameType < QOSM_FRAME_TYPE_1 || frameType > QOSM_FRAME_TYPE_MAX ||
+        g_qosmAudioDfx.frameType == frameType) {
+        return;
+    }
+
+    if (g_qosmAudioDfx.frameType >= QOSM_FRAME_TYPE_MAX) {
+        QOSM_LOGI("first update frame type %hhu", frameType);
+        g_qosmAudioDfx.frameType = frameType;
+        return;
+    }
+
+    QOSM_LOGI("update frame type from %hhu to %hhu", g_qosmAudioDfx.frameType, frameType);
+    QOSM_AudioDfxUpdateBandTime();
+    g_qosmAudioDfx.frameType = frameType;
 }
 
 #define QOSM_GET_DSP_STATUS_TIMEOUT_MS 3000

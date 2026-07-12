@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -189,6 +189,8 @@ static void TestDataPathChangedCallback(const QOSM_DataPathParamCb *param){};
 
 static void TestBitrateChangedCallback(const QOSM_BitrateParamCb *param, uint8_t paramCnt){};
 
+static void TestCallBitrateUpDownCbk(const QOSM_AutoRateSendMsgCb* param){};
+
 class UT_QOSM_AUTORATE_TEST : public testing::Test {
 protected:
     // SetUP 在每一个 TEST_F 测试开始前执行一次
@@ -212,6 +214,7 @@ protected:
         cbk.connChangedCbk = TestConnectionChangedCallback;
         cbk.dataPathChangedCbk = TestDataPathChangedCallback;
         cbk.paramChangedCbk = TestParamChangedCallback;
+        cbk.callBitrateUpDownCbk = TestCallBitrateUpDownCbk;
         EXPECT_EQ(QOSM_AutoRateRegisterCallback(&cbk), QOSM_SUCCESS);
         EXPECT_EQ(QOSM_Init(), QOSM_SUCCESS);
         EXPECT_EQ(QOSM_Enable(), QOSM_SUCCESS);
@@ -234,6 +237,7 @@ TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateRegisterFailAndUnregisterFail)
     cbk.connChangedCbk = TestConnectionChangedCallback;
     cbk.dataPathChangedCbk = TestDataPathChangedCallback;
     cbk.paramChangedCbk = TestParamChangedCallback;
+    cbk.callBitrateUpDownCbk = TestCallBitrateUpDownCbk;
     EXPECT_EQ(QOSM_AutoRateRegisterCallback(&cbk), g_registerRet);
 
     g_unregisterRet = QOSM_FAIL;

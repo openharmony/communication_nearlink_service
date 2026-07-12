@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,7 +163,8 @@ TEST_F(UT_CM_ICB_TEST, CM_ICGSetTestParam)
     EXPECT_NE(icbParam, nullptr);
     icgParam->icbParam = icbParam;
     icgParam->icbCnt = 1;
-    EXPECT_NE(CM_ICGSetTestParam(icgParam, true), CM_SUCCESS);
+    // ext wrapper func is null, return 0
+    EXPECT_EQ(CM_ICGSetTestParam(icgParam, true), CM_SUCCESS);
     EXPECT_NE(CM_ICGSetTestParam(icgParam, false), CM_SUCCESS);
     SDF_MemFree(icgParam);
     SDF_MemFree(icbParam);
@@ -206,11 +207,13 @@ TEST_F(UT_CM_ICB_TEST, CM_ICGSetLabel)
     icgLabel.type = CM_IOB;
     icgLabel.id = 0;
     CM_ICBChannel icg = { 0 };
+    EXPECT_EQ(CM_ICGSetLabel(&icgLabel, true, true), CM_INVALID_PARAM_ERR);
     icgLabel.icbCnt = 1;
     icgLabel.icb = &icg;
+    EXPECT_NE(CM_ICGSetLabel(&icgLabel, false, false), CM_SUCCESS);
     EXPECT_NE(CM_ICGSetLabel(&icgLabel, true, true), CM_SUCCESS);
     cbk1(&context, 0x00, &cmdRes);
-    EXPECT_NE(CM_ICGSetLabel(&icgLabel, true, true), CM_SUCCESS);
+    EXPECT_EQ(CM_ICGSetLabel(&icgLabel, true, false), CM_SUCCESS);
     SDF_MemFree(eventParameter1);
 }
 
@@ -233,7 +236,8 @@ TEST_F(UT_CM_ICB_TEST, CM_ICBAddConnection)
     icgLabel.type = CM_IOB;
     icgLabel.channelCnt = 1;
     icgLabel.channel = &channel;
-    EXPECT_NE(CM_ICBAddConnection(&icgLabel, true), CM_SUCCESS);
+    // ext wrapper fun is null, return 0
+    EXPECT_EQ(CM_ICBAddConnection(&icgLabel, true), CM_SUCCESS);
     EXPECT_NE(CM_ICBAddConnection(&icgLabel, false), CM_SUCCESS);
     SDF_MemFree(eventParameter1);
 }

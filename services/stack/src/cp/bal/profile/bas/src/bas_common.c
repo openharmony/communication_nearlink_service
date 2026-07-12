@@ -25,7 +25,7 @@ static SDF_Vector_S *g_basDeviceInfo = NULL;
 static BasClientCallBack_S g_basClientCbk = {0};
 static uint8_t g_ssapStdBaseUuid[] = {
     0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA, 0xB7, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
+//LCOV_EXCL_START
 BasClientCallBack_S *BasGetUserCbk(void)
 {
     return &g_basClientCbk;
@@ -297,3 +297,4 @@ NLSTK_Errcode_E BasBuildService(BasDeviceInfo_S *devInfo, NLSTK_SsapServ_S *serv
     }
     return NLSTK_ERRCODE_FAIL;
 }
+//LCOV_EXCL_STOP

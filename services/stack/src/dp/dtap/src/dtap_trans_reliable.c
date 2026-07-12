@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@
 #include "sdf_mem.h"
 
 #define SEND_POLLING_CNT_THRESHOLD_FACTOR 4
+#define MAX_BASE_RETRANS_TIMEOUT 15
+
+static void DTAP_RetransTimerExpireProc(void *args);
 
 static uint32_t DTAP_SendAckFrame(DTAP_Channel_S *channel, bool fBit, bool sBit)
 {
@@ -108,7 +111,7 @@ static bool DTAP_CheckEnhanceFrameTxSeq(const DTAP_RxWindow_S *window, uint16_t 
         return true;
     }
 
-    uint16_t boundarySeq = ((window->bufferSeq + window->size) & DTAP_FRAME_SEQ_MAX);
+    uint16_t boundarySeq = (((uint16_t)(window->bufferSeq + window->size)) & DTAP_FRAME_SEQ_MAX);
     if (!DTAP_IsFrameSeqSmaller(txSeq, boundarySeq)) {
         return false;
     }
@@ -210,12 +213,51 @@ static void DTAP_ReorderTimerExpireProc(void *args)
     reliable->nackCnt++;
 }
 
+static uint16_t DTAP_CalculateRetransTimeout(uint16_t baseTimeout, uint8_t count)
+{
+    if (count == 0) {
+        return baseTimeout;
+    }
+
+    // 防止溢出
+    uint8_t safeCount = count > MAX_BASE_RETRANS_TIMEOUT ? MAX_BASE_RETRANS_TIMEOUT : count;
+    if (baseTimeout > (UINT16_MAX >> safeCount)) {
+        // 如果会溢出，返回最大值
+        return UINT16_MAX;
+    }
+
+    return baseTimeout << safeCount;
+}
+ 
+static void DTAP_SetPbitForSendPolling(DTAP_Frame_S *frame, uint16_t crcInit)
+{
+    if (frame == NULL) {
+        return;
+    }
+    DTAP_BasicHeader_S *frameHeader = (DTAP_BasicHeader_S *)SDF_DataOffset(frame->buff);
+    uint8_t oriBits = frameHeader->typeBits >> DTAP_BASIC_FRAME_BITS_SHIFT;
+    uint8_t newBits = oriBits | DTAP_FRAME_P_BIT;
+    if (oriBits == newBits) {
+        // 已设置pBit，无需重复设置
+        return;
+    }
+    if (DTAP_SetFrameBit(frameHeader, newBits) == DTAP_SUCCESS) {
+        DTAP_LOGI("p bit is set in sending frame tx seq %hu", frame->enhance.txSeq);
+        // recalculate crc value
+        uint32_t ret = DTAP_ReCalculateCrcValue(crcInit, frame);
+        if (ret != DTAP_SUCCESS) {
+            (void)DTAP_SetFrameBit(frameHeader, oriBits);
+            DTAP_LOGE("recalculate crc value failed, ret: 0x%08x.", ret);
+        }
+    }
+}
+
 static uint32_t DTAP_RetransEnhanceFrame(DTAP_Channel_S *channel)
 {
     DTAP_ReliableChannel_S *reliable = (DTAP_ReliableChannel_S *)channel->attr;
     DTAP_Frame_S *frame = DTAP_FindFrameBySeq(&(reliable->txWindow.txList), reliable->reTxSeq);
     DTAP_LOGD("Retrans frame, lcid:%hu, tcid: %hhu, reTxSeq: %hu", channel->lcid,
-            channel->dstTcid, reliable->reTxSeq);
+        channel->dstTcid, reliable->reTxSeq);
     if (frame == NULL) {
         DTAP_LOGE("find frame err. lcid: %hu, tcid: %hhu, reTxSeq: %hu", channel->lcid,
             channel->dstTcid, reliable->reTxSeq);
@@ -229,6 +271,8 @@ static uint32_t DTAP_RetransEnhanceFrame(DTAP_Channel_S *channel)
         return DTAP_TRANS_RELIABLE_REACH_MAX_RE_TX_CNT_ERR;
     }
 
+    // 重传报文设置pBit，期望对端立刻回复ack
+    DTAP_SetPbitForSendPolling(frame, reliable->crcInit);
     SDF_Buff_S *buff = SDF_BuffCopy(frame->buff);
     if (buff == NULL) {
         DTAP_LOGE("copy buff failed");
@@ -250,6 +294,13 @@ static uint32_t DTAP_RetransEnhanceFrame(DTAP_Channel_S *channel)
         (void)DTAP_TransRestartTimer(&reliable->rspTimer, reliable->rspTimeout, true,
             DTAP_RspTimerExpireProc, channel);
     }
+
+    // 触发重传，重启重传定时器
+    (void)DTAP_TransRestartTimer(&reliable->retransTimer,
+        DTAP_CalculateRetransTimeout(reliable->retransTimeout, frame->enhance.reTxCnt),
+        true,
+        DTAP_RetransTimerExpireProc,
+        channel);
     return DTAP_SUCCESS;
 }
 
@@ -383,7 +434,7 @@ static void DTAP_OperateReorderTimer(DTAP_Channel_S *transChan)
         // ExpectedTxSeq < MaxExpectedTxSeq启动重排序定时器
         if (DTAP_IsFrameSeqSmaller(reliable->rxWindow.expectedTxSeq, reliable->rxWindow.maxExpectedTxSeq)) {
             (void)DTAP_TransStartTimer(&reliable->reorderTimer, reliable->reorderTimeout, true,
-            DTAP_ReorderTimerExpireProc, transChan);
+                DTAP_ReorderTimerExpireProc, transChan);
         }
         return;
     }
@@ -448,7 +499,7 @@ static void DTAP_RecvEnhanceFrameInner(DTAP_Channel_S *transChan, int (*recvCb)(
 }
 
 static void DTAP_SetTransChannelStatus(DTAP_Channel_S *transChan, uint16_t result,
-                                        int (*recvCb)(DTAP_Data_Info_S *, SDF_Buff_S *))
+                                       int (*recvCb)(DTAP_Data_Info_S *, SDF_Buff_S *))
 {
     DTAP_LOGI("SetTransChannelStatus, result:%hu", result);
     if (result == DTAP_SUCCESS) {
@@ -488,8 +539,15 @@ static uint32_t DTAP_RecvEnhanceFrame(DTAP_Channel_S *transChan, DTAP_Frame_S *d
 
     // pbit为1需要立即回复ack帧
     DTAP_ReliableChannel_S *reliable = (DTAP_ReliableChannel_S *)transChan->attr;
+    bool isNeedToSendAckFrame = false;
     if (DTAP_CheckFrameBit(copyFrame->bits, DTAP_FRAME_P_BIT)) {
         DTAP_LOGI("p bit is set in received frame tx seq %hu, send ack immediately", copyFrame->enhance.txSeq);
+        isNeedToSendAckFrame = true;
+    }
+
+    DTAP_RecvEnhanceFrameInner(transChan, recvCb);
+    // 如果收到的报文设置了p指示位，在接收报文，更新bufferSeq后发送ack
+    if (isNeedToSendAckFrame) {
         ret = DTAP_SendAckFrame(transChan, true, false);
         if (ret != DTAP_SUCCESS) {
             DTAP_LOGE("send ack frame err. ret: %08x", ret);
@@ -500,7 +558,6 @@ static uint32_t DTAP_RecvEnhanceFrame(DTAP_Channel_S *transChan, DTAP_Frame_S *d
         }
     }
 
-    DTAP_RecvEnhanceFrameInner(transChan, recvCb);
     DTAP_TransChannelStatusChange(transChan, DTAP_SUCCESS);
     return DTAP_SUCCESS;
 }

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 #include "dli_layer_config.h"
 #include "dli_nbc_event.h"
 #include "dli_cmd_struct.h"
-#include "sl_ext_func_wrapper.h"
 
 #define DLI_CP_BLOCK_TIMEOUT 3000 // ms
 

@@ -131,6 +131,7 @@ enum class PairingState {
 };
 
 enum class DeviceClass {
+    DEVICE_INVALID_CLASS = -1,                  // Invalid device class. Missing device class information.
     DEVICE_UNCATEGORIZED = 0x000100,            // Unclassified device.
     DEVICE_PHONE = 0x000200,                    // General phone.
     DEVICE_SMARTPHONE = 0x000201,               // Smartphone.

@@ -360,6 +360,7 @@ int32_t NearlinkHostStub::RemovePairInner(NearlinkHostStub *stub, MessageParcel 
 {
     HILOGD("Enter");
     sptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
+    NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device is nullptr");
     NlErrCode result = stub->RemovePair(device);
     NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "WriteInt32 failed.");
     return NO_ERROR;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,8 +165,9 @@ static void DTAP_DLIConnectCbk(void *context, uint16_t status, DLI_ExecuteCmdRet
         DTAP_LOGE("param is null");
         return;
     }
-    DLI_ConnectionCompleteEvt *evt = (DLI_ConnectionCompleteEvt *)cmdRes->eventParameter;
-    if (DTAP_AddLcidBufferNode(evt->connHandle)) {
+    DLI_ConnectionCompleteEvt *param = (DLI_ConnectionCompleteEvt *)cmdRes->eventParameter;
+    uint16_t connHandle = DECODE2BYTE_LITTLE((uint8_t *)&param->connHandle);
+    if (DTAP_AddLcidBufferNode(connHandle)) {
         DTAP_RecalcLcidQuota();
     }
 }
@@ -313,7 +314,6 @@ static void DTAP_DLIDataNumChangecbk(DLI_DataType type, uint16_t dataNum)
 static void DTAP_DLIAcbNumChangeRegister(DLI_AcbNumChangeCbk cbk)
 {
     g_acbNumChangeCbk = cbk;
-    DLI_DataNumChangeRegister(DTAP_DLIDataNumChangecbk);
 }
 
 static void DTAP_SchedulerInitInner(void *args)
@@ -340,6 +340,7 @@ static void DTAP_SchedulerInitInner(void *args)
     if (ret != DLI_SUCCESS) {
         DTAP_LOGE("register dli disconnect cbk failed, ret %d", ret);
     }
+    DLI_DataNumChangeRegister(DTAP_DLIDataNumChangecbk);
     COLLAB_TransFuncExt transFunc = {};
     transFunc.setApBufferNum = DTAP_SetApBufferNum;
     transFunc.dliAcbNumGet = DTAP_DLIAcbNumGet;
@@ -493,7 +494,7 @@ static void DTAP_PriorityQueuePop(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode
     }
 }
 
-static bool DTAP_CanSend(DTAP_LcidBufferNode *node)
+static bool DTAP_CanSend(const DTAP_LcidBufferNode *node)
 {
     return node == NULL ? false : g_sendNotAckPktCnt >= g_apBufferNum ? false : node->sendNotAckPktCnt < node->quota;
 }

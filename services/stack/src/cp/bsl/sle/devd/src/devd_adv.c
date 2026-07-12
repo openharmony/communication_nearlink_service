@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,37 +112,80 @@ static uint8_t GetAdvDataOperation(uint16_t totalLen, DevdAdvDataOp_S *op)
     }
 }
 
+static DLI_AdvData *BuildDliAdvParam(DevdAdvNode_S *node)
+{
+    NLSTK_DevdAdvData_S *data = node->tempData;
+    uint8_t operation = GetAdvDataOperation(data->advDataLen, &node->dataOp);
+    if (node->dataOp.sendLen == 0) {
+        NLSTK_LOG_WARN("[DEVD]sendLen %hhu is error", node->dataOp.sendLen);
+        return NULL;
+    }
+
+    uint32_t cmdSize = (uint32_t)sizeof(DLI_AdvData) + node->dataOp.sendLen;
+    DLI_AdvData *advData = (DLI_AdvData *)SDF_MemZalloc(cmdSize);
+    if (advData == NULL) {
+        NLSTK_LOG_ERROR("[DEVD]advData malloc failed");
+        return NULL;
+    }
+    advData->advHandle = node->handle;
+    advData->operation = operation;
+    advData->selection = 0;
+    advData->advDataLen = node->dataOp.sendLen;
+    if (memcpy_s(advData->advData, advData->advDataLen,
+        data->advData + node->dataOp.dataOffset, node->dataOp.sendLen) != EOK) {
+        SDF_MemFree(advData);
+        NLSTK_LOG_ERROR("[DEVD]memcpy failed");
+        return NULL;
+    }
+    return advData;
+}
+
+static DLI_ScanRspData *BuildDliScanRspParam(DevdAdvNode_S *node)
+{
+    NLSTK_DevdAdvData_S *data = node->tempData;
+    uint8_t operation = GetAdvDataOperation(data->scanRspDataLen, &node->dataOp);
+    if (node->dataOp.sendLen == 0) {
+        NLSTK_LOG_WARN("[DEVD]sendLen %hhu is error", node->dataOp.sendLen);
+        return NULL;
+    }
+
+    uint32_t cmdSize = (uint32_t)sizeof(DLI_ScanRspData) + node->dataOp.sendLen;
+    DLI_ScanRspData *scanRspData = (DLI_ScanRspData *)SDF_MemZalloc(cmdSize);
+    if (scanRspData == NULL) {
+        NLSTK_LOG_ERROR("[DEVD]scanRspData malloc failed");
+        return NULL;
+    }
+    scanRspData->advHandle = node->handle;
+    scanRspData->operation = operation;
+    scanRspData->selection = 0;
+    scanRspData->scanRspDataLen = node->dataOp.sendLen;
+    if (memcpy_s(scanRspData->scanRspData, scanRspData->scanRspDataLen,
+        data->scanRspData + node->dataOp.dataOffset, node->dataOp.sendLen) != EOK) {
+        SDF_MemFree(scanRspData);
+        NLSTK_LOG_ERROR("[DEVD]memcpy failed");
+        return NULL;
+    }
+    return scanRspData;
+}
+
 static void SendAdvDataToDli(DevdAdvNode_S *node)
 {
     NLSTK_CHECK_RETURN_VOID(node->param != NULL, "[DEVD]adv node param is null");
-    NLSTK_DevdAdvData_S *data = node->tempData;
-    if (data == NULL) {
+    if (node->tempData == NULL) {
         node->status = DEVD_SLE_STATUS_IDLE;
         return;
     }
     if (node->status == DEVD_SLE_STATUS_SET_ADV_DATA) {
-        uint32_t cmdSize = (uint32_t)sizeof(DLI_AdvData) + data->advDataLen;
-        DLI_AdvData *advData = (DLI_AdvData *)SDF_MemZalloc(cmdSize);
-        NLSTK_CHECK_RETURN_VOID(advData != NULL, "[DEVD]advData malloc failed");
-        advData->advHandle = node->handle;
-        advData->operation = GetAdvDataOperation(data->advDataLen, &node->dataOp);
-        advData->selection = 0;
-        advData->advDataLen = data->advDataLen;
-        (void)memcpy_s(advData->advData, data->advDataLen, data->advData, data->advDataLen);
-        DLI_SetAdvData(advData, node->dataOp.dataOffset);
+        DLI_AdvData *advData = BuildDliAdvParam(node);
+        NLSTK_CHECK_RETURN_VOID(advData != NULL, "[DEVD]advData is null");
+        DLI_SetAdvData(advData);
         node->dataOp.dataOffset += node->dataOp.sendLen;
         SDF_MemFree(advData);
     } else if (node->status == DEVD_SLE_STATUS_SET_SCAN_RSP_DATA &&
         node->param->basic.advMode >= ADV_MODE_NONCONN_SCANABLE) {
-        uint32_t cmdSize = (uint32_t)sizeof(DLI_ScanRspData) + data->scanRspDataLen;
-        DLI_ScanRspData *scanRspData = (DLI_ScanRspData *)SDF_MemZalloc(cmdSize);
-        NLSTK_CHECK_RETURN_VOID(scanRspData != NULL, "[DEVD]scanRspData malloc failed");
-        scanRspData->advHandle = node->handle;
-        scanRspData->operation = GetAdvDataOperation(data->scanRspDataLen, &node->dataOp);
-        scanRspData->selection = 0;
-        scanRspData->scanRspDataLen = data->scanRspDataLen;
-        (void)memcpy_s(scanRspData->scanRspData, data->scanRspDataLen, data->scanRspData, data->scanRspDataLen);
-        DLI_SetScanRspData(scanRspData, node->dataOp.dataOffset);
+        DLI_ScanRspData *scanRspData = BuildDliScanRspParam(node);
+        NLSTK_CHECK_RETURN_VOID(scanRspData != NULL, "[DEVD]scanRspData is null");
+        DLI_SetScanRspData(scanRspData);
         node->dataOp.dataOffset += node->dataOp.sendLen;
         SDF_MemFree(scanRspData);
     } else {

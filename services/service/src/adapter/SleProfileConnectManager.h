@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ struct SleProfileConnectManagerFucs {
     std::function<void(const RawAddress &, const SleConnectionChangedParam &)> notifyConnectionStateChanged = nullptr;
     std::function<void(const RawAddress &, uint8_t)> disconnectAcb = nullptr;
     std::function<void(const RawAddress &)> sendImgSecuConfig = nullptr;
+    std::function<void(const RawAddress &)> onAllProfileDisconnected = nullptr;
 };
 
 class SleProfileConnectManager {

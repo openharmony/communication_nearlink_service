@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 #include "DialogGenerate.h"
 #include "ServiceManagerPluginLoader.h"
 #include "refbase.h"
-#include "ability_connection.h"
-#include "ability_connect_callback.h"
 #include "extension_manager_client.h"
 #include "int_wrapper.h"
 #include "string_wrapper.h"

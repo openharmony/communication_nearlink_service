@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ uint32_t TEST_DLI_SetAdvParam(DLI_AdvParam *advParam)
     return 0;
 }
 
-uint32_t TEST_DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff, uint16_t dataLen, uint16_t ops)
+uint32_t TEST_DLI_SetAdvData(DLI_AdvData *advData)
 {
     return 0;
 }

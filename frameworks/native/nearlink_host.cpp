@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,11 +42,8 @@
 namespace OHOS {
 namespace Nearlink {
 namespace {
-#ifdef WATCH_STANDARD
-    constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 20000;
-#else
-    constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 5000;
-#endif
+constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 20000;
+
 #ifdef NEARLINK_HOST_AVOID_SLEEP
     const uint16_t WAKE_TIME = 3000; //3s
 #endif

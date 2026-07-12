@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -42,6 +42,7 @@ extern "C" {
 typedef struct {
     uint8_t rxWnd;  // 可靠模式接收窗口大小
     uint16_t supportTransMode;  // 支持的传输模式
+    uint16_t mtu;   // 支持的mtu大小
 } CM_CapInfo_S;
 
 /**

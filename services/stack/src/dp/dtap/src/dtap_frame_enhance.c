@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -257,7 +257,7 @@ static uint32_t DTAP_ParseEnhanceFrame(const DTAP_FrameCtx_S *ctx)
 {
     DTAP_Frame_S *frame = SDF_CONTAINER_OF(ctx, DTAP_Frame_S, ctx);
     uint64_t dataLen = SDF_DataLenGet(frame->buff);
-    uint16_t headerLen = ctx->getHeaderLen();
+    uint8_t headerLen = ctx->getHeaderLen();
     if (dataLen < headerLen) {
         return DTAP_ENHANCED_FRAME_HDR_LEN_TOO_SHORT;
     }

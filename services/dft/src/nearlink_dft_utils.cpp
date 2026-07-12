@@ -124,11 +124,10 @@ std::string GetMillTime(bool withDate)
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % MILLSEC;
     std::time_t nowC = std::chrono::system_clock::to_time_t(now);
-    auto nowTmp = std::localtime(&nowC);
-    if (!nowTmp) {
+    std::tm nowTm;
+    if (localtime_r(&nowC, &nowTm) == nullptr) {
         return "";
     }
-    std::tm nowTm = *nowTmp;
     std::stringstream ss;
     if (withDate) {
         ss << std::put_time(&nowTm, "%Y-%m-%d %H:%M:%S");

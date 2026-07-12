@@ -11,8 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         nlstk_devd.h
- * @brief        设备发现模块
  */
 #ifndef NLSTK_DEVD_H
 #define NLSTK_DEVD_H

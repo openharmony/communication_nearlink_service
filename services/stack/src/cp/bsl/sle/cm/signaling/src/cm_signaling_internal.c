@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,5 +113,6 @@ uint32_t CM_GetLogicLinkCapInfo(CM_CapInfo_S *capInfo, const SLE_Addr_S *addr)
     }
     capInfo->rxWnd = link->rxWnd;
     capInfo->supportTransMode = link->supportTransMode;
+    capInfo->mtu = link->mtu;
     return CM_SUCCESS;
 }

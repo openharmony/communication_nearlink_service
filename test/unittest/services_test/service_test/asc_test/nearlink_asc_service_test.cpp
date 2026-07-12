@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2248,8 +2248,8 @@ HWTEST_F(ASCServiceTest, StartStartPlayingTimer_001, TestSize.Level1)
 
     AscQosmInfo qosmInfo {};
     asc->SetASCStatus(device, NL_SLE_ASC_STARTING);
-    asc->StartStartPlayingTimer(device);
-    asc->StopStartPlayingTimer(device);
+    asc->EnableStartPlayingTimer(device);
+    asc->DisableStartPlayingTimer(device);
     asc->activeSinkDevice_ = device;
     asc->StartPlayingTimeout(device);
     EXPECT_EQ(false, NL_SLE_ASC_CREATED == asc->GetASCStatus(device));
@@ -2281,8 +2281,8 @@ HWTEST_F(ASCServiceTest, StartStopPlayingTimer_001, TestSize.Level1)
 
     AscQosmInfo qosmInfo {};
     asc->SetASCStatus(device, NL_SLE_ASC_STARTING);
-    asc->StartStopPlayingTimer(device);
-    asc->StopStopPlayingTimer(device);
+    asc->EnableStopPlayingTimer(device);
+    asc->DisableStopPlayingTimer(device);
     asc->activeSinkDevice_ = device;
     asc->StopPlayingTimeout();
     EXPECT_EQ(false, NL_SLE_ASC_CREATED == asc->GetASCStatus(device));
@@ -2314,8 +2314,8 @@ HWTEST_F(ASCServiceTest, StartStopDelayTimer_001, TestSize.Level1)
 
     AscQosmInfo qosmInfo {};
     asc->SetASCStatus(device, NL_SLE_ASC_STARTING);
-    asc->StartStopDelayTimer(device);
-    asc->StoStopDelayTimer(device);
+    asc->EnableStopDelayTimer(device);
+    asc->DisableStopDelayTimer(device);
     asc->StopDelayTimeout();
     ASCMessage event {};
     event.dev_ = device.GetAddress();
@@ -3935,7 +3935,6 @@ HWTEST_F(ASCServiceTest, StackLocationChangeCbk_001, TestSize.Level1)
     asc->ProcessStackLocationChangeCbk(event);
     StackLocationChangeCbk(&addrSle, true);
     StackLocationChangeCbk(&addrSle, false);
-    delete asc;
     StackLocationChangeCbk(&addrSle, false);
     HILOGI("StackLocationChangeCbk_001 end");
 }
@@ -5207,7 +5206,7 @@ HWTEST_F(ASCServiceTest, GetStreamQos_ColAudio_001, TestSize.Level1)
     RawAddress device(deviceStr);
     asc->AddConnectDevices(device);
     asc->isColAudioEnabled_ = true;
-    Qos qos = asc->GetStreamQos(device, AUDIO_STREAM_MUSIC);
+    Qos qos = asc->GetStreamQos(device, AUDIO_STREAM_VIDEO);
     EXPECT_EQ(NL_SLE_QOS_10, qos);
     qos = asc->GetStreamQos(device, AUDIO_STREAM_VOICE_CALL);
     EXPECT_NE(NL_SLE_QOS_10, qos);

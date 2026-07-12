@@ -1,5 +1,0 @@
-add_subdirectory(bsl)
-add_subdirectory(dfx)
-add_subdirectory(oal)
-add_subdirectory(sdffwk)
-add_subdirectory(utils)

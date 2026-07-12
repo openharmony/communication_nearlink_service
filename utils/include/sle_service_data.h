@@ -734,6 +734,22 @@ public:
     void SetAcbConnectState(int connectState);
 
     /**
+     * @brief Set acb disconnect reason.
+     *
+     * @param reason Acb disconnect reason.
+     * @since 6
+     */
+    void SetAcbDisConnReason(int reason);
+
+    /**
+     * @brief Get acb disconnect reason.
+     *
+     * @return Returns Acb disconnect reason.
+     * @since 6
+     */
+    int GetAcbDisConnReason() const;
+
+    /**
      * @brief Get acb connect state.
      *
      * @return Returns Acb connect state.
@@ -958,23 +974,6 @@ public:
      * @since 6
      */
     bool IsCdsmMember() const;
-
-    /**
-     * @brief Save cdsm device address list.
-     *
-     * @param cdsmDevList cdsm address list.
-     * @since 6
-     */
-    void SaveCdsmDeviceList(std::vector<std::string> &cdsmDevList);
-
-    /**
-     * @brief Get cdsm device address list.
-     *
-     * @param cdsmDevList cdsm address list.
-     * @return Returns cdsm address list.
-     * @since 6
-     */
-    void GetCdsmDeviceList(std::vector<std::string> &cdsmDevList) const;
 
     /**
      * @brief Set bt address.
@@ -1227,9 +1226,7 @@ private:
     std::string payload_;
     size_t payloadLen_ = 0;
     int acbConnectDirect_ = static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE);
-    /* 合作集地址类型，仅类型为report时,cdsmDeviceList_ 不为空 */
     int cdsmAddrType_ = static_cast<int>(SleCdsmAddrType::CDSM_TYPE_NONE);
-    std::vector<std::string> cdsmDeviceList_ {};
     std::string btAddr_ {};
     bool isAudioDevice_ = false;
     std::string modelId_ {};
@@ -1243,6 +1240,7 @@ private:
     std::string encryptGroupKeyStr_{};
     uint64_t giv_ = 0;
     bool isUserDisconnected_ = false; // 是否被用户主动断连
+    int acbDisConnReason_ = 0;
 };
 
 /**

@@ -262,6 +262,26 @@ bool SleRemoteDeviceManager::SetAcbState(const std::string &address, int connect
     });
 }
 
+bool SleRemoteDeviceManager::SetAcbDisConnReason(const std::string &address, int reason)
+{
+    return peerConnDeviceSafeList_.GetValueAndOpt(address, [reason](
+        std::string key, std::shared_ptr<SlePeripheralDevice> value) {
+        value->SetAcbDisConnReason(reason);
+    });
+}
+
+int SleRemoteDeviceManager::GetAcbDisConnReason(const std::string &address)
+{
+    int reason = 0;
+    auto func = [&reason](std::string key, std::shared_ptr<SlePeripheralDevice> value) -> void {
+        reason = value->GetAcbDisConnReason();
+    };
+    if (!peerConnDeviceSafeList_.GetValueAndOpt(address, func)) {
+        HILOGI("device doesn't exist");
+    }
+    return reason;
+}
+
 bool SleRemoteDeviceManager::SetLcid(const std::string &address, uint16_t lcid)
 {
     return peerConnDeviceSafeList_.GetValueAndOpt(address, [lcid](
@@ -695,14 +715,6 @@ bool SleRemoteDeviceManager::SetConnectionInfo(const RawAddress &device, uint16_
             value->SetAddressType(addrType);
             value->SetAcbConnectState(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
     });
-}
-
-void SleRemoteDeviceManager::SaveCdsmDeviceList(const RawAddress &device, std::vector<std::string> &cdsmDevList)
-{
-    auto func = [&cdsmDevList](std::string key, std::shared_ptr<SlePeripheralDevice> value) -> void {
-        value->SaveCdsmDeviceList(cdsmDevList);
-    };
-    peerConnDeviceSafeList_.GetValueAndOpt(device.GetAddress(), func);
 }
 
 void SleRemoteDeviceManager::SaveCdsmInfo(const RawAddress &reportAddr, bool isPrivate,

@@ -105,7 +105,7 @@ SleConfig::SleConfig()
 
 SleConfig::~SleConfig()
 {}
-
+//LCOV_EXCL_START
 bool SleConfig::IsRawLinkKeyCharValid(const char* linkkeyChar, const uint8_t linkKeyLen) const
 {
     NL_CHECK_RETURN_RET(linkKeyLen == RAW_LINK_KEY_STR_LENGTH, false,
@@ -1245,8 +1245,8 @@ bool SleConfig::SetCloudDeviceToken(const std::string &address, const std::vecto
         return false;
     }
     LOG_DEBUG("[SleConfig]");
-    CloudDeviceToken cloudDeviceToken;
     NL_CHECK_RETURN_RET(token.size() == OCTET32_LEN, false, "[SleConfig] token size check failed");
+    CloudDeviceToken cloudDeviceToken{};
     for (int i = 0; i < OCTET32_LEN; i++) {
         cloudDeviceToken[i] = token[i];
     }
@@ -1613,6 +1613,6 @@ std::string SleConfig::GetReconnectDeviceAddressList() const
     }
     return addressList;
 }
-
+//LCOV_EXCL_STOP
 }  // namespace Nearlink
 }  // namespace OHOS

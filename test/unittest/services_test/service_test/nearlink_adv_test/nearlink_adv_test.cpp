@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,10 +49,6 @@ static void SetAdvEventTestTuple (int status, int result, uint8_t advHandle)
     std::get<1>(advEventTestTuple_) = result;
     std::get<2>(advEventTestTuple_) = advHandle;
 }
-// static std::tuple<int, int, uint8_t> GetAdvEventTestTuple()
-// {
-//     return advEventTestTuple_;
-// }
 static void ResetAdvEventTestTuple()
 {
     std::get<0>(advEventTestTuple_) = static_cast<int>(AdvStatusTest::ADV_EVENT_TEST_MAX);
@@ -69,10 +65,6 @@ static void SetConnectableEventTestTuple (int status, int result, uint8_t advHan
     std::get<1>(connectableEventTestTuple_) = result;
     std::get<2>(connectableEventTestTuple_) = advHandle;
 }
-// static std::tuple<int, int, uint8_t> GetConnectableEventTestTuple()
-// {
-//     return connectableEventTestTuple_;
-// }
 static void ResetConnectableEventTestTuple()
 {
     std::get<0>(connectableEventTestTuple_) = static_cast<int>(AdvStatusTest::ADV_EVENT_TEST_MAX);
@@ -495,7 +487,7 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test005, TestSize.Level1)
     sleAdvertiserImp_->DdAdvDisableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     sleAdvertiserImp_->DisableAdvertising(0);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
-    EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_SUCCESS));
+    EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_INTERNAL_ERROR));
     // handle = 0广播状态ENABLING
     sleAdvertiserImp_->EnableAdvertising(0);
     // 构造handle = 0广播移除

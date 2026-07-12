@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,6 +169,7 @@ uint8_t SSAPS_UpdatePropertyValue(SSAP_Property_S *property, uint8_t type, SSAP_
         return SSAP_ERRCODE_SUCCESS;
     }
     SDF_MemFree(newVal);
+    CP_LOG_ERROR("[SSAP] SSAP_ERRCODE_DATA_TYPE");
     return SSAP_ERRCODE_DATA_TYPE;
 }
 
@@ -425,6 +426,7 @@ static SSAP_LoopControlType_E SSAPS_ValidateSubItem(SSAP_Link_S *link, SSAP_PduW
 {
     if (subItem->type > DESC_TYPE_PROPERTY_FORMAT) {
         *errCode = SSAP_ERRCODE_DATA_TYPE;
+        CP_LOG_ERROR("[SSAP] SSAP_ERRCODE_DATA_TYPE");
         return LOOP_RET_TRUE;
     }
 
@@ -432,6 +434,7 @@ static SSAP_LoopControlType_E SSAPS_ValidateSubItem(SSAP_Link_S *link, SSAP_PduW
     uint32_t opIndication = 0;
     if (!SSAPS_GetPermissionAndOperation(property, &permissions, &opIndication, subItem->type)) {
         *errCode = SSAP_ERRCODE_DATA_TYPE;
+        CP_LOG_ERROR("[SSAP] SSAPS_GetPermissionAndOperation fail");
         return LOOP_RET_TRUE;
     }
 
@@ -466,7 +469,7 @@ static SSAP_BufferedOperation_S *SSAPS_WriteReqMultiItemHandleComposeOperation(S
     operation->controlCode = writeReq->msgCtrl;
     (void)memcpy_s(operation->value.value, writeReqItem->len, writeReqItem->value, writeReqItem->len);
     (void)memcpy_s(&operation->addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
-    CP_LOG_INFO("[SSAP] write req handle handle: %d, type: %d", writeReqItem->type);
+    CP_LOG_INFO("[SSAP] write req handle handle: %d, type: %d", handle, writeReqItem->type);
     return operation;
 }
 
@@ -491,11 +494,10 @@ static SSAP_LoopControlType_E SSAPS_ExecWriteMultiSubItem(SSAP_Link_S *link, SSA
 
     SSAP_WriteOriginData_S *originDataItem = &results->originData[results->originDataCount++];
     originDataItem->dataType = operation->dataType;
-    originDataItem->value = SSAPS_GetPropertyValue(link, property, operation->dataType, &results->errorCode);
-    if (results->errorCode != SSAP_ERRCODE_SUCCESS) {
-        SDF_MemFree(operation);
-        return LOOP_BREAK;
-    }
+    originDataItem->value = (SSAP_LengthValue_S *)SDF_MemZalloc(sizeof(SSAP_LengthValue_S) + operation->value.len);
+    CP_CHECK_LOG_RETURN(originDataItem->value != NULL, LOOP_BREAK, "[SSAP] update property value malloc fail");
+    originDataItem->value->len = operation->value.len;
+    (void)memcpy_s(originDataItem->value->value, operation->value.len, operation->value.value, operation->value.len);
 
     SsapServerAppWriteValueCallback(operation);
     SDF_MemFree(operation);
@@ -526,7 +528,7 @@ static bool SSAPS_WriteMultiHandleItem(SSAP_Link_S *link, SSAP_PduWriteReq_S *wr
         } // SSAPS_ValidateSubItem只返回LOOP_RET_FALSE/LOOP_RET_TRUE/LOOP_CONTINUE/LOOP_NORMAL_EXECUTION
 
         SSAP_BufferedOperation_S *operation = SSAPS_WriteReqMultiItemHandleComposeOperation(link, writeReq,
-        multiItem->handle, subItem);
+            multiItem->handle, subItem);
         CP_CHECK_LOG_RETURN(operation != NULL, false, "[SSAP] write req handle operation is null.");
         ret = SSAPS_ExecWriteMultiSubItem(link, operation, property, results);
         if (ret == LOOP_RET_FALSE) {
@@ -540,6 +542,21 @@ static bool SSAPS_WriteMultiHandleItem(SSAP_Link_S *link, SSAP_PduWriteReq_S *wr
     }
 
     return true;
+}
+
+static void SSAPS_FreeWriteResult(SSAP_WriteResultItem_S *results, uint32_t itemCount)
+{
+    if (results == NULL) {
+        return;
+    }
+    for (uint32_t i = 0; i < itemCount; i++) {
+        for (uint32_t j = 0; j < DESC_TYPE_MAX; j++) {
+            if (results[i].originData[j].value != NULL) {
+                SDF_MemFree(results[i].originData[j].value);
+            }
+        }
+    }
+    SDF_MemFree(results);
 }
 
 static void SSAPS_WriteMultiHandleReq(SSAP_Link_S *link, SSAP_PduWriteReq_S *writeReq, uint16_t len)
@@ -565,7 +582,7 @@ static void SSAPS_WriteMultiHandleReq(SSAP_Link_S *link, SSAP_PduWriteReq_S *wri
             curResult->handle = multiItem->handle;
             multiItem = (SSAP_PduWriteMultiItem_S *)SSAPS_GetNextMultiItemPos(multiItem, &leftSize);
             if (multiItem == NULL) {
-                SDF_MemFree(results);
+                SSAPS_FreeWriteResult(results, itemCount);
                 return;
             }
             curResult++;
@@ -573,20 +590,20 @@ static void SSAPS_WriteMultiHandleReq(SSAP_Link_S *link, SSAP_PduWriteReq_S *wri
         }
 
         if (!SSAPS_WriteMultiHandleItem(link, writeReq, multiItem, curResult)) {
-            SDF_MemFree(results);
+            SSAPS_FreeWriteResult(results, itemCount);
             return;
         }
 
         multiItem = (SSAP_PduWriteMultiItem_S *)SSAPS_GetNextMultiItemPos(multiItem, &leftSize);
         if (multiItem == NULL) {
-            SDF_MemFree(results);
+            SSAPS_FreeWriteResult(results, itemCount);
             return;
         }
         curResult++;
     }
 
     SSAPS_SendMultiWriteReqRsp(link, results, itemCount, writeReq->msgCtrl);
-    SDF_MemFree(results);
+    SSAPS_FreeWriteResult(results, itemCount);
 }
 
 static SSAP_BufferedOperation_S *SSAPS_WriteReqHandleComposeOperation(SSAP_Link_S *link, uint16_t dataLen,

@@ -31,7 +31,6 @@ public:
 
 private:
     bool IsSetSleCoexParamAllowed();
-    bool IsUpdateConnectIntervalAllowed();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSleControllerServer);
     NEARLINK_DECLARE_IMPL();
 };

@@ -81,7 +81,6 @@ static void prepareForTest()
     SDF_ThreadInit(2e2);
     SDF_EvcInit();
     EXPECT_EQ(CM_SignalingCacheInit(), CM_SUCCESS);
-    // CP_WorkerEnable();
     EXPECT_EQ(CM_ConcurrentConnInit(), CM_SUCCESS);
     EXPECT_EQ(CM_Init(), CM_SUCCESS);
     DLI_ThreadInit();
@@ -89,7 +88,6 @@ static void prepareForTest()
 
 static void finishTest()
 {
-    // CP_WorkerDisable();
     CM_SignalingCacheDeinit();
     SDF_EvcDeinit();
     SDF_ThreadDeinit();

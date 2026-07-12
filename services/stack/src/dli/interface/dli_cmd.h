@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,10 @@ uint32_t DLI_ReadCommConfigValue(void);
 
 /**
  * @brief  设置查询参数
- * @param  [in]  < scanParam > 查询参数
+ * @param  [in]  < scanParam > 查询参数, 入参注意：
+ *                             frameFormatInd仅帧一，param至少传入一组扫描参数
+ *                             frameFormatInd仅帧四，param至少传入一组扫描参数
+ *                             frameFormatInd帧一和帧四公存的时候，param至少传入两组扫描参数
  * @return 0: 成功, OTHER: 失败
  */
 uint32_t DLI_SetScanParam(DLI_ScanParam *scanParam);
@@ -121,14 +124,14 @@ uint32_t DLI_SetAdvParam(DLI_AdvParam *advParam);
  * @param [in] advData 广播数据参数
  * @return 0: 成功, OTHER: 失败
  */
-uint32_t DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff);
+uint32_t DLI_SetAdvData(DLI_AdvData *advData);
 
 /**
  * @brief 设置扫描响应数据内容
  * @param [in] scanRspData 扫描响应数据参数
  * @return 0: 成功, OTHER: 失败
  */
-uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData, uint16_t dataOff);
+uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData);
 
 /**
  * @brief  开启广播

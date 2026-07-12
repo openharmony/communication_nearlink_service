@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -322,6 +322,8 @@ private:
     void ProfileConnTimeoutTask(const RawAddress &device);
     void OnAcbStateChanged(const RawAddress &device, const int connectState, int discReason) const;
     int GetAcbStateTask(const RawAddress &device) const;
+    bool SetAcbDisConnReasonTask(const std::string &address, int reason) const;
+    int GetAcbDisConnReasonTask(const std::string &address) const;
     int GetProfileConnStateTask(const RawAddress &device);
     bool IsAcbConnectedTask(const RawAddress &device) const;
     bool IsAcbEncryptedTask(const RawAddress &device) const;
@@ -333,6 +335,7 @@ private:
     bool IsServiceSupportedConn(const RawAddress &device) const;
     void DisconnectAllProfileInner(const RawAddress &device, bool &result, uint8_t discReason);
     bool ProcCdsmDisconnectAllProfile(const RawAddress &device, bool &result, uint8_t discReason);
+    void OnAllProfileDisconnected(const RawAddress &device);
     bool Disconnect(const RawAddress &addr);
     void DeleteDeviceInfoFiles() const;
     int GetUnDisconnectedCnt(const RawAddress &device) const;
@@ -341,11 +344,9 @@ private:
     std::vector<Uuid> GetDeviceUuidsTask(const RawAddress &device) const;
     bool SetBtAddrBySleAddrTask(const std::string &sleAddr, const std::string &btAddr) const;
     void ClearAllCdsmData(const RawAddress &device) const;
-//#ifdef CONN_DOWN
     void SendBgConnList() const;
     void RemoveBgConnDevice(const std::string &delAddr) const override;
     void SendDirectConnList() const;
-//#endif
     void SetSlePeripheralDeviceBasicInfo(const std::string &addr, std::shared_ptr<SlePeripheralDevice> &value) const;
     void SetSlePeripheralDeviceCdsmInfo(const std::string &addr, std::shared_ptr<SlePeripheralDevice> &value) const;
     void SetSlePeripheralDeviceModelInfo(const std::string &addr, std::shared_ptr<SlePeripheralDevice> &value) const;

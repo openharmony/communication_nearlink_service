@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,13 +26,11 @@ extern "C" {
 #endif
 
 struct DLI_LayerCallback {
-    DLI_WriteFileHandler writeFile;
     DLI_RecvEventHandler recvEvent;
     DLI_Callback dliCbk;
 };
 
 static struct DLI_LayerCallback g_callback = {
-    .writeFile = NULL,
     .recvEvent = NULL,
     .dliCbk.dftReportKill = NULL,
     .dliCbk.postOtherThread = NULL,
@@ -41,12 +39,6 @@ static struct DLI_LayerCallback g_callback = {
 };
 
 static DLI_DataNumChangecbk g_dataNumChangeCbk = NULL;
-
-void DLI_SetWriteFileCallback(DLI_WriteFileHandler handler)
-{
-    g_callback.writeFile = handler;
-    DLI_LOGI("DLI_SetWriteFileCallback %s", handler == NULL ? "disable" : "enable");
-}
 
 void DLI_SetRecvEventCallback(DLI_RecvEventHandler handler)
 {
@@ -70,14 +62,6 @@ uint32_t DLI_SetCallback(const DLI_Callback *callback)
 
     g_callback.dliCbk = *callback;
     return 0;
-}
-
-void DLI_FileWriteHandler(uint16_t type, const uint8_t *data, uint32_t len, int result)
-{
-    if (g_callback.writeFile == NULL) {
-        return;
-    }
-    g_callback.writeFile(type, data, len, result);
 }
 
 void DLI_AcbRecvHander(uint16_t lcid, SDF_Buff_S *buf)

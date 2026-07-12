@@ -47,6 +47,9 @@ enum ThreadId {
     THREAD_ID_MIC,
     THREAD_ID_AUDIO_FW_ADAPTER,
     THREAD_ID_DEVICE_ADAPTER,
+    THREAD_ID_FIND_CLIENT,
+    THREAD_ID_FIND_SERVER,
+    THREAD_ID_FIND_PDR,
     // please add before this.
     THREAD_ID_BUTT
 };
@@ -193,6 +196,27 @@ void DoInVasThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
  * @param delayTime Process the event after 'delayTime' milliseconds.
  */
 void DoInCollaborationThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
+
+/**
+ * @brief Post the task to the find client thread.
+ * @param func The task to be executed.
+ * @param delayTime Process the event after 'delayTime' milliseconds.
+ */
+void DoInFindClientThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
+
+/**
+ * @brief Post the task to the find server thread.
+ * @param func The task to be executed.
+ * @param delayTime Process the event after 'delayTime' milliseconds.
+ */
+void DoInFindServerThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
+
+/**
+ * @brief Post the task to the find pdr thread.
+ * @param func The task to be executed.
+ * @param delayTime Process the event after 'delayTime' milliseconds.
+ */
+void DoInFindPdrThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
 
 /**
  * @brief Post the task to the bas thread.

@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -27,18 +27,9 @@ namespace Nearlink {
 namespace TEST {
 using namespace testing::ext;
 
-// class IcceClientCallbackCommon : public IcceObserver {
-// public:
-//     IcceClientCallbackCommon() = default;
-//     virtual ~IcceClientCallbackCommon() = default;
-
-//     void OnConnectionStateChanged(const RawAddress &device, int curState, int prevState){}
-// };
-
 namespace {
 constexpr int DIS_SERVICE_UT_DELAY_50_MS = 50;
 constexpr int DIS_SERVICE_UT_DELAY_1000_MS = 1000;
-// IcceClientCallbackCommon g_icceClientCallback_;
 }
 
 class NearlinkDisServiceTest : public testing::Test {

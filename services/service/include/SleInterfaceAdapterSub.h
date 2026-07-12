@@ -100,13 +100,6 @@ public:
     virtual void OnPairStatusChanged(const RawAddress &device, int preStatus, int Status, int reason){};
 
     /**
-    * @brief Notify cdsm device pair state callback.
-    *
-    * @param device Remote device.
-    */
-    virtual void OnCdsmPairStatusChanged(const RawAddress &device, int status){}
-
-    /**
      * @brief ACB State callback.
      *
      * @param device Remote device.

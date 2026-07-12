@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@
 #include "BasClientStackAdapter.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceProfileManager.h"
-#include "nearlink_native_token_mock.h"
-#include "nearlink_access_token_mock.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -42,7 +40,6 @@ public:
 void BasServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start");
-    NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }

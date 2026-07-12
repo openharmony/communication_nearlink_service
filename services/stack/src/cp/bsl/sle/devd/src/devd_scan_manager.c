@@ -258,6 +258,7 @@ NLSTK_Errcode_E DevdAddScanParam(uint32_t scannerId, NLSTK_DevdScanSetting_S *se
         ResetScanSetting(&scanner->frame4ScanSetting);
         return NLSTK_ERRCODE_SUCCESS;
     }
+
     DevdReportType_E type = setting->reportDelayMillis > 0 ? DEVD_TYPE_ALL_MATCHES : DEVD_TYPE_FIRST_MATCH;
     if (setting->frameType == DEVD_SCAN_FRAME_TYPE_1) {
         (void)memcpy_s(&scanner->scanSetting.setting, sizeof(NLSTK_DevdScanSetting_S),

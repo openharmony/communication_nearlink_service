@@ -168,6 +168,10 @@ bool XmlParse::impl::GetValue(xmlNodePtr node, int &value)
         return false;
     }
     std::string nodeContentStr = std::string(reinterpret_cast<char *>(nodeContent));
+    if (nodeContentStr.size() <= static_cast<size_t>(SIZEOF_0X)) {
+        xmlFree(nodeContent);
+        return false;
+    }
     int tmp = 0;
     std::from_chars_result res = std::from_chars(
         nodeContentStr.data() + SIZEOF_0X, nodeContentStr.data() + nodeContentStr.size(), tmp, BASE_16);

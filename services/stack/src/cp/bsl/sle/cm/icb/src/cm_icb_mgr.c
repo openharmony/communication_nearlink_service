@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -425,6 +425,10 @@ static void CM_LabelReportCbkProc(ICGConnectionNode *channelNode, DLI_ICGLabelRe
         channelNode->channel[i].lcid = lcid;
         channelNode->channel[i].labelCnt = param->labelCnt;
         size_t labelSize = param->labelCnt * sizeof(DLI_ICGLabel);
+        if (channelNode->channel[i].label != NULL) {
+            SDF_MemFree(channelNode->channel[i].label);
+            channelNode->channel[i].label = NULL;
+        }
         channelNode->channel[i].label = (DLI_ICGLabel *)SDF_MemZalloc(labelSize);
         if (channelNode->channel[i].label == NULL) {
             NotifyLabelReportCallback(param, CM_ICB_FAILED);
@@ -1256,7 +1260,7 @@ uint32_t CM_ICGMgrSetLabel(DLI_ICGLabelParam *param, bool mcast, bool supportSub
         CM_LOGE("dli set icg label failed, id=%u", param->id);
         return errorCode;
     }
-    
+
     return CM_ICB_SUCCESS;
 }
 

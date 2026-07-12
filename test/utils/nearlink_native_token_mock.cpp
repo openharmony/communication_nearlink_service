@@ -68,7 +68,6 @@ NearlinkMockNativeToken::NearlinkMockNativeToken(const std::string& process)
 NearlinkMockNativeToken::~NearlinkMockNativeToken()
 {
     // reset tokenID
-    //SetSelfTokenID(selfToken_);
     HILOGI("check current tokenId = 0x%{public}lx", GetSelfTokenID());
 }
 

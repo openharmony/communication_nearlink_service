@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,13 @@ constexpr const uint16_t TIMER_FOR_RESTORE_VOLUME_IF_PAUSED_MS = 1000;
 
 namespace OHOS {
 namespace Nearlink {
+namespace {
+// treat nullptr as empty for safe read-only check
+inline bool IsQueueEmpty(const std::queue<AudioStreamType>* q)
+{
+    return (q == nullptr) || q->empty();
+}
+} // namespace
 ASCService::ASCService() : utility::Context(PROFILE_NAME_ASC, "1.0.0")
 {
     HILOGD("[ASCService]%{public}s Create", PROFILE_NAME_ASC.c_str());
@@ -348,6 +355,20 @@ void ASCService::DeInitMicStateObserver()
     micService->DeregisterMicStateObserver(micStateObserver_);
 }
 
+void ASCService::AscMicStateObserver::OnMicStateChanged(
+    const RawAddress &device, uint8_t micState)
+{
+    HILOGD("[ASCService]Enter %{public}s micState %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), micState);
+    DoInAscThread([device, micState]() {
+        ASCService *ascService = ASCService::GetService();
+        NL_CHECK_RETURN(ascService, "ascService is null");
+        ascService->SleAudioDeviceActionChanged(NearlinkRawAddress(),
+            static_cast<int>(UpdateOutputStackAction::ACTION_ROLE_TYPE_CHANGE));
+        ascService->UpdateDeviceRole(device, micState);
+    });
+}
+
 int ASCService::DisconnProcAction(const RawAddress &device, ASCState state)
 {
     HILOGD("[ASCService]DisconnProcSetFlag %{public}s state %{public}d",
@@ -380,11 +401,7 @@ int ASCService::DisconnProcStopPlaying(const RawAddress &device, ASCState state)
     // 有音频流的场景，先停止+释放流
     if (streamType != AUDIO_STREAM_NONE) {
         // 清除延迟释放标记
-        if (IsStopDelaying(device)) {
-            // 重置等待断同步链路标记
-            StoStopDelayTimer(device);
-            SetStopDelayingFlag(device, false);
-        }
+        CancelStopDelay(device);
 
         // 设置需要disconnect标记
         SetNeedDisconnect(device, true);
@@ -494,6 +511,41 @@ std::queue<AudioStreamType>& ASCService::GetStopBuff(const RawAddress& device)
 {
     HILOGD("[ASCService Service] GetStopBuff Enter");
     return stopBuff_[device.GetAddress()];
+}
+
+// safe read-only access, returns nullptr when key not found
+const std::queue<AudioStreamType>* ASCService::FindStartBuff(const RawAddress& device)
+{
+    auto it = startBuff_.find(device.GetAddress());
+    return (it != startBuff_.end()) ? &(it->second) : nullptr;
+}
+
+const std::queue<AudioStreamType>* ASCService::FindStopBuff(const RawAddress& device)
+{
+    auto it = stopBuff_.find(device.GetAddress());
+    return (it != stopBuff_.end()) ? &(it->second) : nullptr;
+}
+
+void ASCService::ClearStartBuff(const RawAddress& device)
+{
+    auto it = startBuff_.find(device.GetAddress());
+    if (it != startBuff_.end()) {
+        while (!it->second.empty()) {
+            it->second.pop();
+        }
+        startBuff_.erase(it);
+    }
+}
+
+void ASCService::ClearStopBuff(const RawAddress& device)
+{
+    auto it = stopBuff_.find(device.GetAddress());
+    if (it != stopBuff_.end()) {
+        while (!it->second.empty()) {
+            it->second.pop();
+        }
+        stopBuff_.erase(it);
+    }
 }
 
 bool ASCService::IsCoSetDeviceExist(const RawAddress& device, RawAddress& coSetDevice)
@@ -1180,13 +1232,13 @@ void ASCService::ReportAudioControlComplete(const RawAddress& device, AudioStrea
 
     // 停止StartPlaying定时器
     if (cmd == NL_SLE_ASC_CONTROL_CMD_START) {
-        StopStartPlayingTimer(device);
+        DisableStartPlayingTimer(device);
         // 清除单切双同步标记
         SetSyncFlag(device, false);
     } else {
         if (isStopDoing) {
             // 停止StopPlaying定时器
-            StopStopPlayingTimer(device);
+            DisableStopPlayingTimer(device);
             // 清除标记位
             SetStopDoingFlag(device, false);
         }
@@ -3264,9 +3316,9 @@ void ASCService::SyncWhenConnect(const RawAddress& device)
     RawAddress coSetDevice;
     if (IsCoSetDeviceExist(device, coSetDevice)) {
         ASCState coStatus = GetASCStatus(coSetDevice);
-        const std::queue<AudioStreamType>& startBuffCo = GetStartBuff(coSetDevice);
-        const std::queue<AudioStreamType>& stopBuffCo = GetStopBuff(coSetDevice);
-        bool isCoBuffEmpty = startBuffCo.empty() && stopBuffCo.empty();
+        const auto* startBuffCo = FindStartBuff(coSetDevice);
+        const auto* stopBuffCo = FindStopBuff(coSetDevice);
+        bool isCoBuffEmpty = IsQueueEmpty(startBuffCo) && IsQueueEmpty(stopBuffCo);
         std::list<AudioStreamType>& startedList = GetStartedStreamList(coSetDevice);
         if (IsStarted(coStatus) && !IsStopDelaying(activeSinkDevice_) && isCoBuffEmpty && !startedList.empty() &&
             IsConnected(device)) {
@@ -3280,7 +3332,7 @@ void ASCService::SyncWhenConnect(const RawAddress& device)
             // 初始化结果记录
             SetStartPlayingResult(device, coStreamType, false, NL_NO_ERROR);
             // 启动定时器
-            StartStartPlayingTimer(device);
+            EnableStartPlayingTimer(device);
             // 同步流列表、qos管理信息
             SyncWithCoSetDevice(device, coSetDevice, coStreamType);
             // 打开音频流，当前运行类型：单切双
@@ -3320,10 +3372,7 @@ void ASCService::ProcStartBuff(const RawAddress& device, ASCState state, bool& i
         // 初始化起播结果
         SetStartPlayingResult(device, streamToStart, false, NL_NO_ERROR);
         RawAddress reportAddr = GetReportAddr(device);
-        if (IsStopDelaying(reportAddr)) {
-            StoStopDelayTimer(reportAddr);
-            SetStopDelayingFlag(reportAddr, false);
-        }
+        CancelStopDelay(reportAddr);
 
         if (IsConfiged(state) || IsStarted(state)) {
             HILOGI("[ASCService]ProcStartBuff JudgeReConfig %{public}s streamType %{public}d state %{public}d",
@@ -3649,6 +3698,34 @@ void ASCService::SetDeviceRole(const RawAddress& device)
 void ASCService::ProcSpatialIfNeed(const RawAddress& device, AudioStreamType streamType)
 {
     QosM& qosM = QosM::GetInstance();
+    bool isNeedReconfig = IsNeedReconfigSpatialAudio(device, streamType, qosM);
+    if (!isNeedReconfig) {
+        return;
+    }
+
+    // 存在延迟释放流需要先停定时器并清延迟断链路标记位
+    RawAddress reportAddr = GetReportAddr(device);
+    CancelStopDelay(reportAddr);
+
+    // 设置标记位:开空间音频改配同步链路执行中
+    SetSpatialConfiguringFlag(device, true);
+    Qos cos = qosM.GetCOS(device);
+    ReconfigStream(device, streamType, streamType, cos);
+}
+
+void ASCService::CancelStopDelay(const RawAddress &device)
+{
+    if (!IsStopDelaying(device)) {
+        return;
+    }
+
+    // 重置等待断同步链路标记
+    DisableStopDelayTimer(device);
+    SetStopDelayingFlag(device, false);
+}
+
+bool ASCService::IsNeedReconfigSpatialAudio(const RawAddress& device, AudioStreamType streamType, QosM& qosM)
+{
     // 1. 自适应开关关闭，头动打开 2. 自适应开关打开，头动打开，音源类型支持（非立体声）-> 使能空间音频头动
     bool isHeadTracking = (!IsSpatialAudioAdaptiveSwitchEnabled() && IsSpatialAudioHeadTrackingEnabled());
     isHeadTracking = isHeadTracking || (IsSpatialAudioAdaptiveSwitchEnabled() && IsSpatialAudioSourceTypeSupported() &&
@@ -3658,10 +3735,9 @@ void ASCService::ProcSpatialIfNeed(const RawAddress& device, AudioStreamType str
     bool isSpatial = (!IsSpatialAudioAdaptiveSwitchEnabled() && IsSpatialAudioModeEnabled());
     isSpatial = isSpatial || (IsSpatialAudioAdaptiveSwitchEnabled() && IsSpatialAudioSourceTypeSupported() &&
         IsSpatialAudioModeEnabled());
-
     bool isQos4Exist = qosM.IsQos4Exist(device);
     bool isQos8Exist = qosM.IsQosExist(device, NL_SLE_QOS_8);
-    Qos cos = qosM.GetCOS(device);
+
     bool isStopStream = false;
     bool isStopImmediately = false;
     bool isNeedReconfig = false;
@@ -3697,18 +3773,11 @@ void ASCService::ProcSpatialIfNeed(const RawAddress& device, AudioStreamType str
             }
         }
     }
-
     HILOGI("[ASCService]ProcSpatialIfNeed %{public}s streamType %{public}d isNeedReconfig %{public}d isSpatial "
         "%{public}d isHeadTracking %{public}d isQos4Exist %{public}d isQos8Exist %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), streamType, isNeedReconfig, isSpatial, isHeadTracking,
         isQos4Exist, isQos8Exist);
-    if (!isNeedReconfig) {
-        return;
-    }
-
-    // 设置标记位:开空间音频改配同步链路执行中
-    SetSpatialConfiguringFlag(device, true);
-    ReconfigStream(device, streamType, streamType, cos);
+    return isNeedReconfig;
 }
 
 void ASCService::ProcColAudioIfNeed(const RawAddress& device, AudioStreamType streamType)
@@ -3747,9 +3816,9 @@ void ASCService::SyncWhenStartStream(const RawAddress& device, AudioStreamType s
     if (IsCoSetDeviceExist(device, coSetDevice)) {
         ASCState coStatus = GetASCStatus(coSetDevice);
         ASCState status = GetASCStatus(device);
-        const std::queue<AudioStreamType>& startBuff = GetStartBuff(device);
-        const std::queue<AudioStreamType>& stopBuff = GetStopBuff(device);
-        bool isBuffEmpty = startBuff.empty() && stopBuff.empty();
+        const auto* startBuff = FindStartBuff(device);
+        const auto* stopBuff = FindStopBuff(device);
+        bool isBuffEmpty = IsQueueEmpty(startBuff) && IsQueueEmpty(stopBuff);
         if ((IsCreated(coStatus) || IsReleased(coStatus)) && IsStarted(status) && isBuffEmpty) {
             HILOGI("[ASCService]CbkStartStream StartPlaying device %{public}s coDevice %{public}s "
                 "coStreamType %{public}d coStatus %{public}d status %{public}d",
@@ -3759,7 +3828,7 @@ void ASCService::SyncWhenStartStream(const RawAddress& device, AudioStreamType s
             // 初始化结果记录
             SetStartPlayingResult(coSetDevice, streamType, false, NL_NO_ERROR);
             // 启动定时器
-            StartStartPlayingTimer(coSetDevice);
+            EnableStartPlayingTimer(coSetDevice);
             // 同步流列表、qos管理信息
             SyncWithCoSetDevice(coSetDevice, device, streamType);
             // 打开音频流
@@ -3823,10 +3892,8 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
         list.emplace_back(streamType);
     }
     RawAddress reportAddr = GetReportAddr(device);
-    if (IsStopDelaying(reportAddr)) {
-        StoStopDelayTimer(reportAddr);
-        SetStopDelayingFlag(reportAddr, false);
-    }
+    CancelStopDelay(reportAddr);
+
     // 上报状态: 音频流打开,成功
     ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
         NL_SLE_ASC_RESULT_SUCC, NL_NO_ERROR);
@@ -3885,15 +3952,9 @@ void ASCService::ClearWhenDisconnect(const RawAddress& device)
     startedStreamList.clear();
 
     // 清除待打开流队列
-    std::queue<AudioStreamType>& startBuff = GetStartBuff(device);
-    while (!startBuff.empty()) {
-        startBuff.pop();
-    }
+    ClearStartBuff(device);
     // 清除待关闭流队列
-    std::queue<AudioStreamType>& stopBuff = GetStopBuff(device);
-    while (!stopBuff.empty()) {
-        stopBuff.pop();
-    }
+    ClearStopBuff(device);
 
     // 清除StopDoing标记位
     SetStopDoingFlag(device, false);
@@ -3919,14 +3980,16 @@ void ASCService::CbkStopStream(const RawAddress& device, uint8_t result, uint16_
     HILOGD("[ASCService]CbkStopStream in %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
 }
 
-bool ASCService::StartStartPlayingTimer(const RawAddress& device)
+bool ASCService::EnableStartPlayingTimer(const RawAddress& device)
 {
-    HILOGI("Start StartStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+    HILOGI("Enable StartStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
     std::map<std::string, std::shared_ptr<NearlinkTimer>>::iterator it =
         startPlayingTimer_.find(device.GetAddress());
     if (it == startPlayingTimer_.end()) {
         std::shared_ptr<NearlinkTimer> timer = std::make_shared<NearlinkTimer>([this, device]() -> void {
-            this->StartPlayingTimeout(device);
+            DoInAscThread([this, device] {
+                this->StartPlayingTimeout(device);
+            });
         });
         NL_CHECK_RETURN_RET(timer, false, "StartStream timer is nullptr.");
 
@@ -3937,11 +4000,11 @@ bool ASCService::StartStartPlayingTimer(const RawAddress& device)
     return timer->Start(START_PLAYING_TIMEOUT_MS);
 }
 
-bool ASCService::StopStartPlayingTimer(const RawAddress& device)
+bool ASCService::DisableStartPlayingTimer(const RawAddress& device)
 {
     std::shared_ptr<NearlinkTimer> timer = startPlayingTimer_[device.GetAddress()];
     if (timer != nullptr) {
-        HILOGI("Stop StartStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+        HILOGI("Disable StartStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
         return timer->Stop();
     }
 
@@ -3960,9 +4023,9 @@ void ASCService::StartPlayingTimeout(const RawAddress& device)
     }
 }
 
-bool ASCService::StartStopPlayingTimer(const RawAddress& device)
+bool ASCService::EnableStopPlayingTimer(const RawAddress& device)
 {
-    HILOGI("Start StopStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+    HILOGI("Enable StopStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
     std::map<std::string, std::shared_ptr<NearlinkTimer>>::iterator it =
         stopPlayingTimer_.find(device.GetAddress());
     if (it == stopPlayingTimer_.end()) {
@@ -3978,11 +4041,11 @@ bool ASCService::StartStopPlayingTimer(const RawAddress& device)
     return timer->Start(STOP_PLAYING_TIMEOUT_MS);
 }
 
-bool ASCService::StopStopPlayingTimer(const RawAddress& device)
+bool ASCService::DisableStopPlayingTimer(const RawAddress& device)
 {
     std::shared_ptr<NearlinkTimer> timer = stopPlayingTimer_[device.GetAddress()];
     if (timer != nullptr) {
-        HILOGI("Stop StopStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+        HILOGI("Disable StopStream timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
         return timer->Stop();
     }
 
@@ -3994,9 +4057,9 @@ void ASCService::StopPlayingTimeout()
     HILOGI("StopPlayingTimeout!");
 }
 
-bool ASCService::StartStopDelayTimer(const RawAddress& device)
+bool ASCService::EnableStopDelayTimer(const RawAddress& device)
 {
-    HILOGI("Start StopDelay timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+    HILOGI("Enable StopDelay timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
     std::map<std::string, std::shared_ptr<NearlinkTimer>>::iterator it =
         stopDelayTimer_.find(device.GetAddress());
     if (it == stopDelayTimer_.end()) {
@@ -4012,11 +4075,11 @@ bool ASCService::StartStopDelayTimer(const RawAddress& device)
     return timer->Start(STOP_DELAY_TIMEOUT_MS);
 }
 
-bool ASCService::StoStopDelayTimer(const RawAddress& device)
+bool ASCService::DisableStopDelayTimer(const RawAddress& device)
 {
     std::shared_ptr<NearlinkTimer> timer = stopDelayTimer_[device.GetAddress()];
     if (timer != nullptr) {
-        HILOGI("Stop StopDelay timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+        HILOGI("Disable StopDelay timer! %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
         return timer->Stop();
     }
 
@@ -4383,7 +4446,7 @@ void ASCService::CheckAndSetStopDelayingFlag(const RawAddress& device)
     if (isStopDelaying && !isStartedMemberExist) {
         if (delayingDevice != nullptr) {
             // 重置等待断同步链路标记
-            StoStopDelayTimer(*delayingDevice);
+            DisableStopDelayTimer(*delayingDevice);
             SetStopDelayingFlag(*delayingDevice, false);
         }
     }
@@ -4402,15 +4465,9 @@ void ASCService::CbkDisconnect(const RawAddress& device, uint8_t result)
     startedStreamList.clear();
 
     // 清除待打开流队列
-    std::queue<AudioStreamType>& startBuff = GetStartBuff(device);
-    while (!startBuff.empty()) {
-        startBuff.pop();
-    }
+    ClearStartBuff(device);
     // 清除待关闭流队列
-    std::queue<AudioStreamType>& stopBuff = GetStopBuff(device);
-    while (!stopBuff.empty()) {
-        stopBuff.pop();
-    }
+    ClearStopBuff(device);
 
     // 清除延迟上线等待标记
     if (IsConnRptDelaying(device)) {
@@ -5304,7 +5361,7 @@ void ASCService::StartPlayingExcute(const RawAddress& device, AudioStreamType st
     AudioStreamType stopDelayingStreamType)
 {
     // 启动定时器
-    StartStartPlayingTimer(device);
+    EnableStartPlayingTimer(device);
 
     int ret = StartPlaying(device, streamType, false);
     if (ret != NL_NO_ERROR) {
@@ -5319,10 +5376,7 @@ void ASCService::StartPlayingExcute(const RawAddress& device, AudioStreamType st
 
         // 主设备停定时器并清延迟断链路标记位
         RawAddress reportAddr = GetReportAddr(device);
-        if (IsStopDelaying(reportAddr)) {
-            StoStopDelayTimer(reportAddr);
-            SetStopDelayingFlag(reportAddr, false);
-        }
+        CancelStopDelay(reportAddr);
     }
 }
 
@@ -5378,7 +5432,7 @@ void ASCService::StopPlayingExcute(const RawAddress& device, AudioStreamType str
         GetEncryptAddr(device.GetAddress()).c_str(), streamType);
 
     // 启动定时器
-    StartStopPlayingTimer(device);
+    EnableStopPlayingTimer(device);
     // 设置标记位
     SetStopDoingFlag(device, true);
     int ret = StopPlaying(device, streamType);
@@ -5436,7 +5490,7 @@ void ASCService::DelayStop(const RawAddress& device, AudioStreamType streamType)
     // 启动定时器，延迟断同步链路
     RawAddress reportAddr = GetReportAddr(device);
     if (!IsStopDelaying(reportAddr)) {
-        StartStopDelayTimer(reportAddr);
+        EnableStopDelayTimer(reportAddr);
         SetStopDelayingFlag(reportAddr, true);
     }
     // 上报状态: 音频流关闭,成功

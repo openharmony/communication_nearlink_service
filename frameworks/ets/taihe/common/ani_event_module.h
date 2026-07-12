@@ -31,7 +31,8 @@ class EventModule {
 public:
     void RegisterEvent(::taihe::callback_view<T> callback);
     void DeregisterEvent(::taihe::optional_view<::taihe::callback<T>> callback);
-
+    std::vector<::taihe::optional<::taihe::callback<T>>> GetCallbacks();
+private:
     std::vector<::taihe::optional<::taihe::callback<T>>> callbackVec_;
     std::shared_mutex lock_;
 };
@@ -66,6 +67,13 @@ void EventModule<T>::DeregisterEvent(::taihe::optional_view<::taihe::callback<T>
     } else {
         callbackVec_.clear();
     }
+}
+
+template<typename T>
+std::vector<::taihe::optional<::taihe::callback<T>>> EventModule<T>::GetCallbacks()
+{
+    std::shared_lock<std::shared_mutex> guard(lock_);
+    return callbackVec_;
 }
 } // namespace Nearlink
 } // namespace OHOS

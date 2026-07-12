@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -209,21 +209,36 @@ void DLI_RxDataDlistDestroy(SDF_DListHead_S *head)
     }
 }
 
+void DLI_EraseParInfo(DLI_CmdStru *info)
+{
+    DLI_CHECK_RETURN(info != NULL, "info is null");
+    if (info->needErase && info->parLen != 0) {
+        (void)memset_s(info->par, info->parLen, 0, info->parLen);
+    }
+}
+
+static void DLI_NodeInfoDestroy(DLI_CmdStru *info)
+{
+    if (info == NULL) {
+        return;
+    }
+
+    if (info->contextFree != NULL) {
+        info->contextFree(info->context);
+        info->context = NULL;
+    }
+    DLI_EraseParInfo(info);
+    SDF_MemFree(info);
+}
+
 void DLI_CmdNodeDestroy(void *txNode)
 {
     DLI_CmdTxNode *node = (DLI_CmdTxNode *)txNode;
     if (node == NULL) {
         return;
     }
-
-    if (node->info != NULL) {
-        if (node->info->contextFree != NULL) {
-            node->info->contextFree(node->info->context);
-            node->info->context = NULL;
-        }
-        SDF_MemFree(node->info);
-        node->info = NULL;
-    }
+    DLI_NodeInfoDestroy(node->info);
+    node->info = NULL;
     SDF_MemFree(node);
 }
 

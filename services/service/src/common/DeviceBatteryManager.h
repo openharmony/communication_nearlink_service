@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ private:
 
     void NotifyForBatteryInfoChanged(const std::string &addr, int32_t batteryLevel);
     int32_t GetDeviceReportBatteryLevel(const std::string &addr);
-    int32_t calculateBatteryLevel(const BatteryInfo &batteryInfo);
+    int32_t CalculateBatteryLevel(const BatteryInfo &batteryInfo);
 
     void SetDeviceSupportBattery(const std::string &addr);
     std::string GetLastConnectedDevice(bool isBatteryDevice);
