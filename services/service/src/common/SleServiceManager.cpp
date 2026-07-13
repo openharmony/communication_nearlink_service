@@ -1228,7 +1228,6 @@ void SleServiceManager::RestoreSwitchStatus() const
     // 1) 关机前星闪为开启状态，开启星闪
     // 2) 关机前星闪为半关状态，将星闪恢复到半关
     if (parameterState == SleStateID::STATE_TURN_ON || parameterState == SleStateID::STATE_TURN_HALF) {
-        WaitDriverLoadCompleted();
         RestoreSleFromSystemParameter(SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED);
         return;
     }
@@ -1279,6 +1278,7 @@ void SleServiceManager::InitializeAfterAllDependencyOn()
     };
 #endif
 
+    WaitDriverLoadCompleted();
 #ifndef CONFIG_FACTORY_VERSION
     SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
     if ((!IsSleSwitchRestricted()) && (targetState == SleStateID::STATE_TURN_OFF)) {
