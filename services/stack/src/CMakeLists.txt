@@ -1,6 +1,0 @@
-include_directories(${SECUREC_HEAD})
-add_subdirectory(cp)
-add_subdirectory(nai)
-add_subdirectory(sdf)
-add_subdirectory(dli)
-add_subdirectory(dp)

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,6 +132,7 @@ private:
     RawAddress GetReportAddr(const RawAddress& deivce);
     bool IsValidDownCloudDeviceList(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos);
     void HandleAcbDisconnectedTask(const RawAddress &reportAddr, int32_t curCloudPairState);
+    void HandleAcbConnectedTask(const RawAddress &device, int32_t curCloudPairState);
     bool ConvertDecStrToHexStr(const std::string &icon, std::string &iconHexStr);
     NearlinkSafeMap<std::string, std::shared_ptr<DownCloudPairDevice>> cloudDevicesMap_ {};
     NearlinkSafeMap<std::string, std::shared_ptr<NearlinkTimer>> tokenChkTimersMap_ {};

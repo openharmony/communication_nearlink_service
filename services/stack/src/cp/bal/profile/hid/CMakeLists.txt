@@ -1,1 +1,0 @@
-ADD_MODULE(bal_hid)

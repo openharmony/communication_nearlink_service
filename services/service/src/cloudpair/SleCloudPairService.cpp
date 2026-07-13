@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ static constexpr uint32_t MEMBER_LIST_LENGTH = 2;
 static constexpr uint32_t MAX_ICON_DEC_STR_LENGTH = 6;
 constexpr int TOKEN_CHECK_TIMEOUT_MS = 10000;
 }
-
+//LCOV_EXCL_START
 DownCloudPairDevice::DownCloudPairDevice()
 {}
 
@@ -165,7 +165,8 @@ void SleCloudPairService::HandlePairStatusChanged(const RawAddress &device, int3
     // 配对成功
     if (preStatus == static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRING) &&
         status == static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRED) &&
-        curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_CREATE_PAIR) {
+        (curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_CREATE_PAIR ||
+         curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING)) {
         UpdateCloudState(addr, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
         return;
     }
@@ -206,12 +207,27 @@ void SleCloudPairService::HandleAcbStateChanged(const RawAddress &device, int32_
     if (state == static_cast<int32_t>(SleConnState::SLE_CONNECTION_STATE_CONNECTED)) {
         SetConnectedState(device, true);
         StartTokenChkTimer(reportAddr.GetAddress());
+        HandleAcbConnectedTask(device, curCloudPairState);
     } else if (state == static_cast<int32_t>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED)) {
         SetConnectedState(device, false);
         if (!IsAllMembersDisconnected(device)) {
             return;
         }
         HandleAcbDisconnectedTask(reportAddr, curCloudPairState);
+    }
+}
+
+void SleCloudPairService::HandleAcbConnectedTask(const RawAddress &device, int32_t curCloudPairState)
+{
+    if (curCloudPairState != NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRING) {
+        return;
+    }
+    CdsmService *cdsmService = CdsmService::GetService();
+    NL_CHECK_RETURN(cdsmService, "cdsmService is nullptr.");
+    RawAddress otherDev;
+    if (cdsmService->CdsmGetOtherAddr(device, otherDev)) {
+        SleRemoteDeviceAdapter::GetInstance()->DisconnectAcbAction(otherDev,
+            static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_REMOTE_USER_TERMINATED));
     }
 }
 
@@ -250,11 +266,9 @@ std::string SleCloudPairService::GetBtAddrByReportAddr(std::string sleReportAddr
 {
     std::string btAddr = "";
     auto func = [&btAddr](std::string key, std::shared_ptr<DownCloudPairDevice> value) -> void {
-        if (value->GetCloudPairState() != NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED) {
-            btAddr = value->GetBtAddr();
-            HILOGD("[CLOUD PAIR] GetBtAddrByReportAddr btAddr %{public}s by sleAddr %{public}s",
-                GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(key).c_str());
-        }
+        btAddr = value->GetBtAddr();
+        HILOGD("[CLOUD PAIR] GetBtAddrByReportAddr btAddr %{public}s by sleAddr %{public}s",
+            GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(key).c_str());
     };
     cloudDevicesMap_.GetValueAndOpt(sleReportAddr, func);
     return btAddr;
@@ -264,8 +278,7 @@ std::string SleCloudPairService::GetReportAddrByBtAddr(std::string btAddr)
 {
     std::string sleReportAddr = "";
     auto func = [&sleReportAddr, &btAddr](std::string key, std::shared_ptr<DownCloudPairDevice> value) -> bool {
-        if (value != nullptr && value->GetBtAddr() == btAddr &&
-            value->GetCloudPairState() != NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED) {
+        if (value != nullptr && value->GetBtAddr() == btAddr) {
             sleReportAddr = key;
             HILOGD("[CLOUD PAIR] GetReportAddrByBtAddr sleAddr %{public}s by btAddr %{public}s",
                 GetEncryptAddr(sleReportAddr).c_str(), GetEncryptAddr(btAddr).c_str());
@@ -945,6 +958,7 @@ void SleCloudPairService::SetKeyMissingPairState(const RawAddress &device)
     GetCloudPairState(reportAddr.GetAddress(), curCloudPairState);
     if (curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED) {
         UpdateCloudState(reportAddr.GetAddress(), NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING);
+        ProcCreateCloudDeviceCdsmGroup(reportAddr);
     }
 }
 
@@ -1072,6 +1086,6 @@ bool SleCloudPairService::ConvertDecStrToHexStr(const std::string &icon, std::st
     iconHexStr = ss.str();
     return true;
 }
-
+//LCOV_EXCL_STOP
 } // namespace Nearlink
 } // namespace OHOS

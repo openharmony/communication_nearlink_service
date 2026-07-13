@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -696,7 +696,7 @@ namespace OHOS {
     {
         FuzzedDataProvider provider(data, size);
         uint16_t lcid = provider.ConsumeIntegral<uint16_t>() % MAX_LCID;
-        uint16_t tcid = provider.ConsumeIntegral<uint16_t>() % MAX_TCID;
+        uint8_t tcid = provider.ConsumeIntegral<uint8_t>() % MAX_TCID;
         uint16_t result = provider.ConsumeIntegral<uint16_t>() % 2;
         static uint8_t transMode = 0;
         static uint8_t castMode = 0;

@@ -29,7 +29,6 @@
             "SystemCapability.Communication.NearLink.Base"
         ],
         "features": [
-            "nearlink_service_power_manager_enhance",
             "nearlink_service_host_dynamic_running",
             "nearlink_service_host_avoid_sleep",
             "nearlink_service_no_pairing_dialog",
@@ -69,6 +68,7 @@
                 "ipc",
                 "libuv",
                 "napi",
+                "node",
                 "os_account",
                 "samgr",
                 "safwk",

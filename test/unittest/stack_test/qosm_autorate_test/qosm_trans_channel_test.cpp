@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ static CM_LogicLinkCbks_S g_LogicLinkCbk = {};
 static CM_DynTransChannelEstablishParamReq_S g_establishParams = {};
 static CM_DynTransChannelReleaseParamReq_S g_releaseParams = {};
 static QOSM_TransChannelRspParams_S g_channelStatusParams = {};
+static CM_CapInfo_S g_capInfo = {.mtu = CM_CAP_MIN_MTU, .rxWnd = 100, .supportTransMode = 0X07};
 
 static void TestQOSM_TransChannelStatusCbk(const QOSM_TransChannelRspParams_S *respParams)
 {
@@ -133,13 +134,6 @@ uint32_t CM_DynTransChannelReleaseReq(const CM_DynTransChannelReleaseParamReq_S 
     return CM_SUCCESS;
 }
 
-uint32_t CM_GetLogicLinkCapInfo(CM_CapInfo_S *capInfo, const SLE_Addr_S *addr)
-{
-    capInfo->rxWnd = 100;
-    capInfo->supportTransMode = 0X07;
-    return CM_SUCCESS;
-}
-
 uint32_t CM_ConnectUpdateParamReq(CM_ConnectUpdateParamReq_S *param)
 {
     return CM_SUCCESS;
@@ -147,6 +141,15 @@ uint32_t CM_ConnectUpdateParamReq(CM_ConnectUpdateParamReq_S *param)
 
 uint32_t CM_SetPhy(CM_SetPhyReq_S *param)
 {
+    return CM_SUCCESS;
+}
+
+uint32_t CM_GetLogicLinkCapInfo(CM_CapInfo_S *capInfo, const SLE_Addr_S *addr)
+{
+    if (capInfo == NULL) {
+        return CM_FAIL;
+    }
+    *capInfo = g_capInfo;
     return CM_SUCCESS;
 }
 
@@ -223,7 +226,7 @@ TEST_F(UT_QOSM_TRANS_CHANNEL_TEST, TestCaseTransChannelCreate)
     rsp.srcTcid = CM_TCID_SLE_CMTC;
     rsp.srcPort = params.srcPort;
     rsp.dstPort = params.dstPort;
-    rsp.mtu = 1500 - DEFAULT_MAX_PACKET_HEADER_LEN;
+    rsp.mtu = 1500 - CM_CAP_MIN_MTU;
     rsp.slqiList.slqiNum = 1;
     rsp.slqiList.slqi[0] = params.slqi;
     rsp.frameType = (CM_TransConnFrameType_E)QOSM_SLE_RADIO_FRAME_TYPE_1;
@@ -355,7 +358,7 @@ TEST_F(UT_QOSM_TRANS_CHANNEL_TEST, TestCaseTransChannelIsCreated)
     indication.slqiList.slqi[0] = QOSM_TRANS_CHANNEL_SLQI_LOW;
     indication.lcid = 4;
     indication.addr = {0, {0x11, 0x12, 0x13, 0x14, 0x15, 0x16}};
-    indication.mtu = 1500 - DEFAULT_MAX_PACKET_HEADER_LEN;
+    indication.mtu = 1500 - CM_CAP_MIN_MTU;
     g_dynTransCbk.statusIndicationCbk(&indication);
     EXPECT_EQ(g_channelStatusParams.addr.addr[0], indication.addr.addr[0]);
     EXPECT_EQ(g_channelStatusParams.addr.addr[1], indication.addr.addr[1]);
@@ -408,7 +411,7 @@ TEST_F(UT_QOSM_TRANS_CHANNEL_TEST, TestCaseTransChannelIsDestroyed)
     indication.slqiList.slqi[0] = QOSM_TRANS_CHANNEL_SLQI_LOW;
     indication.lcid = 4;
     indication.addr = {0, {0x11, 0x12, 0x13, 0x14, 0x15, 0x16}};
-    indication.mtu = 1500 - DEFAULT_MAX_PACKET_HEADER_LEN;
+    indication.mtu = 1500 - CM_CAP_MIN_MTU;
     g_dynTransCbk.statusIndicationCbk(&indication);
     EXPECT_EQ(g_channelStatusParams.addr.addr[0], indication.addr.addr[0]);
     EXPECT_EQ(g_channelStatusParams.addr.addr[1], indication.addr.addr[1]);
@@ -447,4 +450,17 @@ TEST_F(UT_QOSM_TRANS_CHANNEL_TEST, TestCaseTransChannelIsDestroyed)
     EXPECT_EQ(g_channelStatusParams.srcPort, indication.srcPort);
     EXPECT_EQ(g_channelStatusParams.dstPort, indication.dstPort);
     EXPECT_EQ(g_channelStatusParams.status, QOSM_TRANS_CHANNEL_RELEASED);
+}
+
+TEST_F(UT_QOSM_TRANS_CHANNEL_TEST, TestCaseTransChannelInvalidMtu)
+{
+    QOSM_TransChannelParams_S params = {};
+    params.linkMode = SLE_MODE_ACB;
+    params.accessTransMode = ACCESS_TRANS_MODE_UNICAST;
+    params.slqi = QOSM_TRANS_CHANNEL_SLQI_LOW;
+    params.tcConf.mode = CM_TRANS_MODE_BASIC;
+    g_capInfo.mtu = CM_CAP_MIN_MTU - 1;
+
+    EXPECT_EQ(QOSM_TransChannelCreate(&params), QOSM_SUCCESS);
+    EXPECT_EQ(g_channelStatusParams.status, QOSM_TRANS_CHANNEL_ESTABLISH_FAIL);
 }

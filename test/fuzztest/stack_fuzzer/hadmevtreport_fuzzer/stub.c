@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include "dli_layer.h"
 #include "dli_layer_callback.h"
+#include "dli_thread.h"
 #include "dli_event.h"
 #include "dli_dev_discovery_event.h"
 #include "dli_connect_event.h"
@@ -29,7 +30,8 @@
 #include "dli_secu_event.h"
 #include "dli_layer_config.h"
 #include "dli_nbc_event.h"
-#include "sl_ext_func_wrapper.h"
+
+#define DLI_CP_BLOCK_TIMEOUT 3000 // ms
 
 typedef enum {
     HADM_ZERO,
@@ -106,6 +108,19 @@ static void DLI_VendorEventCbk(void *context, void *arg, uint32_t len, uint16_t 
     DLI_ChanInfoCbk(context, arg, len, evtOpcode);
 }
 
+static void DLI_InitInner(void *param)
+{
+    (void)param;
+    DLI_SetRecvEventCallback(RecvEventHandler);
+    DLI_InitEventCbkList();
+    uint32_t ret = DLI_InnerEventCbkReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
+    if (ret != DLI_SUCCESS) {
+        DLI_LOGE("dli inner event cbk register failed, ret=%u", ret);
+        return;
+    }
+    return;
+}
+
 uint32_t DLI_Init(void)
 {
     if (g_dliIsInited) {
@@ -113,17 +128,21 @@ uint32_t DLI_Init(void)
         return DLI_STACK_INITED_ERRNO;
     }
 
-    DLI_SetRecvEventCallback(RecvEventHandler);
-    DLI_InitEventCbkList();
-    uint32_t ret = DLI_InnerEventCbkReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
+    uint32_t ret = DLI_PostOtherBlockedThread(DLI_InitInner, NULL, NULL, DLI_CP_BLOCK_TIMEOUT);
     if (ret != DLI_SUCCESS) {
-        DLI_LOGE("dli inner event cbk register failed, ret=%u", ret);
-        return ret;
+        DLI_LOGE("DLI_PostOtherBlockedThread failed, ret=%u", ret);
+        return DLI_STACK_INITED_ERRNO;
     }
-
     g_dliIsInited = true;
     DLI_LOGI("DLI_Init success");
     return DLI_SUCCESS;
+}
+
+static void DLI_DeInitInner(void *parma)
+{
+    DLI_InnerEventCbkUnReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
+    DLI_DeInitEventCbkList();
+    DLI_SetRecvEventCallback(NULL);
 }
 
 void DLI_DeInit(void)
@@ -132,9 +151,11 @@ void DLI_DeInit(void)
         DLI_LOGE("dli has not inited");
         return;
     }
-    DLI_InnerEventCbkUnReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
-    DLI_DeInitEventCbkList();
-    DLI_SetRecvEventCallback(NULL);
+    uint32_t ret = DLI_PostOtherBlockedThread(DLI_DeInitInner, NULL, NULL, DLI_CP_BLOCK_TIMEOUT);
+    if (ret != DLI_SUCCESS) {
+        DLI_LOGE("DLI_PostOtherBlockedThread failed, ret=%u", ret);
+        return;
+    }
     g_dliIsInited = false;
     DLI_LOGI("DLI_DeInit success");
 }

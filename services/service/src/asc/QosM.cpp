@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -305,7 +305,7 @@ uint8_t QosM::GetQosPriority(Qos qos)
 {
     if (qos >= NL_SLE_QOS_BUTT) {
         HILOGE("[ASCService]GetQosPriority, qos(%{public}d).", qos);
-        return false;
+        return 0; // invalid qos, return lowest priority
     }
 
     const QosDefineStru& qosDefine = g_qosDefineTable[qos];
@@ -483,8 +483,8 @@ bool QosM::DeleteQos(const RawAddress &device, Qos qos, bool& isStopStream, bool
     if (IsQosExist(device, NL_SLE_QOS_8)) {
         CheckAndDeleteQos(device, NL_SLE_QOS_8);
     }
-    // 主动删除Qos10时，不需要重复删除，避免影响其他流
-    if ((qos != NL_SLE_QOS_10) && IsQosExist(device, NL_SLE_QOS_10)) {
+    // 主动删除Qos10和上行流时，不需要重复删除，避免影响其他流
+    if ((qos != NL_SLE_QOS_10 && qos != NL_SLE_QOS_3) && IsQosExist(device, NL_SLE_QOS_10)) {
         CheckAndDeleteQos(device, NL_SLE_QOS_10);
     }
 

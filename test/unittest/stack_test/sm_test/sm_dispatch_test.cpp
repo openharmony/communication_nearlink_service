@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,6 +111,16 @@ protected:
 
 TEST_F(UT_SM_DISPATCH_Test, TestSmNegoDispatch)
 {
+    NLSTK_ERRCODE ret = NLSTK_ERRCODE_MAX;
+    NLSTK_SmCryptoAlgoFuncs_S cbks = {
+        .randNumFunc = Test_CryptoRandNumGenerate,
+        .pubPriKeyFunc = Test_CryptoPubPriKeyPairGenerate,
+        .secKeyFunc = Test_CryptoSecKeyGenerate,
+        .derivedKeyFunc = Test_CryptoDerivedKeyGenerate,
+    };
+    ret = NLSTK_SmRegAlgoFuncs(&cbks);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+
     SmSLink_S slink = {
         .rmtAddr = g_rmtAddr,
         .role = SM_T_NODE,
@@ -361,6 +371,16 @@ TEST_F(UT_SM_DISPATCH_Test, TestSmPasswordDispatch)
     };
     ret = NLSTK_SmRegAlgoFuncs(&cbks);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+
+    NLSTK_SmCallbacks_S smCbks = {
+        .startCbk = Test_SmPairStartCbk,
+        .removeCbk = Test_SmPairRemoveCbk,
+        .requestCbk = Test_SmPairRequestCbk,
+        .authCbk = Test_SmAuthCmpCbk,
+        .encCbk = Test_SmEncCmpCbk,
+        .imgMsgCbk = Test_SmImgMsgCbk,
+    };
+    SmRegExternalCbks(&smCbks);
 
     // G节点在鉴权过程中预期会收到T节点2次pkg:
     // 1. 收到携带Rb的T节点确认码SM_AUTH_T_NODE_CFM_WITH_RB，发送G 节点 DHKey 验证码SM_AUTH_G_NODE_DHKEY

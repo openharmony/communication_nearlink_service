@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ uint32_t TEST_DLI_ReadAdvSetsNumFail(void);
 
 uint32_t TEST_DLI_SetAdvParam(DLI_AdvParam *advParam);
 
-uint32_t TEST_DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff, uint16_t dataLen, uint16_t ops);
+uint32_t TEST_DLI_SetAdvData(DLI_AdvData *advData);
 
 uint32_t TEST_DLI_EnableAdv(uint8_t advHandle, DLI_AdvEnable *advEnable);
 

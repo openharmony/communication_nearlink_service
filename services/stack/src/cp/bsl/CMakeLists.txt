@@ -1,6 +1,0 @@
-add_subdirectory(sm)
-add_subdirectory(servm)
-add_subdirectory(devd)
-add_subdirectory(cm)
-add_subdirectory(qosm)
-add_subdirectory(hadm)

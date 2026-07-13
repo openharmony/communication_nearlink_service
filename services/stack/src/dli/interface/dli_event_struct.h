@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -458,7 +458,7 @@ typedef struct {
 
 typedef struct {
     uint8_t channelConnHandle;
-    uint8_t channelMissedRate;    /* rx_loss / rx_pkt*/
+    uint8_t channelMissedRate;    /* rx_loss / rx_pkt */
     uint8_t channelErrPacketRate; /* total_per */
     int8_t channelRssi;           /* rx */
 } DLI_nodeChannelInfo;

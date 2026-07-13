@@ -1,17 +1,17 @@
 /*
-* Copyright (C) 2026 Huawei Device Co., Ltd.
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "napi_nearlink_scan.h"
 #include <memory>
 #include "log_util.h"
@@ -115,8 +115,11 @@ static napi_status ParseScanParameters(
     NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, scanArg, "duration", duration, exist));
     if (exist) {
         HILOGI("Scan duration is %{public}d", duration);
-        NAPI_NL_RETURN_IF(!(SCAN_DURATION_MIN <= duration && duration <= SCAN_DURATION_MAX),
-            "duration should in range of 10 to 60 (sec), inclusive.", napi_invalid_arg);
+        if (duration < SCAN_DURATION_MIN || duration > SCAN_DURATION_MAX) {
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HILOGE("duration should in range of 10 to 60 (sec), inclusive.");
+            return napi_invalid_arg;
+        }
         params.duration = duration;
     }
     int32_t frameTypeValue;
@@ -214,8 +217,11 @@ static napi_status ParseScanFilterRssiParameters(
     NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, scanFilter, "rssi", rssi, exist));
     if (exist) {
         HILOGI("Scan rssi is %{public}d", rssi);
-        NAPI_NL_RETURN_IF((rssi < SCAN_RSSI_MIN || rssi > SCAN_RSSI_MAX),
-                          "rssi should in range of -128 to 127, inclusive.", napi_invalid_arg);
+        if (rssi < SCAN_RSSI_MIN || rssi > SCAN_RSSI_MAX) {
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HILOGE("rssi should in range of -128 to 127, inclusive.");
+            return napi_invalid_arg;
+        }
         sleScanFilter.SetRssiThreshold(rssi);
     }
     return napi_ok;

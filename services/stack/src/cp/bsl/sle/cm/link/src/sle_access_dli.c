@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -827,14 +827,12 @@ static void SleAccessReqACBSubrateCbk(void *context, uint16_t status, DLI_Execut
     cbk(context, (uint8_t)status, &paramCbk);
 }
 
-#if defined(TV_STANDARD) || defined(SLE_POWER_MANAGER_SUPPORT)
 static void SleAccessSetSleDataFilterCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 }
-#endif
 
 static const struct DLI_CbkLineStru g_sleCmCbk[] = {
     { DLI_CBK_READ_ACCESS_FLT_LIST_SIZE, SleDliReadAcceptFilterListSizeCallback},
@@ -857,9 +855,7 @@ static const struct DLI_CbkLineStru g_sleCmCbk[] = {
     { DLI_CBK_SET_PEER_DEV_TYPE, (void *)SleAccessSetPeerDevTypeCbk },
     { DLI_CBK_ACB_SET_SUBRATE, SleAccessSetACBSubrateCbk},
     { DLI_CBK_ACB_REQ_SUBRATE, SleAccessReqACBSubrateCbk},
-#if defined(TV_STANDARD) || defined(SLE_POWER_MANAGER_SUPPORT)
     { DLI_CBK_SET_SLE_DATA_FILTER, (void *)SleAccessSetSleDataFilterCbk },
-#endif
 };
 
 static uint8_t g_sleCmCbkSize = sizeof(g_sleCmCbk) / sizeof(struct DLI_CbkLineStru);

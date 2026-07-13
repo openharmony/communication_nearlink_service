@@ -16,7 +16,7 @@ import("//build/ohos_var.gni")
 
 group("etc") {
     deps = [
-        ":nearlink_service_cfg",
+        ":nearlink_service_cfg"
     ]
 }
 

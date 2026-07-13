@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
 
 DTAP_DataRecvCb g_datpDataRecvCb = nullptr;
 
-extern "C" void DTAP_ChannelSetStatus(uint16_t lcid, uint16_t tcid, uint16_t result)
+extern "C" void DTAP_ChannelSetStatus(uint16_t lcid, uint8_t tcid, uint16_t result)
 {
     return;
 }

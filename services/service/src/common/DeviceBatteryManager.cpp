@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -185,10 +185,10 @@ int32_t DeviceBatteryManager::GetDeviceReportBatteryLevel(const std::string &add
         return INVALID_BATTERY_LEVEL;
     }
 
-    return calculateBatteryLevel(batteryDeviceMap_[addr]);
+    return CalculateBatteryLevel(batteryDeviceMap_[addr]);
 }
 
-int32_t DeviceBatteryManager::calculateBatteryLevel(const BatteryInfo &batteryInfo)
+int32_t DeviceBatteryManager::CalculateBatteryLevel(const BatteryInfo &batteryInfo)
 {
     int batteryValue = INVALID_BATTERY_LEVEL;
     uint8_t higherBattery = (batteryInfo.leftBattery_ >= batteryInfo.rightBattery_) ?

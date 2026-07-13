@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,12 @@
 #include "sle_connect_param.h"
 #include "sle_access_dli.h"
 #include "cm_api.h"
+#include "cm_def.h"
 #include "cm_errno.h"
 #include "cm_log.h"
 #include "cm_logic_link_api.h"
 #include "cm_trans_channel_api.h"
+#include "cm_signaling_internal.h"
 #include "cm_signaling_trans_channel.h"
 #include "cm_dyn_trans_channel_api.h"
 #include "cm_trans_channel_mgr.h"
@@ -43,6 +45,7 @@
 #define UT_CM_SRC_PORT_0 0x1010
 #define UT_CM_DST_PORT_0 0x1020
 #define UT_CM_AID 999
+#define UT_CM_MTU 1500
 #define UT_CM_SQLI CM_TRANS_CHANNEL_SLQI_HIGH
 #define UT_CM_TRANS_CHAN_SLQI_SURPPORT_NUM 1U
 
@@ -286,6 +289,7 @@ static void UT_CM_DYN_TC_TestEstablishAndReleasePassiveEstablished(uint16_t lcid
     UT_CM_DYN_TC_TestIdReset();
     // 场景3.1 正常测试：被动创建传输通道
     establishReq.srcTcid = UT_CM_DST_TCID;
+    establishReq.transModeConfig.commonConfig.mtu = UT_CM_MTU;
     CM_GetSignalingTransChanCbks()->establishReqCbk(lcid, reqId, &establishReq);
     EXPECT_EQ(g_testDynChannelParamResult.srcTcidResult, UT_CM_SRC_TCID); // 前面用例已归还srcTcid,
                                                                           // 本端继续从UT_CM_SRC_TCID开始分配
@@ -311,6 +315,7 @@ static void UT_CM_DYN_TC_TestEstablishAndReleasePassiveEstablishedReqCheckFailed
     CM_SetSignalingTransChanEstablishRspSendResult(CM_RESULT_INSUFFICIENT_RESOURCE);
     // 场景1.1 正常测试：被动创建传输通道
     establishReq.srcTcid = UT_CM_DST_TCID;
+    establishReq.transModeConfig.commonConfig.mtu = UT_CM_MTU;
     CM_GetSignalingTransChanCbks()->establishReqCbk(lcid, reqId, &establishReq);
     EXPECT_EQ(g_testDynChannelParamResult.srcTcidResult, 0); // 前面用例已归还srcTcid,
                                                              // 本端继续从UT_CM_SRC_TCID开始分配
@@ -336,6 +341,7 @@ static void UT_CM_DYN_TC_TestEstablishAndReleasePassiveEstablishFailed(uint16_t 
     UT_CM_DYN_TC_TestIdReset();
     // 场景3.1 异常测试：被动创建传输通道失败
     establishReq.srcTcid = UT_CM_DST_TCID;
+    establishReq.transModeConfig.commonConfig.mtu = UT_CM_MTU;
     CM_GetSignalingTransChanCbks()->establishReqCbk(lcid, reqId, &establishReq);
 }
 
@@ -849,4 +855,26 @@ TEST_F(UT_CM_DYN_TRANS_CHANN, CM_ApiConnectAndDisconnectTestEstablishedCheckFail
     CM_UnRegDynTransChannelCbks();
     UT_CM_UnRegConnectCbks();
     CM_DeInit();
+}
+
+TEST_F(UT_CM_DYN_TRANS_CHANN, CM_DynTransChannEstablishReqInvalidMtu)
+{
+    UT_CM_DYN_TC_TestIdReset();
+    uint8_t reqId = UT_CM_DYN_TC_ACTIVE_REQ_ID;
+    CM_SignalingTransChanEstablishReq_S establishReq = { 0 };
+    establishReq.srcTcid = CM_TCID_BC_BEGIN;
+    establishReq.transModeConfig.commonConfig.mtu = CM_CAP_MIN_MTU - 1;
+    // 设置检查本端tcid即DestTcid为无效
+    CM_SetSignalingTransChanDestTcidInvalid(true);
+    CM_SetSignalingTransChanEstablishRspSendResult(CM_RESULT_UNSUPPORTED_MTU_SIZE);
+    CM_GetSignalingTransChanCbks()->establishReqCbk(0, reqId, &establishReq);
+    EXPECT_EQ(g_testDynChannelParamResult.srcTcidResult, 0);
+    EXPECT_EQ(g_testDynChannelParamResult.dstTcidResult, 0);
+    EXPECT_EQ(g_testDynChannelParamResult.srcPortResult, 0);
+    EXPECT_EQ(g_testDynChannelParamResult.dstPortResult, 0);
+    EXPECT_FALSE(g_testTransChanAdded);
+    EXPECT_EQ(SDF_CompareSleAddr(&g_emptyTestAddr, &g_testDynChannelParamResult.sleAddr), 0);
+    // 恢复检查设置
+    CM_SetSignalingTransChanDestTcidInvalid(false);
+    CM_SetSignalingTransChanEstablishRspSendResult(CM_RESULT_ESTABLISH_SUCCESS);
 }

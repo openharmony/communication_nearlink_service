@@ -102,11 +102,7 @@ void HadmRangingAdapter::TransferSoundingToAlgPara(NearlinkHadmSoundingResult so
     algPara.rssiDut = soundingResult.dutRssi_;
     algPara.rssiRtd = soundingResult.rtdRssi_;
     algPara.paraLimit = PARA_LIMIT_VALUE;
-#ifdef WATCH_STANDARD
-    algPara.flagInter = METHOD_1M;
-#else
     algPara.flagInter = METHOD_ADJ_R_END;
-#endif
     algPara.tofRtd = soundingResult.GetRtdTof();
     algPara.tofDut = soundingResult.GetDutTof();
     algPara.keyId = PARA_KEYS_INFO;

@@ -36,7 +36,6 @@ NearlinkVerificationManager::NearlinkVerificationManager()
     defaultReturnMap_.Insert(VerificationType::SWITCH_CONTROL, false);
     defaultReturnMap_.Insert(VerificationType::CONTROLLER_5G, true);
     defaultReturnMap_.Insert(VerificationType::CONTROLLER_HIGH_POWER, true);
-    defaultReturnMap_.Insert(VerificationType::CONTROLLER_CONNECT_INTERVAL, true);
     defaultReturnMap_.Insert(VerificationType::CONTROLLER_COEX, true);
     defaultReturnMap_.Insert(VerificationType::CONTROLLER_CHIP_LOG, true);
     defaultReturnMap_.Insert(VerificationType::CONTROLLER_BT_ADDR, true);

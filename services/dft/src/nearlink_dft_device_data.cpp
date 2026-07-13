@@ -17,7 +17,9 @@
 
 namespace OHOS {
 namespace Nearlink {
-
+namespace {
+    constexpr int MAX_NAME_LENGTH = UINT8_MAX;
+}
 
 std::string NearlinkDeviceData::GetName()
 {
@@ -72,11 +74,12 @@ DftDeviceManager &DftDeviceManager::GetInstance()
 
 void DftDeviceManager::AddDevice(RawAddress address, const int32_t appearance, const std::string &name)
 {
+    std::string newName = name.length() > MAX_NAME_LENGTH ? name.substr(0, MAX_NAME_LENGTH) : name;
     // makesure the reportAddr is not overrided
     RawAddress reportAddr;
     GetReportAddr(address, reportAddr);
     NearlinkDeviceData device;
-    device.SetName(name);
+    device.SetName(newName);
     device.SetAppearance(appearance);
     device.SetAddr(address.GetAddress());
     device.SetReportAddr(reportAddr);

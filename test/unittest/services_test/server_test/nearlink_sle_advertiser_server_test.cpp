@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -431,11 +431,15 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest002, TestSize.Level1)
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     // 分支覆盖
     advData.SetIncludeDeviceName(true);
-    res = g_advertiserServer->StartAdvertising(settings, advData, scanResponse, advHandle);
+    int32_t advHandle2 = -1;
+    g_advertiserServer->GetAdvertiserHandle(advHandle2);
+    res = g_advertiserServer->StartAdvertising(settings, advData, scanResponse, advHandle2);
     EXPECT_EQ(res, NL_NO_ERROR);
     std::string longDataStr(0xFF, 'a');
     advData.SetPayload(longDataStr);
-    res = g_advertiserServer->StartAdvertising(settings, advData, scanResponse, advHandle);
+    int32_t advHandle3 = -1;
+    g_advertiserServer->GetAdvertiserHandle(advHandle3);
+    res = g_advertiserServer->StartAdvertising(settings, advData, scanResponse, advHandle3);
     EXPECT_EQ(res, NL_NO_ERROR);
     HILOGI("AdvertiserServerTest002 end");
 }

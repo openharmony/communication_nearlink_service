@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         dli_data_stub.h
- * @brief        dli桩函数
-*/
+ */
 
 /* 后续直接依赖so，此文件删除，暂时使用函数打桩的方式，编译及测试通过，后续验证方便 */
 #ifndef DLI_DATA_STUB_H

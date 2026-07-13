@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -38,8 +38,6 @@ constexpr int DELAY_LITTLE_MS = 100;
 
 class MockCdsmService : public CdsmService {
 public:
-    // MOCK_METHOD(NlErrCode, CdsmGetAllMemberInfo,
-    //     (const RawAddress &memberAddr, std::vector<NearlinkCdsmInfo> &cdsmInfo), (override));
 };
 
 class MockTwsClient : public TwsClient {
@@ -47,7 +45,6 @@ public:
     MockTwsClient(const std::string& macAddress) : TwsClient(macAddress) {}
     void SetAppid(int value) { appId_ = value;}
     void SetState(TwsClientState newState) { twsClientState_ = newState;}
-    // MOCK_METHOD(bool, Init, (std::weak_ptr<TwsClient> twsClient), (override));
 };
 
 class NearlinkTwsTest : public testing::Test {
@@ -495,18 +492,6 @@ HWTEST_F(NearlinkTwsTest, NotifyStateChanged003, TestSize.Level1)
 {
     HILOGI("NearlinkTwsTest:NotifyStateChanged003 start");
     RawAddress device("11:22:33:44:55:66");
-    // MockCdsmService mockCdsm;
-    // NearlinkCdsmInfo tmpDevInfo;
-    // tmpDevInfo.addr_ = RawAddress(device);
-    // tmpDevInfo.state_ = static_cast<int>(CdsmConnectState::CONNECTED);
-    // tmpDevInfo.isReportAddr_ = true;
-    // std::vector<NearlinkCdsmInfo> devList = {tmpDevInfo};
-
-    // EXPECT_CALL(mockCdsm, CdsmGetAllMemberInfo(device, testing::_))
-    //     .WillOnce(testing::DoAll(
-    //         testing::SetArgReferee<1>(devList),
-    //         testing::Return(NL_NO_ERROR)
-    //     ));
 
     TwsService *twsService = TwsService::GetService();
     twsService->NotifyStateChanged(device, TwsClientState::TWS_STATE_CONNECTED, TwsClientState::TWS_STATE_DISCONNECTED);

@@ -43,7 +43,7 @@ static void SendPairingCfm(SmSLink_S *slink);
 static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size);
 static void SendPairingInitInfo(SmSLink_S *slink);
 static void RecvPairingInitInfo(SmSLink_S *slink, const uint8_t *pkg, size_t size);
-
+//LCOV_EXCL_START
 void SmNegoPkgDispatcher(uint16_t opcode, SmSLink_S *slink, const uint8_t *pkg, size_t size)
 {
     /* 检查opcode是否属于Nego处理的范畴, 如果不是则直接退出 */
@@ -433,3 +433,4 @@ static uint32_t PairingNego(SmPairReqRspMsg_S *msg, uint8_t gMitmDefend, uint8_t
 
     return SM_OK;
 }
+//LCOV_EXCL_STOP

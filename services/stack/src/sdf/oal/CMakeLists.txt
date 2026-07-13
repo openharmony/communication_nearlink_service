@@ -1,5 +1,0 @@
-add_subdirectory(evc)
-add_subdirectory(memm)
-add_subdirectory(sig)
-add_subdirectory(thread)
-add_subdirectory(timer)

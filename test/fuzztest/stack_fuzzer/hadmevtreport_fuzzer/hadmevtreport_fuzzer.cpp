@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,8 +113,10 @@ namespace OHOS {
 
     void FuzzEvtReportSlemIQ(const uint8_t *fuzzData, size_t size)
     {
+        /* 在原来基础上加了3个多音管道，每个管道3B，还有1B的指示符 */
+        uint32_t fuzzLen = HADM_MEASURE_IQ_REPORT_DATA_LEN + 79 * 3 * 3 + 1;
         DLI_ExecuteCmdCbk EvtReportSlemIQ = g_hadmCbkList[FUZZ_THREE];
-        if (size < sizeof(uint16_t) + HADM_MEASURE_IQ_REPORT_DATA_LEN +
+        if (size < sizeof(uint16_t) + fuzzLen +
             sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S)) {
             return;
         }
@@ -130,7 +132,7 @@ namespace OHOS {
             fuzzData + pos, sizeof(fuzzCmdRes->cmdOpcode));
         pos += sizeof(fuzzCmdRes->cmdOpcode);
 
-        fuzzCmdRes->size = HADM_MEASURE_IQ_REPORT_DATA_LEN;
+        fuzzCmdRes->size = fuzzLen;
 
         fuzzCmdRes->eventParameter = (void *)SDF_MemAlloc(fuzzCmdRes->size +
             sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S));
@@ -138,9 +140,9 @@ namespace OHOS {
             SDF_MemFree(fuzzCmdRes);
             return;
         }
-        (void)memcpy_s(fuzzCmdRes->eventParameter, HADM_MEASURE_IQ_REPORT_DATA_LEN +
+        (void)memcpy_s(fuzzCmdRes->eventParameter, fuzzLen +
             sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S), fuzzData + pos,
-            HADM_MEASURE_IQ_REPORT_DATA_LEN + sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S));
+            fuzzLen + sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S));
 
         EvtReportSlemIQ(&fuzzStatus, fuzzStatus, fuzzCmdRes);
         SDF_MemFree(fuzzCmdRes->eventParameter);

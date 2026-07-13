@@ -435,11 +435,6 @@ TEST_F(IT_HID_TEST, HID_TEST_001)
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
 
-    // // 预期收到回调断连中
-    // EXPECT_EQ(g_recvCbk, true);
-    // EXPECT_EQ(g_state, HID_DISCONNECTING);
-    // STUB_ResetData();
-
     CM_LogicLinkState_S linkState2 = {.lcid = g_lcid, .result = 2,};
     (void)memcpy_s(&linkState2.addr, sizeof(SLE_Addr_S), &g_addr, sizeof(SLE_Addr_S));
     TEST_CM_CreateLogicLink(CM_MODULE_SSAP, &linkState2);
@@ -619,11 +614,6 @@ TEST_F(IT_HID_TEST, HID_TEST_002)
     ret = HidDisconnect(&g_addr);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
-
-    // // 预期收到回调断连中
-    // EXPECT_EQ(g_recvCbk, true);
-    // EXPECT_EQ(g_state, HID_DISCONNECTING);
-    // STUB_ResetData();
 
     CM_LogicLinkState_S linkState2 = {.lcid = g_lcid, .result = 2,};
     (void)memcpy_s(&linkState2.addr, sizeof(SLE_Addr_S), &g_addr, sizeof(SLE_Addr_S));

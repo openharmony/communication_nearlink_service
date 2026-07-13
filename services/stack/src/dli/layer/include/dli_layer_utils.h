@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         dli_layer_utils.h
- * @brief        dli一些节点处理
-*/
+ */
 
 #ifndef DLI_LAYER_UTILS_H
 #define DLI_LAYER_UTILS_H
@@ -49,6 +47,8 @@ typedef struct DLI_RecvDataNode {
 // 默认context，timeoutCallback及contextFree都为空, opcode 为0
 DLI_CmdStru *DLI_DefaultCmdStruCreate(uint16_t cmd, uint16_t event,
     uint8_t *par, uint16_t parLen);
+
+void DLI_EraseParInfo(DLI_CmdStru *info);
 
 DLI_DataStru *DLI_DefaultDataStruCreate(uint16_t lcid, uint16_t type,
     uint8_t ts, uint8_t prio, SDF_Buff_S *buf);

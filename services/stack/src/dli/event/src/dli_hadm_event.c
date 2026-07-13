@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,9 @@ void DLI_CsIqReportCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcod
     DLI_CHECK_RETURN(len >= sizeof(DLI_CsIqReportEvt), "check len=%u, minDataLen=%zu", len, sizeof(DLI_CsIqReportEvt));
     DLI_CsIqReportEvt *ev = (DLI_CsIqReportEvt *)arg;
     uint32_t size = DLI_GetSlemInfoDataLen(ev);
-    DLI_RunRegCbk(DLI_CBK_MEASURE_IQ_REPORT, context, arg, size, evtOpcode, ev->status);
+    DLI_CHECK_RETURN(len >= sizeof(DLI_CsIqReportEvt) + size, "check len=%u, minDataLen=%u",
+        len, sizeof(DLI_CsIqReportEvt) + size);
+    DLI_RunRegCbk(DLI_CBK_MEASURE_IQ_REPORT, context, arg, len, evtOpcode, ev->status);
 }
 
 void DLI_ReadRemoteCsCapsCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcode)

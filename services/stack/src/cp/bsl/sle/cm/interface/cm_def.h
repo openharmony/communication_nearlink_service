@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -43,9 +43,8 @@ extern "C" {
 #define CM_NEARLINK_FEATURE_INDEX         8
 #define CM_NEARLINK_FEATURE_COMPETENCE    0x4
 #define CM_INVALID_VERSION                ((uint16_t)0xFFFF)
-#if defined(TV_STANDARD) || defined(SLE_POWER_MANAGER_SUPPORT)
-#define SLE_DATA_FILTER_CODE_LEN 8
-#endif
+#define CM_CAP_MIN_MTU 32 // 最小MTU，21 + 11 ((传输层帧支持各模式的报文头部最大长度（有连接) +
+                          // DTAP帧支持各模式头部最大长度（可靠模式）)
 
 typedef enum {
     CM_G_NODE,

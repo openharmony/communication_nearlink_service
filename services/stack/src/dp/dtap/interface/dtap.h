@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /****************************************************************************
  *
@@ -148,7 +148,7 @@ typedef struct DTAP_Data_Send_Cbks_S {
 
 void DTAP_UnRegisterDataSendCbks(void);
 void DTAP_RegisterDataSendCbks(const DTAP_Data_Send_Cbks_S *cbks);
-void DTAP_ChannelSetStatus(uint16_t lcid, uint16_t tcid, uint16_t result);
+void DTAP_ChannelSetStatus(uint16_t lcid, uint8_t tcid, uint16_t result);
 
 #ifdef __cplusplus
 }

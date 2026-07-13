@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -229,6 +229,52 @@ static void UpdateMcpVolumeClient(McpVolumeDevice_S *dev, NLSTK_Errcode_E ret,
     }
 }
 
+static void McpParseStreamVolumeData(McpVolumeDevice_S *dev, uint8_t *data, uint16_t dataLen,
+    NLSTK_McpStreamVolumeStatus_S *streamVolume)
+{
+    uint8_t num = 0;
+    PARSE_TO_UINT8(num, data);
+    NLSTK_CHECK_RETURN_VOID(dataLen == num * MCP_STREAM_VOLUME_EXTRA_LEN + MCP_STREAM_VOLUME_BASE_LEN,
+        "[MCP] stream volume len error");
+    SDF_CleanVector(dev->streamVolumeStatus);
+    // 用于拼接日志的缓冲区
+    char logBuffer[MCP_VOLUME_LOG_INFO_LEN] = {0};
+    size_t offset = 0;
+    int tempOffset = snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1, "");
+    NLSTK_CHECK_RETURN_VOID(tempOffset != -1, "[MCP] snprintf_s error");
+    offset += tempOffset;
+    for (int i = 0; i < num; i++) {
+        McpStreamVolumeStatus_S *vol = (McpStreamVolumeStatus_S *)SDF_MemZalloc(sizeof(McpStreamVolumeStatus_S));
+        NLSTK_CHECK_RETURN_VOID(vol != NULL, "[MCP] stream volume status malloc fail");
+        PARSE_TO_UINT8(vol->accessPoint, data);
+        PARSE_TO_UINT8(vol->volume, data);
+        PARSE_TO_UINT8(vol->additionalInfo, data);
+        if (vol->accessPoint == dev->mediaPoint) {
+            streamVolume->mediaVolume = vol->volume;
+            streamVolume->mediaInfo = vol->additionalInfo;
+        } else if (vol->accessPoint == dev->callPoint) {
+            streamVolume->callVolume = vol->volume;
+            streamVolume->callInfo = vol->additionalInfo;
+        }
+
+        if (offset < sizeof(logBuffer) - MCP_VOLUME_LOG_PER_ITEM_LEN) {
+            tempOffset = snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1,
+                "volume=%u, ap=%u;", vol->volume, vol->accessPoint);
+            if (tempOffset == -1) {
+                NLSTK_LOG_INFO("[MCP] snprintf_s error");
+                SDF_MemFree(vol);
+                continue;
+            }
+            offset += tempOffset;
+        }
+        if (!SDF_VectorEmplaceBack(dev->streamVolumeStatus, vol)) {
+            SDF_MemFree(vol);
+        }
+    }
+    PARSE_TO_UINT8(dev->streamVolumeChangeId, data);
+    NLSTK_LOG_INFO("[MCP] stream %s changeId=%u", logBuffer, dev->streamVolumeChangeId);
+}
+
 static void McpHandleGetStreamVolumeRsp(McpVolumeDevice_S *dev, NLSTK_SsapClientReadPropertyInfo_S *property,
                                         NLSTK_Errcode_E ret)
 {
@@ -240,43 +286,8 @@ static void McpHandleGetStreamVolumeRsp(McpVolumeDevice_S *dev, NLSTK_SsapClient
         }
         return;
     }
-    uint8_t *data = property->value.data;
-    uint8_t num = 0;
-    PARSE_TO_UINT8(num, data);
-    NLSTK_CHECK_RETURN_VOID(property->value.len == num * MCP_STREAM_VOLUME_EXTRA_LEN + MCP_STREAM_VOLUME_BASE_LEN,
-        "[MCP] stream volume len error");
     NLSTK_McpStreamVolumeStatus_S streamVolume = {0};
-    SDF_CleanVector(dev->streamVolumeStatus);
-
-    // 用于拼接日志的缓冲区
-    char logBuffer[MCP_VOLUME_LOG_INFO_LEN] = {0};
-    int offset = 0;
-    offset += snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1, "");
-    for (int i = 0; i < num; i++) {
-        McpStreamVolumeStatus_S *vol = (McpStreamVolumeStatus_S *)SDF_MemZalloc(sizeof(McpStreamVolumeStatus_S));
-        NLSTK_CHECK_RETURN_VOID(vol != NULL, "[MCP] stream volume status malloc fail");
-        PARSE_TO_UINT8(vol->accessPoint, data);
-        PARSE_TO_UINT8(vol->volume, data);
-        PARSE_TO_UINT8(vol->additionalInfo, data);
-        if (vol->accessPoint == dev->mediaPoint) {
-            streamVolume.mediaVolume = vol->volume;
-            streamVolume.mediaInfo = vol->additionalInfo;
-        } else if (vol->accessPoint == dev->callPoint) {
-            streamVolume.callVolume = vol->volume;
-            streamVolume.callInfo = vol->additionalInfo;
-        }
-
-        // 拼接音量信息
-        if (offset < sizeof(logBuffer) - MCP_VOLUME_LOG_PER_ITEM_LEN) {
-            offset += snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1,
-                "volume=%u, ap=%u;", vol->volume, vol->accessPoint);
-        }
-        if (!SDF_VectorEmplaceBack(dev->streamVolumeStatus, vol)) {
-            SDF_MemFree(vol);
-        }
-    }
-    PARSE_TO_UINT8(dev->streamVolumeChangeId, data);
-    NLSTK_LOG_INFO("[MCP] read stream %s changeId=%u", logBuffer, dev->streamVolumeChangeId);
+    McpParseStreamVolumeData(dev, property->value.data, property->value.len, &streamVolume);
     UpdateMcpVolumeClient(dev, ret, streamVolume);
 }
 
@@ -315,43 +326,8 @@ static void McpHandleVolumeNtf(McpVolumeDevice_S *dev, NLSTK_SsapClientReadPrope
 
 static void McpHandleStreamVolumeNtf(McpVolumeDevice_S *dev, NLSTK_SsapClientReadPropertyInfo_S *property)
 {
-    uint8_t *data = property->value.data;
-    uint8_t num = 0;
-    PARSE_TO_UINT8(num, data);
-    NLSTK_CHECK_RETURN_VOID(property->value.len == num * MCP_STREAM_VOLUME_EXTRA_LEN + MCP_STREAM_VOLUME_BASE_LEN,
-        "[MCP] stream volume len error");
     NLSTK_McpStreamVolumeStatus_S streamVolume = {0};
-    SDF_CleanVector(dev->streamVolumeStatus);
-
-    // 用于拼接日志的缓冲区
-    char logBuffer[MCP_VOLUME_LOG_INFO_LEN] = {0};
-    int offset = 0;
-    offset += snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1, "");
-    for (int i = 0; i < num; i++) {
-        McpStreamVolumeStatus_S *vol = (McpStreamVolumeStatus_S *)SDF_MemZalloc(sizeof(McpStreamVolumeStatus_S));
-        NLSTK_CHECK_RETURN_VOID(vol != NULL, "[MCP] stream volume status malloc fail");
-        PARSE_TO_UINT8(vol->accessPoint, data);
-        PARSE_TO_UINT8(vol->volume, data);
-        PARSE_TO_UINT8(vol->additionalInfo, data);
-        if (vol->accessPoint == dev->mediaPoint) {
-            streamVolume.mediaVolume = vol->volume;
-            streamVolume.mediaInfo = vol->additionalInfo;
-        } else if (vol->accessPoint == dev->callPoint) {
-            streamVolume.callVolume = vol->volume;
-            streamVolume.callInfo = vol->additionalInfo;
-        }
-
-         // 拼接音量信息
-        if (offset < sizeof(logBuffer) - MCP_VOLUME_LOG_PER_ITEM_LEN) {
-            offset += snprintf_s(logBuffer + offset, sizeof(logBuffer) - offset, sizeof(logBuffer) - offset - 1,
-                "volume=%u, ap=%u;", vol->volume, vol->accessPoint);
-        }
-        if (!SDF_VectorEmplaceBack(dev->streamVolumeStatus, vol)) {
-            SDF_MemFree(vol);
-        }
-    }
-    PARSE_TO_UINT8(dev->streamVolumeChangeId, data);
-    NLSTK_LOG_INFO("[MCP] update stream %s changeId=%u", logBuffer, dev->streamVolumeChangeId);
+    McpParseStreamVolumeData(dev, property->value.data, property->value.len, &streamVolume);
 
     McpCheckSendNextStreamVolumeReq(dev);
     McpStreamVolumeDelTimer(dev);

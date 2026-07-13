@@ -15,6 +15,8 @@
 
 #include "nearlink_sle_controller_server.h"
 #include "interface_sle_controller.h"
+#include "SleInterfaceAdapterSub.h"
+#include "SleInterfaceManager.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_verification_manager.h"
 #include "log_util.h"
@@ -79,18 +81,6 @@ NlErrCode NearlinkSleControllerServer::SetSleCoexParam(uint16_t maxBitRate, uint
     return NL_ERR_INTERNAL_ERROR;
 }
 
-bool NearlinkSleControllerServer::IsUpdateConnectIntervalAllowed()
-{
-    uint32_t tokenId = IPCSkeleton::GetCallingTokenID();
-    int32_t uid = IPCSkeleton::GetCallingUid();
-    VerificationContext ctx = { .tokenId = tokenId, .uid = uid };
-
-    bool result = NearlinkVerificationManager::GetInstance()
-        .CheckVerification(VerificationType::CONTROLLER_CONNECT_INTERVAL, ctx);
-    HILOGI("tokenId: %{public}u, result: %{public}d", tokenId, result);
-    return result;
-}
-
 NlErrCode NearlinkSleControllerServer::UpdateConnectInterval(const std::string &device, int32_t intervalType)
 {
     HILOGI("Enter, device: %{public}s, intervalType: %{public}d",
@@ -100,13 +90,16 @@ NlErrCode NearlinkSleControllerServer::UpdateConnectInterval(const std::string &
     NL_CHECK_RETURN_RET(!device.empty(),
         NL_ERR_INVALID_PARAM, "Device address is empty");
 
-    // Permission check
-    NL_CHECK_RETURN_RET(IsUpdateConnectIntervalAllowed(),
-        NL_ERR_INTERNAL_ERROR, "Permission check failed");
-
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(device, realAddr);
-    NL_CHECK_RETURN_RET(realAddr != "", NL_ERR_INVALID_PARAM, "device is invalid.");
+    NL_CHECK_RETURN_RET(realAddr != "", NL_ERR_INTERNAL_ERROR, "device is invalid.");
+    SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
+        (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+    NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
+    RawAddress addr(realAddr);
+    int acbState = sleService->GetAcbState(addr);
+    NL_CHECK_RETURN_RET(acbState >= static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        NL_ERR_INTERNAL_ERROR, "need connected.");
 
     // Call Service layer
     if (InterfaceSleController::GetInstance().UpdateConnectInterval(realAddr, intervalType)) {

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -275,7 +275,6 @@ HWTEST_F(DliTest, TestCaseInit, TestSize.Level1)
 
 HWTEST_F(DliTest, TestCaseSendCommonCmd, TestSize.Level1)
 {
-    DLI_SetWriteFileCallback(TEST_DliWriteLogStub);
     DLI_PublicAddrParam cmd = {.mediaAccessLayerIDType = 0};
     uint32_t ret = DLI_GetPublicAddress(&cmd);
     ASSERT_EQ(0, ret);
@@ -478,7 +477,7 @@ HWTEST_F(DliTest, TestCaseSendDevdCmd, TestSize.Level1)
     advData->operation = data[DATA_INDEX_1];
     (void)memcpy_s(advData->advData, dataLen, data, dataLen);
     advData->advDataLen = dataLen;
-    ret = DLI_SetAdvData(advData, dataOff);
+    ret = DLI_SetAdvData(advData);
     ASSERT_EQ(0, ret);
     SDF_MemFree(advData);
 
@@ -488,7 +487,7 @@ HWTEST_F(DliTest, TestCaseSendDevdCmd, TestSize.Level1)
     scanRspData->operation = data[DATA_INDEX_1];
     (void)memcpy_s(scanRspData->scanRspData, dataLen, data, dataLen);
     scanRspData->scanRspDataLen = dataLen;
-    ret = DLI_SetScanRspData(scanRspData, dataOff);
+    ret = DLI_SetScanRspData(scanRspData);
     ASSERT_EQ(0, ret);
     SDF_MemFree(scanRspData);
 
@@ -506,7 +505,6 @@ HWTEST_F(DliTest, TestCaseSendDevdCmd, TestSize.Level1)
 
 HWTEST_F(DliTest, TestCaseSendIcbCmd, TestSize.Level1)
 {
-    DLI_SetWriteFileCallback(TEST_DliWriteLogStub);
     DLI_ICGParam freqParam = {0};
     DLI_ICGCbkParam cbkParam = {0};
     freqParam.opCode = DLI_SET_IMG_PARAM;
@@ -680,11 +678,13 @@ HWTEST_F(DliTest, TestCaseRecvEvent010, TestSize.Level1)
     ASSERT_EQ(0, g_cmdResData);
     ASSERT_EQ(0, g_cmdResLen);
 
-    DLI_ReadRemoteCsCapsEvt data = {0};
-    uint32_t size = sizeof(DLI_ReadRemoteCsCapsEvt);
+    DLI_ReadRemoteCsCapsPrivEvt data = {0};
+    uint32_t size = sizeof(DLI_ReadRemoteCsCapsPrivEvt);
+    uint32_t evtSize = sizeof(DLI_ReadRemoteCsCapsEvt);
     RecvEventHandler(DLI_READ_REMOTE_MEASURE_CAPS_STATUS_VENDOR_EVT, NULL, (uint8_t *)&data, size);
     ASSERT_EQ(0x00, g_cmdResData);
-    ASSERT_EQ(size, g_cmdResLen);
+    // 解析上层需要的数据DLI_ReadRemoteCsCapsEvt
+    ASSERT_EQ(evtSize, g_cmdResLen);
 }
 
 HWTEST_F(DliTest, TestCaseRecvEvent011, TestSize.Level1)
@@ -699,7 +699,7 @@ HWTEST_F(DliTest, TestCaseRecvEvent011, TestSize.Level1)
     cmd.encryptChange = 0x01;
 
     RecvEventHandler(DLI_ENCRYPTION_CHANGE_EVT, NULL, (uint8_t *)&cmd, sizeof(DLI_EncryptChangeEvt));
-    ASSERT_EQ(0x01, g_cmdResData);
+    ASSERT_EQ(cmd.status, g_cmdResData);
     ASSERT_EQ(sizeof(DLI_EncryptChangeEvt), g_cmdResLen);
 
     cmd.status = DLI_COMMAND_TIMEOUT;
@@ -707,7 +707,7 @@ HWTEST_F(DliTest, TestCaseRecvEvent011, TestSize.Level1)
     cmd.encryptChange = 0x01;
 
     RecvEventHandler(DLI_ENCRYPTION_CHANGE_EVT, NULL, (uint8_t *)&cmd, sizeof(DLI_EncryptChangeEvt));
-    ASSERT_EQ(0x01, g_cmdResData);
+    ASSERT_EQ(cmd.status, g_cmdResData);
 }
 
 HWTEST_F(DliTest, TestCaseRecvEvent013, TestSize.Level1)
@@ -877,7 +877,10 @@ HWTEST_F(DliTest, TestCaseRecvEvent024, TestSize.Level1)
     RecvEventHandler(DLI_MEASURE_IQ_REPORT_VENDOR_EVT, NULL, cmd1, len1);
     ASSERT_EQ(0xFF, g_cmdResData);
     SDF_MemFree(cmd1);
+}
 
+HWTEST_F(DliTest, TestCaseRecvEvent025, TestSize.Level1)
+{
     RecvEventHandler(DLI_VENDOR_EVENT_EVT, NULL, NULL, 0);
     ASSERT_EQ(0, g_cmdResLen);
 

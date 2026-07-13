@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -493,7 +493,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         advData->operation = provider.ConsumeIntegral<uint8_t>();
         advData->selection = 0;
         (void)memcpy_s(advData->advData, remainData.size(), remainData.data(), remainData.size());
-        DLI_SetAdvData(advData, 0);
+        DLI_SetAdvData(advData);
         SDF_MemFree(advData);
     } else {
         uint32_t cmdSize = (uint32_t)sizeof(DLI_ScanRspData) + remainData.size();
@@ -505,7 +505,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         scanRspData->operation = provider.ConsumeIntegral<uint8_t>();
         scanRspData->selection = 0;
         (void)memcpy_s(scanRspData->scanRspData, remainData.size(), remainData.data(), remainData.size());
-        DLI_SetScanRspData(scanRspData, 0);
+        DLI_SetScanRspData(scanRspData);
         SDF_MemFree(scanRspData);
     }
 }

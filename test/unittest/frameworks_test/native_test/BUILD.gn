@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -29,12 +29,10 @@ config("native_unit_test_config") {
     "$NEARLINK_ROOT/services/ipc/src",
     "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/services/server/include",
-    "$NEARLINK_ROOT/services/service/src/tws",
     "$NEARLINK_ROOT/services/service/src/util",
     "$NEARLINK_ROOT/services/service/src/base",
     "$NEARLINK_ROOT/services/stack/src/sdf/interface",
     "$NEARLINK_ROOT/services/stack/src/nai/api/include/common",
-    "$NEARLINK_ROOT/services/stack/include/ext",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/src",
   ]
@@ -59,7 +57,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/services/server:nearlink_server",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "${nearlink_test_utils_path}:test_utils_static",
 ]
 
@@ -72,6 +69,8 @@ unit_test_external_deps = [
   "init:libbegetutil",
   "googletest:gmock_main",
   "ffrt:libffrt",
+  "access_token:libpermsetproc_shared",
+  "access_token:libnativetoken_shared",
 ]
 
 test_out_path = "nearlink_service/nearlink_service"

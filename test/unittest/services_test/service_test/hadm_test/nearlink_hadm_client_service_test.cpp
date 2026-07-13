@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 #include "log.h"
 
 #include "SleServiceManager.h"
-#include "nearlink_access_token_mock.h"
 
 
 namespace OHOS {
@@ -67,7 +66,6 @@ public:
 void NearlinkHadmClientServeiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase NearlinkHadmClientServeiceTest.");
-    NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_TDD_DELAY_1000_MS));
 }

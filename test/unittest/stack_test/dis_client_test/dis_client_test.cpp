@@ -35,7 +35,6 @@
 #include "ssapc_app.h"
 #include "nlstk_dis_client.h"
 #include "dis_common.h"
-// #include "dis_init.h"
 
 using namespace testing;
 using namespace testing::ext;
@@ -94,7 +93,6 @@ protected:
         SSAP_Init();
 
         // 步骤3：初始化DIS
-        // DisInit();
 
         g_addrConnState = DIS_DISCONNECTED;
     }
@@ -102,7 +100,6 @@ protected:
     void TearDown() override
     {
         DisDisable();
-        // DisDeInit();
 
         SSAP_DeInit();
         SSAP_LinkDeInit();
@@ -244,7 +241,6 @@ TEST_F(IT_DIS_CLIENT_TEST, DIS_CONNECT_001)
 
     NLSTK_DisProfileDisconnect(&g_addr);
     TEST_RunQueueStubSchedule();
-    // EXPECT_EQ(g_addrConnState, DIS_DISCONNECTING);
 
     CM_LogicLinkState_S linkState2 = {.lcid = 0, .result = 2,};
     (void)memcpy_s(&linkState2.addr, sizeof(SLE_Addr_S), &g_addr, sizeof(SLE_Addr_S));

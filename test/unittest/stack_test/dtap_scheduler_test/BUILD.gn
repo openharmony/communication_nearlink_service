@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -68,7 +68,10 @@ ohos_unittest("dtap_scheduler_test") {
   foreach(s, shared_stack_source) {
     if (s != "$STACK_DIR/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c" &&
         s != "$STACK_DIR/src/dli/event/src/dli_event.c" &&
-        s != "$STACK_DIR/src/dli/layer/src/dli_layer.c") {
+        s != "$STACK_DIR/src/dli/layer/src/dli_layer.c" &&
+        s != "$STACK_DIR/src/dli/layer/src/dli_layer_callback.c" &&
+        s != "$STACK_DIR/src/adapter/src/collab_ext_func_wrapper.c" &&
+        s != "$STACK_DIR/src/cp/bsl/sle/cm/common/src/cm_dli_adapter.c") {
       sources += [ s ]
     }
   }

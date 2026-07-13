@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
 #include "BasService.h"
 #include <vector>
+#include "DeviceBatteryManager.h"
 #include "nearlink_safe_list.h"
 #include "SleInterfaceManager.h"
 #include "log_util.h"
@@ -162,6 +163,9 @@ void BasService::NotifyBatteryLevelEvent(const RawAddress &device, int8_t batter
             [device, batteryLevel](IDeviceBatteryCallback &observer) -> void {
                 observer.OnGetBatteryLevelEvent(device, batteryLevel);
             });
+        BatteryInfo batteryInfo {};
+        batteryInfo.devBattery_ = batteryLevel;
+        DeviceBatteryManager::GetInstance().PublishBatteryLevel(device, batteryInfo);
     });
 }
 
@@ -172,6 +176,9 @@ void BasService::NotifyBatteryLevelChanged(const RawAddress &device, int8_t batt
         pimpl->deviceBatteryObservers_.ForEach([device, batteryLevel](IDeviceBatteryCallback &observer) -> void {
             observer.OnBatteryLevelChanged(device, batteryLevel);
         });
+        BatteryInfo batteryInfo {};
+        batteryInfo.devBattery_ = batteryLevel;
+        DeviceBatteryManager::GetInstance().PublishBatteryLevel(device, batteryInfo);
     });
 }
 

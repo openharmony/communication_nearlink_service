@@ -1400,6 +1400,16 @@ int SlePeripheralDevice::GetAcbConnectState() const
     return acbConnected_;
 }
 
+void SlePeripheralDevice::SetAcbDisConnReason(int reason)
+{
+    acbDisConnReason_ = reason;
+}
+
+int SlePeripheralDevice::GetAcbDisConnReason() const
+{
+    return acbDisConnReason_;
+}
+
 /**
  * @brief Set acb lcid.
  *
@@ -1855,45 +1865,6 @@ int SlePeripheralDevice::GetCdsmAddrType()
 bool SlePeripheralDevice::IsCdsmMember() const
 {
     return (cdsmAddrType_ == static_cast<int>(SleCdsmAddrType::CDSM_TYPE_MEMBER));
-}
-
-/**
- * @brief Save cdsm device address list.
- *
- * @param cdsmDevList cdsm address list.
- * @since 6
- */
-void SlePeripheralDevice::SaveCdsmDeviceList(std::vector<std::string> &cdsmDevList)
-{
-    NL_CHECK_RETURN(!cdsmDevList.empty(), "cdsmDevList is empty");
-    cdsmDeviceList_.clear();
-    cdsmDeviceList_.resize(cdsmDevList.size());
-
-    errno_t secRet = memcpy_s(cdsmDeviceList_.data(), cdsmDevList.size(), cdsmDevList.data(), cdsmDevList.size());
-    NL_CHECK_RETURN(secRet == EOK,
-               "[cdsm adapter]:save device addr list,copy cdsm member list failed:%{public}d", secRet);
-}
-
-/**
- * @brief Get cdsm device address list.
- *
- * @param cdsmDevList cdsm address list.
- * @return Returns cdsm address list.
- * @since 6
- */
-void SlePeripheralDevice::GetCdsmDeviceList(std::vector<std::string> &cdsmDevList) const
-{
-    if (cdsmDeviceList_.empty()) {
-        cdsmDevList.clear();
-        return;
-    }
-
-    cdsmDevList.clear();
-    cdsmDevList.resize(cdsmDeviceList_.size());
-    errno_t secRet = memcpy_s(cdsmDevList.data(), cdsmDeviceList_.size(),
-        cdsmDeviceList_.data(), cdsmDeviceList_.size());
-    NL_CHECK_RETURN(secRet == EOK,
-               "[cdsm adapter]:get device addr list,copy cdsm member list failed:%{public}d", secRet);
 }
 
 /**

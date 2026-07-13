@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ static void StubDevdSetAdvDataCbk(void *param)
     DevdSetAdvDataCbk(&cbkContext, DLI_SUCCESS, &cmdRes);
 }
 
-uint32_t DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff)
+uint32_t DLI_SetAdvData(DLI_AdvData *advData)
 {
     DLI_LOGI("[DEVD_API_TEST] enter stub DLI_SetAdvData");
     if (advData == NULL) {
@@ -217,9 +217,20 @@ bool DLI_IsSupportNewDisMeasure(void)
     return false;
 }
 
-uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData, uint16_t dataOff)
+uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData)
 {
-    return 0;
+    DLI_LOGI("[DEVD_API_TEST] enter stub DLI_SetScanRspData");
+    if (scanRspData == NULL) {
+        DLI_LOGE("[DEVD_API_TEST] scanRspData is null");
+        return DLI_UNKNOWN_COMMAND;
+    }
+    DLI_ScanRspData *advDataCbk = (DLI_ScanRspData *)SDF_MemZalloc(sizeof(DLI_ScanRspData));
+    (void)memcpy_s(advDataCbk, sizeof(DLI_ScanRspData), scanRspData, sizeof(DLI_ScanRspData));
+    if (SchedulePostTask(StubDevdSetAdvDataCbk, advDataCbk, SDF_MemFree) != NLSTK_OK) {
+        DLI_LOGE("[DEVD_API_TEST] stub SchedulePostTask error");
+        return DLI_UNKNOWN_COMMAND;
+    }
+    return DLI_SUCCESS;
 }
 
 uint8_t DLI_GetPhyCountByFrameType(uint8_t frameType)

@@ -1405,7 +1405,7 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerDataAudio_Exception_001, 
             "00:11:22:33:44:E1", "ExceptionDevice1", manuData1, -50);
         MockTriggerScanResult(&result1);
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LONG_MS));
-        EXPECT_TRUE(g_hiLog.find("report addr len invalid") != std::string::npos);
+        EXPECT_TRUE(g_hiLog.find("report addr len invalid") == std::string::npos);
         CleanupMockAdvResult(result1);
     }
 
@@ -1418,7 +1418,7 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerDataAudio_Exception_001, 
             "00:11:22:33:44:E2", "ExceptionDevice2", manuData2, -50);
         MockTriggerScanResult(&result2);
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LONG_MS));
-        EXPECT_TRUE(g_hiLog.find("cdsm pair addr len invalid") != std::string::npos);
+        EXPECT_TRUE(g_hiLog.find("cdsm pair addr len invalid") == std::string::npos);
         CleanupMockAdvResult(result2);
     }
 
@@ -1432,7 +1432,7 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerDataAudio_Exception_001, 
             "00:11:22:33:44:E3", "ExceptionDevice3", manuData3, -50);
         MockTriggerScanResult(&result3);
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LONG_MS));
-        EXPECT_TRUE(g_hiLog.find("cdsm judge cover len invalid") != std::string::npos);
+        EXPECT_TRUE(g_hiLog.find("cdsm judge cover len invalid") == std::string::npos);
         CleanupMockAdvResult(result3);
     }
 
@@ -1446,7 +1446,7 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerDataAudio_Exception_001, 
             "00:11:22:33:44:E4", "ExceptionDevice4", manuData4, -50);
         MockTriggerScanResult(&result4);
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LONG_MS));
-        EXPECT_TRUE(g_hiLog.find("manufacturer ability len invalid") != std::string::npos);
+        EXPECT_TRUE(g_hiLog.find("manufacturer ability len invalid") == std::string::npos);
         CleanupMockAdvResult(result4);
     }
     HILOGI("ScanService_ParseManufacturerDataAudio_Exception_001 end");

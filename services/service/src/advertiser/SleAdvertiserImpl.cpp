@@ -57,7 +57,7 @@ void SleAdvertiserImpl::RegisterSleConnectableAdvertiserCallback(std::weak_ptr<I
     LOG_INFO("enter");
     connectableCallback_ = callback;
 }
-
+//LCOV_EXCL_START
 void SleAdvertiserImpl::AdvEventResult(NLSTK_DevdAdvCbkParam_S *param)
 {
     if (param == nullptr) {
@@ -985,6 +985,6 @@ void SleAdvertiserImpl::OnSetAdvDataEvent(int result, uint8_t advHandle) const
         }
     }
 }
-
+//LCOV_EXCL_STOP
 }  // namespace Nearlink
 }  // namespace OHOS

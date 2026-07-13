@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,9 +42,6 @@
 #define DLI_TEST_SLEEP_TIME 100 /* 100ms */
 #define TEST_DATA_CNT 1
 static volatile int g_count = 0;
-static volatile int g_sendDataCnt = 0;
-static volatile int g_sendCmdCnt = 0;
-static volatile int g_sendEventCnt = 0;
 
 class UT_DLI_LAYER_TEST : public testing::Test {
   protected:
@@ -52,9 +49,6 @@ class UT_DLI_LAYER_TEST : public testing::Test {
     void SetUp()
     {
         g_count = 0;
-        g_sendDataCnt = 0;
-        g_sendCmdCnt = 0;
-        g_sendEventCnt = 0;
     }
 
     // TearDown 在每一个 TEST_F 测试完成后执行一次
@@ -96,23 +90,6 @@ void TEST_acbLogStub(uint16_t lcid, SDF_Buff_S *buf)
 {
     (void)lcid;
     (void)buf;
-}
-
-void TEST_writeLogStub(uint16_t type, const uint8_t *data, uint32_t len, int result)
-{
-    switch (type) {
-        case DLI_DATATYPE_ACB:
-            g_sendDataCnt++;
-            break;
-        case DLI_DATATYPE_CMD:
-            g_sendCmdCnt++;
-            break;
-        case DLI_DATATYPE_EVENT:
-            g_sendEventCnt++;
-            break;
-        default:
-            break;
-    }
 }
 
 void ContextFreeMock(void *context)
@@ -229,27 +206,24 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseDataSendFail)
 
 TEST_F(UT_DLI_LAYER_TEST, TestCaseCmdSendSuccess)
 {
-    DLI_SetWriteFileCallback(TEST_writeLogStub);
     EXPECT_EQ(0, DLI_LayerInit());
     EXPECT_NE(0, DLI_LayerInit());
     EXPECT_EQ(0, DLI_LayerEnable());
 
     DLI_CmdStru *cmd = DLI_DefaultCmdStruCreate(1, 1, NULL, 0);
     EXPECT_NE(cmd, nullptr);
+    cmd->needErase = true;
     EXPECT_EQ(0, DLI_CmdSend(cmd));
 
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    EXPECT_EQ(1, g_sendCmdCnt);
     DLI_PostNextTask(DLI_CMD_TASK);
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    EXPECT_EQ(1, g_sendCmdCnt);
 
     // dli 打印是：a101000000
     DLI_CmdNumSet(1);
     EXPECT_TRUE(DLI_IsCmdAllow());
     DLI_PostNextTask(DLI_CMD_TASK);
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    EXPECT_EQ(TEST_CMD_CNT1, g_sendCmdCnt);
 }
 
 TEST_F(UT_DLI_LAYER_TEST, TestCaseDataSendSuccess)
@@ -262,13 +236,11 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseDataSendSuccess)
     DLI_DataStru *data = DLI_DefaultDataStruCreate(0, DLI_DATATYPE_ACB, 0, 0, buf);
     EXPECT_NE(data, nullptr);
 
-    DLI_SetWriteFileCallback(TEST_writeLogStub);
     // 配置数据发送的长度及数目
     DLI_AllDataSet(DATA_LEN, DATA_NUM, DATA_LEN, DATA_NUM);
     EXPECT_EQ(DATA_LEN, DLI_DataLenGet(ACB_DATA_TYPE));
     EXPECT_EQ(0, DLI_DataSend(data));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    EXPECT_EQ(1, g_sendDataCnt);
 }
 
 TEST_F(UT_DLI_LAYER_TEST, TestCaseDataSendLimitSuccess)
@@ -284,11 +256,8 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseDataSendLimitSuccess)
 
     // 数据限流，只能发送1次
     DLI_AllDataSet(DATA_FRAGMENTS_LEN, 1, DATA_LEN, DATA_NUM);
-    DLI_SetWriteFileCallback(TEST_writeLogStub);
-    g_sendDataCnt = 0;
     EXPECT_EQ(0, DLI_DataSend(data));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    EXPECT_EQ(1, g_sendDataCnt);
     // 分片数据没有全部发送，需要销毁不影响下一个用例
     DLI_LayerDisable();
     DLI_LayerDeinit();
@@ -306,17 +275,13 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseFragmentsDataRecvSuccess)
     DLI_DataStru *data = DLI_DefaultDataStruCreate(0, DLI_DATATYPE_ACB, 0, 0, buf);
     EXPECT_NE(data, nullptr);
 
-    g_sendDataCnt = 0;
     EXPECT_EQ(0, DLI_LayerInit());
     EXPECT_EQ(0, DLI_LayerEnable());
-    DLI_SetWriteFileCallback(TEST_writeLogStub);
     // 配置数据发送的长度及数目
     DLI_AllDataSet(DATA_MAX_LEN, DATA_NUM, DATA_LEN, DATA_NUM);
     EXPECT_EQ(DATA_MAX_LEN, DLI_DataLenGet(ACB_DATA_TYPE));
     EXPECT_EQ(0, DLI_DataSend(data));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
-    // DLI_DataSend不分片，所以发送一次，接收1次数据。dataCnt总计1次
-    EXPECT_EQ(TEST_DATA_CNT, g_sendDataCnt);
     DLI_LayerDisable();
     DLI_LayerDeinit();
 }

@@ -1,0 +1,80 @@
+﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../utils/test_utils.gni")
+
+##############################fuzztest##########################################
+ohos_fuzztest("SleUtilsFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/device_manager_fuzzer/sleutils_fuzzer"
+
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-Wno-unused-but-set-variable",
+    "-fno-omit-frame-pointer",
+  ]
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = true
+  }
+
+  include_dirs = [
+    "$NEARLINK_ROOT/services/device_manager/include",
+    "$NEARLINK_ROOT/utils/include",
+    "$NEARLINK_ROOT/services/common/include",
+    "$NEARLINK_ROOT/frameworks/inner/include",
+    "$NEARLINK_ROOT/services/stack/src/nai/api/include/common",
+    "$NEARLINK_ROOT/services/stack/src/sdf/interface",
+    "$NEARLINK_ROOT/test/fuzztest/nl_utils",
+  ]
+
+  configs = ["${nearlink_test_utils_path}:test_utils_config"]
+
+  sources = ["sleutils_fuzzer.cpp"]
+  sources += ["$NEARLINK_ROOT/test/fuzztest/nl_utils/fuzztest_utils.cpp"]
+
+  deps = [
+    "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  ]
+
+  external_deps = [
+    "bounds_checking_function:libsec_shared",
+    "hilog:libhilog",
+    "c_utils:utils",
+    "huks:libhukssdk",
+    "libxml2:libxml2",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    ":SleUtilsFuzzTest",
+  ]
+}
+###############################################################################

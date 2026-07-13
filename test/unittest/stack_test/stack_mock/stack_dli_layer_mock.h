@@ -32,12 +32,6 @@ public:
     virtual uint32_t DLI_DataSend(DLI_DataStru *data) = 0;
     virtual uint32_t DLI_CmdSend(DLI_CmdStru *cmd) = 0;
     virtual void DLI_PostNextTask(DLI_TaskType type) = 0;
-    /*
-    virtual uint32_t DLI_LayerInit(void) = 0;
-    virtual void DLI_LayerDeinit(void) = 0;
-    virtual uint32_t DLI_LayerEnable(void) = 0;
-    virtual void DLI_LayerDisable(void);
-    */
 };
 
 class DliLayerMock : public DliLayerMockInterface {
@@ -51,11 +45,6 @@ public:
     MOCK_METHOD(uint32_t, DLI_DataSend, (DLI_DataStru *data), (override));
     MOCK_METHOD(uint32_t, DLI_CmdSend, (DLI_CmdStru *cmd), (override));
     MOCK_METHOD(void, DLI_PostNextTask, (DLI_TaskType type), (override));
-    /*
-    MOCK_METHOD(void, DLI_LayerDeinit, (), (override));
-    MOCK_METHOD(uint32_t, DLI_LayerEnable, (), (override));
-    MOCK_METHOD(void, DLI_LayerDisable, (), (override));
-    MOCK_METHOD(uint32_t, DLI_LayerInit, (), (override)); */
 
     static DliLayerMock& GetMock();
 private:

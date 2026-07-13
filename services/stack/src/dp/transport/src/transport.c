@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -227,7 +227,7 @@ static void TRANS_ChannelSetStatusProc(void *arg)
         return;
     }
     uint16_t lcid = logicLink.lcid;
-    uint16_t tcid = trans_addr->tcid;
+    uint8_t tcid = trans_addr->tcid;
     uint16_t result = trans_addr->srcPort;
     DTAP_ChannelSetStatus(lcid, tcid, result);
 }

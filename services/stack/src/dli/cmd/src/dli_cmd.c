@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ static void DLI_ExecuteCommandCbkDo(
         // 完成事件，evtOpcode = opcode = cmd
         par.cmdOpcode = evtOpcode;
         // 公共事件需要去掉4个字节的公共字段，只传递数据
-        if (status == DLI_SUCCESS && argLen > DLI_DATA_OFFSET) {
+        if (status == DLI_SUCCESS && arg != NULL && argLen > DLI_DATA_OFFSET) {
             par.size = argLen - DLI_DATA_OFFSET;
             par.eventParameter = (uint8_t *)arg + DLI_DATA_OFFSET;
         } else {
@@ -76,7 +76,7 @@ static void DLI_ExecuteCommandCbk(void *context, void *arg, uint32_t len, uint16
     DLI_ManagerContext *managerContext = (DLI_ManagerContext *)context;
     uint16_t status = DLI_SUCCESS;
     // 完成事件的parameters[0]字段一定是status
-    if (arg != NULL) {
+    if (arg != NULL && len >= sizeof(DLI_CommandComplete)) {
         status = ((DLI_CommandComplete *)arg)->parameters[0];
     }
     DLI_InnerEventCbkUnReg(managerContext->innerCbkTable, 1);
@@ -171,6 +171,11 @@ bool DLI_IsSupportNewDisMeasure(void)
     return false;
 }
 
+static bool DLI_NeedEraseCmd(uint16_t cmd)
+{
+    return cmd == DLI_ENABLE_ENCRYPTION;
+}
+
 static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, uint16_t paramLen,
     DLI_ExecuteCmdCbk cbk, void *cbkContext, uint16_t cbkContextLen)
 {
@@ -184,10 +189,12 @@ static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, 
         DLI_LOGE("cmdStruct 0x%04X new fail", cmd);
         return DLI_STACK_MEM_ERRNO;
     }
+    cmdStruct->needErase = DLI_NeedEraseCmd(cmdStruct->cmd);
 
     DLI_ManagerContext *managerContext = DLI_CreateManagerContext(cmd, event, cbk, cbkContext, cbkContextLen);
     if (managerContext == NULL) {
         DLI_LOGE("create managerContext fail");
+        DLI_EraseParInfo(cmdStruct);
         SDF_MemFree(cmdStruct);
         return DLI_STACK_MEM_ERRNO;
     }
@@ -198,6 +205,7 @@ static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, 
 
     uint32_t ret = DLI_CmdSend(cmdStruct);
     if (ret != DLI_SUCCESS) {
+        DLI_EraseParInfo(cmdStruct);
         SDF_MemFree(cmdStruct);
         ContextFree(managerContext);
         DLI_LOGE("send dli cmd:0x%04X failed, ret =%u", cmd, ret);
@@ -291,7 +299,7 @@ uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param)
     DLI_CHECK_RETURN_RET(param, DLI_STACK_PARAMS_ERRNO, "param is null");
     uint32_t ret = DLI_ExecuteCommand(DLI_GET_PUBLIC_ADDRESS,
         DLI_CMD_COMPLETE_EVT,
-        &param,
+        param,
         sizeof(DLI_PublicAddrParam),
         DLI_GetCbk(DLI_CBK_GET_PUBLIC_ADDRESS),
         NULL,
@@ -410,35 +418,22 @@ uint32_t DLI_SetAdvParam(DLI_AdvParam *advParam)
         &cbkContext,
         sizeof(DLI_AdvCbkContext));
     DLI_LOGI("set adv param ret = %u, advHandle:0x%02x, advMode:0x%02x, advGtRole:0x%02x, primAdvChannelMap:0x%02x, "
-             "primAdvFrameFormat:0x%02x, secondAdvFrameFormat:0x%02x, secondAdvPhy:0x%02x, secondAdvPilot:0x%02x, "
-             "secondAdvMcs:0x%02x, secondAdvMaxSkip:0x%02x, advSid:0x%02x",
-        ret,
-        advParam->advHandle,
-        advParam->advMode,
-        advParam->advGtRole,
-        advParam->primAdvChannelMap,
-        advParam->primAdvFrameFormat,
-        advParam->secondAdvFrameFormat,
-        advParam->secondAdvPhy,
-        advParam->secondAdvPilot,
-        advParam->secondAdvMcs,
-        advParam->secondAdvMaxSkip,
-        advParam->advSid);
+        "primAdvFrameFormat:0x%02x, secondAdvFrameFormat:0x%02x, secondAdvPhy:0x%02x, secondAdvPilot:0x%02x, "
+        "secondAdvMcs:0x%02x, secondAdvMaxSkip:0x%02x, advSid:0x%02x",
+        ret, advParam->advHandle, advParam->advMode, advParam->advGtRole, advParam->primAdvChannelMap,
+        advParam->primAdvFrameFormat, advParam->secondAdvFrameFormat, advParam->secondAdvPhy, advParam->secondAdvPilot,
+        advParam->secondAdvMcs, advParam->secondAdvMaxSkip, advParam->advSid);
     DLI_LOGI("connIntervalMin:0x%04x, connIntervalMax:0x%04x, "
-             "maxLatency:0x%04x,supervisionTimeout:0x%04x, minCeLength:0x%04x, maxCeLength:0x%04x",
-        advParam->connIntervalMin,
-        advParam->connIntervalMax,
-        advParam->maxLatency,
-        advParam->supervisionTimeout,
-        advParam->minCeLength,
-        advParam->maxCeLength);
+        "maxLatency:0x%04x,supervisionTimeout:0x%04x, minCeLength:0x%04x, maxCeLength:0x%04x",
+        advParam->connIntervalMin, advParam->connIntervalMax, advParam->maxLatency,
+        advParam->supervisionTimeout, advParam->minCeLength, advParam->maxCeLength);
     return ret;
 }
 
-uint32_t DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff)
+uint32_t DLI_SetAdvData(DLI_AdvData *advData)
 {
     DLI_CHECK_RETURN_RET(advData && advData->advDataLen, DLI_STACK_PARAMS_ERRNO, "adv data is null");
-    DLI_LOGI("dataOff = %hu, dataLen = %hu, operation = 0x%02X", dataOff, advData->advDataLen, advData->operation);
+    DLI_LOGI("dataLen = %hu, operation = 0x%02X", advData->advDataLen, advData->operation);
 
     uint8_t dataLen = advData->advDataLen;
     uint32_t cmdSize = (uint32_t)sizeof(DLI_AdvData) + dataLen;
@@ -449,7 +444,7 @@ uint32_t DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff)
     cmd->operation = advData->operation;
     cmd->selection = advData->selection;
     cmd->advDataLen = advData->advDataLen;
-    (void)memcpy_s(cmd->advData, dataLen, advData->advData + dataOff, dataLen);
+    (void)memcpy_s(cmd->advData, dataLen, advData->advData, dataLen);
 
     DLI_AdvCbkContext cbkContext = {0};
     cbkContext.advHandle = advData->advHandle;
@@ -465,13 +460,10 @@ uint32_t DLI_SetAdvData(DLI_AdvData *advData, uint16_t dataOff)
     return ret;
 }
 
-uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData, uint16_t dataOff)
+uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData)
 {
     DLI_CHECK_RETURN_RET(scanRspData && scanRspData->scanRspDataLen, DLI_STACK_PARAMS_ERRNO, "scan rsp data is null");
-    DLI_LOGI("dataOff = %hu, dataLen = %hu, operation = 0x%02X",
-        dataOff,
-        scanRspData->scanRspDataLen,
-        scanRspData->operation);
+    DLI_LOGI("dataLen = %hu, operation = 0x%02X", scanRspData->scanRspDataLen, scanRspData->operation);
 
     uint8_t dataLen = scanRspData->scanRspDataLen;
     uint32_t cmdSize = (uint32_t)sizeof(DLI_ScanRspData) + dataLen;
@@ -482,7 +474,7 @@ uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData, uint16_t dataOff)
     cmd->operation = scanRspData->operation;
     cmd->selection = scanRspData->selection;
     cmd->scanRspDataLen = scanRspData->scanRspDataLen;
-    (void)memcpy_s(cmd->scanRspData, dataLen, scanRspData->scanRspData + dataOff, dataLen);
+    (void)memcpy_s(cmd->scanRspData, dataLen, scanRspData->scanRspData, dataLen);
 
     DLI_AdvCbkContext cbkContext = {0};
     cbkContext.advHandle = scanRspData->advHandle;
@@ -590,8 +582,8 @@ uint32_t DLI_ClearAcceptFilterList(void)
 
 uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
 {
+    DLI_CHECK_RETURN_RET(addr != NULL, DLI_STACK_PARAMS_ERRNO, "addr is null");
     DLI_AddrStru addDevice = {0};
-
     (void)memcpy_s(addDevice.addr, SLE_ADDR_LEN, addr->addr, SLE_ADDR_LEN);
 
     uint32_t ret = DLI_ExecuteCommand(DLI_ADD_DEVICE_TO_ACCESS_FILTER_LIST,
@@ -716,17 +708,17 @@ static uint32_t DLI_CreateMultiIndConnection(DLI_ConnCbkContext *cbkContext, DLI
         DLI_LOGI("bitFrameType:0x%02x, scanFrameType=%hhu, connFrameType=0x%04x, scanInterval=0x%04x, "
             "scanWindow=0x%04x, connIntervalMin=0x%04x, connIntervalMax=0x%04x, maxLatency=0x%04x, "
             "supervisionTimeout=0x%04x, minCeLength=0x%04x, maxCeLength=0x%04x",
-        param->bitFrameType,
-        cmd->scanFrameFormatInd,
-        cmd->connFrameFormatInd,
-        cmd->scanParam[i].scanInterval,
-        cmd->scanParam[i].scanWindow,
-        cmd->connParam[i].connIntervalMin,
-        cmd->connParam[i].connIntervalMax,
-        cmd->connParam[i].maxLatency,
-        cmd->connParam[i].supervisionTimeout,
-        cmd->connParam[i].minCeLength,
-        cmd->connParam[i].maxCeLength);
+            param->bitFrameType,
+            cmd->scanFrameFormatInd,
+            cmd->connFrameFormatInd,
+            cmd->scanParam[i].scanInterval,
+            cmd->scanParam[i].scanWindow,
+            cmd->connParam[i].connIntervalMin,
+            cmd->connParam[i].connIntervalMax,
+            cmd->connParam[i].maxLatency,
+            cmd->connParam[i].supervisionTimeout,
+            cmd->connParam[i].minCeLength,
+            cmd->connParam[i].maxCeLength);
     }
 
     uint32_t ret = DLI_ExecuteCommand(DLI_CREATE_CONNECTION,
@@ -832,7 +824,7 @@ uint32_t DLI_UpdateConnectionParam(uint8_t version, uint16_t localIndex, DLI_Con
     cbkContext.connHandle = param->connHandle;
 
     DLI_LOGI("param update:connHandle:0x%04X, intervalMin:0x%04X, intervalMax:0x%04X txRxInterval:0x%02X, "
-             "eventInterval:0x%04X, latency:0x%04X, timeout:0x%04X, uint:0x%02X, tx_rx:0x%02X",
+        "eventInterval:0x%04X, latency:0x%04X, timeout:0x%04X, uint:0x%02X, tx_rx:0x%02X",
         param->connHandle,
         param->connIntervalMin,
         param->connIntervalMax,
@@ -1036,6 +1028,7 @@ uint32_t DLI_ReadSupportCryptoAlgo(void)
 
 uint32_t DLI_EnableIMGEncryption(DLI_IMGEncryptParam *param)
 {
+    DLI_CHECK_RETURN_RET(param != NULL, DLI_STACK_PARAMS_ERRNO, "param is null");
     uint16_t handler = param->handler;
     DLI_SmCbkContext cbkContext = {0};
     cbkContext.connHandle = handler;
@@ -1201,6 +1194,7 @@ uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam)
 
 uint32_t DLI_RemoveICGParam(DLI_CmdOpcode opCode, DLI_ICGCbkParam *cbkParam)
 {
+    DLI_CHECK_RETURN_RET(cbkParam != NULL, DLI_STACK_PARAMS_ERRNO, "cbkParam is null");
     uint32_t ret = DLI_ExecuteCommand(opCode,
         DLI_CMD_COMPLETE_EVT,
         &cbkParam->id,

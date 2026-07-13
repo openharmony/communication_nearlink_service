@@ -248,7 +248,7 @@ public:
                 }
                 return false;
         });
-        NL_CHECK_RETURN(isFindService, "not find service!");
+        NL_CHECK_RETURN(isFindService && setService, "not find service!");
         std::vector<SsapProperty> onReadProperties;
         for (uint32_t i = 0; i < properties.size(); i++) {
             SsapProperty onReadProp(0, 0, UUID::FromString(properties[i].uuid_.ToString()), properties[i].opInd_, 0);

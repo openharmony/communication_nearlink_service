@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,6 @@
 #include "nlstk_port_client.h"
 #include "port_server_init.h"
 #include "port_client_init.h"
-#include "sl_ext_func_wrapper.h"
 #include "dli_reg_ext_func.h"
 #include "common_reg_ext_func.h"
 #include "collab_ext_func_wrapper.h"

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,8 @@
 
 #ifndef DIALOG_UTILS_H
 #define DIALOG_UTILS_H
-#include <cstdint>
-#include <string>
-#include "ability_connection.h"
-#include "ability_connect_callback.h"
-#include "datashare_helper.h"
-#include "data_ability_observer_stub.h"
+
+#include "ability_connect_callback_stub.h"
 namespace OHOS {
 namespace Nearlink {
 

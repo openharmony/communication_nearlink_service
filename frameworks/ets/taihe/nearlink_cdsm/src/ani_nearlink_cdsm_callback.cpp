@@ -26,7 +26,6 @@ AniCdsmClientCallback::AniCdsmClientCallback()
 
 void AniCdsmClientCallback::OnCdsInfoChanged(const NearlinkCdsInfo& cdsInfo)
 {
-    std::shared_lock<std::shared_mutex> guard(eventSubscribe_.lock_);
     HILOGI("enter");
 
     std::vector<::ohos::nearlink::cdsm::CdsmMemberInfo> cdsVec;
@@ -43,8 +42,9 @@ void AniCdsmClientCallback::OnCdsInfoChanged(const NearlinkCdsInfo& cdsInfo)
             taihe::copy_data_t{}, cdsVec.data(), cdsVec.size())
     };
 
-    for (auto callback : eventSubscribe_.callbackVec_) {
-        if (callback) {
+    auto snapshot = eventSubscribe_.GetCallbacks();
+    for (auto& callback : snapshot) {
+        if (callback.has_value()) {
             (*callback)(taiheResult);
         }
     }

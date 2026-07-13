@@ -11,8 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * add thread ffrt task queue id log
  */
 #ifndef SLE_SERVICE_FFRT_LOG_H
 #define SLE_SERVICE_FFRT_LOG_H

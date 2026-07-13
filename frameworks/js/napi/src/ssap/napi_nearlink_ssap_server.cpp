@@ -1,17 +1,17 @@
 /*
-* Copyright (C) 2026 Huawei Device Co., Ltd.
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "log_util.h"
 #include "napi_nearlink_ssap_server.h"
 #include "nearlink_errorcode.h"
@@ -279,9 +279,6 @@ static int32_t CheckSsapsAddService(napi_env env, napi_callback_info info, std::
     if (parseRet != NlErrCode::NL_NO_ERROR) {
         return parseRet;
     }
-    if (napiSsapService.properties_.empty()) {
-        return NlErrCode::NL_ERR_EMPTY_ARRAY;
-    }
     NapiNearlinkSsapServer *ssapServer = NapiGetSsapServer(env, thisVar);
     NAPI_NL_RETURN_IF(ssapServer == nullptr, "ssapServer is nullptr.", NlErrCode::NL_ERR_INVALID_PARAM);
     outServer = ssapServer->GetServer();
@@ -533,7 +530,7 @@ napi_value NapiNearlinkSsapServer::Disconnect(napi_env env, napi_callback_info i
         if (ssapServer == nullptr) {
             return NapiAsyncWorkRet(NL_ERR_INTERNAL_ERROR);
         }
-        NlErrCode err;
+        NlErrCode err = NL_NO_ERROR;
         for (auto it = sleAddressVec.begin(); it != sleAddressVec.end(); it++) {
             Nearlink::NearlinkRemoteDevice device(*it, static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
             err = ssapServer->CancelConnection(device);

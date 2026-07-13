@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ HidHostUhid::HidHostUhid(std::string address)
 HidHostUhid::~HidHostUhid()
 {
     LOG_INFO("[UHID] ~HidHostUhid");
-    Close();
+    keepPolling_.store(false);
     Destroy();
 }
 
@@ -62,27 +62,10 @@ int HidHostUhid::Open()
 
 int HidHostUhid::Close()
 {
-    {
-        std::unique_lock<ffrt::mutex> lock(hidMutex_);
-        if (isPollingThreadClosed_) {
-            LOG_INFO("polling thread has closed, no need wait again....");
-            return HID_HOST_SUCCESS;
-        }
-    }
+    LOG_INFO("[UHID] Close: signal polling thread to stop");
     readyForData_.store(false);
     keepPolling_.store(false);
     waitingTimes.store(0);
-    std::unique_lock<ffrt::mutex> lck(hidMutex_);
-    LOG_INFO("waiting polling thread close....");
-    auto wait = cvfull_.wait_for(lck, std::chrono::seconds(CLOSE_POLLING_THREAD_TIMEOUT_SEC), [this] {
-         return isPollingThreadClosed_ == true;
-     });
-    if (!wait) {
-        LOG_ERROR("close polling thread timeout");
-        return HID_HOST_FAILURE;
-    }
-
-    LOG_INFO("polling thread closed");
     return HID_HOST_SUCCESS;
 }
 
@@ -319,7 +302,9 @@ int HidHostUhid::WritePackUhid(int fd, uint8_t* rpt, uint16_t len)
 
 void HidHostUhid::PollEventThread()
 {
-    ffrt::submit([this] { this->PollEventThreadSub(); }, {}, {}, ffrt::task_attr().qos(ffrt::qos_user_interactive));
+    auto self = shared_from_this();
+    ffrt::submit([self] { self->PollEventThreadSub(); }, {}, {},
+        ffrt::task_attr().qos(ffrt::qos_user_interactive));
 }
 
 void HidHostUhid::PollEventThreadSub()
@@ -336,10 +321,6 @@ void HidHostUhid::PollEventThreadSub()
 
     // Set the uhid fd as non-blocking to ensure we never block the BTU thread
     SetUhidNonBlocking(fd_);
-    {
-        std::lock_guard<ffrt::mutex> lock(hidMutex_);
-        isPollingThreadClosed_ = false;
-    }
 
     while (keepPolling_.load()) {
         int pollRet = -1;
@@ -347,6 +328,10 @@ void HidHostUhid::PollEventThreadSub()
         } while ((pollRet = poll(pfds, 1, POLL_TIMEOUT)) == -1 && errno == EINTR);
         if (pollRet < 0) {
             LOG_ERROR("[UHID]: Cannot poll for fds: %{public}s", strerror(errno));
+            break;
+        }
+        if (pfds[0].revents & POLLNVAL) {
+            LOG_ERROR("[UHID]: fd invalid (closed), exit polling thread");
             break;
         }
         if (pfds[0].revents & POLLIN) {
@@ -359,11 +344,9 @@ void HidHostUhid::PollEventThreadSub()
         }
     }
 
-    std::lock_guard<ffrt::mutex> lock(hidMutex_);
-    isPollingThreadClosed_ = true;
+    keepPolling_.store(false);
     OHOS::QOS::ResetThreadQos();
-    LOG_INFO("notify_all polling thread closed.");
-    cvfull_.notify_all();
+    LOG_INFO("polling thread exited.");
 }
 
 void HidHostUhid::SetUhidNonBlocking(int fd)

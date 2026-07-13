@@ -13,7 +13,6 @@
 
 # feature定义，需要在part_config.json中配置打开，同时需要在bundle.json中配置
 declare_args() {
-    nearlink_service_power_manager_enhance = false
     nearlink_service_host_dynamic_running = false
     nearlink_service_host_avoid_sleep = false
     nearlink_service_no_pairing_dialog = false

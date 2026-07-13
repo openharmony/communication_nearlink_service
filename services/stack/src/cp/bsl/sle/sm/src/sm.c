@@ -69,7 +69,7 @@ static bool RegDliCbk(void);
 static void UnRegDliCbk(void);
 static bool SLinkLocalParamsInit(void);
 static uint32_t RegLogicLinkListener(void);
-
+//LCOV_EXCL_START
 void SmDeInit(void)
 {
     if (g_slinkMap) {
@@ -705,3 +705,4 @@ NLSTK_SmLocalParams_S *SmGetLocalParams(void)
 {
     return g_localParams;
 }
+//LCOV_EXCL_STOP

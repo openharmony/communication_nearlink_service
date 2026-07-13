@@ -11,32 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * @file ssap_multi_rw_test.cpp
- * @brief SSAP多值读写和结构发现功能测试用例
- *
- * 本测试文件主要测试以下SSAP (SLE Service Access Protocol)功能:
- * 1. 单值读取 - 单个句柄的读请求/响应 (SINGLE_HANDLE_READ_SUCCESS)
- * 2. 多值读取 - 多个句柄的批量读请求/响应 (MULTI_HANDLE_READ_SUCCESS)
- * 3. 单值写入 - 单个句柄的写请求/响应 (SINGLE_HANDLE_WRITE_SUCCESS)
- * 4. 多值写入 - 多个句柄的批量写请求/响应 (MULTI_HANDLE_WRITE_SUCCESS)
- * 5. 写入命令 - 无响应的写命令WRITE_CMD (WRITE_SINGLE_CMD_SUCCESS)
- * 6. 错误处理 - 分片不支持、PDU截断、无效句柄等场景
- *
- * 测试协议格式:
- * - SSAP_READ_REQ (0x08): 读请求，可包含单个或多个句柄
- * - SSAP_READ_RSP (0x09): 读响应，ctrl.multi位标识单值/多值
- * - SSAP_WRITE_REQ (0x0D): 写请求(带响应)，ctrl.multi位标识单值/多值
- * - SSAP_WRITE_CMD (0x0C): 写命令(无响应)
- * - SSAP_WRITE_RSP (0x0E): 写响应
- * - SSAP_FIND_STRUCTURE_BY_UUID_REQ (0x06): 按UUID查找结构请求
- * - SSAP_ERROR_RSP (0x01): 错误响应
- *
- * 控制字段(ctrl)格式:
- * - bits[1:0]: fragment (0b11表示不分片)
- * - bit[2]: multi (0=单值, 1=多值)
- * - bits[4:3]: oper (写请求操作类型)
- * - bit[5]: verify
  */
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -165,6 +139,15 @@ static void AddTestServiceWithProperties()
     SSAP_CacheProperty(propertyParam1);
     SDF_MemFree(propertyParam1);
 
+    SSAP_ParamAddDescriptor_S *descParam1 =
+        (SSAP_ParamAddDescriptor_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddDescriptor_S) + 1);
+    descParam1->type = DESC_TYPE_CLIENT_CONFIG;
+    descParam1->val.len = 1;
+    descParam1->val.value[0] = 0xEE;
+    descParam1->operation.operationValue = 0x704;
+    SSAP_CacheDescriptor(descParam1);
+    SDF_MemFree(descParam1);
+
     /* 创建并注册属性2(UUIDProp1): 值=0x22,0x33，长度=2，支持读写 */
     SSAP_ParamAddProperty_S *propertyParam2 =
         (SSAP_ParamAddProperty_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddProperty_S) + 3);
@@ -175,6 +158,15 @@ static void AddTestServiceWithProperties()
     propertyParam2->operation.operationValue = SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE;
     SSAP_CacheProperty(propertyParam2);
     SDF_MemFree(propertyParam2);
+
+    SSAP_ParamAddDescriptor_S *descParam2 =
+        (SSAP_ParamAddDescriptor_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddDescriptor_S) + 1);
+    descParam2->type = DESC_TYPE_CLIENT_CONFIG;
+    descParam2->val.len = 1;
+    descParam2->val.value[0] = 0xEE;
+    descParam2->operation.operationValue = 0x704;
+    SSAP_CacheDescriptor(descParam2);
+    SDF_MemFree(descParam2);
 
     /* 启动服务，使服务对客户端可见 */
     SSAP_StartService(NULL);
@@ -445,7 +437,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_HANDLE_READ_SUCCESS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[9] = {
+    uint8_t req[8] = {
         0x08,             // opcode = SSAP_READ_REQ
         0x03,             // ctrl.fragment = 0b11 (不分片)
         0x00, 0x00, 0x00, // handle, type=0x00(读数据值)
@@ -986,6 +978,60 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_THREE_HANDLES_MIXED_ERRORS)
 }
 
 /*
+ * @brief 测试用例: MULTI_WRITE_THREE_HANDLES_MIXED_ERRORS - 多句柄写入，subItem里的数据类型重复
+ *
+ * 测试多句柄写入，subItem里的数据类型重复
+ *
+ * 测试流程:
+ * 1. 注册测试服务和属性
+ * 2. 创建SSAP链路
+ * 3. 发送多句柄写请求(共5个子项):
+ *    - 子项1: handle=0x0001, type=0x01, 长度=1, 数据=0xCC
+ *    - 子项2: handle=0x0002, type=0x01, 长度=1, 数据=0xEE
+ *    - 子项3: handle=0xFFFF, type=0x01, 长度=1, 数据=0xFF
+ * 4. 验证响应已发送且result为部分成功
+ *
+ * 验证点:
+ * - 响应已发送(isSendRsp=true)
+ */
+TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_REQ_SAME_TYPE)
+{
+    CP_LOG_INFO("[UT_SSAP_MULTI_READ_WRITE] enter MULTI_WRITE_REQ_SAME_TYPE");
+    AddTestServiceWithProperties();
+    (void)CreateLink();
+
+    uint8_t req[] = {
+        0x0d,
+        0x27,
+        0x12, 0x00, 0x02,  // MultiItem 1: handle=0x0012, subItemCount=2
+        0x02, 0x05, 0x00, 0x00, 0x27, 0x12, 0x00, 0x02, // SubItem 1: type=0x02, len=0x0005 (LE), value=0x00, 0x27, 0x12, 0x00, 0x02
+        0x02, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // SubItem 2: type=0x02, len=0x0005 (LE), value=0x00, 0x00, 0x00, 0x00, 0x00
+        0x00, 0x00, 0x00,  // MultiItem 2: handle=0x0000, subItemCount=0
+        0x02, 0x02, 0x00,  // MultiItem 3: handle=0x0202, subItemCount=0
+        0x00, 0x02, 0x00   // MultiItem 4: handle=0x0200, subItemCount=0
+    };
+    // rsp: 0E 07 03 00 00 04 02 02 04 00 02 04 12 00 02 02 05 00 00 27 12 00 02 02 05 00 00 00 00 00 00
+    Test_SSAP_RecvReq(req, sizeof(req));
+
+    EXPECT_TRUE(isSendRsp);
+
+    uint8_t rsp[] = {
+        0x0E,
+        0x07,
+        0x03, // 3个错误
+        0x00, 0x00, 0x04, // 错误1：handle + errorCode
+        0x02, 0x02, 0x04, // 错误1：handle + errorCode
+        0x00, 0x02, 0x04, // 错误1：handle + errorCode
+        0x12, 0x00, 0x02, // 原值：handle + 元组数
+        0x02, 0x05, 0x00, 0x00, 0x27, 0x12, 0x00, 0x02, // 原值：type + len + value
+        0x02, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 // 原值：type + len + value
+    };
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rsp, sizeof(rsp)));
+
+    DeleteLink();
+}
+
+/*
  * @brief 测试用例: MULTI_WRITE_THREE_HANDLES_MIXED_ERRORS - 多句柄写入混合错误超过255
  *
  * 测试多个有效句柄和无效句柄混合写入时的响应
@@ -1323,7 +1369,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_READ_THREE_HANDLES_SUCCESS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[12] = {
+    uint8_t req[11] = {
         0x08,             // opcode = SSAP_READ_REQ
         0x03,             // ctrl.fragment = 0b11 (不分片)
         0x00, 0x00, 0x00, // handle, type=0x00

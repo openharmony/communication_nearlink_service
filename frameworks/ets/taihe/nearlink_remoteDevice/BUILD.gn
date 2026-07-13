@@ -41,6 +41,7 @@ ohos_taihe("run_taihe") {
 
 taihe_shared_library("nearlinkRemoteDevice_taihe_native") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_remoteDevice"
   part_name = "$part_name"
   subsystem_name = "$subsystem_name"

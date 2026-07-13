@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -45,7 +45,7 @@ typedef enum {
     QOSM_AUTO_BITRATE_192  = 192,    /* 192 Kbps */
     QOSM_AUTO_BITRATE_64  = 64,      /* 64 Kbps */
     QOSM_AUTO_BITRATE_32  = 32,      /* 32 Kbps */
-} QOSM_AutoBitrate_T;
+} QOSM_AutoBitrate_E;
 
 /**
  * @brief 星闪音频占空比
@@ -54,7 +54,7 @@ typedef enum {
     QOSM_DUTY_CYCLE_100P = 0,   /* 100% */
     QOSM_DUTY_CYCLE_50P = 1,    /* 50% */
     QOSM_DUTY_CYCLE_20P = 2,    /* 20% */
-} QOSM_AutoDutyCycle_T;
+} QOSM_AutoDutyCycle_E;
 
 typedef struct {
     uint32_t sduInterval;              /* G到T两个连续SDU之间的时间间隔，us */

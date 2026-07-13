@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,14 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-  * @file sdf_errdef.h
- * @brief 错误码基本定义与规划原则
- *        1.明确定义错误码范围：按照不同功能模块对错误码进行分类，每个分类分配一个独立的范围
- *        2.统一管理错误码信息：文档化每个错误码的含义，以及导致错误可能的原因
- *        3.保持错误码的稳定性：尽量避免变更已定义的错误码
- *        4.错误码层次结构设计：按照组件、模块、子模块设计错误码的层次结构，并确保错误码唯一
- *        5.错误码辅助问题定位：错误码捕获、错误码统计、错误码记录日志
- * @version 1.0
  */
 
 #ifndef SDF_ERRDEF_H

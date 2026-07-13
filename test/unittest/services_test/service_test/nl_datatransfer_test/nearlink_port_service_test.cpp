@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 #include "PortService.h"
 #include "PortDefines.h"
-#include "nearlink_access_token_mock.h"
 #include "ClassCreator.h"
 #include "log.h"
 #include <thread>
@@ -55,7 +54,6 @@ public:
 void NearlinkPortServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start");
-    OHOS::Nearlink::NearlinkAccessTokenMock::SetNativeTokenInfo();
     HILOGI("SetUpTestCase end");
 }
 

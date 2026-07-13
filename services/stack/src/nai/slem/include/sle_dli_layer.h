@@ -11,7 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * Description: sle dli layer header
  */
 #ifndef STACK_SLEM_INCLUDE_SLE_DLI_LAYER_H
 #define STACK_SLEM_INCLUDE_SLE_DLI_LAYER_H

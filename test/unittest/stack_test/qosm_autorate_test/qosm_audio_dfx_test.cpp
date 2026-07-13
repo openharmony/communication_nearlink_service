@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -230,6 +230,11 @@ TEST_F(UT_QOSM_AUDIO_DFX_TEST, TestCaseAudioDfxUpdateBitrate)
     QOSM_AudioDfxUpdateBitrate(bitrate);
     QOSM_AudioDfxNotifyChoppy(&info);
     EXPECT_EQ(g_choppyExcep.bitrate, 640);
+
+    bitrate = 32;
+    QOSM_AudioDfxUpdateBitrate(bitrate);
+    QOSM_AudioDfxNotifyChoppy(&info);
+    EXPECT_EQ(g_choppyExcep.bitrate, 32);
 }
 
 TEST_F(UT_QOSM_AUDIO_DFX_TEST, TestCaseAudioDfxUpdateBand)
@@ -415,10 +420,30 @@ TEST_F(UT_QOSM_AUDIO_DFX_TEST, TestCaseAudioDfxUpdateDisconnected)
     EXPECT_EQ(g_choppyExcep.ackRate, 0);
 }
 
+TEST_F(UT_QOSM_AUDIO_DFX_TEST, TestCaseAudioDfxUpdateFrameType)
+{
+    QOSM_HookLog();
+
+    // Test 1: Update frame type for the first time
+    uint8_t frameType = QOSM_FRAME_TYPE_1;
+    QOSM_AudioDfxUpdateFrameType(frameType);
+
+    // Test 2: Update frame type to frame 4
+    frameType = QOSM_FRAME_TYPE_4;
+    QOSM_AudioDfxUpdateFrameType(frameType);
+    EXPECT_NE(QOSM_GetHookLog(), nullptr);
+    EXPECT_NE(strstr(QOSM_GetHookLog(), "update frame type from"), nullptr);
+
+    // Test 3: Update frame type to frame 1
+    frameType = QOSM_FRAME_TYPE_1;
+    QOSM_AudioDfxUpdateFrameType(frameType);
+    EXPECT_NE(QOSM_GetHookLog(), nullptr);
+    EXPECT_NE(strstr(QOSM_GetHookLog(), "update frame type from"), nullptr);
+}
+
 TEST_F(UT_QOSM_AUDIO_DFX_TEST, TestCaseAudioDfxStop)
 {
     // 使用python生成：data = bytes([0x20, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02])
-    // print(base64.b64encode(data).decode())
     // type=2, len=5, bitrateChangeResult=0, setLabelResult=1
     g_dspDataProc("IAUAAAAAAAE=");
     // type=2, len=5, bitrateChangeResult=0, setLabelResult=2

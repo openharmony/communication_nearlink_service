@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ namespace Nearlink {
 void NearlinkAbilityConnection::OnAbilityConnectDone(const AppExecFwk::ElementName &element,
     const sptr<IRemoteObject> &remoteObject, int32_t resultCode)
 {
+    if (remoteObject == nullptr) {
+        HILOGE("remoteObject is null");
+        return;
+    }
     HILOGI("on ability connected");
     MessageParcel data;
     MessageParcel reply;

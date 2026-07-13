@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,15 +11,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         dli_layer_stru.h
- * @brief        dli的layer层的结构体定义
-*/
+ */
 
 
 #ifndef DLI_LAYER_STRU_H
 #define DLI_LAYER_STRU_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "sdf_buff.h"
 
 #ifdef __cplusplus
@@ -29,6 +28,7 @@ extern "C" {
 #define DLI_HEADER 5 /* data type (1), Handle (2), DLI Payload len (2) */
 #define DLI_HEADER_WITHOUT_TYPE_SIZE 4
 #define DLI_MAX_TXRX_DATA_LEN 102400 /* 1024 * 100 */
+#define DLI_MAX_FRAGMEN_NUM 128
 
 typedef enum {
     DLI_DATA_PRIO_CMD = 0,
@@ -48,6 +48,7 @@ typedef enum {
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 typedef struct DLI_CmdStru {
+    bool needErase;
     uint16_t cmd;
     // 在接收cmd对应的ack时，需要event和opcode确定对应的回复
     uint16_t event; // cmd对应的event

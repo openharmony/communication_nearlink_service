@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,8 +19,6 @@
 #include "nearlink_asc_audio_stream_info.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
-#include "nearlink_native_token_mock.h"
-#include "nearlink_access_token_mock.h"
 #include "TwsService.h"
 #include "TwsDefines.h"
 #include "CdsmService.h"
@@ -48,8 +46,6 @@ public:
 
 class MockCdsmService : public CdsmService {
 public:
-    // MOCK_METHOD(NlErrCode, CdsmGetAllMemberInfo,
-    //     (const RawAddress &memberAddr, std::vector<NearlinkCdsmInfo> &cdsmInfo), (override));
     void MockClearOldDevice()
     {
         CdsmCallBackData dataBlock;
@@ -124,7 +120,6 @@ public:
 void NearlinkCdsmTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start NearlinkCdsmTest");
-    NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }

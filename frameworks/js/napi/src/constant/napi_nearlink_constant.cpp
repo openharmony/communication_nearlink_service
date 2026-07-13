@@ -153,6 +153,8 @@ napi_value NapiNearlinkConstant::DeviceClassInit(napi_env env)
 void NapiNearlinkConstant::UsableDeviceClassInit(napi_env env, napi_value deviceClass)
 {
     SetNamedPropertyByInteger(env, deviceClass,
+        static_cast<int>(DeviceClass::DEVICE_INVALID_CLASS), "DEVICE_INVALID_CLASS");
+    SetNamedPropertyByInteger(env, deviceClass,
         static_cast<int>(DeviceClass::DEVICE_UNCATEGORIZED), "DEVICE_UNCATEGORIZED");
     SetNamedPropertyByInteger(env, deviceClass,
         static_cast<int>(DeviceClass::DEVICE_PHONE), "DEVICE_PHONE");

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include "securec.h"
 
 #include "cm_api.h"
+#include "cm_def.h"
 #include "cm_errno.h"
 #include "cm_dyn_trans_channel_api.h"
 #include "cm_logic_link_api.h"
@@ -38,7 +39,7 @@
 #define QOSM_TC_REORDER_TIMEOUT 10000  // 可靠模式传输通道默认重排序定时器超时时间，单位ms
 #define QOSM_TC_RETRANS_TIMEOUT 1000   // 可靠模式传输通道默认重传定时器超时时间，单位ms
 #define QOSM_TC_RSP_TIMEOUT 1000       // 可靠模式传输通道默认应答定时器超时时间，单位ms
-#define QOSM_TC_MAX_TX_CNT 3           // 可靠模式传输通道默认最大传输次数
+#define QOSM_TC_MAX_TX_CNT 5           // 可靠模式传输通道默认最大传输次数
 #define QOSM_FRAME_4_TC_MAX_TX_CNT 22  // 使用帧四时，可靠模式传输通道默认最大传输次数
 #define QOSM_TC_DEFAULT_MPS 1500       // 可靠模式传输通道默认mps
 
@@ -451,7 +452,7 @@ static uint32_t QOSM_TransChannelDel(uint16_t lcid, const QOSM_TransChannelRspPa
 
 static uint16_t QOSM_TransChannelMtuNegotiate(uint16_t localMtu, uint16_t peerMtu)
 {
-    if (peerMtu < DEFAULT_MAX_PACKET_HEADER_LEN) {
+    if (peerMtu < CM_CAP_MIN_MTU) {
         return localMtu;
     }
     return peerMtu < localMtu ? peerMtu : localMtu;
@@ -477,14 +478,9 @@ static void QOSM_TransChannelReliableModeConfigSet(CM_TransModeConfig_S *dstConf
         dstConfig->reliableMode.maxTxThreshold = QOSM_TC_MAX_TX_CNT;
     }
     if (srcParam->linkMode == SLE_MODE_ACB) {
-        SleLogicLink_S *link = SleLogicLinkGetByAddr(&srcParam->addr);
-        if (link == NULL) {
-            QOSM_LOGE("Failed to get LogicLink!");
-            return;
-        }
         // 当前采用默认的MPS值，后续调整到链路协商值
         dstConfig->mps = QOSM_TC_DEFAULT_MPS;
-        dstConfig->mtu = QOSM_TransChannelMtuNegotiate(CM_CAP_MTU, link->mtu);
+        dstConfig->mtu = QOSM_TransChannelMtuNegotiate(CM_CAP_MTU, capInfo->mtu);
     }
 }
 
@@ -496,6 +492,12 @@ static uint32_t QOSM_TransChannelModeConfigSet(CM_TransModeConfig_S *dstConfig, 
         QOSM_LOGE("fail to get logic link cap info");
         return QOSM_GET_CAP_INFO_ERR;
     }
+
+    if (capInfo.mtu != 0 && capInfo.mtu < CM_CAP_MIN_MTU) {
+        QOSM_LOGW("invalid mtu %hu of peer device %s", capInfo.mtu, GET_ENC_ADDR(&srcParam->addr));
+        return QOSM_INVALID_MTU_ERR;
+    }
+
     memset_s(dstConfig, sizeof(CM_TransModeConfig_S), 0, sizeof(CM_TransModeConfig_S));
     dstConfig->transMode = srcConfig->mode;
     dstConfig->mtu = DTAP_MAX_PAYLOAD_LEN;
@@ -669,8 +671,8 @@ static void QOSM_TransChannelEstablishRspCbk(const CM_DynTransChanEstablishParam
         .tcid = param->srcTcid,
         .srcPort = param->srcPort,
         .dstPort = param->dstPort,
-        // 兼容耳机场景（耳机不支持分片），QOSM_TransChannelMtuNegotiate协商时保证mtu值不小于DEFAULT_MAX_PACKET_HEADER_LEN
-        .mtu = param->mtu - DEFAULT_MAX_PACKET_HEADER_LEN,
+        // 兼容耳机场景（耳机不支持分片），QOSM_TransChannelMtuNegotiate协商时保证mtu值不小于CM_CAP_MIN_MTU
+        .mtu = param->mtu - CM_CAP_MIN_MTU,
         .slqi = QOSM_TRANS_CHANNEL_SLQI_MAX,
         .frameType = (QOSM_TransConnFrameType_E)param->frameType,
     };
@@ -736,7 +738,7 @@ static void QOSM_TransChannStatusIndicationCbk(const CM_DynTransChanStatusIndica
         .tcid = param->srcTcid,
         .srcPort = param->srcPort,
         .dstPort = param->dstPort,
-        .mtu = param->mtu > DEFAULT_MAX_PACKET_HEADER_LEN ? (param->mtu - DEFAULT_MAX_PACKET_HEADER_LEN) : 0,
+        .mtu = param->mtu > CM_CAP_MIN_MTU ? (param->mtu - CM_CAP_MIN_MTU) : 0,
         .slqi = QOSM_TRANS_CHANNEL_SLQI_MAX,
     };
     if (param->slqiList.slqiNum != 0) {

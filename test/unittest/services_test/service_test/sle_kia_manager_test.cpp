@@ -75,7 +75,6 @@ HWTEST_F(SleKiaManagerTest, sle_kia_manager_test_001, TestSize.Level0)
     EXPECT_FALSE(SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_SSAP, pidA));
     EXPECT_FALSE(SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pidB));
     EXPECT_FALSE(SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pidA));
-    // EXPECT_FALSE(SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_OPP, pidA));
     HILOGI("sle_kia_manager_test_001 end");
 }
 

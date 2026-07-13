@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <poll.h>
 #include <unistd.h>
 #include <string>
+#include <memory>
 #include <linux/uhid.h>
 #include "HidHostDefines.h"
 #include "BaseDef.h"
@@ -30,8 +31,7 @@ constexpr int MAX_POLLING_ATTEMPTS = 10;
 constexpr int MAX_WAITING_TIME = 22;
 constexpr int POLLING_SLEEP_DURATION_US = 5000;
 constexpr int POLL_TIMEOUT = 50; // poll timeout, unit ms
-constexpr int CLOSE_POLLING_THREAD_TIMEOUT_SEC = 2; // 2s
-class HidHostUhid {
+class HidHostUhid : public std::enable_shared_from_this<HidHostUhid> {
 public:
     explicit HidHostUhid(std::string address);
     ~HidHostUhid();
@@ -63,9 +63,6 @@ private:
     std::string address_;
     int taskId_ = 0;
     int taskType_ = -1;
-    ffrt::condition_variable cvfull_;
-    ffrt::mutex hidMutex_;
-    bool isPollingThreadClosed_ = true;
     std::atomic<int> waitingTimes = 0;
 
     SLE_DISALLOW_COPY_AND_ASSIGN(HidHostUhid);

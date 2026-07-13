@@ -126,36 +126,6 @@ TEST_F(UT_QOSM_TABLE_MGR_TEST, TestCaseGetICBTypeByIndex)
 
 TEST_F(UT_QOSM_TABLE_MGR_TEST, TestCaseGetICBG2TParamByIndex)
 {
-    // QOSM_QOSINDEX_AUDIO, 0
-    // {
-    //     QOS_DUTY_CYCLE_ANY /* dutyCycle */, QOS_LEVEL_7 /* qosLevel */, QOS_LEVEL_7 /* upQosLevel */,
-    //     QOS_LEVEL_4 /* downQosLevel */, 4600 /* downwardBitrate */, 0 /* upwardBitrate */,
-    //     10000 /* sduIntervalG2T */, 10000 /* sduIntervalT2G */, 0 /* sca */, 1 /* packing */, 0 /* framing */,
-    //     300 /* maxLatencyG2T */, 20 /* maxLatencyT2G */, 80 /* icbInterval */, 15 /* ftG2T */, 1 /* ftT2G */,
-    //     43 /* rtnG2T */, 1 /* rtnT2G */, QOS_MAKE_SDU_LEN(2876) /* maxSduG2T */, 0 /* maxSduT2G */,
-    //     QOS_MAKE_SDU_LEN(2876) /* maxPduG2T */, 0 /* maxPduT2G */,
-    //     3 /* nse */, 2 /* bnG2T */, 0 /* bnT2G */, 2 /* phyG2T */, 0 /* phyT2G */,
-    //     16 /* mcsG2T */, 0 /* mcsT2G */, 2 /* pilotG2T */, 3 /* pilotT2G */, 1 /* frameG2T */, 0 /* frameT2G */
-    // }
-    // param->sduInterval = g_qosIndexTable[i].qos[0].sduIntervalG2T;
-    // param->sca = g_qosIndexTable[i].qos[0].sca;
-    // param->packing = g_qosIndexTable[i].qos[0].packing;
-    // param->framing = g_qosIndexTable[i].qos[0].framing;
-    // param->maxLatency = g_qosIndexTable[i].qos[0].maxLatencyG2T;
-    // param->icbInterval = g_qosIndexTable[i].qos[0].icbInterval;
-    // param->ft = g_qosIndexTable[i].qos[0].ftG2T;
-    // param->rtn = g_qosIndexTable[i].qos[0].rtnG2T;
-    // for (uint32_t j = 0; j < g_qosIndexTable[i].qosCnt; j++) {
-    //     param->maxSdu = QOSM_MAX(param->maxSdu, g_qosIndexTable[i].qos[j].maxSduG2T);
-    //     param->maxPdu = QOSM_MAX(param->maxPdu, g_qosIndexTable[i].qos[j].maxPduG2T);
-    // }
-    // param->nse = g_qosIndexTable[i].qos[0].nse;
-    // param->bn = g_qosIndexTable[i].qos[0].bnG2T;
-    // param->phy = g_qosIndexTable[i].qos[0].phyG2T;
-    // param->mcs = g_qosIndexTable[i].qos[0].mcsG2T;
-    // param->pilot = g_qosIndexTable[i].qos[0].pilotG2T;
-    // param->frame = g_qosIndexTable[i].qos[0].frameG2T;
-    // param->icbNum = DLI_DataNumGet(ICB_DATA_TYPE);
     QOSM_ICBParam param = {};
     uint32_t ret = QOSM_GetICBG2TParamByIndex(QOSM_QOSINDEX_AUDIO, &param);
     EXPECT_EQ(ret, QOSM_SUCCESS);
@@ -181,36 +151,6 @@ TEST_F(UT_QOSM_TABLE_MGR_TEST, TestCaseGetICBG2TParamByIndex)
 
 TEST_F(UT_QOSM_TABLE_MGR_TEST, TestCaseGetICBT2GParamByIndex)
 {
-    // QOSM_QOSINDEX_AUDIO, 0
-    // {
-    //     QOS_DUTY_CYCLE_ANY /* dutyCycle */, QOS_LEVEL_7 /* qosLevel */, QOS_LEVEL_7 /* upQosLevel */,
-    //     QOS_LEVEL_4 /* downQosLevel */, 4600 /* downwardBitrate */, 0 /* upwardBitrate */,
-    //     10000 /* sduIntervalG2T */, 10000 /* sduIntervalT2G */, 0 /* sca */, 1 /* packing */, 0 /* framing */,
-    //     300 /* maxLatencyG2T */, 20 /* maxLatencyT2G */, 80 /* icbInterval */, 15 /* ftG2T */, 1 /* ftT2G */,
-    //     43 /* rtnG2T */, 1 /* rtnT2G */, QOS_MAKE_SDU_LEN(2876) /* maxSduG2T */, 0 /* maxSduT2G */,
-    //     QOS_MAKE_SDU_LEN(2876) /* maxPduG2T */, 0 /* maxPduT2G */,
-    //     3 /* nse */, 2 /* bnG2T */, 0 /* bnT2G */, 2 /* phyG2T */, 0 /* phyT2G */,
-    //     16 /* mcsG2T */, 0 /* mcsT2G */, 2 /* pilotG2T */, 3 /* pilotT2G */, 1 /* frameG2T */, 0 /* frameT2G */
-    // }
-    // param->sduInterval = g_qosIndexTable[i].qos[0].sduIntervalT2G;
-    // param->sca = g_qosIndexTable[i].qos[0].sca;
-    // param->packing = g_qosIndexTable[i].qos[0].packing;
-    // param->framing = g_qosIndexTable[i].qos[0].framing;
-    // param->maxLatency = g_qosIndexTable[i].qos[0].maxLatencyT2G;
-    // param->icbInterval = g_qosIndexTable[i].qos[0].icbInterval;
-    // param->ft = g_qosIndexTable[i].qos[0].ftT2G;
-    // param->rtn = g_qosIndexTable[i].qos[0].rtnT2G;
-    // for (uint32_t j = 0; j < g_qosIndexTable[i].qosCnt; j++) {
-    //     param->maxSdu = QOSM_MAX(param->maxSdu, g_qosIndexTable[i].qos[j].maxSduT2G);
-    //     param->maxPdu = QOSM_MAX(param->maxPdu, g_qosIndexTable[i].qos[j].maxPduT2G);
-    // }
-    // param->nse = g_qosIndexTable[i].qos[0].nse;
-    // param->bn = g_qosIndexTable[i].qos[0].bnT2G;
-    // param->phy = g_qosIndexTable[i].qos[0].phyT2G;
-    // param->mcs = g_qosIndexTable[i].qos[0].mcsT2G;
-    // param->pilot = g_qosIndexTable[i].qos[0].pilotT2G;
-    // param->frame = g_qosIndexTable[i].qos[0].frameT2G;
-    // param->icbNum = DLI_DataNumGet(ICB_DATA_TYPE);
     QOSM_ICBParam param = {};
     uint32_t ret = QOSM_GetICBT2GParamByIndex(QOSM_QOSINDEX_AUDIO, &param);
     EXPECT_EQ(ret, QOSM_SUCCESS);

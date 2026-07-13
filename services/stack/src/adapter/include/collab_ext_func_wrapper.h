@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 #ifndef COLLAB_EXT_FUNC_WRAPPER_H
 #define COLLAB_EXT_FUNC_WRAPPER_H

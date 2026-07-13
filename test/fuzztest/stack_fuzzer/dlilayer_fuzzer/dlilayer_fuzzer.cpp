@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,6 @@ namespace OHOS {
         DLI_CmdSend(NULL);
         DLI_PostNextTask(DLI_CMD_TASK);
         DLI_CmdNumSet(1);
-        DLI_SetWriteFileCallback(FuzzWriteLog);
         DLI_PostNextTask(DLI_CMD_TASK);
         SDF_ThreadSleep(DLI_FUZZ_TEST_SLEEP_TIME);
 
@@ -136,7 +135,6 @@ namespace OHOS {
     {
         FuzzedDataProvider provider(data, size);
         uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
-        int result = provider.ConsumeIntegral<int>();
         DLI_AcbRecvHander(lcid, NULL);
         DLI_AcbRecvHander(lcid, NULL);
 
@@ -144,11 +142,6 @@ namespace OHOS {
         DLI_EventRecvHandler(0, NULL, data, size);
         DLI_SetRecvEventCallback(FuzzDliRecvEventHandler);
         DLI_EventRecvHandler(0, NULL, data, size);
-
-        DLI_SetWriteFileCallback(NULL);
-        DLI_FileWriteHandler(lcid, data, size, result);
-        DLI_SetWriteFileCallback(FuzzDliWriteFileHandler);
-        DLI_FileWriteHandler(lcid, data, size, result);
     }
 
     void FuzzDliLayerUtilsApi(uint8_t* data, size_t size)

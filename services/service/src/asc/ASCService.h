@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ public:
         ~AscMicStateObserver() override {}
 
     private:
-        void OnMicStateChanged(const RawAddress &device, uint8_t micState) override {};
+        void OnMicStateChanged(const RawAddress &device, uint8_t micState) override;
     };
 
 private:
@@ -322,6 +322,10 @@ private:
      */
     std::queue<AudioStreamType>& GetStartBuff(const RawAddress& device);
     std::queue<AudioStreamType>& GetStopBuff(const RawAddress& device);
+    const std::queue<AudioStreamType>* FindStartBuff(const RawAddress& device);
+    const std::queue<AudioStreamType>* FindStopBuff(const RawAddress& device);
+    void ClearStartBuff(const RawAddress& device);
+    void ClearStopBuff(const RawAddress& device);
     std::list<AudioStreamType>& GetStartedStreamList(const RawAddress& device);
     void RemoveStartedStream(const RawAddress &device, AudioStreamType streamType);
     void ProcSpatialIfNeed(const RawAddress& device, AudioStreamType streamType);
@@ -329,19 +333,21 @@ private:
     void ProcBuff(const RawAddress& device, ASCState state);
     void ProcStartBuff(const RawAddress& device, ASCState state, bool& isGoOn);
     void ProcStopBuff(const RawAddress& device, ASCState state);
-    bool StartStartPlayingTimer(const RawAddress& device);
-    bool StopStartPlayingTimer(const RawAddress& device);
+    bool EnableStartPlayingTimer(const RawAddress& device);
+    bool DisableStartPlayingTimer(const RawAddress& device);
     void StartPlayingTimeout(const RawAddress& device);
-    bool StartStopPlayingTimer(const RawAddress& device);
-    bool StopStopPlayingTimer(const RawAddress& device);
+    bool EnableStopPlayingTimer(const RawAddress& device);
+    bool DisableStopPlayingTimer(const RawAddress& device);
     void StopPlayingTimeout();
     void DisconnectAcb(const RawAddress& device);
-    bool StartStopDelayTimer(const RawAddress& device);
-    bool StoStopDelayTimer(const RawAddress& device);
+    bool EnableStopDelayTimer(const RawAddress& device);
+    bool DisableStopDelayTimer(const RawAddress& device);
     void StopDelayTimeout();
     bool StartConnRptDelayTimer(const RawAddress& device);
     bool StopConnRptDelayTimer(const RawAddress& device);
     void ConnRptDelayTimeout();
+    void CancelStopDelay(const RawAddress &device);
+    bool IsNeedReconfigSpatialAudio(const RawAddress& device, AudioStreamType streamType, QosM& qosM);
 
     /*
      * 连接设备管理函数

@@ -149,6 +149,7 @@ void SleCentralManager::impl::Init(std::weak_ptr<SleCentralManager> sleCentralMa
         proxy->RegisterSleCentralManagerCallback(scannerId_, enableRandomAddrMode_, callbackImp_);
     };
     info->serviceStoppedFunc_ = [this]() -> void {
+        std::lock_guard<std::mutex> lock(scannerIdMutex_);
         scannerId_ = SLE_SCAN_INVALID_ID;
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);

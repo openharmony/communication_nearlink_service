@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,20 +21,25 @@ namespace Nearlink {
 namespace {
     constexpr int DATA_MAX_LEN = UINT16_MAX;
 }
-uint8_t* NearlinkDataTransferDataParams::WriteLengthAndData(uint8_t* out, size_t &offset, const std::string& data)
+bool NearlinkDataTransferDataParams::WriteLengthAndData(uint8_t* out, size_t &offset, const std::string& data)
 {
     size_t actualLen = data.size();
     HILOGD("write actualLen : %{public}zu", actualLen);
     // 写入字符串长度
     size_t lenNet = static_cast<size_t>(data.size());
-    (void)memcpy_s(out + offset, sizeof(lenNet), &lenNet, sizeof(lenNet));
+
+    if (memcpy_s(out + offset, sizeof(lenNet), &lenNet, sizeof(lenNet)) != EOK) {
+        return false;
+    }
     offset += sizeof(lenNet);
 
     // 写入字符串内容
-    (void)memcpy_s(out + offset, data.size(), data.c_str(), data.size());
+    if (memcpy_s(out + offset, lenNet, data.c_str(), data.size()) != EOK) {
+        return false;
+    }
     offset += actualLen;
 
-    return out;
+    return true;
 };
 
 std::unique_ptr<uint8_t[]> NearlinkDataTransferDataParams::SerializeData(const DataTransferDataParams& dataParams,

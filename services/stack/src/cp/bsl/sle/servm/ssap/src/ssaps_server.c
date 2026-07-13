@@ -512,6 +512,7 @@ static void SSAPS_ReadMultiHandleItem(SSAP_Link_S *link, Ssap_PduReadReqItem_S *
             (property == NULL) ? EXCEP_SSAP_INVALID_HANDLE : EXCEP_SSAP_DATA_TYPE);
         operation->errCode = (property == NULL) ? SSAP_ERRCODE_INVALID_HANDLE : SSAP_ERRCODE_DATA_TYPE;
         result->errorCode = operation->errCode;
+        CP_LOG_ERROR("[SSAP] handle cannot find item");
         return;
     }
 
@@ -910,6 +911,7 @@ static SSAP_ReadByUuidReqPktInfo_S *SSAPS_ReadByUuidReqRspPkt(SSAP_Link_S *link,
                 SSAPS_AddSingleItem((SSAP_PduReadByUuidRspSingleItem_S *)curData, property->handle, value);
             }
         } else {
+            CP_LOG_ERROR("[SSAP] errorCode=%d", errorCode);
             needLen = sizeof(SSAP_PduReadByUuidRspItem_S);
             CP_CHECK_LOG_RETURN(leftLen >= needLen, NULL, "[SSAP] read by uuid req pkt len error");
             SSAPS_AddOneErrorItem((SSAP_PduReadByUuidRspItem_S *)curData, property->handle, errorCode);

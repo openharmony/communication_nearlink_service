@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,9 +54,17 @@ public:
      */
     void StopUnloadNearlinkSaTimer();
 
+    /**
+     * @brief trigger ext SA unload via dlsym in adapter thread.
+     */
+    void NearlinkHostExtOnIdle();
+
 private:
     UnloadSa();
     ~UnloadSa();
+
+    void NearlinkHostExtOnIdleInner();
+
     std::shared_ptr<NearlinkTimer> unloadSaTimer_;
     std::atomic_bool isTimerStarted_ = false;
 };

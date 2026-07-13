@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -47,7 +47,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
   "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
   "$NEARLINK_ROOT/services/server:nearlink_server",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "${nearlink_test_utils_path}:test_utils_static",
 ]
 
@@ -58,6 +57,8 @@ unit_test_external_deps = [
   "safwk:system_ability_fwk",
   "samgr:samgr_proxy",
   "init:libbegetutil",
+  "access_token:libpermsetproc_shared",
+  "access_token:libnativetoken_shared",
 ]
 
 test_out_path = "nearlink_service/nearlink_service"

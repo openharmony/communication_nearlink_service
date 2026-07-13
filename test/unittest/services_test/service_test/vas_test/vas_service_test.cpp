@@ -1,5 +1,5 @@
-/*
- * Copyright (C) 2026 Huawei Device Co., Ltd. All rights reserved.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include "SleServiceManager.h"
-#include "nearlink_access_token_mock.h"
 #include "VasService.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
@@ -43,7 +42,6 @@ public:
 void NearlinkVasServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase NearlinkVasServiceTest start");
-    NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VAS_SERVICE_UT_DELAY_1000_MS));
     HILOGI("SetUpTestCase NearlinkVasServiceTest end");

@@ -1,5 +1,5 @@
-/*
-* Copyright (C) 2026 Huawei Device Co., Ltd.
+﻿/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -181,6 +181,10 @@ void VcpStackAdapter::SetStreamVolume(const RawAddress &device, const std::list<
     (void)memset_s(&addr, sizeof(SLE_Addr_S), 0x00, sizeof(SLE_Addr_S));
     device.ConvertToUint8(addr.addr);
 
+    if (streamVolumes.empty() || streamVolumes.size() > UINT8_MAX) {
+        HILOGE("[VcpStackAdapter] streamVolumes size invalid: %{public}zu", streamVolumes.size());
+        return;
+    }
     uint8_t num = static_cast<uint8_t>(streamVolumes.size());
     NLSTK_McpSetStreamVolume_S *volumeArray = new (std::nothrow) NLSTK_McpSetStreamVolume_S[num];
     NL_CHECK_RETURN(volumeArray, "volumeArray is nullptr");

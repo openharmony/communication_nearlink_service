@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -70,6 +70,14 @@ enum {
 };
 
 enum {
+    QOSM_FRAME_TYPE_1,
+    QOSM_FRAME_TYPE_2,
+    QOSM_FRAME_TYPE_3,
+    QOSM_FRAME_TYPE_4,
+    QOSM_FRAME_TYPE_MAX,
+};
+
+enum {
     QOSM_AUDIO_DFX_CODEC_TYPE_ENCODER,
     QOSM_AUDIO_DFX_CODEC_TYPE_DECODER,
     QOSM_AUDIO_DFX_CODEC_TYPE_BOTH,
@@ -80,6 +88,7 @@ void QOSM_AudioDfxStop(void);
 void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected);
 void QOSM_AudioDfxUpdateBitrate(uint32_t bitrate);
 void QOSM_AudioDfxUpdateBand(uint32_t band);
+void QOSM_AudioDfxUpdateFrameType(uint8_t frameType);
 void QOSM_AudioDfxNotifyChoppy(struct QOSM_AudioDfxChoppyInfo *info);
 void QOSM_AudioDfxUpdatePowerLevel(uint16_t connHandle, uint8_t level);
 void QOSM_AudioDfxGetDspStatusInner(void *arg);

@@ -1,4 +1,4 @@
-/****************************************************************************
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 /****************************************************************************
  *
@@ -27,6 +27,10 @@
 #include "sdf_vector.h"
 #include "nlstk_devd_scan_type.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void DevdFreeDevdScanner(void *ptr);
 
 void DevdFreeStartScanParam(void *ptr);
@@ -40,5 +44,9 @@ bool CheckFiltersLegal(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum);
 SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum);
 
 SDF_Vector_S *DevdCloneFiltersVector(SDF_Vector_S *filters);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // DEVD_SCAN_UTIL_H

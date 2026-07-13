@@ -1,4 +1,4 @@
-/**
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 /****************************************************************************
  *
@@ -325,7 +325,7 @@ DTAP_Frame_S *DTAP_CopyFrame(const DTAP_Frame_S *srcFrame);
 uint32_t DTAP_ParseExtension(DTAP_Frame_S *frame);
 uint32_t DTAP_RecvAggregateFrame(DTAP_Frame_S *frame, DTAP_Data_Info_S *info,
     int (*recvCb)(DTAP_Data_Info_S *, SDF_Buff_S *));
-uint32_t DTAP_RecvFragmentFrame(SDF_Buff_S **buff, const DTAP_Frame_S *frame, DTAP_Data_Info_S *info,
+uint32_t DTAP_RecvFragmentFrame(SDF_Buff_S **buffs, const DTAP_Frame_S *frame, DTAP_Data_Info_S *info,
     int (*recvCb)(DTAP_Data_Info_S *, SDF_Buff_S *));
 void DTAP_FragmentFrame(SDF_Buff_S *buff, uint16_t mps, uint8_t frameType,
     DTAP_Frame_S *outFrames[DTAP_MAX_FRAGMENT_NUM], uint16_t *outCnt);

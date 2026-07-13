@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ extern "C" {
 
 uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param)
 {
-    return 0;
+    return DliCmdMock()->DLI_GetPublicAddress(param);
 }
 
 uint32_t DLI_ReadLocalFeatures(void)

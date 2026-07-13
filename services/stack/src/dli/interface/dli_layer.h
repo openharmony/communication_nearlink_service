@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,9 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         dli_layer.h
- * @brief        dli命令，数据处理接口
-*/
+ */
 
 #ifndef DLI_LAYER_H
 #define DLI_LAYER_H

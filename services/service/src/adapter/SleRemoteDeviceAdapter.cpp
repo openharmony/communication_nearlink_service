@@ -1293,7 +1293,6 @@ void SleRemoteDeviceAdapter::CdsmSaveDataTask(const RawAddress &memberAddr)
             cdsmAddrType = static_cast<int>(SleCdsmAddrType::CDSM_TYPE_REPORT);
         }
         device->SetCdsmAddrType(cdsmAddrType);
-        SleRemoteDeviceManager::GetInstance()->SaveCdsmDeviceList(member.addr_, cdsmDevList);
         if (device->GetManufacturerBusiness() == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
             isPrivate = true;
         }
@@ -1366,7 +1365,7 @@ static bool CheckIsCdsmMemberPair(const RawAddress &device, const RawAddress &re
  * 是否合作集成员地址配对
  *
  * 逻辑说明：
- * 1. 如果是私有音频业务设备，直接返回false（私有耳机从管家弹窗拉起时，不需要弹框；副耳共LinkKey，也不需要弹窗）
+ * 1. 如果是私有音频业务设备，直接返回false（私有耳机从应用弹窗拉起时，不需要弹框；副耳共LinkKey，也不需要弹窗）
  * 2. 如果report地址与device地址相同，返回false（说明当前为report地址的配对，需要弹框）
  * 3. 检查report设备状态，如果状态无效返回false（可能为首次配对或左右互换KeyMissing场景，需要重新拉起配对弹框）
  * 4. 所有条件都满足时返回true（说明此时为非私有耳机的副耳配对，不需要弹框）

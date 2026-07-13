@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -134,7 +134,6 @@ static int DLI_CmdListSendInner(DLI_CmdStru *info)
     DLI_ENCODE2BYTE(p + 1, info->cmd);
     DLI_ENCODE2BYTE(p + 1 + DLI_PAYLOAD_BITS_LEN, info->parLen);
     int result = DLI_SapiSend(p, info->parLen + DLI_HEADER);
-    DLI_FileWriteHandler(DLI_DATATYPE_CMD, p, info->parLen + DLI_HEADER, result);
     return result;
 }
 
@@ -270,6 +269,7 @@ static uint8_t DLI_PdFlagGet(uint64_t remainLen, uint16_t oneSendLen)
 
 uint32_t DLI_GetDataFragmentNums(SDF_Buff_S *buf)
 {
+    DLI_CHECK_RETURN_RET(buf != NULL, DLI_STACK_PARAMS_ERRNO, "buf is null");
     uint16_t bufferLen = DLI_DataLenGet(ACB_DATA_TYPE);
     return bufferLen == 0 ? 0 : (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
 }
@@ -281,6 +281,11 @@ uint32_t DLI_GetFragmentMaxLen(void)
 
 uint32_t DLI_SplitData(DLI_DataStru *data, SDF_Buff_S *fragmentBuf[], uint32_t fragmentCnt)
 {
+    DLI_CHECK_RETURN_RET(data != NULL, DLI_STACK_PARAMS_ERRNO, "data is null");
+    DLI_CHECK_RETURN_RET(data->buf != NULL, DLI_STACK_PARAMS_ERRNO, "data->buf is null");
+    DLI_CHECK_RETURN_RET(fragmentBuf != NULL, DLI_STACK_PARAMS_ERRNO, "fragmentBuf is null");
+    DLI_CHECK_RETURN_RET(fragmentCnt > 0 && fragmentCnt <= DLI_MAX_FRAGMEN_NUM,
+        DLI_STACK_PARAMS_ERRNO, "fragmentCnt %u is invalid", fragmentCnt);
     uint16_t bufferLen = DLI_DataLenGet(ACB_DATA_TYPE);
     uint64_t dataOffset = 0;
     for (uint32_t i = 0; i < fragmentCnt; i++) {
@@ -337,7 +342,6 @@ static void DLI_DataSendInner(void *param)
     uint64_t bufferLen = SDF_DataLenGet(data->buf);
     int result = DLI_TrySend(buffer, bufferLen);
     DLI_LOGD("DLI_DataSendInner sendLen %hu, result %d", (bufferLen - DLI_HEADER), result);
-    DLI_FileWriteHandler(data->type, buffer, bufferLen, result);
     DLI_DataStruDestroy(data);
 }
 
@@ -380,6 +384,12 @@ static DLI_RecvDataNode *DLI_ReceiveDataNodeUpdate(SDF_Buff_S *buf, uint16_t lci
         dataNode = DLI_RecvDataNodeCreate(lcid, pb, buf);
         if (dataNode == NULL) {
             SDF_MemFree(buf);
+            return NULL;
+        }
+        if (SDF_DListCount(&(g_info.dataRx)) >= DLI_DATA_MAX_CNT) {
+            DLI_LOGW("dataRx list is full, can't add new node, lcid %u", lcid);
+            /* buf已经存储在dataNode里面，不需要单独释放 */
+            DLI_RecvDataNodeDestroy(dataNode);
             return NULL;
         }
         SDF_DListElmTailInsert(&(g_info.dataRx), dataNode, node);
@@ -614,8 +624,6 @@ static void DLI_PacketReceived(SlePacketType type, const SlePacket *packet)
     DLI_CHECK_RETURN(
         packet && packet->data && packet->size >= DLI_HEADER_WITHOUT_TYPE_SIZE && packet->size <= UINT16_MAX,
         "DLI_PacketReceived param is error");
-
-    DLI_FileWriteHandler(type, packet->data, packet->size, 0);
     uint8_t resetEvent[DLI_RESET_EVENT_SIZE] = {0xff, 0xff, 0x01, 0x00, 0xc7};
     if ((type == PACKET_TYPE_SLE_EVENT) && packet->size == DLI_RESET_EVENT_SIZE &&
         !memcmp(resetEvent, packet->data, DLI_RESET_EVENT_SIZE)) {

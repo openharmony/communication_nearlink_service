@@ -72,15 +72,6 @@ public:
     static void GetRandomAddress(std::vector<uint8_t> &addr, bool isNonResPriAddr);
 
     static std::string StringDataToHexString(const std::string &str);
-
-    /**
-     * @brief This function converts an ASCII string into HEX
-     *
-     * @param  [in] char ASCII string
-     * @param  [in] int ASCII string length
-     * @param  [out] uint8_t value pointer
-     */
-    static int Ascii2Hex(const char* pAscii, int len, uint8_t* pHex);
 private:
     const static uint8_t hexFormatSize = 3;
     const static uint8_t hexName = 16;

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
-#include "datatype.h"
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
 #include "cm_api.h"

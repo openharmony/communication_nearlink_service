@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ private:
     void ConnectAction(const RawAddress &device, const DataTransferConnectionParams &params);
     bool TryUpdateConnectReqParam(const DataTransferConnectionParams &params);
     void GetRemotePortCreateChannel(const DataTransferConnectionParams &params);
+    void ReportDisconnectState(const DataTransferConnectionParams &params);
     void UpdateTransferState(const std::string address, uint8_t tcid, uint16_t portId, uint8_t result);
     bool ReceivedData(std::shared_ptr<InputStream> inputStream, uint16_t portId, const std::string &address);
     int GetTransferState(uint16_t portId,const std::string &address);

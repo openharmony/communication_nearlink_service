@@ -63,6 +63,7 @@
 #include "ManufacturerAbilityLoader.h"
 #include "parameter_manager.h"
 #include "nearlink_system_config.h"
+#include "UnloadSa.h"
 #ifdef HICOLLIE_ENABLE
 #include "xcollie/watchdog.h"
 #endif
@@ -87,7 +88,7 @@ const char *NEARLINK_RELOAD_SYSTEM_PARAMETER_NAME = "persist.nearlink.reload_sa"
 const char *NEARLINK_RELOAD_NEEDED_FALSE = "0";
 const char *NEARLINK_RELOAD_NEEDED_TRUE = "1";
 
-static constexpr const char *NEARLINK_PLUGIN_PATH_NAME = "/system/lib64/libnearlink_server_ext.z.so";
+static constexpr const char *NEARLINK_PLUGIN_PATH_NAME = "/system/lib64/libnearlink_server_ext_plugin.z.so";
 static constexpr const char *NEARLINK_PLUGIN_FUNC_NAME = "CreatePluginServerByDlsym";
 }
 
@@ -494,12 +495,6 @@ public:
         });
     }
 
-    void OnCdsmPairStatusChanged(const RawAddress &device, int32_t status) override
-    {
-        HILOGI("device: %{public}s, status: %{public}d", GET_ENCRYPT_ADDR(device), status);
-        NearlinkDeviceManager::GetInstance()->UpdateRandomAddressMap(device, status);
-    }
-
     void OnAcbStateChanged(const RawAddress &device, int32_t state, int reason) override
     {
         HILOGI("device: %{public}s, state: %{public}d, reason: 0x%{public}x", GET_ENCRYPT_ADDR(device), state, reason);
@@ -814,6 +809,13 @@ bool __attribute__((weak)) NearlinkHostServer::PublishHostServer()
 {
     HILOGI("Publish nearlink service started.");
     return Publish(NearlinkHostServer::GetInstance());
+}
+
+int32_t NearlinkHostServer::OnIdle(const SystemAbilityOnDemandReason &idleReason)
+{
+    HILOGI("OnIdle service.");
+    UnloadSa::GetInstance().NearlinkHostExtOnIdle();
+    return 0;
 }
 
 void NearlinkHostServer::OnStop()

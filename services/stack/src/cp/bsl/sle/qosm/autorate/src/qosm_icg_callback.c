@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-****************************************************************************/
+ */
 
 #include "qosm_icg_callback.h"
 #include "qosm_errno.h"
@@ -164,11 +164,13 @@ void QOSM_SendAutoRateMsg(const QOSM_ICGInfo *icgInfo, uint16_t direction, uint8
     param.labelId = labelId;
     param.qosIndex = icgInfo->qosIndex;
     if ((icgInfo->updateStatus & UPDATE_BY_CALL) != 0) {
+        QOSM_CHECK_RETURN(icgInfo->updatedQosParam, "updatedQosParam is null");
         param.downwardBitrate = QOSM_GetOriginalBitrate(icgInfo->icbType, icgInfo->updatedQosParam->downwardBitrate,
             icgInfo->linkCnt);
         param.upwardBitrate = QOSM_GetOriginalBitrate(icgInfo->icbType, icgInfo->updatedQosParam->upwardBitrate,
             icgInfo->linkCnt);
     } else if ((icgInfo->updateStatus & UPDATE_BY_REPORT) != 0) {
+        QOSM_CHECK_RETURN(icgInfo->reportedQosParam, "updatedQosParam is null");
         param.downwardBitrate = QOSM_GetOriginalBitrate(icgInfo->icbType, icgInfo->reportedQosParam->downwardBitrate,
             icgInfo->linkCnt);
         param.upwardBitrate = QOSM_GetOriginalBitrate(icgInfo->icbType, icgInfo->reportedQosParam->upwardBitrate,

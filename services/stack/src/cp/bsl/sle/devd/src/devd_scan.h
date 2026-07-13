@@ -11,8 +11,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * @file         devd_scan.h
- * @brief        sle扫描接口
  */
 #ifndef DEVD_SCAN_H
 #define DEVD_SCAN_H

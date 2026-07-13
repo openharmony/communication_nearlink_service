@@ -155,6 +155,21 @@ void DoInDeviceAdapterThread(const ThreadUtilFunc &func, uint64_t delayTime)
     PostTaskToThread(THREAD_ID_DEVICE_ADAPTER, func, delayTime);
 }
 
+void DoInFindClientThread(const ThreadUtilFunc &func, uint64_t delayTime)
+{
+    PostTaskToThread(THREAD_ID_FIND_CLIENT, func, delayTime);
+}
+
+void DoInFindServerThread(const ThreadUtilFunc &func, uint64_t delayTime)
+{
+    PostTaskToThread(THREAD_ID_FIND_SERVER, func, delayTime);
+}
+
+void DoInFindPdrThread(const ThreadUtilFunc &func, uint64_t delayTime)
+{
+    PostTaskToThread(THREAD_ID_FIND_PDR, func, delayTime);
+}
+
 // Only for test.
 void ThreadUtil::ClearThreadStateMap()
 {
@@ -196,6 +211,9 @@ static std::string GetThreadName(int threadId)
         { THREAD_ID_BAS,                "sle_bas" },
         { THREAD_ID_MIC,                "sle_mic" },
         { THREAD_ID_DEVICE_ADAPTER,     "sle_device_adapter" },
+        { THREAD_ID_FIND_CLIENT,        "sle_find_client" },
+        { THREAD_ID_FIND_SERVER,        "sle_find_server" },
+        { THREAD_ID_FIND_PDR,           "sle_find_pdr" },
     };
 
     auto it = threadNameMap.find(threadId);
