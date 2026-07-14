@@ -20,6 +20,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <future>
+#include <thread>
 
 #include "BaseObserverList.h"
 #include "ClassCreator.h"
@@ -93,6 +94,7 @@ static constexpr int SECONDS_TO_MILLISECONDS = 1000;
 static constexpr int SLE_5G_FREQ_TEST_MODE_TYPE = 1;
 constexpr int SLE_PASSIVE_PAIRING_DIALOG_TIMEOUT_MS = 1000;  // 1s
 constexpr uint16_t DIS_UUID_SSAP_DEVICE_NAME_ID = 0x103F;
+constexpr int ENABLE_RETRY_MAX = 3;
 
 static const std::set<int> SLE_DISCONN_REASONS_NEED_BG_CONN = {
     NLSTK_SLE_CONNECTION_TIMEOUT, NLSTK_SLE_CONNECTION_FAILED_TO_BE_ESTABLISHED,
@@ -340,8 +342,17 @@ bool SleAdapter::EnableTask()
     if (result != NLSTK_ERRCODE_SUCCESS) {
         LOG_ERROR("[SleAdapter]:RegisterCallbackToNbcExt failed!");
     }
-    bool ret = (slem_enable() == NLSTK_ERRCODE_SUCCESS);
-    LOG_INFO("[SleAdapter] slem_enable ret=%{public}d", ret);
+    bool ret = false;
+    for (int i = 1; i <= ENABLE_RETRY_MAX; ++i) {
+        ret = (slem_enable() == NLSTK_ERRCODE_SUCCESS);
+        LOG_INFO("[SleAdapter] slem_enable ret = %{public}d, retry: %{public}d", ret, i);
+        if (ret) {
+            break;
+        }
+        if (i < ENABLE_RETRY_MAX) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
     if (!ret) {
         pimpl->btmEnableFlag_ = false;
         LOG_ERROR("[SleAdapter]:cm enable failed!");
@@ -360,7 +371,7 @@ bool SleAdapter::EnableTask()
 
 int SleAdapter::InitSlemAndCm()
 {
-    HILOGI("ENTER");
+    HILOGI("enter");
     int ret = RegisterCallbackToCm();
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         LOG_ERROR("[SleAdapter]:RegisterCallbackToCm failed!");
