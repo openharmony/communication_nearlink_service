@@ -42,11 +42,7 @@
 #define DEFAULT_MAX_ADV_DATA_LEN 251
 #define DEFAULT_MAX_ADV_NODE_NUM 1
 
-#ifdef WATCH_STANDARD
 #define DEFAULT_SEM_WAIT_TIME 2000
-#else
-#define DEFAULT_SEM_WAIT_TIME 1000
-#endif
 
 #define DLI_CONN_FRAME_TYPE_4 1             // 连接帧4类型，对齐SLE_CONN_FRAME_TYPE_4
 #define DLI_CONN_TX_POWER_LEVEL_7_VALUE 21  // 连接7档功率值，对齐SLE_CONN_TX_POWER_LEVEL_7_VALUE
@@ -140,7 +136,7 @@ static void GetPublicAddressCbk(void *context, uint16_t status, DLI_ExecuteCmdRe
 
     g_publicAddress.type = PUBLIC_ADDRESS;
     (void)memcpy_s(g_publicAddress.addr, SLE_ADDR_LEN, cmdRes->eventParameter, SLE_ADDR_LEN);
-    NLSTK_LOG_INFO("GetPublicAddressCbk addr:%s", GET_ENC_ADDR(&g_publicAddress));
+    NLSTK_LOG_INFO("GetPublicAddressCbk address:%s", GET_ENC_ADDR(&g_publicAddress));
     NotifyConfigUpdate(&g_publicAddress, NLSTK_CFGDB_CONFIG_PUBLIC_ADDRESS);
 }
 
