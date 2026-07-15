@@ -1598,24 +1598,34 @@ uint32_t SleRemoteDeviceAdapter::GetDeviceTypeFromAppearance(const RawAddress &d
 uint32_t SleRemoteDeviceAdapter::GetAudioDeviceGroupId(const RawAddress &device)
 {
     uint32_t groupId = CDSM_SERVICE_INVALID_GROUP_ID;
+    NL_CHECK_RETURN_RET(SleRemoteDeviceManager::GetInstance()->IsAudioDevice(device.GetAddress()) , groupId,
+        "not AudioDevice");
     ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
         SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));
     NL_CHECK_RETURN_RET(cdsmService, groupId, "cdsmService is nullptr.");
-    if (SleRemoteDeviceManager::GetInstance()->IsAudioDevice(device.GetAddress())) {
-        bool isVendorDevice = false;
-        int businessType = SleRemoteDeviceManager::GetInstance()->GetManufacturerBusinessType(device);
-        if (businessType == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
-            isVendorDevice = true;
-        }
-        bool hasGid = cdsmService->CdsmGetGroupId(groupId, device.GetAddress());
-        if (!hasGid && !isVendorDevice) {
-            std::vector<RawAddress> devList;
-            devList.push_back(device);
-            groupId = cdsmService->CdsmCreateGroup(device, devList);
-        }
-        if (groupId == CDSM_SERVICE_INVALID_GROUP_ID) {
+    bool hasGid = cdsmService->CdsmGetGroupId(groupId, device.GetAddress());
+    if (!hasGid) {
+        std::vector<RawAddress> devList;
+        devList.push_back(device);
+        groupId = cdsmService->CdsmCreateGroup(device, devList);
+    }
+    if (groupId == CDSM_SERVICE_INVALID_GROUP_ID) {
+        HILOGI("[SleRemoteDeviceAdapter]get cdsm group id fail.");
+    }
+    return groupId;
+}
+
+uint32_t GetVendorAudioDeviceGroupId(const RawAddress &device)
+{
+    uint32_t groupId = CDSM_SERVICE_INVALID_GROUP_ID;
+    NL_CHECK_RETURN_RET(SleRemoteDeviceManager::GetInstance()->IsAudioDevice(device.GetAddress()) , groupId,
+        "not AudioDevice");
+    ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));
+    NL_CHECK_RETURN_RET(cdsmService, groupId, "cdsmService is nullptr.");
+    cdsmService->CdsmGetGroupId(groupId, device.GetAddress());
+    if (groupId == CDSM_SERVICE_INVALID_GROUP_ID) {
             HILOGI("[SleRemoteDeviceAdapter]get cdsm group id fail.");
-        }
     }
     return groupId;
 }
@@ -1633,9 +1643,16 @@ void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Add
     device.ConvertToUint8(addrInfo.addr, SLE_ADDR_LEN);
 
     int deviceAppearance = GetDeviceAppearanceInner(device);
-    uint32_t deviceType = GetDeviceTypeFromAppearance(report, deviceAppearance);
-    uint32_t groupId = GetAudioDeviceGroupId(report);
-
+    uint32_t deviceType = static_cast<uint32_t>(DeviceTypeForService::DEVICE_TYPE_OTHER);
+    uint32_t groupId = CDSM_SERVICE_INVALID_GROUP_ID;
+    int businessType = SleRemoteDeviceManager::GetInstance()->GetManufacturerBusinessType(device);
+    if (businessType == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
+        deviceType = GetDeviceTypeFromAppearance(report, deviceAppearance);
+        groupId = GetAudioDeviceGroupId(report);    
+    } else {
+        deviceType = GetDeviceTypeFromAppearance(report, deviceAppearance);
+        groupId = GetAudioDeviceGroupId(report);
+    }
     devType = ((groupId << 16) & 0xFFFF0000) | (deviceType & 0x0000FFFF); // 16 is shift left by 16 bits
     HILOGI("[SleRemoteDeviceAdapter]get peer(%{public}s->%{public}s) devType:%{public}#x, appearance:%{public}#x, "
            "cdsm group:%{public}#x", GET_ENCRYPT_ADDR(device), GET_ENCRYPT_ADDR(report), devType, deviceAppearance,
