@@ -575,7 +575,7 @@ uint32_t CM_GetRssi(const CM_ReadRemoteRssiReq_S *param);
 /**
  * @brief  查询同步链路对应的异步链路id
  * @param  [in]  < connHandle > 同步链路id
- * @return CM_SUCCESS: 成功, OTHER: 失败
+ * @return 异步链路id
  */
 uint16_t CM_GetLcidByConnHandle(uint16_t connHandle);
 
