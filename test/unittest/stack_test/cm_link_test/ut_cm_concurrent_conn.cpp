@@ -600,7 +600,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
     UT_CM_ApiTestDirectConnect(handle);
 
     //    1.2 主动连接另外1个地址
-    uint16_t otherHandle = g_activeHandleInitValue;
+    uint16_t otherHandle = handle + 1;
     UT_CM_ApiTestDirectConnect(otherHandle);
 
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
@@ -610,7 +610,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
     //    2.1 主动第2个连接成功
-    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_SleConnectCompleteEvt(otherHandle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 2);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 2);
 
@@ -624,10 +624,10 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
 
     // 5) 断开第2个连接
-    UT_CM_ApiTestDirectDisconnect(handle);
+    UT_CM_ApiTestDirectDisconnect(otherHandle);
     // 6) 断连成功
-    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
-    UT_CM_CheckDisconnectComplete(handle);
+    UT_CM_SleDisconnectCompleteEvt(otherHandle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(otherHandle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
 
