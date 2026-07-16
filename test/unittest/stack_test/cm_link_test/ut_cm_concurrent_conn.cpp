@@ -317,7 +317,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_BgConnectAddAndRemoveSucccess)
     uint16_t handle = g_activeHandleInitValue;
     UT_CM_ApiTestBgConnect(handle);
     // 2) 连接成功
-    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, 0);
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
 
@@ -360,7 +360,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAddAndRemoveSucccess)
     uint16_t handle = g_activeHandleInitValue;
     UT_CM_ApiTestDirectConnect(handle);
     // 2) 连接成功
-    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, 0);
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
 
@@ -402,7 +402,7 @@ static uint16_t UT_CM_PrepareCreateConnectTest(void)
     uint16_t handle = g_activeHandleInitValue;
     UT_CM_ApiTestDirectConnect(handle);
     // 2) 连接成功
-    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, 0);
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     return handle;
@@ -410,14 +410,13 @@ static uint16_t UT_CM_PrepareCreateConnectTest(void)
 
 static void UT_CM_AfterDisconnectTest(uint16_t handle)
 {
-    SLE_Addr_S addr = { 0 };
-    UT_CM_GenDifferentAddress(&addr, handle);
     // 1) 断开1个连接，并去初始化环境
     UT_CM_ApiTestDirectDisconnect(handle);
     // 2) 断连成功
     UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
     UT_CM_CheckDisconnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
     CM_DeInit();
 }
 
@@ -544,10 +543,102 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_2)
     // 2) 测试场景：还未连接成功，重复发起连接
     UT_CM_ApiTestDirectConnect(handle);
     // 3) 连接成功
-    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, 0);
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
 
+    UT_CM_AfterDisconnectTest(handle);
+}
+
+// 测试场景：若在被动连接完成时，逻辑链路列表可能存在主动连接中的节点，需要移除，后续可重新下发
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_1)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    // 步骤1、主动连接或者被动连接成功
+    // 1) 初始化注册环境，并创建1个主动连接
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(handle);
+
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+
+    // 2) 被动连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_ADV);
+    UT_CM_CheckConnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+
+    // 3) 断开1个连接
+    UT_CM_ApiTestDirectDisconnect(handle);
+    // 4) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+
+    // 步骤二、主动连接和主动连接成功
+    // 1) 创建1个主动连接
+    UT_CM_ApiTestDirectConnect(handle);
+    // 2) 主动连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_CheckConnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    UT_CM_AfterDisconnectTest(handle);
+}
+
+// 测试场景：启动多个连接场景，若在被动连接完成时，逻辑链路列表可能存在主动连接中的节点，需要移除，后续可重新下发
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    // 步骤1、主动连接或者被动连接成功
+    // 1) 1.1 初始化注册环境，并创建1个主动连接
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(handle);
+
+    //    1.2 主动连接另外1个地址
+    uint16_t otherHandle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(otherHandle);
+
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+
+    // 2) 2.1 被动第1个连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_ADV);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    //    2.1 主动第2个连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 2);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 2);
+
+    // 3) 断开第1个连接
+    UT_CM_ApiTestDirectDisconnect(handle);
+    // 4) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(handle);
+    // 5) 剩余第2个连接
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+
+    // 5) 断开第2个连接
+    UT_CM_ApiTestDirectDisconnect(handle);
+    // 6) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+
+    // 步骤二、主动连接和主动连接成功
+    // 1) 创建1个主动连接
+    UT_CM_ApiTestDirectConnect(handle);
+    // 2) 主动连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_CheckConnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
     UT_CM_AfterDisconnectTest(handle);
 }
 

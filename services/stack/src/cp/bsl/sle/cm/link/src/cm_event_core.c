@@ -76,7 +76,7 @@ static void CM_SleCreateConnectionProc(void *context, uint8_t result, const CM_E
         return;
     }
     CM_LOGI("sle connect create connection proc, link status:%d", link->status);
-    bool connCompleteType = link->connCompleteType; // 先保存临时副本，后续link可能会被释放
+    uint8_t connCompleteType = link->connCompleteType; // 先保存临时副本，后续link可能会被释放
     if (link->status == CM_LINK_STATE_CONNECTED) {
         connectRsp->result = link->status;
         // 获取对端重要字段信息companyId，用于连接管理查询能力等功能使用，然后在其回调里再读取对端Feature
@@ -103,9 +103,14 @@ static void CM_SleCreateConnectionProc(void *context, uint8_t result, const CM_E
             CM_ReportLogicLinkCbks(connectRsp);
         }
     }
-    if (connCompleteType == CM_CONN_COMPLETE_SCAN) {
-        CM_ConcurrentConnDoingComplete(&connectRsp->addr, connectRsp->result);
+    if (connCompleteType == CM_CONN_COMPLETE_ADV) {
+        // 双端同时发起建链场景：若在被动连接完成时，逻辑链路列表可能存在主动连接中的节点，需要移除，后续可重新下发
+        link = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+        if (link != NULL) {
+            SleLogicLinkRemove(link);
+        }
     }
+    CM_ConcurrentConnDoingComplete(&connectRsp->addr, connectRsp->result);
 }
 
 static void CM_SleCancelConnectionProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
