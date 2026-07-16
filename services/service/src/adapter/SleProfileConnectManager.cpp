@@ -583,6 +583,7 @@ void SleProfileConnectManager::ProcessProfileDisconnected(const std::string &pro
         SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED),
             static_cast<int>(SleConnectState::CONNECTED),
             static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE));
+        NL_CHECK_RETURN(funcs_.notifyConnectionStateChanged, "funcs_.notifyConnectionStateChanged is nullptr");
         funcs_.notifyConnectionStateChanged(device, connChangedParam);
         return;
     }
@@ -711,6 +712,7 @@ bool SleProfileConnectManager::ProcessProfileConnectedInner(const std::string &p
     if (disService) {
         localAppearance = disService->GetDisServiceAppearance();
     }
+    NL_CHECK_RETURN_RET(funcs_.notifyConnectionStateChanged, false, "funcs_.notifyConnectionStateChanged is nullptr");
     if (remoteAppearance == DEVICE_SMART_WATCH || remoteAppearance == DEVICE_CLASS_VEHICLE_LOCK ||
         localAppearance == DEVICE_SMART_WATCH || localAppearance == DEVICE_CLASS_VEHICLE_LOCK ||
         remoteAppearance == DEVICE_NETWORKING) {
@@ -891,7 +893,7 @@ void SleProfileConnectManager::SsapConnectionStateChangedTask(const RawAddress &
             profConnInst->SetState(SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
             SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::CONNECTED), preState,
                 static_cast<int>(SleConnectReason::CONNECT_SUCCESS));
-        funcs_.notifyConnectionStateChanged(device, connChangedParam);
+            funcs_.notifyConnectionStateChanged(device, connChangedParam);
             DftReportPairInfo(device.GetAddress(), PAIR_CONN_PATH_ALL_PROFILE, ALL_PROFILE_CONNECT_SUCCESS);
             return;
         }
@@ -990,6 +992,7 @@ void SleProfileConnectManager::HandleServiceDiscoveryFailure(
         SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED),
             GetProfileConnState(device),
             static_cast<int>(SleConnectReason::CONNECT_FAIL_SERVICE_DISCOVERY));
+        NL_CHECK_RETURN(funcs_.notifyConnectionStateChanged, "funcs_.notifyConnectionStateChanged is nullptr");
         funcs_.notifyConnectionStateChanged(device, connChangedParam);
         profConnInst->SetState(SLE_ADAPTER_PROF_CONN_STATE_UNUSED);
         return;
@@ -1156,6 +1159,7 @@ void SleProfileConnectManager::ClearAllProfileConnectInfo() const
     for (const RawAddress &peerAddr : device) {
         SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED),
             static_cast<int>(SleConnectState::DISCONNECTING));
+        NL_CHECK_RETURN(funcs_.notifyConnectionStateChanged, "funcs_.notifyConnectionStateChanged is nullptr");
         funcs_.notifyConnectionStateChanged(peerAddr, connChangedParam);
     }
 }

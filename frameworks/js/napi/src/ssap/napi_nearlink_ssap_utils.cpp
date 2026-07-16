@@ -272,7 +272,7 @@ void ConvertSsapDescriptorToJS(napi_env env, napi_value result, SsapDescriptor& 
     ConvertSsapDescriptorCommonToJS(env, result, descriptor);
 
     napi_value writable;
-    bool isWritable = (operationIndication & (0x0100 << idx)) != 0;
+    bool isWritable = (operationIndication & (0x0100U << idx)) != 0;
     napi_get_boolean(env, isWritable, &writable);
     napi_set_named_property(env, result, "isWriteable", writable);
 }
