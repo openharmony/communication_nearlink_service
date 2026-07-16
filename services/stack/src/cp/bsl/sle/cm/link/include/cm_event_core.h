@@ -22,6 +22,7 @@
 #define CM_EVENT_CORE_H
 
 #include "cm_api.h"
+#include "cm_inner_api.h"
 
 #ifdef __cplusplus
 extern "C" {

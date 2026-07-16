@@ -162,7 +162,6 @@ static void UapiCmLinkInitTest(void)
     EXPECT_EQ(ret, CM_SUCCESS);
 
     CM_ConnectCbks_S cbks = { 0 };
-    cbks.connCancelCbk = TEST_ConnectCancelCbk;
     cbks.readRemoteFeatureVersionCbk = TEST_ConnectReadRemoteFetureVersionCbk;
     cbks.connUpdateParamCbk = TEST_ConnectUpdatePramCbk;
     cbks.connRemoteUpdateParamReqCbk = TEST_ConnectRemoteUpdateParamReqCbk;
@@ -184,7 +183,6 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UapiCmLinkInit)
 static void UT_CM_RegRequiredConnectCbks(void)
 {
     CM_ConnectCbks_S cbks = { 0 };
-    cbks.connCancelCbk = NULL;
     cbks.readRemoteFeatureVersionCbk = UT_CM_SsapConnectReadRemoteFetureVersionCbk;
     cbks.connUpdateParamCbk = UT_CM_SsapConnectUpdatePramCbk;
     cbks.connRemoteUpdateParamReqCbk = UT_CM_ConnectRemoteUpdateParamReqCbk;

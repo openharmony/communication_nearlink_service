@@ -413,15 +413,6 @@ static void CM_FuzzerConnSetPhyReqCbk(CM_SetPhyRsp_S *param)
     }
 }
 
-static void CM_FuzzerConnCancelCbk(uint8_t *param)
-{
-    CM_LOGI("enter");
-    if (param == nullptr) {
-        CM_LOGE("param is nullptr");
-        return;
-    }
-}
-
 static void CM_FuzzerReadRmtFeatVerCbk(CM_ReadRemoteFeatureVersionRsp_S *param)
 {
     CM_LOGI("enter");
@@ -443,7 +434,6 @@ uint32_t FuzzCmLinkInit(void)
     cmCbks.connRemoteUpdateParamReqCbk = CM_FuzzerConnRemoteParamUpdateReqCbk;
     cmCbks.connUpdateParamCbk = CM_FuzzerConnUpdateParamReqCbk;
     cmCbks.setPhyCbk = CM_FuzzerConnSetPhyReqCbk;
-    cmCbks.connCancelCbk = CM_FuzzerConnCancelCbk;
     cmCbks.readRemoteFeatureVersionCbk = CM_FuzzerReadRmtFeatVerCbk;
     ret = CM_RegConnectCbks(&cmCbks);
     if (ret != CM_SUCCESS) {
