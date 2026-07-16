@@ -704,8 +704,8 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_ConnectParamUpdateReq)
         // UAPI 测试
         CM_ConnectUpdateParamReq_S gleParam = {};
         (void)memcpy_s(&gleParam.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        EXPECT_EQ(CM_ConnectUpdateParamReq(&gleParam), 0);
-        EXPECT_EQ(CM_ConnectUpdateParamReq(NULL), 0);
+        EXPECT_EQ(CM_ConnectUpdateParamReq(&gleParam), CM_SUCCESS);
+        EXPECT_EQ(CM_ConnectUpdateParamReq(NULL), CM_INVALID_PARAM_ERR);
     });
 }
 
