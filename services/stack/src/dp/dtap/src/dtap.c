@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -477,6 +477,11 @@ static void DTAP_TransSendCacheBuff(DTAP_Channel_S *channel, DTAP_ReliableChanne
 
 void DTAP_TransChannelStatusChange(DTAP_Channel_S *channel, uint8_t result)
 {
+    if (channel == NULL || channel->attr == NULL) {
+        DTAP_LOGE("channel or attr is NULL");
+        return;
+    }
+
     if (channel->mode != CM_TRANS_MODE_RELIABLE) {
         DTAP_LOGD("channel->mode is not Reliable");
         return;
