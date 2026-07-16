@@ -49,7 +49,11 @@ uint32_t NLSTK_McpVolumeConnect(SLE_Addr_S *addr)
         uint32_t ret = NLSTK_SsapClientRegApp(&appId, &cb, addr);
         NLSTK_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS && appId >= 0, ret, "[MCP] reg app fail");
         ret = McpVolumeAddDevice(appId, addr);
-        NLSTK_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS, ret, "[MCP] add device fail");
+        if (ret != NLSTK_ERRCODE_SUCCESS) {
+            NLSTK_SsapClientDeregApp(appId);
+            NLSTK_LOG_ERROR("[MCP] add device fail");
+            return ret;
+        }
     }
     SLE_Addr_S *copyAddr = (SLE_Addr_S *)SDF_MemZalloc(sizeof(SLE_Addr_S));
     NLSTK_CHECK_RETURN(copyAddr != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[MCP] copyAddr malloc fail");

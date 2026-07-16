@@ -292,14 +292,20 @@ static bool GenPassWordConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink
     };
     if (memcpy_s(input.key, SM_OCTETS_16, key, keyLen) != EOK) {
         NLSTK_LOG_ERROR("[SM][PASSWORD] Generate password memcpy failed keyLen: %u.", keyLen);
+        (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
+            SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
         return false;
     }
     input.buff = buff;
     input.buffSize = SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + wordLen;
     if (!SmCmacGenerate(&input, confirm->confirm, SM_CONFIRM_NUMBER_LEN)) {
         NLSTK_LOG_ERROR("[SM][PASSWORD] Generate password confirm num error.");
+        (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
+            SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
         return false;
     }
+    (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
+        SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
     return true;
 }
 

@@ -719,7 +719,7 @@ static void FindRspCleanCache(SSAP_Link_S *link, uint8_t preFindType, uint16_t r
     }
 }
 
-static bool SSAP_CheckSizeAndTrace(SSAP_Link_S *link, int sceneCode, int subSceneCode, uint32_t size)
+static bool SSAP_CheckRspSizeAndTrace(SSAP_Link_S *link, int sceneCode, int subSceneCode, uint32_t size)
 {
     if (size < sizeof(SSAP_PduFindStructRsp_S)) {
         SDF_SsapTrace(link->addr.addr, sceneCode, subSceneCode);
@@ -727,7 +727,16 @@ static bool SSAP_CheckSizeAndTrace(SSAP_Link_S *link, int sceneCode, int subScen
     } else {
         return true;
     }
-    return false;
+}
+
+static bool SSAP_CheckReqSizeAndTrace(SSAP_Link_S *link, int sceneCode, int subSceneCode, uint32_t size)
+{
+    if (size < sizeof(SSAP_PduFindStructReq_S)) {
+        SDF_SsapTrace(link->addr.addr, sceneCode, subSceneCode);
+        return false;
+    } else {
+        return true;
+    }
 }
 
 void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
@@ -739,7 +748,7 @@ void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     SSAP_PduFindStructRsp_S *rsp = (SSAP_PduFindStructRsp_S *)buf;
     int sceneCode = rsp->msgCode == SSAP_FIND_STRUCTURE_RSP ?
             EXCEP_SSAP_FIND_STRUCTURE_RSP_RECV : EXCEP_SSAP_FIND_BY_UUID_RSP_RECV;
-    CP_CHECK_LOG_RETURN_VOID(SSAP_CheckSizeAndTrace(link, sceneCode, EXCEP_SSAP_PDU_DECODE_FAILED, size),
+    CP_CHECK_LOG_RETURN_VOID(SSAP_CheckRspSizeAndTrace(link, sceneCode, EXCEP_SSAP_PDU_DECODE_FAILED, size),
         "[SSAP] find rsp handle wrong size, size: %d", size);
     uint8_t *data = buf + sizeof(SSAP_PduFindStructRsp_S);
     uint32_t leftSize = size - sizeof(SSAP_PduFindStructRsp_S);
@@ -748,7 +757,7 @@ void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
     CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(lastBuff) <= UINT32_MAX, "[SSAP] last datalen is invalid");
     uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
-    CP_CHECK_LOG_RETURN_VOID(SSAP_CheckSizeAndTrace(link, sceneCode, EXCEP_SSAP_PDU_DECODE_FAILED, size),
+    CP_CHECK_LOG_RETURN_VOID(SSAP_CheckReqSizeAndTrace(link, sceneCode, EXCEP_SSAP_PDU_DECODE_FAILED, lastSize),
         "[SSAP] find rsp handle get prev req wrong size, size: %d", lastSize);
     SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)lastBuf;
     uint32_t reqUuidSize = lastSize - sizeof(SSAP_PduFindStructReq_S);

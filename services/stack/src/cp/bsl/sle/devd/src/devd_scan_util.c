@@ -42,7 +42,7 @@ void DevdFreeStartScanParam(void *ptr)
 
 NLSTK_DevdScanSettingInner_S *FetchFrame1TargetScanSettings(SDF_Vector_S *scanners)
 {
-    NLSTK_CHECK_RETURN(scanners->size != 0, NULL, "no scanner");
+    NLSTK_CHECK_RETURN(scanners != NULL && scanners->size != 0, NULL, "no scanner");
     NLSTK_DevdScanner_S *scanner = (NLSTK_DevdScanner_S *)SDF_VectorElementAt(scanners, 0);
     NLSTK_DevdScanSettingInner_S *target = &scanner->scanSetting;
     for (size_t i = 1; i < scanners->size; i++) {
@@ -59,7 +59,7 @@ NLSTK_DevdScanSettingInner_S *FetchFrame1TargetScanSettings(SDF_Vector_S *scanne
 
 NLSTK_DevdScanSettingInner_S *FetchFrame4TargetScanSettings(SDF_Vector_S *scanners)
 {
-    NLSTK_CHECK_RETURN(scanners->size != 0, NULL, "no scanner");
+    NLSTK_CHECK_RETURN(scanners != NULL && scanners->size != 0, NULL, "no scanner");
     NLSTK_DevdScanner_S *scanner = (NLSTK_DevdScanner_S *)SDF_VectorElementAt(scanners, 0);
     NLSTK_DevdScanSettingInner_S *target = &scanner->frame4ScanSetting;
     for (size_t i = 1; i < scanners->size; i++) {
