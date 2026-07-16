@@ -204,11 +204,6 @@ void UT_CM_SleDisconnectEvt(uint16_t handle, uint8_t reason)
     UT_CM_MockDliCmdExecuteCbk(&cmdParam, DLI_SUCCESS);
 }
 
-void UT_CM_ConnectCancelCbk(uint8_t *param)
-{
-    CM_LOGI("UT_CM_ConnectCancelCbk");
-}
-
 static bool UT_CM_LogicLinkDtapIsSame(const CM_LogicLinkState_S& p)
 {
     if ((p.lcid == g_testDtapLcid)) {

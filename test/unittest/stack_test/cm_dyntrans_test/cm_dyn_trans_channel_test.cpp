@@ -29,6 +29,7 @@
 #include "sle_access_dli.h"
 #include "cm_api.h"
 #include "cm_def.h"
+#include "cm_inner_api.h"
 #include "cm_errno.h"
 #include "cm_log.h"
 #include "cm_logic_link_api.h"
@@ -596,7 +597,6 @@ static void UT_CM_DYN_TC_TestConnectAndDisconnect(uint16_t testCount)
 static void UT_CM_RegConnectCbks(void)
 {
     CM_ConnectCbks_S cbks = { 0 };
-    cbks.connCancelCbk = UT_CM_ConnectCancelCbk;
     cbks.readRemoteFeatureVersionCbk = UT_CM_SsapConnectReadRemoteFetureVersionCbk;
     cbks.connUpdateParamCbk = UT_CM_SsapConnectUpdatePramCbk;
     cbks.connRemoteUpdateParamReqCbk = UT_CM_ConnectRemoteUpdateParamReqCbk;

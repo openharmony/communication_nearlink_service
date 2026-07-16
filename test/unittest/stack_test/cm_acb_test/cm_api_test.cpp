@@ -14,6 +14,7 @@
  */
 
 #include "cm_api.h"
+#include "cm_inner_api.h"
 #include "gtest/gtest.h"
 #include "securec.h"
 #include "sdf_worker.h"
@@ -484,7 +485,6 @@ static void UT_CM_ApiTestConnectAndDisconnectMultiSameAddress(uint16_t testCount
 static void UT_CM_RegRequiredConnectCbks(void)
 {
     CM_ConnectCbks_S cbks = { 0 };
-    cbks.connCancelCbk = UT_CM_ConnectCancelCbk;
     cbks.readRemoteFeatureVersionCbk = UT_CM_SsapConnectReadRemoteFetureVersionCbk;
     cbks.connUpdateParamCbk = UT_CM_SsapConnectUpdatePramCbk;
     cbks.connRemoteUpdateParamReqCbk = UT_CM_ConnectRemoteUpdateParamReqCbk;
@@ -505,7 +505,6 @@ static void UT_CM_ADPT_RegLogicLinkListener(void)
 static CM_ConnectCbks_S UT_CM_GetRequiredConnectCbks(void)
 {
     CM_ConnectCbks_S cbks = { 0 };
-    cbks.connCancelCbk = UT_CM_ConnectCancelCbk;
     cbks.readRemoteFeatureVersionCbk = UT_CM_SsapConnectReadRemoteFetureVersionCbk;
     cbks.connUpdateParamCbk = UT_CM_SsapConnectUpdatePramCbk;
     cbks.connRemoteUpdateParamReqCbk = UT_CM_ConnectRemoteUpdateParamReqCbk;

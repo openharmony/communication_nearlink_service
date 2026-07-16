@@ -29,7 +29,6 @@ void CM_RegExterCbks(const CM_ConnectCbks_S *cbks)
 
 void CM_UnRegExterCbks(void)
 {
-    g_sleCbks.connCancelCbk = NULL;
     g_sleCbks.connRemoteUpdateParamReqCbk = NULL;
     g_sleCbks.connUpdateParamCbk = NULL;
     g_sleCbks.readRemoteFeatureVersionCbk = NULL;
@@ -49,9 +48,6 @@ void CM_ExecuteEventCbk(uint8_t event, void *param)
     CM_LOGD("event:%hhu", event);
     CM_ConnectCbks_S *cbks = &g_sleCbks;
     switch (event) {
-        case CM_SLE_CBK_EVENT_CONNECT_CANCEL:
-            CM_CbksFunc(cbks, connCancelCbk, (uint8_t *)param);
-            break;
         case CM_SLE_CBK_EVENT_CONNECT_REMOTE_UPDATE_PARAM_REQ:
             CM_CbksFunc(cbks, connRemoteUpdateParamReqCbk, (CM_ConnectRemoteUpdateParamReq_S *)param);
             break;

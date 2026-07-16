@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include "cm_def.h"
 #include "cm_api.h"
+#include "cm_inner_api.h"
 #include "cm_trans_channel_api.h"
 
 namespace OHOS {

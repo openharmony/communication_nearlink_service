@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include "cm_api.h"
+#include "cm_inner_api.h"
 #include "dli_cmd_struct.h"
 
 #define SLE_INITIATOR_FILTER_POLICY  0     /* 链路是否打开过滤功能 */
