@@ -126,7 +126,6 @@ ohos_fuzztest("HadmFuzzTest") {
     "$STACK_DIR/src/sdf/oal/evc/src/sdf_event.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_sem.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_sem.c",
-    "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_lock.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_mutex.c",
     "$STACK_DIR/src/sdf/oal/memm/src/sdf_mem.c",
     "$STACK_DIR/src/sdf/oal/thread/src/sdf_thread.c",

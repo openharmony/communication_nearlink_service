@@ -23,7 +23,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "qosm_log.h"
-#include "sysdep.h"
 #include "cp_worker.h"
 #include "sdf_mem.h"
 #include "sdf_timer.h"

@@ -722,6 +722,9 @@ HiSysEventEventType GetEventType(DftEventEnum eventId)
 
 const char *GetDomainName(DftEventEnum eventId)
 {
+    if(!IsValidExcep(eventId)) {
+        return "NEARLINK_SERVICE"; 
+    }
     HiSysEventEventType eventType = g_dftEventType[eventId].eventType;
     switch (eventType) {
         case HISYSEVENT_FAULT:

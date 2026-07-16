@@ -127,14 +127,6 @@ do { \
         (p) += 4;                                                         \
 } while (0)
 
-
-#define CONST_UNUSED(x) do { \
-    ((x)=(x)); \
-} while (0)
-#define unused(var) do { \
-    (void)(var); \
-} while (0)
-
 #define NEW     btos_new
 #define FREE    btos_free
 #define NEW_    btos_new

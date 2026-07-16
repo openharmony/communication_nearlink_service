@@ -127,7 +127,6 @@ ohos_fuzztest("DliFuzzTest") {
     "$NEW_STACK_DIR/sdf/oal/thread/src/sdf_worker.c",
     "$NEW_STACK_DIR/sdf/oal/sig/lock/src/lock_mutex.c",
     "$NEW_STACK_DIR/sdf/oal/sig/lock/src/lock_sem.c",
-    "$NEW_STACK_DIR/sdf/oal/sig/lock/src/sdf_lock.c",
     "$NEW_STACK_DIR/sdf/oal/sig/lock/src/sdf_sem.c",
     "$NEW_STACK_DIR/sdf/oal/timer/src/sdf_timer.c",
     "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",

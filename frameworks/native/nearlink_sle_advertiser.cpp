@@ -154,6 +154,7 @@ SleAdvertiser::impl::~impl()
     callbacks_.Clear();
     sptr<INearlinkSleAdvertiser> proxy = GetProxy<INearlinkSleAdvertiser>(SLE_ADVERTISER_SERVER);
     NL_CHECK_RETURN(proxy != nullptr, "failed: no proxy");
+    NL_CHECK_RETURN(callbackImp_ != nullptr, "failed: no proxy");
     proxy->DeregisterSleAdvertiserCallback(callbackImp_);
 }
 

@@ -451,8 +451,8 @@ void HadmClientService::SaveDutData(NearlinkHadmSoundingResult soundingResult)
     std::vector<uint16_t> dutIData = soundingResult.GetDutIData();
     std::vector<uint16_t> dutQData = soundingResult.GetDutQData();
     uint8_t dutRssi = soundingResult.dutRssi_;
-    for (uint8_t i = 0; i < dutIData.size(); i++) {
-        fprintf(iqSaveDutHandle, "%x %u %x %x %04x %04x %04x %u\n",
+    for (size_t i = 0; i < dutIData.size(); i++) {
+        fprintf(iqSaveDutHandle, "%x %zu %x %x %04x %04x %04x %u\n",
             dutRssi, i, dutIData[i], dutQData[i], 0, 0, 0, soundingResult.dutIqBitLen_);
     }
     fclose(iqSaveDutHandle);
@@ -474,8 +474,8 @@ void HadmClientService::SaveRtdData(NearlinkHadmSoundingResult soundingResult)
     std::vector<uint16_t> rtdIData = soundingResult.GetRtdIData();
     std::vector<uint16_t> rtdQData = soundingResult.GetRtdQData();
     uint8_t rtdRssi = soundingResult.rtdRssi_;
-    for (uint8_t i = 0; i < rtdIData.size(); i++) {
-        fprintf(iqSaveRtdHandle, "%x %u %x %x %04x %04x %04x %u\n",
+    for (size_t i = 0; i < rtdIData.size(); i++) {
+        fprintf(iqSaveRtdHandle, "%x %zu %x %x %04x %04x %04x %u\n",
             rtdRssi, i, rtdIData[i], rtdQData[i], 0, 0, 0, soundingResult.rtdIqBitLen_);
     }
     fclose(iqSaveRtdHandle);
