@@ -160,28 +160,6 @@ NlErrCode NearlinkSleDataTransferProxy::GetConnectionState(
     return exception;
 }
 
-#ifdef WATCH_STANDARD
-NlErrCode NearlinkSleDataTransferProxy::UpdateConnectInterval(std::string device, int32_t intervalType, bool &result)
-{
-    MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleDataTransferProxy::GetDescriptor()),
-        NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
-    NL_CHECK_RETURN_RET(data.WriteString(device), NL_ERR_IPC_TRANS_FAILED, "Write device error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(intervalType), NL_ERR_IPC_TRANS_FAILED, "Write intervalType error.");
-
-    MessageParcel reply;
-    MessageOption option{MessageOption::TF_SYNC};
-    ErrCode ret = InnerTransact(SLE_UPDATE_INTERVAL, option, data, reply);
-    NL_CHECK_RETURN_RET(ret == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", ret);
-    NlErrCode exception = static_cast<NlErrCode>(reply.ReadInt32());
-    if (exception == NL_NO_ERROR) {
-        result = reply.ReadBool();
-    }
-    HILOGI("UpdateConnectInterval result= %{public}d, intervalType = %{public}d", result, intervalType);
-    return exception;
-}
-#endif
-
 ErrCode NearlinkSleDataTransferProxy::InnerTransact(
     uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply)
 {

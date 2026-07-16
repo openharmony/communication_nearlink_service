@@ -46,8 +46,6 @@ private:
     static int32_t DisconnectInner(NearlinkSleDataTransferStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t GetConnectionStateInner(
         NearlinkSleDataTransferStub *stub, MessageParcel &data, MessageParcel &reply);
-    static int32_t UpdateConnectIntervalInner(
-        NearlinkSleDataTransferStub *stub, MessageParcel &data, MessageParcel &reply);
 
 private:
     std::map<uint32_t, NearlinkDataTransferFuncPerm> memberFuncMap_;

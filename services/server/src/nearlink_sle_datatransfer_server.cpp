@@ -311,16 +311,6 @@ NlErrCode NearlinkSleDataTransferServer::SocketEmptyMsg(uint16_t portId, std::st
     return NL_NO_ERROR;
 }
 
-#ifdef WATCH_STANDARD
-NlErrCode NearlinkSleDataTransferServer::UpdateConnectInterval(std::string device, int32_t intervalType, bool &result)
-{
-    result = SleInterfaceDataTransfer::GetInstance().UpdateConnectInterval(device, intervalType);
-    HILOGI("address: %{public}s, intervalType: %{public}d, result: %{public}d",
-        GetEncryptAddr(device).c_str(), intervalType, result);
-    return NL_NO_ERROR;
-}
-#endif
-
 NlErrCode NearlinkSleDataTransferServer::RegisterSleDataTransferCallback(
     const sptr<INearlinkSleDataTransferCallback> &callback)
 {

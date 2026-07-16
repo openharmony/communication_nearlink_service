@@ -35,9 +35,6 @@ public:
     NlErrCode Connect(NearlinkSleDataTransferConnectionParams &params) override;
     NlErrCode Disconnect(NearlinkSleDataTransferConnectionParams &params) override;
     NlErrCode GetConnectionState(NearlinkSleDataTransferConnectionParams &params, int32_t &connState) override;
-#ifdef WATCH_STANDARD
-    NlErrCode UpdateConnectInterval(std::string device, int32_t intervalType, bool &result) override;
-#endif
 
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);

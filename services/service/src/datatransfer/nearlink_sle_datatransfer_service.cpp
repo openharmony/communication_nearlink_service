@@ -1324,55 +1324,6 @@ int SleDataTransferService::DeregisterCallback()
     return NLSTK_ERRCODE_SUCCESS;
 }
 
-#ifdef WATCH_STANDARD
-bool SleDataTransferService::UpdateConnectInterval(std::string device, int32_t intervalType)
-{
-    NL_CHECK_RETURN_RET(!device.empty(), false, "device is empty");
-    CM_ConnectUpdateParamReq_S updateParam;
-    const DataTransferIntervalMap INTERVAL_MAP_TABLE[] = {
-        { HIGH_SPEED_INTERVAL, 0x24 },
-        { MID_SPEED_INTERVAL, 0x64 },
-        { LOW_SPEED_INTERVAL, 0x320 },
-    };
-    bool found = false;
-    uint16_t intervalValue = 0x24;
-    for (const auto &chipMap : INTERVAL_MAP_TABLE) {
-        if (intervalType == chipMap.intervalType) {
-            intervalValue = chipMap.intervalValue;
-            HILOGI("Connect Interval:%{public}d, value:0x%{public}x", intervalType, chipMap.intervalValue);
-            found = true;
-            break;
-        }
-    }
-
-    NL_CHECK_RETURN_RET(found, false, "intervalType not found");
-
-    RawAddress addr(device);
-    uint8_t peerAddrType = SleRemoteDeviceAdapter::GetInstance()->GetPeerDeviceAddrType(addr);
-    (void)memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
-    updateParam.addr = {peerAddrType, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-    addr.ConvertToUint8(updateParam.addr.addr, SLE_ADDR_LEN);
-    updateParam.intervalMin = intervalValue;
-    updateParam.intervalMax = intervalValue;
-    updateParam.version = 0;
-    updateParam.localIndex = 0;
-    updateParam.txRxInterval = DATATRANSFER_SLE_CONN_EVENT_IFS;
-    updateParam.eventInterval = DATATRANSFER_SLE_CONN_EVENT_IFS;
-    updateParam.maxLatency = 0;
-    updateParam.supervisionTimeout = DATATRANSFER_SLE_CONN_SUPERVISION_TIMEOUT;
-    updateParam.systemTimeUnit = DATATRANSFER_QOSM_SLE_CONN_TIME_UNIT;
-    updateParam.txRxFlag = 0;
-    uint32_t ret = CM_ConnectUpdateParamReq(&updateParam);
-    if (ret != 0) {
-        HILOGE("read remote channel sounding failed, ret=0x%{public}x", ret);
-        return false;
-    }
-    HILOGI("address: %{public}s, intervalMin: 0x%{public}x, intervalMax: 0x%{public}x",
-        GetEncryptAddr(device).c_str(), updateParam.intervalMin, updateParam.intervalMax);
-    return true;
-}
-#endif
-
 #ifdef RES_SCHED_SUPPORT
 void SleDataTransferService::CheckRssAppState(uint64_t tokenId, uint32_t uid)
 {

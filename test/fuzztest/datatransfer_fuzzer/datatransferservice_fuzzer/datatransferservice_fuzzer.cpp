@@ -405,19 +405,6 @@ void OnConnectionStateChangedFuzzTest001(const uint8_t *data, size_t size)
     instance.DestroyPort(uuid, portId);
 }
 
-void UpdateConnectIntervalFuzzTest001(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider provider(data, size);
-    std::string device = BuildAddressString(provider);
-
-    SleDataTransferService &instance = SleDataTransferService::GetInstance();
-    int32_t intervalType = INTERVAL_TYPE;
-#ifdef WATCH_STANDARD
-    bool res = instance.UpdateConnectInterval(device, intervalType);
-    NL_CHECK_RETURN(res, "UpdateConnectInterval is err");
-#endif
-}
-
 }
 
 // fuzzer init
@@ -460,7 +447,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::PortServiceOnConnectionStateChangedFuzzTest001(data, size);
     OHOS::PortServiceOnConnectionStateChangedFuzzTest002(data, size);
     OHOS::OnConnectionStateChangedFuzzTest001(data, size);
-    OHOS::UpdateConnectIntervalFuzzTest001(data, size);
     OHOS::DeregisterSleDataTransferServiceCallbackFuzzTest001();
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;

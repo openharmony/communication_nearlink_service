@@ -224,28 +224,6 @@ HWTEST_F(NearlinkSleDataTransferStubTest, GetConnectionState001, TestSize.Level1
 }
 
 /**
- * @tc.name: UpdateConnectInterval
- * @tc.desc: Test the UpdateConnectInterval function of NearlinkDataTransferProxy.
- * @tc.type: FUNC
- */
-HWTEST_F(NearlinkSleDataTransferStubTest, UpdateConnectInterval001, TestSize.Level1)
-{
-    HILOGI("NearlinkSleDataTransferStubTest:UpdateConnectInterval001 start");
-    std::string device = "00:00:00:00:00:00";
-    int32_t intervalType = 0x24;
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkSleDataTransferStub::GetDescriptor());
-    data.WriteString(device);
-    data.WriteInt32(intervalType);
-    int32_t ret = DataTransferOnRemoteRequest(
-        NearlinkSleDataTransferInterfaceCode::SLE_UPDATE_INTERVAL, data, reply);
-    EXPECT_EQ(NO_ERROR, ret);
-    HILOGI("NearlinkSleDataTransferStubTest:UpdateConnectInterval001 end");
-}
-
-/**
  * @tc.name: DestroyPort
  * @tc.desc: Test the DestroyPort function of NearlinkDataTransferProxy.
  * @tc.type: FUNC

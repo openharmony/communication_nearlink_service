@@ -40,9 +40,7 @@ public:
     virtual NlErrCode Disconnect(NearlinkSleDataTransferConnectionParams &params) override;
     virtual NlErrCode GetConnectionState(NearlinkSleDataTransferConnectionParams &params, int32_t &connState) override;
     virtual NlErrCode SocketEmptyMsg(uint16_t port, std::string address) override;
-#ifdef WATCH_STANDARD
-    virtual NlErrCode UpdateConnectInterval(std::string device, int32_t intervalType, bool &result) override;
-#endif
+
 private:
     NEARLINK_DECLARE_IMPL();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSleDataTransferServer);
