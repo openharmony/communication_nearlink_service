@@ -111,6 +111,7 @@
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/datatransfer:datatransfer",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/ssap:ssap",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/cdsm:cdsm",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/common:nearlink_napi_common",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",

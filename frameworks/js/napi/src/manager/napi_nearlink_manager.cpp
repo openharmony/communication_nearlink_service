@@ -275,7 +275,6 @@ static napi_value Init(napi_env env, napi_value exports)
     HILOGI("-----Manager Init start------");
 
     NapiNearlinkManager::DefineManagerJSFunction(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----Manager Init end------");
     return exports;
 }

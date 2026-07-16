@@ -16,9 +16,9 @@
 #ifndef NAPI_HA_MANAGER_H
 #define NAPI_HA_MANAGER_H
 
-#include "app_event.h"
-#include "app_event_processor_mgr.h"
-#include "nearlink_safe_map.h"
+#include <cstring>
+#include <cstdint>
+#include <memory>
 
 namespace OHOS {
 namespace Nearlink {
@@ -34,13 +34,17 @@ class NapiHaManager {
 public:
    static NapiHaManager& GetInstance();
    static int64_t GetCurrentTimestamp();
-   static void AddProcessor();
-   static std::string GenerateTransId();
-   void ReportEvent(std::string apiName, const int64_t beginTime, const int32_t errCode);
+   void ReportEvent(const std::string& apiName, const int64_t beginTime, const int32_t errCode);
+
+   NapiHaManager(const NapiHaManager &) = delete;
+   NapiHaManager& operator=(const NapiHaManager&) = delete;
 
 private:
    NapiHaManager();
    ~NapiHaManager();
+
+   class NapiHaManagerImpl;
+   std::shared_ptr<NapiHaManagerImpl> m_impl;
 };
 
 }  // namespace Nearlink

@@ -300,7 +300,6 @@ static napi_value Init(napi_env env, napi_value exports)
     HILOGI("-----Cdsm Init start------");
 
     NapiNearlinkCdsm::DefineCdsmJSClass(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----Cdsm Init end------");
     return exports;
 }

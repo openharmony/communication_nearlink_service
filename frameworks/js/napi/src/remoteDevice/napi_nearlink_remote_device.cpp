@@ -846,7 +846,6 @@ static napi_value Init(napi_env env, napi_value exports)
 
     NearlinkHost::GetInstance().RegisterRemoteDeviceObserver(g_nearlinkRemoteDeviceCallback);
     NapiNearlinkRemoteDevice::DefineRemoteDeviceJSClass(env, exports);
-    NapiHaManager::AddProcessor();
 
     napi_value pairingReason = PairingReasonInit(env);
     napi_value pairingType = PairingTypeInit(env);

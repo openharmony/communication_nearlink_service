@@ -25,6 +25,7 @@ declare_args() {
 
 # 弱耦合部件依赖检查
 declare_args() {
+    nearlink_hiappevent_enabled = false
     nearlink_deps_power_manager_exist = false
     nearlink_deps_audio_exist = false
     nearlink_deps_telephony_exist = false
@@ -64,5 +65,9 @@ declare_args() {
     if (defined(global_parts_info) &&
         defined(global_parts_info.resourceschedule_resource_schedule_service)) {
         nearlink_deps_resource_schedule_service_exist = true
+    }
+
+    if (defined(global_parts_info) && defined(global_parts_info.hiviewdfx_hiappevent)) {
+        nearlink_hiappevent_enabled = true
     }
 }
