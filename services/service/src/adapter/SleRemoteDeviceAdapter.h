@@ -154,6 +154,7 @@ private:
     bool SleLinkKeyDecrypt(const std::string &linkKeyStr, LinkKey &sleLinkkey);
     uint32_t GetDeviceTypeFromAppearance(const RawAddress &device, int deviceAppearance);
     uint32_t GetAudioDeviceGroupId(const RawAddress &device);
+    uint32_t GetVendorAudioDeviceGroupId(const RawAddress &device);
 
     SleRemoteDeviceAdapter();
     ~SleRemoteDeviceAdapter();
