@@ -337,22 +337,6 @@ HWTEST_F(SleDataTransferTest, IsSupportHighSpeedDataTransfer001, TestSize.Level1
 }
 
 /**
- * @tc.name: UpdateConnectInterval001
- * @tc.desc: UpdateConnectInterval
- * @tc.type: UpdateConnectInterval
- */
-HWTEST_F(SleDataTransferTest, UpdateConnectInterval001, TestSize.Level1)
-{
-    HILOGI("UpdateConnectInterval001 start");
-    std::shared_ptr<SleDataTransfer> instance = SleDataTransfer::CreateSleDataTransfer();
-    std::string device = "00:00:00:00:00:00";
-    int32_t intervalType = 0x24;
-    bool ret = instance->UpdateConnectInterval(device, intervalType);
-    EXPECT_EQ(false, ret);
-    HILOGI("UpdateConnectInterval001 end");
-}
-
-/**
  * @tc.name: OnConnectionStateChanged001
  * @tc.desc: OnConnectionStateChanged
  * @tc.type: OnConnectionStateChanged

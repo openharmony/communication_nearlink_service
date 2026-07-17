@@ -152,16 +152,6 @@ public:
      * @since 6
      */
     virtual void ChangeSocketState(uint16_t portId, std::string address, uint8_t result) = 0;
-
-#ifdef WATCH_STANDARD
-    /**
-     * @brief The function to update connect interval for Wearlink Proxy.
-     * @return Returns <b>true</b> update connect interval success;
-     *         returns <b>false</b> update connect interval fail.
-     * @since 6
-     */
-    virtual bool UpdateConnectInterval(std::string device, int32_t intervalType) = 0;
-#endif
 };
 }  // namespace OHOS::Nearlink
 #endif  // SLE_INTERFACE_DATATRANSFER_H

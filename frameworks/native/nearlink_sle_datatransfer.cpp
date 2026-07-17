@@ -421,23 +421,6 @@ bool SleDataTransfer::IsSupportHighSpeedDataTransfer() const
     return true;
 }
 
-bool SleDataTransfer::UpdateConnectInterval(std::string device, int32_t intervalType) const
-{
-    bool result = false;
-#ifdef WATCH_STANDARD
-    sptr<INearlinkSleDataTransfer> proxy = GetProxy<INearlinkSleDataTransfer>(SLE_DATATRANSFER_SERVER);
-    NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr.");
-
-    NlErrCode ret = proxy->UpdateConnectInterval(device, intervalType, result);
-    NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, false,
-        "UpdateConnectInterval failed, error code: %{public}d", ret);
-    HILOGI("intervalType = %{public}d, result:%{public}d", intervalType, result);
-#else
-    HILOGE("only watch support Update datatransfer Connect Interval");
-#endif
-    return result;
-}
-
 bool SleDataTransfer::impl::ReceivedData(std::shared_ptr<InputStream> inputStream, uint16_t portId,
     const std::string &address)
 {
