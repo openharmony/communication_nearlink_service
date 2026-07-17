@@ -33,7 +33,7 @@ const uint32_t SLE_ADV_PER_FIELD_OVERHEAD_LENGTH = 2;
 const uint32_t SLE_ADV_MANUFACTURER_ID_LENGTH = 2;
 const uint32_t SLE_ADV_FLAGS_FIELD_LENGTH = 3;
 
-struct SleAdvertiser::impl {
+struct SleAdvertiser::impl : public std::enable_shared_from_this<impl> {
     impl();
     ~impl();
     void Init(std::weak_ptr<SleAdvertiser> advertiser);
@@ -162,14 +162,19 @@ void SleAdvertiser::impl::Init(std::weak_ptr<SleAdvertiser> advertiser)
     callbackImp_ = new (std::nothrow) NearlinkSleAdvertiserCallbackImp(advertiser);
 
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(SLE_ADVERTISER_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSleAdvertiser> proxy = iface_cast<INearlinkSleAdvertiser>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
-        NL_CHECK_RETURN(callbackImp_, "callbackImp_ is nullptr");
-        proxy->RegisterSleAdvertiserCallback(callbackImp_);
+        NL_CHECK_RETURN(implSptr->callbackImp_, "callbackImp_ is nullptr");
+        proxy->RegisterSleAdvertiserCallback(implSptr->callbackImp_);
     };
-    info->serviceStoppedFunc_ = [this]() -> void {
-        callbacks_.Clear();
+    info->serviceStoppedFunc_ = [wp]() -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        implSptr->callbacks_.Clear();
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
@@ -180,7 +185,7 @@ void SleAdvertiser::impl::Init(std::weak_ptr<SleAdvertiser> advertiser)
 SleAdvertiser::SleAdvertiser()
 {
     if (pimpl == nullptr) {
-        pimpl = std::make_unique<impl>();
+        pimpl = std::make_shared<impl>();
         if (!pimpl) {
             HILOGE("failed, no pimpl");
         }
