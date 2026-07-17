@@ -30,11 +30,12 @@
 #include "SleHuksTool.h"
 #include "cm_def.h"
 #include "nlstk_sm_api.h"
+#include "IRemoteDeviceQuery.h"
 
 namespace OHOS {
 namespace Nearlink {
 
-class SleRemoteDeviceAdapter {
+class SleRemoteDeviceAdapter : public IRemoteDeviceQuery {
 public:
 
     static SleRemoteDeviceAdapter *GetInstance(void);
@@ -55,7 +56,7 @@ public:
     int GetDeviceAppearance(const RawAddress &device);
     std::vector<Uuid> GetDeviceUuids(const RawAddress &device);
     bool IsVendorDevice(const RawAddress &memberAddr);
-    bool IsAudioDevice(const std::string &address);
+    bool IsAudioDevice(const std::string &address) override;
     bool IsBondedFromLocal(const RawAddress &device);
     bool IsAcbConnected(const RawAddress &device);
     bool IsAcbEncrypted(const RawAddress &device);
@@ -63,7 +64,7 @@ public:
     uint16_t GetLcidByAddress(const RawAddress &device);
     std::string GetAddressByLcid(uint16_t lcid);
     int GetAcbState(const std::string &address);
-    int GetManufacturerBusinessType(const RawAddress &device);
+    int GetManufacturerBusinessType(const RawAddress &device) override;
     bool SetAcbState(const std::string &address, int connectState);
     bool SetLcid(const std::string &address, uint16_t lcid);
     int GetPairStatus(const RawAddress &device);
@@ -80,7 +81,7 @@ public:
     bool HasConnectedDevice();
     int GetConnDirect(const RawAddress &device);
     void SetConnDirect(const RawAddress &device, int connDirect);
-    void SetConnDirectActive(const RawAddress &device);
+    void SetConnDirectActive(const RawAddress &device) override;
     void UpdateDeviceManufacturerAbility(
         const RawAddress &rawAddr, std::array<uint8_t, SLE_MANU_ABILITY_LEN> &deviceManuAbility);
     bool GetManufacturerAbility(const RawAddress &rawAddr, uint8_t ability);
@@ -93,7 +94,7 @@ public:
     void SetReconnDeviceParam();
 
     RawAddress GetRealAddress(const RawAddress &reportAddr);
-    uint8_t GetPeerDeviceAddrType(const RawAddress &device);
+    uint8_t GetPeerDeviceAddrType(const RawAddress &device) override;
     void FindDeviceModelInfoInCache(const RawAddress &reportAddr, DeviceModel &model, std::string &newModelId);
     void SaveDeviceModelInfo(const std::string &address, const DeviceModel &model, const std::string &newModelId);
     bool SavePeerDeviceInfoToConf();
@@ -114,7 +115,7 @@ public:
     void HandleCdsmMemberFirstPairing(const RawAddress &member);
     void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType);
     // Internal helper methods
-    void SetPeerDeviceTypeToController(const RawAddress &device);
+    void SetPeerDeviceTypeToController(const RawAddress &device) override;
     void RemovePeerDeviceTypeToController(const RawAddress &device);
 
     void AddBgConnDevice(const std::string &address);

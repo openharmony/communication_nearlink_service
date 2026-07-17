@@ -25,14 +25,15 @@
 #include "SleASC.h"
 #include "CdsmService.h"
 #include "SleInterfaceProfileTws.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfileCcp.h"
 #include "VcpService.h"
-#include "TwsService.h"
+#include "TwsDefines.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceAdapterSub.h"
 #include <future>
 #include "VasService.h"
 #include "McpServerService.h"
-#include "CcpService.h"
 #include "nearlink_dft_ue.h"
 #include "nearlink_dft_exception.h"
 #include "cm_api.h"
@@ -116,7 +117,8 @@ void ASCService::AddConnectDevices(const RawAddress &device)
 bool ASCService::IsLeftEarDevice(const RawAddress &device)
 {
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return true;
         }
@@ -879,7 +881,8 @@ bool ASCService::IsRolePrimary(const RawAddress& device)
 {
     bool isRolePrimary = true;
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return true;
         }
@@ -3669,7 +3672,8 @@ void ASCService::SetDeviceRole(const RawAddress& device)
     uint8_t direction = NLSTK_ACTM_DIRECTION_BOTH;
     bool isRolePrimary = false;
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return;
         }
@@ -6491,7 +6495,8 @@ void ASCService::CheckStreamIsNeedNotifyCcp(const RawAddress &device, AudioStrea
     if (type != AUDIO_STREAM_VOIP) {
         return;
     }
-    CcpService* ccpService = CcpService::GetService();
+    ProfileCcp* ccpService = static_cast<ProfileCcp *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
     NL_CHECK_RETURN(ccpService, "[ASCService]CcpService is null.");
     if (cmd == NL_SLE_ASC_CONTROL_CMD_START) {
         ccpService->HandleVoipStart(device);
@@ -6512,7 +6517,8 @@ void ASCService::ProcessMcpInit(const RawAddress& device)
 void ASCService::ProcessCcpInit(const RawAddress& device)
 {
     HILOGD("[ASCService]Enter");
-    CcpService* ccpService = CcpService::GetService();
+    ProfileCcp* ccpService = static_cast<ProfileCcp *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
     NL_CHECK_RETURN(ccpService, "[ASCService]CcpService is null.");
     CdsmService* cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "[ASCService]cdsmService is null.");
@@ -6633,7 +6639,8 @@ int32_t ASCService::SetMusicMuteWhenAudioRelease()
         HILOGI("activeDevice is not vendor device");
         return NL_ERR_INTERNAL_ERROR;
     }
-    TwsService *twsService = TwsService::GetService();
+    ProfileTws *twsService = static_cast<ProfileTws *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
     NL_CHECK_RETURN_RET(twsService != nullptr, NL_ERR_INTERNAL_ERROR, "cant find TWS service");
     uint8_t mediaState = twsService->TwsGetDeviceAudioMusicType(device);
     HILOGI("[ASCService]: mediaState: %{public}d", mediaState);

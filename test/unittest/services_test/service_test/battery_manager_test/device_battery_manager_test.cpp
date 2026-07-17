@@ -23,6 +23,7 @@
 #include "DeviceBatteryManager.h"
 #include "SleUtils.h"
 #include "log.h"
+#include "TwsMessage.h"
 #include "TwsHiBoxParser.h"
 
 
@@ -160,6 +161,87 @@ HWTEST_F(NearlinkBattaryManagerTest, ProcessActiveDeviceChanged002, TestSize.Lev
 
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:Enable001 end");
+}
+
+/**
+ * @tc.name: PublishBatteryLevel_TwsNull_001
+ * @tc.desc: PublishBatteryLevel when TwsService is not registered (null), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, PublishBatteryLevel_TwsNull_001, TestSize.Level1)
+{
+    HILOGI("NearlinkBattaryManagerTest:PublishBatteryLevel_TwsNull_001 start");
+    std::string atCmdParam = "8,4,84,5,0,2,81,3,1,6,1,7,0,9,11,12,256";
+    RawAddress peerAddr("11:22:33:44:55:66");
+    BatteryInfo batteryInfo {};
+    bool ret = TwsHiBoxParser::ParserAtCmdVendorBattery(peerAddr, atCmdParam, batteryInfo);
+    EXPECT_EQ(ret, true);
+    DeviceBatteryManager::GetInstance().PublishBatteryLevel(peerAddr, batteryInfo);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("NearlinkBattaryManagerTest:PublishBatteryLevel_TwsNull_001 end");
+}
+
+/**
+ * @tc.name: BatteryInfo_DefaultValueCompat_001
+ * @tc.desc: Verify BatteryInfo migrated to TwsDefines.h has default member values (= 0)
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryInfo_DefaultValueCompat_001, TestSize.Level1)
+{
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_DefaultValueCompat_001 start");
+    BatteryInfo batteryInfo {};
+    EXPECT_EQ(batteryInfo.devBattery_, 0);
+    EXPECT_EQ(batteryInfo.leftBattery_, 0);
+    EXPECT_EQ(batteryInfo.leftCharge_, 0);
+    EXPECT_EQ(batteryInfo.rightBattery_, 0);
+    EXPECT_EQ(batteryInfo.rightCharge_, 0);
+    EXPECT_EQ(batteryInfo.boxBattery_, 0);
+    EXPECT_EQ(batteryInfo.boxCharge_, 0);
+    EXPECT_EQ(batteryInfo.earErrCode_, 0);
+    EXPECT_EQ(batteryInfo.boxOpen_, 0);
+    EXPECT_EQ(batteryInfo.leftModel_, 0);
+    EXPECT_EQ(batteryInfo.rightModel_, 0);
+    EXPECT_EQ(batteryInfo.dialogState_, 0);
+    EXPECT_EQ(batteryInfo.earStatus_, 0);
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_DefaultValueCompat_001 end");
+}
+
+/**
+ * @tc.name: BatteryInfo_OffsetCompat_001
+ * @tc.desc: Verify BatteryInfo member offsets are unchanged after migration out of #pragma pack(1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryInfo_OffsetCompat_001, TestSize.Level1)
+{
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_OffsetCompat_001 start");
+    BatteryInfo batteryInfo {};
+    EXPECT_EQ(offsetof(BatteryInfo, devBattery_), 0);
+    EXPECT_EQ(offsetof(BatteryInfo, leftBattery_), 1);
+    EXPECT_EQ(offsetof(BatteryInfo, leftCharge_), 2);
+    EXPECT_EQ(offsetof(BatteryInfo, rightBattery_), 3);
+    EXPECT_EQ(offsetof(BatteryInfo, rightCharge_), 4);
+    EXPECT_EQ(offsetof(BatteryInfo, boxBattery_), 5);
+    EXPECT_EQ(offsetof(BatteryInfo, boxCharge_), 6);
+    EXPECT_EQ(offsetof(BatteryInfo, earErrCode_), 7);
+    EXPECT_EQ(offsetof(BatteryInfo, boxOpen_), 8);
+    EXPECT_EQ(offsetof(BatteryInfo, leftModel_), 9);
+    EXPECT_EQ(offsetof(BatteryInfo, rightModel_), 10);
+    EXPECT_EQ(offsetof(BatteryInfo, dialogState_), 11);
+    EXPECT_EQ(offsetof(BatteryInfo, earStatus_), 12);
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_OffsetCompat_001 end");
+}
+
+/**
+ * @tc.name: BatteryInfo_SizeofCompat_001
+ * @tc.desc: Verify sizeof(BatteryInfo) is 13 (13 x uint8_t) after migration out of #pragma pack(1)
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryInfo_SizeofCompat_001, TestSize.Level1)
+{
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_SizeofCompat_001 start");
+    EXPECT_EQ(sizeof(BatteryInfo), 13);
+    HILOGI("NearlinkBattaryManagerTest:BatteryInfo_SizeofCompat_001 end");
 }
 
 } // namespace TEST

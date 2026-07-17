@@ -37,7 +37,6 @@
 #include "TwsHiBoxParser.h"
 #include "TwsSharedLibApi.h"
 #include "TwsClient.h"
-#include "DeviceBatteryManager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -137,7 +136,7 @@ public:
 
     void UpdateClientData(uint8_t dataType, TwsClientData &clientData);
 
-    RawAddress GetReportAddr(const RawAddress &device);
+    RawAddress GetReportAddr(const RawAddress &device) override;
 
     NearlinkSafeMap<std::string, TwsDevWearStatus> twsDevWearStatus_ {};
 

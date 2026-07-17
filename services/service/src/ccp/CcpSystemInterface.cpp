@@ -19,7 +19,8 @@
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
 #include "ThreadUtil.h"
-#include "ASCService.h"
+#include "SleInterfaceProfileASC.h"
+#include "SleInterfaceProfileManager.h"
 #include "nearlink_dft_exception.h"
 
 namespace OHOS {
@@ -82,7 +83,8 @@ void CcpSystemInterface::DeInitNearlinkCallClient()
 
 bool CcpSystemInterface::CheckNowHasDeviceConnected()
 {
-    ProfileASC *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN_RET(ascService, false, "[CcpService]Get ascService error!");
     // CCP做服务端，Service中不感知当前已连接的设备，所以通过ASC中获取来判断
     std::list<RawAddress> connectDevices = ascService->GetConnectDevices();

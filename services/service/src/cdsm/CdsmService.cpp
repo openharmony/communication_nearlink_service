@@ -25,7 +25,7 @@
 #include "SleInterfaceProfileTws.h"
 #include "nearlink_dft_device_data.h"
 #include "SleServiceFfrtLog.h"
-#include "SleRemoteDeviceAdapter.h"
+#include "IRemoteDeviceQuery.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -579,7 +579,7 @@ void CdsmService::CdsmServiceCreateNewCdsm(CdsmCallBackData &dataBlock)
 bool CdsmService::IsVendorDevice(const RawAddress &device)
 {
     // 合作集可能还没创建完成，所以这里从广播中取
-    int businessType = SleRemoteDeviceAdapter::GetInstance()->GetManufacturerBusinessType(device);
+    int businessType = IRemoteDeviceQuery::GetInstance()->GetManufacturerBusinessType(device);
     return businessType == SLE_PRIVATE_AUDIO_BUSINESS_TYPE;
 }
 
@@ -588,7 +588,7 @@ void CdsmService::SetPeerDeviceTypeToControllerInner(const RawAddress &device)
     NL_CHECK_RETURN(!IsVendorDevice(device), "[cdsm Service]private device has set device type to control.");
     HILOGI("[Cdsm Service]do set common peer device type to controller %{public}s",
         GetEncryptAddr(device.GetAddress()).c_str());
-    SleRemoteDeviceAdapter::GetInstance()->SetPeerDeviceTypeToController(device);
+    IRemoteDeviceQuery::GetInstance()->SetPeerDeviceTypeToController(device);
 }
 
 void CdsmService::CdsmServiceCallBackDataProc(CdsmCallBackData dataBlock)

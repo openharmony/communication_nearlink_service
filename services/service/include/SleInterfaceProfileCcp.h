@@ -12,28 +12,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <securec.h>
-#include <cstring>
-#include <string>
-#include "icce_utils.h"
-#include "IRemoteDeviceQuery.h"
+
+#ifndef SLE_INTERFACE_PROFILE_CCP_H
+#define SLE_INTERFACE_PROFILE_CCP_H
+
+#include "SleInterfaceProfile.h"
 
 namespace OHOS {
 namespace Nearlink {
-
-SLE_Addr_S ConvertToStackAddr(const RawAddress &addr)
-{
-    SLE_Addr_S sleAddr;
-    (void)memset_s(&sleAddr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
-    addr.ConvertToUint8(sleAddr.addr);
-    sleAddr.type = IRemoteDeviceQuery::GetInstance()->GetPeerDeviceAddrType(addr);
-    return sleAddr;
-}
-
-RawAddress ConvertSleAddrToRawAddress(SLE_Addr_S *addr)
-{
-    return RawAddress::ConvertToString(addr->addr);
-}
-
+class ProfileCcp : public SleInterfaceProfile {
+public:
+    virtual void HandleVoipStart(const RawAddress &device) = 0;
+    virtual void HandleVoipStop(const RawAddress &device) = 0;
+    virtual void TryResumeCurrentCalls() = 0;
+};
 } // namespace Nearlink
 } // namespace OHOS
+#endif // SLE_INTERFACE_PROFILE_CCP_H
