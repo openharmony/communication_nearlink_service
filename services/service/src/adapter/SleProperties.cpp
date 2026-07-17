@@ -161,11 +161,9 @@ bool SleProperties::UpdateConfig(int type) const
                     std::lock_guard<ffrt::mutex> lock(pimpl->deviceNameMtx);
                     ret = SleConfig::GetInstance().SetLocalName(pimpl->deviceName_);
                     deviceName = pimpl->deviceName_;
-#ifdef TV_STANDARD
-                if (SleConfig::GetInstance().GetLocalName() != pimpl->deviceName_) {
-                    ret &= SleConfig::GetInstance().Save();
-                }
-#endif
+                    if (SleConfig::GetInstance().GetLocalName() != pimpl->deviceName_) {
+                        ret &= SleConfig::GetInstance().Save();
+                    }
                 }
                 pimpl->observer_.ForEach(
                     [deviceName](IAdapterSleObserver &observer) { observer.OnDeviceNameChanged(deviceName); });
@@ -179,11 +177,9 @@ bool SleProperties::UpdateConfig(int type) const
                     ret = SleConfig::GetInstance().SetSleLocalAddrType(
                         static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
                     macAddr = pimpl->macAddr_;
-#ifdef TV_STANDARD
-                if (SleConfig::GetInstance().GetLocalAddress() != pimpl->macAddr_) {
-                    ret &= SleConfig::GetInstance().Save();
-                }
-#endif
+                    if (SleConfig::GetInstance().GetLocalAddress() != pimpl->macAddr_) {
+                        ret &= SleConfig::GetInstance().Save();
+                    }
                 }
                 pimpl->observer_.ForEach(
                     [macAddr](IAdapterSleObserver &observer) { observer.OnDeviceAddrChanged(macAddr); });
@@ -193,9 +189,6 @@ bool SleProperties::UpdateConfig(int type) const
             break;
     }
 
-#ifndef TV_STANDARD
-    ret &= SleConfig::GetInstance().Save();
-#endif
     return ret;
 }
 

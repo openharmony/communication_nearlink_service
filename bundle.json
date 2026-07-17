@@ -36,7 +36,10 @@
             "nearlink_service_kia_enable",
             "nearlink_service_rss_background_task",
             "nearlink_service_bas_enable",
-            "nearlink_service_pluggable_supported"
+            "nearlink_service_pluggable_supported",
+            "nearlink_service_non_audio_device_need_direct_conn",
+            "nearlink_service_min_interval_of_multiple_devices_conn",
+            "nearlink_service_direct_conn_private_scan_params"
         ],
         "adapted_system_type": [
             "standard"

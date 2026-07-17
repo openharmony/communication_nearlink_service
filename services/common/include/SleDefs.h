@@ -135,8 +135,8 @@ constexpr int CM_CONN_MAX_LATENCY = 0x1F3;
 constexpr int CM_CONN_LATENCY = 0x0;
 constexpr int CM_CONN_DEFAULT_LATENCY = 7;
 
-#ifdef TV_STANDARD
-constexpr int CM_CONN_COEXIST_INTERAL_THRED = 0x10;
+#ifdef MIN_INTERVAL_OF_MULTIPLE_DEVICES_CONN
+constexpr int CM_CONN_COEXIST_INTERAL_THRED = 0x18;
 #else
 constexpr int CM_CONN_COEXIST_INTERAL_THRED = 0x20;
 #endif

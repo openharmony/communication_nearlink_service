@@ -420,6 +420,10 @@ ohos_shared_library("nearlink_stack") {
   defines += product_defines
   # version_script = "libnearlink_stack.versionscript"
 
+  if (nearlink_service_direct_conn_private_scan_params) {
+    efines += [ "DIRECT_CONN_PRIVATE_SCAN_PARAMS" ]
+  }
+
   configs = [ ":nearlink_stack_config" ]
   public_configs = [ ":nearlink_stack_public_config" ]
   sources = nearlink_stack_sources

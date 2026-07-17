@@ -85,7 +85,7 @@ bool AdapterDeviceConfig::Save()
 
 bool AdapterDeviceConfig::Fsync()
 {
-    HILOGI("[SleConfig] fsync begin.");
+    HILOGI("[SleConfig]");
     std::lock_guard<std::mutex> lg(mutex_);
     int fd = open(pimpl->filePath_.c_str(), O_RDONLY);
     if (fd < 0) {
@@ -96,7 +96,6 @@ bool AdapterDeviceConfig::Fsync()
         HILOGE("[SleConfig] fsync fail.");
     }
     close(fd);
-    HILOGI("[SleConfig] fsync end.");
     return true;
 }
 

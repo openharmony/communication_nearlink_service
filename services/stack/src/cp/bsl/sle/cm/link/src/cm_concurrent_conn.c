@@ -40,7 +40,7 @@
 
 // 白名单连接设置参数
 // 主动连接参数
-#ifdef TV_STANDARD
+#ifdef DIRECT_CONN_PRIVATE_SCAN_PARAMS
 // 通过算法计算的参数，实际验证，该组参数直连效果更优
 #define CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW  0x66F   // 0x66F * 0.125 = 205.875ms
 #define CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL 0xB48  // 0xB48 * 0.125 = 361ms
