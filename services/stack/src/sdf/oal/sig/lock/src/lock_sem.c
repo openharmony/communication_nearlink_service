@@ -129,7 +129,7 @@ static void MsToTs(struct timespec *ts, int timeout)
     // 将转换后的结果存入ts结构内
     ts->tv_sec += sec;
     ts->tv_nsec += nsec;
-    if (ts->tv_nsec > SEC_TO_NANOSEC) {
+    if (ts->tv_nsec >= SEC_TO_NANOSEC) {
         ts->tv_sec++;
         ts->tv_nsec -= SEC_TO_NANOSEC;
     }

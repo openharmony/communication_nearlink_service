@@ -176,6 +176,7 @@ static void PskRecvGNodeCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     if (!CheckPskConfirm(slink, msg->authData, psk, slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN)) {
         /* 验证不一致则中止配对 */
         NLSTK_LOG_ERROR("[SM][PSK] T node: G Confirm code check error.");
+        (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_PSK });
         return;
@@ -190,6 +191,7 @@ static void PskRecvGNodeCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
     if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
         NLSTK_LOG_ERROR("[SM][PSK] T node: dhkey generation failure.");
+        (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
@@ -197,11 +199,13 @@ static void PskRecvGNodeCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     /* 计算link Key */
     if (!SmGenLinkKey(slink)) {
         NLSTK_LOG_ERROR("[SM][PSK] T node: Link key generation failure.");
+        (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
     }
     /* 发送T节点确认码 */
+    (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
     PskSendTNodeCfm(slink);
 }
 

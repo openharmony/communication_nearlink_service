@@ -102,6 +102,10 @@ void *SDF_MemAlignAlloc(size_t size, uint8_t align)
         align = 1;
     }
 
+    if (size > SIZE_MAX - align - sizeof(uint8_t)) {
+        return NULL;
+    }
+    
     /* 预留sizeof(uint8_t)空间，用于存放pad值 */
     ptr = g_stMemfunc.mAlloc(align + sizeof(uint8_t) + size);
     if (ptr == NULL) {
