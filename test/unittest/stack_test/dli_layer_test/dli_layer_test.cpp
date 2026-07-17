@@ -382,3 +382,389 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseDLI_DataNumChange_WithoutCallback)
     DLI_DataNumChange(ACB_DATA_TYPE, 10);
     EXPECT_FALSE(g_dataNumChangeCalled);
 }
+
+static volatile bool g_postOtherThreadCalled = false;
+static uint32_t MockPostOtherThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
+{
+    g_postOtherThreadCalled = true;
+    if (cb != NULL) {
+        cb(arg);
+    }
+    if (freeCb != NULL && arg != NULL) {
+        freeCb(arg);
+    }
+    return 0;
+}
+
+static volatile bool g_postOtherBlockedThreadCalled = false;
+static uint32_t MockPostOtherBlockedThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)
+{
+    g_postOtherBlockedThreadCalled = true;
+    if (cb != NULL) {
+        cb(arg);
+    }
+    if (freeCb != NULL && arg != NULL) {
+        freeCb(arg);
+    }
+    return 0;
+}
+
+static void MockPostWorkCb(void *arg)
+{
+    g_count = 1;
+}
+
+static void MockRecvAcbHandler(uint16_t lcid, SDF_Buff_S *buf)
+{
+    (void)lcid;
+    (void)buf;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_ThreadSetCallback_NullPointer)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherThread_WithCallback)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_postOtherThreadCalled = false;
+    g_count = 0;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    EXPECT_TRUE(g_postOtherThreadCalled);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherBlockedThread_NullPointer)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockPostWorkCb, NULL, NULL, 100));
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherBlockedThread_WithCallback)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_postOtherBlockedThreadCalled = false;
+    EXPECT_EQ(0, DLI_PostOtherBlockedThread(MockPostWorkCb, NULL, NULL, 1000));
+    EXPECT_TRUE(g_postOtherBlockedThreadCalled);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_SetCallback_NullClearsThreadCallback)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_postOtherThreadCalled = false;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    EXPECT_TRUE(g_postOtherThreadCalled);
+    DLI_SetCallback(NULL);
+    g_postOtherThreadCalled = false;
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    EXPECT_FALSE(g_postOtherThreadCalled);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_SetCallback_InvalidParamNotInjected)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    DLI_Callback invalidCbk = {0};
+    invalidCbk.postOtherThread = NULL;
+    invalidCbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    invalidCbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(DLI_STACK_PARAMS_ERRNO, DLI_SetCallback(&invalidCbk));
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    DLI_ThreadDeinit();
+}
+
+static volatile int32_t g_regOrderWorkResult = 0;
+static void MockRegOrderWorkCb(void *arg)
+{
+    g_regOrderWorkResult = 42;
+}
+
+static uint32_t MockRegOrderPostOtherThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
+{
+    if (cb != NULL) {
+        cb(arg);
+    }
+    return 0;
+}
+
+static uint32_t MockRegOrderPostOtherBlockedThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)
+{
+    if (cb != NULL) {
+        cb(arg);
+    }
+    return 0;
+}
+
+static volatile int32_t g_deinitWorkResult = 0;
+static void MockDeinitWorkCb(void *arg)
+{
+    g_deinitWorkResult = 99;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_InitOrder_SetCallbackBeforePost)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockRegOrderPostOtherThread;
+    cbk.postOtherBlockedThread = MockRegOrderPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_regOrderWorkResult = 0;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockRegOrderWorkCb, NULL, NULL));
+    EXPECT_EQ(42, g_regOrderWorkResult);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_InitOrder_PostBeforeSetCallbackFails)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    g_regOrderWorkResult = 0;
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockRegOrderWorkCb, NULL, NULL));
+    EXPECT_EQ(0, g_regOrderWorkResult);
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockRegOrderWorkCb, NULL, NULL, 100));
+    EXPECT_EQ(0, g_regOrderWorkResult);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherBlockedThread_FunctionalWithCallback)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_postOtherBlockedThreadCalled = false;
+    g_count = 0;
+    EXPECT_EQ(0, DLI_PostOtherBlockedThread(MockPostWorkCb, NULL, NULL, 5000));
+    EXPECT_TRUE(g_postOtherBlockedThreadCalled);
+    EXPECT_EQ(1, g_count);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_DeinitOrder_CallbackClearedBeforePost)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_postOtherThreadCalled = false;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    EXPECT_TRUE(g_postOtherThreadCalled);
+    DLI_SetCallback(NULL);
+    g_deinitWorkResult = 0;
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockDeinitWorkCb, NULL, NULL));
+    EXPECT_EQ(0, g_deinitWorkResult);
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockDeinitWorkCb, NULL, NULL, 100));
+    EXPECT_EQ(0, g_deinitWorkResult);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_DeinitOrder_ThreadDeinitAfterCallbackClear)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockDeinitWorkCb, NULL, NULL));
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockDeinitWorkCb, NULL, NULL, 100));
+}
+
+static volatile int32_t g_repeatedPostCount = 0;
+static uint32_t MockRepeatedPostOtherThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
+{
+    g_repeatedPostCount++;
+    if (cb != NULL) {
+        cb(arg);
+    }
+    return 0;
+}
+
+static void MockRepeatedWorkCb(void *arg)
+{
+    (void)arg;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherThread_RepeatedCallsConsistent)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockRepeatedPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_repeatedPostCount = 0;
+    for (int i = 0; i < 10; i++) {
+        EXPECT_EQ(0, DLI_PostOtherThread(MockRepeatedWorkCb, NULL, NULL));
+    }
+    EXPECT_EQ(10, g_repeatedPostCount);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherThread_ReRegisterCallback)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk1 = {0};
+    cbk1.postOtherThread = MockPostOtherThread;
+    cbk1.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk1.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk1));
+    g_postOtherThreadCalled = false;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    EXPECT_TRUE(g_postOtherThreadCalled);
+
+    DLI_Callback cbk2 = {0};
+    cbk2.postOtherThread = MockRepeatedPostOtherThread;
+    cbk2.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk2.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk2));
+    g_repeatedPostCount = 0;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockRepeatedWorkCb, NULL, NULL));
+    EXPECT_EQ(1, g_repeatedPostCount);
+    g_postOtherThreadCalled = false;
+    EXPECT_FALSE(g_postOtherThreadCalled);
+
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+static volatile bool g_freeArgCalled = false;
+static void MockFreeArg(void *arg)
+{
+    g_freeArgCalled = true;
+    (void)arg;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherThread_NullCallbackFreesArg)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    uint32_t testArg = 0xDEAD;
+    g_freeArgCalled = false;
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockPostWorkCb, &testArg, MockFreeArg));
+    EXPECT_TRUE(g_freeArgCalled);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherBlockedThread_NullCallbackFreesArg)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    uint32_t testArg = 0xBEEF;
+    g_freeArgCalled = false;
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockPostWorkCb, &testArg, MockFreeArg, 100));
+    EXPECT_TRUE(g_freeArgCalled);
+    DLI_ThreadDeinit();
+}
+
+static volatile int32_t g_mockPostReturnVal = 0;
+static uint32_t MockPostOtherThreadReturnErr(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
+{
+    (void)cb;
+    (void)arg;
+    (void)freeCb;
+    return g_mockPostReturnVal;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherThread_ReturnValuePropagated)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThreadReturnErr;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_mockPostReturnVal = 0x1234;
+    EXPECT_EQ(0x1234, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    g_mockPostReturnVal = 0;
+    EXPECT_EQ(0, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+static volatile int32_t g_mockBlockedTimeout = 0;
+static uint32_t MockPostOtherBlockedThreadRecordTimeout(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)
+{
+    g_mockBlockedTimeout = timeout;
+    if (cb != NULL) {
+        cb(arg);
+    }
+    return 0;
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_PostOtherBlockedThread_TimeoutForwarded)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_Callback cbk = {0};
+    cbk.postOtherThread = MockPostOtherThread;
+    cbk.postOtherBlockedThread = MockPostOtherBlockedThreadRecordTimeout;
+    cbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(0, DLI_SetCallback(&cbk));
+    g_mockBlockedTimeout = 0;
+    EXPECT_EQ(0, DLI_PostOtherBlockedThread(MockPostWorkCb, NULL, NULL, 3000));
+    EXPECT_EQ(3000, g_mockBlockedTimeout);
+    DLI_SetCallback(NULL);
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_SetCallback_PostOtherBlockedThreadNullRejected)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    DLI_Callback invalidCbk = {0};
+    invalidCbk.postOtherThread = MockPostOtherThread;
+    invalidCbk.postOtherBlockedThread = NULL;
+    invalidCbk.recvAcbHandler = MockRecvAcbHandler;
+    EXPECT_EQ(DLI_STACK_PARAMS_ERRNO, DLI_SetCallback(&invalidCbk));
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherBlockedThread(MockPostWorkCb, NULL, NULL, 100));
+    DLI_ThreadDeinit();
+}
+
+TEST_F(UT_DLI_LAYER_TEST, DLI_SetCallback_RecvAcbHandlerNullRejected)
+{
+    EXPECT_EQ(0, DLI_ThreadInit());
+    DLI_ThreadSetCallback(NULL);
+    DLI_Callback invalidCbk = {0};
+    invalidCbk.postOtherThread = MockPostOtherThread;
+    invalidCbk.postOtherBlockedThread = MockPostOtherBlockedThread;
+    invalidCbk.recvAcbHandler = NULL;
+    EXPECT_EQ(DLI_STACK_PARAMS_ERRNO, DLI_SetCallback(&invalidCbk));
+    EXPECT_EQ(DLI_STACK_POST_BLOCK_ERROR, DLI_PostOtherThread(MockPostWorkCb, NULL, NULL));
+    DLI_ThreadDeinit();
+}
