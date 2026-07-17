@@ -352,7 +352,7 @@ void HidHostUhid::PollEventThreadSub()
 void HidHostUhid::SetUhidNonBlocking(int fd)
 {
     int opts = fcntl(fd, F_GETFL);
-    if (opts < 0) {
+    if (opts < 0 || opts > UINT8_MAX) {
         LOG_ERROR("[UHID]: Getting flags failed (%{public}s)", strerror(errno));
         return;
     }

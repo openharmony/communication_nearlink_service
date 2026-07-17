@@ -54,13 +54,13 @@ private:
     }
 
     bool operator < (const AppInfo &appInfo) const {
-        if (pid < appInfo.pid) {
-            return true;
-        } else if (uid < appInfo.uid) {
-            return true;
-        } else {
-            return type < appInfo.type;
+        if (pid != appInfo.pid) {
+            return pid < appInfo.pid;
         }
+        if (uid != appInfo.uid) {
+            return uid < appInfo.uid;
+        }
+        return type < appInfo.type;
     }
     };
     NearlinkSafeMap<AppInfo, bool> hasDataReport_{};

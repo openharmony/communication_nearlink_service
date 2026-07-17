@@ -178,7 +178,9 @@ int SsapProperty::SetWriteType(int type)
 
 const std::unique_ptr<uint8_t[]> &SsapProperty::GetValue(size_t *size) const
 {
-    *size = length_;
+    if(size != nullptr) {
+        *size = length_;
+    }
     return value_;
 }
 

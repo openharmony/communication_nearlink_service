@@ -18,7 +18,6 @@
 #include "sle_uuid.h"
 #include "SleInterfaceAdapter.h"
 #include "SleInterfaceManager.h"
-#include "sysdep.h"
 #include "ThreadUtil.h"
 #include "nearlink_errorcode.h"
 #include "SleConfig.h"

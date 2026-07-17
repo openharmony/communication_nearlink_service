@@ -306,6 +306,11 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
 NlErrCode NearlinkSleDataTransferServer::SocketEmptyMsg(uint16_t portId, std::string address)
 {
     HILOGI("enter");
+    int32_t pid = IPCSkeleton::GetCallingPid();
+    int32_t uid = IPCSkeleton::GetCallingUid();
+    uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, portId), NL_ERR_INVALID_PARAM,
+        "tokenId is invalid.");
     int result = 0;
     SleInterfaceDataTransfer::GetInstance().ChangeSocketState(portId, address, result);
     return NL_NO_ERROR;

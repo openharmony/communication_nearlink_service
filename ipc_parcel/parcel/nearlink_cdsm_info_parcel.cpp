@@ -113,7 +113,7 @@ bool NearlinkCdsInfoParcel::WriteToParcel(Parcel &parcel)
 bool NearlinkCdsInfoParcel::ReadFromParcel(Parcel &parcel)
 {
     int32_t size = 0;
-    if (!parcel.ReadInt32(size) || size > SLE_CDSM_GROUP_MAX_SIZE) {
+    if (!parcel.ReadInt32(size) || size < 0 || size > SLE_CDSM_GROUP_MAX_SIZE) {
         HILOGE("read Parcelable size failed.");
         return false;
     }

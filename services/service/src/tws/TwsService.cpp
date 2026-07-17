@@ -29,7 +29,6 @@
 #include "ASCService.h"
 #include "CdsmService.h"
 #include "VcpDefines.h"
-#include "sysdep.h"
 #include "ThreadUtil.h"
 #include "nearlink_errorcode.h"
 #include "McpDefines.h"

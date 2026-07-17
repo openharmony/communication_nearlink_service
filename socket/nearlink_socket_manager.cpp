@@ -72,7 +72,8 @@ void PortSocketManager::CheckFdCapability(int fd) {
     NL_CHECK_RETURN(fd != INVALID_FD, "Invalid file descriptor");
 
     int flags = fcntl(fd, F_GETFL);
-    NL_CHECK_RETURN(flags != INVALID_FD, "Failed to get flags for fd = %{public}d errno:%{public}d", fd, errno);
+    NL_CHECK_RETURN(flags != INVALID_FD && flags <= UINT8_MAX,
+        "Failed to get flags for fd = %{public}d errno:%{public}d", fd, errno);
 
     // Determine read/write capability
     bool can_read = false;

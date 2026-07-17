@@ -144,7 +144,6 @@ ohos_fuzztest("DliLayerFuzzTest") {
     "$STACK_DIR/src/sdf/oal/thread/src/sdf_worker.c",
     "$STACK_DIR/src/sdf/oal/thread/src/sdf_thread.c",
     "$STACK_DIR/src/sdf/oal/timer/src/sdf_timer.c",
-    "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_lock.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_sem.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/lock_mutex.c",
     "$STACK_DIR/src/sdf/oal/sig/lock/src/sdf_sem.c",

@@ -102,6 +102,7 @@ NlErrCode NearlinkSleDataTransferProxy::SocketEmptyMsg(uint16_t port, std::strin
         NL_ERR_IPC_TRANS_FAILED,
         "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteUint16(port), NL_ERR_IPC_TRANS_FAILED, "Write port error.");
+    NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write port error.");
 
     MessageParcel reply;
     MessageOption option = {MessageOption::TF_SYNC};

@@ -99,7 +99,6 @@ ohos_unittest("dli_test") {
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/thread/src/sdf_worker.c",
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/sig/lock/src/lock_mutex.c",
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/sig/lock/src/lock_sem.c",
-    "$NEARLINK_ROOT/services/stack/src/sdf/oal/sig/lock/src/sdf_lock.c",
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/sig/lock/src/sdf_sem.c",
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/timer/src/sdf_timer.c",
     "$NEARLINK_ROOT/services/stack/src/sdf/utils/src/sdf_addr.c",

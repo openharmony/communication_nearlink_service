@@ -118,6 +118,7 @@ NlErrCode NearlinkTwsClient::RegisterTwsClientObserver(std::shared_ptr<NearlinkT
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
                         "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");
+    NL_CHECK_RETURN_RET(observer, NL_ERR_IMPL_ERROR, "observer is nullptr");
     pimpl->twsClientObserverList.Insert(observer);
     return NL_NO_ERROR;
 }
@@ -128,6 +129,7 @@ NlErrCode NearlinkTwsClient::DeregisterTwsClientObserver(std::shared_ptr<Nearlin
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
                         "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");
+    NL_CHECK_RETURN_RET(observer, NL_ERR_IMPL_ERROR, "observer is nullptr");
     pimpl->twsClientObserverList.Erase(observer);
     return NL_NO_ERROR;
 }

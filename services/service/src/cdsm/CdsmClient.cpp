@@ -18,7 +18,6 @@
 #include "sle_uuid.h"
 #include "SleInterfaceAdapter.h"
 #include "SleInterfaceManager.h"
-#include "sysdep.h"
 #include "SleServiceFfrtLog.h"
 #include "ThreadUtil.h"
 #include "nlstk_public_define.h"

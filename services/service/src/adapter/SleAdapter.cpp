@@ -651,7 +651,7 @@ void SleAdapter::SetSleConnectable()
     settingsImpl.SetInterval(static_cast<int>(AdvInterval::ADV_SLE_CONNECTABLE_ADV_INTERBAL));
     std::array<uint8_t, Nearlink::RawAddress::SLE_ADDRESS_BYTE_LEN> addr;
     SLE_Addr_S gleAddr = GetLocalSleAddress();
-    std::copy(std::begin(gleAddr.addr), std::end(gleAddr.addr), std::begin(gleAddr.addr));
+    std::copy(std::begin(gleAddr.addr), std::end(gleAddr.addr), std::begin(addr));
     settingsImpl.SetOwnAddr(addr);
     settingsImpl.SetOwnAddrType(static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
     SleAdvertiserDataImpl advData;

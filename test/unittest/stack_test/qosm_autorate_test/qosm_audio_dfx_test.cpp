@@ -18,7 +18,6 @@
 #include <time.h>
 #include <inttypes.h>
 #include "qosm_log.h"
-#include "sysdep.h"
 #include "cp_worker.h"
 #include "nearlink_dft_exception_c.h"
 #include "qosm_uevent.h"
