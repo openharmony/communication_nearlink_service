@@ -121,6 +121,7 @@ ohos_shared_library("nearlink_device_manager") {
     "LOG_TAG = \"nearlink_device_manager\"",
     "LOG_DOMAIN = 0xD000152",
   ]
+  defines += product_defines
 
   subsystem_name = "communication"
   part_name = "nearlink_service"

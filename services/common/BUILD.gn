@@ -130,6 +130,7 @@ ohos_shared_library("nearlink_service_common") {
     "LOG_TAG = \"nearlink_service_common\"",
     "LOG_DOMAIN = 0xD000152",
   ]
+  defines += product_defines
 
   if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
     defines += [ "RES_SCHED_SUPPORT" ]
