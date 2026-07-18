@@ -733,5 +733,7 @@ const char *GetDomainName(DftEventEnum eventId)
             return "NEARLINK_SERVICE";  // 故障/统计/安全事件的域名
         case HISYSEVENT_BEHAVIOR:
             return "NEARLINK_UE";       // 行为事件的域名
+        default:
+            return "NEARLINK_SERVICE";
     }
 }

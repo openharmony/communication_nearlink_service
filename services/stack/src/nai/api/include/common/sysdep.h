@@ -86,7 +86,7 @@ do { \
         *(p)++ = (int8_t)(u8); \
 } while (0)
 #define ARRAY_TO_STREAM(p, a, len) do { \
-        int ijk;                                                      \
+        uint32_t ijk; \
         for (ijk = 0; ijk < (len); ijk++) { \
             *(p)++ = (uint8_t)(a)[ijk]; \
         } \

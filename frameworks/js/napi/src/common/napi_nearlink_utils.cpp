@@ -64,7 +64,8 @@ bool ParseInt32(napi_env env, int32_t &param, napi_value args)
         HILOGE("Wrong argument type(%{public}d). Int32 expected.", valuetype);
         return false;
     }
-    napi_get_value_int32(env, args, &param);
+    napi_status status = napi_get_value_int32(env, args, &param);
+    NAPI_NL_RETURN_IF(status != napi_ok, "Failed to napi_get_value_int32", false);
     return true;
 }
 
@@ -77,7 +78,8 @@ bool ParseBool(napi_env env, bool &param, napi_value args)
         HILOGE("Wrong argument type(%{public}d). bool expected.", valuetype);
         return false;
     }
-    napi_get_value_bool(env, args, &param);
+    napi_status status = napi_get_value_bool(env, args, &param);
+    NAPI_NL_RETURN_IF(status != napi_ok, "Failed to napi_get_value_bool", false);
     return true;
 }
 
