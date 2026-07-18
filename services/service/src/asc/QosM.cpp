@@ -117,7 +117,7 @@ Qos QosM::GetCOS(const RawAddress &device)
 void QosM::SetCos(const RawAddress &device, Qos nos)
 {
     if (nos >= NL_SLE_QOS_BUTT) {
-        HILOGE("[ASCService]Set invalid qos(%{public}d)", nos)
+        HILOGE("[ASCService]Set invalid qos(%{public}d)", nos);
         return;
     }
 
