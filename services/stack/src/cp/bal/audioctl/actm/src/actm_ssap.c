@@ -46,6 +46,8 @@
 #define TYPE_AUDIO_ABLITITY 0x01
 #define TYPE_STREAM_TYPE    0x20
 
+#define MAX_SERVICE_METHOD_NUM 255
+#define MAX_SERVICE_EVENT_NUM 255
 #define MAX_SERVICE_PROPERTY_NUM 255
 
 #define AUDIO_LOCATION_LEN 10
@@ -96,6 +98,10 @@ static void ReadDeviceProperties(ActmRemoteDevice_S *device, uint16_t *handles, 
 
 static void GetStreamManagementInfo(ActmRemoteDevice_S *device, NLSTK_SsapServ_S *service)
 {
+    if (service->methodNum > MAX_SERVICE_METHOD_NUM || service->eventNum > MAX_SERVICE_EVENT_NUM) {
+        NLSTK_LOG_ERROR("[ACTM] service method or event num exceed max num");
+        return;
+    }
     if (service->propertyNum > MAX_SERVICE_PROPERTY_NUM) {
         NLSTK_LOG_ERROR("[ACTM] service property num exceed max num");
         return;

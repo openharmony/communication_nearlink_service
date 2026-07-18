@@ -44,7 +44,7 @@ public:
     uint8_t eventType_ = 0;
     uint8_t result_ = 0;
     uint16_t connHandle_ = 0;
-    uint64_t streamTypeBitMap_ = 0;
+    uint32_t streamTypeBitMap_ = 0;
     AscQosmInfo qosmInfo_ {};
     std::vector<AscProp> properties_ {};
     uint8_t devRole_ = 0;
@@ -58,9 +58,10 @@ public:
     uint8_t frameType_ = 0;
     uint8_t phyType_ = 0;
     
-    ASCMessage operator=(const ASCMessage &src)
+    ASCMessage& operator=(const ASCMessage &src)
     {
         if (this != &src) {
+            utility::Message::operator=(src);
             dev_ = src.dev_;
             streamType_ = src.streamType_;
             eventType_ = src.eventType_;

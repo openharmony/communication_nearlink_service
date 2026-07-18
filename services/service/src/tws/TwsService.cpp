@@ -67,6 +67,9 @@ uint8_t TwsService::GetScenesFromQoS(uint8_t qosId)
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_5), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_6), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_7), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
+        {
+            static_cast<uint8_t>(Qos::NL_SLE_QOS_8),
+            static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_SPATIAL_AUDIO)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_9), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)}
     };
 
@@ -426,6 +429,7 @@ void TwsService::ProcessDisconnectEvent(const TwsMessage &event)
 int TwsService::RegisterApplication(const std::shared_ptr<InterfaceTwsClientObserver> &callback)
 {
     HILOGI("RegisterApplication");
+    std::lock_guard<std::mutex> lock(callbackMutex_);
     callback_ = callback;
     return NL_NO_ERROR;
 }
@@ -433,6 +437,7 @@ int TwsService::RegisterApplication(const std::shared_ptr<InterfaceTwsClientObse
 int TwsService::DeregisterApplication()
 {
     HILOGD("DeregisterApplication");
+    std::lock_guard<std::mutex> lock(callbackMutex_);
     callback_ = nullptr;
     return NL_NO_ERROR;
 }
@@ -502,6 +507,7 @@ void TwsService::TwsServiceProcessSendRemoteInfo(const TwsMessage &event)
     std::string value(static_cast<const char*>(event.arg2M));
     std::vector<uint8_t> vec(value.begin(), value.end());
 
+    std::lock_guard<std::mutex> lock(callbackMutex_);
     if (callback_ != nullptr) {
         RawAddress addr(event.dev_);
         RawAddress reportAddr = TwsService::GetReportAddr(addr);
@@ -592,6 +598,7 @@ void TwsService::SendCapsuleInfo(RawAddress &devAddr, uint8_t mediaState, std::s
     std::vector<uint8_t> vec(capsuleInfo.begin(), capsuleInfo.end());
     vec.push_back('\0');
 
+    std::lock_guard<std::mutex> lock(callbackMutex_);
     if (callback_ != nullptr) {
         RawAddress reportAddr = TwsService::GetReportAddr(devAddr);
         callback_->OnTwsRemoteInfo(reportAddr.GetAddress(), vec);
@@ -1023,7 +1030,7 @@ void TwsClientData::UpdateData(uint8_t dataType, TwsClientData &clientData)
 void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDelay)
 {
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
-                    SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN(sleService, "sleService invalid.");
     uint16_t icbDelay = 0;
     ProfileASC *ascService = ASCService::GetService();
@@ -1046,12 +1053,12 @@ void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDela
         // 1个icbInterval为0.25ms
         uint8_t sceneNum =
             clientData->sleConfig_.sceneNum < MAX_SCENE_NUM ? clientData->sleConfig_.sceneNum : MAX_SCENE_NUM;
-        HILOGI("[Tws Service]:clientData->sleConfig_.sceneNum: %{public}d, sceneNum: %{public}d",
+        HILOGD("[Tws Service]:clientData->sleConfig_.sceneNum: %{public}d, sceneNum: %{public}d",
             clientData->sleConfig_.sceneNum, sceneNum);
         uint8_t targetScene = GetScenesFromQoS(qosId);
         for (uint8_t i = 0; i < sceneNum; i++) {
             if (targetScene == clientData->sleConfig_.timesMap[i].scene) {
-                HILOGI("[Tws Service]:qosId:%{public}d, GetScenesFromQoS: %{public}u", qosId, GetScenesFromQoS(qosId));
+                HILOGD("[Tws Service]:qosId:%{public}d, GetScenesFromQoS: %{public}u", qosId, GetScenesFromQoS(qosId));
                 sduIntervalTimes = clientData->sleConfig_.timesMap[i].times;
                 break;
             }

@@ -560,6 +560,7 @@ void McpServerServiceManager::impl::SendKeyEventToAvSession(const RawAddress &de
     keyItem.SetPressed(true);
     keyEvent->AddKeyItem(keyItem);
 
+    NL_CHECK_RETURN(getAscProfileFunc_, "[McpServer]getAscProfileFunc_ is null");
     ProfileASC *ascService = getAscProfileFunc_();
     NL_CHECK_RETURN(ascService != nullptr, "[McpServer]Get ascService error!");
     NearlinkRawAddress activeDevice = ascService->GetActiveSinkDevice();

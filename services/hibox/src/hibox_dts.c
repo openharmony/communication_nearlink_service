@@ -211,8 +211,8 @@ static bool HiboxDtsCapParser(uint8_t type, uint16_t length, uint8_t* value, voi
     DtsCapData *result = (DtsCapData *)parseResult;
     switch (type) {
         case DTS_CAP_TYPE:
-            NL_CHECK_RETURN_RET((length <= DTS_MAX_CAP_LEN) && memcpy_s(result->dtsCap, length, value, length) == EOK,
-                false, "memcpy_s fail");
+            NL_CHECK_RETURN_RET((length <= DTS_MAX_CAP_LEN) &&
+                memcpy_s(result->dtsCap, DTS_MAX_CAP_LEN, value, length) == EOK, false, "memcpy_s fail");
             break;
         default:
             ALOGW("unknown type: %{public}d", type);

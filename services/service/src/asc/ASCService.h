@@ -72,7 +72,7 @@ public:
     int GetSupportStreamType(const NearlinkRawAddress &device, uint32_t& supportStreamType) override;
     int GetAudioDeviceCodecInfo(const NearlinkRawAddress &device, std::map<AudioStreamType,
         AudioStreamCodecInfo> &info) override;
-    int SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType) override;
+    int SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType) override;
     int UpdateDeviceRole(const RawAddress &device, uint8_t devRole) override;
 
     int RegisterApplication(const std::shared_ptr<InterfaceASCCallback> &callback) override;

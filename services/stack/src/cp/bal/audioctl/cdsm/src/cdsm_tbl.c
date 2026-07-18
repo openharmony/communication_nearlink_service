@@ -221,15 +221,21 @@ void CdsmNotifyStateChange(SLE_Addr_S *addr, uint8_t type)
     CdsmCoopSet_S *set = CdsmFindCoopSetByAddr(addr);
     CP_CHECK_LOG_RETURN_VOID(set != NULL, "[CDSM] not find coop set");
     CP_LOG_INFO("[CDSM] meb state change, state: %u, gid: 0x%x, addr: %s", type, set->gid, GET_ENC_ADDR(addr));
+    size_t memInfoCount = set->mebs->size;
+    if (memInfoCount == 0 || memInfoCount > set->num) {
+         CP_LOG_ERROR("[CDSM] invalid memInfoCount: %zu, num: %u", memInfoCount, set->num);
+        return;
+    }
+
     NLSTK_CdsmEvent_S event = {0};
     (void)memcpy_s(&event.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     event.gid = set->gid;
     event.type = type;
     event.num = set->num;
-    event.memInfo = (NLSTK_CdsmMemInfo_S *)SDF_MemZalloc(set->num * sizeof(NLSTK_CdsmMemInfo_S));
+    event.memInfo = (NLSTK_CdsmMemInfo_S *)SDF_MemZalloc(memInfoCount * sizeof(NLSTK_CdsmMemInfo_S));
     CP_CHECK_LOG_RETURN_VOID(event.memInfo != NULL, "[CDSM] memInfo malloc error");
     CdsmCoopSetMeb_S *meb = NULL;
-    for (size_t i = 0; i < set->mebs->size; i++) {
+    for (size_t i = 0; i < memInfoCount; i++) {
         meb = SDF_VectorElementAt(set->mebs, i);
         (void)memcpy_s(&event.memInfo[i].addr, sizeof(SLE_Addr_S), &meb->addr, sizeof(SLE_Addr_S));
         if (meb->state == CDSM_CONNECTED) {

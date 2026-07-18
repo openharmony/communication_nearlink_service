@@ -254,7 +254,7 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceCodecInfo(const NearlinkRawAddress &de
     return static_cast<NlErrCode>(result);
 }
 
-NlErrCode NearlinkASCProxy::SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType)
+NlErrCode NearlinkASCProxy::SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType)
 {
     HILOGD("NearlinkASCProxy::SetActiveSinkDevice start");
     MessageParcel data;
@@ -264,7 +264,7 @@ NlErrCode NearlinkASCProxy::SetActiveSinkDevice(const NearlinkRawAddress &device
     }
 
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
-    NL_CHECK_RETURN_RET(data.WriteUint64(supportStreamType), NL_ERR_INTERNAL_ERROR, "Write supportStreamType error");
+    NL_CHECK_RETURN_RET(data.WriteUint32(supportStreamType), NL_ERR_INTERNAL_ERROR, "Write supportStreamType error");
 
     MessageParcel reply;
     MessageOption option {

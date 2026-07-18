@@ -134,10 +134,10 @@ int32_t NearlinkASCStub::GetAudioDeviceListInner(NearlinkASCStub *stub, MessageP
         vecCnt = MAX_AUDIO_DEVICE_COUNT;
     }
     NL_CHECK_RETURN_RET(reply.WriteUint32(vecCnt), NL_ERR_INTERNAL_ERROR, "Write vecCnt error");
-    for (const NearlinkRawAddress& dev : devices) {
-        NL_CHECK_RETURN_RET(reply.WriteParcelable(&dev), NL_ERR_INTERNAL_ERROR, "Write device error");
-    }
 
+    for (uint32_t i = 0; i < vecCnt; i++) {
+        NL_CHECK_RETURN_RET(reply.WriteParcelable(&devices[i]), NL_ERR_INTERNAL_ERROR, "Write device error");
+    }
     return NO_ERROR;
 }
 
@@ -161,10 +161,10 @@ int32_t NearlinkASCStub::GetVirtualAudioDeviceListInner(NearlinkASCStub *stub, M
         vecCnt = MAX_VIRTUAL_AUDIO_DEVICE_COUNT;
     }
     NL_CHECK_RETURN_RET(reply.WriteUint32(vecCnt), NL_ERR_INTERNAL_ERROR, "Write vecCnt error");
-    for (const NearlinkRawAddress& dev : devices) {
-        NL_CHECK_RETURN_RET(reply.WriteParcelable(&dev), NL_ERR_INTERNAL_ERROR, "Write device error");
-    }
 
+    for (uint32_t i = 0; i < vecCnt; i++) {
+        NL_CHECK_RETURN_RET(reply.WriteParcelable(&devices[i]), NL_ERR_INTERNAL_ERROR, "Write device error");
+    }
     return NO_ERROR;
 }
 
@@ -236,7 +236,7 @@ int32_t NearlinkASCStub::SetActiveSinkDeviceInner(NearlinkASCStub *stub, Message
     if (!device) {
         return TRANSACTION_ERR;
     }
-    uint64_t supportStreamType = data.ReadUint64();
+    uint32_t supportStreamType = data.ReadUint32();
     NlErrCode result = stub->SetActiveSinkDevice(*device, supportStreamType);
     bool ret = reply.WriteInt32(result);
     if (!ret) {

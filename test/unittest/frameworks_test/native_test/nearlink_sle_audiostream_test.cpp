@@ -208,7 +208,7 @@ HWTEST_F(SleAudioStreamTest, SetActiveSinkDevice001, TestSize.Level1)
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<NearlinkRemoteDevice> device = std::make_shared<NearlinkRemoteDevice>(
         addr, static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-    uint64_t supportStreamType = 2;
+    uint32_t supportStreamType = 2;
     NlErrCode ret = ptr->SetActiveSinkDevice(*device, supportStreamType);
     if (isAudioSupported) {
         EXPECT_EQ(NL_NO_ERROR, ret);

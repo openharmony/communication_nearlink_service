@@ -183,7 +183,7 @@ ActmStream_S *ActmFindStreamById(ActmRemoteDevice_S *device, uint8_t streamId)
     return NULL;
 }
 
-uint8_t ActmCountGroupSize(uint8_t groupId)
+uint8_t ActmCountGroupSize(uint16_t groupId)
 {
     uint8_t count = 0;
     ActmDeviceNode_S *node = NULL;

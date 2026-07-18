@@ -67,6 +67,13 @@ public:
 
     void OnAudioControl(const NearlinkRawAddress &device, const NearlinkASCAudioControlResult& result) override
     {
+        int rawStreamType = result.GetStreamType();
+        if (rawStreamType < static_cast<int>(AUDIO_STREAM_NONE) ||
+            rawStreamType > static_cast<int>(AUDIO_STREAM_SING)) {
+            HILOGE("Invalid streamType from IPC: %{public}d", rawStreamType);
+            return;
+        }
+
         AudioStreamType streamType = static_cast<AudioStreamType>(result.GetStreamType());
         int cmd = result.GetCmd();
         int controlResult = result.GetResult();
@@ -317,9 +324,10 @@ NlErrCode SleAudioStream::SetActiveSinkDevice(const NearlinkRemoteDevice &device
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_PARAM, "Invalid remote device.");
     sptr<INearlinkASC> proxy = GetProxy<INearlinkASC>(PROFILE_ASC);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
+    NL_CHECK_RETURN_RET(supportStreamType <= UINT32_MAX, NL_ERR_INVALID_PARAM, "Invalid stream type.");
 
     NlErrCode result = proxy->SetActiveSinkDevice(static_cast<NearlinkRawAddress>(RawAddress(device.GetDeviceAddr())),
-        supportStreamType);
+        static_cast<uint32_t>(supportStreamType));
     if (result != NL_NO_ERROR) {
         HILOGE("SetActiveSinkDevice failed. result(%{public}d)", result);
     }
