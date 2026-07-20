@@ -41,6 +41,7 @@ void CM_UnRegExterCbks(void)
     g_sleCbks.reqAcbSubrateCbk = NULL;
     g_sleCbks.readAcceptFilterListSizeCbk = NULL;
     g_sleCbks.readRemoteRssiCbk = NULL;
+    g_sleCbks.hidCoexModeCbk = NULL;
 }
 
 void CM_ExecuteEventCbk(uint8_t event, void *param)
@@ -83,6 +84,9 @@ void CM_ExecuteEventCbk(uint8_t event, void *param)
             break;
         case CM_SLE_CBK_EVENT_READ_REMOTE_RSSI:
             CM_CbksFunc(cbks, readRemoteRssiCbk, (CM_ReadRemoteRssiRsp_S *)param);
+            break;
+        case CM_SLE_CBK_EVENT_HID_COEX_MODE:
+            CM_CbksFunc(cbks, hidCoexModeCbk, (CM_HidCoexModeParam_S *)param);
             break;
         default:
             break;

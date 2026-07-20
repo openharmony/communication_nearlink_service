@@ -41,6 +41,7 @@ public:
 
     // 获取连接参数
     bool GetConnectionParam(const SLE_Addr_S& addr, uint16_t& timeout, uint16_t& maxLatency);
+    bool GetConnectionParam(const SLE_Addr_S& addr, uint16_t& timeout, uint16_t& maxLatency, uint16_t &interval);
 
     // 遍历所有连接信息
     void IterateConnInfo(std::function<void(const CoexistConnInfo&)> callback);

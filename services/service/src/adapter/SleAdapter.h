@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -246,7 +246,13 @@ public:
     bool GetConnFrameType(const std::string &addr, uint8_t &frameType) const override;
     bool HasConnectedDevice() override;
     bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const override;
+    bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+        uint16_t &interval) const override;
     void SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType) override;
+    std::shared_ptr<SleHidCoexModeParam> GetSleHidCoexModeParam() override;
+    bool EnableSleHidCoexMode(const SleHidCoexModeParam &param) override;
+    bool DisableSleHidCoexMode() override;
+    void SetSleHidCoexModeState(SleCoexModeStatus state) override;
 private:
     int RegisterCallbackToCm();
     int DeregisterCallbackToBtm() const;
@@ -310,6 +316,9 @@ private:
     void AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param);
     static void ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S *param);
     void ReadAcceptFilterListSizeCallbackTask(const CM_ReadAcceptFilterListSize_S &param);
+    static void HidCoexModeCallback(CM_HidCoexModeParam_S *param);
+    CM_HidCoexModeParam_S HidCoexModeCheckCallbackTask(const CM_HidCoexModeParam_S &param);
+    void HidCoexModeParamUpdateCallbackTask(const CM_HidCoexModeParam_S &param);
     void PowerLevelChangedTask(const PowerLevelInfo &info);
     void RssiChangedCallbackTask(const DisconChipInfo &info);
     // ncb callback
@@ -359,6 +368,8 @@ private:
     static void FormatDeviceModelInfo(DeviceModel &model, std::string &newModelId);
     void SendImgSecuConfig(const RawAddress &device);
     void ClearDeviceManufacturerAbility(const RawAddress &device) const;
+    bool EnableSleHidCoexModeTask(const SleHidCoexModeParam &param);
+    bool DisableSleHidCoexModeTask();
 
 // 配对请求 start
     class ServiceSsapConnectInst {

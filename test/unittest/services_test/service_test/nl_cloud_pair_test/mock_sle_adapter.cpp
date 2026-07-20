@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -459,6 +459,12 @@ bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint1
     return true;
 }
 
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    return true;
+}
+
 void SleAdapter::Enable()
 {}
 
@@ -478,6 +484,24 @@ void SleAdapter::RemoveBgConnDevice(const std::string &delAddr) const
 
 void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
 {}
+
+void SleAdapter::SetSleHidCoexModeState(SleCoexModeStatus state)
+{}
+ 
+bool SleAdapter::EnableSleHidCoexMode(const SleHidCoexModeParam &param)
+{
+    return true;
+}
+ 
+bool SleAdapter::DisableSleHidCoexMode()
+{
+    return true;
+}
+ 
+std::shared_ptr<SleHidCoexModeParam> SleAdapter::GetSleHidCoexModeParam()
+{
+    return nullptr;
+}
 
 } // namespace Nearlink
 } // namespace OHOS

@@ -462,6 +462,12 @@ static void CM_ConnectUpdateParamReqInner(void *arg)
         updateParam.connIntervalMin = param->intervalMin;
         updateParam.connIntervalMax = param->intervalMax;
     }
+    // 共存场景下，HID interval设置不能小于15ms
+    uint16_t coexInterval = 0;
+    if (CM_AdjustCoexAcbInterval(&link->rmtAddr, updateParam.connIntervalMin, &coexInterval)) {
+        updateParam.connIntervalMin = coexInterval;
+        updateParam.connIntervalMax = coexInterval;
+    }
     updateParam.txRxInterval = param->txRxInterval;
     updateParam.eventInterval = param->eventInterval;
     updateParam.maxLatency = param->maxLatency;
@@ -968,4 +974,24 @@ bool CM_InnerGetRemotePrivateFeature(uint16_t lcid, uint16_t featureBit)
     }
 
     return CM_IsRemotePrivateFeatureSupport(link, featureBit);
+}
+
+bool CM_AdjustCoexAcbInterval(SLE_Addr_S *addr, uint16_t incommingInterval, uint16_t *coexInterval)
+{
+    CM_CHECK_RETURN_RET(addr != NULL, false, "addr is null");
+    CM_CHECK_RETURN_RET(coexInterval != NULL, false, "coexInterval is null");
+    CM_HidCoexModeParam_S coexParam = { 0 };
+    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_CHECK;
+    coexParam.addr = *addr;
+    coexParam.incomingInterval = incommingInterval;
+    coexParam.coexInterval = 0;
+    CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_HID_COEX_MODE, &coexParam);
+    if (coexParam.coexInterval != 0) {
+        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %d, "
+            "coex interval: %d", GET_ENC_ADDR(addr), incommingInterval, coexParam.coexInterval);
+        *coexInterval = coexParam.coexInterval;
+    }
+    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
+    CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_HID_COEX_MODE, &coexParam);
+    return coexParam.coexInterval != 0;
 }

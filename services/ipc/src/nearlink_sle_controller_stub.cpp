@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <cmath>
 #include "log.h"
 #include "ipc_types.h"
 #include "nearlink_sle_controller_stub.h"
@@ -31,6 +32,8 @@
     }
 
 namespace OHOS::Nearlink {
+constexpr size_t MAX_COEX_DEVICE_NUM = 32;
+
 NearlinkSleControllerStub::NearlinkSleControllerStub()
 {
     HILOGI("enter");
@@ -39,6 +42,8 @@ NearlinkSleControllerStub::NearlinkSleControllerStub()
             CHECK_PERM(true, MULTI_PERM(ACCESS_NEARLINK, MANAGE_NEARLINK)))},
         {STUB_FUNC(NL_SLE_UPDATE_INTERVAL, UpdateConnectIntervalInner,
             CHECK_PERM(true, {MANAGE_NEARLINK}))},
+        {STUB_FUNC(NL_SET_SLE_COEX_MODE, SetSleCoexModeInner,
+            CHECK_PERM(true, MULTI_PERM(ACCESS_NEARLINK, MANAGE_NEARLINK)))},
     };
 }
 
@@ -79,6 +84,33 @@ int32_t NearlinkSleControllerStub::UpdateConnectIntervalInner(
     NlErrCode status = stub->UpdateConnectInterval(device, intervalType);
     HILOGI("status: %{public}d, intervalType: %{public}d", status, intervalType);
     NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "WriteInt32 failed.");
+    return NO_ERROR;
+}
+
+int32_t NearlinkSleControllerStub::SetSleCoexModeInner(NearlinkSleControllerStub *stub,
+    MessageParcel &data, MessageParcel &reply)
+{
+    int32_t mode = 0;
+    int32_t deviceSize = 0;
+    std::vector<std::string> deviceList = {};
+    std::vector<ConnectionInterval> paramList = {};
+    NL_CHECK_RETURN_RET(data.ReadInt32(mode), TRANSACTION_ERR, "Read mode failed.");
+    NL_CHECK_RETURN_RET(data.ReadInt32(deviceSize), TRANSACTION_ERR, "Read size failed.");
+
+    deviceSize = std::min(deviceSize, static_cast<int32_t>(MAX_COEX_DEVICE_NUM));
+    for (int32_t i = 0; i < deviceSize; i++) {
+        std::string device;
+        NL_CHECK_RETURN_RET(data.ReadString(device), TRANSACTION_ERR, "Read address failed.");
+        deviceList.emplace_back(device);
+        int32_t param;
+        NL_CHECK_RETURN_RET(data.ReadInt32(param), TRANSACTION_ERR, "Read param failed.");
+        paramList.emplace_back(static_cast<ConnectionInterval>(param));
+    }
+ 
+    NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), TRANSACTION_ERR,
+        "device list and param list size mismatch");
+    NlErrCode result = stub->SetSleCoexMode(mode, deviceList, paramList);
+    NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "WriteInt32 failed.");
     return NO_ERROR;
 }
 }  // namespace OHOS::Nearlink

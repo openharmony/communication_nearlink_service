@@ -97,5 +97,22 @@ NlErrCode NearlinkSleController::UpdateConnectInterval(const std::string &device
     return errCode;
 }
 
+NlErrCode NearlinkSleController::SetSleCoexMode(SleCoexMode mode, const std::vector<std::string> &deviceList,
+    const std::vector<ConnectionInterval> &paramList)
+{
+    HILOGD("enter, mode: %{public}d", static_cast<int>(mode));
+    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(),
+        NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), NL_ERR_INVALID_PARAM,
+        "device and param list size not match");
+    for (auto device : deviceList) {
+        NL_CHECK_RETURN_RET(IsValidAddress(device), NL_ERR_INVALID_PARAM, "device invalid");
+    }
+    sptr<INearlinkSleController> proxy = GetProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
+    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
+    return proxy->SetSleCoexMode(static_cast<int32_t>(mode), deviceList, paramList);
+}
+
 } // namespace Nearlink
 } // namespace OHOS

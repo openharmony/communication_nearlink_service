@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include <thread>
+#include "nearlink_sle_controller_def.h"
 #include "nearlink_sle_controller_server.h"
 #include "nearlink_sle_controller_stub.h"
 #include "nearlink_native_token_mock.h"
@@ -107,6 +108,31 @@ HWTEST_F(NearlinkSleControllerServerStubTest, UpdateConnectInterval001, TestSize
         NearlinkSleControllerInterfaceCode::NL_SLE_UPDATE_INTERVAL, data, reply);
     EXPECT_EQ(NO_ERROR, ret);
     HILOGI("NearlinkSleControllerServerStubTest:UpdateConnectInterval001 end");
+}
+
+/**
+ * @tc.name: SetSleCoexMode001
+ * @tc.desc: 测试 SetSleCoexMode
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSleControllerServerStubTest, SetSleCoexMode001, TestSize.Level1)
+{
+    HILOGI("NearlinkSleControllerServerStubTest:SetSleCoexMode001 start");
+    int32_t mode = SLE_HID_COEX_MODE_ENABLE;
+    int32_t deviceListSize = 1;
+    int32_t intervalType = 0x05; // 假设测试类型为 0x05
+    std::string address = "00:00:00:00:00:00";
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkSleControllerStub::GetDescriptor());
+    data.WriteInt32(mode);
+    data.WriteInt32(deviceListSize);
+    data.WriteString(address);
+    data.WriteInt32(intervalType);
+    int32_t ret = SleControllerOnRemoteRequest(
+        NearlinkSleControllerInterfaceCode::NL_SET_SLE_COEX_MODE, data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    HILOGI("NearlinkSleControllerServerStubTest:SetSleCoexMode001 end");
 }
 
 } // namespace TEST
