@@ -35,8 +35,7 @@ void CM_CheckAndFixAddrType(SLE_Addr_S *addr)
 {
     /* 支持PUBLIC_ADDRESS(0)和RPA_UNRESOLV_ADDRESS(4)，其他类型设为默认0 */
     if (addr->type != PUBLIC_ADDRESS && addr->type != RPA_UNRESOLV_ADDRESS) {
-        addr->type = PUBLIC_ADDRESS;
-    } else {
         CM_LOGW("addr type[%hhu] is not suppported", addr->type);
+        addr->type = PUBLIC_ADDRESS;
     }
 }
