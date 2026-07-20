@@ -25,6 +25,7 @@ public:
 
     McpMessage(const McpMessage &src) : utility::Message(src.whatM, src.arg1M, src.arg2M)
     {
+        whatM = src.whatM;
         arg1M = src.arg1M;
         arg2M = src.arg2M;
         device_ = src.device_;
@@ -38,6 +39,7 @@ public:
     McpMessage& operator=(const McpMessage &src)
     {
         if (this != &src) {
+            whatM = src.whatM;
             arg1M = src.arg1M;
             arg2M = src.arg2M;
             device_ = src.device_;

@@ -227,6 +227,8 @@ NlErrCode NearlinkHadmClientServer::DeregisterNearlinkHadmClientCallback(uint32_
     HILOGI("enter");
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmId(hadmId), NL_ERR_INVALID_PARAM,
+        "hadmId is invalid.");
     pimpl->remoteObservers_.Deregister(callback);
     pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
     InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);

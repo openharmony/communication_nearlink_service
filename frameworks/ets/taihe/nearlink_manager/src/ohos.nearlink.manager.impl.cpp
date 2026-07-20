@@ -104,7 +104,7 @@ void onStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::Nearli
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>> stateChangeCb =
         ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>>{
             std::in_place_t{}, callback};
-
+    std::unique_lock<std::shared_mutex> guard(g_stateChangedMutex);
     if (std::find(g_stateChangedObserverVec.begin(), g_stateChangedObserverVec.end(), stateChangeCb) !=
         g_stateChangedObserverVec.end()) {
         return;
@@ -116,6 +116,7 @@ void offStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_stateChangedMutex);
     NL_CHECK_RETURN(!g_stateChangedObserverVec.empty(), "cb not registered!");
     if (callback.has_value()) {
         for (size_t i = 0; i < g_stateChangedObserverVec.size(); ++i) {
@@ -132,6 +133,7 @@ void offStateChange(
 void onPairingRequest(::taihe::callback_view<void(::ohos::nearlink::manager::PairingRequestParam const&)> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_pairingRequestMutex);
     NL_CHECK_RETURN(g_pairingRequestObserverVec.size() <= MAX_CB_NUM, "cb Exceeding the maximum value!");
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>> pairingRequestCb =
@@ -149,6 +151,7 @@ void offPairingRequest(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_pairingRequestMutex);
     NL_CHECK_RETURN(!g_pairingRequestObserverVec.empty(), "cb not registered!");
     if (callback.has_value()) {
         for (size_t i = 0; i < g_pairingRequestObserverVec.size(); ++i) {
@@ -165,6 +168,7 @@ void offPairingRequest(
 void onPairingStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::PairingStateParam const&)> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
     NL_CHECK_RETURN(g_pairStatusChangedObserverVec.size() <= MAX_CB_NUM, "cb Exceeding the maximum value!");
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>>
@@ -183,6 +187,7 @@ void offPairingStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
     NL_CHECK_RETURN(!g_pairStatusChangedObserverVec.empty(), "cb not registered!");
     if (callback.has_value()) {
         for (size_t i = 0; i < g_pairStatusChangedObserverVec.size(); ++i) {
@@ -200,6 +205,7 @@ void onConnectionStateChange(
     ::taihe::callback_view<void(::ohos::nearlink::manager::ConnectionStateParam const&)> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
     NL_CHECK_RETURN(g_connectionStateChangedObserverVec.size() <= MAX_CB_NUM, "cb Exceeding the maximum value!");
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>>
@@ -218,6 +224,7 @@ void offConnectionStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
     NL_CHECK_RETURN(!g_connectionStateChangedObserverVec.empty(), "cb not registered!");
     if (callback.has_value()) {
         for (size_t i = 0; i < g_connectionStateChangedObserverVec.size(); ++i) {
@@ -234,6 +241,7 @@ void offConnectionStateChange(
 void onAcbStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::AcbStateParam const&)> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
     NL_CHECK_RETURN(g_acbStateChangedObserverVec.size() <= MAX_CB_NUM, "cb Exceeding the maximum value!");
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>> acbStateChangeCb =
@@ -251,6 +259,7 @@ void offAcbStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>> callback)
 {
     HILOGI("enter");
+    std::unique_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
     NL_CHECK_RETURN(!g_acbStateChangedObserverVec.empty(), "cb not registered!");
     if (callback.has_value()) {
         for (size_t i = 0; i < g_acbStateChangedObserverVec.size(); ++i) {

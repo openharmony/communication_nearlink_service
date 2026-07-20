@@ -132,9 +132,8 @@ public:
         HILOGD("ssapServer conn state updated, remote device: %{public}s, state: %{public}s reason: 0x%{public}x",
             GET_ENCRYPT_SSAP_ADDR(device), GetConnStateString(state).c_str(), reason);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         std::shared_ptr<SsapDevice> dev = std::make_shared<SsapDevice>(device.addr_, device.transport_);
         if (state == static_cast<int>(SleConnectState::CONNECTED)) {
             serverSptr->pimpl->connectedDevices.Insert(dev);
@@ -150,8 +149,8 @@ public:
     {
         HILOGI("enter, ret: %{public}d", ret);
         auto serverSptr = GetServerSptr();
-        NL_CHECK_RETURN(serverSptr, "serverSptr nullptr.");
-        NL_CHECK_RETURN(serverSptr->pimpl && serverSptr->pimpl->callback_, "callback_ is nullptr.");
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
 
         std::shared_ptr<SsapService> ssapSvc = serverSptr->pimpl->BuildService(service);
         NL_CHECK_RETURN(ssapSvc, "ssapSvc is nullptr.");
@@ -165,9 +164,8 @@ public:
         HILOGI("device: %{public}s, handle: 0x%{public}04X, ret: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), property.handle_, ret, property.uuid_.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         SsapProperty proper(property.handle_, UUID::ConvertFrom128Bits(property.uuid_.ConvertTo128Bits()),
                 property.opInd_, property.permission_);
         bool isFindService = serverSptr->pimpl->ssapServices.Find([&proper](const uint16_t handle,
@@ -195,9 +193,8 @@ public:
             GET_ENCRYPT_SSAP_ADDR(device), property.handle_, ret, property.value_.size(),
             property.uuid_.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         SsapProperty reportProperty(property.handle_, UUID::ConvertFrom128Bits(property.uuid_.ConvertTo128Bits()),
             property.opInd_, property.permission_);
         reportProperty.SetValue(property.value_.data(), property.value_.size());
@@ -225,9 +222,8 @@ public:
         HILOGI("remote device: %{public}s, handle: 0x%{public}04X, ret: %{public}d",
             GET_ENCRYPT_SSAP_ADDR(device), descriptor.handle_, ret);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnDescriptorReadRequest(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             SsapDescriptor(descriptor.handle_, descriptor.type_, descriptor.permission_), ret);
@@ -239,9 +235,8 @@ public:
         HILOGI("remote device: %{public}s, handle: 0x%{public}04X, ret: %{public}d",
             GET_ENCRYPT_SSAP_ADDR(device), descriptor.handle_, ret);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnDescriptorWriteRequest(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             SsapDescriptor(descriptor.handle_, descriptor.type_, descriptor.permission_), ret);
@@ -251,10 +246,8 @@ public:
     {
         HILOGI("remote device: %{public}s, mtu: %{public}d", GET_ENCRYPT_SSAP_ADDR(device), mtu);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnMtuUpdate(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_), mtu);
         return;
@@ -266,10 +259,8 @@ public:
         HILOGI("device: %{public}s, result: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), result, uuid.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnNotifyPropertyChanged(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             UUID::ConvertFrom128Bits(uuid.ConvertTo128Bits()), handle, result);
@@ -283,10 +274,8 @@ public:
         HILOGI("device: %{public}s, result: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), result, uuid.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnNotifyEventChanged(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             UUID::ConvertFrom128Bits(uuid.ConvertTo128Bits()), handle, result);

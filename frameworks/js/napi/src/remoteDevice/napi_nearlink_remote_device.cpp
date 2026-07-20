@@ -263,7 +263,10 @@ napi_value NapiNearlinkRemoteDevice::RemoteDeviceConstructor(napi_env env, napi_
     napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr);
 
     std::string deviceId;
-    ParseString(env, deviceId, argv[PARAM0]);
+    if (!ParseString(env, deviceId, argv[PARAM0])) {
+        HILOGE("RemoteDeviceConstructor ParseString failed, deviceId is invalid");
+        return nullptr;
+    }
     NapiNearlinkRemoteDevice *remoteDevice = new (std::nothrow) NapiNearlinkRemoteDevice(deviceId);
     if (remoteDevice == nullptr) {
         HILOGE("remoteDevice is nullptr");
