@@ -320,7 +320,7 @@ ohos_shared_library("nearlink_service_impl") {
   }
 
   if (nearlink_service_min_interval_of_multiple_devices_conn) {
-    efines += [ "MIN_INTERVAL_OF_MULTIPLE_DEVICES_CONN" ]
+    defines += [ "MIN_INTERVAL_OF_MULTIPLE_DEVICES_CONN" ]
   }
 
   if (factory == true) {
