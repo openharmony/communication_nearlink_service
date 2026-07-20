@@ -33,7 +33,7 @@ typedef enum {
     DTAP_TRANS_RESULT_CHANNEL_NOT_FOUND,
     DTAP_TRANS_RESULT_EXCEED_MTU_ERR,
     DTAP_TRANS_RESULT_TX_CACHE_FULL,
-} DTAP_Trans_Result_t;   // 数据发送结果，和TRANS_Result_t定义保持一致
+} DTAP_Trans_Result_E;   // 数据发送结果，和TRANS_Result_t定义保持一致
 
 /* 注册收包回调错误码 */
 #define DTAP_REGISTER_RECV_CB_ALLOC_ERR         DP_MAKE_DTAP_TRANS_ERRNO(100)

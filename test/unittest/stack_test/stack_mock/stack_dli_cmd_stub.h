@@ -25,7 +25,7 @@ uint32_t TEST_DLI_GetPublicAddress(DLI_PublicAddrParam *param);
 
 uint32_t TEST_DLI_GetPublicAddressFail(DLI_PublicAddrParam *param);
 
-uint32_t TEST_DLI_SetPublicAddress(uint8_t *addr);
+uint32_t TEST_DLI_SetPublicAddress(DLI_AddrStru *param);
 
 uint32_t TEST_DLI_SetHostChannelClassification(uint8_t *channelMap, uint32_t len);
 

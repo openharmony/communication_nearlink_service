@@ -1764,7 +1764,7 @@ std::string CombineChannelAndNoise(const std::vector<uint8_t>& rssiIndex,
 void SleAdapter::RssiChangedCallback(void *param)
 {
     NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
-    nbc_callback_param_t chipInfo = *(reinterpret_cast<nbc_callback_param_t *>(param));
+    NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(DisconChipInfo), "param error");
     DisconChipInfo info = *(reinterpret_cast<DisconChipInfo *>(chipInfo.data));
 
@@ -1803,7 +1803,7 @@ std::string SleAdapter::GetAddressByConnHandle(uint16_t connHandle)
 void SleAdapter::PowerLevelChangedCallback(void *param)
 {
     NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
-    nbc_callback_param_t chipInfo = *(reinterpret_cast<nbc_callback_param_t *>(param));
+    NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(PowerLevelInfo), "param error");
     PowerLevelInfo info = *(reinterpret_cast<PowerLevelInfo *>(chipInfo.data));
 

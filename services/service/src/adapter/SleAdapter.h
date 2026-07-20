@@ -57,7 +57,7 @@ enum class SleAdvState : int {
 typedef struct {
     void *data;
     uint32_t dataLen;
-} nbc_callback_param_t;
+} NbcCallbackParam;
 
 struct __attribute__((packed)) DisconChipInfo {
     uint16_t connHandle;
