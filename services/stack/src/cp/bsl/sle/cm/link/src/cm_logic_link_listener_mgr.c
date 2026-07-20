@@ -104,6 +104,10 @@ void CM_ExecLogicLinkConnUpdateParamCbks(CM_LogicLinkConnUpdateParam_S *param)
 
 uint32_t CM_UnRegLogicLinkCbks(uint16_t moduleId)
 {
+    if (moduleId >= CM_MODULE_ID_MAX) {
+        CM_LOGE("unreg failed, moduleId:%hu", moduleId);
+        return CM_FAIL;
+    }
     g_logicLinkCbks[moduleId].moduleId = 0;
     g_logicLinkCbks[moduleId].logicLinkCbk = NULL;
     g_logicLinkCbks[moduleId].remoteFeaturesCbk = NULL;

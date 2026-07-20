@@ -274,6 +274,9 @@ void McpServerServiceManager::impl::CleanUp()
         avSessionController_->Destroy();
         avSessionController_ = nullptr;
     }
+    avSessionObserver_ = nullptr;
+    avControllerObserver_ = nullptr;
+    rendererStateCallback_ = nullptr;
     isCreatedAVSession = false;
 }
 

@@ -121,6 +121,9 @@ void QosM::SetCos(const RawAddress &device, Qos nos)
         HILOGI("[ASCService] No Item %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
+    if (nos >= NL_SLE_QOS_BUTT) {
+        return;
+    }
 
     DevQosmStru& qosm = it->second;
     qosm.cos = nos;
