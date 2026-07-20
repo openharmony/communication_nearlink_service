@@ -1042,7 +1042,7 @@ void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDela
     if (ascService->GetAscQosmInfo(primaryAddr, qosmInfo)) {
         icbDelay = qosmInfo.ft * qosmInfo.icbInterval * 25 / 100;  // 1个icbInterval为0.25ms
         qosId = qosmInfo.qosIndex;
-        HILOGD("[Tws Service]icbDelay(%{public}d) = ft(%{public}d) * icbInterval(%{public}d) * 25 / 100. Get qosId: "
+        HILOGI("[Tws Service]icbDelay(%{public}d) = ft(%{public}d) * icbInterval(%{public}d) * 25 / 100. Get qosId: "
                "%{public}d.", icbDelay, qosmInfo.ft, qosmInfo.icbInterval, qosId);
     }
 
