@@ -429,16 +429,19 @@ void TwsService::ProcessDisconnectEvent(const TwsMessage &event)
 int TwsService::RegisterApplication(const std::shared_ptr<InterfaceTwsClientObserver> &callback)
 {
     HILOGI("RegisterApplication");
-    std::lock_guard<std::mutex> lock(callbackMutex_);
-    callback_ = callback;
+    NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "Invalid params: callback must not be null.");
+    DoInTwsThread([this, callback] {
+        callback_ = callback;
+    });
     return NL_NO_ERROR;
 }
 
 int TwsService::DeregisterApplication()
 {
     HILOGD("DeregisterApplication");
-    std::lock_guard<std::mutex> lock(callbackMutex_);
-    callback_ = nullptr;
+    DoInTwsThread([this] {
+        callback_ = nullptr;
+    });
     return NL_NO_ERROR;
 }
 
@@ -507,7 +510,6 @@ void TwsService::TwsServiceProcessSendRemoteInfo(const TwsMessage &event)
     std::string value(static_cast<const char*>(event.arg2M));
     std::vector<uint8_t> vec(value.begin(), value.end());
 
-    std::lock_guard<std::mutex> lock(callbackMutex_);
     if (callback_ != nullptr) {
         RawAddress addr(event.dev_);
         RawAddress reportAddr = TwsService::GetReportAddr(addr);
@@ -598,7 +600,6 @@ void TwsService::SendCapsuleInfo(RawAddress &devAddr, uint8_t mediaState, std::s
     std::vector<uint8_t> vec(capsuleInfo.begin(), capsuleInfo.end());
     vec.push_back('\0');
 
-    std::lock_guard<std::mutex> lock(callbackMutex_);
     if (callback_ != nullptr) {
         RawAddress reportAddr = TwsService::GetReportAddr(devAddr);
         callback_->OnTwsRemoteInfo(reportAddr.GetAddress(), vec);

@@ -163,7 +163,6 @@ private:
     NearlinkSafeMap<std::string, TwsCacheMessage> msgCache_ {};
     std::shared_ptr<TwsClientData> CreateNewClientData(RawAddress peerAddr);
     std::shared_ptr<InterfaceTwsClientObserver> callback_ = nullptr;
-    std::mutex callbackMutex_;
     std::atomic_bool isStarted_ = ATOMIC_FLAG_INIT;
     std::atomic_bool isShuttingDown_ = ATOMIC_FLAG_INIT;
     int64_t lastSendPlayTime_ = -1L;
