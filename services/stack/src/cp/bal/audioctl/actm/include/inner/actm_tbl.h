@@ -81,7 +81,7 @@ typedef enum {
 typedef struct {
     SLE_Addr_S addr;
     int32_t appId;
-    uint8_t groupId;
+    uint16_t groupId;
     uint8_t mebId;
     uint8_t curStreamId;
     uint8_t lastErr;
@@ -134,7 +134,7 @@ ActmStream_S *ActmCreateStream(ActmRemoteDevice_S *device, uint8_t pointType, ui
 
 void ActmDeleteStream(ActmRemoteDevice_S *device, uint8_t streamId);
 
-uint8_t ActmCountGroupSize(uint8_t groupId);
+uint8_t ActmCountGroupSize(uint16_t groupId);
 
 void ActmTblInit(void);
 

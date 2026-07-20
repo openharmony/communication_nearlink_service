@@ -79,8 +79,8 @@ public:
     ~AscClientRemoteContainer() override = default;
     void OnRemoteDied(const wptr<IRemoteObject> &remote) override
     {
-        HILOGW("enter OnRemoteDied");
         AscClientRemoteInfo info = RetrieveRemoteInfo(remote);
+        HILOGW("enter OnRemoteDied, info uid is %{public}d", info.uid_);
         // 如果是音频框架进程dead，触发停播
         if (info.uid_ == AUDIO_SERVER_UID) {
             ProfileASC *audioService = static_cast<ProfileASC *>(
@@ -299,7 +299,7 @@ NlErrCode NearlinkASCServer::GetAudioDeviceCodecInfo(const NearlinkRawAddress &d
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
 }
 
-NlErrCode NearlinkASCServer::SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType)
+NlErrCode NearlinkASCServer::SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType)
 {
     HILOGD("SetActiveSinkDevice");
     ProfileASC *audioService = pimpl->GetServicePtr();

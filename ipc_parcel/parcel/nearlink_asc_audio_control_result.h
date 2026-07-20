@@ -24,6 +24,7 @@ class NearlinkASCAudioControlResult : public Parcelable {
 public:
     NearlinkASCAudioControlResult() = default;
     explicit NearlinkASCAudioControlResult(const NearlinkASCAudioControlResult &other)
+        : streamType_(other.streamType_), cmd_(other.cmd_), result_(other.result_)
     {}
     NearlinkASCAudioControlResult& operator = (const NearlinkASCAudioControlResult &other);
     ~NearlinkASCAudioControlResult() override = default;

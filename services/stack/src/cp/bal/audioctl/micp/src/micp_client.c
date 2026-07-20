@@ -90,6 +90,14 @@ static void MicpGetServicesCb(int32_t appId, NLSTK_SsapUuid_S *uuid, NLSTK_SsapS
         MicpConnectCbk(device, NLSTK_MICP_STATE_DISCONNECTED, NLSTK_ERRCODE_FAIL);
         return;
     }
+    if (service[0].properties == NULL || service[0].propertyNum == 0) {
+        MicpConnectCbk(device, NLSTK_MICP_STATE_DISCONNECTED, NLSTK_ERRCODE_FAIL);
+        if (func != NULL) {
+            func(service, serviceNum);
+        }
+        return;
+    }
+
     device->switchHandle = 0;
     for (uint16_t i = 0; i < service[0].propertyNum; i++) {
         NLSTK_SsapPrty_S *property = &service[0].properties[i];

@@ -284,7 +284,7 @@ static uint8_t GetConfigPointNum(ActmStream_S *stream)
     return pointNum;
 }
 
-static void AddDeviceToGroup(ActmRemoteDevice_S *device, uint8_t groupId)
+static void AddDeviceToGroup(ActmRemoteDevice_S *device, uint16_t groupId)
 {
     if (device->groupId != groupId) {
         device->groupId = groupId;
@@ -356,7 +356,9 @@ static void ConfigAudioStreamInner(void *arg)
         ActmEventCbk(&device->addr, NLSTK_ACTM_EVENT_CONFIG, NLSTK_ACTM_NOT_FIND_STREAM, NULL);
         return;
     }
-    AddDeviceToGroup(device, (uint8_t)config->groupId);
+
+    NLSTK_CHECK_RETURN_VOID(config->groupId <= UINT16_MAX, "[ACTM] config groupId error");
+    AddDeviceToGroup(device, (uint16_t)config->groupId);
     if (config->isImg) {
         SaveImgEncpParam(device, &config->encp);
     }

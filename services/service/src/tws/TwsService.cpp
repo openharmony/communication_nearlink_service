@@ -66,6 +66,9 @@ uint8_t TwsService::GetScenesFromQoS(uint8_t qosId)
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_5), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_6), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_7), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)},
+        {
+            static_cast<uint8_t>(Qos::NL_SLE_QOS_8),
+            static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_SPATIAL_AUDIO)},
         {static_cast<uint8_t>(Qos::NL_SLE_QOS_9), static_cast<uint8_t>(AudioScene::SLE_AUDIO_SCENE_OTHERS)}
     };
 
@@ -425,14 +428,19 @@ void TwsService::ProcessDisconnectEvent(const TwsMessage &event)
 int TwsService::RegisterApplication(const std::shared_ptr<InterfaceTwsClientObserver> &callback)
 {
     HILOGI("RegisterApplication");
-    callback_ = callback;
+    NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "Invalid params: callback must not be null.");
+    DoInTwsThread([this, callback] {
+        callback_ = callback;
+    });
     return NL_NO_ERROR;
 }
 
 int TwsService::DeregisterApplication()
 {
     HILOGD("DeregisterApplication");
-    callback_ = nullptr;
+    DoInTwsThread([this] {
+        callback_ = nullptr;
+    });
     return NL_NO_ERROR;
 }
 
@@ -1022,7 +1030,7 @@ void TwsClientData::UpdateData(uint8_t dataType, TwsClientData &clientData)
 void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDelay)
 {
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
-                    SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN(sleService, "sleService invalid.");
     uint16_t icbDelay = 0;
     ProfileASC *ascService = ASCService::GetService();
@@ -1045,12 +1053,12 @@ void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDela
         // 1个icbInterval为0.25ms
         uint8_t sceneNum =
             clientData->sleConfig_.sceneNum < MAX_SCENE_NUM ? clientData->sleConfig_.sceneNum : MAX_SCENE_NUM;
-        HILOGI("[Tws Service]:clientData->sleConfig_.sceneNum: %{public}d, sceneNum: %{public}d",
+        HILOGD("[Tws Service]:clientData->sleConfig_.sceneNum: %{public}d, sceneNum: %{public}d",
             clientData->sleConfig_.sceneNum, sceneNum);
         uint8_t targetScene = GetScenesFromQoS(qosId);
         for (uint8_t i = 0; i < sceneNum; i++) {
             if (targetScene == clientData->sleConfig_.timesMap[i].scene) {
-                HILOGI("[Tws Service]:qosId:%{public}d, GetScenesFromQoS: %{public}u", qosId, GetScenesFromQoS(qosId));
+                HILOGD("[Tws Service]:qosId:%{public}d, GetScenesFromQoS: %{public}u", qosId, GetScenesFromQoS(qosId));
                 sduIntervalTimes = clientData->sleConfig_.timesMap[i].times;
                 break;
             }

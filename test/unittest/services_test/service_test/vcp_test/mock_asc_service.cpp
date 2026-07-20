@@ -68,7 +68,7 @@ int ASCService::GetAudioDeviceCodecInfo(const NearlinkRawAddress &device, std::m
     return NL_NO_ERROR;
 }
 
-int ASCService::SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType)
+int ASCService::SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType)
 {
     HILOGI("[AscService Mocker] SetActiveSinkDevice enter");
     activeSinkDevice_ = device;

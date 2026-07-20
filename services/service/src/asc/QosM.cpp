@@ -116,6 +116,11 @@ Qos QosM::GetCOS(const RawAddress &device)
 
 void QosM::SetCos(const RawAddress &device, Qos nos)
 {
+    if (nos >= NL_SLE_QOS_BUTT) {
+        HILOGE("[ASCService]Set invalid qos(%{public}d)", nos);
+        return;
+    }
+
     std::map<std::string, DevQosmStru>::iterator it = deviceQosmMap_.find(device.GetAddress());
     if (it == deviceQosmMap_.end()) {
         HILOGI("[ASCService] No Item %{public}s", GetEncryptAddr(device.GetAddress()).c_str());

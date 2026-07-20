@@ -5604,7 +5604,7 @@ int ASCService::GetAudioDeviceCodecInfo(const NearlinkRawAddress &device, std::m
     return NL_NO_ERROR;
 }
 
-int ASCService::SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType)
+int ASCService::SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType)
 {
     HILOGD("[ASCService]SetActiveSinkDevice in %{public}s supportStreamType %{public}ld",
         GetEncryptAddr(device.GetAddress()).c_str(), supportStreamType);
@@ -5675,7 +5675,7 @@ void ASCService::ProcessSetActiveSinkDeviceEvent(const ASCMessage &event)
 {
     HILOGD("[ASCService], event(%{public}d)", event.whatM);
     RawAddress device(event.dev_);
-    uint64_t streamType = event.streamTypeBitMap_;
+    uint32_t streamType = event.streamTypeBitMap_;
 
     // streamType 0不切出声栈，用于立即断链路
     if (streamType == AUDIO_STREAM_NONE) {

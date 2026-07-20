@@ -43,7 +43,7 @@ public:
     NlErrCode GetSupportStreamType(const NearlinkRawAddress &device, uint32_t& supportStreamType) override;
     NlErrCode GetAudioDeviceCodecInfo(const NearlinkRawAddress &device, std::map<AudioStreamType,
         AudioStreamCodecInfo> &info) override;
-    NlErrCode SetActiveSinkDevice(const NearlinkRawAddress &device, uint64_t supportStreamType) override;
+    NlErrCode SetActiveSinkDevice(const NearlinkRawAddress &device, uint32_t supportStreamType) override;
     NlErrCode GetDualRecordAbility(const NearlinkRawAddress &device, bool &isSupport) override;
     NlErrCode GetKaraokeAbility(const NearlinkRawAddress &device, bool &isSupport) override;
 private:

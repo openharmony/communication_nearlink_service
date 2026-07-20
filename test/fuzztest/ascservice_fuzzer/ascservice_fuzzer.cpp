@@ -185,7 +185,7 @@ void SetActiveSinkFuzzTest(const uint8_t *fuzzData, size_t size)
     std::string addrStr = BuildAddressString(provider);
     NearlinkRawAddress addr = NearlinkRawAddress(addrStr);
     data.WriteParcelable(&addr);
-    data.WriteUint64(provider.ConsumeIntegral<uint64_t>()); // supportStreamType
+    data.WriteUint32(provider.ConsumeIntegral<uint32_t>()); // supportStreamType
 
     int32_t ret = ASCOnRemoteRequest(
         NearlinkASCInterfaceCode::NL_ASC_SET_ACTIVE_SINK_DEVICE, data, reply);
