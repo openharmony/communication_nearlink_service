@@ -72,6 +72,7 @@ static void CM_InitInner(void *param)
     CM_TransChannelMgrInit();
     CM_EventCoreInit();
     CM_ConcurrentConnInit();
+    CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubrate);
     CM_ICBInit();
     g_cmIsInited = true;
     CM_LOGI("CM_InitInner success");
@@ -102,6 +103,7 @@ static void CM_DeInitInner(void *param)
     (void)param;
     CM_CHECK_RETURN(g_cmIsInited, "CM has not inited");
     CM_ICBDeinit();
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
     CM_ConcurrentConnDeInit();
     CM_EventCoreDeInit();
     SleAccessUnRegCbks();

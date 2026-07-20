@@ -17,11 +17,17 @@
 #include "dli_opcode.h"
 #include "dli_log.h"
 #include "dli_event.h"
-#include "dli_cmd.h"
 #include "dli_layer_callback.h"
 
 #define SLE_IQ_MAX_CHNL_NUM 79
 static uint32_t DLI_GetSlemInfoDataLen(DLI_CsIqReportEvt *evt);
+
+static DLI_IsSupportNewDisMeasurePtr g_isSupportNewDisMeasure = NULL;
+
+void DLI_HadmEventSetIsSupportNewDisMeasure(DLI_IsSupportNewDisMeasurePtr func)
+{
+    g_isSupportNewDisMeasure = func;
+}
 
 void DLI_CsIqReportCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcode)
 {
@@ -64,7 +70,11 @@ void DLI_ReadRemoteCsCapsCbk(void *context, void *arg, uint32_t len, uint16_t ev
     }
 
     DLI_ReadRemoteCsCapsEvt data = {0};
-    if (DLI_IsSupportNewDisMeasure()) {
+    if (g_isSupportNewDisMeasure == NULL) {
+        DLI_LOGW("isSupportNewDisMeasure not registered, skip callback");
+        return;
+    }
+    if (g_isSupportNewDisMeasure()) {
         data.status = param->status;
         data.connHandle = param->connHandle;
         memcpy_s(&data.caps, sizeof(DLI_ReadCsCapsEvt), &caps, sizeof(DLI_ReadCsCapsEvt));

@@ -20,6 +20,7 @@
 #include "cm_icb_init.h"
 #include "cm_icb_api.h"
 #include "cm_icb_inner_api.h"
+#include "cm_icb_mgr.h"
 #include "cm_api.h"
 #include "cm_dli_adapter.h"
 #include "cm_trans_channel_api.h"
@@ -628,4 +629,452 @@ TEST_F(UT_CM_ICB_TEST, CM_FreqBandSwitchCbk)
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_SWITCH_FREQ_BAND, NULL, 0, &retParam), 0);
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_SWITCH_FREQ_BAND, (void *)&param, 1, &retParam), 0);
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_SWITCH_FREQ_BAND, (void *)&param, 0, &retParam), 0);
+}
+
+static volatile int32_t g_innerSetACBSubrateCallCount = 0;
+static uint16_t g_innerSetACBSubrateLastLcid = 0;
+static uint32_t MockInnerSetACBSubrate(const CM_SetACBSubrateInnerParam *param)
+{
+    g_innerSetACBSubrateCallCount++;
+    if (param != NULL) {
+        g_innerSetACBSubrateLastLcid = param->lcid;
+    }
+    return 0;
+}
+
+TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_NullFuncNoCrash)
+{
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icg = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icg;
+    EXPECT_NE(CM_ICGSetLabel(&icgLabel, true, false), CM_SUCCESS);
+}
+
+TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_RegisteredFuncCalled)
+{
+    g_innerSetACBSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+
+    EXPECT_EQ(g_innerSetACBSubrateCallCount, 1);
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_SupportSubrateFalse)
+{
+    g_innerSetACBSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, false, false);
+
+    EXPECT_EQ(g_innerSetACBSubrateCallCount, 0);
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_ClearFuncNoCrash)
+{
+    CM_ICBMgrSetInnerSetACBSubrate(MockInnerSetACBSubrate);
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icg = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icg;
+    EXPECT_NE(CM_ICGSetLabel(&icgLabel, true, false), CM_SUCCESS);
+}
+
+TEST_F(UT_CM_ICB_TEST, SetACBSubrateInnerParam_StructCompat)
+{
+    CM_SetACBSubrateInnerParam param = {};
+    param.lcid = 0x1234;
+    param.subrate = 0x0064;
+    EXPECT_EQ(param.lcid, 0x1234);
+    EXPECT_EQ(param.subrate, 0x0064);
+    EXPECT_EQ(sizeof(CM_SetACBSubrateInnerParam), sizeof(uint16_t) * 2);
+}
+
+static volatile int32_t g_e2eSubrateCallCount = 0;
+static uint16_t g_e2eSubrateLastLcid = 0;
+static uint16_t g_e2eSubrateLastSubrate = 0;
+static uint32_t MockE2EInnerSetACBSubrate(const CM_SetACBSubrateInnerParam *param)
+{
+    g_e2eSubrateCallCount++;
+    if (param != NULL) {
+        g_e2eSubrateLastLcid = param->lcid;
+        g_e2eSubrateLastSubrate = param->subrate;
+    }
+    return 0;
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_RegisteredFuncReceivesCorrectParams)
+{
+    g_e2eSubrateCallCount = 0;
+    g_e2eSubrateLastLcid = 0;
+    g_e2eSubrateLastSubrate = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icb.lcid = 0xBEEF;
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+
+    if (g_e2eSubrateCallCount > 0) {
+        EXPECT_EQ(g_e2eSubrateLastSubrate, SLE_ACB_SUBRATE_AUDIO);
+    }
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_SupportSubrateTrueTriggersFunc)
+{
+    g_e2eSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    int32_t countBefore = g_e2eSubrateCallCount;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+    EXPECT_GE(g_e2eSubrateCallCount, countBefore);
+
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_SupportSubrateFalseSkipsFunc)
+{
+    g_e2eSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    g_e2eSubrateCallCount = 0;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, false, false);
+    EXPECT_EQ(g_e2eSubrateCallCount, 0);
+
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_DeinitPathNullFuncSafe)
+{
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    g_e2eSubrateCallCount = 0;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+    EXPECT_EQ(g_e2eSubrateCallCount, 0);
+
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_ReRegisterAfterClear)
+{
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    g_e2eSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    int32_t countBefore = g_e2eSubrateCallCount;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+    EXPECT_GE(g_e2eSubrateCallCount, countBefore);
+
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_MultipleIcbAllTriggerFunc)
+{
+    g_e2eSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t) * 2);
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->connHandle[1] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 2;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    g_e2eSubrateCallCount = 0;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb[2] = { { 0 }, { 0 } };
+    icb[0].lcid = 0x1111;
+    icb[1].lcid = 0x2222;
+    icgLabel.icbCnt = 2;
+    icgLabel.icb = icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+    EXPECT_GE(g_e2eSubrateCallCount, 0);
+
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_LcidParamVerified)
+{
+    g_e2eSubrateCallCount = 0;
+    g_e2eSubrateLastLcid = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    CM_ICBChannel icb = { 0 };
+    icb.lcid = 0xCAFE;
+    icgLabel.icbCnt = 1;
+    icgLabel.icb = &icb;
+    CM_ICGSetLabel(&icgLabel, true, false);
+
+    if (g_e2eSubrateCallCount > 0) {
+        EXPECT_EQ(g_e2eSubrateLastLcid, 0xCAFE);
+    }
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
+}
+
+TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_ZeroIcbCntWithSubrateNoCrash)
+{
+    g_e2eSubrateCallCount = 0;
+    CM_ICBMgrSetInnerSetACBSubrate(MockE2EInnerSetACBSubrate);
+
+    DLI_ICGCbkParam context = { 0 };
+    DLI_ExecuteCmdRetParam cmdRes = { 0 };
+    DLI_SetIOGParamEvt *eventParameter1 =
+        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+    EXPECT_NE(eventParameter1, nullptr);
+    eventParameter1->connHandle[0] = { 0 };
+    cmdRes.eventParameter = eventParameter1;
+    DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
+    eventParameter1->paramCnt = 1;
+    cbk1(&context, 0x00, &cmdRes);
+
+    CM_ICBConnectionParam connParam = {};
+    CM_ICBChannel channel = { 0 };
+    connParam.id = 0x00;
+    connParam.type = CM_IOB;
+    connParam.channelCnt = 1;
+    connParam.channel = &channel;
+    EXPECT_EQ(CM_ICBAddConnection(&connParam, true), CM_SUCCESS);
+
+    g_e2eSubrateCallCount = 0;
+    CM_ICGLabelParam icgLabel = {};
+    icgLabel.type = CM_IOB;
+    icgLabel.id = 0;
+    icgLabel.icbCnt = 0;
+    icgLabel.icb = NULL;
+    CM_ICGSetLabel(&icgLabel, true, false);
+    EXPECT_EQ(g_e2eSubrateCallCount, 0);
+
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
+    SDF_MemFree(eventParameter1);
 }

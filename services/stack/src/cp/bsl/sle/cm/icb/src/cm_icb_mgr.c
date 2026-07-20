@@ -17,7 +17,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "byte_codec.h"
-#include "cm_inner_api.h"
 #include "cm_dli_adapter.h"
 #include "cm_errno.h"
 #include "cm_icb_init.h"
@@ -72,6 +71,12 @@ static SDF_DListHead_S g_icgConnectionListHead;
 static CM_ICBCallback g_icbCallback = {NULL};
 static CM_ICBConnectionStatusCbk g_icbConnStatusCb = NULL;
 static SDF_DListHead_S g_freqBandListener = {{&g_freqBandListener.list, &g_freqBandListener.list}, 0};
+static CM_InnerSetACBSubratePtr g_innerSetACBSubrate = NULL;
+
+void CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubratePtr func)
+{
+    g_innerSetACBSubrate = func;
+}
 
 static ICGConnectionNode *MallocICGChannelNode(uint8_t channelCnt)
 {
@@ -1233,8 +1238,12 @@ uint32_t CM_ICGMgrSetLabel(DLI_ICGLabelParam *param, bool mcast, bool supportSub
             CM_SetACBSubrateInnerParam subrateParam = {};
             subrateParam.lcid = param->icb[i].lcid;
             subrateParam.subrate = SLE_ACB_SUBRATE_AUDIO;
-            uint32_t ret = CM_InnerSetACBSubrate(&subrateParam);
-            CM_LOGI("set acb subrate, lcid=%u, ret=%u", param->icb[i].lcid, ret);
+            if (g_innerSetACBSubrate != NULL) {
+                uint32_t ret = g_innerSetACBSubrate(&subrateParam);
+                CM_LOGI("set acb subrate, lcid=%u, ret=%u", param->icb[i].lcid, ret);
+            } else {
+                CM_LOGW("innerSetACBSubrate not registered, skip subrate setting, lcid=%u", param->icb[i].lcid);
+            }
         }
 
         for (uint32_t j = 0; j < channelNode->channelCnt && j < CM_MAX_CHANNEL_COUNT; j++) {

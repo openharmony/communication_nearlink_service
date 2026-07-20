@@ -23,10 +23,15 @@
 #define DLI_HADM_EVENT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef bool (*DLI_IsSupportNewDisMeasurePtr)(void);
+
+void DLI_HadmEventSetIsSupportNewDisMeasure(DLI_IsSupportNewDisMeasurePtr func);
 
 void DLI_CsIqReportCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcode);
 

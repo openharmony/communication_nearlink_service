@@ -24,15 +24,45 @@
 #include "dli_factory_event.h"
 #include "dli_dev_discovery_event.h"
 
+static volatile bool g_readRemoteMeasureCapsCbkCalled = false;
+static void MockReadRemoteMeasureCapsCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
+{
+    (void)context;
+    (void)status;
+    (void)cmdRes;
+    g_readRemoteMeasureCapsCbkCalled = true;
+}
+
+static void RegisterReadRemoteMeasureCapsCbk(void)
+{
+    DLI_CbkLineStru cbkTable[] = {
+        { DLI_CBK_READ_REMOTE_MEASURE_CAPS, MockReadRemoteMeasureCapsCbk },
+    };
+    DLI_AddCbks(cbkTable, sizeof(cbkTable) / sizeof(DLI_CbkLineStru));
+}
+
+static void UnregisterReadRemoteMeasureCapsCbk(void)
+{
+    DLI_CbkLineStru cbkTable[] = {
+        { DLI_CBK_READ_REMOTE_MEASURE_CAPS, NULL },
+    };
+    DLI_RemoveCbks(cbkTable, sizeof(cbkTable) / sizeof(DLI_CbkLineStru));
+}
+
 class UT_DLI_EVENT : public testing::Test {
 protected:
     // SetUP 在每一个 TEST_F 测试开始前执行一次
     virtual void SetUp()
-    {}
+    {
+        g_readRemoteMeasureCapsCbkCalled = false;
+    }
 
     // TearDown 在每一个 TEST_F 测试完成后执行一次
     virtual void TearDown()
-    {}
+    {
+        DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+        UnregisterReadRemoteMeasureCapsCbk();
+    }
 
     // SetUpTestCase 在所有 TEST_F 测试开始前执行一次
     static void SetUpTestCase()
@@ -265,4 +295,284 @@ TEST_F(UT_DLI_EVENT, DLI_IMG_CBK)
 
     SDF_MemFree(arg0);
     SDF_MemFree(arg1);
+}
+
+static bool MockIsSupportNewDisMeasure_ReturnTrue(void)
+{
+    return true;
+}
+
+static bool MockIsSupportNewDisMeasure_ReturnFalse(void)
+{
+    return false;
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_NullFuncFallback)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x01;
+    arg.connHandle = 0x02;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_TrueFuncNewMeasure)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x1234;
+    arg.measureSignalCapabilitySupported = 1;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_FalseFuncLegacyPath)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x03;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_NullFuncShortCircuit)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt) - 1, 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, HadmEventSetIsSupportNewDisMeasure_RegisterAndClear)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+static int32_t g_rangingTrueBranchData = 0;
+static int32_t g_rangingFalseBranchData = 0;
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_TrueBranchFieldExtraction)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x5678;
+    arg.measureSignalCapabilitySupported = 1;
+    arg.multiAntennasSupported = 2;
+    arg.type1MinTimeIp1 = 0x0A;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_FalseBranchMemcpyPath)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x02;
+    arg.connHandle = 0xABCD;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_DynamicSwitchTrueToFalse)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt argTrue = {0};
+    argTrue.status = 0x00;
+    argTrue.connHandle = 0x1111;
+    argTrue.measureSignalCapabilitySupported = 1;
+    DLI_ReadRemoteCsCapsCbk(&context, &argTrue, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    DLI_ReadRemoteCsCapsEvt argFalse = {0};
+    argFalse.status = 0x03;
+    argFalse.connHandle = 0x2222;
+    DLI_ReadRemoteCsCapsCbk(&context, &argFalse, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_DynamicSwitchFalseToTrue)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt argFalse = {0};
+    argFalse.status = 0x04;
+    DLI_ReadRemoteCsCapsCbk(&context, &argFalse, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_ReadRemoteCsCapsPrivEvt argTrue = {0};
+    argTrue.status = 0x00;
+    argTrue.connHandle = 0x3333;
+    argTrue.measureSignalCapabilitySupported = 1;
+    DLI_ReadRemoteCsCapsCbk(&context, &argTrue, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_DeinitPathNullFuncFallback)
+{
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x4444;
+    g_readRemoteMeasureCapsCbkCalled = false;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
+
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    DLI_ReadRemoteCsCapsEvt argFallback = {0};
+    argFallback.status = 0x05;
+    g_readRemoteMeasureCapsCbkCalled = false;
+    DLI_ReadRemoteCsCapsCbk(&context, &argFallback, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_NE(&context, nullptr);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_RepeatedRegistrationConsistent)
+{
+    for (int i = 0; i < 5; i++) {
+        DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+        DLI_ManagerContext context = {0};
+        DLI_SmCbkContext cbkcontext = {0};
+        context.cbkContext = &cbkcontext;
+        DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+        arg.status = 0x00;
+        arg.connHandle = 0x5555;
+        DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+        EXPECT_NE(&context, nullptr);
+    }
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_TrueFuncLenTooSmallEarlyReturn)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x6666;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt) - 1, 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_FalseFuncLenTooSmallEarlyReturn)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x07;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt) - 1, 0x00);
+    EXPECT_NE(&context, nullptr);
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_NullFuncEarlyReturnNoCallback)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x7777;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_TrueFuncCallbackInvoked)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnTrue);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
+    arg.status = 0x00;
+    arg.connHandle = 0x8888;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
+    EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_FalseFuncCallbackInvoked)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(MockIsSupportNewDisMeasure_ReturnFalse);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x09;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
+}
+
+TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_NullFuncEarlyReturnBeforeLenCheck)
+{
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
+    RegisterReadRemoteMeasureCapsCbk();
+    DLI_ManagerContext context = {0};
+    DLI_SmCbkContext cbkcontext = {0};
+    context.cbkContext = &cbkcontext;
+    DLI_ReadRemoteCsCapsEvt arg = {0};
+    arg.status = 0x0A;
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    EXPECT_FALSE(g_readRemoteMeasureCapsCbkCalled);
 }
