@@ -39,7 +39,7 @@ constexpr uint16_t SLE_CONN_SUPERVISION_TIMEOUT =  1000;     // 超时时间10s
 constexpr uint8_t SLE_CONN_INTERVAL_UNIT_DIVISOR_8 =  8;     //  连接interval单位0.125ms，即1/8
 constexpr uint8_t SLE_CONN_INTERVAL_SCALE_FACTOR_2 = 2;     //  连接interval计算系数2
 constexpr uint8_t SLE_CONN_TIMEOUT_UNIT_10MS = 10;     // 连接链路超时时间单位10ms
-constexpr int SLE_HID_COEX_UPDATE_TIMESLOT_10 = 10;     // 海思HID设备interval更新保护间隔10 * interval
+constexpr int SLE_HID_COEX_UPDATE_TIMESLOT_10 = 10;     // HID设备interval更新保护间隔10 * interval
 constexpr uint16_t SLE_CONN_TIMEOUT_EXTRA_500MS = 500;     // 连接链路超时时间额外增加单位500ms
 
 const std::map<uint16_t, QOSM_AutoBitrate_E> bitRateMap = {
