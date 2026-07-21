@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -543,13 +543,14 @@ static DLI_DataStru *DTAP_CreateDataStru(uint16_t lcid, uint16_t type,
 
 static bool DTAP_SendData(uint16_t lcid, SDF_Buff_S *buff)
 {
+    uint64_t buffLen = SDF_DataLenGet(buff);
     DLI_DataStru *dliData = DTAP_CreateDataStru(lcid, DLI_DATATYPE_ACB, 0, 0, buff);
     if (dliData == NULL) {
-        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %d", lcid, SDF_DataLenGet(buff));
+        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %llu", lcid, buffLen);
         return false;
     }
     uint32_t ret = DLI_DataSend(dliData);
-    DTAP_LOGD("dli send data, ret %d, lcid %d, buff len %d", ret, lcid, SDF_DataLenGet(buff));
+    DTAP_LOGD("dli send data, ret %d, lcid %d, buff len %llu", ret, lcid, buffLen);
     if (ret != DLI_SUCCESS) {
         SDF_MemFree(dliData);
         return false;
