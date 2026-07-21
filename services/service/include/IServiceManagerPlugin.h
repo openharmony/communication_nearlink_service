@@ -57,6 +57,7 @@ public:
     virtual int HidSendData(const HidReportInfo &reportInfo) const = 0;
     virtual int GetDeviceAppearance(const RawAddress &device) const = 0;
     virtual bool DisconnectAllProfile(const RawAddress &device) = 0;
+    virtual bool IsProxyConnectExisted(std::string &devAddress) = 0;
 };
 
 /**

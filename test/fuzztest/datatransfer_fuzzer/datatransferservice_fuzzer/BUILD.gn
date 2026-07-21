@@ -51,6 +51,7 @@ ohos_fuzztest("DataTransferServiceFuzzTest") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/dft/include",
     "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/port",
+    "$NEARLINK_ROOT/services/service/src/controller",
   ]
 
   configs = [ "${nearlink_test_utils_path}:test_utils_config" ]

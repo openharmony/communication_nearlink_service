@@ -32,6 +32,7 @@ config("nl_datatransfer_service_unit_test_config") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/dft/include",
     "$NEARLINK_ROOT/services/stack/src/cp/bal/profile/port",
+    "$NEARLINK_ROOT/services/service/src/controller",
   ]
 
   defines =  [

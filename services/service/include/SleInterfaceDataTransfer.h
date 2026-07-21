@@ -152,6 +152,16 @@ public:
      * @since 6
      */
     virtual void ChangeSocketState(uint16_t portId, std::string address, uint8_t result) = 0;
+
+    /**
+     * @brief whether exists a proxy connect
+     *
+     * @param devAddress device address.
+     * @return Returns <b>true</b> if the proxy connect exists;
+     *         returns <b>false</b> if the proxy connect does not exist.
+     * @since 6
+     */
+    virtual bool IsProxyConnectExisted(std::string &devAddress) = 0;
 };
 }  // namespace OHOS::Nearlink
 #endif  // SLE_INTERFACE_DATATRANSFER_H
