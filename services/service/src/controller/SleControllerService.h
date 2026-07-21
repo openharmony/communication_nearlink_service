@@ -17,6 +17,7 @@
 #define SLE_CONTROLLER_SERVICE_H
 
 #include <map>
+#include <mutex>
 #include <string>
 #include "interface_sle_controller.h"
 #include "nearlink_def.h"
@@ -58,7 +59,8 @@ private:
         SleCoexModeStatus state);
     void StartSleHidCoexUpdateTimer(const std::vector<SleHidCoexDevice> &deviceList, size_t index,
         SleCoexModeStatus state, int64_t protectTime);
- 
+
+    std::mutex sleCoexModeLock_ = {};
     SleCoexModeStatus sleHidCoexState_ = SleCoexModeStatus::STOPPED;
     std::shared_ptr<NearlinkTimer> sleHidCoexEnableDelayTimer_ = nullptr;
     std::shared_ptr<NearlinkTimer> sleHidCoexDisableDelayTimer_ = nullptr;
