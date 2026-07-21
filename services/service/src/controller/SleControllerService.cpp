@@ -276,8 +276,7 @@ void SleControllerService::UpdateSleHidCoexIntervalForEach(
     const std::vector<SleHidCoexDevice> &deviceList, size_t index, SleCoexModeStatus state)
 {
     NL_CHECK_RETURN(index >= 0 && index <= deviceList.size(), "invalid index: %{public}lu", index);
-    NL_CHECK_RETURN(state == SleCoexModeStatus::STARTING || state == SleCoexModeStatus::STOPPING,
-        "error, invalid state: %{public}d", static_cast<int>(state));
+    NL_CHECK_RETURN(state == SleCoexModeStatus::STARTING || state == SleCoexModeStatus::STOPPING, "invalid state");
     auto adapter = static_cast<SleInterfaceAdapterSub *>
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN(adapter, "sleAdapter is null");
