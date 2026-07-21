@@ -30,7 +30,6 @@ namespace Nearlink {
 namespace {
 static const int32_t MIN_MTU_SIZE = 22;
 static const int32_t MAX_MTU_SIZE = 1024;
-static const int32_t DESCRIPTOR_TYPE_OFFSET = 1;
 }
 
 thread_local napi_ref NapiNearlinkSsapClient::consRef_ = nullptr;
@@ -672,8 +671,7 @@ napi_value NapiNearlinkSsapClient::ReadDescriptor(napi_env env, napi_callback_in
         if (err != NL_NO_ERROR) {
             return NapiAsyncWorkRet(err, nullptr);
         }
-        auto object = std::make_shared<NapiNativeSsapDescriptor>(descriptor,
-            descriptor.GetDescriptorType() - DESCRIPTOR_TYPE_OFFSET);
+        auto object = std::make_shared<NapiNativeSsapDescriptor>(descriptor);
         return NapiAsyncWorkRet(err, object);
     };
 

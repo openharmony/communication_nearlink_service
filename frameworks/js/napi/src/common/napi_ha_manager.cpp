@@ -13,21 +13,124 @@
  * limitations under the License.
  */
 
-#include <random>
-#include <vector>
-#include "log_util.h"
-#include "ffrt.h"
-#include "nearlink_errorcode.h"
 #include "napi_ha_manager.h"
+#include "log_util.h"
+#include "nearlink_errorcode.h"
+#include "ffrt_inner.h"
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
+#include <memory>
+
+#ifdef NEARLINK_HIAPPEVENT_ENABLE
+#include "app_api_metric.h"
+#include "app_event_processor_mgr.h"
+#include "base_type.h"
+#endif
 
 namespace OHOS {
 namespace Nearlink {
-static const std::string SDK_NAME = "NearLinkKit";
-constexpr const int64_t MAX_RAMDOM_VALUE = 999999;
+namespace {
+const char* SDK_NAME = "ConnectivityKit";
+constexpr int64_t REPORT_NOT_SUPPORT_CODE = -200;
+constexpr int ADD_PROCESSOR_TIMEOUT_SECONDS = 5;
+}
 
-NapiHaManager::NapiHaManager() {}
- 
-NapiHaManager::~NapiHaManager() {}
+#ifdef NEARLINK_HIAPPEVENT_ENABLE
+class NapiHaManager::NapiHaManagerImpl {
+public:
+    NapiHaManagerImpl() = default;
+    ~NapiHaManagerImpl() = default;
+
+    int64_t GetCurrentTimestamp()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    void ReportEvent(const std::string& apiName, bool success, int64_t beginTime, int32_t errCode)
+    {
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            if (m_processorId == -1) {
+                AddProcessor();
+                auto ret = m_cv.wait_for(lock,
+                    std::chrono::seconds(ADD_PROCESSOR_TIMEOUT_SECONDS), [this]() { return m_processorId != -1; });
+                if (!ret) {
+                    HILOGE("AddProcessor timeout, m_processorId:%{public}lld", (long long)m_processorId);
+                    return;
+                }
+            }
+            if (m_processorId == REPORT_NOT_SUPPORT_CODE) {
+                return;
+            }
+        }
+
+        auto endTime = GetCurrentTimestamp();
+        auto durationUs = std::max<int64_t>(endTime - beginTime, 0);
+        if (durationUs < 0) {
+            HILOGE("ReportEvent error params, duration = %{public}lld", (long long)durationUs);
+            return;
+        }
+
+        OHOS::HiviewDFX::HiAppEvent::ApiInfo apiInfo;
+        apiInfo.kit = SDK_NAME;
+        apiInfo.api = apiName;
+
+        OHOS::HiviewDFX::HiAppEvent::ApiMetric metric;
+        metric.errCode = errCode;
+        metric.duration = static_cast<int>(durationUs);
+        metric.successful = success;
+
+        int ret = OHOS::HiviewDFX::HiAppEvent::ReportApiMetric(apiInfo, metric);
+        if (ret != 0) {
+            HILOGE("ReportApiMetric failed, apiName:%{public}s, ret:%{public}d", apiName.c_str(), ret);
+        }
+    }
+
+private:
+    void AddProcessor()
+    {
+        ffrt::submit([this]() {
+            OHOS::HiviewDFX::HiAppEvent::ReportConfig config;
+            config.name = "ha_app_event";
+            config.configName = "SDK_OCG";
+            int64_t result = OHOS::HiviewDFX::HiAppEvent::AppEventProcessorMgr::AddProcessor(config);
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_processorId = result;
+            }
+            m_cv.notify_one();
+
+            HILOGI("AddProcessor result %{public}lld", (long long)result);
+        }, {}, {});
+    }
+
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    int64_t m_processorId{-1};
+};
+
+#else
+
+class NapiHaManager::NapiHaManagerImpl {
+public:
+    NapiHaManagerImpl()
+    {
+        HILOGW("Nearlink hiappevent is not enabled, reporting disabled");
+    }
+    ~NapiHaManagerImpl() = default;
+
+    int64_t GetCurrentTimestamp()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    void ReportEvent(const std::string& apiName, bool success, int64_t beginTime, int32_t errCode)
+    {}
+};
+#endif
 
 NapiHaManager& NapiHaManager::GetInstance()
 {
@@ -35,54 +138,20 @@ NapiHaManager& NapiHaManager::GetInstance()
     return instance;
 }
 
-std::string NapiHaManager::GenerateTransId()
-{
-    std::random_device randSeed;
-    std::mt19937 gen(randSeed());
-    std::uniform_int_distribution<> dis(0, MAX_RAMDOM_VALUE);
-    return std::string("transId_") + std::to_string(dis(gen));
-}
+NapiHaManager::NapiHaManager() : m_impl(std::make_shared<NapiHaManagerImpl>()) {}
+
+NapiHaManager::~NapiHaManager() = default;
 
 int64_t NapiHaManager::GetCurrentTimestamp()
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-        .count();
+    return GetInstance().m_impl->GetCurrentTimestamp();
 }
 
-void NapiHaManager::ReportEvent(std::string apiName, const int64_t beginTime, const int32_t errCode)
+void NapiHaManager::ReportEvent(const std::string& apiName, const int64_t beginTime, const int32_t errCode)
 {
-    int64_t endTime = GetCurrentTimestamp();
-
-    auto task = [apiName, errCode, beginTime, endTime] {
-        int result = (errCode == NL_NO_ERROR ? 0 : 1);
-        std::string transId = GenerateTransId();
-        OHOS::HiviewDFX::HiAppEvent::Event event("api_diagnostic", "api_exec_end", 
-            OHOS::HiviewDFX::HiAppEvent::BEHAVIOR);
-        event.AddParam("trans_id", transId);
-        event.AddParam("api_name", apiName);
-        event.AddParam("sdk_name", SDK_NAME);
-        event.AddParam("begin_time", beginTime);
-        event.AddParam("end_time", endTime);
-        event.AddParam("result", result);
-        event.AddParam("error_code", errCode);
-        int ret = Write(event);
-        HILOGD("transId:%{public}s, apiName:%{public}s, sdkName:%{public}s, startTime:%{public}ld, endTime:%{public}ld,"
-            "result:%{public}d, errCode:%{public}d, ret:%{public}d",
-            transId.c_str(), apiName.c_str(), SDK_NAME.c_str(), beginTime, endTime, result, errCode, ret);
-    };
-    ffrt::submit(task, {}, {});
+    bool success = (errCode == NL_NO_ERROR);
+    m_impl->ReportEvent(apiName, success, beginTime, errCode);
 }
 
-void NapiHaManager::AddProcessor()
-{
-    ffrt::submit([] {
-        HILOGI("AddProcessor enter");
-        OHOS::HiviewDFX::HiAppEvent::ReportConfig config;
-        config.name = "ha_app_event";
-        config.configName = "SDK_OCG"; // 固定内容，此配置内容由HA确认规格
-        HiviewDFX::HiAppEvent::AppEventProcessorMgr::AddProcessor(config);
-        HILOGI("AddProcessor end");
-    }, {}, {});
-}
 }  // namespace Nearlink
 }  // namespace OHOS

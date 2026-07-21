@@ -344,30 +344,6 @@ static napi_status ParseScanFilterParameters(const napi_env &env, napi_value &ar
     return napi_ok;
 }
 
-static napi_status CheckFullScanParams(napi_env env, napi_callback_info info, SleScanSettings &outSettings)
-{
-    size_t argc = ARGS_SIZE_ONE;
-    napi_value argv[ARGS_SIZE_ONE] = {nullptr};
-    napi_value thisVar = nullptr;
-    NAPI_NL_CALL_RETURN(napi_get_cb_info(env, info, &argc, argv, &thisVar, NULL));
-    NAPI_NL_RETURN_IF((argc > ARGS_SIZE_ONE), "Requires 0 or 1 arguments", napi_invalid_arg);
-
-    if (argc == ARGS_SIZE_ONE) {
-        ScanOptions scanOptions;
-        NAPI_NL_CALL_RETURN(ParseScanParameters(env, info, argv[PARAM0], scanOptions));
-        outSettings.SetReportDelay(scanOptions.interval);
-        outSettings.SetScanMode(static_cast<int>(scanOptions.dutyMode));
-        outSettings.SetDuration(static_cast<int>(scanOptions.duration));
-        if (scanOptions.hasFrameType) {
-            uint8_t frameTypeValue = (scanOptions.frameType == FrameType::FRAME_TYPE_4) ?
-                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
-                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
-            outSettings.SetFrameType(frameTypeValue);
-        }
-    }
-    return napi_ok;
-}
-
 static napi_status CheckFilterScanParams(napi_env env, napi_callback_info info,
     std::vector<SleScanFilter> &outScanFilters, SleScanSettings &outSettings)
 {
@@ -497,7 +473,6 @@ static napi_value Init(napi_env env, napi_value exports)
     HILOGI("-----Nearlink Central Manager Init start------");
 
     NapiNearlinkScan::DefineCentralManagerJSObject(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----Nearlink Central Manager Init end------");
     return exports;
 }

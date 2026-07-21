@@ -23,9 +23,6 @@
 #include "napi_nearlink_ssap_client_callback.h"
 namespace OHOS {
 namespace Nearlink {
-namespace {
-static const int32_t DESCRIPTOR_TYPE_OFFSET = 1;
-}
 
 NapiNearlinkSsapClientCallback::NapiNearlinkSsapClientCallback()
     : eventSubscribe({SLE_SSAP_CLIENT_CALLBACK_CONNECTION_STATE_CHANGE,
@@ -100,8 +97,7 @@ void NapiNearlinkSsapClientCallback::OnDescriptorReadResult(const SsapDescriptor
 {
     HILOGI("ret: %{public}d", ret);
     SsapDescriptor ssapDescriptor(descriptor);
-    auto napiDesscriptor = std::make_shared<NapiNativeSsapDescriptor>(ssapDescriptor,
-        descriptor.GetDescriptorType() - DESCRIPTOR_TYPE_OFFSET);
+    auto napiDesscriptor = std::make_shared<NapiNativeSsapDescriptor>(ssapDescriptor);
     AsyncWorkCallFunction(asyncPromiseMap_, NapiAsyncType::SSAP_CLIENT_READ_DESCRIPTOR, napiDesscriptor, ret);
 }
 

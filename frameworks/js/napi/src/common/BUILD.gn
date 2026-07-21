@@ -12,10 +12,18 @@
 # limitations under the License.
 
 import("//build/ohos.gni")
+import("../../../../../nearlink_feature.gni")
 
 SLE_PART_DIR = "../../../../.."
+SLE_NAPI_DIR = "$SLE_PART_DIR/frameworks/js/napi"
 
-ohos_shared_library("advertising") {
+config("nearlink_napi_common_public") {
+    include_dirs = [
+        "$SLE_NAPI_DIR/src/common/include",
+    ]
+}
+
+ohos_shared_library("nearlink_napi_common") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   sanitize = {
       cfi = true                             # Enable/disable control flow integrity detection
@@ -50,23 +58,36 @@ ohos_shared_library("advertising") {
   ]
 
   include_dirs = [
-    "$SLE_PART_DIR/frameworks/js/napi/include",
+    "$SLE_NAPI_DIR/src/common/include",
+    "$SLE_NAPI_DIR/include",
   ]
+
+  public_configs = [":nearlink_napi_common_public"]
 
   defines = [
     "LOG_TAG = \"nearlink_napi\"",
     "LOG_DOMAIN = 0xD000150",
   ]
 
+  if (nearlink_hiappevent_enabled) {
+      defines += ["NEARLINK_HIAPPEVENT_ENABLE"]
+  }
+
   sources = [
-    "napi_nearlink_advertising_callback.cpp",
-    "napi_nearlink_advertising.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_async_callback.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_async_work.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_event_subscribe_module.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_ha_manager.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_native_object.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_nearlink_error.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_nearlink_utils.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_parser_utils.cpp",
+    "$SLE_NAPI_DIR/src/common/napi_timer.cpp",
   ]
 
   deps = [
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
     "$SLE_PART_DIR/utils:nearlink_utils",
-    "$SLE_PART_DIR/frameworks/js/napi/src/common:nearlink_napi_common",
   ]
 
   external_deps = [
@@ -76,11 +97,15 @@ ohos_shared_library("advertising") {
     "libuv:uv",
     "napi:ace_napi",
     "node:node_header_notice",
-    "hiappevent:hiappevent_innerapi",
-    "ffrt:libffrt",
   ]
 
-  relative_install_dir = "module/nearlink"
+  if (nearlink_hiappevent_enabled) {
+    external_deps += [
+      "hiappevent:hiappevent_innerapi",
+      "ffrt:libffrt",
+    ]
+  }
+
   part_name = "nearlink_service"
   subsystem_name = "communication"
 }

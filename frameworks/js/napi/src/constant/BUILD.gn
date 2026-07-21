@@ -51,7 +51,6 @@ ohos_shared_library("constant") {
   ]
 
   include_dirs = [
-    "$SLE_NAPI_DIR/include",
     "$SLE_NAPI_DIR/src/constant",
   ]
 
@@ -61,14 +60,13 @@ ohos_shared_library("constant") {
   ]
 
   sources = [
-    "$SLE_NAPI_DIR/src/common/napi_nearlink_utils.cpp",
     "napi_nearlink_constant.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_ha_manager.cpp",
   ]
 
   deps = [
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
     "$SLE_PART_DIR/utils:nearlink_utils",
+    "$SLE_PART_DIR/frameworks/js/napi/src/common:nearlink_napi_common",
   ]
 
   external_deps = [

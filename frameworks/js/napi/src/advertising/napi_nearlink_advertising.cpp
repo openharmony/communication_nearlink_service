@@ -397,7 +397,6 @@ static napi_value Init(napi_env env, napi_value exports)
     HILOGI("-----Advertising Init start------");
 
     NapiNearlinkAdvertising::DefineAdvertisingJSObject(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----Advertising Init end------");
     return exports;
 }

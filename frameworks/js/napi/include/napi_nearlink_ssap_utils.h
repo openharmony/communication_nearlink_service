@@ -114,13 +114,12 @@ private:
 
 class NapiNativeSsapDescriptor : public NapiNativeObject {
 public:
-    explicit NapiNativeSsapDescriptor(SsapDescriptor &descriptor, size_t idx) : descriptor_(descriptor), idx_(idx) {}
+    explicit NapiNativeSsapDescriptor(SsapDescriptor &descriptor) : descriptor_(descriptor) {}
     ~NapiNativeSsapDescriptor() override = default;
 
     napi_value ToNapiValue(napi_env env) const override;
 private:
     SsapDescriptor descriptor_;
-    size_t idx_;
 };
 
 class NapiNativeSsapPropertyReadRequest : public NapiNativeObject {
