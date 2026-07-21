@@ -294,7 +294,7 @@ namespace OHOS {
             return;
         }
         memcpy_s(&addr, sizeof(TRANS_Addr_S), addrData.data(), addrData.size());
-        addr.proto = (TRANS_Protocol_t)(addr.proto % 2);
+        addr.proto = (TRANS_Protocol_E)(addr.proto % 2);
 
         uint16_t transSize = provider.ConsumeIntegral<uint16_t>();
         std::vector<uint8_t> transData = provider.ConsumeBytes<uint8_t>(transSize);

@@ -215,7 +215,7 @@ static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, 
     return ret;
 }
 
-void DLI_ReadBufferSizeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
+static void DLI_ReadBufferSizeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     (void)context;
     DLI_LOGI("enter read buffer size cbk");
@@ -228,17 +228,21 @@ void DLI_ReadBufferSizeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetPara
     DLI_AllDataSet(param->acbTxDataLen, param->acbTxDataNum, param->icbTxDataLen, param->icbTxDataNum);
 }
 
-uint32_t DLI_SetPublicAddress(uint8_t *addr)
+static void DLI_SetPublicAddressCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    DLI_CHECK_RETURN_RET(addr, DLI_STACK_PARAMS_ERRNO, "addr is null");
-    DLI_AddrStru cmd = {0};
-    (void)memcpy_s(cmd.addr, SLE_ADDR_LEN, addr, SLE_ADDR_LEN);
+    (void)context;
+    (void)cmdRes;
+    DLI_LOGI("enter set public address cbk status %hu", status);
+}
 
+uint32_t DLI_SetPublicAddress(DLI_AddrStru *param)
+{
+    DLI_CHECK_RETURN_RET(param, DLI_STACK_PARAMS_ERRNO, "param is null");
     uint32_t ret = DLI_ExecuteCommand(DLI_SET_PUBLIC_ADDRESS,
         DLI_CMD_COMPLETE_EVT,
-        &cmd,
+        param,
         sizeof(DLI_AddrStru),
-        DLI_GetCbk(DLI_CBK_SET_PUBLIC_ADDRESS),
+        DLI_SetPublicAddressCbk,
         NULL,
         0);
     DLI_LOGD("set public address ret = %u", ret);

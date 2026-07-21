@@ -2354,7 +2354,7 @@ TEST_F(SleAdapterSecurityTest, adapter_callback003)
         .rssiIdx = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
         .actualRssiValue = {-50, -51, -52, -53, -54, -55, -56, -57, -58, -59, -60, -61, -62, -63}
     };
-    nbc_callback_param_t param1 = {
+    NbcCallbackParam param1 = {
         .data = &disconChipInfo,
         .dataLen = sizeof(DisconChipInfo)
     };
@@ -2364,7 +2364,7 @@ TEST_F(SleAdapterSecurityTest, adapter_callback003)
         .connHandle = 1234,
         .powerLevel = 50
     };
-    nbc_callback_param_t param2 = {
+    NbcCallbackParam param2 = {
         .data = &powerLevelInfo,
         .dataLen = sizeof(PowerLevelInfo)
     };

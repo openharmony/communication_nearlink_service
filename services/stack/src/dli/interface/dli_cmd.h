@@ -39,10 +39,10 @@ uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param);
 
 /**
  * @brief  设置媒体接入层唯一标识
- * @param  [in]  < addr > 媒体接入层唯一标识
+ * @param  [in]  < param > 媒体接入层唯一标识参数
  * @return 0: 成功, OTHER: 失败
  */
-uint32_t DLI_SetPublicAddress(uint8_t *addr);
+uint32_t DLI_SetPublicAddress(DLI_AddrStru *param);
 
 /**
  * @brief  可用信道指示

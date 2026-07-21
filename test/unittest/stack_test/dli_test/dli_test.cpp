@@ -207,7 +207,6 @@ static const DLI_CbkLineStru nbcTable[] = {
     {DLI_CBK_READ_LOCAL_FEATURE, MockEvtCbk},
     {DLI_CBK_RSSI_CHANGE, MockEvtCbk},
     {DLI_CBK_CHIP_RESET_NOTIFY, MockEvtCbk},
-    {DLI_CBK_SET_PUBLIC_ADDRESS, MockEvtCbk},
     {DLI_CBK_REMOVE_PEER_DEV_TYPE, MockEvtCbk},
 };
 
@@ -299,9 +298,13 @@ HWTEST_F(DliTest, TestCaseSendCommonCmd, TestSize.Level1)
     ret = DLI_ReadCommConfigValue();
     ASSERT_EQ(0, ret);
 
-    // cbk is null
+    // param is null
+    ret = DLI_SetPublicAddress(NULL);
+    ASSERT_EQ(DLI_STACK_PARAMS_ERRNO, ret);
     uint8_t addr[] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01};
-    ret = DLI_SetPublicAddress(addr);
+    DLI_AddrStru cmd1;
+    (void)memcpy_s(cmd1.addr, sizeof(cmd1.addr), addr, sizeof(addr));
+    ret = DLI_SetPublicAddress(&cmd1);
     ASSERT_EQ(0, ret);
 }
 
@@ -861,7 +864,7 @@ HWTEST_F(DliTest, TestCaseRecvEvent024, TestSize.Level1)
 
     // slem info does not match
     // bit位默认都是0，所以data长度为0
-    uint8_t len = sizeof(DLI_CsIqReportEvt);
+    uint32_t len = sizeof(DLI_CsIqReportEvt);
     DLI_CsIqReportEvt *cmd = (DLI_CsIqReportEvt *)SDF_MemZalloc(len);
     DLI_CHECK_RETURN(cmd != NULL, "cmd malloc failed");
     (void)memset_s(cmd, len, 0, len);
@@ -869,7 +872,9 @@ HWTEST_F(DliTest, TestCaseRecvEvent024, TestSize.Level1)
     ASSERT_EQ(0x00, g_cmdResData);
     SDF_MemFree(cmd);
 
-    uint8_t len1 = sizeof(DLI_SlemTof) + sizeof(DLI_SlemChnlMeas) + sizeof(DLI_SlemIqData) * TEST_IQ_MAX_CHNL_NUM + sizeof(DLI_SlemVender);
+    // len1长度为256，不能定义成uint8_t，会导致len1溢出成0
+    uint32_t len1 = len + sizeof(DLI_SlemTof) + sizeof(DLI_SlemChnlMeas) +
+        sizeof(DLI_SlemIqData) * TEST_IQ_MAX_CHNL_NUM + sizeof(DLI_SlemVender);
     uint8_t *cmd1 = (uint8_t *)SDF_MemZalloc(len1);
     DLI_CHECK_RETURN(cmd1 != NULL, "cmd1 malloc failed");
     // 全部置为1，长度根据DLI_GetSlemInfoDataLen计算得到
