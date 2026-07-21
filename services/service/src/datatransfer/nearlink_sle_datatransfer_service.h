@@ -58,6 +58,7 @@ public:
     void GetRemotePortByConnectionState(const std::string &addr, int state, int oldState);
     void StopNlProxyIfExisted();
     bool IsValidSrcPort(uint16_t srcPort);
+    bool IsProxyConnectExisted(std::string &devAddress) override;
 
 private:
     int RegisterSleDataTransferCallbackToStack();

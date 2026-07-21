@@ -16,6 +16,7 @@
 #include "nearlink_sle_datatransfer_service.h"
 #include "SleInterfaceAdapterSub.h"
 #include "SleInterfaceManager.h"
+#include "SleControllerService.h"
 #include "IcceService.h"
 #include "PortService.h"
 #include "nearlink_safe_map.h"
@@ -729,6 +730,33 @@ void SleDataTransferService::GetRemotePortByConnectionState(const std::string &a
     }
 }
 
+bool SleDataTransferService::IsProxyConnectExisted(std::string &devAddress)
+{
+    bool res = false;
+    std::promise<std::pair<bool, std::string>> promise;
+    std::future<std::pair<bool, std::string>> future = promise.get_future();
+    DoInDataTransferThread([this, &promise]() {
+        std::string tempAddress;
+        auto stopNlProxy = [&tempAddress](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> bool {
+            VerificationContext ctx = { .uuid = value->GetUuid() };
+            bool result = NearlinkVerificationManager::GetInstance().CheckVerification(
+                VerificationType::DATATRANSFER_PROXY, ctx);
+            bool isAppConnected = value->IsAppConnect(tempAddress);
+            if (result && isAppConnected) {
+                return true;
+            }
+            return false;
+        };
+        bool isProxyConnect = pimpl->appConnectParamMap_.Find(stopNlProxy);
+        promise.set_value(std::make_pair(isProxyConnect, tempAddress));
+    });
+
+    auto result = future.get();
+    res = result.first;
+    devAddress = result.second;
+    return res;
+}
+
 void SleDataTransferService::StopNlProxyIfExisted()
 {
     DoInDataTransferThread([this]() {
@@ -736,7 +764,10 @@ void SleDataTransferService::StopNlProxyIfExisted()
             VerificationContext ctx = { .uuid = value->GetUuid() };
             bool result = NearlinkVerificationManager::GetInstance().CheckVerification(
                 VerificationType::DATATRANSFER_PROXY, ctx);
-            if (result && value->StopAppConnect()) {
+            std::string address;
+            bool isConnected = value->IsAppConnect(address);
+            if (result && isConnected) {
+                SleControllerService::GetInstance().UpdateConnectInterval(address, LOW_SPEED_INTERVAL_500);
                 return true;
             }
             return false;

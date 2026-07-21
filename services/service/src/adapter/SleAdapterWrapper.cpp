@@ -108,6 +108,11 @@ bool SleAdapterWrapper::WrapperCdsmGetAllMemberInfo(const RawAddress &rawAddr, s
     return ret;
 }
 
+bool SleAdapterWrapper::IsProxyConnectExisted(std::string &devAddress)
+{
+    return SleInterfaceDataTransfer::GetInstance().IsProxyConnectExisted(devAddress);
+}
+
 } // namespace Nearlink
 } // namespace OHOS
 

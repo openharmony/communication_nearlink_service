@@ -14,7 +14,6 @@
  */
 
 #include "nearlink_sle_datatransfer_cache.h"
-#include "SleControllerService.h"
 #include "log.h"
 
 namespace OHOS::Nearlink {
@@ -177,13 +176,13 @@ bool SleDataTransferCache::HasRemoteAddressConnect(const std::string &address)
     return res;
 }
 
-bool SleDataTransferCache::StopAppConnect()
+bool SleDataTransferCache::IsAppConnect(std::string &address)
 {
-    bool res = portConnectionList_.Find([](const AppConnectParamMapping &temp) -> bool {
+    bool res = portConnectionList_.Find([&address](const AppConnectParamMapping &temp) -> bool {
         if (temp.state == static_cast<int32_t>(SleConnectState::CONNECTED) ||
             temp.state == static_cast<int32_t>(SleConnectState::CONNECTING)) {
-            HILOGI("StopAppConnect");
-            SleControllerService::GetInstance().UpdateConnectInterval(temp.address, LOW_SPEED_INTERVAL_500);
+            HILOGI("HasAppConnect");
+            address = temp.address;
             return true;
         }
         return false;
