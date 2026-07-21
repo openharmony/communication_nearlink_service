@@ -6350,19 +6350,28 @@ void ASCService::ProcessColAudioSwitchChangeEvent(const ASCMessage &event)
     SetColAudioSwitchEnabled(event.result_);
 }
 
+bool ASCService::IsAudioServiceActivate()
+{
+    return SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
+        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive();
+}
+
 void ASCService::ChangeIsoParamIfNeed()
 {
     const RawAddress& device = activeSinkDevice_;
     HILOGI("[ASCService]ChangeIsoParamIfNeed in %{public}s state %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), GetASCStatus(activeSinkDevice_));
 
-    // 需要重配置
     CdsmService* cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "cdsmService nullptr.");
     std::vector<NearlinkCdsmInfo> cdsmList;
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(device, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
+    
+    // 无星闪音频业务下打开空间音频，不需要重配置
+    NL_CHECK_RETURN(IsAudioServiceActivate(), "no audio service activate.");
 
+    // 需要重配置
     for (const auto& info : cdsmList) {
         if (IsStarted(GetASCStatus(info.addr_))) {
             const std::list<AudioStreamType>& listStream = GetStartedStreamList(info.addr_);
