@@ -80,7 +80,7 @@ ohos_shared_library("nearlink_dli_adapter") {
     "c_utils:utils",
     "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
     "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
-    "hdf_core:libhdi",
+    "hdf_core:libhdf_utils",
     "hilog:libhilog",
     "ipc:ipc_single",
     "bounds_checking_function:libsec_shared",
