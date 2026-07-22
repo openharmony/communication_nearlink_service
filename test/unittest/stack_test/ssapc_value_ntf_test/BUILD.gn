@@ -39,6 +39,7 @@ unit_test_external_deps = [
   "hilog:libhilog",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
+  "hdf_core:libhdf_utils",
   "openssl:libcrypto_shared",
   "init:libbegetutil",
   "googletest:gtest_main",
