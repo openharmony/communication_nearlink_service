@@ -174,6 +174,11 @@ bool SleAudioFrameworkAdapter::IsVoiceCallActive()
             OHOS::AudioStandard::AudioStreamType::STREAM_VOICE_ASSISTANT);
 }
 
+bool SleAudioFrameworkAdapter::IsAudioServiceActivate()
+{
+    return IsMusicActive() || IsVoiceCallActive();
+}
+
 bool SleAudioFrameworkAdapter::IsNearlinkOut()
 {
     OHOS::AudioStandard::DeviceType deviceType =

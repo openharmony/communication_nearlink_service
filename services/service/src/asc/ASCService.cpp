@@ -6350,12 +6350,6 @@ void ASCService::ProcessColAudioSwitchChangeEvent(const ASCMessage &event)
     SetColAudioSwitchEnabled(event.result_);
 }
 
-bool ASCService::IsAudioServiceActivate()
-{
-    return SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
-        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive();
-}
-
 void ASCService::ChangeIsoParamIfNeed()
 {
     const RawAddress& device = activeSinkDevice_;
@@ -6367,9 +6361,9 @@ void ASCService::ChangeIsoParamIfNeed()
     std::vector<NearlinkCdsmInfo> cdsmList;
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(device, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
-    
+
     // 无星闪音频业务下打开空间音频，不需要重配置
-    NL_CHECK_RETURN(IsAudioServiceActivate(), "no audio service activate.");
+    NL_CHECK_RETURN(SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate(), "no audio service activate.");
 
     // 需要重配置
     for (const auto& info : cdsmList) {
@@ -6834,18 +6828,14 @@ bool ASCService::IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t 
 
     // 蓝牙+星闪，蓝牙是出声设备，星闪提速
     if (SleAudioFrameworkAdapter::GetInstance().IsBtOut() && 
-        subrate <= NLSTK_DEFAULT_SUBRATE &&
-        (SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
-        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive())) {
+        subrate <= NLSTK_DEFAULT_SUBRATE && SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate()) {
             // 激活设备正在音频业务中，拒绝非激活设备的subrate切换请求
             HILOGI("[ASCService]reject subrate change req for not activate device");
             return true;
     }
     // 星闪+星闪，星闪是出声设备，星闪提速
     if ((!(activeSinkDevice_.GetAddress().empty()) && reportAddr != activeSinkDevice_) &&
-        subrate <= NLSTK_DEFAULT_SUBRATE && 
-        (SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
-        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive())) {
+        subrate <= NLSTK_DEFAULT_SUBRATE && SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate()) {
             // 激活设备正在音频业务中，拒绝非激活设备的subrate切换请求
             HILOGI("[ASCService]reject subrate change req for not activate device");
             return true;

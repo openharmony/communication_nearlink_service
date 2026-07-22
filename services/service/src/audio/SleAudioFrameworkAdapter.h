@@ -51,6 +51,7 @@ public:
     void GetCurrentOutputPipeInfos();
     bool IsMusicActive();
     bool IsVoiceCallActive();
+    bool IsAudioServiceActivate();
     bool IsNearlinkOut();
     bool IsBtOut();
     void RegisterCollaborativeAudioListener();

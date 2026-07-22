@@ -643,7 +643,6 @@ private:
     bool IsSpatialAudioHeadTrackingEnabled(void);
     bool IsSpatialAudioSourceTypeSupported();
     bool IsSpatialAudioAdaptiveSwitchEnabled();
-    bool IsAudioServiceActivate();
     void ChangeIsoParamIfNeed();
 
     void ProcessSpatialAudioBaseEvent(const ASCMessage &event);
