@@ -1314,7 +1314,6 @@ void TwsService::ResumePlayIfNeeded(const RawAddress &devAddr, int action, int64
         HILOGW("[Tws Service]: do nothing for no pause record");
         return;
     }
-
     if (IsCalling()) {
         HILOGI("[Tws Service]: is calling, not need play");
         pauseRecordMap_.Erase(devAddr.GetAddress());
@@ -1329,6 +1328,12 @@ void TwsService::ResumePlayIfNeeded(const RawAddress &devAddr, int action, int64
         return;
     }
 
+    ResumePlayByReason(devAddr, action, currentTime, pauseRecord);
+}
+
+void TwsService::ResumePlayByReason(const RawAddress &devAddr, int action, int64_t currentTime,
+    const TwsPauseRecord &pauseRecord)
+{
     switch (pauseRecord.pauseReason) {
         case static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_LEFT):
         case static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_RIGHT):

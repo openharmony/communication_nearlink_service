@@ -237,6 +237,21 @@ bool ASCService::IsCalling()
     return false;
 }
 
+bool ASCService::GetLocalDualRecordAbility()
+{
+    return false;
+}
+
+bool ASCService::GetLocalKaraokeAbility()
+{
+    return false;
+}
+
+bool ASCService::GetLocalVocieCallFrameFourAbility()
+{
+    return false;
+}
+
 bool ASCService::IsPlaying(const RawAddress &device)
 {
     return true;

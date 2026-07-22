@@ -184,6 +184,8 @@ private:
         const TwsDevWearStatus &previousWearStatus, bool &isActiveDevWill, bool &isActiveDevNow);
     void SetCurrentAVPlaybackState(int &currentPlayState);
     void ResumePlayIfNeeded(const RawAddress &devAddr, int pauseReason, int64_t currentTime);
+    void ResumePlayByReason(const RawAddress &devAddr, int action, int64_t currentTime,
+        const TwsPauseRecord &pauseRecord);
     void PauseAndRecordIfNeeded(const RawAddress &devAddr, int pauseReason, int64_t currentTime);
     int GetPauseReasonNotPlaying(const RawAddress &devAddr, int action, const TwsDevWearStatus &previousWear);
     int GetPauseReason(const RawAddress &devAddr, int action, const TwsDevWearStatus &previousWear,
