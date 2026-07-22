@@ -668,8 +668,7 @@ private:
     void SerialManagerSubrate(bool &needConfigStream, const RawAddress &device, uint16_t subrate);
     bool IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam);
     bool IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t subrate);
-    void ProcessCachedSubrate();
-    void SetSubrateCachedInfo(const RawAddress &device, const SleAcbSubrateParam &eventParam);
+    void RejectSetSubrate(const RawAddress &device);
     void UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo);
     std::string ASCToDSPInfoToString(const ASCToDSPInfo& ascToDspInfo);
 
@@ -697,9 +696,6 @@ private:
         RawAddress      dev;              // dev
         bool            isCachedProc;     // 是否切换subrate(目前只限定2)
     } SubrateCached;
-
-    // 切subrate 2缓存
-    SubrateCached subrateCachedInfo_ {};
 
     // 已连接设备
     NearlinkSafeMap<std::string, ASCConnectedDev> connectedDev_;

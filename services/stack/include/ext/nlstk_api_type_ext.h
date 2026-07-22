@@ -65,6 +65,15 @@ typedef struct {
     uint16_t continuationNum;           /* 当前执行周期里面基础周期的执行个数 */
     uint16_t supervisionTimeout;        /* 超时时间，单位10ms */
 } NLSTK_SetAcbSubrateParam_S;
+
+/**
+ * @brief  拒绝异步链路subrate
+ */
+typedef struct {
+    uint16_t lcid;
+    uint8_t errorCode;      /* 默认值0 */
+} NLSTK_RejAcbSubrateParam_S;
+
 #pragma pack ()
 #ifndef NLSTK_REMOTE_FEATURE_LEN
 #define NLSTK_REMOTE_FEATURE_LEN 16

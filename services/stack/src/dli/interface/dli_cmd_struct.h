@@ -577,6 +577,11 @@ typedef struct {
     uint16_t supervisionTimeout;        /* 超时时间，单位10ms */
 } DLI_ACBSubrateParam;
 
+typedef struct {
+    uint16_t lcid;                      /* 异步链路唯一标识 */
+    uint8_t errorCode;                  /* 默认值0 */
+} DLI_RejAcbSubrateParam;
+
 #pragma pack()
 
 typedef struct DLI_ExecuteCmdRetParam {

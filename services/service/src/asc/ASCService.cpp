@@ -3876,7 +3876,6 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     NL_CHECK_RETURN(CheckStartStreamCondition(device, result, streamType), "start stream failed");
     // 同步链路建立OK后的处理
     ProcWhenIOBCreated(device, qosmInfo);
-    ProcessCachedSubrate();
     // 主副切换
     SetDeviceRole(device);
     // 状态：已开始音频流传输
@@ -6738,20 +6737,6 @@ void ASCService::SerialManagerSubrate(bool &needConfigStream, const RawAddress &
     }
 }
 
-/* 收到上一次完成后继续处理之前未设置的subrate 2下发 */
-void ASCService::ProcessCachedSubrate()
-{
-    if (subrateCachedInfo_.isCachedProc) {
-        HILOGI("[ASCService] CachedSubrateChange %{public}s ",
-            GetEncryptAddr(subrateCachedInfo_.dev.GetAddress()).c_str());
-        SleAcbSubrateParam subrateParam {};
-        subrateParam.onlySubrate = true;
-        subrateParam.subrate = static_cast<uint16_t>(NLSTK_SUBRATE_2);
-        SetSubrate(subrateCachedInfo_.dev, subrateParam);
-        subrateCachedInfo_ = {};
-    }
-}
-
 void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
 {
     RawAddress device(event.dev_);
@@ -6788,7 +6773,6 @@ void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
             NL_SLE_ASC_RESULT_FAIL, result);
         return;
     }
-    ProcessCachedSubrate();
 }
 
 void ASCService::AcbSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &subrateParam)
@@ -6844,12 +6828,9 @@ bool ASCService::IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t 
     return false;
 }
 
-void ASCService::SetSubrateCachedInfo(const RawAddress &device, const SleAcbSubrateParam &eventParam)
+void ASCService::RejectSetSubrate(const RawAddress &device)
 {
-    if (eventParam.subrate == static_cast<uint16_t>(NLSTK_SUBRATE_2)) {
-        subrateCachedInfo_.dev = device;
-        subrateCachedInfo_.isCachedProc = true;
-    }
+    ServiceManagerPluginLoader::GetInstance()->RejectSetSubrate(device);
 }
 
 void ASCService::ProcessSubrateChangeReq(const ASCMessage &event)
@@ -6857,7 +6838,9 @@ void ASCService::ProcessSubrateChangeReq(const ASCMessage &event)
     RawAddress device(event.dev_);
     const SleAcbSubrateParam &eventParam = event.subratePara_;
     if (!IsAllowSubrateChangeReq(device, eventParam)) {
-        SetSubrateCachedInfo(device, eventParam);
+        if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
+            RejectSetSubrate(device);
+        }
         HILOGW("[ASCService] dev:%{public}s subrate: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
             eventParam.subrate);
         return;
@@ -7107,7 +7090,6 @@ void ASCService::SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bo
 void ASCService::ClearASCSubrateInfo(const RawAddress &device)
 {
     ascSubrateMap_.erase(device.GetAddress());
-    subrateCachedInfo_ = {};
 }
 REGISTER_CLASS_CREATOR(ASCService);
 
