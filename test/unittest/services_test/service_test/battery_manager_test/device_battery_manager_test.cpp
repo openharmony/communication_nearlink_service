@@ -21,6 +21,7 @@
 #include "nearlink_native_token_mock.h"
 #include "nearlink_access_token_mock.h"
 #include "DeviceBatteryManager.h"
+#include "IRemoteDeviceQuery.h"
 #include "SleUtils.h"
 #include "log.h"
 #include "TwsMessage.h"
@@ -165,7 +166,9 @@ HWTEST_F(NearlinkBattaryManagerTest, ProcessActiveDeviceChanged002, TestSize.Lev
 
 /**
  * @tc.name: PublishBatteryLevel_TwsNull_001
- * @tc.desc: PublishBatteryLevel when TwsService is not registered (null), should not crash
+ * @tc.desc: PublishBatteryLevel with non-audio device, should return early without crash.
+ *           Note: IsAudioDevice returns false for unknown addresses, so the TWS null path
+ *           (line 53 NL_CHECK_RETURN) is not reached. This test covers the early-return path.
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkBattaryManagerTest, PublishBatteryLevel_TwsNull_001, TestSize.Level1)
@@ -176,6 +179,7 @@ HWTEST_F(NearlinkBattaryManagerTest, PublishBatteryLevel_TwsNull_001, TestSize.L
     BatteryInfo batteryInfo {};
     bool ret = TwsHiBoxParser::ParserAtCmdVendorBattery(peerAddr, atCmdParam, batteryInfo);
     EXPECT_EQ(ret, true);
+    EXPECT_FALSE(IRemoteDeviceQuery::GetInstance()->IsAudioDevice(peerAddr.GetAddress()));
     DeviceBatteryManager::GetInstance().PublishBatteryLevel(peerAddr, batteryInfo);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));

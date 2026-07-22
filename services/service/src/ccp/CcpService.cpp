@@ -27,7 +27,6 @@
 #include "ThreadUtil.h"
 #include "CcpStackAdapter.h"
 #include "CcpSystemInterface.h"
-#include "TwsDefines.h"
 #include "nearlink_dft_ue.h"
 
 namespace OHOS {

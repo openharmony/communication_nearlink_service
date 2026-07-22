@@ -27,6 +27,7 @@
 
 #include "SleInterfaceProfileTws.h"
 #include "SleInterfaceAdapter.h"
+#include "TwsDefines.h"
 #include "nearlink_def.h"
 #include "nearlink_safe_map.h"
 #include "context.h"

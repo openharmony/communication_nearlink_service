@@ -16,6 +16,7 @@
 #ifndef I_REMOTE_DEVICE_QUERY_H
 #define I_REMOTE_DEVICE_QUERY_H
 
+#include <cstdint>
 #include <string>
 #include "raw_address.h"
 
@@ -24,8 +25,6 @@ namespace Nearlink {
 
 class IRemoteDeviceQuery {
 public:
-    virtual ~IRemoteDeviceQuery() = default;
-
     static IRemoteDeviceQuery *GetInstance();
 
     virtual int GetManufacturerBusinessType(const RawAddress &device) = 0;
@@ -33,6 +32,9 @@ public:
     virtual bool IsAudioDevice(const std::string &address) = 0;
     virtual uint8_t GetPeerDeviceAddrType(const RawAddress &device) = 0;
     virtual void SetConnDirectActive(const RawAddress &device) = 0;
+
+protected:
+    virtual ~IRemoteDeviceQuery() = default;
 };
 
 } // namespace Nearlink

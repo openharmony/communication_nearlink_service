@@ -386,6 +386,7 @@ HWTEST_F(CcpServiceTest, IsNearlinkActiveDevice001, TestSize.Level1)
 {
     HILOGI("IsNearlinkActiveDevice001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
     RawAddress reportAddr("11:22:33:44:55:66");
     bool ret = ccpService->IsNearlinkActiveDevice(reportAddr);
     EXPECT_FALSE(ret);
@@ -402,9 +403,9 @@ HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Leve
 {
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
     RawAddress devAddr("11:22:33:44:55:66");
     ccpService->NotifyAudioDeviceAction(devAddr, 1);
-    EXPECT_NE(nullptr, ccpService);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 end");
 }

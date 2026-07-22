@@ -5246,6 +5246,7 @@ HWTEST_F(ASCServiceTest, CheckStreamIsNeedNotifyCcp_CcpNull_001, TestSize.Level1
 {
     HILOGI("CheckStreamIsNeedNotifyCcp_CcpNull_001 enter");
     ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
     RawAddress device = RawAddress(deviceStr);
     asc->AddConnectDevices(device);
     std::vector<AscProp> properties {};
@@ -5262,6 +5263,7 @@ HWTEST_F(ASCServiceTest, CheckStreamIsNeedNotifyCcp_CcpNull_001, TestSize.Level1
     asc->SetASCStatus(device, NL_SLE_ASC_RELEASING);
     asc->CheckStreamIsNeedNotifyCcp(device, AUDIO_STREAM_VOIP, NL_SLE_ASC_CONTROL_CMD_START);
     asc->CheckStreamIsNeedNotifyCcp(device, AUDIO_STREAM_VOIP, NL_SLE_ASC_CONTROL_CMD_STOP);
+    QosM::GetInstance().ClearQosM(device);
     delete asc;
     HILOGI("CheckStreamIsNeedNotifyCcp_CcpNull_001 end");
 }
@@ -5277,10 +5279,11 @@ HWTEST_F(ASCServiceTest, IsLeftEarDevice_TwsNull_001, TestSize.Level1)
     RawAddress targetAddr(INVALID_MAC_ADDRESS);
     RawAddress huaweiAddr(coDeviceStr);
     ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
     asc->AddConnectDevices(targetAddr);
     asc->AddConnectDevices(huaweiAddr);
-    asc->IsLeftEarDevice(targetAddr);
-    asc->IsLeftEarDevice(huaweiAddr);
+    EXPECT_TRUE(asc->IsLeftEarDevice(targetAddr));
+    EXPECT_TRUE(asc->IsLeftEarDevice(huaweiAddr));
     delete asc;
     HILOGI("IsLeftEarDevice_TwsNull_001 end");
 }
@@ -5296,10 +5299,11 @@ HWTEST_F(ASCServiceTest, IsRolePrimary_TwsNull_001, TestSize.Level1)
     RawAddress targetAddr(INVALID_MAC_ADDRESS);
     RawAddress huaweiAddr(coDeviceStr);
     ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
     asc->AddConnectDevices(targetAddr);
     asc->AddConnectDevices(huaweiAddr);
-    asc->IsRolePrimary(targetAddr);
-    asc->IsRolePrimary(huaweiAddr);
+    EXPECT_TRUE(asc->IsRolePrimary(targetAddr));
+    EXPECT_TRUE(asc->IsRolePrimary(huaweiAddr));
     delete asc;
     HILOGI("IsRolePrimary_TwsNull_001 end");
 }
@@ -5315,10 +5319,13 @@ HWTEST_F(ASCServiceTest, SetDeviceRole_TwsNull_001, TestSize.Level1)
     RawAddress targetAddr(INVALID_MAC_ADDRESS);
     RawAddress huaweiAddr(coDeviceStr);
     ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
     asc->AddConnectDevices(targetAddr);
     asc->AddConnectDevices(huaweiAddr);
     asc->SetDeviceRole(targetAddr);
     asc->SetDeviceRole(huaweiAddr);
+    QosM::GetInstance().ClearQosM(targetAddr);
+    QosM::GetInstance().ClearQosM(huaweiAddr);
     delete asc;
     HILOGI("SetDeviceRole_TwsNull_001 end");
 }

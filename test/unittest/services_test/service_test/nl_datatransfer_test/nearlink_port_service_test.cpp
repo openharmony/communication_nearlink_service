@@ -174,7 +174,7 @@ HWTEST_F(NearlinkPortServiceTest, ConnectViaIRemoteDeviceQuery_001, TestSize.Lev
 {
     HILOGI("ConnectViaIRemoteDeviceQuery_001 start");
     PortService *portService = PortService::GetPortService();
-    EXPECT_NE(portService, nullptr);
+    ASSERT_NE(portService, nullptr);
     RawAddress addr(DEVICE_ADDR);
     int ret = portService->Connect(addr);
     EXPECT_EQ(ret, PORT_SUCCESS);

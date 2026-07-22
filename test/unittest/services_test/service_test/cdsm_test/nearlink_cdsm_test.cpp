@@ -733,6 +733,7 @@ HWTEST_F(NearlinkCdsmTest, IsVendorDevice_001, TestSize.Level1)
 {
     HILOGI("NearlinkCdsmTest:IsVendorDevice_001 start");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     RawAddress device("11:22:33:44:55:66");
     bool ret = cdsmService->IsVendorDevice(device);
     EXPECT_FALSE(ret);

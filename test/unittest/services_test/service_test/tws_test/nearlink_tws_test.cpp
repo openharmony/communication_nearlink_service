@@ -1229,6 +1229,7 @@ HWTEST_F(NearlinkTwsTest, GetReportAddr_001, TestSize.Level1)
 {
     HILOGI("NearlinkTwsTest:GetReportAddr_001 start");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     RawAddress device("11:22:33:44:55:66");
     RawAddress reportAddr = twsService->GetReportAddr(device);
     EXPECT_EQ(reportAddr.GetAddress(), device.GetAddress());
@@ -1245,6 +1246,7 @@ HWTEST_F(NearlinkTwsTest, UpdateDualRecordAbility_001, TestSize.Level1)
 {
     HILOGI("NearlinkTwsTest:UpdateDualRecordAbility_001 start");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->UpdateDualRecordAbility();
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateDualRecordAbility_001 end");
@@ -1259,6 +1261,7 @@ HWTEST_F(NearlinkTwsTest, UpdateDualKaraokeAbility_001, TestSize.Level1)
 {
     HILOGI("NearlinkTwsTest:UpdateDualKaraokeAbility_001 start");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->UpdateDualKaraokeAbility();
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateDualKaraokeAbility_001 end");
@@ -1273,6 +1276,7 @@ HWTEST_F(NearlinkTwsTest, UpdateVoiceCallFrameFourAndAutoRateAbility_001, TestSi
 {
     HILOGI("NearlinkTwsTest:UpdateVoiceCallFrameFourAndAutoRateAbility_001 start");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->UpdateVoiceCallFrameFourAndAutoRateAbility();
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateVoiceCallFrameFourAndAutoRateAbility_001 end");
