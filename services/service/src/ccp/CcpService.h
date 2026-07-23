@@ -61,8 +61,8 @@ public:
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
     void HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState);
+    void HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info);
     void HandleCallDetailChange(const Telephony::CallAttributeInfo &info);
-    void HandleMeeTimeDetailsChange(const Telephony::CallAttributeInfo &info);
     bool IsNearlinkActiveDevice(const RawAddress &reportAddr);
     
     void SetGeneralInstanceId(int32_t instanceId)

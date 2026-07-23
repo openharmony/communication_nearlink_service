@@ -237,32 +237,6 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 }
 
 /**
- * @tc.number: HandleMeeTimeDetailsChange001
- * @tc.name:
- * @tc.desc:
- */
-HWTEST_F(CcpServiceTest, HandleMeeTimeDetailsChange001, TestSize.Level1)
-{
-    HILOGI("HandleMeeTimeDetailsChange001 start");
-    CcpService* ccpService = CcpService::GetService();
-    CallAttributeInfo callAttributeInfo;
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_DIALING;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_INCOMING;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_UNKNOWN;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    HILOGI("HandleMeeTimeDetailsChange001 end");
-}
-
-/**
  * @tc.number: HandleVoipStop001
  * @tc.name:
  * @tc.desc:
