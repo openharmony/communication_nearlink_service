@@ -20,7 +20,9 @@
 #include "log.h"
 
 namespace OHOS::Nearlink {
+namespace {
 constexpr size_t MAX_COEX_DEVICE_NUM = 32;
+}
 
 NearlinkSleControllerProxy::NearlinkSleControllerProxy(const sptr<IRemoteObject> &impl)
     : IRemoteProxy<INearlinkSleController>(impl)
