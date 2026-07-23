@@ -981,7 +981,7 @@ bool CM_AdjustCoexAcbInterval(SLE_Addr_S *addr, uint16_t incommingInterval, uint
     CM_CHECK_RETURN_RET(addr != NULL, false, "addr is null");
     CM_CHECK_RETURN_RET(coexInterval != NULL, false, "coexInterval is null");
     CM_HidCoexModeParam_S coexParam = { 0 };
-    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_CHECK;
+    coexParam.eventType = CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL;
     coexParam.addr = *addr;
     coexParam.incomingInterval = incommingInterval;
     coexParam.coexInterval = 0;

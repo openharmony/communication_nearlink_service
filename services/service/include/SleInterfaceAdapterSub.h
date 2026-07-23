@@ -328,10 +328,6 @@ public:
     virtual void ConnectAcb(const RawAddress &device) = 0;
     virtual bool DisconnectAcb(const RawAddress &device, uint8_t discReason) const = 0;
     virtual void ClearBgConnDevice() const = 0;
-    virtual bool EnableSleHidCoexMode(const SleHidCoexModeParam &param) = 0;
-    virtual bool DisableSleHidCoexMode() = 0;
-    virtual std::shared_ptr<SleHidCoexModeParam> GetSleHidCoexModeParam() = 0;
-    virtual void SetSleHidCoexModeState(SleCoexModeStatus state) = 0;
 };
 }  // namespace OHOS
 }  // namespace Sle

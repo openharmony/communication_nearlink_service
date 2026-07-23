@@ -485,23 +485,5 @@ void SleAdapter::RemoveBgConnDevice(const std::string &delAddr) const
 void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
 {}
 
-void SleAdapter::SetSleHidCoexModeState(SleCoexModeStatus state)
-{}
- 
-bool SleAdapter::EnableSleHidCoexMode(const SleHidCoexModeParam &param)
-{
-    return true;
-}
- 
-bool SleAdapter::DisableSleHidCoexMode()
-{
-    return true;
-}
- 
-std::shared_ptr<SleHidCoexModeParam> SleAdapter::GetSleHidCoexModeParam()
-{
-    return nullptr;
-}
-
 } // namespace Nearlink
 } // namespace OHOS

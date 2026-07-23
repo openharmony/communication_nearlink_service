@@ -273,7 +273,7 @@ typedef struct {
  * @brief 星闪共存模式回调事件枚举值
  */
 typedef enum {
-    CM_SLE_CBK_EVENT_HID_COEX_MODE_CHECK = 0,            /* HID共存模式参数检查 */
+    CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL = 0,          /* HID共存模式参数获取 */
     CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE,         /* HID共存模式参数更新 */
 } CM_HidCoexModeEventType_E;
  

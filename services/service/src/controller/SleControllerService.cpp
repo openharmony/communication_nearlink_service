@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 
-#include <chrono>
 #include "SleControllerService.h"
 #include "qosm_autorate_def.h"
 #include "qosm_autorate.h"
@@ -207,6 +206,44 @@ bool SleControllerService::SetSleCoexMode(int32_t mode, const std::vector<std::s
     return true;  
 }
  
+void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint16_t currentInterval,
+    uint16_t &coexInterval)
+{
+    std::lock_guard<std::mutex> lock(sleCoexModeLock_);
+    if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
+        return;
+    }
+    for (auto coexDevice : sleHidCoexModeParam_.deviceList) {
+        // 检查当前要更新的连接interval是否小于共存上限，如果小于则param返回共存上限，否则返回共存上限
+        if (coexDevice.addr == device) {
+            coexInterval = std::max(currentInterval, coexDevice.coexInterval);
+            HILOGI("get coex interval, addr: %{public}s, currentInterval: %{public}d, coexInterval: %{public}d",
+                GetEncryptAddr(device).c_str(), currentInterval, coexInterval);
+            return;
+        }
+    }
+    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
+    return;
+}
+ 
+void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue)
+{
+    std::lock_guard<std::mutex> lock(sleCoexModeLock_);
+    if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
+        return;
+    }
+    for (auto &coexDevice : sleHidCoexModeParam_.deviceList) {
+        if (coexDevice.addr == device) {
+            coexDevice.pendingInterval = intervalValue;
+            HILOGI("update coex mode pending interval, addr: %{public}s, interval: %{public}d",
+                GetEncryptAddr(device).c_str(), intervalValue);
+            return;
+        }
+    }
+    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
+    return;
+}
+ 
 bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
@@ -216,35 +253,43 @@ bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &
     auto adapter = static_cast<SleInterfaceAdapterSub *>
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(adapter, false, "sleAdapter is null");
-
-    SleHidCoexModeParam coexParam = {};
-    coexParam.state = SleCoexModeStatus::STARTING;
-    for (size_t i = 0; i < deviceListSize; i++) {
-        uint16_t timeout = 0;
-        uint16_t maxLatency = 0;
-        uint16_t currentInterval = 0;
-        uint16_t coexInterval = 0;
-        if (!FetchInterval(paramList[i], coexInterval)) {
-            return false;
-        }
-        adapter->GetConnectionParam(deviceList[i], timeout, maxLatency, currentInterval);
-        SleHidCoexDevice coexDevice(deviceList[i], coexInterval, currentInterval);
-        coexParam.deviceList.emplace_back(coexDevice);
-    }
-
+ 
     {
         std::lock_guard<std::mutex> lock(sleCoexModeLock_);
-        if (sleHidCoexState_ == SleCoexModeStatus::STARTING || sleHidCoexState_ == SleCoexModeStatus::STOPPING) {
-            HILOGE("cannot enable sle hid coex mode, state: %{public}d", static_cast<int>(sleHidCoexState_));
+        if (sleHidCoexModeParam_.state == SleCoexModeStatus::STARTING ||
+            sleHidCoexModeParam_.state == SleCoexModeStatus::STOPPING) {
+            HILOGE("cannot enable sle hid coex mode, state: %{public}d", static_cast<int>(sleHidCoexModeParam_.state));
             return false;
         }
+ 
+        for (size_t i = 0; i < deviceListSize; i++) {
+            auto it = std::find_if(sleHidCoexModeParam_.deviceList.begin(),
+                sleHidCoexModeParam_.deviceList.end(), [deviceList, i](const SleHidCoexDevice &device) {
+                return deviceList[i] == device.addr;
+            });
+            if (it == sleHidCoexModeParam_.deviceList.end()) {
+                uint16_t timeout = 0;
+                uint16_t maxLatency = 0;
+                uint16_t currentInterval = 0;
+                uint16_t coexInterval = 0;
+                if (!FetchInterval(paramList[i], coexInterval)) {
+                    HILOGE("fail to fech interval for device: %{public}s, intervalType: %{public}d",
+                        GetEncryptAddr(deviceList[i]).c_str(), static_cast<int>(paramList[i]));
+                    return false;
+                }
+                adapter->GetConnectionParam(deviceList[i], timeout, maxLatency, currentInterval);
+                HILOGI("add new device: %{public}s, coexInt: %{public}d, pendingInt: %{public}d",
+                    GetEncryptAddr(deviceList[i]).c_str(), coexInterval, currentInterval);
+                SleHidCoexDevice coexDevice(deviceList[i], coexInterval, currentInterval);
+                sleHidCoexModeParam_.deviceList.emplace_back(coexDevice);
+            }
+        }
         HILOGI("change sle hid coex mode state, current state: %{public}d, new state: SleCoexModeStatus::STARTING",
-            static_cast<int>(sleHidCoexState_));
-        sleHidCoexState_ = SleCoexModeStatus::STARTING;
+            static_cast<int>(sleHidCoexModeParam_.state));
+        sleHidCoexModeParam_.state = SleCoexModeStatus::STARTING;
     }
-
-    adapter->EnableSleHidCoexMode(coexParam);
-    UpdateSleHidCoexIntervalForEach(coexParam.deviceList, 0, SleCoexModeStatus::STARTING);
+ 
+    UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STARTING);
     return true;
 }
  
@@ -253,22 +298,20 @@ bool SleControllerService::DisableSleHidCoexMode()
     auto adapter = static_cast<SleInterfaceAdapterSub *>
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(adapter, false, "sleAdapter is null");
-    std::shared_ptr<SleHidCoexModeParam> coexStatus = adapter->GetSleHidCoexModeParam();
-    NL_CHECK_RETURN_RET(coexStatus, false, "coexStatus is null");
-
+ 
     {
         std::lock_guard<std::mutex> lock(sleCoexModeLock_);
-        if (sleHidCoexState_ == SleCoexModeStatus::STARTING || sleHidCoexState_ == SleCoexModeStatus::STOPPING) {
-            HILOGE("cannot enable sle hid coex mode, state: %{public}d", static_cast<int>(sleHidCoexState_));
+        if (sleHidCoexModeParam_.state == SleCoexModeStatus::STARTING ||
+            sleHidCoexModeParam_.state == SleCoexModeStatus::STOPPING) {
+            HILOGE("cannot disable sle hid coex mode, state: %{public}d", static_cast<int>(sleHidCoexModeParam_.state));
             return false;
         }
         HILOGI("change sle hid coex mode state, current state: %{public}d, new state: SleCoexModeStatus::STOPPING",
-            static_cast<int>(sleHidCoexState_));
-        sleHidCoexState_ = SleCoexModeStatus::STOPPING;
+            static_cast<int>(sleHidCoexModeParam_.state));
+        sleHidCoexModeParam_.state = SleCoexModeStatus::STOPPING;
     }
-
-    UpdateSleHidCoexIntervalForEach(coexStatus->deviceList, 0, SleCoexModeStatus::STOPPING);
-    adapter->DisableSleHidCoexMode();
+ 
+    UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STOPPING);
     return true;
 }
  
@@ -284,18 +327,17 @@ void SleControllerService::UpdateSleHidCoexIntervalForEach(
     if (index == deviceList.size()) {
         {
             std::lock_guard<std::mutex> lock(sleCoexModeLock_);
-            SleCoexModeStatus currentState = sleHidCoexState_;
+            SleCoexModeStatus currentState = sleHidCoexModeParam_.state;
             if (state == SleCoexModeStatus::STARTING && currentState == SleCoexModeStatus::STARTING) {
-                sleHidCoexState_ = SleCoexModeStatus::STARTED;
-                adapter->SetSleHidCoexModeState(SleCoexModeStatus::STARTED);
+                sleHidCoexModeParam_.state = SleCoexModeStatus::STARTED;
                 sleHidCoexEnableDelayTimer_ = nullptr;
             } else if (state == SleCoexModeStatus::STOPPING && currentState == SleCoexModeStatus::STOPPING) {
-                sleHidCoexState_ = SleCoexModeStatus::STOPPED;
-                adapter->SetSleHidCoexModeState(SleCoexModeStatus::STOPPED);
+                sleHidCoexModeParam_.state = SleCoexModeStatus::STOPPED;
+                sleHidCoexModeParam_.deviceList = {};
                 sleHidCoexDisableDelayTimer_ = nullptr;
             }
             HILOGI("update sle hid coex mode finised, current state: %{public}d, next state: %{public}d",
-                static_cast<int>(currentState), static_cast<int>(sleHidCoexState_));
+                static_cast<int>(currentState), static_cast<int>(sleHidCoexModeParam_.state));
             return;
         }
     }
