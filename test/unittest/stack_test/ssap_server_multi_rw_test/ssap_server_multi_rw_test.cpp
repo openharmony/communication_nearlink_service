@@ -517,7 +517,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, SINGLE_HANDLE_WRITE_SUCCESS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[7] = {
+    uint8_t req[] = {
         0x0D,
         0x03,
         0x00, 0x00, 0x00, 0xAA, 0xBB
@@ -554,7 +554,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_HANDLE_WRITE_SUCCESS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[16] = {
+    uint8_t req[] = {
         0x0D,
         0x07,
         0x00, 0x00,             // handle1 placeholder
@@ -599,7 +599,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_HANDLE_WRITE_WITH_ERRORS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[17] = {
+    uint8_t req[] = {
         0x0D,                   // opcode = WRITE_REQ
         0x07,                   // ctrl = multi(0x04) + no_frag(0x03)
         0x00, 0x00,             // handle1 placeholder (2 bytes)
@@ -644,7 +644,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_RETURN_ORIGIN)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[10] = {
+    uint8_t req[] = {
         0x0D,
         0x07,
         0x00, 0x00,  // handle (overwritten by memcpy)
@@ -1218,7 +1218,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_RESPONSE_ITEM_COUNT)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[16] = {
+    uint8_t req[] = {
         0x0D,
         0x07,
         0x00, 0x00,

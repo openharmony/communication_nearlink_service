@@ -1139,6 +1139,9 @@ static SSAP_FindStructureInfo_S *CreateServiceStructureInfo(SSAP_Service_S *serv
     info->itemType = service->serviceType;
     (void)memcpy_s(&info->uuid, sizeof(NLSTK_SsapUuid_S), &service->uuid, sizeof(NLSTK_SsapUuid_S));
     info->isStdUuid = SSAP_CheckUuidStd(&info->uuid);
+    if (service->descriptors == NULL) {
+        return info;
+    }
     info->descriptorCount = service->descriptors->size;
     if (info->descriptorCount != 0) {
         info->descriptors = SDF_MemZalloc(info->descriptorCount);
@@ -1371,6 +1374,7 @@ static void FreeFindStructureInfo(void *ptr)
 
 static void SendFindStructureRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req, NLSTK_SsapUuid_S *uuid, bool isByUuid)
 {
+    CP_LOG_INFO("[SSAP] SendFindStructureRsp");
     int sceneCode = req->msgCode == SSAP_FIND_STRUCTURE_REQ ?
         EXCEP_SSAP_FIND_STRUCTURE_REQ_RECV : EXCEP_SSAP_FIND_BY_UUID_REQ_RECV;
     // by uuid发现服务结构，uuid类型应该是服务的uuid
