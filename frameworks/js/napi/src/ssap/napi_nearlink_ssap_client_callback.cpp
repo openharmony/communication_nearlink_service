@@ -35,9 +35,13 @@ NapiNearlinkSsapClientCallback::NapiNearlinkSsapClientCallback()
 void NapiNearlinkSsapClientCallback::OnConnectionStateChanged(int connectionState, int ret)
 {
     HILOGI("connectionState:%{public}d, ret:%{public}d", connectionState, ret);
-    NL_CHECK_RETURN(client_, "client is nullptr");
-    NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
-    std::string deviceId = client_->GetDevice()->GetDeviceAddr();
+    std::string deviceId;
+    {
+        std::shared_lock<std::shared_mutex> lock(clientMutex_);
+        NL_CHECK_RETURN(client_, "client is nullptr");
+        NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
+        deviceId = client_->GetDevice()->GetDeviceAddr();
+    }
     auto napiNative = std::make_shared<NapiNativeSsapConnectionState>(deviceId, connectionState);
     eventSubscribe.PublishEvent(SLE_SSAP_CLIENT_CALLBACK_CONNECTION_STATE_CHANGE, napiNative);
 }

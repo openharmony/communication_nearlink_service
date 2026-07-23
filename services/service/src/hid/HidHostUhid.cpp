@@ -113,7 +113,7 @@ int HidHostUhid::SendControlData(uint8_t* pRpt, uint16_t len)
         } else if (taskType_ == HID_HOST_DATA_TYPE_SET_REPORT) {
             SendSetReportReplyUhid(fd_, taskId_, HID_HOST_SUCCESS);
         } else {
-            LOG_ERROR("[UHID], Unknow taskType_:%{public}d", taskType_);
+            LOG_ERROR("[UHID], Unknow taskType_:%{public}d", taskType_.load());
         }
         taskId_ = 0;
         taskType_ = -1;
@@ -145,7 +145,7 @@ int HidHostUhid::SendHandshake(uint16_t err)
         } else if (taskType_ == HID_HOST_DATA_TYPE_SET_REPORT) {
             SendSetReportReplyUhid(fd_, taskId_, err);
         } else {
-            LOG_ERROR("[UHID], Unknow taskType_:%{public}d", taskType_);
+            LOG_ERROR("[UHID], Unknow taskType_:%{public}d", taskType_.load());
         }
         taskId_ = 0;
         taskType_ = -1;

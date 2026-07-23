@@ -52,12 +52,14 @@ public:
 
     void SetClient(NapiNearlinkSsapClient *client)
     {
+        std::unique_lock<std::shared_mutex> lock(clientMutex_);
         client_ = client;
     }
 
     NapiAsyncWorkMap asyncPromiseMap_ {};
     NapiEventSubscribeModule eventSubscribe;
 private:
+    mutable std::shared_mutex clientMutex_ {};
     NapiNearlinkSsapClient *client_ = nullptr;
 };
 }  // namespace Nearlink

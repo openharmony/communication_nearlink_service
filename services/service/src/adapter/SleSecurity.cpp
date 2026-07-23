@@ -67,6 +67,7 @@ SleSecurity::SleSecurity(
 
 SleSecurity::~SleSecurity()
 {
+    g_sleSecurityImpl = nullptr;
     int ret = DeregisterCallbackToGap();
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         LOG_ERROR("[SleSecurity]");

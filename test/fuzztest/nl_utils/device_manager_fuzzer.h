@@ -42,7 +42,6 @@ void FuzzSleUtilsConvertHexCharToInt(const uint8_t *data, size_t size);
 void FuzzSleUtilsIntToHexString(const uint8_t *data, size_t size);
 void FuzzSleUtilsConvertIntToHexString(const uint8_t *data, size_t size);
 void FuzzSleUtilsStringDataToHexString(const uint8_t *data, size_t size);
-void FuzzSleUtilsRand16hex(const uint8_t *data, size_t size);
 void FuzzSleUtilsGetRandomAddress(const uint8_t *data, size_t size);
 
 /* Fuzz test functions for SleConfig.cpp */

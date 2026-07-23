@@ -172,7 +172,7 @@ int SleASC::Disconnect(const RawAddress &device)
 
 int SleASC::UpdateBitRate(const RawAddress &device, uint64_t bps, uint8_t streamId)
 {
-    HILOGI("[SleASC]UpdateBitRate in %{public}s bps %{public}ld streamId %{public}d",
+    HILOGI("[SleASC]UpdateBitRate in %{public}s bps %{public}lu streamId %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), bps, streamId);
 
     SLE_Addr_S addr {};

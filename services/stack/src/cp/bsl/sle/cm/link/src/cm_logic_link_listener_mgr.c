@@ -37,6 +37,10 @@ uint32_t CM_RegLogicLinkCbks(CM_LogicLinkCbks_S *cbks)
 
 void CM_ExecLogicLinkModuleCbks(uint8_t moduleId, CM_LogicLinkState_S *state)
 {
+    if (moduleId >= CM_MODULE_ID_MAX) {
+        CM_LOGE("moduleId:%hhu is out of range", moduleId);
+        return;
+    }
     if (g_logicLinkCbks[moduleId].logicLinkCbk != NULL) {
         g_logicLinkCbks[moduleId].logicLinkCbk(state);
         CM_LOGI("moduleId:%hhu, logic link cbk end", g_logicLinkCbks[moduleId].moduleId);
