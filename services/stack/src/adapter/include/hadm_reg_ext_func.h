@@ -28,7 +28,7 @@ extern "C" {
 typedef bool (*HADM_ReadRemoteExtFeaturesPtr)(uint16_t companyid, uint16_t subversion, uint16_t lcid);
 typedef bool (*HADM_ProcessCsCapsPtr)(const uint8_t *rawData, uint32_t len, bool isLocal);
 typedef void (*HADM_CheckAndUpdateMultiToneConfigPtr)(uint16_t lcid,
-    uint8_t *pmInitSignal2Tone, uint8_t *pmReflSignal2Tone);
+    uint8_t *pmInitSignal2Tone, uint8_t *pmReflSignal2Tone, uint16_t *occurrenceGroupPeriod);
 typedef void (*HADM_ClearRemoteCsCapsPtr)(uint16_t lcid);
 
 typedef struct {
