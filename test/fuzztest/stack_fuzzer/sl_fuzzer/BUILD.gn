@@ -173,6 +173,7 @@ ohos_fuzztest("SlFuzzTest") {
     "hilog:libhilog",
     "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
     "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
+    "hdf_core:libhdf_utils",
     "c_utils:utils",
     "init:libbegetutil",
   ]
