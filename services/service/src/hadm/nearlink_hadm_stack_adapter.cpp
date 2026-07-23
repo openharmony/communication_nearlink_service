@@ -139,7 +139,7 @@ void NearlinkHadmStackAdapter::SetSoundingParam(HadmSoundingParam_S *paramIn) co
     paramIn->isCsParamChg = 0x00;
     paramIn->freqSpace = 0x00;
     paramIn->conAnchorNum = HADM_CONFIG_ANCHOR_NUM;
-    paramIn->refreshRate = HADM_SOUNDING_FRESH_RATE;
+    paramIn->refreshRate = 0x00;
     paramIn->acbInterval = 0x00;
     paramIn->csInterval = 0x00;
 }

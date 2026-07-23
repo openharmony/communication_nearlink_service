@@ -27,14 +27,15 @@ bool DLI_ReadRemoteExtFeatures(uint16_t companyid, uint16_t subversion, uint16_t
     return funcList->readRemoteExtFeatures(companyid, subversion, lcid);
 }
 
-void HADM_ExtCheckAndUpdateMultiToneConfig(uint16_t lcid, uint8_t *pmInitSignal2Tone, uint8_t *pmReflSignal2Tone)
+void HADM_ExtCheckAndUpdateMultiToneConfig(uint16_t lcid, uint8_t *pmInitSignal2Tone, uint8_t *pmReflSignal2Tone,
+    uint16_t *occurrenceGroupPeriod)
 {
     HADM_ExtFuncList *funcList = HADM_GetExtFuncList();
     if (funcList == NULL || funcList->checkAndUpdateMultiToneConfig == NULL) {
         ADAPTER_LOGW("HADM checkAndUpdateMultiToneConfig not registered, skip multi-tone config");
         return;
     }
-    funcList->checkAndUpdateMultiToneConfig(lcid, pmInitSignal2Tone, pmReflSignal2Tone);
+    funcList->checkAndUpdateMultiToneConfig(lcid, pmInitSignal2Tone, pmReflSignal2Tone, occurrenceGroupPeriod);
 }
 
 void HADM_ExtClearRemoteCsCaps(uint16_t lcid)
