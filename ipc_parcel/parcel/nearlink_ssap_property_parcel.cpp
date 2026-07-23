@@ -32,7 +32,7 @@ bool NearlinkSsapPropertyParcel::Marshalling(Parcel &parcel) const
     if (!parcel.WriteParcelable(&uuid)) {
         return false;
     }
-    if (!parcel.WriteUint32(value_.size()) || value_.size() > SSAP_PROPERTY_PARCEL_SIZE_MAX) {
+    if (value_.size() > SSAP_PROPERTY_PARCEL_SIZE_MAX || !parcel.WriteUint32(value_.size())) {
         return false;
     }
     for (size_t i = 0; i < value_.size(); i++) {
@@ -44,7 +44,7 @@ bool NearlinkSsapPropertyParcel::Marshalling(Parcel &parcel) const
         return false;
     }
     uint32_t size = descriptors_.size();
-    if (!parcel.WriteUint32(size) || size > SSAP_PROPERTY_PARCEL_SIZE_MAX) {
+    if (size > SSAP_PROPERTY_PARCEL_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto &des : descriptors_) {

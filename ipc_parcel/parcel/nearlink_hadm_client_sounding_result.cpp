@@ -229,7 +229,7 @@ bool NearlinkHadmClientSoundingResult::ReadOffsetFields(Parcel &parcel)
 bool NearlinkHadmClientSoundingResult::WriteIQData(std::vector<uint16_t> iqDatas, Parcel &parcel) const
 {
     uint32_t size = iqDatas.size();
-    if (!parcel.WriteUint32(size) || size > IQ_DATA_SIZE_MAX) {
+    if (size > IQ_DATA_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto data : iqDatas) {
