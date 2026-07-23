@@ -717,10 +717,6 @@ bool SleRemoteDeviceManager::SetConnectionInfo(const RawAddress &device, uint16_
     });
 }
 
-void SleRemoteDeviceManager::SaveCdsmDeviceList(const RawAddress &device, std::vector<std::string> &cdsmDevList)
-{
-}
-
 void SleRemoteDeviceManager::SaveCdsmInfo(const RawAddress &reportAddr, bool isPrivate,
     const std::vector<std::string> &cdsmDevList)
 {
