@@ -51,6 +51,37 @@ enum class SledutyCycle : uint8_t {
     DUTY_CYCLE_20P = 2,   ///< 20% 占空比
 };
 
+/**
+ * @brief Sle coexist mode
+ */
+enum SleCoexMode : int {
+    SLE_HID_COEX_MODE_ENABLE = 0,
+    SLE_HID_COEX_MODE_DISABLE,
+    SLE_COEX_MODE_BUTT,
+};
+ 
+enum SleCoexModeStatus : int {
+    STARTING = 0,
+    STARTED,
+    STOPPING,
+    STOPPED,
+};
+ 
+struct SleHidCoexDevice {
+    SleHidCoexDevice(const std::string &addr, uint16_t coexInterval, uint16_t pendingInterval) :
+        addr(addr), coexInterval(coexInterval), pendingInterval(pendingInterval) {}
+    ~SleHidCoexDevice() {}
+ 
+    std::string addr = {};
+    uint16_t coexInterval = 0;
+    uint16_t pendingInterval = 0;
+};
+ 
+struct SleHidCoexModeParam {
+    SleCoexModeStatus state = SleCoexModeStatus::STOPPED;
+    std::vector<SleHidCoexDevice> deviceList = {};
+};
+
 } // namespace Nearlink
 } // namespace OHOS
 

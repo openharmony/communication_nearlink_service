@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 #include "sle_access_dli.h"
 #include "securec.h"
 #include "byte_codec.h"
+#include "cm_api.h"
 #include "cm_dli_adapter.h"
 #include "cm_errno.h"
 #include "cm_log.h"
@@ -375,6 +376,12 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     } else {
         replyParam.connIntervalMin = evt->connIntervalMin;
         replyParam.connIntervalMax = evt->connIntervalMax;
+    }
+    // 共存场景下，HID interval设置不能小于15ms
+    uint16_t coexInterval = 0;
+    if (CM_AdjustCoexAcbInterval(&link->rmtAddr, replyParam.connIntervalMin, &coexInterval)) {
+        replyParam.connIntervalMin = coexInterval;
+        replyParam.connIntervalMax = coexInterval;
     }
     replyParam.txRxInterval  = evt->txRxInterval;
     replyParam.eventInterval = evt->eventInterval;

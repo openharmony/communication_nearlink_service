@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -246,6 +246,8 @@ public:
     bool GetConnFrameType(const std::string &addr, uint8_t &frameType) const override;
     bool HasConnectedDevice() override;
     bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const override;
+    bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+        uint16_t &interval) const override;
     void SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType) override;
 private:
     int RegisterCallbackToCm();
@@ -310,6 +312,7 @@ private:
     void AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param);
     static void ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S *param);
     void ReadAcceptFilterListSizeCallbackTask(const CM_ReadAcceptFilterListSize_S &param);
+    static void HidCoexModeCallback(CM_HidCoexModeParam_S *param);
     void PowerLevelChangedTask(const PowerLevelInfo &info);
     void RssiChangedCallbackTask(const DisconChipInfo &info);
     // ncb callback

@@ -64,6 +64,7 @@
 #include "SleRemoteDeviceManager.h"
 #include "SleCoexistManager.h"
 #include "SleCoexistData.h"
+#include "SleControllerService.h"
 #ifdef NEARLINK_KIA_ENABLE
 #include "SleKiaManager.h"
 #endif
@@ -1673,6 +1674,21 @@ void SleAdapter::ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S 
     });
 }
 
+void SleAdapter::HidCoexModeCallback(CM_HidCoexModeParam_S *param)
+{
+    NL_CHECK_RETURN(param, "[SleAdapter] param is null");
+    NL_CHECK_RETURN(param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL ||
+        param->eventType == CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE, "[SleAdapter] invalid eventType");
+    RawAddress device = RawAddress::ConvertToString(param->addr.addr);
+    if (param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL) {
+        SleControllerService::GetInstance().GetSleHidCoexInterval(device.GetAddress(), param->incomingInterval,
+            param->coexInterval);
+    } else {
+        SleControllerService::GetInstance().UpdateSleHidCoexModePendingInterval(device.GetAddress(),
+            param->incomingInterval);
+    }
+}
+
 void SleAdapter::AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param)
 {
     HILOGI("Enter");
@@ -1709,6 +1725,7 @@ int SleAdapter::RegisterCallbackToCm()
     cbks.setAcbSubrateCbk = &SleAdapter::AcbSubrateChanged;
     cbks.reqAcbSubrateCbk = &SleAdapter::AcbSubrateChangeReq;
     cbks.readAcceptFilterListSizeCbk = &SleAdapter::ReadAcceptFilterListSizeCallback;
+    cbks.hidCoexModeCbk = &SleAdapter::HidCoexModeCallback;
 
     uint32_t ret = CM_Init();
     if (ret != 0) {
@@ -2142,6 +2159,23 @@ void SleAdapter::ConnectionUpdateRequestCallback(CM_ConnectRemoteUpdateParamReq_
     });
     HILOGI("ConnectionParamChanged conn_hdl=0x%{public}x, interval_min=0x%{public}x, interval_max=0x%{public}x",
         param->lcid, minInterval, maxInterval);
+}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    RawAddress addr(device);
+    uint8_t peerAddrType = adapterProperties_->GetPeerDeviceAddrType(addr);
+    SLE_Addr_S tmpAddr;
+    (void)memset_s(&tmpAddr, sizeof(tmpAddr), 0x0, sizeof(tmpAddr));
+    tmpAddr.type = peerAddrType;
+    addr.ConvertToUint8(tmpAddr.addr, SLE_ADDR_LEN);
+ 
+    // 直接调用 Manager
+    bool ret = SleCoexistManager::GetInstance()->GetConnectionParam(tmpAddr, timeout, maxLatency, interval);
+    NL_CHECK_RETURN_RET(ret, false, "GetConnectionParam fail");
+    HILOGI("timeout: 0x%{public}x, max_latency: 0x%{public}x, interval: 0x%{public}x", timeout, maxLatency, interval);
+    return true;
 }
 
 void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, const int unpairedReason) const

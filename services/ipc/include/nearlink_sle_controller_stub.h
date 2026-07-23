@@ -38,6 +38,7 @@ private:
     static int32_t SetSleCoexParamInner(NearlinkSleControllerStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t UpdateConnectIntervalInner(
         NearlinkSleControllerStub *stub, MessageParcel &data, MessageParcel &reply);
+    static int32_t SetSleCoexModeInner(NearlinkSleControllerStub *stub, MessageParcel &data, MessageParcel &reply);
 
 private:
     std::map<uint32_t, NearlinkSleControllerFuncPerm> memberFuncMap_;

@@ -19,6 +19,7 @@
 #include "SleInterfaceAdapter.h"
 #include "SleMultiScanData.h"
 #include "nearlink_def.h"
+#include "nearlink_sle_controller_def.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -322,6 +323,8 @@ public:
     virtual bool IsFeatureSupported(int32_t feature) const = 0;
     virtual bool HasConnectedDevice() = 0;
     virtual bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const = 0;
+    virtual bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+        uint16_t &interval) const = 0;
     virtual void ConnectAcb(const RawAddress &device) = 0;
     virtual bool DisconnectAcb(const RawAddress &device, uint8_t discReason) const = 0;
     virtual void ClearBgConnDevice() const = 0;

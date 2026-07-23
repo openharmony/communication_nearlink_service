@@ -84,6 +84,31 @@ void UpdateConnectIntervalFuzzTest(const uint8_t *fuzzData, size_t size)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
 }
+
+void SetSleCoexModeFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+ 
+    data.WriteInterfaceToken(NearlinkSleControllerStub::GetDescriptor());
+    int32_t mode = provider.ConsumeIntegral<int32_t>();
+    int32_t deviceSize = provider.ConsumeIntegral<int32_t>();
+    data.WriteInt32(mode);
+    data.WriteInt32(deviceSize);
+    for (int32_t i = 0; i < deviceSize; i++) {
+        std::string device = BuildAddressString(provider);
+        int32_t param = provider.ConsumeIntegral<int32_t>();
+        data.WriteString(device);
+        data.WriteInt32(param);
+    }
+    int32_t ret = SleControllerOnRemoteRequest(
+        NearlinkSleControllerInterfaceCode::NL_SET_SLE_COEX_MODE, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
+}
 } // namespace
 
 // fuzzer init
@@ -115,6 +140,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::SetSleCoexParamFuzzTest(data, size);
     OHOS::UpdateConnectIntervalFuzzTest(data, size);
+    OHOS::SetSleCoexModeFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
