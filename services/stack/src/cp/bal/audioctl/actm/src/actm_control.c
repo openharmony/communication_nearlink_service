@@ -21,6 +21,7 @@
 #include "sdf_string.h"
 #include "nlstk_log.h"
 #include "nlstk_ssap_app_client.h"
+#include "ssapc_app.h"
 #include "nlstk_cfgdb.h"
 #include "qosm_autorate.h"
 #include "securec.h"
@@ -81,9 +82,11 @@ void NotifyAudioProp(ActmRemoteDevice_S *device)
 void ActmReadProp(ActmRemoteDevice_S *device)
 {
     NLSTK_CHECK_RETURN_VOID(ActmGetService(device), "[ACTM] get service failed");
-    if (!CfgdbGetManufacturerSupport(&device->addr, CFGDB_READ_MULTI_HANDLES)) {
-        NLSTK_SsapClientReadProperty(device->appId, INVALID_SSAP_HANDLE);
+    if (SsapcIsSupportMultiProcessing(device->appId)) {
+        // 支持多值处理，属性一次性都读过了
+        return;
     }
+    NLSTK_SsapClientReadProperty(device->appId, INVALID_SSAP_HANDLE);
 }
 
 static void ConfigL2HCParam(uint8_t *data, NLSTK_ActmCodecConfig_S *param)

@@ -46,17 +46,17 @@ static uint16_t g_mtu = 1024;
 // {SSAP_EXCHANGE_INFO_REQ(1), 保留 版本号 是否有MTU(1)，客户端MTU(2)，版本号(2)}
 static uint8_t reqPkt1[] = {0x02, 0x03, 0x00, 0x02, 0x01, 0x01};
 // {SSAP_EXCHANGE_INFO_RSP(1), 保留 版本号 是否有MTU(1)，服务端MTU(2)，版本号(2)}
-static uint8_t rspPkt1[] = {0x03, 0x03, 0x00, 0x02, 0x01, 0x01};
+static uint8_t rspPkt1[] = {0x03, 0x23, 0x00, 0x02, 0x01, 0x03};
 
 // {SSAP_EXCHANGE_INFO_REQ(1), 保留 版本号 是否有MTU(1)，客户端MTU(过小)，版本号(2)}
 static uint8_t reqPkt2[] = {0x02, 0x03, 0x80, 0x00, 0x01, 0x01};
 // {SSAP_EXCHANGE_INFO_RSP(1), 保留 版本号 是否有MTU(1)，服务端MTU(2)，版本号(2)}
-static uint8_t rspPkt2[] = {0x03, 0x03, 0xFB, 0x00, 0x01, 0x01};
+static uint8_t rspPkt2[] = {0x03, 0x23, 0xFB, 0x00, 0x01, 0x03};
 
 // {SSAP_EXCHANGE_INFO_REQ(1), 保留 版本号 是否有MTU(1)，客户端MTU(过大)，版本号(2)}
 static uint8_t reqPkt3[] = {0x02, 0x03, 0xFF, 0xFF, 0x01, 0x01};
 // {SSAP_EXCHANGE_INFO_RSP(1), 保留 版本号 是否有MTU(1)，服务端MTU(2)，版本号(2)}
-static uint8_t rspPkt3[] = {0x03, 0x03, 0x00, 0x04, 0x01, 0x01};
+static uint8_t rspPkt3[] = {0x03, 0x23, 0x00, 0x04, 0x01, 0x03};
 
 // 客户端支持的MTU为512（0x0200），小于服务端的700
 #define TEST_SERVER_MTU 512

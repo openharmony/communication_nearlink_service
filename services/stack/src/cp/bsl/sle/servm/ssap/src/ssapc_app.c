@@ -299,8 +299,39 @@ static void SsapcFindNextMember(int32_t appId, SLE_Addr_S *addr)
     }
 }
 
+static void SsapcRetryFindPrimaryService(int32_t appId, SSAP_DiscoveryComplete_S *complete)
+{
+    CP_LOG_INFO("[SSAPC_APP] Peer doesn't support finding service structure. Falling back to find primary service");
+    SSAP_ParamFind_S findParam;
+    (void)memset_s(&findParam, sizeof(findParam), 0, sizeof(findParam));
+    findParam.appId = appId;
+    (void)memcpy_s(&findParam.addr, sizeof(SLE_Addr_S), &complete->addr, sizeof(SLE_Addr_S));
+    findParam.type = FIND_STRUCTURE_TYPE_PRIMARY_SERVICE;
+    findParam.startHandle = complete->preFindHandle;
+    findParam.endHandle = complete->endHandle;
+    SSAP_FindReq(appId, GetTimeOutByAppId(appId), SsapcAppDiscServCompCb, &findParam);
+}
+
+static void SsapcRetryFindPrimaryServiceByUuid(int32_t appId, SSAP_DiscoveryComplete_S *complete)
+{
+    CP_LOG_INFO("[SSAPC_APP] Peer doesn't support finding service structure. Falling back to find primary service");
+    SSAP_ParamFindByUuid_S findParam;
+    (void)memset_s(&findParam, sizeof(findParam), 0, sizeof(findParam));
+    findParam.appId = appId;
+    (void)memcpy_s(&findParam.addr, sizeof(SLE_Addr_S), &complete->addr, sizeof(SLE_Addr_S));
+    findParam.type = FIND_STRUCTURE_TYPE_PRIMARY_SERVICE;
+    (void)memcpy_s(&findParam.uuid, sizeof(NLSTK_SsapUuid_S), &complete->uuid, sizeof(NLSTK_SsapUuid_S));
+    findParam.startHandle = complete->preFindHandle;
+    findParam.endHandle = complete->endHandle;
+    SSAP_FindByUuidReq(appId, GetTimeOutByAppId(appId), SsapcAppDiscServCompCb, &findParam);
+}
+
 static void SsapcAppDiscServByHandleCompCb(int32_t appId, SSAP_DiscoveryComplete_S *complete)
 {
+    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE && complete->errCode == SSAP_ERRCODE_UNSUPPORT_PDU) {
+        SsapcRetryFindPrimaryService(appId, complete);
+        return;
+    }
     // 非成功，说明有异常，直接callback返回，并且清除已有的serv
     if ((complete->errCode != SSAP_ERRCODE_SUCCESS && complete->errCode != SSAP_ERRCODE_ITEM_INEXIST)) {
         SsapcCacheCleanServ(&complete->addr);
@@ -343,6 +374,10 @@ static void SsapcAppDiscServByHandleCompCb(int32_t appId, SSAP_DiscoveryComplete
 
 static void SsapcAppDiscServByUuidCompCb(int32_t appId, SSAP_DiscoveryComplete_S *complete)
 {
+    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE && complete->errCode == SSAP_ERRCODE_UNSUPPORT_PDU) {
+        SsapcRetryFindPrimaryServiceByUuid(appId, complete);
+        return;
+    }
     // 非成功，说明有异常，直接callback返回，并且清除已有的serv
     if ((complete->errCode != SSAP_ERRCODE_SUCCESS && complete->errCode != SSAP_ERRCODE_ITEM_INEXIST)) {
         SsapcCacheCleanServ(&complete->addr);
@@ -410,8 +445,11 @@ void SsapcAppDiscServ(void *param)
     (void)memcpy_s(&findParam->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     (void)findParam->startHandle;
     (void)findParam->endHandle;
+    SSAP_Link_S *link = SSAP_FindSsapLinkByAddr(addr);
+    CP_CHECK_LOG_RETURN_VOID(link != NULL, "[SSAP] link is null");
     if (!CfgdbGetManufacturerSupport(addr, CFGDB_FIND_SERVICE_STRUCTURE) &&
-            findParam->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE) {
+        findParam->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE &&
+        link->version < SSAP_VERSION_1_3) {
         CP_LOG_INFO("[SSAPC_APP] not support find structure, enter find primary service");
         findParam->type = FIND_STRUCTURE_TYPE_PRIMARY_SERVICE;
     }
@@ -462,7 +500,9 @@ void SsapcAppServChange(SLE_Addr_S *addr, uint16_t startHandle, uint16_t endHand
     findParam.appId = SSAPC_SERVICE_CHANGE_APPID;
     findParam.startHandle = SSAP_START_HANDLE;
     findParam.endHandle = SSAP_END_HANDLE;
-    if (CfgdbGetManufacturerSupport(addr, CFGDB_FIND_SERVICE_STRUCTURE)) {
+    SSAP_Link_S *link = SSAP_FindSsapLinkByAddr(addr);
+    CP_CHECK_LOG_RETURN_VOID(link != NULL, "[SSAP] link is null");
+    if (CfgdbGetManufacturerSupport(addr, CFGDB_FIND_SERVICE_STRUCTURE) || link->version >= SSAP_VERSION_1_3) {
         findParam.type = FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE;
     } else {
         findParam.type = FIND_STRUCTURE_TYPE_PRIMARY_SERVICE;
@@ -1243,4 +1283,21 @@ void SsapcClientAppDeinit(void)
         g_regList[appId] = NULL;
     }
     g_cleanAppResult = NULL;
+}
+
+void SsapcGetMultiProcessing(void *param)
+{
+    NLSTK_CHECK_RETURN_VOID(param != NULL, "[SSAPC_APP] param is null");
+    NLSTK_SsapMultiProcessingObtain_S *obtainParam = (NLSTK_SsapMultiProcessingObtain_S *)param;
+    obtainParam->multiProcessing = SsapcIsSupportMultiProcessing(obtainParam->appId);
+}
+
+bool SsapcIsSupportMultiProcessing(int32_t appId)
+{
+    NLSTK_LOG_INFO("[SSAPC_APP] appId is %d", appId);
+    NLSTK_CHECK_RETURN(IsAppIdValid(appId), false, "appId is invalid");
+    SLE_Addr_S *addr = GetAddrByAppId(appId);
+    SSAP_Link_S *link = SSAP_FindSsapLinkByAddr(addr);
+    NLSTK_CHECK_RETURN(link != NULL, false, "[SSAPC_APP] link is null");
+    return link->multiProcessing || CfgdbGetManufacturerSupport(addr, CFGDB_READ_MULTI_HANDLES);
 }

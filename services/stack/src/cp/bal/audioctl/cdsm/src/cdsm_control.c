@@ -395,7 +395,6 @@ static void DecodeCdsmProperty(CdsmCoopSet_S *coopSet, CdsmCoopSetMeb_S *setMeb,
 }
 
 static void CdsmPropertyReadCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property, NLSTK_Errcode_E ret)
- 
 {
     CP_LOG_DEBUG("enter CdsmPropertyReadCbk");
     CP_CHECK_LOG_RETURN_VOID(property != NULL, "[CDSM] property is null");
@@ -454,7 +453,7 @@ static void ReadCdsmProp(CdsmCoopSetMeb_S *meb, CdsmCacheService_S *cache)
     handles[OCTETS_1] = cache->memberNumHandle;
     handles[OCTETS_2] = cache->memberAddrHandle;
     handles[OCTETS_3] = cache->keyHandle;
-    if (CfgdbGetManufacturerSupport(&meb->addr, CFGDB_READ_MULTI_HANDLES)) {
+    if (SsapcIsSupportMultiProcessing(meb->appId)) {
         if (NLSTK_SsapClientReadProperties(meb->appId, handles, CDSM_READ_PROPERTY_NUM) != NLSTK_ERRCODE_SUCCESS) {
             CP_LOG_ERROR("[CDSM] ssap client read multi properties failed");
         }

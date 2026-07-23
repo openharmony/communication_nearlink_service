@@ -601,3 +601,27 @@ NLSTK_Errcode_E NLSTK_SsapCleanClientApp(NLSTK_SsapClientCleanAppResultCb client
                          "[NLSTK_SSAPC] post task fail in NLSTK_SsapCleanClientApp");
     return NLSTK_ERRCODE_SUCCESS;
 }
+
+NLSTK_Errcode_E NLSTK_SsapGetMultiProcessing(int32_t appId, bool *multiProcessing)
+{
+    NLSTK_CHECK_RETURN(multiProcessing, NLSTK_ERRCODE_POINTER_NULL, "[NLSTK_SSAPC] input param is null");
+
+    NLSTK_SsapMultiProcessingObtain_S *param =
+        (NLSTK_SsapMultiProcessingObtain_S *)SDF_MemZalloc(sizeof(NLSTK_SsapMultiProcessingObtain_S));
+    NLSTK_CHECK_RETURN(param, NLSTK_ERRCODE_MALLOC_FAIL, "[NLSTK_SSAPC] malloc fail");
+    param->appId = appId;
+
+    uint32_t ret = SchedulePostTaskBlocked(SsapcGetMultiProcessing, (void *)param, NULL, NLSTK_API_TIME_OUT);
+    if (ret == NLSTK_ERRCODE_TASK_TIMEOUT) {
+        NLSTK_LOG_ERROR("[NLSTK_SSAPC] SchedulePostTask timeout");
+        (void)SchedulePostTask(SDF_MemFree, (void *)param, NULL);
+        return ret;
+    } else if (ret != NLSTK_OK) {
+        NLSTK_LOG_ERROR("[NLSTK_SSAPC] SchedulePostTask failed");
+        SDF_MemFree(param);
+        return NLSTK_ERRCODE_TASK_FAIL;
+    }
+    *multiProcessing = param->multiProcessing;
+    SDF_MemFree(param);
+    return NLSTK_ERRCODE_SUCCESS;
+}
