@@ -249,10 +249,6 @@ public:
     bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
         uint16_t &interval) const override;
     void SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType) override;
-    std::shared_ptr<SleHidCoexModeParam> GetSleHidCoexModeParam() override;
-    bool EnableSleHidCoexMode(const SleHidCoexModeParam &param) override;
-    bool DisableSleHidCoexMode() override;
-    void SetSleHidCoexModeState(SleCoexModeStatus state) override;
 private:
     int RegisterCallbackToCm();
     int DeregisterCallbackToBtm() const;
@@ -317,8 +313,6 @@ private:
     static void ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S *param);
     void ReadAcceptFilterListSizeCallbackTask(const CM_ReadAcceptFilterListSize_S &param);
     static void HidCoexModeCallback(CM_HidCoexModeParam_S *param);
-    CM_HidCoexModeParam_S HidCoexModeCheckCallbackTask(const CM_HidCoexModeParam_S &param);
-    void HidCoexModeParamUpdateCallbackTask(const CM_HidCoexModeParam_S &param);
     void PowerLevelChangedTask(const PowerLevelInfo &info);
     void RssiChangedCallbackTask(const DisconChipInfo &info);
     // ncb callback
@@ -368,8 +362,6 @@ private:
     static void FormatDeviceModelInfo(DeviceModel &model, std::string &newModelId);
     void SendImgSecuConfig(const RawAddress &device);
     void ClearDeviceManufacturerAbility(const RawAddress &device) const;
-    bool EnableSleHidCoexModeTask(const SleHidCoexModeParam &param);
-    bool DisableSleHidCoexModeTask();
 
 // 配对请求 start
     class ServiceSsapConnectInst {
