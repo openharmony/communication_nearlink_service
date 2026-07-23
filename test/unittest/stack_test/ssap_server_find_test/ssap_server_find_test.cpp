@@ -537,3 +537,32 @@ TEST_F(UT_SSAP_SERVER_FIND, SSAPS_SERVICE_PARAM_FAIL)
     FreeService(ssapService);
     ssapService = NULL;
 }
+
+// ============================================================================
+// FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE 分支测试
+// match SendFindStructureRsp func
+// ============================================================================
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_STD)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_STD");
+    AddService();
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t reqStructStd[] = {0x04, 0x00, 0x01, 0x00, 0xFF, 0x00};
+    static uint8_t rspStructStd[] = {
+        0x05, 0x03,
+        // 服务
+        0x10, 0x00, 0x00, 0x02, 0x01, // handle(2) + type(1) + uuid(2) + 描述符类型列表
+        0x00, // 描述符类型列表
+        // 属性
+        0x11, 0x00, 0x02, 0x03, 0x02, // handle(2) + type(1) + uuid(2)
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01 // 描述符类型列表
+    };
+
+    Test_SSAP_RecvReq(reqStructStd, sizeof(reqStructStd));
+
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructStd, sizeof(rspStructStd)));
+
+    DeleteLink();
+}
