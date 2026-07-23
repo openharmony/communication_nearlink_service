@@ -77,7 +77,13 @@ struct RequestInformation {
 
     bool operator<(const RequestInformation &rhs) const
     {
-        return (device < rhs.device && type == rhs.type);
+        if (device < rhs.device) {
+            return true;
+        }
+        if (rhs.device < device) {
+            return false;
+        }
+        return type < rhs.type;
     };
 };
 
