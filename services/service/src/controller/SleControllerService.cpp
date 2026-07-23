@@ -273,7 +273,7 @@ bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &
                 uint16_t currentInterval = 0;
                 uint16_t coexInterval = 0;
                 if (!FetchInterval(paramList[i], coexInterval)) {
-                    HILOGE("fail to fech interval for device: %{public}s, intervalType: %{public}d",
+                    HILOGE("fail to fetch interval for device: %{public}s, intervalType: %{public}d",
                         GetEncryptAddr(deviceList[i]).c_str(), static_cast<int>(paramList[i]));
                     return false;
                 }
