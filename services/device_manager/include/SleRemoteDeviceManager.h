@@ -98,6 +98,7 @@ public:
     std::vector<RawAddress> GetDirectConnDevices();
     int GetEncryptedDevicesCount(const std::vector<RawAddress> &devices);
     bool SetConnectionInfo(const RawAddress &device, uint16_t lcid, uint8_t role, uint8_t addrType);
+    void SaveCdsmDeviceList(const RawAddress &device, std::vector<std::string> &cdsmDevList);
     void SaveCdsmInfo(const RawAddress &reportAddr, bool isPrivate, const std::vector<std::string> &cdsmDevList);
     bool SaveDeviceModelInfoToConf(const RawAddress &device, const std::shared_ptr<SlePeripheralDevice> &value);
     bool SavePeerDeviceInfoToConf();
