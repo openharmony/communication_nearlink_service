@@ -86,25 +86,7 @@ static inline int8_t FuzzGetI8(uint8_t* fuzzData, size_t* idx, size_t size)
     return (int8_t)FuzzGetU8(fuzzData, idx, size);
 }
 
-static inline void FuzzGetVariableData(uint8_t* fuzzData, size_t* idx, size_t size,
-    NLSTK_VariableData_S* varData, uint8_t maxLen)
-{
-    if (size == 0) {
-        varData->len = 0;
-        varData->data = nullptr;
-        return;
-    }
-    uint8_t len = FuzzGetU8(fuzzData, idx, size) % (maxLen + 1);
-    varData->len = len;
-    if (len > 0) {
-        varData->data = fuzzData + (*idx % size);
-    } else {
-        varData->data = nullptr;
-    }
-    *idx += len;
-}
-
-static void GenerateRandomData(uint8_t* buf, uint8_t len)
+static inline void GenerateRandomData(uint8_t* buf, uint8_t len)
 {
     if (buf == NULL || len == 0) {
         return;
@@ -114,6 +96,28 @@ static void GenerateRandomData(uint8_t* buf, uint8_t len)
     }
 }
 
+static inline void FuzzGetVariableData(NLSTK_VariableData_S* varData, uint8_t maxLen)
+{
+    uint8_t len = rand() % (maxLen + 1);
+    varData->len = len;
+    if (len > 0) {
+        varData->data = (uint8_t *)SDF_MemZalloc(len);
+        if (varData->data != NULL) {
+            GenerateRandomData(varData->data, len);
+        }
+    } else {
+        varData->data = NULL;
+    }
+}
+
+static inline void FuzzFreeVariableData(NLSTK_VariableData_S* varData)
+{
+    if (varData->data != NULL) {
+        SDF_MemFree(varData->data);
+        varData->data = NULL;
+    }
+    varData->len = 0;
+}
 
 static uint32_t SdfInit(void)
 {
@@ -157,8 +161,8 @@ namespace OHOS {
     static uint8_t* GenRandBuf(size_t len)
     {
         uint8_t* buf = (uint8_t*)SDF_MemZalloc(len);
-        if (buf == nullptr) {
-            return nullptr;
+        if (buf == NULL) {
+            return NULL;
         }
         for (size_t i = 0; i < len; i++) {
             buf[i] = rand() % 0xFF;
@@ -175,7 +179,7 @@ namespace OHOS {
         setAdvData.data.advDataLen = advDataLen;
         if (advDataLen > 0) {
             setAdvData.data.advData = GenRandBuf(advDataLen);
-            if (setAdvData.data.advData == nullptr) {
+            if (setAdvData.data.advData == NULL) {
                 return;
             }
         }
@@ -184,7 +188,7 @@ namespace OHOS {
         setAdvData.data.scanRspDataLen = scanRspDataLen;
         if (scanRspDataLen > 0) {
             setAdvData.data.scanRspData = GenRandBuf(scanRspDataLen);
-            if (setAdvData.data.scanRspData == nullptr) {
+            if (setAdvData.data.scanRspData == NULL) {
                 SDF_MemFree(setAdvData.data.advData);
                 return;
             }
@@ -228,14 +232,14 @@ namespace OHOS {
             advParams.param.peerAddr.addr[i] = FuzzGetU8(fuzzData, idx, size);
         }
         advParams.param.primaryFrameType = FuzzGetU8(fuzzData, idx, size) % (ADV_FRAME_TYPE_4 + 1);
-        advParams.param.extParam = nullptr;
-        advParams.param.connParam = nullptr;
+        advParams.param.extParam = NULL;
+        advParams.param.connParam = NULL;
 
         uint16_t advDataLen = FuzzGetU16(fuzzData, idx, size) % (MAX_ADV_DATA_LEN + 1);
         advParams.data.advDataLen = advDataLen;
         if (advDataLen > 0) {
             advParams.data.advData = GenRandBuf(advDataLen);
-            if (advParams.data.advData == nullptr) {
+            if (advParams.data.advData == NULL) {
                 return;
             }
         }
@@ -243,7 +247,7 @@ namespace OHOS {
         advParams.data.scanRspDataLen = scanRspDataLen;
         if (scanRspDataLen > 0) {
             advParams.data.scanRspData = GenRandBuf(scanRspDataLen);
-            if (advParams.data.scanRspData == nullptr) {
+            if (advParams.data.scanRspData == NULL) {
                 SDF_MemFree(advParams.data.advData);
                 return;
             }
@@ -285,19 +289,31 @@ namespace OHOS {
         g_advHandle = handle;
     }
 
+    static uint8_t FuzzGetPhyCountByFrameType(uint8_t frameType)
+    {
+        uint8_t phyCount = 0;
+        if ((frameType & 0x01) != 0) { // FRAME_TYPE_1
+            phyCount++;
+        }
+        if ((frameType & 0x02) != 0) { // FRAME_TYPE_4
+            phyCount++;
+        }
+        return phyCount;
+    }
+
     static void FuzzNlstkDevdSleStartScan(uint8_t* fuzzData, size_t* idx, size_t size)
     {
-        uint8_t frameType = FuzzGetU8(fuzzData, idx, size) % FUZZ_THREE;
-        uint8_t phyCount = FuzzGetU8(fuzzData, idx, size) % FUZZ_THREE;
+        uint8_t frameType = FuzzGetU8(fuzzData, idx, size) % FUZZ_FOUR;
+        uint8_t phyCount = FuzzGetPhyCountByFrameType(frameType);
         size_t totalSize = sizeof(NLSTK_DevdSleScanParams_S) + phyCount * sizeof(NLSTK_DevdSleScanParamsNoPhy_S);
         NLSTK_DevdSleScanParams_S* sleScanParams = (NLSTK_DevdSleScanParams_S*)SDF_MemZalloc(totalSize);
-        if (sleScanParams == nullptr) {
+        if (sleScanParams == NULL) {
             return;
         }
 
         sleScanParams->localAddrType = FuzzGetU8(fuzzData, idx, size) % ADDR_TYPE_END;
         sleScanParams->scanFilterPolicy = FuzzGetU8(fuzzData, idx, size) % (SCAN_FLT_EXTEND + 1);
-        sleScanParams->frameType = frameType & 3;
+        sleScanParams->frameType = frameType;
         for (uint8_t i = 0; i < phyCount; i++) {
             sleScanParams->params[i].scanType = FuzzGetU8(fuzzData, idx, size) % (SCAN_TYPE_ACTIVE + 1);
             uint16_t scanInterval = FuzzGetU16(fuzzData, idx, size);
@@ -330,7 +346,7 @@ namespace OHOS {
 
     void FuzzDevdApi(uint8_t* data, size_t size)
     {
-        if (data == nullptr || size < 1) {
+        if (data == NULL || size < 1) {
             return;
         }
         g_advHandle = 0;
@@ -486,8 +502,8 @@ namespace OHOS {
 
         uint8_t moduleId = 0;
         NLSTK_DevdScanCbk_S cbk = {0};
-        cbk.onStartOrStopEvent = nullptr;
-        cbk.onScanCallback = nullptr;
+        cbk.onStartOrStopEvent = NULL;
+        cbk.onScanCallback = NULL;
         NLSTK_Errcode_E ret = NLSTK_DevdRegScanModule(&moduleId, &cbk);
         if (ret == NLSTK_OK) {
             state->moduleRegistered = true;
@@ -522,7 +538,7 @@ namespace OHOS {
             filter.addr.type = FuzzGetU8(fuzzData, &idx, size);
         }
 
-        FuzzGetVariableData(fuzzData, &idx, size, &filter.name, FUZZ_THIRTYTWO);
+        FuzzGetVariableData(&filter.name, FUZZ_THIRTYTWO);
 
         filter.hasServiceUuid = (FuzzGetU8(fuzzData, &idx, size) % FUZZ_TWO) == 1;
         if (filter.hasServiceUuid) {
@@ -552,12 +568,12 @@ namespace OHOS {
             }
         }
 
-        FuzzGetVariableData(fuzzData, &idx, size, &filter.serviceData, FUZZ_THIRTYTWO);
-        FuzzGetVariableData(fuzzData, &idx, size, &filter.serviceDataMask, FUZZ_THIRTYTWO);
+        FuzzGetVariableData(&filter.serviceData, FUZZ_THIRTYTWO);
+        FuzzGetVariableData(&filter.serviceDataMask, FUZZ_THIRTYTWO);
 
         filter.manufacturerId = FuzzGetU16(fuzzData, &idx, size);
-        FuzzGetVariableData(fuzzData, &idx, size, &filter.manufacturerData, FUZZ_THIRTYTWO);
-        FuzzGetVariableData(fuzzData, &idx, size, &filter.manufacturerDataMask, FUZZ_THIRTYTWO);
+        FuzzGetVariableData(&filter.manufacturerData, FUZZ_THIRTYTWO);
+        FuzzGetVariableData(&filter.manufacturerDataMask, FUZZ_THIRTYTWO);
 
         filter.hasRssiThreshold = (FuzzGetU8(fuzzData, &idx, size) % FUZZ_TWO) == 1;
         if (filter.hasRssiThreshold) {
@@ -568,11 +584,17 @@ namespace OHOS {
         filter.advIndReport = (FuzzGetU8(fuzzData, &idx, size) % FUZZ_TWO) == 1;
         filter.meshInfoReport = (FuzzGetU8(fuzzData, &idx, size) % FUZZ_TWO) == 1;
         bool enableFilter = (FuzzGetU8(fuzzData, &idx, size) % FUZZ_TWO) == 1;
-        NLSTK_DevdScanFilter_S *filterPtr = enableFilter ? &filter : nullptr;
+        NLSTK_DevdScanFilter_S *filterPtr = enableFilter ? &filter : NULL;
         uint16_t filtersNum = enableFilter ? 1 : 0;
 
         NLSTK_DevdStartScan(state->scannerId, &setting, filterPtr, filtersNum);
         NLSTK_DevdStartScan(FuzzGetU32(fuzzData, &idx, size), &setting, filterPtr, filtersNum);
+
+        FuzzFreeVariableData(&filter.name);
+        FuzzFreeVariableData(&filter.serviceData);
+        FuzzFreeVariableData(&filter.serviceDataMask);
+        FuzzFreeVariableData(&filter.manufacturerData);
+        FuzzFreeVariableData(&filter.manufacturerDataMask);
 
         NLSTK_DevdStopScan(state->scannerId);
         NLSTK_DevdStopScan(FuzzGetU32(fuzzData, &idx, size));
@@ -597,7 +619,7 @@ namespace OHOS {
 
     void FuzzMultiScanApi(uint8_t* data, size_t size)
     {
-        if (data == nullptr || size < 1) {
+        if (data == NULL || size < 1) {
             return;
         }
 
@@ -628,7 +650,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     OHOS::g_dliThreadUtil.InitThread();
     uint8_t *fuzzData = (uint8_t *)SDF_MemZalloc(size);
-    if (fuzzData == nullptr) {
+    if (fuzzData == NULL) {
         OHOS::g_dliThreadUtil.DestroyQueue();
         return 0;
     }
