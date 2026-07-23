@@ -64,6 +64,7 @@
 #include "SleRemoteDeviceManager.h"
 #include "SleCoexistManager.h"
 #include "SleCoexistData.h"
+#include "SleControllerService.h"
 #ifdef NEARLINK_KIA_ENABLE
 #include "SleKiaManager.h"
 #endif
@@ -95,7 +96,6 @@ static constexpr int SLE_5G_FREQ_TEST_MODE_TYPE = 1;
 constexpr int SLE_PASSIVE_PAIRING_DIALOG_TIMEOUT_MS = 1000;  // 1s
 constexpr uint16_t DIS_UUID_SSAP_DEVICE_NAME_ID = 0x103F;
 constexpr int ENABLE_RETRY_MAX = 3;
-constexpr int MAX_COEX_DEVICE_NUM = 32;
 
 static const std::set<int> SLE_DISCONN_REASONS_NEED_BG_CONN = {
     NLSTK_SLE_CONNECTION_TIMEOUT, NLSTK_SLE_CONNECTION_FAILED_TO_BE_ESTABLISHED,
@@ -192,8 +192,6 @@ struct SleAdapter::impl {
 
     class SleNameChangeCallback;
     std::shared_ptr<SleNameChangeCallback> sleNameChangeCallback_{ nullptr };
-
-    std::shared_ptr<SleHidCoexModeParam> sleHidCoexModeParam_ {nullptr};
 
     std::shared_ptr<SleConnectableAdvertiserCallback> sleConnectableAdvertiserCallback_ =
         std::make_shared<SleConnectableAdvertiserCallback>(this);
@@ -320,7 +318,6 @@ SleAdapter::SleAdapter()
     LOG_DEBUG("[SleAdapter] %{public}s:Create", Name().c_str());
     g_sleAdapterImpl = this;
     pimpl->sleNameChangeCallback_ = std::make_shared<SleAdapter::impl::SleNameChangeCallback>(pimpl);
-    pimpl->sleHidCoexModeParam_ = std::make_shared<SleHidCoexModeParam>();
 }
 
 SleAdapter::~SleAdapter() {}
@@ -1680,67 +1677,16 @@ void SleAdapter::ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S 
 void SleAdapter::HidCoexModeCallback(CM_HidCoexModeParam_S *param)
 {
     NL_CHECK_RETURN(param, "[SleAdapter] param is null");
-    NL_CHECK_RETURN(param->eventType == CM_SLE_CBK_EVENT_HID_COEX_MODE_CHECK ||
+    NL_CHECK_RETURN(param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL ||
         param->eventType == CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE, "[SleAdapter] invalid eventType");
-    CM_HidCoexModeParam_S incomingParam = {};
-    NL_CHECK_RETURN(memcpy_s(&incomingParam, sizeof(CM_HidCoexModeParam_S), param, sizeof(CM_HidCoexModeParam_S)) ==
-        EOK, "[SleAdapter] memcpy_s err");
-    if (param->eventType == CM_SLE_CBK_EVENT_HID_COEX_MODE_CHECK) {
-        std::promise<CM_HidCoexModeParam_S> promise;
-        DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, &promise, incomingParam]() -> void {
-            CM_HidCoexModeParam_S ret = sleAdapterImpl->HidCoexModeCheckCallbackTask(incomingParam);
-            promise.set_value(ret);
-        });
-        CM_HidCoexModeParam_S outParam = promise.get_future().get();
-        param->coexInterval = outParam.coexInterval;
+    RawAddress device = RawAddress::ConvertToString(param->addr.addr);
+    if (param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL) {
+        SleControllerService::GetInstance().GetSleHidCoexInterval(device.GetAddress(), param->incomingInterval,
+            param->coexInterval);
     } else {
-        DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, incomingParam]() -> void {
-            sleAdapterImpl->HidCoexModeParamUpdateCallbackTask(incomingParam);
-        });
+        SleControllerService::GetInstance().UpdateSleHidCoexModePendingInterval(device.GetAddress(),
+            param->incomingInterval);
     }
-}
- 
-CM_HidCoexModeParam_S SleAdapter::HidCoexModeCheckCallbackTask(const CM_HidCoexModeParam_S &param)
-{
-    CM_HidCoexModeParam_S outParam = param;
-    NL_CHECK_RETURN_RET(g_sleAdapterImpl, outParam, "[SleAdapter] g_sleAdapterImpl is null");
-    NL_CHECK_RETURN_RET(g_sleAdapterImpl->pimpl->sleHidCoexModeParam_, outParam,
-        "[SleAdapter] sleHidCoexModeParam_ is null");
-    if (g_sleAdapterImpl->pimpl->sleHidCoexModeParam_->state != SleCoexModeStatus::STARTED) {
-        return outParam;
-    }
-    RawAddress device = RawAddress::ConvertToString(param.addr.addr);
-    for (auto coexDevice : g_sleAdapterImpl->pimpl->sleHidCoexModeParam_->deviceList) {
-        // 检查当前要更新的连接interval是否小于共存上限，如果小于则param返回共存上限，否则返回共存上限
-        if (coexDevice.addr == device.GetAddress()) {
-            outParam.coexInterval = std::max(param.incomingInterval, coexDevice.coexInterval);
-            HILOGI("check hid coex mode, addr: %{public}s, incomingInterval: %{public}d, coexInterval: %{public}d",
-                GetEncryptAddr(device.GetAddress()).c_str(), param.incomingInterval, outParam.coexInterval);
-            return outParam;
-        }
-    }
-    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
-    return outParam;
-}
- 
-void SleAdapter::HidCoexModeParamUpdateCallbackTask(const CM_HidCoexModeParam_S &param)
-{
-    NL_CHECK_RETURN(g_sleAdapterImpl, "[SleAdapter] g_sleAdapterImpl is null");
-    NL_CHECK_RETURN(g_sleAdapterImpl->pimpl->sleHidCoexModeParam_, "[SleAdapter] sleHidCoexModeParam_ is null");
-    if (g_sleAdapterImpl->pimpl->sleHidCoexModeParam_->state != SleCoexModeStatus::STARTED) {
-        return;
-    }
-    RawAddress device = RawAddress::ConvertToString(param.addr.addr);
-    for (auto &coexDevice : g_sleAdapterImpl->pimpl->sleHidCoexModeParam_->deviceList) {
-        if (coexDevice.addr == device.GetAddress()) {
-            coexDevice.pendingInterval = param.incomingInterval;
-            HILOGI("update gle coex mode pending interval, addr: %{public}s, interval: %{public}d",
-                GetEncryptAddr(device.GetAddress()).c_str(), param.incomingInterval);
-            return;
-        }
-    }
-    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
-    return;
 }
 
 void SleAdapter::AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param)
@@ -3591,82 +3537,6 @@ void SleAdapter::SendImgSecuConfig(const RawAddress &device)
     NL_CHECK_RETURN(cdsmService, "cdsmService nullptr.");
     cdsmService->CdsmGetGroupId(groupId, device.GetAddress());
     pimpl->sleSecurity_.SendImgSecuConfig(device, groupId);
-}
-
-bool SleAdapter::EnableSleHidCoexMode(const SleHidCoexModeParam &param)
-{
-    if (param.deviceList.size() > static_cast<size_t>(MAX_COEX_DEVICE_NUM)) {
-        HILOGE("deviceList size exceed max sle hid num limit: %{public}d", MAX_COEX_DEVICE_NUM);
-        return false;
-    }
-    std::promise<bool> promise;
-    DoInAdapterThread([this, param, &promise]() {
-        bool result = EnableSleHidCoexModeTask(param);
-        promise.set_value(result);
-    });
-    bool ret = promise.get_future().get();
-    return ret;
-}
- 
-bool SleAdapter::EnableSleHidCoexModeTask(const SleHidCoexModeParam &param)
-{
-    NL_CHECK_RETURN_RET(pimpl->sleHidCoexModeParam_, false, "sleHidCoexModeParam is null");
-    HILOGI("enable sle coex mode, state: %{public}d", static_cast<int>(param.state));
-    pimpl->sleHidCoexModeParam_->state = param.state;
-    std::vector<SleHidCoexDevice> newDevices = {};
-    for (auto incomingDevice : param.deviceList) {
-        auto it = std::find_if(pimpl->sleHidCoexModeParam_->deviceList.begin(),
-            pimpl->sleHidCoexModeParam_->deviceList.end(), [incomingDevice](const SleHidCoexDevice &device) {
-            return device.addr == incomingDevice.addr;
-        });
-        if (it == pimpl->sleHidCoexModeParam_->deviceList.end()) {
-            HILOGI("add incomingDevice: %{public}s, coexInt: %{public}d, pendingInt: %{public}d", GetEncryptAddr(
-                incomingDevice.addr).c_str(), incomingDevice.coexInterval, incomingDevice.pendingInterval);
-            newDevices.emplace_back(incomingDevice);
-        }
-    }
-    pimpl->sleHidCoexModeParam_->deviceList.insert(pimpl->sleHidCoexModeParam_->deviceList.end(),
-        newDevices.begin(), newDevices.end());
-    return true;
-}
- 
-bool SleAdapter::DisableSleHidCoexMode()
-{
-    std::promise<bool> promise;
-    DoInAdapterThread([this, &promise]() {
-        bool result = DisableSleHidCoexModeTask();
-        promise.set_value(result);
-    });
-    bool ret = promise.get_future().get();
-    return ret;
-}
- 
-bool SleAdapter::DisableSleHidCoexModeTask()
-{
-    NL_CHECK_RETURN_RET(pimpl->sleHidCoexModeParam_, false, "sleHidCoexModeParam is null");
-    HILOGI("disable sle coex mode, state: SleCoexModeStatus::STOPPED");
-    pimpl->sleHidCoexModeParam_->state = SleCoexModeStatus::STOPPED;
-    pimpl->sleHidCoexModeParam_->deviceList = {};
-    return true;
-}
- 
-std::shared_ptr<SleHidCoexModeParam> SleAdapter::GetSleHidCoexModeParam()
-{
-    std::promise<std::shared_ptr<SleHidCoexModeParam>> promise;
-    DoInAdapterThread([this, &promise]() {
-        promise.set_value(pimpl->sleHidCoexModeParam_);
-    });
-    return promise.get_future().get();
-}
- 
-void SleAdapter::SetSleHidCoexModeState(SleCoexModeStatus state)
-{
-    DoInAdapterThread([this, state]() {
-        NL_CHECK_RETURN(pimpl->sleHidCoexModeParam_, "sleHidCoexModeParam is null");
-        HILOGI("current state: %{public}d, new state: %{public}d", static_cast<int>(pimpl->sleHidCoexModeParam_->state),
-            static_cast<int>(state));
-        pimpl->sleHidCoexModeParam_->state = state;
-    });
 }
 
 REGISTER_CLASS_CREATOR(SleAdapter);
