@@ -32,7 +32,9 @@
     }
 
 namespace OHOS::Nearlink {
+namespace {
 constexpr size_t MAX_COEX_DEVICE_NUM = 32;
+}
 
 NearlinkSleControllerStub::NearlinkSleControllerStub()
 {
