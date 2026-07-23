@@ -21,9 +21,9 @@ declare_args() {
     nearlink_service_rss_background_task = false
     nearlink_service_bas_enable = false
     nearlink_service_pluggable_supported = false
-    nearlink_service_non_audio_device_need_direct_conn = false
-    nearlink_service_min_interval_of_multiple_devices_conn = false
-    nearlink_service_direct_conn_private_scan_params = false
+    nearlink_service_non_audio_device_direct_conn = false
+    nearlink_service_min_conn_interval = false
+    nearlink_service_direct_conn_scan_params = false
 }
 
 # 弱耦合部件依赖检查

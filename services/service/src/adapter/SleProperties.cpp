@@ -159,9 +159,9 @@ bool SleProperties::UpdateConfig(int type) const
                 std::string deviceName;
                 {
                     std::lock_guard<ffrt::mutex> lock(pimpl->deviceNameMtx);
-                    ret = SleConfig::GetInstance().SetLocalName(pimpl->deviceName_);
                     deviceName = pimpl->deviceName_;
                     if (SleConfig::GetInstance().GetLocalName() != pimpl->deviceName_) {
+                        ret = SleConfig::GetInstance().SetLocalName(pimpl->deviceName_);
                         ret &= SleConfig::GetInstance().Save();
                     }
                 }
@@ -173,11 +173,11 @@ bool SleProperties::UpdateConfig(int type) const
                 std::string macAddr;
                 {
                     std::lock_guard<ffrt::mutex> lock(pimpl->macAddrMtx);
-                    SleConfig::GetInstance().SetLocalAddress(pimpl->macAddr_);
-                    ret = SleConfig::GetInstance().SetSleLocalAddrType(
-                        static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
                     macAddr = pimpl->macAddr_;
                     if (SleConfig::GetInstance().GetLocalAddress() != pimpl->macAddr_) {
+                        SleConfig::GetInstance().SetLocalAddress(pimpl->macAddr_);
+                        ret = SleConfig::GetInstance().SetSleLocalAddrType(
+                            static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
                         ret &= SleConfig::GetInstance().Save();
                     }
                 }
@@ -188,7 +188,6 @@ bool SleProperties::UpdateConfig(int type) const
         default:
             break;
     }
-
     return ret;
 }
 

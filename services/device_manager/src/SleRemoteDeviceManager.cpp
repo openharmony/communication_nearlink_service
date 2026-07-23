@@ -662,7 +662,7 @@ std::vector<RawAddress> SleRemoteDeviceManager::GetDirectConnDevices()
             !value->GetIsDeviceAvailable()) {
             return;
         }
-#ifndef NON_AUDIO_DEVICE_NEED_DIRECT_CONN
+#ifndef NON_AUDIO_DEVICE_DIRECT_CONN
         // 非音频设备不回连（走背景回连）
         if (!value->GetIsAudioDeviceFlag()) {
             return;

@@ -319,8 +319,8 @@ ohos_shared_library("nearlink_service_impl") {
     defines += [ "RES_SCHED_SUPPORT" ]
   }
 
-  if (nearlink_service_min_interval_of_multiple_devices_conn) {
-    defines += [ "MIN_INTERVAL_OF_MULTIPLE_DEVICES_CONN" ]
+  if (nearlink_service_min_conn_interval != 0) {
+    defines += [ "MIN_CONN_INTERVAL=${nearlink_service_min_conn_interval}" ]
   }
 
   if (factory == true) {
