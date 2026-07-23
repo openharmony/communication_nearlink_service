@@ -6356,13 +6356,16 @@ void ASCService::ChangeIsoParamIfNeed()
     HILOGI("[ASCService]ChangeIsoParamIfNeed in %{public}s state %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), GetASCStatus(activeSinkDevice_));
 
-    // 需要重配置
     CdsmService* cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "cdsmService nullptr.");
     std::vector<NearlinkCdsmInfo> cdsmList;
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(device, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
 
+    // 无星闪音频业务下打开空间音频，不需要重配置
+    NL_CHECK_RETURN(SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate(), "no audio service activate.");
+
+    // 需要重配置
     for (const auto& info : cdsmList) {
         if (IsStarted(GetASCStatus(info.addr_))) {
             const std::list<AudioStreamType>& listStream = GetStartedStreamList(info.addr_);
@@ -6825,18 +6828,14 @@ bool ASCService::IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t 
 
     // 蓝牙+星闪，蓝牙是出声设备，星闪提速
     if (SleAudioFrameworkAdapter::GetInstance().IsBtOut() && 
-        subrate <= NLSTK_DEFAULT_SUBRATE &&
-        (SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
-        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive())) {
+        subrate <= NLSTK_DEFAULT_SUBRATE && SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate()) {
             // 激活设备正在音频业务中，拒绝非激活设备的subrate切换请求
             HILOGI("[ASCService]reject subrate change req for not activate device");
             return true;
     }
     // 星闪+星闪，星闪是出声设备，星闪提速
     if ((!(activeSinkDevice_.GetAddress().empty()) && reportAddr != activeSinkDevice_) &&
-        subrate <= NLSTK_DEFAULT_SUBRATE && 
-        (SleAudioFrameworkAdapter::GetInstance().IsMusicActive() ||
-        SleAudioFrameworkAdapter::GetInstance().IsVoiceCallActive())) {
+        subrate <= NLSTK_DEFAULT_SUBRATE && SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate()) {
             // 激活设备正在音频业务中，拒绝非激活设备的subrate切换请求
             HILOGI("[ASCService]reject subrate change req for not activate device");
             return true;
