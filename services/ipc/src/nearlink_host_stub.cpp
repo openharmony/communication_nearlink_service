@@ -688,13 +688,13 @@ int32_t NearlinkHostStub::GetDeviceUuidsInner(NearlinkHostStub *stub, MessagePar
     NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "WriteInt32 failed.");
 
     if (status == NL_NO_ERROR) {
-        uint32_t size = uuids.size();
+        size_t size = uuids.size();
         if (size > DEVICE_UUID_MAX_NUM) {
-            HILOGE("size is too big, size=%{public}u", size);
+            HILOGE("size is too big, size=%{public}zu", size);
             size = DEVICE_UUID_MAX_NUM;
         }
-        NL_CHECK_RETURN_RET(reply.WriteUint32(size), TRANSACTION_ERR, "WriteUint32 failed.");
-        for (uint32_t i = 0; i < size; i++) {
+        NL_CHECK_RETURN_RET(reply.WriteUint32(static_cast<uint32_t>(size)), TRANSACTION_ERR, "WriteUint32 failed.");
+        for (size_t i = 0; i < size; i++) {
             NL_CHECK_RETURN_RET(reply.WriteString(uuids[i]), TRANSACTION_ERR, "WriteString failed.");
         }
     }
