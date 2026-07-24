@@ -37,7 +37,7 @@ public:
     bool RegisterCollaborationChangeObserver() const;
     bool RegisterHiviewUeChangeObserver() const;
     int32_t GetActiveOsAccountIds() const;
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
     void SaveNearlinkSwitchStatus(const std::string &sleState);
     void SaveNearlinkCarkeyName(const std::string &sleCarkeyName);
 #endif

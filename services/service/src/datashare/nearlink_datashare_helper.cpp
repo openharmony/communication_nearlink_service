@@ -314,7 +314,7 @@ bool NearlinkDataShareHelper::GetValue(Uri &uri, const std::string &key, std::st
     return true;
 }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
 void NearlinkDataShareHelper::SaveNearlinkSwitchStatus(const std::string &sleState)
 {
     HILOGD("enter");

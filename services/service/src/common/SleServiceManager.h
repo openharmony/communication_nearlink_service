@@ -352,7 +352,7 @@ private:
     int32_t RestoreSleFromSystemParameter(const SleTransport transport, const SleEventType reason) const;
     int32_t EnableInner(const SleTransport transport, const SleEventType reason, const SwitchCallerInfo callerInfo,
         const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL) const;
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
     void AdapterStateChangeNotifyDataShare(const SleTransport transport, const SleStateID state) const;
 #endif
 #ifdef NEARLINK_HOST_DYNAMIC_RUNING

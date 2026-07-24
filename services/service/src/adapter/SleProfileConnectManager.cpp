@@ -636,7 +636,7 @@ void SleProfileConnectManager::NotifyProfileState(const std::string &profileName
     }
 }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
 void SleProfileConnectManager::ProfileConnectedNotifyDataShare(const std::string &profileName,
     const RawAddress &device)
 {
@@ -695,7 +695,7 @@ void SleProfileConnectManager::ProcessProfileConnected(const std::string &profil
         NotifyProfileState(profileName, device, profConnInst);
     }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
     ProfileConnectedNotifyDataShare(profileName, device);
 #endif
 }
