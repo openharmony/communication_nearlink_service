@@ -40,14 +40,9 @@
 
 // 白名单连接设置参数
 // 主动连接参数
-#ifdef TV_STANDARD
-// 通过算法计算的参数，实际验证，该组参数直连效果更优
-#define CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW  0x66F   // 0x66F * 0.125 = 205.875ms
-#define CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL 0xB48  // 0xB48 * 0.125 = 361ms
-#else
+#define BIT_OPT_SIXTEEN_BYTE 16
 #define CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW  0xF0   // 0xF0 * 0.125 = 30ms
 #define CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL 0x1E0 // 0x1E0 * 0.125 = 60ms
-#endif
 // 背景连接参数
 #define CM_BG_CONN_SCAN_PRIVATE_WINDOW   0x190     // 0x190 * 0.125 = 50ms
 #define CM_BG_CONN_SCAN_PRIVATE_INTERVAL 0x960     // 0x960 * 0.125 = 300ms
@@ -303,6 +298,10 @@ static uint32_t CM_ConnectSetAllowListParam(bool isDirectDoing, uint8_t bitFrame
     if (isDirectDoing) {
         scanInterval = CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL;
         scanWindow = CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW;
+#if defined(DIRECT_CONN_SCAN_PARAMS) && (DIRECT_CONN_SCAN_PARAMS != 0)
+        scanWindow = DIRECT_CONN_SCAN_PARAMS >> BIT_OPT_SIXTEEN_BYTE;
+        scanInterval = DIRECT_CONN_SCAN_PARAMS & 0xFFFF;
+#endif
     }
     setParam.enableFilterPolicy = true;
     setParam.scanInterval = scanInterval;

@@ -319,6 +319,10 @@ ohos_shared_library("nearlink_service_impl") {
     defines += [ "RES_SCHED_SUPPORT" ]
   }
 
+  if (nearlink_service_min_conn_interval != 0) {
+    defines += [ "MIN_CONN_INTERVAL=${nearlink_service_min_conn_interval}" ]
+  }
+
   if (factory == true) {
     defines += ["CONFIG_FACTORY_VERSION"]
   }

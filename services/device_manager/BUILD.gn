@@ -122,6 +122,10 @@ ohos_shared_library("nearlink_device_manager") {
     "LOG_DOMAIN = 0xD000152",
   ]
 
+  if (nearlink_service_non_audio_device_direct_conn) {
+    defines += [ "NON_AUDIO_DEVICE_DIRECT_CONN" ]
+  }
+
   subsystem_name = "communication"
   part_name = "nearlink_service"
 }

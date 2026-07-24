@@ -655,15 +655,16 @@ std::vector<RawAddress> SleRemoteDeviceManager::GetDirectConnDevices()
         if (value->GetPairedStatus() != static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) {
             return;
         }
-        // 被动配对不回连，车钥匙场景不回连，路由器不回连
+        // 被动配对不回连，车钥匙场景不回连，路由器不回连，不可用设备不回连
         if (value->GetPairDirection() == static_cast<int>(SlePairDirect::SLE_PAIR_PASSIVE) ||
             value->GetAppearance() == static_cast<int>(DeviceClassForService::DEVICE_CLASS_VEHICLE_LOCK) ||
-            value->GetAppearance() == static_cast<int>(DeviceClassForService::DEVICE_NETWORKING)) {
+            value->GetAppearance() == static_cast<int>(DeviceClassForService::DEVICE_NETWORKING) ||
+            !value->GetIsDeviceAvailable()) {
             return;
         }
-#ifndef TV_STANDARD
-        // 不可用设备不回连，非音频设备不回连（走背景回连）
-        if (!value->GetIsDeviceAvailable() || !value->GetIsAudioDeviceFlag()) {
+#ifndef NON_AUDIO_DEVICE_DIRECT_CONN
+        // 非音频设备不回连（走背景回连）
+        if (!value->GetIsAudioDeviceFlag()) {
             return;
         }
 #endif

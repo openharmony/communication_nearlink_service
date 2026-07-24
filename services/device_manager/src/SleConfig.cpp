@@ -277,12 +277,10 @@ bool SleConfig::Save() const
         HILOGE("[SleConfig] Save fail.");
         return false;
     }
-#ifdef TV_STANDARD
     if (!config_->Fsync()) {
         HILOGE("[SleConfig] Fsync fail.");
         return false;
     }
-#endif
     return true;
 }
 

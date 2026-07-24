@@ -293,17 +293,19 @@ void NearlinkDeviceManager::RecoverRetainedDeviceInfo()
 {
     SleConfig::GetInstance().LoadConfigInfo();
     std::vector<std::string> pairedDevices = SleConfig::GetInstance().GetPairedAddrList();
+    bool needSave = false;
     for (auto realAddrStr : pairedDevices) {
         std::string randomAddrStr = SleConfig::GetInstance().GetPeerRandomAddress(realAddrStr);
         if (randomAddrStr == "") {
             // unlikely case, only in migrating process
             randomAddrStr = GenerateRandomMacAddress().GetAddress();
+            needSave = true;
         }
         AddDeviceInfo(RawAddress(realAddrStr), RawAddress(randomAddrStr), true);
     }
-#ifndef TV_STANDARD
-    SleConfig::GetInstance().Save();
-#endif
+    if (needSave) {
+        SleConfig::GetInstance().Save();
+    }
 }
 }  // namespace Nearlink
 }  // namespace OHOS
