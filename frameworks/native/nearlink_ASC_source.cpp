@@ -42,7 +42,7 @@ do {                                                \
     }                                               \
 } while (0)
 
-struct SleAudioStream::impl {
+struct SleAudioStream::impl : public std::enable_shared_from_this<impl> {
     class NearlinkASCCallbackStubImpl;
     std::weak_ptr<SleAudioStreamObserver> callback_;
     sptr<NearlinkASCCallbackStubImpl> clientCallback_;
@@ -190,12 +190,15 @@ void SleAudioStream::impl::Init(std::weak_ptr<SleAudioStream> client)
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(PROFILE_ASC);
     NL_CHECK_RETURN(info, "info is nullptr.");
 
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkASC> proxy = iface_cast<INearlinkASC>(remote);
 
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
 
-        int result = proxy->RegisterApplication(clientCallback_);
+        int result = proxy->RegisterApplication(implSptr->clientCallback_);
         if (result != NL_NO_ERROR) {
             HILOGE("Can not Register to ssap client service! result(%{public}d)", result);
         }
@@ -222,7 +225,7 @@ SleAudioStream::impl::~impl()
 SleAudioStream::SleAudioStream(std::shared_ptr<SleAudioStreamObserver> callback)
 {
     HILOGI("create SleAudioStream start.");
-    pimpl = std::make_unique<SleAudioStream::impl>();
+    pimpl = std::make_shared<SleAudioStream::impl>();
     if (!pimpl) {
         HILOGE("create SleAudioStream failed.");
         return;

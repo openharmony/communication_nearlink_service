@@ -26,7 +26,7 @@ namespace Nearlink {
 
 #define NEARLINK_DECLARE_IMPL() \
     struct impl;                 \
-    std::unique_ptr<impl> pimpl
+    std::shared_ptr<impl> pimpl
 
 #define NEARLINK_DISALLOW_COPY_AND_ASSIGN(TypeName) \
     TypeName(const TypeName &) = delete;             \
