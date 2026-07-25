@@ -552,6 +552,14 @@ void ScanService::AddPeripheralDevice(const SleScanResultImpl &scanResult)
 {
     SlePeripheralDevice device = scanResult.GetPeripheralDevice();
     RawAddress addr = device.GetRawAddress();
+
+    /* 配对广播存在时，回连广播不覆盖已有扫描数据，不上报 */
+    SleScanResultImpl value;
+    if (pimpl->sleScanResults_.GetValue(addr.GetAddress(), value) &&
+        value.GetPeripheralDevice().GetManufacturerBusiness() == SLE_PRIVATE_AUDIO_BUSINESS_TYPE &&
+        device.GetAdFlag() == static_cast<uint8_t>(SleAdvertiserFlag::SLE_ADV_FLAG_NON_DISC)) {
+        return;
+    }
     ClearOldPeripheralDevice(addr, device);
     if (pimpl->sleScanResults_.FindIf(addr.GetAddress())) {
         pimpl->sleScanResults_.EnsureInsert(addr.GetAddress(), scanResult);
