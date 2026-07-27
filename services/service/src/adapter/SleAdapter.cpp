@@ -3055,7 +3055,7 @@ void SleAdapter::ConnectAllProfileTask(const RawAddress &device)
         pimpl->sleProfileConnectManager_.SleConnectAllProfile(device);
 
         /* 添加设备记录 */
-        AddDevicePairRecord(device, businessType);
+        AddDevicePairRecord(device, bussinessType);
         return;
     } else if (acbConnState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING)) {
         pimpl->sleProfileConnectManager_.NotifyConnectAcb(device);
