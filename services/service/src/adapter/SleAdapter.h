@@ -332,6 +332,7 @@ private:
     bool ProcCdsmDeviceConnect(const RawAddress &device);
     void ConnectAllProfileInner(const RawAddress &device);
     void ConnectAllProfileTask(const RawAddress &device);
+    void AddDevicePairRecord(const RawAddress &device);
     bool IsServiceSupportedConn(const RawAddress &device) const;
     void DisconnectAllProfileInner(const RawAddress &device, bool &result, uint8_t discReason);
     bool ProcCdsmDisconnectAllProfile(const RawAddress &device, bool &result, uint8_t discReason);
