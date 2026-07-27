@@ -3055,7 +3055,7 @@ void SleAdapter::ConnectAllProfileTask(const RawAddress &device)
         pimpl->sleProfileConnectManager_.SleConnectAllProfile(device);
 
         /* 添加设备记录 */
-        AddDeviceRecord(const RawAddress &device);
+        AddDevicePairRecord(device, businessType);
         return;
     } else if (acbConnState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING)) {
         pimpl->sleProfileConnectManager_.NotifyConnectAcb(device);
@@ -3064,7 +3064,7 @@ void SleAdapter::ConnectAllProfileTask(const RawAddress &device)
     HILOGE("[SleAdapter] dev:%{public}s state error! acbConnState:%{public}d", GET_ENCRYPT_ADDR(device), acbConnState);
 }
 
-void SleAdapter::AddDevicePairRecord(const RawAddress &device)
+void SleAdapter::AddDevicePairRecord(const RawAddress &device, int bussinessType)
 {
     CdsmService *cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "cdsmService nullptr.");
