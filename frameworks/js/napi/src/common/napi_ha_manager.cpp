@@ -17,10 +17,7 @@
 #include "log_util.h"
 #include "nearlink_errorcode.h"
 #include "ffrt_inner.h"
-#include <chrono>
-#include <mutex>
-#include <condition_variable>
-#include <memory>
+#include "napi_nearlink_utils.h"
 
 #ifdef NEARLINK_HIAPPEVENT_ENABLE
 #include "app_api_metric.h"
@@ -32,14 +29,15 @@ namespace OHOS {
 namespace Nearlink {
 namespace {
 const char* SDK_NAME = "ConnectivityKit";
-constexpr int64_t REPORT_NOT_SUPPORT_CODE = -200;
-constexpr int ADD_PROCESSOR_TIMEOUT_SECONDS = 5;
 }
 
 #ifdef NEARLINK_HIAPPEVENT_ENABLE
 class NapiHaManager::NapiHaManagerImpl {
 public:
-    NapiHaManagerImpl() = default;
+    NapiHaManagerImpl()
+    {
+        AddProcessor();
+    };
     ~NapiHaManagerImpl() = default;
 
     int64_t GetCurrentTimestamp()
@@ -50,42 +48,24 @@ public:
 
     void ReportEvent(const std::string& apiName, bool success, int64_t beginTime, int32_t errCode)
     {
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            if (m_processorId == -1) {
-                AddProcessor();
-                auto ret = m_cv.wait_for(lock,
-                    std::chrono::seconds(ADD_PROCESSOR_TIMEOUT_SECONDS), [this]() { return m_processorId != -1; });
-                if (!ret) {
-                    HILOGE("AddProcessor timeout, m_processorId:%{public}lld", (long long)m_processorId);
-                    return;
-                }
+        int64_t endTime = GetCurrentTimestamp();
+        NL_CHECK_RETURN(endTime >= beginTime, "invalid beginTime.");
+        int64_t durationUs = std::min(endTime - beginTime, static_cast<int64_t>(INT_MAX));
+        ffrt::submit([apiName, success, durationUs, errCode]() {
+            OHOS::HiviewDFX::HiAppEvent::ApiInfo apiInfo;
+            apiInfo.kit = SDK_NAME;
+            apiInfo.api = apiName;
+
+            OHOS::HiviewDFX::HiAppEvent::ApiMetric metric;
+            metric.errCode = errCode;
+            metric.duration = static_cast<int>(durationUs);
+            metric.successful = success;
+
+            int ret = OHOS::HiviewDFX::HiAppEvent::ReportApiMetric(apiInfo, metric);
+            if (ret != 0) {
+                HILOGE("ReportApiMetric failed, apiName:%{public}s, ret:%{public}d", apiName.c_str(), ret);
             }
-            if (m_processorId == REPORT_NOT_SUPPORT_CODE) {
-                return;
-            }
-        }
-
-        auto endTime = GetCurrentTimestamp();
-        auto durationUs = std::max<int64_t>(endTime - beginTime, 0);
-        if (durationUs < 0) {
-            HILOGE("ReportEvent error params, duration = %{public}lld", (long long)durationUs);
-            return;
-        }
-
-        OHOS::HiviewDFX::HiAppEvent::ApiInfo apiInfo;
-        apiInfo.kit = SDK_NAME;
-        apiInfo.api = apiName;
-
-        OHOS::HiviewDFX::HiAppEvent::ApiMetric metric;
-        metric.errCode = errCode;
-        metric.duration = static_cast<int>(durationUs);
-        metric.successful = success;
-
-        int ret = OHOS::HiviewDFX::HiAppEvent::ReportApiMetric(apiInfo, metric);
-        if (ret != 0) {
-            HILOGE("ReportApiMetric failed, apiName:%{public}s, ret:%{public}d", apiName.c_str(), ret);
-        }
+        }, {}, {});
     }
 
 private:
@@ -96,19 +76,9 @@ private:
             config.name = "ha_app_event";
             config.configName = "SDK_OCG";
             int64_t result = OHOS::HiviewDFX::HiAppEvent::AppEventProcessorMgr::AddProcessor(config);
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_processorId = result;
-            }
-            m_cv.notify_one();
-
             HILOGI("AddProcessor result %{public}lld", (long long)result);
         }, {}, {});
     }
-
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-    int64_t m_processorId{-1};
 };
 
 #else
