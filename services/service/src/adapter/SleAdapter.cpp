@@ -3070,7 +3070,8 @@ void SleAdapter::AddDevicePairRecord(const RawAddress &device)
     NL_CHECK_RETURN(cdsmService, "cdsmService nullptr.");
 
     RawAddress otherAddr;
-    if (cdsmService->CdsmGetOtherAddr(device, otherAddr) && bussinessType == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
+    if (cdsmService->CdsmGetOtherAddr(device, otherAddr) &&
+        bussinessType == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
         int otherAcbConnState = GetAcbStateTask(otherAddr);
         if (otherAcbConnState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED) ||
             otherAcbConnState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING)) {
