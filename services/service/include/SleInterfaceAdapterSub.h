@@ -102,10 +102,8 @@ public:
     /**
      * @brief Notify csdm device pair state callback.
      *
-     * @param transport transport slb/sle.
      * @param device Remote device.
-     * @param status Read status.
-     * @since 6
+     * @param state Read status.
      */
     virtual void OnCsdmPairStateChanged(const RawAddress &device, int state){};
 

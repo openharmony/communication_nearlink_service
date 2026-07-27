@@ -3078,6 +3078,9 @@ void SleAdapter::AddDevicePairRecord(const RawAddress &device)
                 GET_ENCRYPT_ADDR(device), GET_ENCRYPT_ADDR(otherAddr));
             adapterProperties_->CdsmAddOtherRecord(device, otherAddr);
             // 既然这里直接设置成配对状态：已配对，那么模拟配对状态通知
+            NotifyPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+                static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+                static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
             NotifyPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
                 static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
                 static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
