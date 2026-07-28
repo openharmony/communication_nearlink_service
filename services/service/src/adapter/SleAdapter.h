@@ -356,6 +356,7 @@ private:
     void ProcCreateCdsmGroup(const RawAddress &reportAddr, const RawAddress &realAddr, bool eraseDeviceIfNeed) const;
     bool ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAddress &collabAddr,
         bool eraseDeviceIfNeed) const;
+    void ProcEarphoneLost(const RawAddress &existDev, const RawAddress &lostDev) const;
     bool ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReportAddr, const RawAddress &oldReportAddr,
         bool eraseDeviceIfNeed) const;
     void ProcCreateCdsmGroupAndEraseDevice(const RawAddress &reportAddr, const RawAddress &otherAddr) const;

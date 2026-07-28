@@ -723,9 +723,7 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
     bool isRealExist = cdsmService->CdsmCheckIsCooperationDevice(reportAddr);
     if (isRealExist && eraseDeviceIfNeed) {
         if (cdsmService->CdsmGetOtherAddr(reportAddr, otherDev) && otherDev != collabAddr) {
-            cdsmService->CdsmDeleteGroup(reportAddr);
-            CancelPairingTask(otherDev);
-            adapterProperties_->RemovePeripheralDevice(reportAddr.GetAddress());
+            ProcEarphoneLost(reportAddr, otherDev);
             HILOGI("[SleAdapter]:Existing reportAddr:%{public}s, Lost dev:%{public}s",
                 GET_ENCRYPT_ADDR(reportAddr), GET_ENCRYPT_ADDR(otherDev));
         }
@@ -734,9 +732,7 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
     bool isCooperaExist = cdsmService->CdsmCheckIsCooperationDevice(collabAddr);
     if (isCooperaExist && eraseDeviceIfNeed) {
         if (cdsmService->CdsmGetOtherAddr(collabAddr, otherDev) && otherDev != reportAddr) {
-            cdsmService->CdsmDeleteGroup(collabAddr);
-            CancelPairingTask(otherDev);
-            adapterProperties_->RemovePeripheralDevice(collabAddr.GetAddress());
+            ProcEarphoneLost(collabAddr, otherDev);
             HILOGI("[SleAdapter]:Existing collabAddr:%{public}s, Lost dev:%{public}s",
                 GET_ENCRYPT_ADDR(collabAddr), GET_ENCRYPT_ADDR(otherDev));
         }
@@ -759,12 +755,29 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
         cdsmService->CdsmReplaceOldReportAddr(oldReportAddr, reportAddr);
+        SleReconnectManager::GetInstance().OnDeviceStartPair(reportAddr);
         if (eraseDeviceIfNeed) {
             adapterProperties_->RemovePeripheralDevice(reportAddr.GetAddress());
             adapterProperties_->RemovePeripheralDevice(collabAddr.GetAddress());
         }
     }
     return isReplace;
+}
+
+void SleAdapter::ProcEarphoneLost(const RawAddress &existDev, const RawAddress &lostDev) const
+{
+    CdsmService *cdsmService = CdsmService::GetService();
+    NL_CHECK_RETURN(cdsmService, "[SleAdapter]cdsmService is null.");
+    RawAddress lostReportAddr;
+    bool isNeedNotify = cdsmService->CdsmGetReportAddr(lostDev, lostReportAddr);
+    cdsmService->CdsmDeleteGroup(existDev);
+    if (isNeedNotify) {
+        NotifyPairStatusChanged(lostReportAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+            static_cast<int>(SlePairState::SLE_PAIR_NONE),
+            static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED));
+    }
+    CancelPairingTask(lostDev);
+    adapterProperties_->RemovePeripheralDevice(existDev.GetAddress());
 }
 
 bool SleAdapter::ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReportAddr, const RawAddress &oldReportAddr,
@@ -2581,20 +2594,30 @@ void SleAdapter::EncryptionKeyMissingComplete(const RawAddress &device) const
 
 void SleAdapter::UpdateKeyMissingCdsmGroup(const RawAddress &device) const
 {
-    // 主耳Keymissing, 删旧副耳配对记录，删旧cdsm合作集，删旧副耳连接白名单
     CdsmService *cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "[SleAdapter]cdsmService is null.");
     RawAddress realAddr = adapterProperties_->GetRealAddress(device);
     RawAddress otherAddr;
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before remove pair");
+
+    RawAddress scanReportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
+    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+        "invalid scanReportAddr");
+    RawAddress scanCollaAddr = InterfaceScanService::GetInstance().GetCollaborateAddress(scanReportAddr);
+    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+        "invalid scanCollaAddr");
+    if (otherAddr == scanReportAddr || otherAddr == scanCollaAddr) {
+        // 扫描结果的副耳与合作集中的副耳一致，非耳机丢失场景，不处理
+        return;
+    }
+    // 主耳Keymissing, 副耳丢失，删旧副耳配对记录，删旧cdsm合作集，删旧副耳连接白名单
     CancelPairCompleteInner(otherAddr);
     DisconnectAcb(otherAddr, static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR));
     cdsmService->CdsmDeleteGroup(realAddr);
     HILOGI("KeyMissing and %{public}s remove pair", GET_ENCRYPT_ADDR(otherAddr));
 
     // 重建cdsm合作集，新建副耳配对记录
-    RawAddress reportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
-    ProcCreateCdsmGroup(reportAddr, realAddr, false);
+    ProcCreateCdsmGroup(scanReportAddr, realAddr, false);
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before update pair");
     adapterProperties_->CdsmAddOtherRecord(realAddr, otherAddr);
     HILOGI("KeyMissing and %{public}s update pair record", GET_ENCRYPT_ADDR(otherAddr));
