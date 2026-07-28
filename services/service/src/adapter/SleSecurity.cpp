@@ -460,10 +460,13 @@ bool SleSecurity::SendImgSecuConfig(const RawAddress &device, uint32_t groupId)
     config.giv = giv;
     if (memcpy_s(&(config.groupKey), SM_LINK_KEY_LEN, &sleGroupkey[0], OCTET16_LEN) != EOK) {
         LOG_ERROR("memcpy_s failed!");
+        (void)memset_s(&sleGroupkey, sizeof(LinkKey), 0x00, sizeof(LinkKey));
+        (void)memset_s(&config.groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
         return false;
     }
     int sendRet = NLSTK_SmSendImgSecuConfig(&config);
     (void)memset_s(&sleGroupkey, sizeof(LinkKey), 0x00, sizeof(LinkKey));
+    (void)memset_s(&config.groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
     return (sendRet == NLSTK_ERRCODE_SUCCESS);
 }
 
