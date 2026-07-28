@@ -76,7 +76,7 @@ private:
             config.name = "ha_app_event";
             config.configName = "SDK_OCG";
             int64_t result = OHOS::HiviewDFX::HiAppEvent::AppEventProcessorMgr::AddProcessor(config);
-            HILOGI("AddProcessor result %{public}lld", (long long)result);
+            HILOGI("AddProcessor result %{public}lld", static_cast<long long>(result));
         }, {}, {});
     }
 };
@@ -108,19 +108,19 @@ NapiHaManager& NapiHaManager::GetInstance()
     return instance;
 }
 
-NapiHaManager::NapiHaManager() : m_impl(std::make_shared<NapiHaManagerImpl>()) {}
+NapiHaManager::NapiHaManager() : impl_(std::make_shared<NapiHaManagerImpl>()) {}
 
 NapiHaManager::~NapiHaManager() = default;
 
 int64_t NapiHaManager::GetCurrentTimestamp()
 {
-    return GetInstance().m_impl->GetCurrentTimestamp();
+    return GetInstance().impl_->GetCurrentTimestamp();
 }
 
 void NapiHaManager::ReportEvent(const std::string& apiName, const int64_t beginTime, const int32_t errCode)
 {
     bool success = (errCode == NL_NO_ERROR);
-    m_impl->ReportEvent(apiName, success, beginTime, errCode);
+    impl_->ReportEvent(apiName, success, beginTime, errCode);
 }
 
 }  // namespace Nearlink

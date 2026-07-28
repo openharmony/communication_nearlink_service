@@ -44,7 +44,7 @@ private:
    ~NapiHaManager();
 
    class NapiHaManagerImpl;
-   std::shared_ptr<NapiHaManagerImpl> m_impl;
+   std::shared_ptr<NapiHaManagerImpl> impl_;
 };
 
 }  // namespace Nearlink
