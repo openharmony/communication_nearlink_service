@@ -2692,7 +2692,7 @@ bool SleAdapter::IsProfileStateReport(const RawAddress &device, RawAddress &repo
     bool isNeedReport = false;
 
     switch (newConnState) {
-        case static_cast<int>(SleConnectState::CONNECTED): /* 已连接，已连接数大于1时上报 */
+        case static_cast<int>(SleConnectState::CONNECTED): /* 已连接，已连接数是1时上报(只报report) */
             if (connectedCnt == 1) {
                 isNeedReport = true;
             }

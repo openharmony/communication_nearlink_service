@@ -1199,21 +1199,12 @@ uint32_t CM_ICBMgrRemoveParam(CM_ICGRemovedParam *param)
 {
     DLI_CmdOpcode opCode = (param->type == CM_IMB) ? DLI_REMOVE_IMG_PARAM : DLI_REMOVE_IOG_PARAM;
     CM_ICBErrorCode errorCode = GetICBErrorCode(DLI_UNSPECIFIED_ERROR, param->type);
-    ICGConnectionNode *channelNode = NULL;
-    ICGConnectionNode *temp = NULL;
-    SDF_DListElmSafeForeach(channelNode, temp, &g_icgConnectionListHead, entry) {
-        if (channelNode->id != param->id) {
-            continue;
-        }
-        DLI_ICGCbkParam cbkParam = {};
-        cbkParam.type = param->type;
-        cbkParam.id = param->id;
-        cbkParam.connHandleNum = 0;
-        if (DLI_RemoveICGParam(opCode, &cbkParam) == DLI_SUCCESS) {
-            return CM_ICB_SUCCESS;
-        }
-        CM_LOGE("dli remove icg param failed, id=%u", param->id);
-        return errorCode;
+    DLI_ICGCbkParam cbkParam = {};
+    cbkParam.type = param->type;
+    cbkParam.id = param->id;
+    cbkParam.connHandleNum = 0;
+    if (DLI_RemoveICGParam(opCode, &cbkParam) == DLI_SUCCESS) {
+        return CM_ICB_SUCCESS;
     }
     CM_LOGE("icg channel is not existed, id=%u", param->id);
     return errorCode;
@@ -1277,7 +1268,7 @@ uint32_t CM_ICBMgrAddConnection(DLI_ICBConnectionParam *param, bool mcast, bool 
     cbkParam.id = param->id;
     cbkParam.connHandleNum = param->channelCnt;
     for (uint8_t i = 0; i < cbkParam.connHandleNum; i++) {
-        cbkParam.connHandle[i] = param->channel->connHandle;
+        cbkParam.connHandle[i] = param->channel[i].connHandle;
     }
 
     if (supportAutorate) {
