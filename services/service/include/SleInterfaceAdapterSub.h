@@ -101,6 +101,14 @@ public:
     virtual void OnPairStatusChanged(const RawAddress &device, int preStatus, int Status, int reason){};
 
     /**
+     * @brief Notify csdm device pair state callback.
+     *
+     * @param device Remote device.
+     * @param state Read status.
+     */
+    virtual void OnCsdmPairStateChanged(const RawAddress &device, int state){};
+
+    /**
      * @brief ACB State callback.
      *
      * @param device Remote device.
