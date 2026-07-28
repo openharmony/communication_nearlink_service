@@ -296,6 +296,11 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
     NearlinkSleDataTransferConnectionParams &params, int32_t &connState)
 {
     HILOGD("enter");
+    int32_t pid = IPCSkeleton::GetCallingPid();
+    int32_t uid = IPCSkeleton::GetCallingUid();
+    uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
+        "tokenId is invalid.");
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(params.address_, realAddr);
     params.address_ = realAddr;
