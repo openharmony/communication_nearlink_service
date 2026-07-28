@@ -1046,7 +1046,9 @@ static void HandleWriteRspHandleError(SSAP_Link_S *link, SSAP_PduWriteReq_S *req
     SSAP_PduWriteRsp_S *writeRsp, uint16_t len)
 {
     CP_CHECK_LOG_RETURN_VOID(len == SSAP_WRITE_RSP_ERROR_OFFSET, "[SSAP] write rsp handle data len error");
-    SSAP_PduWriteRspErrorItem_S *writeRspItem = (SSAP_PduWriteRspErrorItem_S *)(writeRsp->items);
+
+    SSAP_PduWriteRspErrorInfo_S *errInfo = (SSAP_PduWriteRspErrorInfo_S *)(writeRsp->items);
+    SSAP_PduWriteRspErrorItem_S *writeRspItem = &(errInfo->errList[0]);
     SSAP_ValuePkt_S *valuePkt = (SSAP_ValuePkt_S *)SDF_MemZalloc(sizeof(SSAP_ValuePkt_S));
     CP_CHECK_LOG_RETURN_VOID(valuePkt != NULL, "[SSAP] write rsp handle valuePkt malloc fail");
     valuePkt->opCode = writeRsp->msgCode;
