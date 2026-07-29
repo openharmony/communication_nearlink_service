@@ -638,9 +638,9 @@ static HadmSoundingIqData_S *HadmBuildIqDataToService(SLE_Addr_S *addr, HadmIqIn
     * 其中 tofCalib的含义：Calibration value(校准值) of ToF.
     */
     // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
-    iqData->dutTof = (unit16_t)((unit64_t)(localIqInfo->tofResult) * 3 / 100);  
+    iqData->dutTof = (uint16_t)((uint64_t)(localIqInfo->tofResult) * 3 / 100);  
     // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
-    iqData->rtdTof = (unit16_t)((unit64_t)(remoteIqInfo->tofResult) * 3 / 100);  
+    iqData->rtdTof = (uint16_t)((uint64_t)(remoteIqInfo->tofResult) * 3 / 100);  
     iqData->iqChnlNum = remoteIqInfo->iqChnlNum > localIqInfo->iqChnlNum ? localIqInfo->iqChnlNum :
                                                                           remoteIqInfo->iqChnlNum;
     iqData->iqData = (HadmReportIqData_S *)SDF_MemZalloc(sizeof(HadmReportIqData_S) * iqData->iqChnlNum);
