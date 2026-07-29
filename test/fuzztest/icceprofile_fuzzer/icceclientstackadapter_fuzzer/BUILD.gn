@@ -49,7 +49,7 @@ ohos_fuzztest("IcceClientStackAdapterFuzzTest") {
     "$NEARLINK_ROOT/services/stack:nearlink_stack",
     "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
     "${nearlink_fuzztest_utils_path}:fuzztest_utils_static",
-    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
   ]
 
   external_deps = [

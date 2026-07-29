@@ -268,7 +268,9 @@ namespace OHOS {
         TRANS_ProtoBasicHeader_S *basicHeader = (TRANS_ProtoBasicHeader_S *)SDF_DataOffset(buff);
         basicHeader->version = TRANS_PROTO_VERSION;
 
-        g_datpDataRecvCb(&info, buff);
+        if (g_datpDataRecvCb != nullptr) {
+            g_datpDataRecvCb(&info, buff);
+        }
         SDF_BuffFree(buff);
     }
 
@@ -315,11 +317,11 @@ namespace OHOS {
 
     void FuzzTransportApi(uint8_t* data, size_t size)
     {
+        FuzzTransRegisterCbks();
         FuzzTransCltpHeaderBuild(data, size);
         FuzzTransCltpPktProc(data, size);
         FuzzTransChannelSetStatus(data, size);
         FuzzTransDataRecvCbk(data, size);
-        FuzzTransRegisterCbks();
         FuzzTransSendData(data, size);
         FuzzTansportLastApi();
     }

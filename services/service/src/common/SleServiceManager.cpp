@@ -1280,9 +1280,13 @@ void SleServiceManager::InitializeAfterAllDependencyOn()
 
     WaitDriverLoadCompleted();
 #ifndef CONFIG_FACTORY_VERSION
-    SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
-    if ((!IsSleSwitchRestricted()) && (targetState == SleStateID::STATE_TURN_OFF)) {
-        RestoreSwitchStatus();
+    if (pimpl->stateMachine_ == nullptr) {
+        HILOGE("stateMachine_ is nullptr, skip RestoreSwitchStatus");
+    } else {
+        SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
+        if ((!IsSleSwitchRestricted()) && (targetState == SleStateID::STATE_TURN_OFF)) {
+            RestoreSwitchStatus();
+        }
     }
 #endif
 #ifdef NEARLINK_EDM_ENABLE

@@ -26,6 +26,8 @@
 #include "log.h"
 #include "securec.h"
 #include "raw_address.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfile.h"
 
 #define private public
 #include "ssap_client_stack_adapter.h"
@@ -65,6 +67,7 @@ constexpr uint32_t MESSAGE_SIZE = NearlinkSsapClientInterfaceCode::NL_SSAP_CLIEN
 sptr<NearlinkSsapClientServer> g_ssapClient = new (std::nothrow) NearlinkSsapClientServer();
 sptr<INearlinkSsapClientCallback> g_ssapClientCb = new (std::nothrow) MockNearlinkSsapClientCallbackStub();
 ThreadUtil &g_threadUtil = ThreadUtil::GetInstance();
+bool g_isInit = false;
 }
 
 int32_t SsapClientOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply)
@@ -699,6 +702,15 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     HILOGI("SsapClientFuzzTest EnableSle");
     hostServer->EnableSle();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_5000_MS));
+
+    SleInterfaceProfile *profile = SleInterfaceProfileManager::GetInstance().GetProfileService(
+        PROFILE_NAME_SSAP_CLIENT);
+    if (profile != nullptr) {
+        OHOS::g_isInit = true;
+        HILOGI("SsapClientFuzzTest init success");
+    } else {
+        HILOGI("SsapClientFuzzTest init failed");
+    }
     return 0;
 }
 
@@ -724,21 +736,23 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::GetServicesByUuidFuzzTest(data, size);
     OHOS::RequestPropertyNotificationFuzzTest(data, size);
 
-    OHOS::OnMtuChangedFuzzTest(data, size);
-    OHOS::OnDiscoverCompleteFuzzTest(data, size);
-    OHOS::OnDiscoverByUuidCompleteFuzzTest(data, size);
-    OHOS::OnConnectionStateChangedFuzzTest(data, size);
-    OHOS::OnReadPropertyFuzzTest(data, size);
-    OHOS::OnCallMethodFuzzTest(data, size);
-    OHOS::OnReadDescriptorFuzzTest(data, size);
-    OHOS::OnWritePropertyFuzzTest(data, size);
-    OHOS::OnWriteDescriptorFuzzTest(data, size);
-    OHOS::OnGetPropertyNotificationFuzzTest(data, size);
-    OHOS::OnGetPropertyIndicationFuzzTest(data, size);
-    OHOS::OnSetPropertyNotificationFuzzTest(data, size);
-    OHOS::OnSetPropertyIndicationFuzzTest(data, size);
-    OHOS::OnPropertyChangedFuzzTest(data, size);
-    OHOS::OnEventFuzzTest(data, size);
+    if (OHOS::g_isInit) {
+        OHOS::OnMtuChangedFuzzTest(data, size);
+        OHOS::OnDiscoverCompleteFuzzTest(data, size);
+        OHOS::OnDiscoverByUuidCompleteFuzzTest(data, size);
+        OHOS::OnConnectionStateChangedFuzzTest(data, size);
+        OHOS::OnReadPropertyFuzzTest(data, size);
+        OHOS::OnCallMethodFuzzTest(data, size);
+        OHOS::OnReadDescriptorFuzzTest(data, size);
+        OHOS::OnWritePropertyFuzzTest(data, size);
+        OHOS::OnWriteDescriptorFuzzTest(data, size);
+        OHOS::OnGetPropertyNotificationFuzzTest(data, size);
+        OHOS::OnGetPropertyIndicationFuzzTest(data, size);
+        OHOS::OnSetPropertyNotificationFuzzTest(data, size);
+        OHOS::OnSetPropertyIndicationFuzzTest(data, size);
+        OHOS::OnPropertyChangedFuzzTest(data, size);
+        OHOS::OnEventFuzzTest(data, size);
+    }
 
     OHOS::DisconnectFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest(data, size);
