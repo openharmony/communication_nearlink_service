@@ -1063,7 +1063,7 @@ static QOSM_ICBStateFunc g_icbStateFunc[] = {
 static void QOSM_ICBConnectionCbk(CM_ICBConnection *connection)
 {
     QOSM_CHECK_RETURN(connection != NULL, "connection is NULL");
-    QOSM_LOGI("Set Label id call back ret = %d", connection->errorCode);
+    QOSM_LOGI("ret = %d, state = %d", connection->errorCode, connection->state);
     static uint8_t funcs = sizeof(g_icbStateFunc) / sizeof(QOSM_ICBStateFunc);
     for (uint8_t i = 0; i < funcs; i++) {
         if (connection->state == g_icbStateFunc[i].state) {
