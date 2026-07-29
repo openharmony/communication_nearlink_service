@@ -15,9 +15,9 @@
 #ifndef SLE_ADVERTISER_IMPL_H
 #define SLE_ADVERTISER_IMPL_H
 
-#include <atomic>
 #include <future>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -68,9 +68,12 @@ struct SleAdvertiserImplData {
 /**
  * @brief SLE advertiser.
  */
-class SleAdvertiserImpl {
+class SleAdvertiserImpl : public std::enable_shared_from_this<SleAdvertiserImpl> {
 public:
-    explicit SleAdvertiserImpl();
+    // Prefer Create(); binds the process-wide weak instance used by static DD callbacks.
+    static std::shared_ptr<SleAdvertiserImpl> Create();
+    // Clear the process-wide weak instance so new callbacks no longer lock successfully.
+    static void UnbindInstance();
 
     ~SleAdvertiserImpl();
 
@@ -187,6 +190,8 @@ private:
     std::shared_ptr<std::promise<void>> stopAllAdvPromise_ {nullptr};
     SLE_DISALLOW_COPY_AND_ASSIGN(SleAdvertiserImpl);
     DECLARE_IMPL();
+
+    SleAdvertiserImpl();
 };
 }  // namespace Nearlink
 }  // namespace OHOS

@@ -29,12 +29,12 @@ struct SleAdvertiserAdapter::impl {
     impl &operator=(const impl &);
     ~impl();
 
-    std::unique_ptr<SleAdvertiserImpl> sleAdvertiser_ = nullptr;
+    std::shared_ptr<SleAdvertiserImpl> sleAdvertiser_ = nullptr;
 };
 
 SleAdvertiserAdapter::impl::impl()
 {
-    sleAdvertiser_ = std::make_unique<SleAdvertiserImpl>();
+    sleAdvertiser_ = SleAdvertiserImpl::Create();
 }
 
 SleAdvertiserAdapter::impl::~impl()
@@ -48,6 +48,7 @@ SleAdvertiserAdapter::SleAdvertiserAdapter(): pimpl(std::make_unique<SleAdvertis
 SleAdvertiserAdapter::~SleAdvertiserAdapter()
 {
     HILOGI("~SleAdvertiserAdapter");
+    SleAdvertiserImpl::UnbindInstance();
     pimpl->sleAdvertiser_ = nullptr;
 }
 
