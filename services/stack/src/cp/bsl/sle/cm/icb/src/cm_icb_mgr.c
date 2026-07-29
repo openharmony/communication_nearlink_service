@@ -1206,7 +1206,7 @@ uint32_t CM_ICBMgrRemoveParam(CM_ICGRemovedParam *param)
     if (DLI_RemoveICGParam(opCode, &cbkParam) == DLI_SUCCESS) {
         return CM_ICB_SUCCESS;
     }
-    CM_LOGE("icg channel is not existed, id=%u", param->id);
+    CM_LOGE("dli remove icg param failed, id=%u", param->id);
     return errorCode;
 }
 
