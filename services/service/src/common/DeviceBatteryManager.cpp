@@ -15,9 +15,10 @@
 #include "nearlink_utils.h"
 #include "nearlink_common_event_helper.h"
 #include "DeviceBatteryManager.h"
-#include "TwsService.h"
+#include "SleInterfaceProfileTws.h"
+#include "SleInterfaceProfileManager.h"
 #include "SleInterfaceManager.h"
-#include "SleRemoteDeviceAdapter.h"
+#include "IRemoteDeviceQuery.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -41,13 +42,14 @@ DeviceBatteryManager &DeviceBatteryManager::GetInstance()
 // 电量更新
 void DeviceBatteryManager::PublishBatteryLevel(const RawAddress &peerAddr, const BatteryInfo &batteryInfo)
 {
-    if (!SleRemoteDeviceAdapter::GetInstance()->IsAudioDevice(peerAddr.GetAddress())) {
+    if (!IRemoteDeviceQuery::GetInstance()->IsAudioDevice(peerAddr.GetAddress())) {
         HILOGI("It is not a audio device, no need to publish.");
         return;
     }
     std::lock_guard<std::mutex> lock(mutex_);
     NL_CHECK_RETURN(IsValidAddress(peerAddr.GetAddress()), "[device battery] peerAddr param invalid");
-    TwsService *serviceInstance = TwsService::GetService();
+    ProfileTws *serviceInstance = static_cast<ProfileTws *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
     NL_CHECK_RETURN(serviceInstance != nullptr, "[device battery] TwsService GetService failed");
     RawAddress reportAddr = serviceInstance->GetReportAddr(peerAddr);
     SetDeviceSupportBattery(reportAddr.GetAddress());

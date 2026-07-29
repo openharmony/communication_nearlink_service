@@ -187,6 +187,15 @@ public:
     virtual void PhyChanged(RawAddress device, uint8_t frameType, uint8_t phyType, uint8_t status) = 0;
     /* 查找本端&对端设备是否支持双耳K歌 */
     virtual bool GetKaraokeAbility(const RawAddress &device) = 0;
+
+    /* 查找本端设备是否支持双耳录音 */
+    virtual bool GetLocalDualRecordAbility() = 0;
+
+    /* 查找本端设备是否支持双耳K歌 */
+    virtual bool GetLocalKaraokeAbility() = 0;
+
+    /* 查找本端设备是否支持帧4通话 */
+    virtual bool GetLocalVocieCallFrameFourAbility() = 0;
 };
 
 } // namespace Sle

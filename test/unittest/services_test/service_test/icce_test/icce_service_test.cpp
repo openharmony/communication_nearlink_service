@@ -20,6 +20,7 @@
 #include "IcceService.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
+#include "icce_utils.h"
 
 #include "log.h"
 
@@ -211,6 +212,47 @@ HWTEST_F(NearlinkIcceServiceTest, GetConnectionsDeviceNum001, TestSize.Level1)
     uint8_t ret = icceService->GetConnectionsDeviceNum();
     EXPECT_NE(nullptr, icceService);
     HILOGI("GetConnectionsDeviceNum001 end");
+}
+
+/*
+ * @tc.number: ConvertToStackAddr_001
+ * @tc.name: ConvertToStackAddr with valid address
+ * @tc.desc: Verify ConvertToStackAddr uses IRemoteDeviceQuery to get addr type and returns correct SLE_Addr_S
+ */
+HWTEST_F(NearlinkIcceServiceTest, ConvertToStackAddr_001, TestSize.Level1)
+{
+    HILOGI("ConvertToStackAddr_001 start");
+    std::string addr = "00:11:22:33:44:55";
+    RawAddress device(addr);
+    SLE_Addr_S sleAddr = ConvertToStackAddr(device);
+    EXPECT_EQ(0, sleAddr.type);
+    EXPECT_EQ(0x00, sleAddr.addr[0]);
+    EXPECT_EQ(0x11, sleAddr.addr[1]);
+    EXPECT_EQ(0x22, sleAddr.addr[2]);
+    EXPECT_EQ(0x33, sleAddr.addr[3]);
+    EXPECT_EQ(0x44, sleAddr.addr[4]);
+    EXPECT_EQ(0x55, sleAddr.addr[5]);
+    HILOGI("ConvertToStackAddr_001 end");
+}
+
+/*
+ * @tc.number: ConvertSleAddrToRawAddress_001
+ * @tc.name: ConvertSleAddrToRawAddress with valid SLE_Addr_S
+ * @tc.desc: Verify ConvertSleAddrToRawAddress returns correct RawAddress
+ */
+HWTEST_F(NearlinkIcceServiceTest, ConvertSleAddrToRawAddress_001, TestSize.Level1)
+{
+    HILOGI("ConvertSleAddrToRawAddress_001 start");
+    SLE_Addr_S sleAddr = {0};
+    sleAddr.addr[0] = 0xAA;
+    sleAddr.addr[1] = 0xBB;
+    sleAddr.addr[2] = 0xCC;
+    sleAddr.addr[3] = 0xDD;
+    sleAddr.addr[4] = 0xEE;
+    sleAddr.addr[5] = 0xFF;
+    RawAddress rawAddr = ConvertSleAddrToRawAddress(&sleAddr);
+    EXPECT_EQ(std::string("AA:BB:CC:DD:EE:FF"), rawAddr.GetAddress());
+    HILOGI("ConvertSleAddrToRawAddress_001 end");
 }
 
 } // namespace TEST

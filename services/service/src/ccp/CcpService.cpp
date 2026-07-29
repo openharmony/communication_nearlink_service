@@ -17,6 +17,8 @@
 #include <cstring>
 #include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceProfileASC.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfileTws.h"
 #include "singleton.h"
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
@@ -25,8 +27,6 @@
 #include "ThreadUtil.h"
 #include "CcpStackAdapter.h"
 #include "CcpSystemInterface.h"
-#include "ASCService.h"
-#include "TwsService.h"
 #include "nearlink_dft_ue.h"
 
 namespace OHOS {
@@ -219,7 +219,8 @@ void CcpService::HandleHangUp(const RawAddress &device, int32_t instanceId, uint
 
 bool CcpService::IsNearlinkActiveDevice(const RawAddress &reportAddr)
 {
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN_RET(ascService, false, "cant find ASC service");
 
     // 获取到的是report地址
@@ -234,7 +235,8 @@ void CcpService::NotifyAudioDeviceAction(const RawAddress &devAddr, int action)
 {
     HILOGI("[CcpService]:NotifyAudioDeviceAction, addr:%{public}s, action:%{public}d",
         GetEncryptAddr(devAddr.GetAddress()).c_str(), action);
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "cant find ASC service");
     ascService->SleAudioDeviceActionChanged(NearlinkRawAddress(devAddr), action);
 }
@@ -327,8 +329,10 @@ void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &inf
             /* 更新通话终止信息 */
             ProcessCallTerminateInfo(info);
             /* 更新挂断时间戳 */
-            ASCService *ascService = ASCService::GetService();
-            TwsService *twsService = TwsService::GetService();
+            ProfileASC *ascService = static_cast<ProfileASC *>(
+                SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
+            ProfileTws *twsService = static_cast<ProfileTws *>(
+                SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
             if (ascService != nullptr && twsService != nullptr) {
                 NearlinkRawAddress device = ascService->GetActiveSinkDevice(); // 获取到的是report地址
                 if (!device.GetAddress().empty()) {

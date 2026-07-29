@@ -26,7 +26,7 @@
 #include "SleInterfaceAdapterSub.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceProfileASC.h"
-#include "ASCService.h"
+#include "SleInterfaceProfileManager.h"
 #include "CdsmService.h"
 #include "VcpDefines.h"
 #include "ThreadUtil.h"
@@ -209,7 +209,8 @@ void TwsService::UpdateDualRecordAbility()
 {
     int featureIndex = ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(
         MANU_ABILITY_DUAL_EAR_HIGH_QUALITY_RECORDING);
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "ASCService is null.");
     ManufacturerAbilityLoader::GetInstance().SetLocalAbility(featureIndex, ascService->GetLocalDualRecordAbility());
 }
@@ -219,14 +220,16 @@ void TwsService::UpdateDualKaraokeAbility()
 {
     int featureIndex = ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(
         MANU_ABILITY_DUAL_EAR_KARAOKE);
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "ASCService is null.");
     ManufacturerAbilityLoader::GetInstance().SetLocalAbility(featureIndex, ascService->GetLocalKaraokeAbility());
 }
 
 void TwsService::UpdateVoiceCallFrameFourAndAutoRateAbility()
 {
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "ASCService is null.");
     int callAutoRateFeatureIndex = ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(
         MANU_ABILITY_VOICE_CALL_AUTORATE);
@@ -625,7 +628,8 @@ void TwsService::ShowCapsule(TwsClientData &clientData)
     }
 
     /* 是否当前星闪设备出声 */
-    ProfileASC *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "[Tws Service]:ShowCapsule, ascService is nullptr.");
     NearlinkRawAddress device = ascService->GetActiveSinkDevice();
     bool isActiveDevNow = ((device.GetAddress() == devAddr.GetAddress()) ||
@@ -1033,7 +1037,8 @@ void TwsService::GetTwsAudioDelay(const RawAddress &devAddr, uint32_t &audioDela
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN(sleService, "sleService invalid.");
     uint16_t icbDelay = 0;
-    ProfileASC *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "cant find ASC service");
     RawAddress primaryAddr = GetPrimaryAddr(devAddr);
     AscQosmInfo qosmInfo = {};
@@ -1303,7 +1308,8 @@ bool TwsService::IsMusicActive()
 
 bool TwsService::IsCalling() const
 {
-    ProfileASC *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN_RET(ascService, false, "ProfileASC is null.");
     return ascService->IsCalling();
 }
@@ -1315,7 +1321,6 @@ void TwsService::ResumePlayIfNeeded(const RawAddress &devAddr, int action, int64
         HILOGW("[Tws Service]: do nothing for no pause record");
         return;
     }
-
     if (IsCalling()) {
         HILOGI("[Tws Service]: is calling, not need play");
         pauseRecordMap_.Erase(devAddr.GetAddress());
@@ -1330,6 +1335,12 @@ void TwsService::ResumePlayIfNeeded(const RawAddress &devAddr, int action, int64
         return;
     }
 
+    ResumePlayByReason(devAddr, action, currentTime, pauseRecord);
+}
+
+void TwsService::ResumePlayByReason(const RawAddress &devAddr, int action, int64_t currentTime,
+    const TwsPauseRecord &pauseRecord)
+{
     switch (pauseRecord.pauseReason) {
         case static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_LEFT):
         case static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_RIGHT):
@@ -1345,7 +1356,8 @@ void TwsService::ResumePlayIfNeeded(const RawAddress &devAddr, int action, int64
             bool isNeedResume = currentTime > pauseRecord.pauseTime &&
                               currentTime - pauseRecord.pauseTime <= MAX_RESUME_PLAY_TIME_SIMPLE;
             if (isNeedResume) {
-                ProfileASC *ascService = ASCService::GetService();
+                ProfileASC *ascService = static_cast<ProfileASC *>(
+                    SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
                 NL_CHECK_RETURN(ascService, "ProfileASC is null.");
                 ascService->SendPlayOrPauseByWearDetection(devAddr, MCP_ID_PLAY);
                 lastSendPlayTime_ = GetTimeStamp();
@@ -1373,7 +1385,8 @@ void TwsService::PauseAndRecordIfNeeded(const RawAddress &devAddr, int pauseReas
     }
     TwsPauseRecord pauseRecord;
     if (!pauseRecordMap_.GetValue(devAddr.GetAddress(), pauseRecord)) {
-        ProfileASC *ascService = ASCService::GetService();
+        ProfileASC *ascService = static_cast<ProfileASC *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
         NL_CHECK_RETURN(ascService, "ProfileASC is null.");
         ascService->SendPlayOrPauseByWearDetection(devAddr, MCP_ID_PAUSE);
         HILOGI("[Tws Service]: send pause, devAddr %{public}s", GetEncryptAddr(devAddr.GetAddress()).c_str());
@@ -1448,7 +1461,8 @@ int64_t TwsService::GetTimeStamp()
 bool TwsService::IsActiveDeviceNow(const RawAddress &devAddr)
 {
     bool isActiveDevNow = true;
-    ProfileASC *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     if (ascService != nullptr) {
         RawAddress reportAddr = GetReportAddr(devAddr);
         NearlinkRawAddress device = ascService->GetActiveSinkDevice(); // 获取到的是report地址
