@@ -143,13 +143,13 @@ TEST_F(UT_DLI_LAYER_TEST, TestCaseSend)
     DLI_SapiInit(TEST_received);
     uint8_t data[DATA_LEN] = {0};
     data[0] = PACKET_TYPE_SLE_CMD;
-    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN));
+    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN, true));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
     data[0] = PACKET_TYPE_SLE_ICB;
-    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN));
+    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN, true));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
     data[0] = PACKET_TYPE_SLE_ACB;
-    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN));
+    EXPECT_EQ(0, DLI_SapiSend(data, DATA_LEN, false));
     SDF_ThreadSleep(DLI_TEST_SLEEP_TIME);
     DLI_SapiDeinit();
 }

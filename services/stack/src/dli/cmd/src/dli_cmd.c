@@ -173,7 +173,8 @@ bool DLI_IsSupportNewDisMeasure(void)
 
 static bool DLI_NeedEraseCmd(uint16_t cmd)
 {
-    return cmd == DLI_ENABLE_ENCRYPTION;
+    return cmd == DLI_ENABLE_ENCRYPTION || cmd == DLI_ENCRYPT ||
+        cmd == DLI_ENABLE_IMG_ENCRYPTION || cmd == DLI_ENCRYPTION_PARAMETER_REQUEST_REPLY;
 }
 
 static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, uint16_t paramLen,
