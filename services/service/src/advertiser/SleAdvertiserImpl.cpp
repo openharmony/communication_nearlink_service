@@ -26,7 +26,7 @@
 #include "SleAdvertiserImpl.h"
 namespace OHOS {
 namespace Nearlink {
-static std::atomic<SleAdvertiserImpl *> g_advertiserImpl {nullptr};
+static SleAdvertiserImpl *g_advertiserImpl = nullptr;
 struct SleAdvertiserImpl::impl {
     std::map<uint8_t, SleAdvertiserImplData> advHandleSettingDatas_ {};
     uint8_t connectableHandle_;
@@ -35,15 +35,15 @@ struct SleAdvertiserImpl::impl {
 SleAdvertiserImpl::SleAdvertiserImpl() : pimpl(std::make_unique<SleAdvertiserImpl::impl>())
 {
     LOG_INFO("enter");
-    g_advertiserImpl.store(this, std::memory_order_release);
+    g_advertiserImpl = this;
     pimpl->connectableHandle_ = static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE);
 }
 
 SleAdvertiserImpl::~SleAdvertiserImpl()
 {
     LOG_INFO("enter");
-    g_advertiserImpl.store(nullptr, std::memory_order_release);
     pimpl->advHandleSettingDatas_.clear();
+    g_advertiserImpl = nullptr;
 }
 
 void SleAdvertiserImpl::RegisterSleAdvertiserCallback(std::weak_ptr<ISleAdvertiserCallback> callback)
@@ -64,20 +64,10 @@ void SleAdvertiserImpl::AdvEventResult(NLSTK_DevdAdvCbkParam_S *param)
         LOG_ERROR("param is nullptr");
         return;
     }
-    SleAdvertiserImpl *advImp = g_advertiserImpl.load(std::memory_order_acquire);
-    if (advImp == nullptr) {
-        LOG_ERROR("g_advertiserImpl is nullptr");
-        return;
-    }
     LOG_INFO("event=%{public}hhu, adv_handle=%{public}hhu, result=%{public}hhu", param->event, param->advHandle,
         param->result);
-    DoInAdvThread([advImp, event = param->event, handle = param->advHandle,
+    DoInAdvThread([advImp = g_advertiserImpl, event = param->event, handle = param->advHandle, 
         result = param->result]() -> void {
-        // Object may have been destroyed after capture; skip if global no longer points here.
-        if (advImp != g_advertiserImpl.load(std::memory_order_acquire)) {
-            LOG_ERROR("g_advertiserImpl changed or destroyed, drop adv event");
-            return;
-        }
         advImp->HandleDdEvent(event, handle, result);
     });
 }
