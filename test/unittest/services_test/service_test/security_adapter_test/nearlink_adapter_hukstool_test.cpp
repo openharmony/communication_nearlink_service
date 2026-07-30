@@ -2544,14 +2544,14 @@ HWTEST_F(SleAdapterSecurityTest, AuthComplete001, TestSize.Level1)
 
 /**
  * @tc.name: AuthComplete002
- * @tc.desc: SM_ERR_ACTIVE_CANCEL，验证取消配对并返回false
+ * @tc.desc: SM_PAIR_ACTIVE_CANCEL，验证取消配对并返回false
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterSecurityTest, AuthComplete002, TestSize.Level1)
 {
     HILOGI("SleAdapterSecurityTest: AuthComplete002 start");
     NLSTK_SmAuthComplete_S param = {};
-    param.authStatus = SM_ERR_ACTIVE_CANCEL;
+    param.authStatus = SM_PAIR_ACTIVE_CANCEL;
     uint8_t addr[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
     (void)memcpy_s(param.addr.addr, sizeof(param.addr.addr), addr, sizeof(addr));
     param.addr.type = 0x0;
@@ -2612,10 +2612,10 @@ HWTEST_F(SleAdapterSecurityTest, EncryptionComplete001, TestSize.Level1)
     param.encStatus = SM_PAIR_ERROR;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
 
-    param.encStatus = SM_KEY_MISSING;
+    param.encStatus = SM_PAIR_KEY_MISSING;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
 
-    param.encStatus = SM_LINK_DISCONNCTED;
+    param.encStatus = SM_PAIR_LINK_DISCONNCTED;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
     HILOGI("SleAdapterSecurityTest: EncryptionComplete001 end");
 }

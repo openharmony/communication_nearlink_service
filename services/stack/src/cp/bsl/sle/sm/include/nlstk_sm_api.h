@@ -261,10 +261,11 @@ typedef struct {
  * @brief 安全管理配对状态
  */
 typedef enum {
-    SM_PAIR_OK,             /*!< 配对成功 */
-    SM_PAIR_ERROR,          /*!< 配对失败 */
-    SM_KEY_MISSING,         /*!< 密钥丢失 */
-    SM_LINK_DISCONNCTED,    /*!< 链接已断开 */
+    SM_PAIR_OK,                     /*!< 配对成功 */
+    SM_PAIR_ERROR,                  /*!< 配对失败 */
+    SM_PAIR_KEY_MISSING,            /*!< 密钥丢失 */
+    SM_PAIR_LINK_DISCONNCTED,       /*!< 链接已断开 */
+    SM_PAIR_ACTIVE_CANCEL,          /*!< 配对过程主动取消 */
 } NLSTK_SmPairStatus_E;
 
 /**

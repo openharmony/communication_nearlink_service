@@ -2613,10 +2613,10 @@ void SleAdapter::EncryptionComplete(const RawAddress &device, const int status) 
             LOG_ERROR("[SleAdapter] set needReconnetDevice");
             pimpl->needReconnectDevices_.Emplace(device.GetAddress());
             return;
-        } else if (status == SM_KEY_MISSING) {
+        } else if (status == SM_PAIR_KEY_MISSING) {
             EncryptionKeyMissingComplete(device);
             return;
-        } else if (status == SM_LINK_DISCONNCTED) {
+        } else if (status == SM_PAIR_LINK_DISCONNCTED) {
             return;
         }
     }

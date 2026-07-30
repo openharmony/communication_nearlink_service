@@ -117,12 +117,12 @@ bool SleSecurity::SmpAuthComplete(const NLSTK_SmAuthComplete_S &param) const
 
     RawAddress addr = RawAddress::ConvertToString(param.addr.addr);
 
-    if (param.authStatus == SM_ERR_OK) {
+    if (param.authStatus == SM_PAIR_OK) {
         DftCacheConnInfoTime(addr.GetAddress(), AUTH_COMP_TIME);
         SaveSlePairKey(addr, param);
         SleConfig::GetInstance().Save();
-    } else if (param.authStatus == SM_ERR_ACTIVE_CANCEL) {
-        HILOGI("[SmpAuthComplete]: SM_ERR_ACTIVE_CANCEL.");
+    } else if (param.authStatus == SM_PAIR_ACTIVE_CANCEL) {
+        HILOGI("[SmpAuthComplete]: SM_PAIR_ACTIVE_CANCEL.");
         uint8_t addrType = param.addr.type;
         CdsmService *cdsmService = CdsmService::GetService();
         if (cdsmService != nullptr) {
