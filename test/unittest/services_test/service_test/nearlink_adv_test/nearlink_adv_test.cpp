@@ -135,7 +135,7 @@ void NearlinkAdvTest::SetUpTestCase()
     sleAdvertiserImplForTest_ = SleAdvertiserAdapter::GetInstance().GetAdvertiserImplWeakPtr().lock();
     advEventTestImpForAdvImp_ = std::make_shared<MockAdvertiserCallbackTest>();
     sleAdvertiserImplForTest_->RegisterSleAdvertiserCallback(advEventTestImpForAdvImp_);
-}   
+}
 
 void NearlinkAdvTest::TearDownTestCase()
 {

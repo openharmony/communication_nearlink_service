@@ -15,7 +15,6 @@
 #include <memory>
 
 #include "SleServiceManager.h"
-#include "SleAdvertiserAdapter.h"
 #include "interface_advertiser_service.h"
 #include "SleFeature.h"
 #include "SleProperties.h"
@@ -24,7 +23,9 @@
 #include "nlstk_devd_api.h"
 #include "nlstk_api_type_ext.h"
 
+#include "SleAdvertiserAdapter.h"
 #include "SleAdvertiserImpl.h"
+
 namespace OHOS {
 namespace Nearlink {
 struct SleAdvertiserImpl::impl {
