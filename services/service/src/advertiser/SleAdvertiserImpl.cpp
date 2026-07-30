@@ -26,41 +26,23 @@
 #include "SleAdvertiserImpl.h"
 namespace OHOS {
 namespace Nearlink {
-namespace {
-std::mutex g_advertiserImplMutex;
-std::weak_ptr<SleAdvertiserImpl> g_advertiserImpl;
-}
-
+static std::atomic<SleAdvertiserImpl *> g_advertiserImpl {nullptr};
 struct SleAdvertiserImpl::impl {
     std::map<uint8_t, SleAdvertiserImplData> advHandleSettingDatas_ {};
     uint8_t connectableHandle_;
 };
 
-std::shared_ptr<SleAdvertiserImpl> SleAdvertiserImpl::Create()
-{
-    std::shared_ptr<SleAdvertiserImpl> instance(new SleAdvertiserImpl());
-    {
-        std::lock_guard<std::mutex> lock(g_advertiserImplMutex);
-        g_advertiserImpl = instance->weak_from_this();
-    }
-    return instance;
-}
-
-void SleAdvertiserImpl::UnbindInstance()
-{
-    std::lock_guard<std::mutex> lock(g_advertiserImplMutex);
-    g_advertiserImpl.reset();
-}
-
 SleAdvertiserImpl::SleAdvertiserImpl() : pimpl(std::make_unique<SleAdvertiserImpl::impl>())
 {
     LOG_INFO("enter");
+    g_advertiserImpl.store(this, std::memory_order_release);
     pimpl->connectableHandle_ = static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE);
 }
 
 SleAdvertiserImpl::~SleAdvertiserImpl()
 {
     LOG_INFO("enter");
+    g_advertiserImpl.store(nullptr, std::memory_order_release);
     pimpl->advHandleSettingDatas_.clear();
 }
 
@@ -82,20 +64,21 @@ void SleAdvertiserImpl::AdvEventResult(NLSTK_DevdAdvCbkParam_S *param)
         LOG_ERROR("param is nullptr");
         return;
     }
-    std::shared_ptr<SleAdvertiserImpl> advertiser = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(g_advertiserImplMutex);
-        advertiser = g_advertiserImpl.lock();
-    }
-    if (advertiser == nullptr) {
-        LOG_ERROR("advertiser instance is unavailable");
+    SleAdvertiserImpl *advImp = g_advertiserImpl.load(std::memory_order_acquire);
+    if (advImp == nullptr) {
+        LOG_ERROR("g_advertiserImpl is nullptr");
         return;
     }
     LOG_INFO("event=%{public}hhu, adv_handle=%{public}hhu, result=%{public}hhu", param->event, param->advHandle,
         param->result);
-    DoInAdvThread([advertiser, event = param->event, handle = param->advHandle,
+    DoInAdvThread([advImp, event = param->event, handle = param->advHandle,
         result = param->result]() -> void {
-        advertiser->HandleDdEvent(event, handle, result);
+        // Object may have been destroyed after capture; skip if global no longer points here.
+        if (advImp != g_advertiserImpl.load(std::memory_order_acquire)) {
+            LOG_ERROR("g_advertiserImpl changed or destroyed, drop adv event");
+            return;
+        }
+        advImp->HandleDdEvent(event, handle, result);
     });
 }
 

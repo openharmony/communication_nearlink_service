@@ -124,7 +124,7 @@ public:
 
 static std::shared_ptr<MockAdvertiserCallbackTest> advEventTestImp_ = nullptr;
 static std::shared_ptr<MockConnectableCallbackTest> connectableEventTestImp_ = nullptr;
-static std::shared_ptr<SleAdvertiserImpl> sleAdvertiserImp_ = nullptr;
+static std::unique_ptr<SleAdvertiserImpl> sleAdvertiserImp_ = nullptr;
 static std::shared_ptr<MockAdvertiserCallbackTest> advEventTestImpForAdvImp_ = nullptr;
 
 void NearlinkAdvTest::SetUpTestCase()
@@ -132,7 +132,7 @@ void NearlinkAdvTest::SetUpTestCase()
     HILOGI("SetUpTestCase NearlinkAdvTest.");
     advEventTestImp_ = std::make_shared<MockAdvertiserCallbackTest>();
     connectableEventTestImp_ = std::make_shared<MockConnectableCallbackTest>();
-    sleAdvertiserImp_ = SleAdvertiserImpl::Create();
+    sleAdvertiserImp_ = std::make_unique<SleAdvertiserImpl>();
     advEventTestImpForAdvImp_ = std::make_shared<MockAdvertiserCallbackTest>();
     sleAdvertiserImp_->RegisterSleAdvertiserCallback(advEventTestImpForAdvImp_);
 }
@@ -142,8 +142,6 @@ void NearlinkAdvTest::TearDownTestCase()
     HILOGI("TearDownTestCase NearlinkAdvTest");
     uint8_t handle = 0xFF;
     (void)NLSTK_DevdRemoveAdv(&handle);
-    SleAdvertiserImpl::UnbindInstance();
-    sleAdvertiserImp_ = nullptr;
 }
 
 void NearlinkAdvTest::SetUp()
