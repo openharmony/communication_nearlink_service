@@ -168,7 +168,10 @@ size_t SleReconnectManager::FindDeviceIndex(const std::string &addr) const
 void SleReconnectManager::AddDeviceToPairedQueue(const ReconnectDeviceInfo deviceInfo)
 {
     uint32_t requiredSpace = deviceInfo.cdsmMemberCount_;
-
+    // 音频设备耦合场景：新增设备前，删除已有的冗余设备
+    for (const auto &memberAddr : deviceInfo.cdsmMembers_) {
+        RemoveDeviceFromQueue(memberAddr);
+    }
     AdjustWindowForSpace(requiredSpace);
     pairedQueue_.push_back(deviceInfo);
     windowEndIndex_ = pairedQueue_.size();

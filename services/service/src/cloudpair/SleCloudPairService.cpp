@@ -958,7 +958,6 @@ void SleCloudPairService::SetKeyMissingPairState(const RawAddress &device)
     GetCloudPairState(reportAddr.GetAddress(), curCloudPairState);
     if (curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED) {
         UpdateCloudState(reportAddr.GetAddress(), NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING);
-        ProcCreateCloudDeviceCdsmGroup(reportAddr);
     }
 }
 
