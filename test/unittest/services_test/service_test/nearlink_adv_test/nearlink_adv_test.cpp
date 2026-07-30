@@ -124,18 +124,18 @@ public:
 
 static std::shared_ptr<MockAdvertiserCallbackTest> advEventTestImp_ = nullptr;
 static std::shared_ptr<MockConnectableCallbackTest> connectableEventTestImp_ = nullptr;
-static std::unique_ptr<SleAdvertiserImpl> sleAdvertiserImp_ = nullptr;
 static std::shared_ptr<MockAdvertiserCallbackTest> advEventTestImpForAdvImp_ = nullptr;
+static std::shared_ptr<SleAdvertiserImpl> sleAdvertiserImplForTest_ = nullptr;
 
 void NearlinkAdvTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase NearlinkAdvTest.");
     advEventTestImp_ = std::make_shared<MockAdvertiserCallbackTest>();
     connectableEventTestImp_ = std::make_shared<MockConnectableCallbackTest>();
-    sleAdvertiserImp_ = std::make_unique<SleAdvertiserImpl>();
+    sleAdvertiserImplForTest_ = SleAdvertiserAdapter::GetInstance().GetAdvertiserImplWeakPtr().lock();
     advEventTestImpForAdvImp_ = std::make_shared<MockAdvertiserCallbackTest>();
-    sleAdvertiserImp_->RegisterSleAdvertiserCallback(advEventTestImpForAdvImp_);
-}
+    sleAdvertiserImplForTest_->RegisterSleAdvertiserCallback(advEventTestImpForAdvImp_);
+}   
 
 void NearlinkAdvTest::TearDownTestCase()
 {
@@ -402,31 +402,31 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test003, TestSize.Level1)
     advData.SetPayload(shortDataStr);
     advResponseData.SetPayload(longDataStr);
 
-    int res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    int res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
 
     advData.SetPayload(longDataStr);
-    res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
 
     advSettings.SetLegacyMode(false);
     advSettings.SetPrimaryPhy(static_cast<uint8_t>(SlePhyType::PHY_LE_CODED));
-    res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
 
     advSettings.SetPrimaryPhy(static_cast<uint8_t>(SlePhyType::PHY_LE_1M));
     advSettings.SetSecondaryPhy(static_cast<uint8_t>(SlePhyType::PHY_LE_CODED));
-    res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
 
     advSettings.SetPrimaryPhy(static_cast<uint8_t>(SlePhyType::PHY_LE_1M));
     advSettings.SetSecondaryPhy(static_cast<uint8_t>(SlePhyType::PHY_LE_1M));
     advData.SetPayload(shortDataStr);
-    res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
 
     advResponseData.SetPayload(shortDataStr);
-    res = sleAdvertiserImp_->CheckAdvertiserPara(advSettings, advData, advResponseData);
+    res = sleAdvertiserImplForTest_->CheckAdvertiserPara(advSettings, advData, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_SUCCESS);
     HILOGI("Sle_AdvertiserImpl_Test003 end");
 }
@@ -440,25 +440,25 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test004, TestSize.Level1)
 {
     HILOGI("Sle_AdvertiserImpl_Test004 start");
     // 确保handle = 0广播移除
-    sleAdvertiserImp_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     SleAdvertiserSettingsImpl advSettings;
     SleAdvertiserDataImpl advData;
     SleAdvertiserDataImpl advResponseData;
-    sleAdvertiserImp_->StartAdvertising(advSettings, advData, advResponseData, 0);
+    sleAdvertiserImplForTest_->StartAdvertising(advSettings, advData, advResponseData, 0);
     // 构造handle = 0广播状态STARTED
-    sleAdvertiserImp_->DdAdvEnableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DdAdvEnableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     // UpdateAdvDataToDd失败分支
     ResetAdvEventTestTuple();
     std::string str(0x01, ' ');
     advData.SetPayload(str);
-    sleAdvertiserImp_->SetAdvertisingData(advData, advResponseData, 0);
+    sleAdvertiserImplForTest_->SetAdvertisingData(advData, advResponseData, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_INTERNAL_ERROR));
     // StopAdvertising分支
-    sleAdvertiserImp_->StopAdvertising(0);
+    sleAdvertiserImplForTest_->StopAdvertising(0);
     // 构造handle = 0广播移除
-    sleAdvertiserImp_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<0>(advEventTestTuple_), static_cast<int>(AdvStatusTest::ADV_STOP_EVENT_TEST));
     HILOGI("Sle_AdvertiserImpl_Test004 end");
@@ -477,38 +477,38 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test005, TestSize.Level1)
     SleAdvertiserDataImpl advData;
     SleAdvertiserDataImpl advResponseData;
     advSettings.SetConnectable(false);
-    sleAdvertiserImp_->StartAdvertising(advSettings, advData, advResponseData, 0);
+    sleAdvertiserImplForTest_->StartAdvertising(advSettings, advData, advResponseData, 0);
     // handle = 0广播状态DISABLING
-    sleAdvertiserImp_->DisableAdvertising(0);
-    sleAdvertiserImp_->EnableAdvertising(0);
+    sleAdvertiserImplForTest_->DisableAdvertising(0);
+    sleAdvertiserImplForTest_->EnableAdvertising(0);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_ALREADY_STARTED));
     // handle = 0广播状态DISABLED
-    sleAdvertiserImp_->DdAdvDisableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
-    sleAdvertiserImp_->DisableAdvertising(0);
+    sleAdvertiserImplForTest_->DdAdvDisableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DisableAdvertising(0);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_INTERNAL_ERROR));
     // handle = 0广播状态ENABLING
-    sleAdvertiserImp_->EnableAdvertising(0);
+    sleAdvertiserImplForTest_->EnableAdvertising(0);
     // 构造handle = 0广播移除
-    sleAdvertiserImp_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DdAdvRemoveCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<0>(advEventTestTuple_), static_cast<int>(AdvStatusTest::ADV_STOP_EVENT_TEST));
     // SetAdvParam分支测试
-    NLSTK_ERRCODE res = sleAdvertiserImp_->SetAdvParam(0, advSettings, true);
+    NLSTK_ERRCODE res = sleAdvertiserImplForTest_->SetAdvParam(0, advSettings, true);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
     // FillAdvParam分支测试
     NLSTK_DevdSetAdvParams_S advParams = {};
-    res = sleAdvertiserImp_->FillAdvParam(0, advParams, advSettings);
+    res = sleAdvertiserImplForTest_->FillAdvParam(0, advParams, advSettings);
     EXPECT_EQ(res, NLSTK_ERRCODE_PARAM_ERR);
     // FillScanRspData分支测试
     NLSTK_DevdAdvData_S data = {};
     std::string dataStr(0x01, 'a');
     advResponseData.SetPayload(dataStr);
-    res = sleAdvertiserImp_->FillScanRspData(data, advResponseData);
+    res = sleAdvertiserImplForTest_->FillScanRspData(data, advResponseData);
     EXPECT_EQ(res, NLSTK_ERRCODE_SUCCESS);
     // IsScanableAdv分支测试
-    bool result = sleAdvertiserImp_->IsScanableAdv(0);
+    bool result = sleAdvertiserImplForTest_->IsScanableAdv(0);
     EXPECT_EQ(result, false);
     HILOGI("Sle_AdvertiserImpl_Test005 end");
 }
@@ -526,21 +526,21 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test006, TestSize.Level1)
     SleAdvertiserDataImpl scanResponse;
     struct SleAdvertiserImplData data(settings, advData, scanResponse, static_cast<int>(ADVERTISE_STATUS::NOT_STARTED));
     
-    sleAdvertiserImp_->SetFilter(data, true, false);
+    sleAdvertiserImplForTest_->SetFilter(data, true, false);
     EXPECT_EQ(data.advParams.advFilterPolicy, ADV_FILTER_ALLOW_SCAN_WLST_CON_ANY);
-    sleAdvertiserImp_->SetFilter(data, false, true);
+    sleAdvertiserImplForTest_->SetFilter(data, false, true);
     EXPECT_EQ(data.advParams.advFilterPolicy, ADV_FILTER_ALLOW_SCAN_ANY_CON_WLST);
-    sleAdvertiserImp_->SetFilter(data, true, true);
+    sleAdvertiserImplForTest_->SetFilter(data, true, true);
     EXPECT_EQ(data.advParams.advFilterPolicy, ADV_FILTER_ALLOW_SCAN_WLST_CON_WLST);
 
-    sleAdvertiserImp_->SetLinkRole(data, 4);
+    sleAdvertiserImplForTest_->SetLinkRole(data, 4);
     EXPECT_EQ(data.advParams.linkRole, static_cast<uint8_t>(SleLinkRole::T_CAN_NEGO));
 
-    sleAdvertiserImp_->SetPrimaryFrameType(data, 2);
+    sleAdvertiserImplForTest_->SetPrimaryFrameType(data, 2);
     EXPECT_EQ(data.advParams.primaryFrameType,
         static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1));
 
-    uint32_t res = sleAdvertiserImp_->GetMaxAdvertisingDataLength(settings);
+    uint32_t res = sleAdvertiserImplForTest_->GetMaxAdvertisingDataLength(settings);
     EXPECT_EQ(res, SLE_LEGACY_ADV_DATA_LEN_MAX);
     HILOGI("Sle_AdvertiserImpl_Test006 end");
 }
@@ -555,17 +555,17 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test007, TestSize.Level1)
     HILOGI("Sle_AdvertiserImpl_Test007 start");
     ResetAdvEventTestTuple();
     int advStatus = static_cast<int>(ADVERTISE_STATUS::STARTED);
-    sleAdvertiserImp_->DdAdvDataUpdateComplete(0, NLSTK_ERRCODE_FAIL, advStatus);
+    sleAdvertiserImplForTest_->DdAdvDataUpdateComplete(0, NLSTK_ERRCODE_FAIL, advStatus);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_INTERNAL_ERROR));
-    sleAdvertiserImp_->DdAdvScanRspDataUpdateComplete(0, NLSTK_ERRCODE_FAIL, advStatus);
+    sleAdvertiserImplForTest_->DdAdvScanRspDataUpdateComplete(0, NLSTK_ERRCODE_FAIL, advStatus);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), static_cast<int>(ADV_RESULT_FAILED_INTERNAL_ERROR));
-    sleAdvertiserImp_->DdAdvScanRspDataUpdateComplete(0, NLSTK_ERRCODE_SUCCESS, advStatus);
+    sleAdvertiserImplForTest_->DdAdvScanRspDataUpdateComplete(0, NLSTK_ERRCODE_SUCCESS, advStatus);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), NLSTK_ERRCODE_SUCCESS);
     ResetAdvEventTestTuple();
-    sleAdvertiserImp_->DdAdvEnableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
+    sleAdvertiserImplForTest_->DdAdvEnableCompleteEvt(0, NLSTK_ERRCODE_SUCCESS);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), -1);
     HILOGI("Sle_AdvertiserImpl_Test007 end");

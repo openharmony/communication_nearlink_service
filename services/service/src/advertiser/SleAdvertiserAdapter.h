@@ -43,7 +43,7 @@ public:
     void StopAdvertisingAll() override;
     void EnableAdvertising(int32_t advHandle) const override;
     void DisableAdvertising(int32_t advHandle) const override;
-
+    std::weak_ptr<SleAdvertiserImpl> GetAdvertiserImplWeakPtr() override;
 private:
     SLE_DISALLOW_COPY_AND_ASSIGN(SleAdvertiserAdapter);
     DECLARE_IMPL();

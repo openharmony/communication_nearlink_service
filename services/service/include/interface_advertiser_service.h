@@ -21,6 +21,7 @@
 
 namespace OHOS {
 namespace Nearlink {
+    class SleAdvertiserImpl;
 /**
  * @brief Represents advertise callbacks.
  *
@@ -103,6 +104,8 @@ public:
     virtual void EnableAdvertising(int32_t advHandle) const = 0;
 
     virtual void DisableAdvertising(int32_t advHandle) const = 0;
+
+    virtual std::weak_ptr<SleAdvertiserImpl> GetAdvertiserImplWeakPtr() = 0; 
 };
 } // namespace Nearlink
 } // namespace OHOS
