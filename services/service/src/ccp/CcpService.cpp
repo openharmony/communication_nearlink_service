@@ -310,9 +310,9 @@ void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &
 void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
     if (info.callType == Telephony::CallType::TYPE_VOIP) {
-        HandleCallDetailChange(info);
+        HandleVoipCallDetailChange(info);
     }
-    HandleVoipCallDetailChange(info);
+    ProcessCallDetailChange(info);
 }
 
 void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &info)
