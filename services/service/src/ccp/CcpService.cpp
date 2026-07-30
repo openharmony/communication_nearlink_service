@@ -312,7 +312,7 @@ void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info
     if (info.callType == Telephony::CallType::TYPE_VOIP) {
         HandleCallDetailChange(info);
     }
-    ProcessCallDetailChange(info);
+    HandleVoipCallDetailChange(info);
 }
 
 void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &info)
