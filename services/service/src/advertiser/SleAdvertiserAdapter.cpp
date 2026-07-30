@@ -208,10 +208,7 @@ void SleAdvertiserAdapter::DisableAdvertising(int32_t advHandle) const
 
 std::weak_ptr<SleAdvertiserImpl> SleAdvertiserAdapter::GetAdvertiserImplWeakPtr()
 {
-        if (pimpl->sleAdvertiser_ ) {
-        return pimpl->sleAdvertiser_;
-    }
-return {};
+    return pimpl->sleAdvertiser_;
 }
 }  // namespace Nearlink
 }  // namespace OHOS
