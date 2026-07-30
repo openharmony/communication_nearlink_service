@@ -480,7 +480,7 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        NL_CHECK_RETURN(!pimpl->isInVoipCall, "Now Is in meetime, not need to create new call state.");
+        NL_CHECK_RETURN(!pimpl->isInVoipCall, "Now Is in VoIP, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
         pimpl->currentVoipCallId_ = voipId;
@@ -502,7 +502,7 @@ void CcpService::HandleVoipStop(const RawAddress &device)
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
         if (pimpl->isInVoipCall) {
-            HILOGI("[CcpService]Now Is in meetime, not need to create new call state");
+            HILOGI("[CcpService]Now Is in VoIP, not need to create new call state");
             pimpl->isInVoipCall = false;
             return;
         }
