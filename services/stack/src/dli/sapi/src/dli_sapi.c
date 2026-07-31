@@ -82,7 +82,7 @@ void DLI_SapiDeinit(void)
     SleHalClose();
 }
 
-int DLI_SapiSend(const uint8_t *data, uint32_t len)
+int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase)
 {
     if (data == NULL || len == 0) {
         return DLI_STACK_PARAMS_ERRNO;
@@ -100,6 +100,9 @@ int DLI_SapiSend(const uint8_t *data, uint32_t len)
     packet->size = len;
     (void)memcpy_s(packet->data, len, data, len);
     int ret = SleSendDliPacket(packet);
+    if (needErase) {
+        (void)memset_s(packet->data, packet->size, 0, packet->size);
+    }
     SDF_MemFree(packet->data);
     SDF_MemFree(packet);
     return ret;
