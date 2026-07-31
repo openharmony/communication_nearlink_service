@@ -100,11 +100,301 @@ config("nearlink_service_public_config") {
   ]
 }
 
-ohos_shared_library("nearlink_service_impl") {
-  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+########################### nearlink_service source deps and external_deps classify ###########################
 
-  # Used to control the export of dynamic library symbols.
-  # version_script = "libnearlink_service_impl.versionscript"
+ServiceCommonSrc = [
+  "src/common/AdapterStateMachine.cpp",
+  "src/common/ClassCreator.cpp",
+  "src/common/Compat.cpp",
+  "src/common/ProfileInfo.cpp",
+  "src/common/ProfileServiceManager.cpp",
+  "src/common/SleServiceManager.cpp",
+  "src/common/SleCollaborationManager.cpp",
+  "src/common/SleHiviewUe.cpp",
+  "src/common/SleCommonEventSubscriber.cpp",
+  "src/common/SleSwitchDependency.cpp",
+  "src/common/SysStateMachine.cpp",
+  "src/common/SleMultiScanData.cpp",
+  "src/common/DeviceBatteryManager.cpp",
+  "src/common/UnloadSa.cpp",
+]
+
+ServiceUtilSrc = [
+  "src/util/semaphore.cpp",
+]
+
+ServiceAdapterSrc = [
+  "src/adapter/SleAdapterWrapper.cpp",
+  "src/adapter/SleAdapter.cpp",
+  "src/adapter/SleRemoteDeviceAdapter.cpp",
+  "src/adapter/SleCoexist.cpp",
+  "src/adapter/SleProperties.cpp",
+  "src/adapter/SleSecurity.cpp",
+  "src/adapter/SleProfileConnectManager.cpp",
+  "src/adapter/SleFeature.cpp",
+  "src/adapter/SleReconnectManager.cpp",
+]
+
+ServiceAdvertiserSrc = [
+  "src/advertiser/SleAdvertiserAdapter.cpp",
+  "src/advertiser/SleAdvertiserImpl.cpp",
+]
+
+ServiceScanSrc = [
+  "src/scan/ScanService.cpp",
+  "src/scan/ScanStackAdapter.cpp",
+]
+
+ServiceSsapSrc = [
+  "src/ssap/ssap_client_service.cpp",
+  "src/ssap/ssap_client_stack_adapter.cpp",
+  "src/ssap/ssap_server_service.cpp",
+  "src/ssap/ssap_server_stack_adapter.cpp",
+  "src/ssap/ssap_utils.cpp",
+  "src/ssap/ssap_based_services_manager.cpp",
+]
+
+ServiceHidSrc = [
+  "src/hid/HidHostService.cpp",
+  "src/hid/HidHostStackAdapter.cpp",
+  "src/hid/HidHostUhid.cpp",
+]
+
+ServiceHadmSrc = [
+  "src/hadm/nearlink_hadm_stack_adapter.cpp",
+  "src/hadm/nearlink_hadm_client_service.cpp",
+]
+
+ServiceDisSrc = [
+  "src/dis/DisService.cpp",
+  "src/dis/DisClientStackAdapter.cpp",
+  "src/dis/DisServerStackAdapter.cpp",
+]
+
+ServiceBasSrc = [
+  "src/bas/BasService.cpp",
+  "src/bas/BasClientStackAdapter.cpp",
+]
+
+ServiceLisSrc = [
+  "src/lis/LisService.cpp",
+  "src/lis/LisServer.cpp",
+]
+
+ServiceIcceSrc = [
+  "src/icce/IcceService.cpp",
+  "src/icce/IcceClientStackAdapter.cpp",
+  "src/icce/IcceServerStackAdapter.cpp",
+  "src/icce/icce_utils.cpp",
+]
+
+ServiceDatashareSrc = [
+  "src/datashare/nearlink_datashare_helper.cpp",
+  "src/datashare/SleNameChangeManager.cpp",
+]
+
+ServiceDatatransferSrc = [
+  "src/datatransfer/nearlink_sle_datatransfer_cache.cpp",
+  "src/datatransfer/nearlink_sle_datatransfer_service.cpp",
+]
+
+ServicePortSrc = [
+  "src/port/PortService.cpp",
+  "src/port/PortClientStackAdapter.cpp",
+  "src/port/PortServerStackAdapter.cpp",
+]
+
+ServiceDialogSrc = [
+  "src/dialog/DialogGenerate.cpp",
+  "src/dialog/DialogPairing.cpp",
+  "src/dialog/DialogUtils.cpp",
+]
+
+ServiceCdsmSrc = [
+  "src/cdsm/CdsmService.cpp",
+  "src/cdsm/CdsmClient.cpp",
+]
+
+ServiceTwsSrc = [
+  "src/tws/TwsClient.cpp",
+  "src/tws/TwsService.cpp",
+  "src/tws/TwsHiBoxParser.cpp",
+  "src/tws/TwsSharedLibApi.cpp",
+]
+
+ServiceCloudpairSrc = [
+  "src/cloudpair/SleCloudPairService.cpp",
+]
+
+ServiceMcpSrc = [
+  "src/mcp/McpServerServiceManagerLoader.cpp",
+]
+
+ServicePluginLoaderSrc = [
+  "src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
+]
+
+ServiceControllerSrc = [
+  "src/controller/SleControllerService.cpp",
+]
+
+nearlink_service_sources = ServiceCommonSrc + ServiceUtilSrc
+nearlink_service_sources += ServiceAdapterSrc
+nearlink_service_sources += ServiceAdvertiserSrc
+nearlink_service_sources += ServiceScanSrc
+nearlink_service_sources += ServiceSsapSrc
+nearlink_service_sources += ServiceHidSrc
+nearlink_service_sources += ServiceHadmSrc
+nearlink_service_sources += ServiceDisSrc
+nearlink_service_sources += ServiceBasSrc
+nearlink_service_sources += ServiceLisSrc
+nearlink_service_sources += ServiceIcceSrc
+nearlink_service_sources += ServiceDatashareSrc
+nearlink_service_sources += ServiceDatatransferSrc
+nearlink_service_sources += ServicePortSrc
+nearlink_service_sources += ServiceDialogSrc
+nearlink_service_sources += ServiceCdsmSrc
+nearlink_service_sources += ServiceTwsSrc
+nearlink_service_sources += ServiceCloudpairSrc
+nearlink_service_sources += ServiceMcpSrc
+nearlink_service_sources += ServicePluginLoaderSrc
+nearlink_service_sources += ServiceControllerSrc
+
+nearlink_service_deps = [
+  "$NEARLINK_ROOT/services/stack:nearlink_stack",
+  "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+  "$NEARLINK_ROOT/utils:nearlink_utils",
+  "$NEARLINK_ROOT/socket:nearlink_socket",
+  "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+  "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+  "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
+]
+
+nearlink_service_external_deps = [
+  "ability_base:want",
+  "ability_base:zuri",
+  "ability_runtime:extension_manager",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtokenid_sdk",
+  "access_token:libprivacy_sdk",
+  "c_utils:utils",
+  "cJSON:cjson",
+  "ffrt:libffrt",
+  "hilog:libhilog",
+  "huks:libhukssdk",
+  "init:libbegetutil",
+  "init:libbeget_proxy",
+  "ipc:ipc_core",
+  "samgr:samgr_proxy",
+  "data_share:datashare_common",
+  "data_share:datashare_consumer",
+  "ability_runtime:wantagent_innerkits",
+  "ability_runtime:ability_connect_callback_stub",
+  "time_service:time_client",
+  "os_account:os_account_innerkits",
+  "qos_manager:qos",
+  "openssl:libcrypto_shared",
+  "os_account:libaccountkits",
+  "openssl:libcrypto_shared",
+  "os_account:libaccountkits",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+]
+
+nearlink_service_defines = []
+
+########################### nearlink_service feture ###########################
+
+if (nearlink_service_kia_enable) {
+  nearlink_service_external_deps += [ "security_guard:libsg_collect_sdk" ]
+  nearlink_service_defines += [ "NEARLINK_KIA_ENABLE" ]
+}
+
+if (nearlink_service_edm_enable) {
+  nearlink_service_sources += [
+    "src/common/SleEdmManager.cpp",
+  ]
+  nearlink_service_defines += [ "NEARLINK_EDM_ENABLE" ]
+}
+
+if (nearlink_service_host_dynamic_running) {
+  nearlink_service_external_deps += [ "hdf_core:libhdi" ]
+  nearlink_service_defines += ["NEARLINK_HOST_DYNAMIC_RUNING"]
+}
+
+if (nearlink_service_no_pairing_dialog) {
+  nearlink_service_defines += ["NO_PAIRING_DIALOG"]
+}
+
+if (nearlink_service_sync_ap_to_mcu) {
+    nearlink_service_defines += ["NEARLINK_SYNC_AP_TO_MCU"]
+}
+
+if (nearlink_service_min_conn_interval != 0) {
+    nearlink_service_defines += [ "MIN_CONN_INTERVAL=${nearlink_service_min_conn_interval}" ]
+}
+
+########################### nearlink_service 弱耦合部件依赖 ###########################
+
+if (nearlink_deps_audio_exist) {
+  nearlink_service_sources += [
+    "src/mcp/McpServerService.cpp",
+    "src/asc/ASCService.cpp",
+    "src/asc/QosM.cpp",
+    "src/asc/ASCUtils.cpp",
+    "src/adapter/SleASC.cpp",
+    "src/vcp/VcpService.cpp",
+    "src/vcp/VcpStackAdapter.cpp",
+    "src/mic/MicService.cpp",
+    "src/mic/MicClientStackAdapter.cpp",
+    "src/audio/SleAudioFrameworkAdapter.cpp",
+  ]
+  nearlink_service_external_deps += [
+    "audio_framework:audio_policy_manager",
+    "audio_framework:audio_engine_manager",
+    "audio_framework:audio_foundation",
+  ]
+}
+
+if (nearlink_deps_telephony_exist) {
+  nearlink_service_sources += [
+      "src/ccp/CcpService.cpp",
+      "src/ccp/CcpStackAdapter.cpp",
+      "src/ccp/CcpSystemInterface.cpp",
+      "src/vas/VasService.cpp",
+      "src/vas/VasStackAdapter.cpp",
+    ]
+  nearlink_service_external_deps += [
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+  ]
+}
+
+if (nearlink_deps_device_manager_exist) {
+  nearlink_service_external_deps += [ "device_manager:devicemanagersdk" ]
+  nearlink_service_defines += ["DEVICE_MANAGER"]
+}
+
+########################### nearlink_service feature && 弱耦合部件依赖 && 其他 ###########################
+
+if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
+  nearlink_service_external_deps += [ "resource_schedule_service:ressched_client" ]
+  nearlink_service_defines += [ "RES_SCHED_SUPPORT" ]
+}
+
+if (factory == true) {
+  nearlink_service_defines += ["CONFIG_FACTORY_VERSION"]
+}
+
+nearlink_service_defines += product_defines
+
+########################### nearlink_service_impl ###########################
+
+ohos_shared_library("nearlink_service_impl") {
+  branch_protector_ret = "pac_ret"
 
   ldflags = [
     "-flto",
@@ -124,211 +414,43 @@ ohos_shared_library("nearlink_service_impl") {
 
   configs = [ ":nearlink_service_config" ]
   public_configs = [ ":nearlink_service_public_config" ]
-  sources = [
-    "src/common/AdapterStateMachine.cpp",
-    "src/common/ClassCreator.cpp",
-    "src/common/Compat.cpp",
-    "src/common/ProfileInfo.cpp",
-    "src/common/ProfileServiceManager.cpp",
-    "src/common/SleServiceManager.cpp",
-    "src/common/SleCollaborationManager.cpp",
-    "src/common/SleHiviewUe.cpp",
-    "src/common/SleCommonEventSubscriber.cpp",
-    "src/common/SleSwitchDependency.cpp",
-    "src/common/SysStateMachine.cpp",
-    "src/common/SleMultiScanData.cpp",
-    "src/common/DeviceBatteryManager.cpp",
-    "src/util/semaphore.cpp",
-    "src/adapter/SleAdapterWrapper.cpp",
-    "src/adapter/SleAdapter.cpp",
-    "src/adapter/SleRemoteDeviceAdapter.cpp",
-    "src/adapter/SleCoexist.cpp",
-    "src/adapter/SleProperties.cpp",
-    "src/adapter/SleSecurity.cpp",
-    "src/adapter/SleProfileConnectManager.cpp",
-    "src/adapter/SleFeature.cpp",
-    "src/adapter/SleReconnectManager.cpp",
-    "src/advertiser/SleAdvertiserAdapter.cpp",
-    "src/advertiser/SleAdvertiserImpl.cpp",
-    "src/scan/ScanService.cpp",
-    "src/scan/ScanStackAdapter.cpp",
-    "src/ssap/ssap_client_service.cpp",
-    "src/ssap/ssap_client_stack_adapter.cpp",
-    "src/ssap/ssap_server_service.cpp",
-    "src/ssap/ssap_server_stack_adapter.cpp",
-    "src/ssap/ssap_utils.cpp",
-    "src/ssap/ssap_based_services_manager.cpp",
-    "src/hid/HidHostService.cpp",
-    "src/hadm/nearlink_hadm_stack_adapter.cpp",
-    "src/hadm/nearlink_hadm_client_service.cpp",
-    "src/hid/HidHostStackAdapter.cpp",
-    "src/hid/HidHostUhid.cpp",
-    "src/dis/DisService.cpp",
-    "src/dis/DisClientStackAdapter.cpp",
-    "src/dis/DisServerStackAdapter.cpp",
-    "src/bas/BasService.cpp",
-    "src/bas/BasClientStackAdapter.cpp",
-    "src/lis/LisService.cpp",
-    "src/lis/LisServer.cpp",
-    "src/icce/IcceService.cpp",
-    "src/icce/IcceClientStackAdapter.cpp",
-    "src/icce/IcceServerStackAdapter.cpp",
-    "src/icce/icce_utils.cpp",
-    "src/datashare/nearlink_datashare_helper.cpp",
-    "src/datashare/SleNameChangeManager.cpp",
-    "src/datatransfer/nearlink_sle_datatransfer_cache.cpp",
-    "src/datatransfer/nearlink_sle_datatransfer_service.cpp",
-    "src/common/UnloadSa.cpp",
-    "src/port/PortService.cpp",
-    "src/port/PortClientStackAdapter.cpp",
-    "src/port/PortServerStackAdapter.cpp",
-    "src/dialog/DialogGenerate.cpp",
-    "src/dialog/DialogPairing.cpp",
-    "src/dialog/DialogUtils.cpp",
-    "src/cdsm/CdsmService.cpp",
-    "src/cdsm/CdsmClient.cpp",
-    "src/tws/TwsClient.cpp",
-    "src/tws/TwsService.cpp",
-    "src/tws/TwsHiBoxParser.cpp",
-    "src/tws/TwsSharedLibApi.cpp",
-    "src/cloudpair/SleCloudPairService.cpp",
-    "src/mcp/McpServerServiceManagerLoader.cpp",
-    "src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
-    "src/controller/SleControllerService.cpp",
-  ]
 
-  if (nearlink_service_edm_enable) {
-    sources += [
-      "src/common/SleEdmManager.cpp",
-    ]
-  }
-
-  if (nearlink_deps_audio_exist) {
-    sources += [
-      "src/mcp/McpServerService.cpp",
-      "src/asc/ASCService.cpp",
-      "src/asc/QosM.cpp",
-      "src/asc/ASCUtils.cpp",
-      "src/adapter/SleASC.cpp",
-      "src/vcp/VcpService.cpp",
-      "src/vcp/VcpStackAdapter.cpp",
-      "src/mic/MicService.cpp",
-      "src/mic/MicClientStackAdapter.cpp",
-      "src/audio/SleAudioFrameworkAdapter.cpp",
-    ]
-  }
-
-  if (nearlink_deps_telephony_exist) {
-    sources += [
-      "src/ccp/CcpService.cpp",
-      "src/ccp/CcpStackAdapter.cpp",
-      "src/ccp/CcpSystemInterface.cpp",
-      "src/vas/VasService.cpp",
-      "src/vas/VasStackAdapter.cpp",
-    ]
-  }
-
-  deps = [
-    "$NEARLINK_ROOT/services/stack:nearlink_stack",
-    "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
-    "$NEARLINK_ROOT/utils:nearlink_utils",
-    "$NEARLINK_ROOT/socket:nearlink_socket",
-    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
-    "$NEARLINK_ROOT/services/common:nearlink_service_common",
-    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
-    "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
-    "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
-  ]
-
-  external_deps = [
-    "ability_runtime:ability_connect_callback_stub",
-    "ability_base:want",
-    "ability_base:zuri",
-    "ability_runtime:extension_manager",
-    "access_token:libaccesstoken_sdk",
-    "access_token:libtokenid_sdk",
-    "access_token:libprivacy_sdk",
-    "c_utils:utils",
-    "cJSON:cjson",
-    "ffrt:libffrt",
-    "hilog:libhilog",
-    "huks:libhukssdk",
-    "init:libbegetutil",
-    "init:libbeget_proxy",
-    "ipc:ipc_core",
-    "samgr:samgr_proxy",
-    "data_share:datashare_common",
-    "data_share:datashare_consumer",
-    "ability_runtime:wantagent_innerkits",
-    "time_service:time_client",
-    "os_account:os_account_innerkits",
-    "qos_manager:qos",
-    "openssl:libcrypto_shared",
-    "os_account:libaccountkits",
-    "openssl:libcrypto_shared",
-    "os_account:libaccountkits",
-    "hisysevent:libhisysevent",
-    "hisysevent:libhisyseventmanager",
-  ]
+  sources = nearlink_service_sources
+  deps = nearlink_service_deps
+  external_deps = nearlink_service_external_deps
 
   defines =  [
     "LOG_TAG = \"nearlink_service\"",
     "LOG_DOMAIN = 0xD000152",
   ]
+  defines += nearlink_service_defines
 
-  if (nearlink_service_kia_enable) {
-    defines += [ "NEARLINK_KIA_ENABLE" ]
-    external_deps += [ "security_guard:libsg_collect_sdk" ]
+  subsystem_name = "communication"
+  part_name = "nearlink_service"
+}
+
+########################### nearlink_service_impl ###########################
+# Only use for fuzztest
+ohos_static_library("nearlink_service_impl_static") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    debug = false
   }
 
-  if (nearlink_service_edm_enable) {
-    defines += [ "NEARLINK_EDM_ENABLE" ]
-  }
+  configs = [ ":nearlink_service_config" ]
+  public_configs = [ ":nearlink_service_public_config" ]
 
-  if (nearlink_deps_audio_exist) {
-    external_deps += [
-      "audio_framework:audio_policy_manager",
-      "audio_framework:audio_engine_manager",
-      "audio_framework:audio_foundation",
-    ]
-  }
+  sources = nearlink_service_sources
+  deps = nearlink_service_deps
+  external_deps = nearlink_service_external_deps
 
-  if (nearlink_deps_telephony_exist) {
-    external_deps += [
-      "call_manager:tel_call_manager_api",
-      "core_service:tel_core_service_api",
-      "state_registry:tel_state_registry_api"
-    ]
-  }
-
-  if (nearlink_service_host_dynamic_running) {
-    external_deps += [ "hdf_core:libhdi" ]
-    defines += ["NEARLINK_HOST_DYNAMIC_RUNING"]
-  }
-
-  if (nearlink_deps_device_manager_exist) {
-    external_deps += [ "device_manager:devicemanagersdk" ]
-    defines += ["DEVICE_MANAGER"]
-  }
-
-  if (nearlink_service_no_pairing_dialog) {
-    defines += ["NO_PAIRING_DIALOG"]
-  }
-
-  if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
-    external_deps += [ "resource_schedule_service:ressched_client" ]
-    defines += [ "RES_SCHED_SUPPORT" ]
-  }
-
-  if (nearlink_service_min_conn_interval != 0) {
-    defines += [ "MIN_CONN_INTERVAL=${nearlink_service_min_conn_interval}" ]
-  }
-
-  if (factory == true) {
-    defines += ["CONFIG_FACTORY_VERSION"]
-  }
-
-  defines += product_defines
+  defines =  [
+    "LOG_TAG = \"nearlink_service\"",
+    "LOG_DOMAIN = 0xD000152",
+  ]
+  defines += nearlink_service_defines
 
   subsystem_name = "communication"
   part_name = "nearlink_service"

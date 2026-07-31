@@ -16,6 +16,7 @@
 #include "nearlink_permission_manager.h"
 
 #include "log.h"
+#include "nearlink_errorcode.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -24,6 +25,13 @@ std::string NearLinkPermissionManager::GetCallingName()
 {
     HILOGI("Enter");
     return MOCK_CALLER_NAME_RESOURCE_MANAGER;
+}
+
+int32_t NearLinkPermissionManager::VerifyMultiPermissions(
+    const std::shared_ptr<NearLinkPermissionItem> &item)
+{
+    HILOGI("Enter, mock permission granted");
+    return NL_NO_ERROR;
 }
 
 }  // namespace Nearlink

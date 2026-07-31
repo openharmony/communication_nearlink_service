@@ -71,7 +71,7 @@ unit_test_deps = [
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
   "$NEARLINK_ROOT/services/service:nearlink_service_impl",
-  "$NEARLINK_ROOT/services/server:nearlink_server_static",
+  "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
   "${nearlink_test_utils_path}:test_utils_static",
 ]
 
