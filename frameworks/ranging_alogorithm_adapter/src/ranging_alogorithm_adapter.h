@@ -44,6 +44,7 @@ public:
     /**
      * @brief Init hadm algorithm.
      *
+     * @param algoMode ranging algorithm mode, default RANGING_ALGO_MODE_ONE.
      * @since 6
      */
     bool InitHadmAlgo(RangingAlgoMode algoMode = RangingAlgoMode::RANGING_ALGO_MODE_ONE);
