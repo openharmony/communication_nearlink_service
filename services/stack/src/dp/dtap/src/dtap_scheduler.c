@@ -91,6 +91,7 @@ static bool DTAP_AddLcidBufferNode(uint16_t connHandle)
     }
     node = (DTAP_LcidBufferNode *)SDF_MemZalloc(sizeof(DTAP_LcidBufferNode));
     if (node == NULL) {
+        DTAP_LOGE("lcid %hu, malloc lcid buffer node failed", connHandle);
         return false;
     }
     node->lcid = connHandle;
@@ -506,7 +507,7 @@ static bool DTAP_SplitData(uint16_t lcid, SDF_Buff_S *buff,
     for (uint32_t i = 0; i < fragmentCnt; i++) {
         fragmentBuf[i] = SDF_BuffNew(fragmentLen);
         if (fragmentBuf[i] == NULL) {
-            DTAP_LOGE("create fragment buf failed");
+            DTAP_LOGE("create fragment buf failed, lcid %hu, buff len %llu", lcid, SDF_DataLenGet(buff));
             for (uint32_t j = 0; j < i; j++) {
                 SDF_BuffFree(fragmentBuf[j]);
             }
@@ -516,7 +517,7 @@ static bool DTAP_SplitData(uint16_t lcid, SDF_Buff_S *buff,
     DLI_DataStru dliData = { lcid, DLI_DATATYPE_ACB, 0, 0, buff };
     uint32_t ret = DLI_SplitData(&dliData, fragmentBuf, fragmentCnt);
     if (ret != DLI_SUCCESS) {
-        DTAP_LOGE("split data failed, ret %d", ret);
+        DTAP_LOGE("split data failed, ret %d, lcid %hu, buff len %llu", ret, lcid, SDF_DataLenGet(buff));
         for (uint32_t i = 0; i < fragmentCnt; i++) {
             SDF_BuffFree(fragmentBuf[i]);
         }
@@ -617,7 +618,7 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
                 g_sendNotAckPktCnt++;
                 continue;
             } else {
-                DTAP_LOGD("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
                     channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(pkt->buff));
                 return false;
             }
@@ -633,7 +634,7 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
         for (; DTAP_CanSend(node) && sendCnt < fragmentCnt; sendCnt++, node->sendNotAckPktCnt++) {
             if (!DTAP_SendData(channelNode->lcid, fragmentBuf[sendCnt])) {
                 // 发送失败，暂停发送，等待下次继续发送
-                DTAP_LOGD("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
                     channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(fragmentBuf[sendCnt]));
                 break;
             }
@@ -691,7 +692,7 @@ static void DTAP_SchedulerRun(void)
         DTAP_LOGD("enter, g_sendNotAckPktCnt %u, q priority %u, q pktCnt %u",
             g_sendNotAckPktCnt, q->priority, q->pktCnt);
         if (g_sendNotAckPktCnt >= g_apBufferNum) {
-            DTAP_LOGD("chip buffer is full, g_sendNotAckPktCnt %d", g_sendNotAckPktCnt);
+            DTAP_LOGW("chip buffer is full, g_sendNotAckPktCnt %d", g_sendNotAckPktCnt);
             return;
         }
         if (q->pktCnt == 0) {
