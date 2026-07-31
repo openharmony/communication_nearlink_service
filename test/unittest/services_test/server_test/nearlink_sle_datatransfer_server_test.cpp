@@ -129,7 +129,7 @@ HWTEST_F(NearlinkSleDataTransferStubTest, CreatePort001, TestSize.Level1)
 HWTEST_F(NearlinkSleDataTransferStubTest, SocketEmptyMsg001, TestSize.Level1)
 {
     HILOGI("NearlinkSleDataTransferStubTest:SocketEmptyMsg001 start");
-    uint16_t portId = CAR_PORT;
+    uint16_t portId = testPort;
     std::string address = "00:00:00:00:00:00";
     MessageParcel data;
     MessageParcel reply;
@@ -205,7 +205,7 @@ HWTEST_F(NearlinkSleDataTransferStubTest, GetConnectionState001, TestSize.Level1
     HILOGI("NearlinkSleDataTransferStubTest:GetConnectionState001 start");
     std::string address = "00:00:00:00:00:00";
     std::string uuid = "060D";
-    uint16_t port = 40960;
+    uint16_t port = testPort;
     MessageParcel data;
     MessageParcel reply;
     NearlinkSleDataTransferConnectionParams param;

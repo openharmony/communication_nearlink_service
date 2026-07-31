@@ -558,9 +558,9 @@ TEST_F(UT_DLI_EVENT, ReadRemoteCsCaps_FalseFuncCallbackInvoked)
     DLI_ManagerContext context = {0};
     DLI_SmCbkContext cbkcontext = {0};
     context.cbkContext = &cbkcontext;
-    DLI_ReadRemoteCsCapsEvt arg = {0};
+    DLI_ReadRemoteCsCapsPrivEvt arg = {0};
     arg.status = 0x09;
-    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsEvt), 0x00);
+    DLI_ReadRemoteCsCapsCbk(&context, &arg, sizeof(DLI_ReadRemoteCsCapsPrivEvt), 0x00);
     EXPECT_TRUE(g_readRemoteMeasureCapsCbkCalled);
 }
 
