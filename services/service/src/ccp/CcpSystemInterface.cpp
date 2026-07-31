@@ -185,22 +185,10 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
     HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
-    NL_CHECK_RETURN_RET(info.callType != Telephony::CallType::TYPE_VOIP, NL_NO_ERROR, "not support voip call state.");
     DoInCcpThread([info]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
         service->HandleCallDetailChange(info);
-    });
-    return NL_NO_ERROR;
-}
-
-int32_t CcpSystemInterface::CallManagerCallbackImpl::OnMeeTimeDetailsChange(const Telephony::CallAttributeInfo &info)
-{
-    HILOGI("[CcpService]OnMeeTimeDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
-    DoInCcpThread([info]() {
-        CcpService *service = CcpService::GetService();
-        NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-        service->HandleMeeTimeDetailsChange(info);
     });
     return NL_NO_ERROR;
 }
