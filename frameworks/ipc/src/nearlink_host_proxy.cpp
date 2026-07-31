@@ -355,6 +355,7 @@ NlErrCode NearlinkHostProxy::RemoveAllPairs()
 
 NlErrCode NearlinkHostProxy::RegisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
 {
+    NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
@@ -370,6 +371,7 @@ NlErrCode NearlinkHostProxy::RegisterSlePeripheralCallback(const sptr<INearlinkS
 
 NlErrCode NearlinkHostProxy::DeregisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
 {
+    NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
@@ -387,6 +389,7 @@ NlErrCode NearlinkHostProxy::DeregisterSlePeripheralCallback(const sptr<INearlin
 NlErrCode NearlinkHostProxy::RegisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
 {
     HILOGD("start");
+    NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
@@ -404,6 +407,7 @@ NlErrCode NearlinkHostProxy::RegisterSleAdapterObserver(const sptr<INearlinkHost
 NlErrCode NearlinkHostProxy::DeregisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");

@@ -335,16 +335,20 @@ void PortSocketManager::impl::WorkerThread::Stop()
     HILOGI("WorkerThread stop enter");
     context_->running = false;
     uint8_t p = 1;
-    SocketTransState ret = context_->outputStream->Write(&p, sizeof(p));
-    if (ret != SLE_TRANS_RESULT_SUCCESS) {
-        HILOGE("Failed to write pipe fd");
+    SocketTransState ret = SLE_TRANS_RESULT_SUCCESS;
+    if (context_->outputStream != nullptr) {
+        ret = context_->outputStream->Write(&p, sizeof(p));
+        if (ret != SLE_TRANS_RESULT_SUCCESS) {
+            HILOGE("Failed to write pipe fd");
+        }
     }
     if (thread_.joinable()) {
         HILOGI("thread joinable");
         thread_.join();
         HILOGI("thread joinable finished");
     }
-    if (ret == SLE_TRANS_RESULT_SUCCESS) { // 保护多线程场景下 workerThread 走的异常退出流程，没有读取wake_read_fd
+    if (ret == SLE_TRANS_RESULT_SUCCESS && context_->inputStream != nullptr) {
+        // 保护多线程场景下 workerThread 走的异常退出流程，没有读取wake_read_fd
         ClearData(context_->inputStream);
     }
 }
@@ -362,6 +366,7 @@ void PortSocketManager::impl::WorkerThread::ClearData(std::shared_ptr<InputStrea
 
 bool PortSocketManager::impl::WorkerThread::CheckPipeMsg(int fd)
 {
+    NL_CHECK_RETURN_RET(context_->inputStream != nullptr, false, "inputStream is nullptr");
     uint8_t buf[PIPE_BUFFER_SIZE];
     int ret = context_->inputStream->Read(buf, sizeof(buf));
     NL_CHECK_RETURN_RET(ret == END_TAG_LEN, false, "end tage len invalid.");

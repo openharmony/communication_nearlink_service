@@ -65,6 +65,7 @@ static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
     }
     dliCmd->lcid = lcid;
     dliCmd->expectRspTyp = expectRspTyp;
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_ERRCODE_SYS_ERROR, "[HADM] g_hadmDliCmdVec is null");
     if (!SDF_VectorEmplaceBack(g_hadmDliCmdVec, dliCmd)) {
         NLSTK_LOG_ERROR("[hadm] push dli cmd into vector fail");
         SDF_MemFree(dliCmd);
@@ -75,6 +76,7 @@ static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
 
 uint16_t HadmPopLastDliCmd(uint16_t *expectRspType)
 {
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_INVALID_LCID, "[HADM] g_hadmDliCmdVec is null");
     if (g_hadmDliCmdVec->size == 0) {
         NLSTK_LOG_ERROR("[HADM] DliCmdVec is empty.");
         return NLSTK_INVALID_LCID;

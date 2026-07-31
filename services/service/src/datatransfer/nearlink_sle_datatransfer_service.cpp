@@ -891,6 +891,7 @@ void SleDataTransferService::ConnectPeerPortInner(const DataTransferConnectionPa
         temp.state_ == static_cast<int32_t>(SleConnectState::CONNECTING))) { // 已执行过 connectAction
         HILOGI("portId: %{public}d, addr: %{public}s, connectParam state: %{public}d",
             params.GetPort(), GET_ENCRYPT_ADDR(device), temp.state_);
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(temp, INVALID_FD);
     } else { // 若ACB和PORT PROFILE已连接 直接创建PORT CHANNEL
         GetRemotePortCreateChannel(params);
@@ -1200,6 +1201,7 @@ int SleDataTransferService::ReceiveDataCallback(const TRANS_Addr_S *addr, uint8_
 void SleDataTransferService::SendDataStateCallback(const SLE_Addr_S *devAddr, uint8_t tcid, uint16_t portId,
     uint8_t result)
 {
+    NL_CHECK_RETURN(devAddr != nullptr, "SendDataStateCallback devAddr is null");
     RawAddress rawAddress(RawAddress::ConvertToString(devAddr->addr));
     std::string address = rawAddress.GetAddress();
 
@@ -1305,6 +1307,7 @@ void SleDataTransferService::HandleConnectEvent(int32_t stat, uint16_t srcPort, 
         if (temp.state == static_cast<int32_t>(SleConnectState::DISCONNECTED)) {
             NotifyDisconnect(connectionParams.address_);
         }
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(connectionParams, fd);
     });
     DftReportDtfrStatisInfo(stat, temp.address, uuid);

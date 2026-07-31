@@ -454,6 +454,9 @@ NlErrCode SsapServer::AddService(SsapService &service)
     for (auto &proper : service.GetProperty()) {
         size_t length = 0;
         uint8_t *value = proper.GetValue(&length).get();
+        if (value == nullptr || length == 0) {
+            continue;
+        }
         std::vector<uint8_t> vecValue(value, value + length);
         Property p(proper.GetHandle(),
             Uuid::ConvertFrom128Bits(proper.GetUuid().ConvertTo128Bits()),
@@ -463,6 +466,9 @@ NlErrCode SsapServer::AddService(SsapService &service)
 
         for (auto &desc : proper.GetDescriptors()) {
             value = desc.GetValue(&length).get();
+            if (value == nullptr || length == 0) {
+                continue;
+            }
             std::vector<uint8_t> temp(value, value + length);
             vecValue = std::move(temp);
             Descriptor d(desc.GetHandle(),
@@ -608,6 +614,7 @@ NlErrCode SsapServer::NotifyPropertyChanged(
 
     size_t length = 0;
     auto &propertyValue = property.GetValue(&length);
+    NL_CHECK_RETURN_RET(propertyValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "propertyValue is nullptr.");
     std::vector<uint8_t> vecValue(propertyValue.get(), propertyValue.get() + length);
 
     NearlinkSsapPropertyParcel proper(Property(handle, vecValue));
@@ -649,6 +656,7 @@ NlErrCode SsapServer::SetPropertyValue(SsapProperty &property)
 
     size_t length = 0;
     auto &propertyValue = property.GetValue(&length);
+    NL_CHECK_RETURN_RET(propertyValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "propertyValue is nullptr.");
     std::vector<uint8_t> vecValue(propertyValue.get(), propertyValue.get() + length);
     NearlinkSsapPropertyParcel proper(Property(property.GetHandle(), vecValue));
 
@@ -666,6 +674,7 @@ NlErrCode SsapServer::SetDescriptorValue(SsapDescriptor &descriptor)
 
     size_t length = 0;
     auto &descriptorValue = descriptor.GetValue(&length);
+    NL_CHECK_RETURN_RET(descriptorValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "descriptorValue is nullptr.");
     std::vector<uint8_t> vecValue(descriptorValue.get(), descriptorValue.get() + length);
     NearlinkSsapDescriptorParcel descript(
         Descriptor(descriptor.GetHandle(), descriptor.GetDescriptorType(), std::move(vecValue)));

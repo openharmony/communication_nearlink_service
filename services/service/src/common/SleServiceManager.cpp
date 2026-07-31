@@ -1125,6 +1125,7 @@ bool SleServiceManager::IsDisabling() const
 void SleServiceManager::OnChipResetNotify() const
 {
     HILOGW("chip is reset");
+    NL_CHECK_RETURN(pimpl->stateMachine_, "stateMachine is null");
     SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
     if (targetState != SleStateID::STATE_TURN_OFF) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishChipResetEvent(static_cast<int>(targetState));

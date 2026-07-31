@@ -35,7 +35,10 @@ SsapClientStackAdapter::SsapClientStackAdapter(SsapClientStackCallback &callback
     g_ssapClientStackAdapter = this;
 }
 
-SsapClientStackAdapter::~SsapClientStackAdapter() = default;
+SsapClientStackAdapter::~SsapClientStackAdapter()
+{
+    g_ssapClientStackAdapter = nullptr;
+}
 
 void SsapClientStackAdapter::OnConnectionStateChangedTask(int appId, int state, int ret, int reason)
 {
@@ -47,6 +50,7 @@ void SsapClientStackAdapter::OnConnectionStateChanged(int appId, uint8_t state, 
     SSAP_LOGI("appId=%{public}d, state=%{public}d, ret=%{public}d, reason=%{public}d", appId, state, ret, reason);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, s = ConvertStateFromStackSsapState(state), r = ConvertFromPDUError(ret), reason]() -> void {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnConnectionStateChangedTask(appId, s, r, reason);
     });
 }
@@ -61,6 +65,7 @@ void SsapClientStackAdapter::OnMtuChanged(int appId, uint16_t mtu, NLSTK_Errcode
     SSAP_LOGI("appId=%{public}d", appId);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, mtu, r = ConvertFromPDUError(ret)]() -> void {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnMtuChangedTask(appId, mtu, r);
     });
 }
@@ -75,6 +80,7 @@ void SsapClientStackAdapter::OnDiscoverComplete(int appId, NLSTK_Errcode_E ret)
     SSAP_LOGD("appId=%{public}d", appId);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, r = ConvertFromPDUError(ret)]() -> void {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnDiscoverCompleteTask(appId, r);
     });
 }
@@ -92,6 +98,7 @@ void SsapClientStackAdapter::OnDiscoverByUuidComplete(int appId, NLSTK_SsapUuid_
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId, uuid,
         r = ConvertFromPDUError(ret)]() -> void {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnDiscoverByUuidCompleteTask(appId, uuid, r);
     });
 }
@@ -113,6 +120,7 @@ void SsapClientStackAdapter::OnReadProperty(int appId, NLSTK_SsapClientReadPrope
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapProperty = Property(property->handle, uuid, std::move(value)), r = property->errorCode]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnReadPropertyTask(appId, ssapProperty, r);
     });
 }
@@ -134,6 +142,7 @@ void SsapClientStackAdapter::OnCallMethod(int appId, NLSTK_SsapClientCallMethodR
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapMethod = Method(method->handle, uuid, std::move(value)), r = method->errorCode]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnCallMethodTask(appId, ssapMethod, r);
     });
 }
@@ -154,6 +163,7 @@ void SsapClientStackAdapter::OnReadDescriptor(int appId, NLSTK_SsapClientReadDes
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapDescriptor = Descriptor(descriptor->handle, descriptor->type, std::move(value)),
         r = descriptor->errorCode]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnReadDescriptorTask(appId, ssapDescriptor, r);
     });
 }
@@ -185,6 +195,7 @@ void SsapClientStackAdapter::OnReadPropertiesByUuid(int appId, NLSTK_SsapClientR
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, properties = ssapProperties, r = ConvertFromPDUError(ret)]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnReadPropertiesByUuidTask(appId, properties, r);
     });
 }
@@ -206,6 +217,7 @@ void SsapClientStackAdapter::OnWriteProperty(int appId, NLSTK_SsapClientReadProp
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapProperty = Property(property->handle, uuid, std::move(value)), r = property->errorCode]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnWritePropertyTask(appId, ssapProperty, r);
     });
 }
@@ -224,6 +236,7 @@ void SsapClientStackAdapter::OnWriteDescriptor(int32_t appId, NLSTK_SsapClientRe
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapDescriptor = Descriptor(descriptor->handle, descriptor->type), r = descriptor->errorCode]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnWriteDescriptorTask(appId, ssapDescriptor, r);
     });
 }
@@ -241,6 +254,7 @@ void SsapClientStackAdapter::OnGetPropertyNotification(int appId, NLSTK_SsapUuid
     Uuid uuid = Uuid::ConvertFromBytesSle(stackUuid->uuid);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, ssapProperty = Property(handle, uuid), enable, r = ConvertFromPDUError(ret)]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnGetPropertyNotificationTask(appId, ssapProperty, enable, r);
     });
 }
@@ -258,6 +272,7 @@ void SsapClientStackAdapter::OnGetPropertyIndication(int appId, NLSTK_SsapUuid_S
     Uuid uuid = Uuid::ConvertFromBytesSle(stackUuid->uuid);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, ssapProperty = Property(handle, uuid), enable, r = ConvertFromPDUError(ret)]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnGetPropertyIndicationTask(appId, ssapProperty, enable, r);
     });
 }
@@ -275,6 +290,7 @@ void SsapClientStackAdapter::OnSetPropertyNotification(int appId, NLSTK_SsapUuid
     Uuid uuid = Uuid::ConvertFromBytesSle(stackUuid->uuid);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, ssapProperty = Property(handle, uuid), enable, r = ConvertFromPDUError(ret)]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnSetPropertyNotificationTask(appId, ssapProperty, enable, r);
     });
 }
@@ -292,6 +308,7 @@ void SsapClientStackAdapter::OnSetPropertyIndication(int appId, NLSTK_SsapUuid_S
     Uuid uuid = Uuid::ConvertFromBytesSle(stackUuid->uuid);
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, ssapProperty = Property(handle, uuid), enable, r = ConvertFromPDUError(ret)]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnSetPropertyIndicationTask(appId, ssapProperty, enable, r);
     });
 }
@@ -312,6 +329,7 @@ void SsapClientStackAdapter::OnPropertyChanged(int appId, NLSTK_SsapClientReadPr
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapProperty = Property(property->handle, uuid, std::move(value))]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnPropertyChangedTask(appId, ssapProperty);
     });
 }
@@ -332,6 +350,7 @@ void SsapClientStackAdapter::OnEvent(int appId, NLSTK_SsapClientEventInfo_S *eve
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter, appId,
         ssapEvent = Event(event->handle, uuid, std::move(value))]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnEventTask(appId, ssapEvent);
     });
 }
@@ -345,6 +364,7 @@ void SsapClientStackAdapter::OnDisable(void)
 {
     SSAP_LOGI("enter");
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter]() -> void {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnDisableTask();
     });
 }
@@ -366,6 +386,7 @@ void SsapClientStackAdapter::OnServiceRediscover(int32_t appId, NLSTK_SsapServ_S
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, services = ssapServices]() mutable {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnServiceRediscoverTask(appId, services);
     });
 }
@@ -384,6 +405,7 @@ void SsapClientStackAdapter::OnServiceChange(int32_t appId, uint16_t handle, NLS
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
         appId, handle, uuid]() {
+        NL_CHECK_RETURN(clientStackAdapter != nullptr, "clientStackAdapter is nullptr");
         clientStackAdapter->OnServiceChangeTask(appId, handle, uuid);
     });
 }

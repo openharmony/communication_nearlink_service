@@ -74,6 +74,7 @@ NlErrCode NearlinkSsapServerProxy::CancelConnection(int appId, const NearlinkSsa
 NlErrCode NearlinkSsapServerProxy::RegisterApplication(const sptr<INearlinkSsapServerCallback> &callback,
     int32_t &appId)
 {
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
