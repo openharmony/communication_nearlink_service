@@ -409,8 +409,12 @@ static void EncryptImg(ActmQosmGroup_S *group)
     param.cryptoAlgo = group->encp.cryptAlgo;
     param.giv = group->encp.giv;
     (void)memcpy_s(&param.groupKey, GROUP_KEY_LEN, &group->encp.groupKey, GROUP_KEY_LEN);
-    NLSTK_CHECK_RETURN_VOID(NLSTK_SmEnableImgEncp(&param) == NLSTK_ERRCODE_SUCCESS,
-        "[ACTM] sm enable encrypt image failed");
+    if (NLSTK_SmEnableImgEncp(&param) != NLSTK_ERRCODE_SUCCESS) {
+        (void)memset_s(&param.groupKey, GROUP_KEY_LEN, 0, GROUP_KEY_LEN);
+        NLSTK_LOG_ERROR("[ACTM] sm enable encrypt image failed");
+        return;
+    }
+    (void)memset_s(&param.groupKey, GROUP_KEY_LEN, 0, GROUP_KEY_LEN);
 }
 
 static void QosmParamChangedCbk(const QOSM_ParamCb *param)

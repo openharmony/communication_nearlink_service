@@ -287,7 +287,9 @@ static void FreeRecoverKey(void *arg)
 {
     NLSTK_CHECK_RETURN_VOID(arg != NULL, "[SM] Free recover key null pointer.");
     NLSTK_SmRecoverKeyParamVector_S *recoverKeyParamVector = (NLSTK_SmRecoverKeyParamVector_S *)arg;
-    (void)memset_s(recoverKeyParamVector->smKey->linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+    for (uint8_t i = 0; i < recoverKeyParamVector->num; i++) {
+        (void)memset_s(recoverKeyParamVector->smKey[i].linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+    }
     SDF_MemFree(recoverKeyParamVector->smKey);
     SDF_MemFree(recoverKeyParamVector);
 }
