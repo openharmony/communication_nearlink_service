@@ -22,6 +22,31 @@
 namespace OHOS {
 namespace Nearlink {
 
+#ifndef NEARLINK_RANGING_ENUMS_DEFINED
+#define NEARLINK_RANGING_ENUMS_DEFINED
+
+/**
+ * @brief Ranging algorithm mode selector.
+ *
+ * @since 7
+ */
+typedef enum {
+    RANGING_ALGO_MODE_ONE = 1,
+    RANGING_ALGO_MODE_TWO,
+} RangingAlgoMode;
+
+/**
+ * @brief Tone control mode for sounding.
+ *
+ * @since 7
+ */
+typedef enum {
+    TONE_CONTROL_DEFAULT = 0,
+    TONE_CONTROL_SINGLE_TONE,
+} ToneControlMode;
+
+#endif /* NEARLINK_RANGING_ENUMS_DEFINED */
+
 /**
  * @brief Hadm ranging algorithm output results.
  */

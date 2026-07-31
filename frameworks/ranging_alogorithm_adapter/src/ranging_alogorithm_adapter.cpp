@@ -28,6 +28,7 @@ namespace {
 const char* const NEARLINK_HADM_NAME = "libnearlink_measure.z.so";
 const char* const NEARLINK_HADM_RANGING_SYMBOL = "measure_alg_func";
 const char* const NEARLINK_HADM_INIT_SYMBOL = "measure_init";
+const char* const NEARLINK_HADM_SET_ALGO_MODE_SYMBOL = "measure_set_algo_mode";
 const uint8_t PARA_KEYS_INFO = 0;
 const ParaPair PARA_LIMIT_VALUE = { -98, 2, 20.0f };
 }
@@ -51,7 +52,7 @@ HadmRangingAdapter &HadmRangingAdapter::GetInstance()
     return instance;
 }
 
-bool HadmRangingAdapter::InitHadm()
+bool HadmRangingAdapter::InitHadm(RangingAlgoMode algoMode)
 {
     if (hadmHandle_ != nullptr) {
         HILOGI("%{public}s already opened", NEARLINK_HADM_NAME);
@@ -66,13 +67,19 @@ bool HadmRangingAdapter::InitHadm()
     initHadmAlg_ = reinterpret_cast<InitHadmAlg>(dlsym(hadmHandle_, NEARLINK_HADM_INIT_SYMBOL));
     NL_CHECK_RETURN_RET(initHadmAlg_, false, "HadmRangingAdapter dlsym %{public}s failed.",
         NEARLINK_HADM_INIT_SYMBOL);
+    setAlgoMode_ = reinterpret_cast<SetAlgoModeFunc>(
+        dlsym(hadmHandle_, NEARLINK_HADM_SET_ALGO_MODE_SYMBOL));
+    if (setAlgoMode_ != nullptr) {
+        setAlgoMode_(static_cast<uint32_t>(algoMode));
+        HILOGI("algo mode set to %{public}d", static_cast<int>(algoMode));
+    }
     return true;
 }
 
-bool HadmRangingAdapter::InitHadmAlgo()
+bool HadmRangingAdapter::InitHadmAlgo(RangingAlgoMode algoMode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    NL_CHECK_RETURN_RET(InitHadm(), false, "InitHadm failed.");
+    NL_CHECK_RETURN_RET(InitHadm(algoMode), false, "InitHadm failed.");
     NL_CHECK_RETURN_RET(initHadmAlg_, false, "initHadmAlg_ is nullptr.");
     initHadmAlg_();
     return true;

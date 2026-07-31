@@ -34,6 +34,7 @@
 #define NEARLINK_SLE_RANGING_H
 
 #include "nearlink_remote_device.h"
+#include "ranging_alogorithm_adapter_def.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -77,8 +78,42 @@ public:
      */
     uint8_t GetRefreshRate() const;
 
+    /**
+     * @brief Set ranging algorithm mode.
+     *
+     * @param algoMode algorithm mode.
+     * @since 7
+     */
+    void SetAlgoMode(const RangingAlgoMode &algoMode);
+
+    /**
+     * @brief Get ranging algorithm mode.
+     *
+     * @return algoMode.
+     * @since 7
+     */
+    RangingAlgoMode RangingConfig::GetAlgoMode() const;
+
+    /**
+     * @brief Set tone control mode.
+     *
+     * @param toneControl tone control mode.
+     * @since 7
+     */
+    void SetToneControl(const ToneControlMode &toneControl);
+
+    /**
+     * @brief Get tone control mode.
+     *
+     * @return toneControl.
+     * @since 7
+     */
+    ToneControlMode RangingConfig::GetToneControl() const;
+
 private:
     uint8_t refreshRate_{0};
+    RangingAlgoMode algoMode_{RANGING_ALGO_MODE_ONE};
+    ToneControlMode toneControl_{TONE_CONTROL_DEFAULT};
 };
 
 /**

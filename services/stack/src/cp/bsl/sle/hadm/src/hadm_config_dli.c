@@ -96,7 +96,9 @@ static void BuildMeasureParam(uint16_t lcid, HadmSoundingParam_S *args, DLI_SetM
     uint8_t pmInitSignal2Tone = args->pmInitSignal2Tone;
     uint8_t pmReflSignal2Tone = args->pmReflSignal2Tone;
     uint16_t occurrenceGroupPeriod = args->occurrenceGroupPeriod;
-    HADM_ExtCheckAndUpdateMultiToneConfig(lcid, &pmInitSignal2Tone, &pmReflSignal2Tone, &occurrenceGroupPeriod);
+    uint8_t toneControl = args->sleHadmMode;
+    HADM_ExtCheckAndUpdateMultiToneConfig(lcid,
+        &pmInitSignal2Tone, &pmReflSignal2Tone, &occurrenceGroupPeriod, toneControl);
     params->connHandle = lcid;
     params->configId = args->configId;
     params->measureConfigDirect = MEASURE_CONFIG_DIRECT;

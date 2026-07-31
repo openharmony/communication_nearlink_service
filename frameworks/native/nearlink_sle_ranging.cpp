@@ -150,13 +150,15 @@ NlErrCode NearlinkSleRanging::StartSleRanging(const NearlinkRemoteDevice &device
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_PARAM, "invalid device");
     NL_CHECK_RETURN_RET(pimpl->hadmId_ != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR, "invalid hadmId");
-    HILOGI("sle ranging start, device:%{public}s, hadmId:%{public}u ",
-        GetEncryptAddr((device).GetDeviceAddr()).c_str(), pimpl->hadmId_);
+    HILOGI("sle ranging start, device:%{public}s, hadmId:%{public}u, algoMode:%{public}d, toneControl:%{public}d",
+        GetEncryptAddr((device).GetDeviceAddr()).c_str(), pimpl->hadmId_,
+        static_cast<int>(config.GetAlgoMode()), static_cast<int>(config.GetToneControl()));
     sptr<INearlinkHadmClient> proxy = GetProxy<INearlinkHadmClient>(NEARLINK_HADM_CLIENT_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
-    NL_CHECK_RETURN_RET(HadmRangingAdapter::GetInstance().InitHadmAlgo(), NL_ERR_INTERNAL_ERROR, "init Hadm failed.");
+    NL_CHECK_RETURN_RET(HadmRangingAdapter::GetInstance().InitHadmAlgo(config.GetAlgoMode()),
+        NL_ERR_INTERNAL_ERROR, "init Hadm failed.");
     NearlinkRawAddress rawAddr(device.GetDeviceAddr());
-    return proxy->StartSounding(pimpl->hadmId_, rawAddr);
+    return proxy->StartSounding(pimpl->hadmId_, rawAddr, static_cast<uint8_t>(config.GetToneControl()));
 }
 
 NlErrCode NearlinkSleRanging::StopSleRanging(const NearlinkRemoteDevice &device)
@@ -209,6 +211,25 @@ uint8_t RangingConfig::GetRefreshRate() const
     return refreshRate_;
 }
 
+void RangingConfig::SetAlgoMode(const RangingAlgoMode &algoMode)
+{
+    algoMode_ = algoMode;
+}
+
+RangingAlgoMode RangingConfig::GetAlgoMode() const
+{
+    return algoMode_;
+}
+
+void RangingConfig::SetToneControl(const ToneControlMode &toneControl)
+{
+    toneControl_ = toneControl;
+}
+
+ToneControlMode RangingConfig::GetToneControl() const
+{
+    return toneControl_;
+}
 
 RangingResult::RangingResult()
 {}

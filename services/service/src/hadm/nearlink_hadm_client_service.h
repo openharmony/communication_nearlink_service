@@ -36,7 +36,7 @@ public:
     void RegisterNearlinkHadmClientCallback(
         std::shared_ptr<InterfaceHadmClientServiceCallback> callback);
     void DeregisterNearlinkHadmClientCallback() const;
-    void StartSounding(uint32_t hadmId, const RawAddress &addr) const;
+    void StartSounding(uint32_t hadmId, const RawAddress &addr, uint8_t toneControl) const;
     void StopSounding(uint32_t hadmId, const RawAddress &addr) const;
     void StopSoundingById(uint32_t hadmId) const;
      uint8_t GetHadmFeature() const;

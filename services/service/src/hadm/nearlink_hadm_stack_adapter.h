@@ -41,7 +41,7 @@ public:
     explicit NearlinkHadmStackAdapter(HadmStackAdapterCallback &callback);
     ~NearlinkHadmStackAdapter();
 
-    int StartSounding(const RawAddress &addr, std::string callingName) const;
+    int StartSounding(const RawAddress &addr, std::string callingName, uint8_t toneControl) const;
     int StopSounding(const RawAddress &addr, std::string callingName) const;
     uint8_t GetSoundingState(const RawAddress &addr) const;
     uint32_t GetSoundingAddrInfo(RawAddress &addr);
@@ -51,7 +51,7 @@ private:
     static void onSoundingMeasureStateChange(HadmSoundingStateInfo_S *state);
     static void onReportSoundingIQResult(SLE_Addr_S *addr, HadmSoundingIqData_S *args);
     void SetHadmConnectionParam(HadmConnectionParam_S *connectionParamIn)  const;
-    void SetSoundingParam(HadmSoundingParam_S *paramIn)  const;
+    void SetSoundingParam(HadmSoundingParam_S *paramIn, uint8_t toneControl)  const;
 
     HadmStackAdapterCallback &callback_;
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkHadmStackAdapter);

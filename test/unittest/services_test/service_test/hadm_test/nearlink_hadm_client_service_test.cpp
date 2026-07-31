@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ HWTEST_F(NearlinkHadmClientServeiceTest, StartSoundingTest001, TestSize.Level1)
     uint32_t hadmId = 1;
     NearlinkRawAddress addr;
     addr.SetAddress("00:11:22:33:44:55");
-    InterfaceHadmClientService::GetInstance().StartSounding(hadmId, addr);
+    InterfaceHadmClientService::GetInstance().StartSounding(hadmId, addr, 0);
     sleep(2);
     HILOGI("NearlinkHadmClientServeiceTest:StartSoundingTest001 end");
 }
