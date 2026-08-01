@@ -560,7 +560,12 @@ static bool DTAP_SendData(uint16_t lcid, SDF_Buff_S *buff)
 
 static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t remainBuffCnt)
 {
-    DTAP_PendingPacket *pendingPkt[remainBuffCnt];
+    DTAP_PendingPacket **pendingPkt = (DTAP_PendingPacket **)SDF_MemZalloc(
+        remainBuffCnt * sizeof(DTAP_PendingPacket *));
+    if (pendingPkt == NULL) {
+        DTAP_LOGE("malloc pendingPkt array failed, remainBuffCnt %u", remainBuffCnt);
+        return false;
+    }
     for (uint32_t i = 0; i < remainBuffCnt; i++) {
         DTAP_PendingPacket *pkt = DTAP_CreatePacket(buff[i]);
         if (pkt == NULL) {
@@ -568,6 +573,7 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
                 DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[j]);
             }
             DTAP_LOGE("malloc pending packet failed, i %d, remainBuffCnt %d", i, remainBuffCnt);
+            SDF_MemFree(pendingPkt);
             return false;
         }
         pkt->isSplited = true;
@@ -580,6 +586,7 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
             DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[i]);
         }
         DTAP_LOGE("get fragment channel failed, lcid %d", lcid);
+        SDF_MemFree(pendingPkt);
         return false;
     }
 
@@ -593,8 +600,10 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
             lcid, fragmentChannel->srcTcid);
         SDF_DListDestroy(&fragmentChannel->pktList, DTAP_DestroyPacket);
         SDF_MemFree(fragmentChannel);
+        SDF_MemFree(pendingPkt);
         return false;
     }
+    SDF_MemFree(pendingPkt);
     DTAP_LOGD("save fragment data success, lcid %d, remainBuffCnt %d", lcid, remainBuffCnt);
     return true;
 }
@@ -624,8 +633,13 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
         }
 
         uint32_t fragmentCnt = DLI_GetDataFragmentNums(pkt->buff);
-        SDF_Buff_S *fragmentBuf[fragmentCnt];
+        SDF_Buff_S **fragmentBuf = (SDF_Buff_S **)SDF_MemZalloc(fragmentCnt * sizeof(SDF_Buff_S *));
+        if (fragmentBuf == NULL) {
+            DTAP_LOGE("malloc fragmentBuf array failed, fragmentCnt %u", fragmentCnt);
+            return false;
+        }
         if (!DTAP_SplitData(channelNode->lcid, pkt->buff, fragmentBuf, fragmentCnt)) {
+            SDF_MemFree(fragmentBuf);
             return false;
         }
         SDF_BuffFree(pkt->buff);
@@ -642,6 +656,7 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
 
         DTAP_PriorityQueuePop(q, lcidNode, channelNode, pkt);
         if (sendCnt >= fragmentCnt) {
+            SDF_MemFree(fragmentBuf);
             continue;
         }
         if (!DTAP_SaveFragmentData(channelNode->lcid, &fragmentBuf[sendCnt], (fragmentCnt - sendCnt))) {
@@ -649,8 +664,10 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
                 SDF_BuffFree(fragmentBuf[i]);
             }
             DTAP_LOGE("save fragment channel failed, lcid %d", channelNode->lcid);
+            SDF_MemFree(fragmentBuf);
             return false;
         }
+        SDF_MemFree(fragmentBuf);
         break;
     }
     return true;

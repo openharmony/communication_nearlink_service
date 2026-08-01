@@ -239,7 +239,11 @@ bool TwsSharedLibApi::EncodeMessage(const TwsMessage event)
     }
 
     /* 按编解码库消息头拼接数据 */
-    uint16_t encodeLen = sizeof(TwsEncodeMsg) + event.serviceDataLen_;
+    size_t encodeLen = sizeof(TwsEncodeMsg) + event.serviceDataLen_;
+    if (encodeLen > UINT16_MAX) {
+        HILOGE("[Tws LibApi]:encode message failed, encodeLen overflow!");
+        return false;
+    }
     TwsEncodeMsg *encodeSrc = reinterpret_cast<TwsEncodeMsg *>(new(std::nothrow)uint8_t[encodeLen]);
     NL_CHECK_RETURN_RET(encodeSrc, false, "[Tws LibApi]:encode request/response message fail,alloc new mem fail!");
     encodeSrc->msgType = event.msgType_;

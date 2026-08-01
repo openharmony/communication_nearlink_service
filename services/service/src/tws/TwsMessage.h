@@ -31,12 +31,12 @@ public:
         : utility::Message(what, arg1, arg2), isNeedRsp_(false), serviceData_(nullptr), dataStream_(nullptr) {}
 
     /* 构造：非引用传参时依赖 */
-    TwsMessage(const TwsMessage &src) : utility::Message(src.whatM, src.arg1M, src.arg2M)
+    TwsMessage(const TwsMessage &src) : utility::Message(src.whatM, src.arg1M, nullptr)
     {
         /* 基类数据拷贝 */
         whatM = src.whatM;
         arg1M = src.arg1M;
-        arg2M = src.arg2M;
+        arg2M = nullptr;
 
         dev_ = src.dev_;
         serviceDataLen_ = src.serviceDataLen_;
@@ -59,7 +59,7 @@ public:
     ~TwsMessage() = default;
 
     /* 重载运算符：= */
-    TwsMessage operator=(const TwsMessage &src)
+    TwsMessage& operator=(const TwsMessage &src)
     {
         if (this == &src) {
             return *this;
@@ -68,7 +68,7 @@ public:
         /* 基类数据拷贝 */
         whatM = src.whatM;
         arg1M = src.arg1M;
-        arg2M = src.arg2M;
+        arg2M = nullptr;
 
         dev_ = src.dev_;
         serviceDataLen_ = src.serviceDataLen_;

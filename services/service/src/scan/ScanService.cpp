@@ -94,8 +94,8 @@ ScanService &ScanService::GetInstance()
 void ScanService::RegisterSleCentralManagerCallback(ISleCentralManagerCallback &callback)
 {
     HILOGI("enter");
-    DoInScanThread([this, &callback]() -> void {
-        pimpl->sleCentralManagerCallback_ = &callback;
+    DoInScanThread([this, callbackPtr = &callback]() -> void {
+        pimpl->sleCentralManagerCallback_ = callbackPtr;
     });
 }
 
@@ -103,9 +103,7 @@ void ScanService::DeregisterSleCentralManagerCallback() const
 {
     HILOGI("enter");
     DoInScanThread([this]() -> void {
-        if (!pimpl->sleCentralManagerCallback_) {
-            pimpl->sleCentralManagerCallback_ = nullptr;
-        }
+        pimpl->sleCentralManagerCallback_ = nullptr;
     });
 }
 

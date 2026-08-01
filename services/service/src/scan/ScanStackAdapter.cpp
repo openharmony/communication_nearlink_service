@@ -104,7 +104,11 @@ void ScanStackAdapter::StartScan(uint32_t scannerId, const NearlinkSleScanSettin
 {
     NLSTK_DevdScanSetting_S devdSettings = {};
     ScanUtils::ConvertScanSettings(settings, devdSettings);
-    uint16_t filterNum = filters.size();
+    if (filters.size() > UINT16_MAX) {
+        HILOGE("filters size exceeds maximum: %{public}zu", filters.size());
+        return;
+    }
+    uint16_t filterNum = static_cast<uint16_t>(filters.size());
     NLSTK_DevdScanFilter_S *devdFilter = nullptr;
     if (filterNum > 0) {
         devdFilter = new NLSTK_DevdScanFilter_S[filterNum];
