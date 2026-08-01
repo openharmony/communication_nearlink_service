@@ -893,6 +893,10 @@ void McpServerServiceManager::impl::ProcessEvent(const McpMessage &event)
         currPlaybackState_.SetState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
         currentReportState_ = NLSTK_MCP_STATE_UNINITIALIZED;
         UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
+        // 单切双场景及时更新媒体状态
+        if (!avSessionController_ && realTimeRenderState_ == McpRenderState::KPlaying) {
+            UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
+        }
         HILOGI("[McpServer]start init success.");
         return;
     }
