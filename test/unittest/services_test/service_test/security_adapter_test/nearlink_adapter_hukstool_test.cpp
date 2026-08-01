@@ -302,7 +302,7 @@ TEST_F(SleAdapterSecurityTest, Get_Set_SleProperties001)
     uint32_t length = g_adapter->GetSleMaxAdvertisingDataLength();
     EXPECT_EQ(0xFF, length);
     int ioBility = g_adapter->GetIoCapability();
-    EXPECT_EQ(0, ioBility);
+    EXPECT_EQ(SLE_DEFAULT_IO, ioBility);
     bool result = g_adapter->SetIoCapability(1);
     EXPECT_EQ(true, result);
     bool enable = g_adapter->IsSleEnabled();
