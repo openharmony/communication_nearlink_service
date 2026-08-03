@@ -253,8 +253,7 @@ void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr, u
     std::string callerName = NearLinkPermissionManager::GetCallingName();
     int32_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingTokenID();
-    HILOGI("Address:%{public}s, caller=%{public}s, toneControl=%{public}d",
-            GetEncryptAddr(addr.GetAddress()).c_str(), callerName.c_str(), toneControl);
+    HILOGI("Address:%{public}s, caller=%{public}s", GetEncryptAddr(addr.GetAddress()).c_str(), callerName.c_str());
 
     DoInHadmThread([callerName, uid, tokenId, hadmId, addr, toneControl, this]() -> void {
         HILOGD(" StartSounding enter");
