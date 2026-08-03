@@ -169,8 +169,7 @@ ohos_unittest("nl_stack_cm_link_test") {
     "$NEARLINK_ROOT/services/stack/src/adapter/src/common_ext_func_wrapper.c",
     "$NEARLINK_ROOT/services/stack/src/adapter/src/common_reg_ext_func.c",
     "$NEARLINK_ROOT/services/stack/src/adapter/src/dli_ext_func_wrapper.c",
-     "$NEARLINK_ROOT/services/stack/src/adapter/src/collab_ext_func_wrapper.c",
-    "$NEARLINK_ROOT/services/stack/src/adapter/src/collab_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/collab_ext_func_wrapper.c",
     "$NEARLINK_ROOT/services/stack/src/adapter/src/hadm_ext_func_wrapper.c",
     "$NEARLINK_ROOT/services/stack/src/adapter/src/hadm_reg_ext_func.c",
 
@@ -182,6 +181,7 @@ ohos_unittest("nl_stack_cm_link_test") {
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_util/CP_Timer_mocker.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_util/cm_icb_mock.c",
 
+    "collab_reg_ext_func_mocker.cpp",
     "ut_cm_concurrent_conn.cpp",
     "ut_cm_logic_link_listener_mgr.cpp",
     "ut_cm_trans_channel_mgr_test.cpp",

@@ -740,14 +740,14 @@ static bool CM_ConnCompleteProcAndCheckHasConnecting(const SLE_Addr_S *addr, uin
 {
     // connectResult 有两种状态：已连接成功或者(因主动连接超时或者取消连接的)断开连接
     if (connectResult == CM_LINK_STATE_CONNECTED) {
+        // 有可能同时在主动建链时，收到被动链接，需要尝试删除
         if (!SDF_MapErase(g_cmConnectingDevMap, (SLE_Addr_S *)addr)) {
-            // 有可能是从别处建链来的
-            CM_LOGE("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(addr));
-            return false;
+            CM_LOGI("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(addr));
+        } else {
+            g_cmSizeConnectingDev--;
+            CM_LOGI("complete connect, erase a connecting dev map node, dev:%s, current size:%zu",
+                GET_ENC_ADDR(addr), g_cmSizeConnectingDev);
         }
-        g_cmSizeConnectingDev--;
-        CM_LOGI("complete connect, erase a connecting dev map node, dev:%s, current size:%zu",
-            GET_ENC_ADDR(addr), g_cmSizeConnectingDev);
     }
     return !CM_ConnectingDevMapIsEmpty();
 }
@@ -757,11 +757,6 @@ void CM_ConcurrentConnDoingComplete(const SLE_Addr_S *addr, uint8_t connectResul
     CM_CHECK_RETURN(addr != NULL, "param addr is null");
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
     CM_LOGI("connection complete enter, addr:%s, connectResult:%hhu", GET_ENC_ADDR(addr), connectResult);
-
-    if (!CM_IsEmptyAddr(addr) && SDF_MapFind(g_cmConnectingDevMap, (SLE_Addr_S *)addr) == NULL) {
-        // 过滤正常主动断链和被动断链的地址，还有其他主动连接的地址
-        return;
-    }
 
     CM_LOGI("connection complete start, addr:%s", GET_ENC_ADDR(addr));
     if (CM_ConnCompleteProcAndCheckHasConnecting(addr, connectResult)) {

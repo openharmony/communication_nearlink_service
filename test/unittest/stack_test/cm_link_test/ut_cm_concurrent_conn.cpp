@@ -21,7 +21,6 @@
 #include "sdf_evc.h"
 #include "sdf_dlist.h"
 #include "sdf_map.h"
-#include "log.h"
 #include "cm_errno.h"
 #include "cm_log.h"
 #include "dli.h"
@@ -32,7 +31,6 @@
 #include "cm_common.h"
 #include "cm_log.h"
 #include "cm_api.h"
-#include "cm_icb_api.h"
 #include "cm_def.h"
 #include "cm_trans_channel_api.h"
 #include "cm_util.h"
@@ -43,6 +41,13 @@
 #include "cm_util_test.h"
 #include "cm_dli_adapter.h"
 #include "CP_Timer_mocker.h"
+#include "sle_logic_link_mgr.h"
+#include "cm_dli_mocker.h"
+
+// 支持连接协同测试
+#include "cm_link_collab_func.h"
+#include "nlstk_reg_collab_cm_ext.h"
+#include "collab_reg_ext_func.h"
 
 /* 音频场景默认subrate */
 #define UT_NLSTK_DEFAULT_SUBRATE 0x06
@@ -61,6 +66,12 @@ static const uint16_t g_passiveHandleInitValue = 0x2061;
 // DLI未定义事件（少用，建议在设计时初期需要考虑定义DLI返回事件）
 typedef struct {
 } DLI_ConnUndefinedCmpEvt;
+
+static SLE_Addr_S g_publicAddress = { .type = PUBLIC_ADDRESS, .addr = {0}};
+extern "C" SLE_Addr_S *NBC_GetPublicAddress(void)
+{
+    return &g_publicAddress;
+}
 
 template <typename T>
 inline void UT_CM_SleCompleteEvt(uint16_t cmdOpcode, uint16_t cbkCmdOpcode, T &eventParameter,
@@ -120,28 +131,14 @@ protected:
     }
 };
 
-static void TEST_FreqBandSwitchCbk(CM_FreqBandSwitchParam *param)
-{
-    CM_LOGI("enter");
-    if (param == nullptr) {
-        CM_LOGE("cmp is nullptr");
-        return;
-    }
-}
-
-static void TEST_ConnectCancelCbk(uint8_t *param)
-{
-    CM_LOGI("TEST_ConnectCancelCbk");
-}
-
 static void TEST_ConnectReadRemoteFetureVersionCbk(CM_ReadRemoteFeatureVersionRsp_S *param)
 {
     CM_LOGI("TEST_ConnectReadRemoteFetureVersionCbk");
 }
 
-static void TEST_ConnectUpdatePramCbk(CM_ConnectUpdateParamRsp_S *param)
+static void TEST_ConnectUpdateParamCbk(CM_ConnectUpdateParamRsp_S *param)
 {
-    CM_LOGI("TEST_ConnectUpdatePramCbk");
+    CM_LOGI("TEST_ConnectUpdateParamCbk");
 }
 
 static void TEST_ConnectRemoteUpdateParamReqCbk(CM_ConnectRemoteUpdateParamReq_S *param)
@@ -158,12 +155,10 @@ static void UapiCmLinkInitTest(void)
 {
     uint32_t ret = CM_Init();
     EXPECT_EQ(ret, CM_SUCCESS);
-    ret = CM_ListenFreqBandSwitchEvent(TEST_FreqBandSwitchCbk);
-    EXPECT_EQ(ret, CM_SUCCESS);
 
     CM_ConnectCbks_S cbks = { 0 };
     cbks.readRemoteFeatureVersionCbk = TEST_ConnectReadRemoteFetureVersionCbk;
-    cbks.connUpdateParamCbk = TEST_ConnectUpdatePramCbk;
+    cbks.connUpdateParamCbk = TEST_ConnectUpdateParamCbk;
     cbks.connRemoteUpdateParamReqCbk = TEST_ConnectRemoteUpdateParamReqCbk;
     cbks.setPhyCbk = TEST_SetPhyCbk;
     EXPECT_EQ(CM_RegConnectCbks(&cbks), CM_SUCCESS);
@@ -180,23 +175,13 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UapiCmLinkInit)
     UapiCmLinkInitTest();
 }
 
-static void UT_CM_RegRequiredConnectCbks(void)
-{
-    CM_ConnectCbks_S cbks = { 0 };
-    cbks.readRemoteFeatureVersionCbk = UT_CM_SsapConnectReadRemoteFetureVersionCbk;
-    cbks.connUpdateParamCbk = UT_CM_SsapConnectUpdatePramCbk;
-    cbks.connRemoteUpdateParamReqCbk = UT_CM_ConnectRemoteUpdateParamReqCbk;
-    cbks.setPhyCbk = UT_CM_SetPhyCbk;
-    EXPECT_EQ(CM_RegConnectCbks(&cbks), CM_SUCCESS);
-}
-
 static void UT_CM_ApiTestBgConnect(uint16_t handle)
 {
     CM_LOGI("UT_CM_ApiTestBgConnect start, handle:%hu", handle);
     SLE_Addr_S addr = { 0 };
     UT_CM_GenDifferentAddress(&addr, handle);
     CM_BgConnAddrParam_S addrArr = {};
-    (void)memcpy_s(&addrArr.addr, sizeof(CM_BgConnAddrParam_S), &addr, sizeof(CM_BgConnAddrParam_S));
+    (void)memcpy_s(&addrArr.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
     uint32_t ret = CM_BackgroundConnectAdd(CM_MODULE_ADPT, 1, &addrArr);
     EXPECT_EQ(ret, CM_SUCCESS);
     CM_LOGI("UT_CM_ApiTestBgConnect end, handle:%u", handle);
@@ -284,7 +269,7 @@ static void UT_CM_CheckConnectComplete(uint16_t handle)
     revt.supervisionTimeout = UT_CM_CONN_SUPERVISION_TIMEOUT;
     UT_CM_SleCompleteEvt(DLI_REMOTE_CONNECTION_PARAMETER_REQUEST_EVT, DLI_CBK_REMOTE_CONNECT_PARAM_REQ, revt);
     EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_OLD), CM_SUCCESS);
-    EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTIYPE_MAX), CM_INVALID_PARAM_ERR);
+    EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_MAX), CM_INVALID_PARAM_ERR);
     CM_LogicLink_S logicLink = { 0 };
     EXPECT_EQ(CM_GetLogicLinkByLcid(handle, &logicLink), CM_SUCCESS);
     SLE_Addr_S addr = { 0 };
@@ -452,7 +437,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_BackgroundConnectAdd_1)
         SLE_Addr_S addr = { 0 };
         UT_CM_GenDifferentAddress(&addr, handle);
         CM_BgConnAddrParam_S addrArr = {};
-        (void)memcpy_s(&addrArr.addr, sizeof(CM_BgConnAddrParam_S), &addr, sizeof(CM_BgConnAddrParam_S));
+        (void)memcpy_s(&addrArr.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         EXPECT_EQ(CM_BackgroundConnectAdd(CM_MODULE_ADPT, 1, &addrArr), CM_SUCCESS);
     });
 }
@@ -464,7 +449,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_1)
         SLE_Addr_S addr = { 0 };
         UT_CM_GenDifferentAddress(&addr, handle);
         CM_DirectConnAddrParam_S addParam = {};
-        (void)memcpy_s(&addParam.addr, sizeof(SLE_Addr_S), &addParam, sizeof(SLE_Addr_S));
+        (void)memcpy_s(&addParam.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         addParam.frameType = CM_CONN_PARAM_FRAME_TYPE_1;
         EXPECT_EQ(CM_DirectConnectAdd(CM_MODULE_ADPT, &addParam), CM_SUCCESS);
     });
@@ -475,6 +460,19 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectRemove_1)
     UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
         // 测试场景：重复断开连接
         UT_CM_ApiTestDirectDisconnect(handle);
+    });
+}
+
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectRemove_2)
+{
+    UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
+        // 测试场景：重复断开连接
+        // 1）不需要立即断开
+        DLI_SetDisconnectIsNoNeedAtOnce(true);
+        UT_CM_ApiTestDirectDisconnect(handle);
+        UT_CM_ApiTestDirectDisconnect(handle);
+        // 2）恢复立即断开
+        DLI_SetDisconnectIsNoNeedAtOnce(false);
     });
 }
 
@@ -560,12 +558,16 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_1)
     UT_CM_ApiTestDirectConnect(handle);
 
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
 
     // 2) 被动连接成功
     UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_ADV);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
 
     // 3) 断开1个连接
     UT_CM_ApiTestDirectDisconnect(handle);
@@ -574,6 +576,8 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_1)
     UT_CM_CheckDisconnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
 
     // 步骤二、主动连接和主动连接成功
     // 1) 创建1个主动连接
@@ -581,6 +585,8 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_1)
     // 2) 主动连接成功
     UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
     UT_CM_AfterDisconnectTest(handle);
@@ -596,30 +602,44 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
     UT_CM_RegTransChannelListener();
     uint16_t handle = g_activeHandleInitValue;
     UT_CM_ApiTestDirectConnect(handle);
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
 
     //    1.2 主动连接另外1个地址
     uint16_t otherHandle = handle + 1;
     UT_CM_ApiTestDirectConnect(otherHandle);
 
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
 
     // 2) 2.1 被动第1个连接成功
     UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_ADV);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    // 注意：第二个主动连接的地址还处在待连接状态中
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
     //    2.1 主动第2个连接成功
     UT_CM_SleConnectCompleteEvt(otherHandle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 2);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 2);
+    // 当前没有更多待连接的地址
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
 
     // 3) 断开第1个连接
     UT_CM_ApiTestDirectDisconnect(handle);
     // 4) 断连成功
     UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
     UT_CM_CheckDisconnectComplete(handle);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
     // 5) 剩余第2个连接
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
 
     // 5) 断开第2个连接
     UT_CM_ApiTestDirectDisconnect(otherHandle);
@@ -628,15 +648,95 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_2)
     UT_CM_CheckDisconnectComplete(otherHandle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
 
     // 步骤二、主动连接和主动连接成功
     // 1) 创建1个主动连接
     UT_CM_ApiTestDirectConnect(handle);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
     // 2) 主动连接成功
     UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
     UT_CM_CheckConnectComplete(handle);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
     EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+    UT_CM_AfterDisconnectTest(handle);
+}
+
+// 测试场景：启动多个连接场景，若在被动连接完成时，逻辑链路列表可能存在其他背景连接中的节点，需要移除，后续可重新下发
+//          1) 先发起主动连接第1个地址，但是未连接完成，预期：存在1条待连接地址
+//          2) 被动连接另外1个地址，预期：存在1条待连接地址
+//          3) 主动连接完成第1个地址，预期：存在0条待连接地址
+//          4) 正常断开，预期：存在0条待连接地址
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnectAdd_PassiveConnected_3)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    // 步骤1、主动连接或者被动连接成功
+    // 1) 1.1 初始化注册环境，并创建1个主动连接
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(handle);
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+
+    // 步骤2、 被动连接另外1个地址
+    uint16_t otherHandle = handle + 1;
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+
+    // 2) 2.1 被动第2个连接成功
+    UT_CM_SleConnectCompleteEvt(otherHandle, DLI_SUCCESS, CM_CONN_COMPLETE_ADV);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    // 注意：第二个主动连接的地址还处在待连接状态中
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    //    2.2 主动第1个连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 2);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 2);
+    // 当前没有更多待连接的地址
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+
+    // 3) 断开第1个连接
+    UT_CM_ApiTestDirectDisconnect(handle);
+    // 4) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(handle);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+    // 5) 剩余第2个连接
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+
+    // 5) 断开第2个连接
+    UT_CM_ApiTestDirectDisconnect(otherHandle);
+    // 6) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(otherHandle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(otherHandle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 0);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+
+    // 步骤二、主动连接和主动连接成功
+    // 1) 创建1个主动连接
+    UT_CM_ApiTestDirectConnect(handle);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    // 2) 主动连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_CheckConnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    EXPECT_EQ(CM_GetLogicLinkConnectedSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
     UT_CM_AfterDisconnectTest(handle);
 }
 
@@ -727,6 +827,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_ConnectReleaseReq_01)
         CM_DisconnectParamReq_S disParam_2 = {};
         EXPECT_EQ(CM_ConnectReleaseReq(&disParam_2), CM_INVALID_PARAM_ERR);
     });
+    CM_DeInit();
 }
 
 TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_ConnectEstablishReq_01)
@@ -932,4 +1033,177 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_RegisterDliAdapterCbk_3)
     EXPECT_EQ(CM_UnregisterDliAdapterCbk(CM_DLI_ADAPTER_CM, CM_DLI_ADAPTER_DISCONNECT), CM_SUCCESS);
     EXPECT_EQ(CM_UnregisterDliAdapterCbk(CM_DLI_ADAPTER_CM, CM_DLI_ADAPTER_CONNECT), CM_SUCCESS);
     EXPECT_EQ(CM_DliAdapterDeinit(), CM_SUCCESS);
+}
+
+/*
+ * @brief 连接1个设备超时测试
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnTimerCbkInner_Timeout_01)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+
+    uint16_t handle = g_activeHandleInitValue;
+    CP_TimerSetExecCallbackPostponed(true);
+    UT_CM_ApiTestDirectConnect(handle);
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    CP_TimerPostponedTimeout();
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    CP_TimerSetExecCallbackPostponed(false);
+
+    CM_DeInit();
+}
+
+/*
+ * @brief 连接1个设备超时测试, 加入一个其他设备背景连接
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnTimerCbkInner_Timeout_02)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+
+    // 1) 发起主动连接
+    uint16_t handle = g_activeHandleInitValue;
+    CP_TimerSetExecCallbackPostponed(true);
+    UT_CM_ApiTestDirectConnect(handle);
+
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    
+    // 2）加入一个其他设备背景连接
+    uint16_t otherHandle = handle + 1;
+    UT_CM_ApiTestBgConnect(otherHandle);
+
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+
+    // 3) 主动连接超时
+    CP_TimerPostponedTimeout();
+
+    // 校验：还存在一个背景连接
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    CP_TimerSetExecCallbackPostponed(false);
+
+    // 4) 背景连接成功
+    UT_CM_SleConnectCompleteEvt(otherHandle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_CheckConnectComplete(otherHandle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+    logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+
+    UT_CM_AfterDisconnectTest(otherHandle);
+    CM_DeInit();
+}
+
+extern COLLAB_CollabCmCbk_S *COLLAB_GetCollabCmCbk(void);
+
+static bool MockIsNeedLinkCollabReq(void)
+{
+    CM_LOGI("MockIsNeedLinkCollabReq support");
+    return true;
+}
+
+static bool MockStartLinkCollabReq(uint8_t connInitiateType, const SLE_Addr_S *directAddr)
+{
+    CM_LOGI("MockStartLinkCollabReq");
+    return true;
+}
+
+static bool MockNotifyLinkCollabResult(void)
+{
+    CM_LOGI("MockNotifyLinkCollabResult");
+    return true;
+}
+
+/**
+ * @brief 支持连接协同测试 - CM_CollabStartConnReq
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, CM_SupportLinkCollab_01)
+{
+    COLLAB_RegisterExtFunc(NULL);
+    CM_ConcurrentConnDeInit();
+    EXPECT_EQ(CM_ConcurrentConnInit(), CM_SUCCESS);
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+
+    // 1）支持连接协同
+    CM_LinkCollabFunc_S funcs = {
+        .isNeedLinkCollabReq = MockIsNeedLinkCollabReq,
+        .startLinkCollabReq = MockStartLinkCollabReq,
+        .notifyLinkCollabResult = MockNotifyLinkCollabResult
+    };
+    uint32_t ret = CM_LinkCollabRegFunc(&funcs);
+    EXPECT_EQ(ret, CM_SUCCESS);
+
+    // 2) 发起连接
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(handle);
+
+    COLLAB_CollabCmCbk_S *collabCbk = COLLAB_GetCollabCmCbk();
+    if (collabCbk != NULL && collabCbk->startConnReq != NULL) {
+        collabCbk->startConnReq();
+    }
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink != NULL);
+    // 3) 连接成功
+    UT_CM_SleConnectCompleteEvt(handle, DLI_SUCCESS, CM_CONN_COMPLETE_SCAN);
+    UT_CM_CheckConnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 1);
+
+    SLE_Addr_S addr = { 0 };
+    UT_CM_GenDifferentAddress(&addr, handle);
+    // 4) 断开1个连接，并去初始化环境
+    UT_CM_ApiTestDirectDisconnect(handle);
+    // 5) 断连成功
+    UT_CM_SleDisconnectCompleteEvt(handle, DLI_SUCCESS);
+    UT_CM_CheckDisconnectComplete(handle);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    CM_DeInit();
+}
+
+/**
+ * @brief 支持连接协同测试 - notifyConnFailed
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, CM_SupportLinkCollab_02)
+{
+    COLLAB_RegisterExtFunc(NULL);
+    CM_ConcurrentConnDeInit();
+    EXPECT_EQ(CM_ConcurrentConnInit(), CM_SUCCESS);
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    
+    // 1）支持连接协同
+    CM_LinkCollabFunc_S funcs = {
+        .isNeedLinkCollabReq = MockIsNeedLinkCollabReq,
+        .startLinkCollabReq = MockStartLinkCollabReq,
+        .notifyLinkCollabResult = MockNotifyLinkCollabResult
+    };
+    uint32_t ret = CM_LinkCollabRegFunc(&funcs);
+    EXPECT_EQ(ret, CM_SUCCESS);
+
+    // 2) 发起连接
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestDirectConnect(handle);
+
+    COLLAB_CollabCmCbk_S *collabCbk = COLLAB_GetCollabCmCbk();
+    if (collabCbk != NULL && collabCbk->notifyConnFailed != NULL) {
+        collabCbk->notifyConnFailed();
+    }
+    SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
+    EXPECT_TRUE(logicLink == NULL);
+    EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
+    CM_DeInit();
 }

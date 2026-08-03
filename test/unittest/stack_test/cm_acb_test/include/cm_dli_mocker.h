@@ -22,6 +22,7 @@
 extern "C" {
 #endif
 
+void DLI_SetDisconnectIsNoNeedAtOnce(bool atOnce);
 const DLI_CbkLineStru *DLI_GetCbk(void);
 uint8_t DLI_GetCbkSize(void);
 const DLI_CbkLineStru *DLI_GetDisconectCbk(void);
