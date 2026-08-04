@@ -226,7 +226,8 @@ void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint
     return;
 }
  
-void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue)
+void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue,
+    bool isNeedUpdateInt)
 {
     SleHidCoexDevice matchingDevice = {};
     {
