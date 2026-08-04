@@ -968,8 +968,8 @@ bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr
 
     cbk(context, DLI_SUCCESS, &paramCbk);
     if (coexParam.coexInterval != 0) {
-        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %d, "
-            "coex interval: %d", GET_ENC_ADDR(addr), incommingInterval, coexParam.coexInterval);
+        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %hu, "
+            "coex interval: %hu", GET_ENC_ADDR(addr), incommingInterval, coexParam.coexInterval);
         *coexInterval = coexParam.coexInterval;
     }
     coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
