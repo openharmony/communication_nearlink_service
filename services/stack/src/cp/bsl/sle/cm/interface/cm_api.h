@@ -100,6 +100,14 @@ typedef enum {
     CM_CONN_COMPLETE_ADV = 1,    // 通过广播建立的连接（被动连接）
 } CM_ConnCompleteType_E;
 
+/**
+ * @brief 星闪共存模式回调事件枚举值
+ */
+typedef enum {
+    CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL = 0,          /* HID共存模式参数获取 */
+    CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE,         /* HID共存模式参数更新 */
+} CM_HidCoexModeEventType_E;
+
 #pragma pack (1)
 
 /**
@@ -269,22 +277,6 @@ typedef struct {
     int8_t rssi;
 } CM_ReadRemoteRssiRsp_S;
 
-/**
- * @brief 星闪共存模式回调事件枚举值
- */
-typedef enum {
-    CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL = 0,          /* HID共存模式参数获取 */
-    CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE,         /* HID共存模式参数更新 */
-} CM_HidCoexModeEventType_E;
- 
-typedef struct {
-    CM_HidCoexModeEventType_E eventType;
-    SLE_Addr_S addr;
-    uint16_t incomingInterval;
-    uint16_t coexInterval;
-    bool isNeedUpdateInt;
-} CM_HidCoexModeRsp_S;
-
 typedef struct {
     SLE_Addr_S addr;
     CM_PeerDevType_E peerDevType;
@@ -313,6 +305,14 @@ typedef struct {
     uint16_t continuationNum;           /* 当前执行周期里面基础周期的执行个数 */
     uint16_t supervisionTimeout;        /* 超时时间，单位10ms */
 } CM_AcbSubrateCbParam_S;
+
+typedef struct {
+    CM_HidCoexModeEventType_E eventType;
+    SLE_Addr_S addr;
+    uint16_t incomingInterval;
+    uint16_t coexInterval;
+    bool isNeedUpdateInt;
+} CM_HidCoexModeRsp_S;
 
 #pragma pack ()
 
