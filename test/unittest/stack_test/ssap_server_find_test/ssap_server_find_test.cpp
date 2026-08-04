@@ -125,7 +125,7 @@ static void AddService()
     SSAP_StartService(NULL);
 
     SSAP_ParamAddService_S *serviceParam2 = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
-    serviceParam2->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    serviceParam2->serviceType = ITEM_TYPE_VENDOR_PRIMARY_SERVICE;
     (void)memcpy_s(&serviceParam2->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
     SSAP_CacheService(serviceParam2);
     SDF_MemFree(serviceParam2);
@@ -275,13 +275,10 @@ static bool Test_SSAP_CompareLastSendPkt(uint8_t *buf, uint32_t size)
         CP_LOG_ERROR("[TEST] TEST_DTAP_CompareLastPkt isSendRsp false");
         return false;
     }
+    PrintFormatHexWithSpaces(g_buffCache, g_buffLen, true);
     if (g_buffLen == size && memcmp(g_buffCache, buf, g_buffLen) == 0) {
-        CP_LOG_INFO("[TEST] TEST_DTAP_CompareLastPkt true, last pkt: %s",
-            SDF_GET_UINT8_STR(g_buffCache, g_buffLen));
         return true;
     }
-    CP_LOG_ERROR("[TEST] TEST_DTAP_CompareLastPkt false, last pkt: %s, target pkt: %s",
-        SDF_GET_UINT8_STR(g_buffCache, g_buffLen), SDF_GET_UINT8_STR(buf, size));
     return false;
 }
 
@@ -538,31 +535,174 @@ TEST_F(UT_SSAP_SERVER_FIND, SSAPS_SERVICE_PARAM_FAIL)
     ssapService = NULL;
 }
 
-// ============================================================================
-// FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE 分支测试
-// match SendFindStructureRsp func
-// ============================================================================
+// FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE
 TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_STD)
 {
     CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_STD");
     AddService();
     SSAP_Link *link = CreateLink();
 
-    static uint8_t reqStructStd[] = {0x04, 0x00, 0x01, 0x00, 0xFF, 0x00};
+    static uint8_t reqStructStd[] = {0x04, 0x00, 0x01, 0x00, 0xFF, 0xFF};
     static uint8_t rspStructStd[] = {
         0x05, 0x03,
         // 服务
-        0x10, 0x00, 0x00, 0x02, 0x01, // handle(2) + type(1) + uuid(2) + 描述符类型列表
+        0x10, 0x00, 0x00, 0x02, 0x01, // handle(0x0010), type(0x00), uuid(0x0102)
         0x00, // 描述符类型列表
         // 属性
-        0x11, 0x00, 0x02, 0x03, 0x02, // handle(2) + type(1) + uuid(2)
+        0x11, 0x00, 0x02, 0x03, 0x02, // handle(0x0011), type(0x02), uuid(0x0203)
         0x00, 0x00, 0x00, 0x00, // 操作指示
         0x01, 0x01 // 描述符类型列表
     };
-
     Test_SSAP_RecvReq(reqStructStd, sizeof(reqStructStd));
-
     EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructStd, sizeof(rspStructStd)));
+    DeleteLink();
+}
 
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_MIX)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_MIX");
+    AddService();
+    AddCusServiceWithCusProp();
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t reqStructMix[] = {0x04, 0x10, 0x01, 0x00, 0xFF, 0xFF};
+    static uint8_t rspStructMix[] = {
+        0x05, 0x0B,
+        // 服务1
+        0x10, 0x00, 0x00, 0x02, 0x01, // handle(0x0010), type(0x00), uuid(0x0102)
+        0x00, // 描述符类型列表
+        // 属性
+        0x11, 0x00, 0x02, 0x03, 0x02, // handle(0x0011), type(0x02), uuid(0x0203)
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01, // 描述符类型列表
+
+        // 服务2
+        0x12, 0x00, 0x08, // handle(0x0012), type(0x08)
+        0x12, 0x11, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, // 描述符类型列表
+
+        // 服务3
+        0x13, 0x00, 0x08, // handle(0x0013), type(0x08)
+        0x13, 0x12, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, // 描述符类型列表
+        // 属性
+        0x14, 0x00, 0x0A, // handle(0x0014), type(0x0A)
+        0x14, 0x13, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01 // 描述符类型列表
+    };
+    Test_SSAP_RecvReq(reqStructMix, sizeof(reqStructMix));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructMix, sizeof(rspStructMix)));
+    DeleteLink();
+}
+
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_CUS_ONLY)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_CUS_ONLY");
+    AddCusServiceWithCusProp();
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t reqStructCus[] = {0x04, 0x08, 0x01, 0x00, 0xFF, 0xFF};
+    static uint8_t rspStructCus[] = {
+        0x05, 0x07,
+        // 服务3
+        0x10, 0x00, 0x08, // handle, type
+        0x13, 0x12, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, // 描述符类型列表
+        // 属性
+        0x11, 0x00, 0x0A, // handle(0x0014), type(0x0A)
+        0x14, 0x13, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01 // 描述符类型列表
+    };
+    Test_SSAP_RecvReq(reqStructCus, sizeof(reqStructCus));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructCus, sizeof(rspStructCus)));
+    DeleteLink();
+}
+
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_UUID_STD)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_UUID_STD");
+    AddService();
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t reqStructStd[] = {0x06, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0x02, 0x01};
+    static uint8_t rspStructStd[] = {
+        0x07, 0x03,
+        // 服务
+        0x10, 0x00, 0x00, 0x02, 0x01, // handle(0x0010), type(0x00), uuid(0x0102)
+        0x00, // 描述符类型列表
+        // 属性
+        0x11, 0x00, 0x02, 0x03, 0x02, // handle(0x0011), type(0x02), uuid(0x0203)
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01 // 描述符类型列表
+    };
+    Test_SSAP_RecvReq(reqStructStd, sizeof(reqStructStd));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructStd, sizeof(rspStructStd)));
+    DeleteLink();
+}
+
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_UUID_ERR)
+{
+    // by uuid发现服务结构，uuid类型应该是服务的uuid
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_UUID_ERR");
+    AddService();
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t req[] = {0x06, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0x02, 0x03};
+    static uint8_t errorRsp[] = { 0x01, 0x00, 0x06, 0x01, 0x00, 0x01 };
+    Test_SSAP_RecvReq(req, sizeof(req));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(errorRsp, sizeof(errorRsp)));
+    DeleteLink();
+}
+
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_EMPTY)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_EMPTY");
+    SSAP_Link *link = CreateLink();
+
+    static uint8_t req[] = {0x04, 0x00, 0x01, 0x00, 0xFF, 0xFF};
+    static uint8_t errorRsp[] = { 0x01, 0x00, 0x04, 0x01, 0x00, 0x0B };
+    Test_SSAP_RecvReq(req, sizeof(req));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(errorRsp, sizeof(errorRsp)));
+    DeleteLink();
+}
+
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_SERVICE_STRUCT_MTU_SMALL)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] enter FIND_RSP_SERVICE_STRUCT_MTU_SMALL");
+    AddService();
+    AddCusServiceWithCusProp();
+    SSAP_Link *link = CreateLink();
+    link->mtu = 50;
+
+    static uint8_t reqStructMix[] = {0x04, 0x10, 0x01, 0x00, 0xFF, 0xFF};
+    static uint8_t rspStructMix[] = {
+        0x05, 0x0B,
+        // 服务1
+        0x10, 0x00, 0x00, 0x02, 0x01, // handle(0x0010), type(0x00), uuid(0x0102)
+        0x00, // 描述符类型列表
+        // 属性
+        0x11, 0x00, 0x02, 0x03, 0x02, // handle(0x0011), type(0x02), uuid(0x0203)
+        0x00, 0x00, 0x00, 0x00, // 操作指示
+        0x01, 0x01, // 描述符类型列表
+
+        // 服务2
+        0x12, 0x00, 0x08, // handle(0x0012), type(0x08)
+        0x12, 0x11, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        0x00, // 描述符类型列表
+
+        // // 服务3
+        // 0x13, 0x00, 0x08, // handle(0x0013), type(0x08)
+        // 0x13, 0x11, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        // 0x00, // 描述符类型列表
+        // // 属性
+        // 0x14, 0x00, 0x0A, // handle(0x0014), type(0x0A)
+        // 0x14, 0x11, 0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, // uuid
+        // 0x00, 0x00, 0x00, 0x00, // 操作指示
+        // 0x01, 0x01, // 描述符类型列表
+    };
+    Test_SSAP_RecvReq(reqStructMix, sizeof(reqStructMix));
+    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(rspStructMix, sizeof(rspStructMix)));
     DeleteLink();
 }

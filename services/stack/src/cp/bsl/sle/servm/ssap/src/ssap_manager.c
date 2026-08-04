@@ -44,7 +44,6 @@ extern "C" {
 
 #define SSAP_INIT_FIND_REQ_START_HANDLE 0x0001
 #define SSAP_INIT_FIND_REQ_END_HANDLE 0xFFFF
-#define MAX_PRINT_LEN 200
 
 typedef void (*Dispatch)(SSAP_Link_S *, SDF_Buff_S *);
 
@@ -134,39 +133,6 @@ void SSAP_ProcessNormalTask(SSAP_Link_S *link, SSAP_ProcessTaskFunc func, void *
     }
 }
 
-void PrintFormatHexWithSpaces(const uint8_t *dataBuf, size_t dataSize)
-{
-    char dataStr[SSAP_STACK_MTU_MAX + SSAP_STACK_MTU_MAX + 1] = { 0 };
-    int count = 0;
-    for (uint32_t i = 0; i < dataSize; i++) {
-        (void)sprintf_s(&dataStr[2 * count], (SSAP_STACK_MTU_MAX - count) * 2, "%02x", dataBuf[i]); // 2 hex char
-        if (++count >= SSAP_STACK_MTU_MAX - 1) {
-            break;
-        }
-    }
-
-    size_t dataStrLen = strlen(dataStr);
-    for (uint32_t i = 0, j = 0; i < dataStrLen; j++) {
-        char temp[MAX_PRINT_LEN + 1];
-        memset_s(temp, sizeof(temp), 0, sizeof(temp));
-        if (dataStrLen - i >= MAX_PRINT_LEN) {
-            if (memcpy_s(temp, sizeof(temp), &dataStr[i], MAX_PRINT_LEN) != EOK) {
-                HILOGE("memcpy_s failed");
-                return;
-            }
-            i += MAX_PRINT_LEN;
-        } else {
-            if (memcpy_s(temp, sizeof(temp), &dataStr[i], dataStrLen - i) != EOK) {
-                HILOGE("memcpy_s failed");
-                return;
-            }
-            i += dataStrLen - i;
-        }
-
-        CP_LOG_DEBUG("[SSAP] recv msg[%d]: %s", j, temp);
-    }
-}
-
 int SSAP_Recv(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
 {
     CP_CHECK_LOG_RETURN(info != NULL && buff != NULL, SSAP_STACK_FAILED, "[SSAP] recv info or buff is null");
@@ -178,7 +144,7 @@ int SSAP_Recv(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
     CP_CHECK_LOG_RETURN(link != NULL, SSAP_STACK_FAILED, "[SSAP] cant find link");
     uint8_t op = *(SDF_DataOffset(buff));
     CP_LOG_DEBUG("[SSAP] recv msg len: %d, opcode: 0x%x", dataSize, op);
-    PrintFormatHexWithSpaces(dataBuf, dataSize);
+    PrintFormatHexWithSpaces(dataBuf, dataSize, false);
 
     uint8_t ret = SSAP_CheckOpcode(link, op);
     if (ret == SSAP_ERRCODE_UNSUPPORT_PDU) {

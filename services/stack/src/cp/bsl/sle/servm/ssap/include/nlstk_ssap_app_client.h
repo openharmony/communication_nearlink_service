@@ -73,6 +73,11 @@ typedef struct {
 } NLSTK_SsapServObtainAsyn_S;
 
 typedef struct {
+    int32_t appId;
+    bool multiProcessing;
+} NLSTK_SsapMultiProcessingObtain_S;
+
+typedef struct {
     uint16_t handle;
     NLSTK_SsapUuid_S uuid;
     uint8_t errorCode;                                 // 错误码
@@ -282,6 +287,7 @@ NLSTK_Errcode_E NLSTK_SsapClientCallMethod
 (int32_t appId, uint16_t handle, NLSTK_VariableData_S *value, bool withoutRsp);
 
 NLSTK_Errcode_E NLSTK_SsapCleanClientApp(NLSTK_SsapClientCleanAppResultCb clientCleanAppResultCb);
+NLSTK_Errcode_E NLSTK_SsapGetMultiProcessing(int32_t appId, bool *multiProcessing);
 #ifdef __cplusplus
 }
 #endif
