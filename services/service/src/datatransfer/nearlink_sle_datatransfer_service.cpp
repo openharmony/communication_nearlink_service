@@ -1293,6 +1293,7 @@ void SleDataTransferService::HandleConnectEvent(int32_t stat, uint16_t srcPort, 
     bool res = pimpl->appConnectParamMap_.GetValue(srcPort, cache);
     NL_CHECK_RETURN(res, "can not find app tokenId");
     uint64_t tokenId = cache->GetTokenId();
+    NL_CHECK_RETURN(pimpl->callback_ != nullptr, "callback_ is nullptr");
     temp.randomAddress = pimpl->callback_->GetRandomAddr(temp.address, cache->GetTokenId());
 
     DoInDataTransferThread([this, connectionParams, temp, fd, cache]() {

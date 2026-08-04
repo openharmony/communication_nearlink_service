@@ -152,6 +152,7 @@ static void BasLinkConnectStateDispatch(BasDeviceInfo_S *devInfo, BasStmParam_S 
         }
         // 收到底层链路状态变化回调，若为已连接，继续执行profile连接流程：获取Bas服务
         case BAS_ON_LINK_STATE_CHANGE: {
+            NLSTK_CHECK_RETURN_VOID(param.extData != NULL, "[BAS] extData is null");
             uint8_t state = *(uint8_t *)param.extData;
             if (state == SSAP_CONNECT_STATE_CONNECTED) {
                 BAS_DEVICE_STATE_CHANGE(devInfo, BAS_SERVICE_FOUND);

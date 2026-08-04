@@ -292,8 +292,8 @@ int HidHostService::HidHostSendReport(std::string device, uint8_t type, uint16_t
         LOG_ERROR("[HIDH Service]: size is invalid!");
         return HID_HOST_FAILURE;
     }
-    uint8_t hexbuf[len];
-    NL_CHECK_RETURN_RET(SleUtils::ConvertHexStringToInt(report, hexbuf, len), HID_HOST_FAILURE,
+    uint8_t hexbuf[len];	 
+     NL_CHECK_RETURN_RET(SleUtils::ConvertHexStringToInt(report, hexbuf, len), HID_HOST_FAILURE,
         "[HIDH Service]: string is invalid!");
 
     return HidHostSendReport(device, type, len, hexbuf);

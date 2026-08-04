@@ -119,10 +119,6 @@ ServiceCommonSrc = [
   "src/common/UnloadSa.cpp",
 ]
 
-ServiceUtilSrc = [
-  "src/util/semaphore.cpp",
-]
-
 ServiceAdapterSrc = [
   "src/adapter/SleAdapterWrapper.cpp",
   "src/adapter/SleAdapter.cpp",
@@ -238,7 +234,7 @@ ServiceControllerSrc = [
   "src/controller/SleControllerService.cpp",
 ]
 
-nearlink_service_sources = ServiceCommonSrc + ServiceUtilSrc
+nearlink_service_sources = ServiceCommonSrc
 nearlink_service_sources += ServiceAdapterSrc
 nearlink_service_sources += ServiceAdvertiserSrc
 nearlink_service_sources += ServiceScanSrc

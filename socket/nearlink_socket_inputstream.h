@@ -76,6 +76,8 @@ public:
 private:
     int socketFd_;
     InputStream() = delete;
+    InputStream(const InputStream &) = delete;
+    InputStream &operator=(const InputStream &) = delete;
 };
 } // namespace Nearlink
 } // namespace OHOS

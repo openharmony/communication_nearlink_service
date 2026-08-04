@@ -21,7 +21,11 @@
 #define HIBOX_BYTE_BIT_LEN 8
 
 #define SERVICE_HIBOX_ADD_TLV(buf, bufLen, offset, type, length, value) \
-    ((offset) += HiboxCombineTlv(((buf) + (offset)), ((bufLen) - (offset)), (type), (length), (value)))
+    do { \
+        if ((offset) < (bufLen)) { \
+            (offset) += HiboxCombineTlv(((buf) + (offset)), ((bufLen) - (offset)), (type), (length), (value)); \
+        } \
+    } while (0)
 
 typedef bool (*HiboxTlvParserFunc)(uint8_t type, uint16_t length, uint8_t* value, void* parseResult);
 

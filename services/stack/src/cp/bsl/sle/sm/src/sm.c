@@ -178,6 +178,7 @@ void SmPkgDispatcher(uint16_t opcode, SLE_Addr_S *addr, const uint8_t *pkg, size
 
     NLSTK_LOG_ERROR("[SM] Unexpected size or opcode in pkg dispatcher, size = %d, opcode = 0x%X.", size, opcode);
     if (opcode == SM_PAIR_FAIL_MESSAGE_OPCODE) {
+        NLSTK_CHECK_RETURN_VOID(size > 0, "[SM] Package size is 0 for pair fail message.");
         uint8_t errCode = *pkg;
         NLSTK_LOG_ERROR("[SM] Recv remote device pairing fail message, opcode: 0x%X.", errCode);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {

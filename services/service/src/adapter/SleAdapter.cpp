@@ -1832,7 +1832,8 @@ std::string SleAdapter::GetAddressByConnHandle(uint16_t connHandle)
 
 void SleAdapter::PowerLevelChangedCallback(void *param)
 {
-    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
+    NL_CHECK_RETURN(param != nullptr, "param is null");
+    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "sleAdapterImpl is null");
     NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(PowerLevelInfo), "param error");
     PowerLevelInfo info = *(reinterpret_cast<PowerLevelInfo *>(chipInfo.data));
