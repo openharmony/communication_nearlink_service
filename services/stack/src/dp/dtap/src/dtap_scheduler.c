@@ -181,6 +181,11 @@ static void DTAP_DLIDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmd
     }
     DLI_DisconnectEvt *param = (DLI_DisconnectEvt *)cmdRes->eventParameter;
     uint16_t connHandle = DECODE2BYTE_LITTLE((uint8_t *)&param->connHandle);
+    DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(connHandle);
+    if (node != NULL) {
+        g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, node->sendNotAckPktCnt);
+        COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
+    }
     if (DTAP_DeleteLcidBufferNode(connHandle)) {
         DTAP_RecalcLcidQuota();
     }
@@ -692,7 +697,7 @@ static void DTAP_SchedulerRun(void)
         DTAP_LOGD("enter, g_sendNotAckPktCnt %u, q priority %u, q pktCnt %u",
             g_sendNotAckPktCnt, q->priority, q->pktCnt);
         if (g_sendNotAckPktCnt >= g_apBufferNum) {
-            DTAP_LOGW("chip buffer is full, g_sendNotAckPktCnt %d", g_sendNotAckPktCnt);
+            DTAP_LOGD("chip buffer is full, g_sendNotAckPktCnt %d", g_sendNotAckPktCnt);
             return;
         }
         if (q->pktCnt == 0) {
@@ -807,13 +812,13 @@ uint32_t DTAP_DataSendWithPriority(DTAP_Channel_S *transChan, SDF_Buff_S *buff)
 static void DTAP_SendCompleteCbk(uint16_t connHandle, uint8_t numCompletedPackets)
 {
     DTAP_LOGD("enter, connHandle %d, numCompletedPackets %d", connHandle, numCompletedPackets);
-    g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, numCompletedPackets);
-    COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(connHandle);
     if (node == NULL) {
         DTAP_LOGE("connHandle %u is not exist, completed packet num is %u", connHandle, numCompletedPackets);
         return;
     }
+    g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, numCompletedPackets);
+    COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     node->sendNotAckPktCnt = DTAP_SCHED_SUB(node->sendNotAckPktCnt, numCompletedPackets);
     DTAP_SchedulerRun();
 }
