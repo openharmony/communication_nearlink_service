@@ -25,6 +25,7 @@
 #include "nearlink_common_event_helper.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_device_manager.h"
+#include "nearlink_sle_ranging.h"
 
 namespace OHOS {
 namespace Nearlink {

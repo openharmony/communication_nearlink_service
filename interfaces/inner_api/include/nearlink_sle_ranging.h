@@ -34,7 +34,6 @@
 #define NEARLINK_SLE_RANGING_H
 
 #include "nearlink_remote_device.h"
-#include "ranging_alogorithm_adapter_def.h"
 
 namespace OHOS {
 namespace Nearlink {
