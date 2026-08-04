@@ -72,7 +72,7 @@ typedef enum {
     CM_DEVTYPE_OLD                  = 1,
     CM_DEVTYPE_THIRD_PARTY          = 2,
     CM_DEVTYPE_NEW                  = 3,
-    CM_DEVTIYPE_MAX,
+    CM_DEVTYPE_MAX,
 } CM_DeviceType_E;
 
 /**

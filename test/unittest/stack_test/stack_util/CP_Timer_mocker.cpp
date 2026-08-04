@@ -14,11 +14,14 @@
  */
 
 #include "sdf_worker.h"
+#include "securec.h"
 #include "cp_worker.h"
 #include "CP_Timer_mocker.h"
 
 static bool g_execCallbackAtOnce = false;
 static bool g_execTimerAddFailed = false;
+static bool g_execCallbackPostponed = false; // 延后超时测试
+static SDF_TimerParam g_timerParam = { 0 };
 
 extern "C" uint32_t CP_TimerAdd(int *handle, SDF_TimerParam *param)
 {
@@ -29,6 +32,9 @@ extern "C" uint32_t CP_TimerAdd(int *handle, SDF_TimerParam *param)
         if (param->callback != NULL) {
             param->callback(param->args);
         }
+    }
+    if (g_execCallbackPostponed) {
+        g_timerParam = *param;
     }
     return 0;
 }
@@ -41,6 +47,23 @@ extern "C" void CP_TimerDel(int handle)
 void CP_TimerSetExecCallbackAtOnce(bool atOnce)
 {
     g_execCallbackAtOnce = atOnce;
+}
+
+void CP_TimerSetExecCallbackPostponed(bool postponed)
+{
+    g_execCallbackPostponed = postponed;
+    if (!g_execCallbackPostponed) {
+        (void)memset_s(&g_timerParam, sizeof(SDF_TimerParam), 0, sizeof(SDF_TimerParam));
+    }
+}
+
+void CP_TimerPostponedTimeout(void)
+{
+    if (g_execCallbackPostponed) {
+        if (g_timerParam.callback != NULL) {
+            g_timerParam.callback(g_timerParam.args);
+        }
+    }
 }
 
 void CP_TimerSetAddFailed(bool failed)
