@@ -23,6 +23,7 @@
 #include "cm_util.h"
 #include "cm_common.h"
 #include "cm_access_mgr.h"
+#include "cm_exter_cbks_mgr.h"
 #include "common_ext_func_wrapper.h"
 #include "hadm_ext_func_wrapper.h"
 #include "dli.h"
@@ -379,7 +380,7 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     }
     // 共存场景下，HID interval设置不能小于15ms
     uint16_t coexInterval = 0;
-    if (CM_AdjustCoexAcbInterval(&link->rmtAddr, replyParam.connIntervalMin, &coexInterval)) {
+    if (SleAccessHidCoexModeInterval(&link->rmtAddr, replyParam.connIntervalMin, &coexInterval, false)) {
         replyParam.connIntervalMin = coexInterval;
         replyParam.connIntervalMax = coexInterval;
     }
@@ -426,6 +427,9 @@ static void SleAccessLinkParamUpdateRsp(uint32_t versionAndLocalIndex, DLI_Conne
     connectRsp.result = link->status;
     SleAccessLinkStatusReport(versionAndLocalIndex, SLE_ACCESS_CBK_CONNECT_UPDATE,
         &connectRsp, sizeof(CM_ConnectUpdateParamRsp_S), (uint8_t)status);
+    // 共存场景下，HID interval设置不能小于15ms，回调通知服务层，判断是否处于共存状态，以及是否更新interval
+    uint16_t coexInterval = 0;
+    SleAccessHidCoexModeInterval(&connectRsp.addr, connectRsp.extension.interval, &coexInterval, true);
 }
 
 static void SleAccessConnectUpdateCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
@@ -943,4 +947,26 @@ uint32_t SleAccessSetPhy(DLI_SetPhyParam *param)
     uint32_t ret = DLI_SetPhy(param);
     CM_CHECK_RETURN_RET((ret == DLI_SUCCESS), CM_FAIL, "DLI_SetPhy failed, ret:0x%08x", ret);
     return CM_SUCCESS;
+}
+
+bool SleAccessHidCoexModeInterval(SLE_Addr_S *addr, uint16_t incommingInterval, uint16_t *coexInterval,
+    bool isNeedUpdateInt)
+{
+    CM_CHECK_RETURN_RET(addr != NULL, false, "addr is null");
+    CM_CHECK_RETURN_RET(coexInterval != NULL, false, "coexInterval is null");
+    CM_HidCoexModeRsp_S coexParam = { 0 };
+    coexParam.eventType = CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL;
+    coexParam.addr = *addr;
+    coexParam.incomingInterval = incommingInterval;
+    coexParam.coexInterval = 0;
+    coexParam.isNeedUpdateInt = isNeedUpdateInt;
+    CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_HID_COEX_MODE, &coexParam);
+    if (coexParam.coexInterval != 0) {
+        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %d, "
+            "coex interval: %d", GET_ENC_ADDR(addr), incommingInterval, coexParam.coexInterval);
+        *coexInterval = coexParam.coexInterval;
+    }
+    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
+    CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_HID_COEX_MODE, &coexParam);
+    return coexParam.coexInterval != 0;
 }

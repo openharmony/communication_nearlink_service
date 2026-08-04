@@ -1687,7 +1687,7 @@ void SleAdapter::ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S 
     });
 }
 
-void SleAdapter::HidCoexModeCallback(CM_HidCoexModeParam_S *param)
+void SleAdapter::HidCoexModeCallback(CM_HidCoexModeRsp_S *param)
 {
     NL_CHECK_RETURN(param, "[SleAdapter] param is null");
     NL_CHECK_RETURN(param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL ||
@@ -1698,7 +1698,7 @@ void SleAdapter::HidCoexModeCallback(CM_HidCoexModeParam_S *param)
             param->coexInterval);
     } else {
         SleControllerService::GetInstance().UpdateSleHidCoexModePendingInterval(device.GetAddress(),
-            param->incomingInterval);
+            param->incomingInterval, param->isNeedUpdateInt);
     }
 }
 

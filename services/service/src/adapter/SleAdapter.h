@@ -312,7 +312,7 @@ private:
     void AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param);
     static void ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S *param);
     void ReadAcceptFilterListSizeCallbackTask(const CM_ReadAcceptFilterListSize_S &param);
-    static void HidCoexModeCallback(CM_HidCoexModeParam_S *param);
+    static void HidCoexModeCallback(CM_HidCoexModeRsp_S *param);
     void PowerLevelChangedTask(const PowerLevelInfo &info);
     void RssiChangedCallbackTask(const DisconChipInfo &info);
     // ncb callback

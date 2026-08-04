@@ -282,7 +282,8 @@ typedef struct {
     SLE_Addr_S addr;
     uint16_t incomingInterval;
     uint16_t coexInterval;
-} CM_HidCoexModeParam_S;
+    bool isNeedUpdateInt;
+} CM_HidCoexModeRsp_S;
 
 typedef struct {
     SLE_Addr_S addr;
@@ -366,7 +367,7 @@ typedef void (*CM_ReqAcbSubrateCbk)(CM_AcbSubrateCbParam_S *param);
 
 typedef void (*CM_ReadRemoteRssiCbk)(CM_ReadRemoteRssiRsp_S *rsp);
 
-typedef void (*CM_HidCoexModeCbk)(CM_HidCoexModeParam_S *param);
+typedef void (*CM_HidCoexModeCbk)(CM_HidCoexModeRsp_S *param);
 
 /**
  * @brief  连接管理模块回调函数
@@ -478,15 +479,6 @@ uint32_t CM_GetRssi(const CM_ReadRemoteRssiReq_S *param);
  * @return 异步链路id
  */
 uint16_t CM_GetLcidByConnHandle(uint16_t connHandle);
-
-/**
- * @brief  共存模式下调整acb interval
- * @param  [in] addr : acb地址
- * @param  [in] incommingInterval : acb当前interval
- * @param  [out] coexInterval : 共存模式下修改后的参数
- * @return true: acb参数发生调整, false: acb参数未发生调整
- */
-bool CM_AdjustCoexAcbInterval(SLE_Addr_S *addr, uint16_t incommingInterval, uint16_t *coexInterval);
 
 #ifdef __cplusplus
 }

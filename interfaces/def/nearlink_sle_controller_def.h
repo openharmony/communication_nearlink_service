@@ -68,6 +68,7 @@ enum SleCoexModeStatus : int {
 };
  
 struct SleHidCoexDevice {
+    SleHidCoexDevice() = default;
     SleHidCoexDevice(const std::string &addr, uint16_t coexInterval, uint16_t pendingInterval) :
         addr(addr), coexInterval(coexInterval), pendingInterval(pendingInterval) {}
     ~SleHidCoexDevice() {}

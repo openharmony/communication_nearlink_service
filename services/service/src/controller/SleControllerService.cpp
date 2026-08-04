@@ -228,19 +228,38 @@ void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint
  
 void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue)
 {
-    std::lock_guard<std::mutex> lock(sleCoexModeLock_);
-    if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
-        return;
-    }
-    for (auto &coexDevice : sleHidCoexModeParam_.deviceList) {
-        if (coexDevice.addr == device) {
-            coexDevice.pendingInterval = intervalValue;
-            HILOGI("update coex mode pending interval, addr: %{public}s, interval: %{public}d",
-                GetEncryptAddr(device).c_str(), intervalValue);
+    SleHidCoexDevice matchingDevice = {};
+    {
+        std::lock_guard<std::mutex> lock(sleCoexModeLock_);
+        if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
             return;
         }
+        for (auto &coexDevice : sleHidCoexModeParam_.deviceList) {
+            if (coexDevice.addr == device) {
+                coexDevice.pendingInterval = intervalValue;
+                matchingDevice = coexDevice;
+                HILOGI("update coex mode pending interval, addr: %{public}s, interval: %{public}d",
+                    GetEncryptAddr(device).c_str(), intervalValue);
+                break;
+            }
+        }
     }
-    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
+
+    NL_CHECK_RETURN(!matchingDevice.addr.empty(), "fail to find coex device record: %{public}s",
+        GetEncryptAddr(device).c_str());
+    if (!isNeedUpdateInt || intervalValue >= matchingDevice.coexInterval) {
+        return;
+    }
+    CM_ConnectUpdateParamReq_S updateParam;
+    (void)memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
+    if (GetConnectionParams(matchingDevice.addr, matchingDevice.coexInterval, updateParam) == false) {
+        return;
+    }
+    if (CM_ConnectUpdateParamReq(&updateParam) != NLSTK_ERRCODE_SUCCESS) {
+        HILOGE("update connect param failed, addr: %{public}s", GetEncryptAddr(matchingDevice.addr).c_str());
+        return;
+    }
+
     return;
 }
  
