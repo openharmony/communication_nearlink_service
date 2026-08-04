@@ -295,7 +295,7 @@ void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr, u
                 pimpl->stackAdapter_.StopSounding(currentAddr, callerName);
                 pimpl->restartFlag_ = true;
                 pimpl->restartTask_ = std::make_pair(hadmId, addr);
-                pimlp->currentToneControl_ = toneControl;
+                pimpl->currentToneControl_ = toneControl;
                 return;
             } else {
                 ReportHadmSoundingState(addr, GetSoundingState(addr),
@@ -306,7 +306,7 @@ void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr, u
 
         // 启动测距
         pimpl->currentTask_ = std::make_pair(hadmId, addr);
-        pimlp->currentToneControl_ = toneControl;
+        pimpl->currentToneControl_ = toneControl;
         pimpl->stackAdapter_.StartSounding(addr, callerName, toneControl);
     });
 }

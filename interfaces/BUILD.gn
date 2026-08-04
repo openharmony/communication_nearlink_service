@@ -19,6 +19,7 @@ ohos_shared_headers("nearlink_inner_api_headers") {
     "def",
   ]
 
+  deps = ["../frameworks/native:ranging_algorithm_headers"]
   part_name = "nearlink_service"
   subsystem_name = "communication"
 }
