@@ -16,7 +16,6 @@
 #include "sle_access_dli.h"
 #include "securec.h"
 #include "byte_codec.h"
-#include "cm_api.h"
 #include "cm_dli_adapter.h"
 #include "cm_errno.h"
 #include "cm_log.h"
