@@ -103,7 +103,7 @@ static void BuildMeasureParam(uint16_t lcid, HadmSoundingParam_S *args, DLI_SetM
     params->configId = args->configId;
     params->measureConfigDirect = MEASURE_CONFIG_DIRECT;
     params->occurrenceGroupPeriod = occurrenceGroupPeriod;
-    params->schedulingTimeslot = args->schedulingTimeslot;
+    params->schedulingTimeslot = SCHEDULING_TIME_SLOT_125;
     params->rttPhy = args->rttPhy;
     params->freqHoppingMode = args->freqHoppingMode;
     params->fmFreq = args->fmFreq;

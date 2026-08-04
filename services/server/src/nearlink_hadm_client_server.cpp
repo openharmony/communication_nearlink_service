@@ -247,6 +247,7 @@ NlErrCode NearlinkHadmClientServer::StartSounding(uint32_t hadmId, const Nearlin
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
     NL_CHECK_RETURN_RET(sleService->IsAcbConnected(realAddr), NL_ERR_DEVICE_DISCONNECTED, "device disconnected.");
+    NL_CHECK_RETURN_RET(toneControl <= TONE_CONTROL_SINGLE_TONE, NL_ERR_INVALID_PARAM, "toneControl invalid.");
     InterfaceHadmClientService::GetInstance().StartSounding(hadmId, realAddr, toneControl);
     return NL_NO_ERROR;
 }

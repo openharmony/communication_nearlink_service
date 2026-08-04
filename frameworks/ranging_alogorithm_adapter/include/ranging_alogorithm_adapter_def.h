@@ -18,29 +18,10 @@
 
 #include <cstdint>
 #include "nearlink_hadm_sounding_result.h"
+#include "nearlink_sle_ranging.h"
 
 namespace OHOS {
 namespace Nearlink {
-
-/**
- * @brief Ranging algorithm mode selector.
- *
- * @since 7
- */
-typedef enum {
-    RANGING_ALGO_MODE_ONE = 1,
-    RANGING_ALGO_MODE_TWO,
-} RangingAlgoMode;
-
-/**
- * @brief Tone control mode for sounding.
- *
- * @since 7
- */
-typedef enum {
-    TONE_CONTROL_DEFAULT = 0,
-    TONE_CONTROL_SINGLE_TONE,
-} ToneControlMode;
 
 /**
  * @brief Hadm ranging algorithm output results.
