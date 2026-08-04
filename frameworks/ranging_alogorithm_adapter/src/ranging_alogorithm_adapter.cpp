@@ -59,7 +59,7 @@ bool HadmRangingAdapter::InitHadm(RangingAlgoMode algoMode)
         return true;
     }
     hadmHandle_ = dlopen(NEARLINK_HADM_NAME, RTLD_NOW);
-    NL_CHECK_RETURN_RET(hadmHandle_, false, "dlopen %{public}s failed, error code: %{public}s", 
+    NL_CHECK_RETURN_RET(hadmHandle_, false, "dlopen %{public}s failed, error code: %{public}s",
         NEARLINK_HADM_NAME, dlerror());
     calcHadmDis_ = reinterpret_cast<CalcHadmDis>(dlsym(hadmHandle_, NEARLINK_HADM_RANGING_SYMBOL));
     NL_CHECK_RETURN_RET(calcHadmDis_, false, "HadmRangingAdapter dlsym %{public}s failed.",
