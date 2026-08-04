@@ -92,7 +92,7 @@ public:
      * @return algoMode.
      * @since 7
      */
-    RangingAlgoMode RangingConfig::GetAlgoMode() const;
+    RangingAlgoMode GetAlgoMode() const;
 
     /**
      * @brief Set tone control mode.
@@ -108,7 +108,7 @@ public:
      * @return toneControl.
      * @since 7
      */
-    ToneControlMode RangingConfig::GetToneControl() const;
+    ToneControlMode GetToneControl() const;
 
 private:
     uint8_t refreshRate_{0};
