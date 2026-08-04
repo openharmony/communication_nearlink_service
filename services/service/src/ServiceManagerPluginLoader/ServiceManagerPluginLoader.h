@@ -67,6 +67,7 @@ public:
     // chiputil模块函数 start
     void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) override;
     void SetConnFrameType4Subrate(const RawAddress &device) override;
+    void RejectSetSubrate(const RawAddress &device) override;
     // chiputil模块函数 end
 
     std::string GetBundleName(BundleNameType type) override;

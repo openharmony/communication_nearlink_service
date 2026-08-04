@@ -149,6 +149,7 @@ public:
     // chiputil模块 start
     virtual void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) = 0;
     virtual void SetConnFrameType4Subrate(const RawAddress &device) = 0;
+    virtual void RejectSetSubrate(const RawAddress &device) = 0;
     // chiputil模块 end
 
     virtual std::string GetBundleName(BundleNameType type) = 0;

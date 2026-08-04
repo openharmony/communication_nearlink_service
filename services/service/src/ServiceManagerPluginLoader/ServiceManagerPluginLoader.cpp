@@ -205,6 +205,11 @@ void ServiceManagerPluginLoader::SetConnFrameType4Subrate(const RawAddress &devi
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(SetConnFrameType4Subrate, device);
 }
 
+void ServiceManagerPluginLoader::RejectSetSubrate(const RawAddress &device)
+{
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(RejectSetSubrate, device);
+}
+
 // chiputil模块函数 end
 
 std::string ServiceManagerPluginLoader::GetBundleName(BundleNameType type)
