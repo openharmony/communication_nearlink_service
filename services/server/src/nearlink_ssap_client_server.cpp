@@ -76,28 +76,16 @@ struct NearlinkSsapClientServer::impl::SsapClientServerRemoteInfo {
 class NearlinkSsapClientServer::impl::SsapClientServerRemoteContainer final
         : public NearlinkRemoteContainer<NearlinkSsapClientServer::impl::SsapClientServerRemoteInfo> {
 public:
+    using CallbackList = NearlinkSafeList<std::shared_ptr<NearlinkSsapClientServer::impl::SsapClientCallbackImpl>>;
+
     ~SsapClientServerRemoteContainer() override = default;
-    void OnRemoteDied(const wptr<IRemoteObject> &remote) override
+
+    void SetCallbackList(CallbackList *callbacks)
     {
-        HILOGI("ssap client app died");
-        int appId = -1;
-        {
-            std::lock_guard<std::mutex> lk(vecMutex_);
-            auto it = std::find_if(vec_.begin(), vec_.end(),
-                [remote](const auto &obj) { return obj.first == remote; });
-            NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
-            appId = it->second.appId;
-        }
-        DeleteRemoteInfo(remote);
-        if (appId >= 0) {
-            InterfaceProfileSsapClient *clientService = static_cast<InterfaceProfileSsapClient *>(
-                SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_SSAP_CLIENT));
-            NL_CHECK_RETURN(clientService, "clientService invalid.");
-            clientService->Disconnect(appId);
-            int ret = clientService->DeregisterApplication(appId);
-            HILOGI("DeregisterApplication result:%{public}d, appId:%{public}d", ret, appId);
-        }
+        callbacks_ = callbacks;
     }
+
+    void OnRemoteDied(const wptr<IRemoteObject> &remote) override;
 
     wptr<IRemoteObject> FindRemoteSsapClientAppId(int32_t appId)
     {
@@ -132,6 +120,9 @@ public:
         }
         return ret;
     }
+
+private:
+    CallbackList *callbacks_ = nullptr;
 };
 
 class NearlinkSsapClientServer::impl::SystemStateObserver : public ISystemStateObserver {
@@ -354,103 +345,71 @@ public:
         return applicationId_;
     }
 
-    SsapClientCallbackImpl(const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner);
+    SsapClientCallbackImpl(const sptr<INearlinkSsapClientCallback> &callback);
     ~SsapClientCallbackImpl() override
     {
         HILOGW("NearlinkSsapClientServer: ~SsapClientCallbackImpl()");
-        // already locked to remove the instance inner.
-        if (!callback_->AsObject()->RemoveDeathRecipient(deathRecipient_)) {
-            HILOGE("Failed to unlink death recipient to callback");
-        }
         callback_ = nullptr;
-        deathRecipient_ = nullptr;
     };
 
 private:
-    class CallbackDeathRecipient : public IRemoteObject::DeathRecipient {
-    public:
-        CallbackDeathRecipient(const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner);
-
-        sptr<INearlinkSsapClientCallback> GetCallback() const
-        {
-            return callback_;
-        };
-
-        void OnRemoteDied(const wptr<IRemoteObject> &remote) override;
-
-    private:
-        sptr<INearlinkSsapClientCallback> callback_;
-        NearlinkSsapClientServer &owner_;
-    };
-
     sptr<INearlinkSsapClientCallback> callback_;
-    sptr<CallbackDeathRecipient> deathRecipient_;
     int applicationId_;
     uint64_t tokenId_;
-    int sdkVersion_;  // JS application api sdk version
+    int sdkVersion_;
     bool isUseRealAddrFlag;
 };
 
 NearlinkSsapClientServer::impl::SsapClientCallbackImpl::SsapClientCallbackImpl(
-    const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner)
-    : callback_(callback), deathRecipient_(new CallbackDeathRecipient(callback, owner))
+    const sptr<INearlinkSsapClientCallback> &callback)
+    : callback_(callback)
 {
-    // called inner, don't lock here.
-    if (!callback_->AsObject()->AddDeathRecipient(deathRecipient_)) {
-        HILOGE("Failed to link death recipient to callback");
-    }
     tokenId_ = IPCSkeleton::GetCallingFullTokenID();
     sdkVersion_ = NearLinkPermissionManager::GetNearlinkApiVersion();
     isUseRealAddrFlag = NearLinkPermissionManager::IsUseRealAddr();
     applicationId_ = -1;
 }
 
-NearlinkSsapClientServer::impl::SsapClientCallbackImpl::CallbackDeathRecipient::CallbackDeathRecipient(
-    const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner)
-    : callback_(callback), owner_(owner)
-{}
-
-void NearlinkSsapClientServer::impl::SsapClientCallbackImpl::CallbackDeathRecipient::OnRemoteDied(
+void NearlinkSsapClientServer::impl::SsapClientServerRemoteContainer::OnRemoteDied(
     const wptr<IRemoteObject> &remote)
 {
-    HILOGW("enter OnRemoteDied");
-    if (owner_.pimpl == nullptr) {
-        HILOGE("ssapClientServerImpl pimpl is not support.");
-        return;
-    }
-    InterfaceProfileSsapClient *clientService = owner_.pimpl->GetServicePtr();
-    if (clientService == nullptr) {
-        HILOGE("ssapClientServerImpl clientService_ is not support.");
-        return;
-    }
+    HILOGI("ssap client app died");
     int appId = -1;
-    auto func = [&remote, &appId](std::shared_ptr<SsapClientCallbackImpl> callback) -> bool {
-        if (callback->GetCallback()->AsObject() == remote) {
-            HILOGI("callback is found from callbacks");
-            sptr<CallbackDeathRecipient> dr = callback->deathRecipient_;
-            if (!dr->GetCallback()->AsObject()->RemoveDeathRecipient(dr)) {
-                HILOGE("Failed to unlink death recipient from callback");
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(),
+            [remote](const auto &obj) { return obj.first == remote; });
+        NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
+        appId = it->second.appId;
+    }
+
+    if (callbacks_ != nullptr) {
+        auto func = [&remote](std::shared_ptr<SsapClientCallbackImpl> callback) -> bool {
+            if (callback->GetCallback()->AsObject() == remote) {
+                HILOGI("callback is found from callbacks, appId: %{public}d", callback->GetAppId());
+                return true;
             }
-            HILOGI("App id is %{public}d", callback->GetAppId());
-            appId = callback->GetAppId();
-            return true;
-        }
-        return false;
-    };
-    owner_.pimpl->callbacks_.FindAndRmv(func);
+            return false;
+        };
+        callbacks_->FindAndRmv(func);
+    }
+
+    DeleteRemoteInfo(remote);
+
     if (appId >= 0) {
-        auto containerRemote = owner_.pimpl->remoteContainer_->FindRemoteSsapClientAppId(appId);
-        if (containerRemote != nullptr) {
-            owner_.pimpl->remoteContainer_->DeleteRemoteInfo(containerRemote);
-        }
+        InterfaceProfileSsapClient *clientService = static_cast<InterfaceProfileSsapClient *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_SSAP_CLIENT));
+        NL_CHECK_RETURN(clientService, "clientService invalid.");
         clientService->Disconnect(appId);
-        clientService->DeregisterApplication(appId);
+        int ret = clientService->DeregisterApplication(appId);
+        HILOGI("DeregisterApplication result:%{public}d, appId:%{public}d", ret, appId);
     }
 }
 
 NearlinkSsapClientServer::impl::impl() : systemStateObserver_(new SystemStateObserver(this))
 {
     remoteContainer_->Init();
+    remoteContainer_->SetCallbackList(&callbacks_);
     SleInterfaceManager::GetInstance()->RegisterSystemStateObserver(*systemStateObserver_);
 }
 
@@ -482,7 +441,7 @@ NlErrCode NearlinkSsapClientServer::RegisterApplication(const sptr<INearlinkSsap
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     RawAddress realAddr = (RawAddress)addr;
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);
-    auto serverCallback = std::make_shared<impl::SsapClientCallbackImpl>(callback, *this);
+    auto serverCallback = std::make_shared<impl::SsapClientCallbackImpl>(callback);
     appId = clientService->RegisterApplication(serverCallback, realAddr, transport, secureReq);
     if (appId >= 0) {
         HILOGI("appId: %{public}d", appId);
