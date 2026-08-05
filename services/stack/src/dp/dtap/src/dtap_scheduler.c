@@ -183,6 +183,8 @@ static void DTAP_DLIDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmd
     uint16_t connHandle = DECODE2BYTE_LITTLE((uint8_t *)&param->connHandle);
     DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(connHandle);
     if (node != NULL) {
+        DTAP_LOGE("lcid %hu buffer node is exist, sendNotAckPktCnt %u, g_sendNotAckPktCnt %u",
+            connHandle, node->sendNotAckPktCnt, g_sendNotAckPktCnt);
         g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, node->sendNotAckPktCnt);
         COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     }
