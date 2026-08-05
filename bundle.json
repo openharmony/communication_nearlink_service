@@ -92,7 +92,10 @@
                 "bounds_checking_function",
                 "runtime_core",
                 "resource_schedule_service",
-                "taihe_ffi_gen"
+                "taihe_ffi_gen",
+                "json",
+                "resource_management",
+                "bundle_framework"
             ],
             "third_party": [
             ]
