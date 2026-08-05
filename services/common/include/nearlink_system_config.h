@@ -50,6 +50,14 @@ public:
      * @return false 不支持双耳录音功能
      */
     static bool IsDualRecordSupported();
+
+    /**
+     * @brief 检查帧4功能是否支持
+     *
+     * @return true 支持帧4功能
+     * @return false 不支持帧4功能
+     */
+    static bool IsFrame4Supported();
 };
 
 } // namespace Nearlink

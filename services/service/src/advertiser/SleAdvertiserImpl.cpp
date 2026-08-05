@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "SleServiceManager.h"
+#include "SleFrame4AntennaMgr.h"
 #include "interface_advertiser_service.h"
 #include "SleFeature.h"
 #include "SleProperties.h"
@@ -698,6 +699,7 @@ uint8_t SleAdvertiserImpl::CreateConnectableAdvertiserSetHandle() const
 void SleAdvertiserImpl::RemoveAdvHandle(uint8_t handle, int &advStatus) const
 {
     LOG_INFO("handle=%{public}d", handle);
+    SleFrame4AntennaMgr::GetInstance().OnAdvRemoved(handle);
     ChangeAdvertisingStatus(static_cast<int>(ADVERTISE_STATUS::REMOVING), advStatus, handle);
     NLSTK_DevdRemoveAdv(&handle);
 }
@@ -800,6 +802,7 @@ void SleAdvertiserImpl::DdAdvEnableCompleteEvt(uint8_t advHandle, uint8_t result
         return;
     }
     LOG_INFO("Start advertising success!");
+    SleFrame4AntennaMgr::GetInstance().OnAdvStarted(advHandle, iter->second.advParams.primaryFrameType);
     OnStartResultEvent(static_cast<int>(ADV_RESULT_SUCCESS), advHandle);
 }
 

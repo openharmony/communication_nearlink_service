@@ -97,6 +97,12 @@ enum class BundleNameType {
     BUNDLE_NAME_TYPE_MAX,
 };
 
+enum class AntennaFixScene {
+    ANTENNA_FIX_SCENE_FRAME4_ADV = 0,
+    ANTENNA_FIX_SCENE_FRAME4_SCAN = 1,
+    ANTENNA_FIX_SCENE_TYPE_MAX,
+};
+
 // 函数调用枚举结束
 
 struct AcbSubrateParam_S {
@@ -150,6 +156,7 @@ public:
     virtual void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) = 0;
     virtual void SetConnFrameType4Subrate(const RawAddress &device) = 0;
     virtual void RejectSetSubrate(const RawAddress &device) = 0;
+    virtual void ControlAntennaFix(bool enable, AntennaFixScene scene) = 0;
     // chiputil模块 end
 
     virtual std::string GetBundleName(BundleNameType type) = 0;

@@ -115,6 +115,7 @@ ServiceCommonSrc = [
   "src/common/SleSwitchDependency.cpp",
   "src/common/SysStateMachine.cpp",
   "src/common/SleMultiScanData.cpp",
+  "src/common/SleFrame4AntennaMgr.cpp",
   "src/common/DeviceBatteryManager.cpp",
   "src/common/UnloadSa.cpp",
 ]

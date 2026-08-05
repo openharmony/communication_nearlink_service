@@ -15,7 +15,6 @@
 
 #include "nearlink_sle_advertiser_server.h"
 
-#include <set>
 #include "nearlink_errorcode.h"
 #include "SleInterfaceAdapterSub.h"
 #include "interface_advertiser_service.h"
@@ -24,6 +23,7 @@
 #include "ipc_skeleton.h"
 #include "remote_observer_list.h"
 #include "nearlink_remote_container.h"
+#include "nearlink_def.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -340,6 +340,15 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
     HILOGI("enter");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INTERNAL_ERROR,
         "advHandle is invalid.");
+    if (settings.GetPrimaryFrameType() ==
+        static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4)) {
+        SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
+            (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
+        NL_CHECK_RETURN_RET(
+            sleService->IsFeatureSupported(static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)),
+            NL_ERR_API_NOT_SUPPORT, "frame4 advertising is not supported.");
+    }
     SleAdvertiserSettingsImpl settingsImpl;
     settingsImpl.SetConnectable(settings.IsConnectable());
     settingsImpl.SetInterval(settings.GetInterval());
