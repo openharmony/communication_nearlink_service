@@ -512,7 +512,7 @@ static bool DTAP_SplitData(uint16_t lcid, SDF_Buff_S *buff,
     for (uint32_t i = 0; i < fragmentCnt; i++) {
         fragmentBuf[i] = SDF_BuffNew(fragmentLen);
         if (fragmentBuf[i] == NULL) {
-            DTAP_LOGE("create fragment buf failed, lcid %hu, buff len %llu", lcid, SDF_DataLenGet(buff));
+            DTAP_LOGE("create %u fragment buff failed, lcid %hu, buff len %llu", i, lcid, fragmentLen);
             for (uint32_t j = 0; j < i; j++) {
                 SDF_BuffFree(fragmentBuf[j]);
             }
