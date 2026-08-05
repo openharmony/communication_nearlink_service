@@ -91,6 +91,7 @@ static bool DTAP_AddLcidBufferNode(uint16_t connHandle)
     }
     node = (DTAP_LcidBufferNode *)SDF_MemZalloc(sizeof(DTAP_LcidBufferNode));
     if (node == NULL) {
+        DTAP_LOGE("lcid %hu, malloc lcid buffer node failed", connHandle);
         return false;
     }
     node->lcid = connHandle;
@@ -180,6 +181,13 @@ static void DTAP_DLIDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmd
     }
     DLI_DisconnectEvt *param = (DLI_DisconnectEvt *)cmdRes->eventParameter;
     uint16_t connHandle = DECODE2BYTE_LITTLE((uint8_t *)&param->connHandle);
+    DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(connHandle);
+    if (node != NULL) {
+        DTAP_LOGI("lcid %hu buffer node is exist, sendNotAckPktCnt %u, g_sendNotAckPktCnt %u",
+            connHandle, node->sendNotAckPktCnt, g_sendNotAckPktCnt);
+        g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, node->sendNotAckPktCnt);
+        COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
+    }
     if (DTAP_DeleteLcidBufferNode(connHandle)) {
         DTAP_RecalcLcidQuota();
     }
@@ -506,7 +514,7 @@ static bool DTAP_SplitData(uint16_t lcid, SDF_Buff_S *buff,
     for (uint32_t i = 0; i < fragmentCnt; i++) {
         fragmentBuf[i] = SDF_BuffNew(fragmentLen);
         if (fragmentBuf[i] == NULL) {
-            DTAP_LOGE("create fragment buf failed");
+            DTAP_LOGE("create %u fragment buff failed, lcid %hu, buff len %u", i, lcid, fragmentLen);
             for (uint32_t j = 0; j < i; j++) {
                 SDF_BuffFree(fragmentBuf[j]);
             }
@@ -516,7 +524,7 @@ static bool DTAP_SplitData(uint16_t lcid, SDF_Buff_S *buff,
     DLI_DataStru dliData = { lcid, DLI_DATATYPE_ACB, 0, 0, buff };
     uint32_t ret = DLI_SplitData(&dliData, fragmentBuf, fragmentCnt);
     if (ret != DLI_SUCCESS) {
-        DTAP_LOGE("split data failed, ret %d", ret);
+        DTAP_LOGE("split data failed, ret %d, lcid %hu, buff len %llu", ret, lcid, SDF_DataLenGet(buff));
         for (uint32_t i = 0; i < fragmentCnt; i++) {
             SDF_BuffFree(fragmentBuf[i]);
         }
@@ -617,7 +625,7 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
                 g_sendNotAckPktCnt++;
                 continue;
             } else {
-                DTAP_LOGD("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
                     channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(pkt->buff));
                 return false;
             }
@@ -633,7 +641,7 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
         for (; DTAP_CanSend(node) && sendCnt < fragmentCnt; sendCnt++, node->sendNotAckPktCnt++) {
             if (!DTAP_SendData(channelNode->lcid, fragmentBuf[sendCnt])) {
                 // 发送失败，暂停发送，等待下次继续发送
-                DTAP_LOGD("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
                     channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(fragmentBuf[sendCnt]));
                 break;
             }
@@ -806,13 +814,13 @@ uint32_t DTAP_DataSendWithPriority(DTAP_Channel_S *transChan, SDF_Buff_S *buff)
 static void DTAP_SendCompleteCbk(uint16_t connHandle, uint8_t numCompletedPackets)
 {
     DTAP_LOGD("enter, connHandle %d, numCompletedPackets %d", connHandle, numCompletedPackets);
-    g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, numCompletedPackets);
-    COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(connHandle);
     if (node == NULL) {
         DTAP_LOGE("connHandle %u is not exist, completed packet num is %u", connHandle, numCompletedPackets);
         return;
     }
+    g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, numCompletedPackets);
+    COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     node->sendNotAckPktCnt = DTAP_SCHED_SUB(node->sendNotAckPktCnt, numCompletedPackets);
     DTAP_SchedulerRun();
 }
