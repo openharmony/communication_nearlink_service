@@ -404,6 +404,25 @@ void RequestPropertyNotificationFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
 
+void RequestIndicationFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkSsapClientStub::GetDescriptor());
+    data.WriteInt32(provider.ConsumeIntegral<int32_t>()); // appId
+    data.WriteUint16(provider.ConsumeIntegral<uint16_t>()); // propertyHandle
+    data.WriteBool(provider.ConsumeBool()); // enable
+
+    int32_t ret = SsapClientOnRemoteRequest(
+        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_REQUEST_INDICATION, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
 void SsapClientFuzzTest(const uint8_t* fuzzData, size_t size)
 {
     FuzzedDataProvider provider(fuzzData, size);
@@ -735,6 +754,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::GetServicesFuzzTest(data, size);
     OHOS::GetServicesByUuidFuzzTest(data, size);
     OHOS::RequestPropertyNotificationFuzzTest(data, size);
+    OHOS::RequestIndicationFuzzTest(data, size);
 
     if (OHOS::g_isInit) {
         OHOS::OnMtuChangedFuzzTest(data, size);
