@@ -1698,7 +1698,7 @@ void SleAdapter::HidCoexModeCallback(CM_HidCoexModeRsp_S *param)
             param->coexInterval);
     } else {
         SleControllerService::GetInstance().UpdateSleHidCoexModePendingInterval(device.GetAddress(),
-            param->incomingInterval, param->isNeedUpdateInt);
+            param->incomingInterval);
     }
 }
 
