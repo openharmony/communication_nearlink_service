@@ -378,7 +378,7 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     }
     // 共存场景下，HID interval设置不能小于15ms
     uint16_t coexInterval = 0;
-    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, replyParam.connIntervalMin, false)) {
+    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, replyParam.connIntervalMin)) {
         replyParam.connIntervalMin = coexInterval;
         replyParam.connIntervalMax = coexInterval;
     }
@@ -425,9 +425,6 @@ static void SleAccessLinkParamUpdateRsp(uint32_t versionAndLocalIndex, DLI_Conne
     connectRsp.result = link->status;
     SleAccessLinkStatusReport(versionAndLocalIndex, SLE_ACCESS_CBK_CONNECT_UPDATE,
         &connectRsp, sizeof(CM_ConnectUpdateParamRsp_S), (uint8_t)status);
-    // 共存场景下，HID interval设置不能小于15ms，回调通知服务层，判断是否处于共存状态，以及是否更新interval
-    uint16_t coexInterval = 0;
-    SleAccessHidCoexModeInterval(&coexInterval, &connectRsp.addr, connectRsp.extension.interval, true);
 }
 
 static void SleAccessConnectUpdateCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
@@ -947,8 +944,7 @@ uint32_t SleAccessSetPhy(DLI_SetPhyParam *param)
     return CM_SUCCESS;
 }
 
-bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incommingInterval,
-    bool isNeedUpdateInt)
+bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incommingInterval)
 {
     CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_HID_COEX_MODE);
     CM_CHECK_RETURN_RET(cbk != NULL, false, "cbk is null");
@@ -961,7 +957,6 @@ bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr
     coexParam.addr = *addr;
     coexParam.incomingInterval = incommingInterval;
     coexParam.coexInterval = 0;
-    coexParam.isNeedUpdateInt = isNeedUpdateInt;
     CM_ExecuteCmdPar_S paramCbk = {0};
     paramCbk.eventParameter = &coexParam;
     paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
