@@ -46,7 +46,7 @@ public:
     bool SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
         const std::vector<ConnectionInterval> &paramList) override;
     void GetSleHidCoexInterval(const std::string &device, uint16_t currentInterval, uint16_t &coexInterval);
-    void UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue, bool isNeedUpdateInt);
+    void UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue);
 
 private:
     // Helper function to convert interval type to interval value
