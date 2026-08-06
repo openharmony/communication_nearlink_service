@@ -328,7 +328,8 @@ static void SsapcRetryFindPrimaryServiceByUuid(int32_t appId, SSAP_DiscoveryComp
 
 static void SsapcAppDiscServByHandleCompCb(int32_t appId, SSAP_DiscoveryComplete_S *complete)
 {
-    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE && complete->errCode == SSAP_ERRCODE_UNSUPPORT_PDU) {
+    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE &&
+        complete->errCode != SSAP_ERRCODE_SUCCESS && complete->preFindHandle == SSAP_START_HANDLE) {
         SsapcRetryFindPrimaryService(appId, complete);
         return;
     }
@@ -374,7 +375,8 @@ static void SsapcAppDiscServByHandleCompCb(int32_t appId, SSAP_DiscoveryComplete
 
 static void SsapcAppDiscServByUuidCompCb(int32_t appId, SSAP_DiscoveryComplete_S *complete)
 {
-    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE && complete->errCode == SSAP_ERRCODE_UNSUPPORT_PDU) {
+    if (complete->type == FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE &&
+        complete->errCode != SSAP_ERRCODE_SUCCESS && complete->preFindHandle == SSAP_START_HANDLE) {
         SsapcRetryFindPrimaryServiceByUuid(appId, complete);
         return;
     }
