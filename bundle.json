@@ -82,6 +82,7 @@
                 "qos_manager",
                 "input",
                 "audio_framework",
+                "json",
                 "av_session",
                 "call_manager",
                 "core_service",
@@ -92,10 +93,9 @@
                 "bounds_checking_function",
                 "runtime_core",
                 "resource_schedule_service",
-                "taihe_ffi_gen",
-                "json",
                 "resource_management",
-                "bundle_framework"
+                "bundle_framework",
+                "taihe_ffi_gen"
             ],
             "third_party": [
             ]
@@ -151,7 +151,11 @@
                     "name": "//foundation/communication/nearlink_service/utils:nearlink_utils"
                 },
                 {
-                    "name": "//foundation/communication/nearlink_service/services/common:nearlink_service_common"
+                    "name": "//foundation/communication/nearlink_service/services/common:nearlink_service_common",
+                    "header": {
+                        "header_base": "//foundation/communication/nearlink_service/services/common/include",
+                        "header_files": []
+                    }
                 },
                 {
                     "name": "//foundation/communication/nearlink_service/services/stack/src/dli:nearlink_stack_base"

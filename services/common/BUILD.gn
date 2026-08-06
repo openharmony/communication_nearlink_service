@@ -112,7 +112,7 @@ ohos_shared_library("nearlink_service_common") {
     "init:libbegetutil",
     "ability_base:want",
     "common_event_service:cesfwk_innerkits",
-    "bundle_framework:appexfwk_core",
+    "bundle_framework:appexecfwk_core",
   ]
 
   sources = [
