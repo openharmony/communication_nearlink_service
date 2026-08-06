@@ -205,7 +205,7 @@ bool SleControllerService::SetSleCoexMode(int32_t mode, const std::vector<std::s
     }
     return true;  
 }
- 
+
 void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint16_t currentInterval,
     uint16_t &coexInterval)
 {
@@ -225,45 +225,25 @@ void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint
     HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
     return;
 }
- 
-void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue,
-    bool isNeedUpdateInt)
+
+void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue)
 {
-    SleHidCoexDevice matchingDevice = {};
-    {
-        std::lock_guard<std::mutex> lock(sleCoexModeLock_);
-        if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
+    std::lock_guard<std::mutex> lock(sleCoexModeLock_);
+    if (sleHidCoexModeParam_.state != SleCoexModeStatus::STARTED) {
+        return;
+    }
+    for (auto &coexDevice : sleHidCoexModeParam_.deviceList) {
+        if (coexDevice.addr == device) {
+            coexDevice.pendingInterval = intervalValue;
+            HILOGI("update coex mode pending interval, addr: %{public}s, interval: %{public}d",
+                GetEncryptAddr(device).c_str(), intervalValue);
             return;
         }
-        for (auto &coexDevice : sleHidCoexModeParam_.deviceList) {
-            if (coexDevice.addr == device) {
-                coexDevice.pendingInterval = intervalValue;
-                matchingDevice = coexDevice;
-                HILOGI("update coex mode pending interval, addr: %{public}s, interval: %{public}d",
-                    GetEncryptAddr(device).c_str(), intervalValue);
-                break;
-            }
-        }
     }
-
-    NL_CHECK_RETURN(!matchingDevice.addr.empty(), "fail to find coex device record: %{public}s",
-        GetEncryptAddr(device).c_str());
-    if (!isNeedUpdateInt || intervalValue >= matchingDevice.coexInterval) {
-        return;
-    }
-    CM_ConnectUpdateParamReq_S updateParam;
-    (void)memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
-    if (GetConnectionParams(matchingDevice.addr, matchingDevice.coexInterval, updateParam) == false) {
-        return;
-    }
-    if (CM_ConnectUpdateParamReq(&updateParam) != NLSTK_ERRCODE_SUCCESS) {
-        HILOGE("update connect param failed, addr: %{public}s", GetEncryptAddr(matchingDevice.addr).c_str());
-        return;
-    }
-
+    HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
     return;
 }
- 
+
 bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
@@ -312,7 +292,7 @@ bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &
     UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STARTING);
     return true;
 }
- 
+
 bool SleControllerService::DisableSleHidCoexMode()
 {
     auto adapter = static_cast<SleInterfaceAdapterSub *>
@@ -334,7 +314,7 @@ bool SleControllerService::DisableSleHidCoexMode()
     UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STOPPING);
     return true;
 }
- 
+
 void SleControllerService::UpdateSleHidCoexIntervalForEach(
     const std::vector<SleHidCoexDevice> &deviceList, size_t index, SleCoexModeStatus state)
 {
@@ -389,7 +369,7 @@ void SleControllerService::UpdateSleHidCoexIntervalForEach(
         SLE_CONN_INTERVAL_UNIT_DIVISOR_8 + SLE_HID_COEX_UPDATE_TIMESLOT_10 : 0;
     StartSleHidCoexUpdateTimer(deviceList, index + 1, state, updateProtectingTime);
 }
- 
+
 void SleControllerService::StartSleHidCoexUpdateTimer(const std::vector<SleHidCoexDevice> &deviceList, size_t index,
     SleCoexModeStatus state, int64_t protectTime)
 {
