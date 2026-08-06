@@ -114,7 +114,7 @@ napi_status NapiEventSubscribeModule::Deregister(napi_env env, napi_callback_inf
     }
 
     if (argc == ARGS_SIZE_ONE) {
-        HILOGI("Deregister all %{public}s callback in %{public}s module", name.c_str(), moduleName_.c_str());
+        HILOGI("SubEvent op=off_all kit=ConnectivityKit event=%{public}s module=NearLink", name.c_str());
         eventSubscribeMap_.Erase(name);
         return napi_ok;
     }
@@ -200,7 +200,7 @@ napi_status NapiEventSubscribeModule::DeregisterWithName(napi_env env, napi_call
     }
 
     if (argc == ARGS_SIZE_ZERO) {
-        HILOGI("Deregister all %{public}s callback in %{public}s module", name.c_str(), moduleName_.c_str());
+        HILOGI("SubEvent op=off_all kit=ConnectivityKit event=%{public}s module=NearLink", name.c_str());
         eventSubscribeMap_.Erase(name);
         return napi_ok;
     }
