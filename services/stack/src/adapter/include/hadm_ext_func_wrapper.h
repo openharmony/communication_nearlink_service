@@ -28,7 +28,7 @@ extern "C" {
 bool DLI_ReadRemoteExtFeatures(uint16_t companyid, uint16_t subversion, uint16_t lcid);
 
 void HADM_ExtCheckAndUpdateMultiToneConfig(uint16_t lcid, uint8_t *pmInitSignal2Tone, uint8_t *pmReflSignal2Tone,
-    uint16_t *occurrenceGroupPeriod);
+    uint16_t *occurrenceGroupPeriod, uint8_t toneControl);
 void HADM_ExtClearRemoteCsCaps(uint16_t lcid);
 
 #ifdef __cplusplus

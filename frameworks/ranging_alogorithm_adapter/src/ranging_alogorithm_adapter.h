@@ -25,6 +25,8 @@ typedef errcode_slem (*CalcHadmDis)(DisResult *rangingResult, const MeasureAlgPa
 
 typedef void (*InitHadmAlg)(void);
 
+typedef void (*SetAlgoModeFunc)(uint32_t algoMode);
+
 class HadmRangingAdapter {
 public:
     static HadmRangingAdapter &GetInstance();
@@ -42,9 +44,10 @@ public:
     /**
      * @brief Init hadm algorithm.
      *
+     * @param algoMode ranging algorithm mode, default RANGING_ALGO_MODE_ONE.
      * @since 6
      */
-    bool InitHadmAlgo();
+    bool InitHadmAlgo(RangingAlgoMode algoMode = RangingAlgoMode::RANGING_ALGO_MODE_ONE);
 
     void CleanUp();
 
@@ -52,13 +55,14 @@ private:
     void TransferSoundingToAlgPara(NearlinkHadmSoundingResult soundingResult, MeasureAlgPara &algPara);
     HadmRangingAdapter();
     ~HadmRangingAdapter();
-    bool InitHadm();
+    bool InitHadm(RangingAlgoMode algoMode);
 
 private:
     uint32_t totalCount_ = 0;
     void* hadmHandle_ = nullptr;
     CalcHadmDis calcHadmDis_ = nullptr;
     InitHadmAlg initHadmAlg_ = nullptr;
+    SetAlgoModeFunc setAlgoMode_ = nullptr;
     std::mutex mutex_ {};
 };
 

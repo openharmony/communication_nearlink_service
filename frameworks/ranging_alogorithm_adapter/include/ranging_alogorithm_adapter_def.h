@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include "nearlink_hadm_sounding_result.h"
+#include "nearlink_sle_ranging.h"
 
 namespace OHOS {
 namespace Nearlink {

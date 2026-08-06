@@ -86,6 +86,7 @@ struct HadmClientService::impl {
     NearlinkSafeMap<std::pair<std::string, int>, std::pair<bool, bool>> allowList_;
     std::mutex mutex_;
     bool restartFlag_ = false;
+    uint8_t currentToneControl_ = 0;
     std::pair<uint32_t, RawAddress> restartTask_{SLE_HADM_INVALID_ID, RawAddress(INVALID_MAC_ADDRESS)};
     std::pair<uint32_t, RawAddress> currentTask_{SLE_HADM_INVALID_ID, RawAddress(INVALID_MAC_ADDRESS)};
     SLE_DISALLOW_COPY_AND_ASSIGN(impl);
@@ -164,7 +165,7 @@ void HadmClientService::impl::StackAdapterCallback::OnSoundingStateChange(const 
                     static_cast<int>(HadmStateChangeReason::HIGH_PRIORITY_INTERRUPT), self_.currentTask_.first);
                 self_.currentTask_ = std::make_pair(SLE_HADM_INVALID_ID, RawAddress(INVALID_MAC_ADDRESS));
                 HadmClientService::GetInstance().StartSounding(self_.restartTask_.first,
-                    self_.restartTask_.second);
+                    self_.restartTask_.second, self_.currentToneControl_);
                 self_.restartTask_ = std::make_pair(SLE_HADM_INVALID_ID, RawAddress(INVALID_MAC_ADDRESS));
                 self_.restartFlag_ = false;
                 return;
@@ -247,15 +248,14 @@ void HadmClientService::DeregisterNearlinkHadmClientCallback() const
     });
 }
 
-void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr) const
+void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr, uint8_t toneControl) const
 {
     std::string callerName = NearLinkPermissionManager::GetCallingName();
     int32_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingTokenID();
-    HILOGI("Address:%{public}s, caller=%{public}s",
-            GetEncryptAddr(addr.GetAddress()).c_str(), callerName.c_str());
+    HILOGI("Address:%{public}s, caller=%{public}s", GetEncryptAddr(addr.GetAddress()).c_str(), callerName.c_str());
 
-    DoInHadmThread([callerName, uid, tokenId, hadmId, addr, this]() -> void {
+    DoInHadmThread([callerName, uid, tokenId, hadmId, addr, toneControl, this]() -> void {
         HILOGD(" StartSounding enter");
         VerificationContext ctx{tokenId, uid, ""};
 
@@ -295,6 +295,7 @@ void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr) c
                 pimpl->stackAdapter_.StopSounding(currentAddr, callerName);
                 pimpl->restartFlag_ = true;
                 pimpl->restartTask_ = std::make_pair(hadmId, addr);
+                pimpl->currentToneControl_ = toneControl;
                 return;
             } else {
                 ReportHadmSoundingState(addr, GetSoundingState(addr),
@@ -305,7 +306,8 @@ void HadmClientService::StartSounding(uint32_t hadmId, const RawAddress &addr) c
 
         // 启动测距
         pimpl->currentTask_ = std::make_pair(hadmId, addr);
-        pimpl->stackAdapter_.StartSounding(addr, callerName);
+        pimpl->currentToneControl_ = toneControl;
+        pimpl->stackAdapter_.StartSounding(addr, callerName, toneControl);
     });
 }
 

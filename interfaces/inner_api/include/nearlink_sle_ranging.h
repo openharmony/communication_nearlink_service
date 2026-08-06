@@ -39,6 +39,26 @@ namespace OHOS {
 namespace Nearlink {
 
 /**
+ * @brief Ranging algorithm mode selector.
+ *
+ * @since 7
+ */
+typedef enum {
+    RANGING_ALGO_MODE_ONE = 1,
+    RANGING_ALGO_MODE_TWO,
+} RangingAlgoMode;
+
+/**
+ * @brief Tone control mode for sounding.
+ *
+ * @since 7
+ */
+typedef enum {
+    TONE_CONTROL_DEFAULT = 0,
+    TONE_CONTROL_SINGLE_TONE,
+} ToneControlMode;
+
+/**
  * @brief Represents ranging params.
  *
  * @since 7
@@ -77,8 +97,42 @@ public:
      */
     uint8_t GetRefreshRate() const;
 
+    /**
+     * @brief Set ranging algorithm mode.
+     *
+     * @param algoMode algorithm mode.
+     * @since 7
+     */
+    void SetAlgoMode(const RangingAlgoMode &algoMode);
+
+    /**
+     * @brief Get ranging algorithm mode.
+     *
+     * @return algoMode.
+     * @since 7
+     */
+    RangingAlgoMode GetAlgoMode() const;
+
+    /**
+     * @brief Set tone control mode.
+     *
+     * @param toneControl tone control mode.
+     * @since 7
+     */
+    void SetToneControl(const ToneControlMode &toneControl);
+
+    /**
+     * @brief Get tone control mode.
+     *
+     * @return toneControl.
+     * @since 7
+     */
+    ToneControlMode GetToneControl() const;
+
 private:
     uint8_t refreshRate_{0};
+    RangingAlgoMode algoMode_{RANGING_ALGO_MODE_ONE};
+    ToneControlMode toneControl_{TONE_CONTROL_DEFAULT};
 };
 
 /**

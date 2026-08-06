@@ -29,7 +29,7 @@ public:
         const sptr<INearlinkHadmClientCallback> &callback) override;
     NlErrCode DeregisterNearlinkHadmClientCallback(uint32_t hadmId,
         const sptr<INearlinkHadmClientCallback> &callback) override;
-    NlErrCode StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr) override;
+    NlErrCode StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr, uint8_t toneControl) override;
     NlErrCode StopSounding(uint32_t hadmId, const NearlinkRawAddress &addr) override;
     NlErrCode GetHadmFeature(uint8_t &capability) override;
 
