@@ -195,6 +195,7 @@ private:
     void CreateAvSessionController(const AVSession::AVSessionDescriptor &descriptor);
     void SetAVSessionFilter();
     void ProcessMediaStateChange();
+    void CheckRenderStateChanged();
     /* 判断AVSession返回的播放状态是否变化 */
     bool CheckPlaybackStateChanged(const AVSession::AVPlaybackState &state);
     bool CheckMetaDataChanged(const AVSession::AVMetaData &data);
@@ -885,6 +886,16 @@ void McpServerServiceManager::impl::SendKeyEvent(const McpMessage &event)
     }
 }
 
+/* 如果当前音频设备已在播放中，合作集内其他设备同步状态 */
+void McpServerServiceManager::impl::CheckRenderStateChanged()
+{
+    HILOGI("enter");
+    if (realTimeRenderState_ == McpRenderState::KPlaying) {
+        UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
+        return;
+    }
+}
+
 void McpServerServiceManager::impl::ProcessEvent(const McpMessage &event)
 {
     if (event.whatM == MCP_EVT_START_SUCCESS) {
@@ -893,10 +904,7 @@ void McpServerServiceManager::impl::ProcessEvent(const McpMessage &event)
         currPlaybackState_.SetState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
         currentReportState_ = NLSTK_MCP_STATE_UNINITIALIZED;
         UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
-        // 单切双场景及时更新媒体状态
-        if (!avSessionController_ && realTimeRenderState_ == McpRenderState::KPlaying) {
-            UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
-        }
+        CheckRenderStateChanged();
         HILOGI("[McpServer]start init success.");
         return;
     }
