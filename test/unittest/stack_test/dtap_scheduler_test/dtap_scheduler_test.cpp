@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -235,7 +235,8 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySuccessTest)
     DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 0);
     EXPECT_NE(channel, NULL);
 
-    DLI_AllDataSet(100, 8, 0, 0);
+    uint8_t acbNum = 8;
+    DLI_AllDataSet(100, acbNum, 0, 0);
     SDF_Buff_S *buf1 = SDF_BuffNewWithReserve(20000);
     EXPECT_NE(buf1, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf1, 10), nullptr);
@@ -248,22 +249,43 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySuccessTest)
     // same lcid and different tcid
     DTAP_Channel_S *channel2 = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 1);
     EXPECT_NE(channel2, NULL);
-    SDF_Buff_S *buf3 = SDF_BuffNewWithReserve(100);
-    EXPECT_NE(buf3, nullptr);
-    EXPECT_NE(SDF_BuffAppend(buf3, 10), nullptr);
-    EXPECT_EQ(DTAP_DataSendWithPriority(channel2, buf3), DTAP_SUCCESS);
+    SDF_Buff_S *buf3 = NULL;
+    for (uint32_t i = 0; i < acbNum / 2; i++) {
+        buf3 = SDF_BuffNewWithReserve(100);
+        EXPECT_NE(buf3, nullptr);
+        EXPECT_NE(SDF_BuffAppend(buf3, 10), nullptr);
+        EXPECT_EQ(DTAP_DataSendWithPriority(channel2, buf3), DTAP_SUCCESS);
+    }
     // different lcid
     DTAP_Channel_S *channel3 = TEST_DtapChannelCreate(g_connHandle2, DTAP_PRIORITY_CMD, 0);
     EXPECT_NE(channel3, NULL);
-    SDF_Buff_S *buf4 = SDF_BuffNewWithReserve(100);
+    SDF_Buff_S *buf4 = NULL;
+    for (uint32_t i = 0; i < acbNum / 2 + 1; i++) {
+        buf4 = SDF_BuffNewWithReserve(100);
+        EXPECT_NE(buf4, nullptr);
+        EXPECT_NE(SDF_BuffAppend(buf4, 10), nullptr);
+        EXPECT_EQ(DTAP_DataSendWithPriority(channel3, buf4), DTAP_SUCCESS);
+    }
+
+    TEST_DtapDisconnectCbk(g_connHandle1);
+    
+    buf4 = SDF_BuffNewWithReserve(100);
     EXPECT_NE(buf4, nullptr);
     EXPECT_NE(SDF_BuffAppend(buf4, 10), nullptr);
     EXPECT_EQ(DTAP_DataSendWithPriority(channel3, buf4), DTAP_SUCCESS);
 
-    DLI_AllDataSet(100, 4, 0, 0);
-    EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, 0, 1), DTAP_SUCCESS);
-    TEST_DtapSchedulerDeinit();
+    DLI_AllDataSet(100, acbNum / 2, 0, 0);
+    EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, channel3->lcid, 1), DTAP_SUCCESS);
 
+    TEST_DtapConnectCbk(g_connHandle1);
+    for (uint32_t i = 0; i < acbNum / 2; i++) {
+        buf3 = SDF_BuffNewWithReserve(100);
+        EXPECT_NE(buf3, nullptr);
+        EXPECT_NE(SDF_BuffAppend(buf3, 10), nullptr);
+        EXPECT_EQ(DTAP_DataSendWithPriority(channel2, buf3), DTAP_SUCCESS);
+    }
+
+    TEST_DtapSchedulerDeinit();
     SDF_MemFree(channel);
     SDF_MemFree(channel2);
     SDF_MemFree(channel3);

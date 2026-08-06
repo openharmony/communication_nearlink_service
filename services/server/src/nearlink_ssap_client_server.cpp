@@ -32,6 +32,7 @@
 #include "nearlink_uuid.h"
 #include "nearlink_device_manager.h"
 #include "nearlink_ssap_client_server.h"
+#include "nearlink_remote_container.h"
 #ifdef NEARLINK_KIA_ENABLE
 #include "SleKiaManager.h"
 #endif
@@ -50,6 +51,11 @@ struct NearlinkSsapClientServer::impl {
     NearlinkSafeList<std::shared_ptr<SsapClientCallbackImpl>> callbacks_;
     std::mutex callbacksMutex_;
 
+    struct SsapClientServerRemoteInfo;
+    class SsapClientServerRemoteContainer;
+    std::shared_ptr<SsapClientServerRemoteContainer> remoteContainer_ =
+        std::make_shared<SsapClientServerRemoteContainer>();
+
     impl();
     ~impl();
 
@@ -58,6 +64,65 @@ struct NearlinkSsapClientServer::impl {
         return static_cast<InterfaceProfileSsapClient *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_SSAP_CLIENT));
     }
+};
+
+struct NearlinkSsapClientServer::impl::SsapClientServerRemoteInfo {
+    SsapClientServerRemoteInfo(int32_t pid, int32_t uid, int32_t appId) : pid(pid), uid(uid), appId(appId) {}
+    int32_t pid = 0;
+    int32_t uid = 0;
+    int32_t appId = -1;
+};
+
+class NearlinkSsapClientServer::impl::SsapClientServerRemoteContainer final
+        : public NearlinkRemoteContainer<NearlinkSsapClientServer::impl::SsapClientServerRemoteInfo> {
+public:
+    using CallbackList = NearlinkSafeList<std::shared_ptr<NearlinkSsapClientServer::impl::SsapClientCallbackImpl>>;
+
+    ~SsapClientServerRemoteContainer() override = default;
+
+    void SetCallbackList(CallbackList *callbacks)
+    {
+        callbacks_ = callbacks;
+    }
+
+    void OnRemoteDied(const wptr<IRemoteObject> &remote) override;
+
+    wptr<IRemoteObject> FindRemoteSsapClientAppId(int32_t appId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [appId](const auto &obj) {
+            return obj.second.appId == appId;
+        });
+        if (it != vec_.end()) {
+            HILOGI("appId: %{public}d, pid: %{public}d, uid: %{public}d", appId, it->second.pid, it->second.uid);
+            return it->first;
+        }
+        return nullptr;
+    }
+
+    bool CheckSsapClientApp(int32_t appId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        int32_t pid = IPCSkeleton::GetCallingPid();
+        int32_t uid = IPCSkeleton::GetCallingUid();
+        auto it = std::find_if(vec_.begin(), vec_.end(), [appId](const auto &obj) {
+            return obj.second.appId == appId;
+        });
+        if (it == vec_.end()) {
+            HILOGE("can't find appId: %{public}d", appId);
+            return false;
+        }
+        bool ret = (it->second.pid == pid && it->second.uid == uid);
+        if (ret) {
+            HILOGD("pass appId: %{public}d, pid: %{public}d, uid: %{public}d", appId, pid, uid);
+        } else {
+            HILOGE("check failed appId: %{public}d, pid: %{public}d, uid: %{public}d", appId, pid, uid);
+        }
+        return ret;
+    }
+
+private:
+    CallbackList *callbacks_ = nullptr;
 };
 
 class NearlinkSsapClientServer::impl::SystemStateObserver : public ISystemStateObserver {
@@ -280,98 +345,71 @@ public:
         return applicationId_;
     }
 
-    SsapClientCallbackImpl(const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner);
+    SsapClientCallbackImpl(const sptr<INearlinkSsapClientCallback> &callback);
     ~SsapClientCallbackImpl() override
     {
         HILOGW("NearlinkSsapClientServer: ~SsapClientCallbackImpl()");
-        // already locked to remove the instance inner.
-        if (!callback_->AsObject()->RemoveDeathRecipient(deathRecipient_)) {
-            HILOGE("Failed to unlink death recipient to callback");
-        }
         callback_ = nullptr;
-        deathRecipient_ = nullptr;
     };
 
 private:
-    class CallbackDeathRecipient : public IRemoteObject::DeathRecipient {
-    public:
-        CallbackDeathRecipient(const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner);
-
-        sptr<INearlinkSsapClientCallback> GetCallback() const
-        {
-            return callback_;
-        };
-
-        void OnRemoteDied(const wptr<IRemoteObject> &remote) override;
-
-    private:
-        sptr<INearlinkSsapClientCallback> callback_;
-        NearlinkSsapClientServer &owner_;
-    };
-
     sptr<INearlinkSsapClientCallback> callback_;
-    sptr<CallbackDeathRecipient> deathRecipient_;
     int applicationId_;
     uint64_t tokenId_;
-    int sdkVersion_;  // JS application api sdk version
+    int sdkVersion_;
     bool isUseRealAddrFlag;
 };
 
 NearlinkSsapClientServer::impl::SsapClientCallbackImpl::SsapClientCallbackImpl(
-    const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner)
-    : callback_(callback), deathRecipient_(new CallbackDeathRecipient(callback, owner))
+    const sptr<INearlinkSsapClientCallback> &callback)
+    : callback_(callback)
 {
-    // called inner, don't lock here.
-    if (!callback_->AsObject()->AddDeathRecipient(deathRecipient_)) {
-        HILOGE("Failed to link death recipient to callback");
-    }
     tokenId_ = IPCSkeleton::GetCallingFullTokenID();
     sdkVersion_ = NearLinkPermissionManager::GetNearlinkApiVersion();
     isUseRealAddrFlag = NearLinkPermissionManager::IsUseRealAddr();
     applicationId_ = -1;
 }
 
-NearlinkSsapClientServer::impl::SsapClientCallbackImpl::CallbackDeathRecipient::CallbackDeathRecipient(
-    const sptr<INearlinkSsapClientCallback> &callback, NearlinkSsapClientServer &owner)
-    : callback_(callback), owner_(owner)
-{}
-
-void NearlinkSsapClientServer::impl::SsapClientCallbackImpl::CallbackDeathRecipient::OnRemoteDied(
+void NearlinkSsapClientServer::impl::SsapClientServerRemoteContainer::OnRemoteDied(
     const wptr<IRemoteObject> &remote)
 {
-    HILOGW("enter OnRemoteDied");
-    if (owner_.pimpl == nullptr) {
-        HILOGE("ssapClientServerImpl pimpl is not support.");
-        return;
-    }
-    InterfaceProfileSsapClient *clientService = owner_.pimpl->GetServicePtr();
-    if (clientService == nullptr) {
-        HILOGE("ssapClientServerImpl clientService_ is not support.");
-        return;
-    }
+    HILOGI("ssap client app died");
     int appId = -1;
-    auto func = [&remote, &appId](std::shared_ptr<SsapClientCallbackImpl> callback) -> bool {
-        if (callback->GetCallback()->AsObject() == remote) {
-            HILOGI("callback is found from callbacks");
-            sptr<CallbackDeathRecipient> dr = callback->deathRecipient_;
-            if (!dr->GetCallback()->AsObject()->RemoveDeathRecipient(dr)) {
-                HILOGE("Failed to unlink death recipient from callback");
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(),
+            [remote](const auto &obj) { return obj.first == remote; });
+        NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
+        appId = it->second.appId;
+    }
+
+    if (callbacks_ != nullptr) {
+        auto func = [&remote](std::shared_ptr<SsapClientCallbackImpl> callback) -> bool {
+            if (callback->GetCallback()->AsObject() == remote) {
+                HILOGI("callback is found from callbacks, appId: %{public}d", callback->GetAppId());
+                return true;
             }
-            HILOGI("App id is %{public}d", callback->GetAppId());
-            appId = callback->GetAppId();
-            return true;
-        }
-        return false;
-    };
-    owner_.pimpl->callbacks_.FindAndRmv(func);
+            return false;
+        };
+        callbacks_->FindAndRmv(func);
+    }
+
+    DeleteRemoteInfo(remote);
+
     if (appId >= 0) {
+        InterfaceProfileSsapClient *clientService = static_cast<InterfaceProfileSsapClient *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_SSAP_CLIENT));
+        NL_CHECK_RETURN(clientService, "clientService invalid.");
         clientService->Disconnect(appId);
-        clientService->DeregisterApplication(appId);
+        int ret = clientService->DeregisterApplication(appId);
+        HILOGI("DeregisterApplication result:%{public}d, appId:%{public}d", ret, appId);
     }
 }
 
 NearlinkSsapClientServer::impl::impl() : systemStateObserver_(new SystemStateObserver(this))
 {
+    remoteContainer_->Init();
+    remoteContainer_->SetCallbackList(&callbacks_);
     SleInterfaceManager::GetInstance()->RegisterSystemStateObserver(*systemStateObserver_);
 }
 
@@ -403,12 +441,22 @@ NlErrCode NearlinkSsapClientServer::RegisterApplication(const sptr<INearlinkSsap
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     RawAddress realAddr = (RawAddress)addr;
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);
-    auto serverCallback = std::make_shared<impl::SsapClientCallbackImpl>(callback, *this);
+    auto serverCallback = std::make_shared<impl::SsapClientCallbackImpl>(callback);
     appId = clientService->RegisterApplication(serverCallback, realAddr, transport, secureReq);
     if (appId >= 0) {
         HILOGI("appId: %{public}d", appId);
         serverCallback->SetAppId(appId);
         pimpl->callbacks_.EnsureInsert(serverCallback);
+        auto remote = pimpl->remoteContainer_->FindRemoteSsapClientAppId(appId);
+        if (remote != nullptr) {
+            HILOGW("clear expired appId: %{public}d", appId);
+            pimpl->remoteContainer_->DeleteRemoteInfo(remote);
+        }
+        int32_t pid = IPCSkeleton::GetCallingPid();
+        int32_t uid = IPCSkeleton::GetCallingUid();
+        impl::SsapClientServerRemoteInfo info(pid, uid, appId);
+        pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
+        HILOGI("appId: %{public}d, pid:%{public}d, uid:%{public}d", appId, pid, uid);
         return NL_NO_ERROR;
     }
     HILOGE("RegisterSharedApplication failed, appId: %{public}d", appId);
@@ -420,6 +468,8 @@ NlErrCode NearlinkSsapClientServer::DeregisterApplication(int32_t appId)
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int ret = SsapStatus::SSAP_SUCCESS;
     auto func = [&appId](std::shared_ptr<impl::SsapClientCallbackImpl> callback) -> bool {
         return callback->GetAppId() == appId;
@@ -430,6 +480,10 @@ NlErrCode NearlinkSsapClientServer::DeregisterApplication(int32_t appId)
     }
     pimpl->callbacks_.FindAndRmv(func);
     ret = clientService->DeregisterApplication(appId);
+    auto remote = pimpl->remoteContainer_->FindRemoteSsapClientAppId(appId);
+    if (remote != nullptr) {
+        pimpl->remoteContainer_->DeleteRemoteInfo(remote);
+    }
     HILOGI("DeregisterApplication ret: %{public}d", ret);
     return ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
 }
@@ -448,6 +502,8 @@ NlErrCode NearlinkSsapClientServer::Connect(int32_t appId, bool isAutoConnect)
 #endif
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->Connect(appId, isAutoConnect);
     HILOGI("Connect result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -458,6 +514,8 @@ NlErrCode NearlinkSsapClientServer::Disconnect(int32_t appId)
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->Disconnect(appId);
     HILOGI("Disconnect result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -468,6 +526,8 @@ NlErrCode NearlinkSsapClientServer::DiscoveryServices(int32_t appId)
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->DiscoverServices(appId);
     HILOGI("DiscoverServices result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -478,6 +538,8 @@ NlErrCode NearlinkSsapClientServer::DiscoverServiceByUuid(int32_t appId, const U
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->DiscoverServicesByUuid(appId, Uuid::ConvertFrom128Bits(uuid.ConvertTo128Bits()),
         0x0001, 0xFFFF);
     HILOGI("DiscoverServicesByUuid result: %{public}d", result);
@@ -489,6 +551,8 @@ NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSs
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = 0;
     if (property.handle_ != static_cast<uint16_t>(INVALID_ENTRY_HANDLE)) {
         result = clientService->ReadProperty(appId, (Property)property);
@@ -506,6 +570,8 @@ NlErrCode NearlinkSsapClientServer::CallMethod(int32_t appId, NearlinkSsapMethod
     methd.parameter_.swap(method->parameter_);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->CallMethod(appId, methd, withoutRespond);
     HILOGI("CallMethod result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -519,6 +585,8 @@ NlErrCode NearlinkSsapClientServer::WriteProperty(
     proper.value_.swap(property->value_);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->WriteProperty(appId, proper, withoutRespond);
     HILOGI("WriteProperty result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -529,6 +597,8 @@ NlErrCode NearlinkSsapClientServer::ReadDescriptor(int32_t appId, const Nearlink
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->ReadDescriptor(appId, (Descriptor)descriptor);
     HILOGI("ReadDescriptor result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -543,6 +613,8 @@ NlErrCode NearlinkSsapClientServer::WriteDescriptor(int32_t appId, NearlinkSsapD
 
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->WriteDescriptor(appId, desc, withoutRespond);
     HILOGI("WriteDescriptor result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -553,6 +625,8 @@ NlErrCode NearlinkSsapClientServer::RequestExchangeMtu(int32_t appId, int32_t mt
     HILOGI("appId: %{public}d, mtu: %{public}d", appId, mtu);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     int result = clientService->ExchangeMtu(appId, static_cast<uint16_t>(mtu));
     HILOGI("ExchangeMtu result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -561,6 +635,8 @@ NlErrCode NearlinkSsapClientServer::RequestExchangeMtu(int32_t appId, int32_t mt
 NlErrCode NearlinkSsapClientServer::RequestConnectionPriority(int32_t appId, int32_t connPriority)
 {
     HILOGI("appId: %{public}d, connPriority: %{public}d", appId, connPriority);
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     return NL_NO_ERROR;
 }
 
@@ -569,6 +645,8 @@ NlErrCode NearlinkSsapClientServer::GetServices(int32_t appId, ::std::vector<Nea
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     for (auto &svc : clientService->GetServices(appId)) {
         service.push_back(NearlinkSsapServiceParcel(svc));
     }
@@ -581,6 +659,8 @@ NlErrCode NearlinkSsapClientServer::GetServicesByUuid(int32_t appId, const Uuid 
     HILOGI("appId: %{public}d uuid:%{public}s", appId, GET_ENCRYPT_UUID(uuid));
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
     for (auto &svc : clientService->GetServicesByUuid(appId,
         Uuid::ConvertFrom128Bits(uuid.ConvertTo128Bits()))) {
         service.push_back(NearlinkSsapServiceParcel(svc));
@@ -594,6 +674,8 @@ NlErrCode NearlinkSsapClientServer::RequestPropertyNotification(int32_t appId, u
     HILOGI("appId: %{public}d, property: %{public}u, enable: %{public}d", appId, propertyhandle, enable);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
 
     int result = 0;
     Property property(propertyhandle);

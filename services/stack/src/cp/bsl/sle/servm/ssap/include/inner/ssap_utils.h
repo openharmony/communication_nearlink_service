@@ -87,6 +87,7 @@ uint8_t SSAP_GetOpcodeType(uint8_t opcode);
 uint8_t GetOperationLenByItemType(uint8_t itemType);
 uint8_t GetStartEndHandleLenByItemType(uint8_t itemType);
 uint8_t GetDescriptorCountLenByItemType(uint8_t itemType);
+void PrintFormatHexWithSpaces(const uint8_t *dataBuf, size_t dataSize, bool isTx);
 
 #ifdef __cplusplus
 }

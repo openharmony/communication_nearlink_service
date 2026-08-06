@@ -33,7 +33,7 @@ VolumeControllerClient::impl::impl()
 {
     HILOGI("start");
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(PROFILE_VCP_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    info->serviceStartedFunc_ = [](sptr<IRemoteObject> remote) -> void {
         sptr<INearlinkVcpClient> proxy = iface_cast<INearlinkVcpClient>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr");
     };
@@ -89,7 +89,7 @@ NlErrCode VolumeControllerClient::GetDeviceCallVolume(const NearlinkRemoteDevice
 VolumeControllerClient::VolumeControllerClient()
 {
     HILOGI("enter");
-    pimpl = std::make_unique<impl>();
+    pimpl = std::make_shared<impl>();
 }
 
 VolumeControllerClient::~VolumeControllerClient()

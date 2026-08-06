@@ -77,11 +77,17 @@ struct RequestInformation {
 
     bool operator<(const RequestInformation &rhs) const
     {
-        return (device < rhs.device && type == rhs.type);
+        if (device < rhs.device) {
+            return true;
+        }
+        if (rhs.device < device) {
+            return false;
+        }
+        return type < rhs.type;
     };
 };
 
-struct SsapServer::impl {
+struct SsapServer::impl : public std::enable_shared_from_this<impl> {
     class NearlinkSsapServerCallbackStubImpl;
     bool isRegisterSucceeded_;
     std::mutex requestListMutex_;
@@ -361,7 +367,7 @@ SsapServer::impl::~impl()
 SsapServer::SsapServer(std::shared_ptr<SsapServerCallback> callback)
 {
     HILOGI("create SsapServer start.");
-    pimpl = std::make_unique<SsapServer::impl>(callback);
+    pimpl = std::make_shared<SsapServer::impl>(callback);
     if (!pimpl) {
         HILOGE("create SsapServer failed.");
     }
@@ -379,15 +385,18 @@ void SsapServer::impl::Init(std::weak_ptr<SsapServer> server)
 
     serviceCallback_ = new (std::nothrow) NearlinkSsapServerCallbackStubImpl(server);
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(PROFILE_SSAP_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSsapServer> proxy = iface_cast<INearlinkSsapServer>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
         int32_t appId = 0;
-        NL_CHECK_RETURN(serviceCallback_, "serviceCallback_ is nullptr.");
-        NlErrCode status = proxy->RegisterApplication(serviceCallback_, appId);
+        NL_CHECK_RETURN(implSptr->serviceCallback_, "serviceCallback_ is nullptr.");
+        NlErrCode status = proxy->RegisterApplication(implSptr->serviceCallback_, appId);
         if (status == NL_NO_ERROR && appId >= 0) {
-            applicationId_ = appId;
-            isRegisterSucceeded_ = true;
+            implSptr->applicationId_ = appId;
+            implSptr->isRegisterSucceeded_ = true;
         } else {
             HILOGE("Can not Register to ssap server service! result = %{public}d", status);
         }

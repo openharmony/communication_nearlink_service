@@ -58,7 +58,11 @@ napi_value DataResult::ToNapiValue(napi_env env) const
     uint8_t *valueData = dataParams_.GetData(&valueSize).get();
     napi_value value;
     uint8_t *bufferData = nullptr;
-    napi_create_arraybuffer(env, valueSize, reinterpret_cast<void **>(&bufferData), &value);
+    napi_status status = napi_create_arraybuffer(env, valueSize, reinterpret_cast<void **>(&bufferData), &value);
+    if (status != napi_ok) {
+        HILOGE("dataResult napi_create_arraybuffer failed, status: %{public}d", status);
+        return object;
+    }
     if (valueSize > 0 && valueData != nullptr && memcpy_s(bufferData, valueSize, valueData, valueSize) != EOK) {
         HILOGE("dataResult memcpy_s failed");
     } else {

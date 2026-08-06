@@ -26,6 +26,7 @@ namespace TEST {
 using namespace testing::ext;
 namespace {
 const std::string DEVICE_ADDR = "11:22:33:44:55:66";
+constexpr int DELAY_LITTLE_MS = 100;
 }
 
 class MockPortObserver : public OHOS::Nearlink::PortObserver {
@@ -162,6 +163,23 @@ HWTEST_F(NearlinkPortServiceTest, DeregisterObserver001, TestSize.Level1)
     EXPECT_NE(portService, nullptr);
     portService->DeregisterObserver(g_observer);
     HILOGI("DeregisterObserver001 end");
+}
+
+/**
+ * @tc.number: ConnectViaIRemoteDeviceQuery_001
+ * @tc.name: Test Connect uses IRemoteDeviceQuery::GetInstance()->SetConnDirectActive
+ * @tc.desc: Verify PortService::Connect does not crash when invoking IRemoteDeviceQuery interface
+ */
+HWTEST_F(NearlinkPortServiceTest, ConnectViaIRemoteDeviceQuery_001, TestSize.Level1)
+{
+    HILOGI("ConnectViaIRemoteDeviceQuery_001 start");
+    PortService *portService = PortService::GetPortService();
+    ASSERT_NE(portService, nullptr);
+    RawAddress addr(DEVICE_ADDR);
+    int ret = portService->Connect(addr);
+    EXPECT_EQ(ret, PORT_SUCCESS);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("ConnectViaIRemoteDeviceQuery_001 end");
 }
 
 } // namespace TEST

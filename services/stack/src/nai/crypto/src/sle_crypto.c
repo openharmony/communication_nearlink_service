@@ -232,22 +232,36 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
     EndianReverseOctets(tempRemotePub + CRYPTO_HALF_PUBLIC_KEY_LEN, CRYPTO_HALF_PUBLIC_KEY_LEN);
 
     EVP_PKEY *local = RawKeyPairToPkey(tempPri, tempLocalPub);
-    NAI_CHECK_LOG_RETURN_VOID(local, "Raw local key pair error.");
+    if (local == NULL) {
+        NAI_LOG_ERROR("Raw local key pair error.");
+        (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
+        return;
+    }
     EVP_PKEY *remote = RawPubkeyTopkey(tempRemotePub);
     if (remote == NULL) {
         NAI_LOG_ERROR("remote pubkey to pkey error.");
         EVP_PKEY_free(local);
+        (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
         return;
     }
 
     uint8_t tempDhKey[CRYPTO_SEC_KEY_LEN] = {0};
-    NAI_CHECK_LOG_RETURN_VOID(DeriveDhKey(local, remote, tempDhKey), "Derive dhkey failed.");
+    if (!DeriveDhKey(local, remote, tempDhKey)) {
+        NAI_LOG_ERROR("Derive dhkey failed.");
+        EVP_PKEY_free(local);
+        EVP_PKEY_free(remote);
+        (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
+        (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return;
+    }
 
     EndianReverseOctets(tempDhKey, CRYPTO_SEC_KEY_LEN);
     (void)memcpy_s(secKey, CRYPTO_SEC_KEY_LEN, tempDhKey, CRYPTO_SEC_KEY_LEN);
 
     EVP_PKEY_free(local);
     EVP_PKEY_free(remote);
+    (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
+    (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
 }
 
 /** 该函数实现了基于 AES-CMAC (Cipher-based Message Authentication Code) 算法的消息认证码（MAC）计算。
@@ -261,7 +275,10 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
 {
     uint8_t keyReversed[CRYPTO_AES_CMAC_KEY_LEN];
     uint8_t *inputReversed = malloc(buffSize);
-    NAI_CHECK_LOG_RETURN_VOID(inputReversed != NULL, "Memory allocation error.");
+    if (inputReversed == NULL) {
+        NAI_LOG_ERROR("Memory allocation error.");
+        return;
+    }
 
     (void)memcpy_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, key, CRYPTO_AES_CMAC_KEY_LEN);
     EndianReverseOctets(keyReversed, CRYPTO_AES_CMAC_KEY_LEN);
@@ -272,18 +289,21 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
     CMAC_CTX *ctx = CMAC_CTX_new();
     if (ctx == NULL) {
         NAI_LOG_ERROR("CMAC_CTX_new error.");
+        (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
         return;
     }
     if (CMAC_Init(ctx, keyReversed, CRYPTO_AES_CMAC_KEY_LEN, EVP_aes_128_cbc(), NULL) != 1) {
         NAI_LOG_ERROR("CMAC_Init error.");
         CMAC_CTX_free(ctx);
+        (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
         return;
     }
     if (CMAC_Update(ctx, inputReversed, buffSize) != 1) {
         NAI_LOG_ERROR("EVP_CMAC_Update error.");
         CMAC_CTX_free(ctx);
+        (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
         return;
     }
@@ -291,11 +311,13 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
     if (CMAC_Final(ctx, mac, &macLen) != 1) {
         NAI_LOG_ERROR("EVP_CMAC_Final error.");
         CMAC_CTX_free(ctx);
+        (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
         return;
     }
     EndianReverseOctets(mac, macLen);
     CMAC_CTX_free(ctx);
+    (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
     free(inputReversed);
 }
 

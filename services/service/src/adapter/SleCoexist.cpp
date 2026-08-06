@@ -80,9 +80,17 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
 
     SleCoexistManager::GetInstance()->UpdateConnectionInfo(info);
 
+    auto* manager = SleCoexistManager::GetInstance();
+    NL_CHECK_RETURN(manager, "manager is null");
+    bool isIntervalUnderThread = false;
+    manager->IterateConnInfo([&isIntervalUnderThread](const CoexistConnInfo& info) {
+        if (info.interval < CM_CONN_COEXIST_INTERAL_THRED) {
+            isIntervalUnderThread = true;
+        }
+    });
+
     // 检查是否有多个连接
-    if (SleCoexistManager::GetInstance()->HasMultipleConnections() && 
-        info.interval < CM_CONN_COEXIST_INTERAL_THRED) {
+    if (manager->HasMultipleConnections() && isIntervalUnderThread) {
         StartParamUpdateTimer();
     }
 }

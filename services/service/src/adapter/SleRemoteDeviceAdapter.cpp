@@ -74,6 +74,11 @@ SleRemoteDeviceAdapter* SleRemoteDeviceAdapter::GetInstance(void)
     return &instance;
 }
 
+IRemoteDeviceQuery *IRemoteDeviceQuery::GetInstance()
+{
+    return SleRemoteDeviceAdapter::GetInstance();
+}
+
 std::vector<RawAddress> SleRemoteDeviceAdapter::GetPairedDevices()
 {
     std::vector<RawAddress> pairedList = SleRemoteDeviceManager::GetInstance()->GetPairedDevices();

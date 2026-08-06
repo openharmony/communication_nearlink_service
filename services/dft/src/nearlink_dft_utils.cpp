@@ -80,7 +80,7 @@ std::shared_ptr<DftParam> DftParam::ConvertToParam(DftEventEnum eventId, const D
         &ConvertInvalid, &ConvertFromBool, &ConvertFromUi8, &ConvertFromI8, &ConvertFromUi16, &ConvertFromI16,
         &ConvertFromUi32, &ConvertFromI32, &ConvertFromString, &ConvertFromRef
     };
-    if (!convertFuncs[src.t]) {
+    if (src.t <= DFT_PARAM_TYPE_INVALID || src.t >= DFT_TYPE_BUTT || !convertFuncs[src.t]) {
         return nullptr;
     }
     return convertFuncs[src.t](eventId, src);

@@ -356,7 +356,7 @@ static void UT_CM_ApiTestConnectAndDisconnect(uint16_t testCount)
         CM_TestDLI_UndefinedEvt uevt = { 0 };
         UT_CM_SleCompleteEvt(DLI_CMD_COMPLETE_EVT, DLI_CBK_REMOTE_CONNECT_PARAM_REQ_REPLY, uevt);
         EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_OLD), CM_SUCCESS);
-        EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTIYPE_MAX), CM_INVALID_PARAM_ERR);
+        EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_MAX), CM_INVALID_PARAM_ERR);
         CM_LogicLink_S logicLink = { 0 };
         EXPECT_EQ(CM_GetLogicLinkByLcid(handle, &logicLink), CM_SUCCESS);
         SLE_Addr_S addr = { 0 };
@@ -407,7 +407,7 @@ static void UT_CM_ApiTestPassiveConnectedAndDisconnect(uint16_t testCount)
         revt.supervisionTimeout = UT_CM_CONN_SUPERVISION_TIMEOUT;
         UT_CM_SleCompleteEvt(DLI_REMOTE_CONNECTION_PARAMETER_REQUEST_EVT, DLI_CBK_REMOTE_CONNECT_PARAM_REQ, revt);
         EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_OLD), CM_SUCCESS);
-        EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTIYPE_MAX), CM_INVALID_PARAM_ERR);
+        EXPECT_EQ(CM_SetLogicLinkDeviceType(handle, CM_DEVTYPE_MAX), CM_INVALID_PARAM_ERR);
         CM_LogicLink_S logicLink = { 0 };
         EXPECT_EQ(CM_GetLogicLinkByLcid(handle, &logicLink), CM_SUCCESS);
         SLE_Addr_S addr = { 0 };

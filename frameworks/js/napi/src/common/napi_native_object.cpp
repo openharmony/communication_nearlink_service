@@ -49,8 +49,12 @@ napi_value NapiNativeString::ToNapiValue(napi_env env) const
 
 napi_value NapiNativeUuidsArray::ToNapiValue(napi_env env) const
 {
-    napi_value array;
-    napi_create_array(env, &array);
+    napi_value array = nullptr;
+    napi_status status = napi_create_array(env, &array);
+    if (status != napi_ok) {
+        HILOGE("napi_create_array failed");
+        return array;
+    }
     ConvertStrVectorToJS(env, array, uuids_);
     return array;
 }

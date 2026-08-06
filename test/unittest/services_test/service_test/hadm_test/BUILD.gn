@@ -49,7 +49,7 @@ config("nl_hadm_service_unit_test_config") {
   "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
   "$NEARLINK_ROOT/utils:nearlink_utils",
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
-  "$NEARLINK_ROOT/services/server:nearlink_server_static",
+  "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
   "$NEARLINK_ROOT/services/service:nearlink_service_impl",

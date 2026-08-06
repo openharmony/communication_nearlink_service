@@ -495,6 +495,12 @@ public:
         });
     }
 
+    void OnCsdmPairStateChanged(const RawAddress &device, int32_t state) override
+    {
+        HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), state);
+        NearlinkDeviceManager::GetInstance()->UpdateRandomAddressMap(device, state);
+    }
+
     void OnAcbStateChanged(const RawAddress &device, int32_t state, int reason) override
     {
         HILOGI("device: %{public}s, state: %{public}d, reason: 0x%{public}x", GET_ENCRYPT_ADDR(device), state, reason);

@@ -396,6 +396,7 @@ static void GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixC
     input.buff = buffM;
     input.buffSize = SM_MIX_PASSCODE_LEN;
     SmCmacGenerate(&input, mixCode, codeLen);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
 }
 
 static bool GenPassCodeConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink,
@@ -418,8 +419,10 @@ static bool GenPassCodeConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink
     input.buffSize = SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + codeLen;
     if (!SmCmacGenerate(&input, confirm->confirm, SM_CONFIRM_NUMBER_LEN)) {
         NLSTK_LOG_ERROR("[SM][PASSCODE] Generate passcode confirm num error.");
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
         return false;
     }
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     return true;
 }
 

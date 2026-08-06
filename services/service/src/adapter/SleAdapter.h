@@ -335,6 +335,7 @@ private:
     bool ProcCdsmDeviceConnect(const RawAddress &device);
     void ConnectAllProfileInner(const RawAddress &device);
     void ConnectAllProfileTask(const RawAddress &device);
+    void AddDevicePairRecord(const RawAddress &device, int bussinessType);
     bool IsServiceSupportedConn(const RawAddress &device) const;
     void DisconnectAllProfileInner(const RawAddress &device, bool &result, uint8_t discReason);
     bool ProcCdsmDisconnectAllProfile(const RawAddress &device, bool &result, uint8_t discReason);
@@ -356,6 +357,7 @@ private:
     void ProcCreateCdsmGroup(const RawAddress &reportAddr, const RawAddress &realAddr, bool eraseDeviceIfNeed) const;
     bool ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAddress &collabAddr,
         bool eraseDeviceIfNeed) const;
+    void ProcEarphoneLost(const RawAddress &existDev, const RawAddress &lostDev) const;
     bool ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReportAddr, const RawAddress &oldReportAddr,
         bool eraseDeviceIfNeed) const;
     void ProcCreateCdsmGroupAndEraseDevice(const RawAddress &reportAddr, const RawAddress &otherAddr) const;

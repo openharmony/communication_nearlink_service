@@ -371,7 +371,7 @@ private:
 
     std::shared_ptr<SleSwitchDependency> switchDependency_ { nullptr };
     mutable std::atomic_bool isRestoreNeeded_ = false; // 星闪被特定调用方全关的情况下，后续是否需要恢复全关前的状态
-    mutable SleAutoConnectPolicy autoConnPolicy_ = SleAutoConnectPolicy::AUTO_CONN_GENERAL;
+    mutable std::atomic<SleAutoConnectPolicy> autoConnPolicy_ = SleAutoConnectPolicy::AUTO_CONN_GENERAL;
     mutable SwitchCallerInfo disableCallerInfo_ {}; // 调用DisableNl接口的调用方信息，仅在THREAD_ID_SVC_MGR线程使用
     SLE_DISALLOW_COPY_AND_ASSIGN(SleServiceManager);
     DECLARE_IMPL();

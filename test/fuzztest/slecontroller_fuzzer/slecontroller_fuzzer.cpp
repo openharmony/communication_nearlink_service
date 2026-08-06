@@ -90,10 +90,11 @@ void SetSleCoexModeFuzzTest(const uint8_t *fuzzData, size_t size)
     FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
+    constexpr int32_t MAX_FUZZ_DEVICE_NUM = 5;
  
     data.WriteInterfaceToken(NearlinkSleControllerStub::GetDescriptor());
     int32_t mode = provider.ConsumeIntegral<int32_t>();
-    int32_t deviceSize = provider.ConsumeIntegral<int32_t>();
+    int32_t deviceSize = provider.ConsumeIntegralInRange<int32_t>(0, MAX_FUZZ_DEVICE_NUM);
     data.WriteInt32(mode);
     data.WriteInt32(deviceSize);
     for (int32_t i = 0; i < deviceSize; i++) {

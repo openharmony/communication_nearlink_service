@@ -12,28 +12,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <securec.h>
-#include <cstring>
+
+#ifndef I_REMOTE_DEVICE_QUERY_H
+#define I_REMOTE_DEVICE_QUERY_H
+
+#include <cstdint>
 #include <string>
-#include "icce_utils.h"
-#include "IRemoteDeviceQuery.h"
+#include "raw_address.h"
 
 namespace OHOS {
 namespace Nearlink {
 
-SLE_Addr_S ConvertToStackAddr(const RawAddress &addr)
-{
-    SLE_Addr_S sleAddr;
-    (void)memset_s(&sleAddr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
-    addr.ConvertToUint8(sleAddr.addr);
-    sleAddr.type = IRemoteDeviceQuery::GetInstance()->GetPeerDeviceAddrType(addr);
-    return sleAddr;
-}
+class IRemoteDeviceQuery {
+public:
+    static IRemoteDeviceQuery *GetInstance();
 
-RawAddress ConvertSleAddrToRawAddress(SLE_Addr_S *addr)
-{
-    return RawAddress::ConvertToString(addr->addr);
-}
+    virtual int GetManufacturerBusinessType(const RawAddress &device) = 0;
+    virtual void SetPeerDeviceTypeToController(const RawAddress &device) = 0;
+    virtual bool IsAudioDevice(const std::string &address) = 0;
+    virtual uint8_t GetPeerDeviceAddrType(const RawAddress &device) = 0;
+    virtual void SetConnDirectActive(const RawAddress &device) = 0;
+
+protected:
+    virtual ~IRemoteDeviceQuery() = default;
+};
 
 } // namespace Nearlink
 } // namespace OHOS
+
+#endif // I_REMOTE_DEVICE_QUERY_H

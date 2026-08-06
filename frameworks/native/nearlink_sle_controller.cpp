@@ -34,7 +34,7 @@ NearlinkSleController::impl::impl()
 {
     HILOGI("start");
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_SLE_CONTROLLER_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    info->serviceStartedFunc_ = [](sptr<IRemoteObject> remote) -> void {
         HILOGI("service started");
     };
 
@@ -53,7 +53,7 @@ NearlinkSleController::impl::~impl()
 NearlinkSleController::NearlinkSleController()
 {
     if (pimpl == nullptr) {
-        pimpl = std::make_unique<impl>();
+        pimpl = std::make_shared<impl>();
     }
 }
 

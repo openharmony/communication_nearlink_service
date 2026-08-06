@@ -21,7 +21,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-const uint32_t SLE_CENTRAL_MANAGER_READ_DATA_SIZE_MAX_LEN = 0x100;
 const std::map<uint32_t,
     std::function<ErrCode(NearlinkSleCentralManagerCallBackStub *, MessageParcel &, MessageParcel &)>>
     NearlinkSleCentralManagerCallBackStub::memberFuncMap_ = {

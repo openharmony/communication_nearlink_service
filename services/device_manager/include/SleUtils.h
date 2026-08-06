@@ -57,13 +57,6 @@ public:
     static void ConvertHexStringToInt(const std::string &str, std::vector<uint8_t> &key);
 
     /**
-     * @brief Generate 16 hex uint8_t vector
-     *
-     * @param  [out] int vector value
-     */
-    static void Rand16hex(std::vector<uint8_t> &key);
-
-    /**
      * @brief Get random address
      *
      * @param  [out] uint8_t value

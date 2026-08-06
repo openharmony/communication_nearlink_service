@@ -120,6 +120,7 @@ static void HidCreateLinkStateDispatch(HidDevice_S *dev, HidStmParam_S msg)
         }
         // 收到底层链路状态变化回调，若为已连接，继续执行profile连接流程：获取Hid服务
         case HID_ON_STATE_CHANGED: {
+            NLSTK_CHECK_RETURN_VOID(msg.extData != NULL, "[HID] extData is null");
             uint8_t state = *(uint8_t *)msg.extData;
             if (state == SSAP_CONNECT_STATE_CONNECTED) {
                 HID_DEV_STATE_CHANGE(dev, HID_STATE_GET_SERVICE);

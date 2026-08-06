@@ -31,6 +31,8 @@
 #include "ssaps_service.h"
 #include "ssaps_server_api.h"
 #include "sdf_mem.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfile.h"
 
 #define private public
 #include "ssap_server_stack_adapter.h"
@@ -69,6 +71,7 @@ constexpr uint32_t MESSAGE_SIZE = NearlinkSsapServerInterfaceCode::SSAP_SERVER_B
 sptr<NearlinkSsapServerServer> g_ssapSever = new (std::nothrow) NearlinkSsapServerServer();
 sptr<INearlinkSsapServerCallback> g_ssapServerCb = new (std::nothrow) MockNearlinkSsapServerCallbackStub();
 ThreadUtil &g_threadUtil = ThreadUtil::GetInstance();
+bool g_isInit = false;
 }
 
 int32_t SsapServerOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply)
@@ -669,6 +672,15 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     HILOGI("SsapServerFuzzTest EnableSle");
     hostServer->EnableSle();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_5000_MS));
+    
+    SleInterfaceProfile *profile = SleInterfaceProfileManager::GetInstance().GetProfileService(
+        PROFILE_NAME_SSAP_SERVER);
+    if (profile != nullptr) {
+        OHOS::g_isInit = true;
+        HILOGI("SsapServerFuzzTest init success");
+    } else {
+        HILOGI("SsapServerFuzzTest init failed");
+    }
     return 0;
 }
 
@@ -690,20 +702,22 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::ConnectFuzzTest(data, size);
     OHOS::AuthorizeResponseFuzzTest(data, size);
 
-    OHOS::OnMtuChangedFuzzTest(data, size);
-    OHOS::OnAddServiceFuzzTest(data, size);
-    OHOS::OnSetPropertyValueFuzzTest(data, size);
-    OHOS::OnSetDescriptorValueFuzzTest(data, size);
-    OHOS::OnReadPropertyAuthorizeRequest(data, size);
-    OHOS::OnReadDescriptorAuthorizeRequestFuzzTest(data, size);
-    OHOS::OnWritePropertyAuthorizeRequestFuzzTest(data, size);
-    OHOS::OnWriteDescriptorAuthorizeRequestFuzzTest(data, size);
-    OHOS::OnReadPropertyFuzzTest(data, size);
-    OHOS::OnReadDescriptorFuzzTest(data, size);
-    OHOS::OnWritePropertyFuzzTest(data, size);
-    OHOS::OnWriteDescriptorFuzzTest(data, size);
-    OHOS::OnNotifyPropertyFuzzTest(data, size);
-    OHOS::OnConnectionStateChanged(data, size);
+    if (OHOS::g_isInit) {
+        OHOS::OnMtuChangedFuzzTest(data, size);
+        OHOS::OnAddServiceFuzzTest(data, size);
+        OHOS::OnSetPropertyValueFuzzTest(data, size);
+        OHOS::OnSetDescriptorValueFuzzTest(data, size);
+        OHOS::OnReadPropertyAuthorizeRequest(data, size);
+        OHOS::OnReadDescriptorAuthorizeRequestFuzzTest(data, size);
+        OHOS::OnWritePropertyAuthorizeRequestFuzzTest(data, size);
+        OHOS::OnWriteDescriptorAuthorizeRequestFuzzTest(data, size);
+        OHOS::OnReadPropertyFuzzTest(data, size);
+        OHOS::OnReadDescriptorFuzzTest(data, size);
+        OHOS::OnWritePropertyFuzzTest(data, size);
+        OHOS::OnWriteDescriptorFuzzTest(data, size);
+        OHOS::OnNotifyPropertyFuzzTest(data, size);
+        OHOS::OnConnectionStateChanged(data, size);
+    }
 
     OHOS::SsapServerFuzzTest(data, size);
     OHOS::RemoveServiceFuzzTest(data, size);

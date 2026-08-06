@@ -13,26 +13,19 @@
  * limitations under the License.
  */
 
-#include "nearlink_permission_manager.h"
+#ifndef SLE_INTERFACE_PROFILE_CCP_H
+#define SLE_INTERFACE_PROFILE_CCP_H
 
-#include "log.h"
-#include "nearlink_errorcode.h"
+#include "SleInterfaceProfile.h"
 
 namespace OHOS {
 namespace Nearlink {
-const char *const MOCK_CALLER_NAME_RESOURCE_MANAGER = "comm_protocol_resource_manager";
-std::string NearLinkPermissionManager::GetCallingName()
-{
-    HILOGI("Enter");
-    return MOCK_CALLER_NAME_RESOURCE_MANAGER;
-}
-
-int32_t NearLinkPermissionManager::VerifyMultiPermissions(
-    const std::shared_ptr<NearLinkPermissionItem> &item)
-{
-    HILOGI("Enter, mock permission granted");
-    return NL_NO_ERROR;
-}
-
-}  // namespace Nearlink
-}  // namespace OHOS
+class ProfileCcp : public SleInterfaceProfile {
+public:
+    virtual void HandleVoipStart(const RawAddress &device) = 0;
+    virtual void HandleVoipStop(const RawAddress &device) = 0;
+    virtual void TryResumeCurrentCalls() = 0;
+};
+} // namespace Nearlink
+} // namespace OHOS
+#endif // SLE_INTERFACE_PROFILE_CCP_H

@@ -24,7 +24,7 @@
 
 namespace OHOS {
 namespace Nearlink {
-struct NearlinkCdsmClient::impl {
+struct NearlinkCdsmClient::impl : public std::enable_shared_from_this<impl> {
     impl(const NearlinkRemoteDevice &device, const std::shared_ptr<NearlinkCdsmClientCallback> &callback);
     ~impl();
 
@@ -83,7 +83,7 @@ NearlinkCdsmClient::NearlinkCdsmClient(NearlinkRemoteDevice &device,
                                        std::shared_ptr<NearlinkCdsmClientCallback> &callback)
 {
     HILOGD("[Cdsm]Enter");
-    pimpl = std::make_unique<impl>(device, callback);
+    pimpl = std::make_shared<impl>(device, callback);
     NL_CHECK_RETURN(pimpl, "[Cdsm]pimpl is nullptr");
 }
 
@@ -133,11 +133,15 @@ void NearlinkCdsmClient::impl::Init(const std::weak_ptr<NearlinkCdsmClient> &cli
     NL_CHECK_RETURN(callbackStubImpl_, "[Cdsm]callbackStubImpl_ is nullptr.");
     const auto info = std::make_shared<NearlinkRegisterInfo>(PROFILE_CDSM_CLIENT_SERVER);
     NL_CHECK_RETURN(info, "[Cdsm]info is nullptr.");
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "[Cdsm]implSptr is nullptr.");
         sptr<INearlinkCdsmClient> proxy = iface_cast<INearlinkCdsmClient>(remote);
         NL_CHECK_RETURN(proxy, "[Cdsm]proxy is nullptr.");
-        NL_CHECK_RETURN(callbackStubImpl_, "[Cdsm]callbackStubImpl_ is nullptr.");
-        int result = proxy->RegisterCdsmClientCallback(NearlinkRawAddress(device_.GetDeviceAddr()), callbackStubImpl_);
+        NL_CHECK_RETURN(implSptr->callbackStubImpl_, "[Cdsm]callbackStubImpl_ is nullptr.");
+        int result = proxy->RegisterCdsmClientCallback(NearlinkRawAddress(implSptr->device_.GetDeviceAddr()),
+            implSptr->callbackStubImpl_);
         HILOGI("[Cdsm]NearlinkCdsmClient::Init result=%{public}d", result);
         if (result != NL_NO_ERROR) {
             HILOGE("[Cdsm]Can not Register to cdsm client service! result(%{public}d)", result);

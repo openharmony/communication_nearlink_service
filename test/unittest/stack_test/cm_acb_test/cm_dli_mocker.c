@@ -24,6 +24,7 @@ static const DLI_CbkLineStru *g_cmdCbk = NULL;
 static uint8_t g_cmdCbkSize = 0;
 static const DLI_CbkLineStru *g_cmdConnectionCbk = NULL;
 static uint8_t g_cmdConnectionCbkSize = 0;
+static bool g_cmDisconnectIsNoNeedAtOnce = false;
 
 uint32_t DLI_CancelCreateConnection(void)
 {
@@ -33,10 +34,17 @@ uint32_t DLI_CancelCreateConnection(void)
     return DLI_SUCCESS;
 }
 
+void DLI_SetDisconnectIsNoNeedAtOnce(bool atOnce)
+{
+    g_cmDisconnectIsNoNeedAtOnce = atOnce;
+}
+
 uint32_t DLI_Disconnect(uint8_t version, uint16_t localIndex, DLI_DisconnectParam *param)
 {
     CM_LOGI("DLI_Disconnect enter, discReason:0x%02x", param->reason);
-    UT_CM_SleDisconnectEvt(param->connHandle, param->reason);
+    if (!g_cmDisconnectIsNoNeedAtOnce) {
+        UT_CM_SleDisconnectEvt(param->connHandle, param->reason);
+    }
     return DLI_SUCCESS;
 }
 
@@ -66,7 +74,7 @@ uint32_t DLI_ReadRemoteVersion(DLI_ConnHandleStru *param)
 
 uint32_t DLI_ReadRemoteFeatures(DLI_ConnHandleStru *param)
 {
-    CM_LOGI("DLI_ReadRemoteFetures enter");
+    CM_LOGI("DLI_ReadRemoteFeatures enter");
     UT_CM_SleConnectReadFeatures(param->connHandle);
     return DLI_SUCCESS;
 }

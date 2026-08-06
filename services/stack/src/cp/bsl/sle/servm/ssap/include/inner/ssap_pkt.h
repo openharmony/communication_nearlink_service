@@ -25,8 +25,8 @@ extern "C" {
 
 #define SSAP_EXCHANGE_INFO_PKT_LEN 6        // 信息交换报文长度
 #define SSAP_STACK_MTU_DEFAULT 251          // 星闪服务MTU缺省值
-#define SSAP_STACK_MTU_MAX 1024              // 星闪服务MTU最大值
-#define SSAP_EXCHANGE_VERSION 0x0101        // 星闪服务Version号
+#define SSAP_STACK_MTU_MAX 1024             // 星闪服务MTU最大值
+#define SSAP_EXCHANGE_VERSION SSAP_VERSION_1_3 // 星闪服务Version号
 #define SSAP_PDU_BASE_LEN 2                 // msgCode+ctl长度
 #define SSAP_HANDLE_LEN sizeof(uint16_t)
 
@@ -142,6 +142,16 @@ typedef enum SSAP_MsgCode {
     SSAP_CODE_MAX,
 } SSAP_MsgCode_E;
 
+/**
+ * @brief SSAP 版本号，字节0：大版本号；字节1：小版本号
+ */
+typedef enum SSAP_Version {
+    SSAP_VERSION_1_0 = 0x0001,
+    SSAP_VERSION_1_1 = 0x0101,
+    SSAP_VERSION_1_2 = 0x0201,
+    SSAP_VERSION_1_3 = 0x0301,
+} SSAP_Version_E;
+
 #define SSAP_CTRL_FRAG_BEGIN 0b00   // 起始数据包
 #define SSAP_CTRL_FRAG_MID 0b01     // 中间数据包
 #define SSAP_CTRL_FRAG_END 0b10     // 结束数据包
@@ -213,9 +223,13 @@ typedef enum SSAP_PduErrCode {
 typedef struct SSAP_PduExchangePkt {
     uint8_t msgCode;
     struct {
-        uint8_t mtu : 1;            // 标志是否携带mtu信息
-        uint8_t version : 1;        // 标志是否携带version信息
-        uint8_t resv : 6;
+        uint8_t mtu : 1;             // 标志是否携带mtu信息
+        uint8_t version : 1;         // 标志是否携带version信息
+        uint8_t extMsgCtrl : 1;      // 标志是否携带扩展消息控制码
+        uint8_t reliable : 1;        // 标志是否支持SSAP可靠模式传输通道
+        uint8_t fragment : 1;        // 标志是否支持SSAP分包
+        uint8_t multiProcessing : 1; // 标志是否支持多值处理
+        uint8_t resv : 2;
     } ctrl;
     uint16_t msgMtu;
     uint16_t msgVersion;

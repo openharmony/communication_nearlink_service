@@ -157,6 +157,8 @@ public:
     virtual void SetDeviceManufacturerAbility(
         const RawAddress &device, const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manuAbility) const = 0;
 
+    /* 获取设备的上报地址 */
+    virtual RawAddress GetReportAddr(const RawAddress &device) = 0;
 };
 
 } // namespace Sle

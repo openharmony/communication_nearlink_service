@@ -176,13 +176,12 @@ int32_t NapiParseSsapDescriptor(napi_env env, napi_value object, NapiSsapDescrip
 
 int32_t NapiParseSsapEvent(napi_env env, napi_value object, NapiSsapEvent &outEvent)
 {
-    NAPI_NL_CALL_RETURN(NapiCheckObjectPropertiesName(env, object, {"serviceUuid", "uuid", "handle"}));
+    NAPI_NL_CALL_RETURN(NapiCheckObjectPropertiesName(env, object, {"serviceUuid", "uuid"}));
     std::string serviceUuid {};
     std::string eventUuid {};
     uint32_t handle = 0;
     NAPI_NL_CALL_RETURN(NapiParseObjectUuid(env, object, "serviceUuid", serviceUuid));
     NAPI_NL_CALL_RETURN(NapiParseObjectUuid(env, object, "uuid", eventUuid));
-    NAPI_NL_CALL_RETURN(NapiParseObjectUint32(env, object, "handle", handle));
 
     if (CheckBaseUuid(serviceUuid) || CheckBaseUuid(eventUuid)) {
         HandleSyncErr(env, NlErrCode::NL_ERR_STANDARD_UUID_NOT_ALLOWED);
@@ -191,7 +190,7 @@ int32_t NapiParseSsapEvent(napi_env env, napi_value object, NapiSsapEvent &outEv
 
     outEvent.serviceUuid_ = UUID::FromString(serviceUuid);
     outEvent.uuid_ = UUID::FromString(eventUuid);
-    outEvent.handle_ = static_cast<uint16_t>(handle);
+    outEvent.handle_ = static_cast<uint16_t>(0);
     return NlErrCode::NL_NO_ERROR;
 }
 

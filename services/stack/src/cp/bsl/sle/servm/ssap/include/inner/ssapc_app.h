@@ -99,6 +99,8 @@ void SsapcCacheLinkOper(int32_t appId, NLSTK_SsapClientLinkChangeEvent_E oper);
 void SsapcAppPropertyNtf(SSAP_ValuePkt_S *valuePkt);
 
 void SsapcAppServChange(SLE_Addr_S *addr, uint16_t startHandle, uint16_t endHandle);
+void SsapcGetMultiProcessing(void *param);
+bool SsapcIsSupportMultiProcessing(int32_t appId);
 
 #ifdef __cplusplus
 }
