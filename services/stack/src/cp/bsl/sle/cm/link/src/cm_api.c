@@ -466,7 +466,7 @@ static void CM_ConnectUpdateParamReqInner(void *arg)
     }
     // 共存场景下，HID interval设置不能小于15ms
     uint16_t coexInterval = 0;
-    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, updateParam.connIntervalMin, false)) {
+    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, updateParam.connIntervalMin)) {
         updateParam.connIntervalMin = coexInterval;
         updateParam.connIntervalMax = coexInterval;
     }
