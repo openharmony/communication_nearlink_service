@@ -117,11 +117,9 @@ uint32_t SleAccessSetPhy(DLI_SetPhyParam *param);
  * @param  [out] coexInterval : 共存模式下修改后的参数
  * @param  [in] addr : acb地址
  * @param  [in] incommingInterval : acb当前interval
- * @param  [in] isNeedUpdateInt : 是否需要上层主动发起参数调整
  * @return true: acb参数发生调整, false: acb参数未发生调整
  */
-bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incommingInterval,
-    bool isNeedUpdateInt);
+bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incommingInterval);
 #ifdef __cplusplus
 }
 #endif
