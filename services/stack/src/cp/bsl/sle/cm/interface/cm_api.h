@@ -311,7 +311,6 @@ typedef struct {
     SLE_Addr_S addr;
     uint16_t incomingInterval;
     uint16_t coexInterval;
-    bool isNeedUpdateInt;
 } CM_HidCoexModeRsp_S;
 
 #pragma pack ()
