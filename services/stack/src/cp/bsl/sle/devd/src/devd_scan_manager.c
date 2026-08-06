@@ -570,6 +570,9 @@ static void ReportCbk(NLSTK_DevdAdvReportInfo_S *report)
 
     NLSTK_DevdScanManager_S *manager = DEVD_STM_M(g_scanStm, scanManager);
     SDF_Vector_S *scanners[DEVD_MAX_MODULE_ID] = {0};
+    const char *current = ((StateMachine *)g_scanStm)->GetCurrentStateName((StateMachine *)g_scanStm);
+    const char *stopped = DevdGetStmStateName(NLSTK_DEVD_STATE_STOPPED);
+    bool isStopped = (current != NULL && stopped != NULL && strncmp(current, stopped, strlen(stopped)) == 0);
     for (size_t i = 0; i < manager->scanners->size; i++) {
         NLSTK_DevdScanner_S *scanner = (NLSTK_DevdScanner_S *)SDF_VectorElementAt(manager->scanners, i);
         if (DevdIsMatchFilters(result, scanner->filters) && scanner->moduleId < DEVD_MAX_MODULE_ID) {
@@ -591,6 +594,10 @@ static void ReportCbk(NLSTK_DevdAdvReportInfo_S *report)
             manager->scanModule[i].scanCbk.onScanCallback(result);
         }
         SDF_DestroyVector(scanners[i]);
+    }
+
+    if (isStopped) {
+        NLSTK_LOG_WARN("[DEVDS] scan is stopped, but recv adv");
     }
 
     ClearAdvDataCache(&result->addr);
