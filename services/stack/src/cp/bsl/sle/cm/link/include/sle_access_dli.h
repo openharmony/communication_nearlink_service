@@ -111,6 +111,15 @@ uint32_t SleAccessReadRemoteVersion(uint16_t handle);
  * @return SUCCESS: 成功, OTHERS: 失败
  */
 uint32_t SleAccessSetPhy(DLI_SetPhyParam *param);
+
+/**
+ * @brief  SLE接入管理层共存模式下获取并调整acb interval
+ * @param  [out] coexInterval : 共存模式下修改后的参数
+ * @param  [in] addr : acb地址
+ * @param  [in] incomingInterval : acb当前interval
+ * @return true: acb参数发生调整, false: acb参数未发生调整
+ */
+bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incomingInterval);
 #ifdef __cplusplus
 }
 #endif

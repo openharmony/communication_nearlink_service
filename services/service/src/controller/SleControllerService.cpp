@@ -205,7 +205,7 @@ bool SleControllerService::SetSleCoexMode(int32_t mode, const std::vector<std::s
     }
     return true;  
 }
- 
+
 void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint16_t currentInterval,
     uint16_t &coexInterval)
 {
@@ -225,7 +225,7 @@ void SleControllerService::GetSleHidCoexInterval(const std::string &device, uint
     HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
     return;
 }
- 
+
 void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string &device, uint16_t intervalValue)
 {
     std::lock_guard<std::mutex> lock(sleCoexModeLock_);
@@ -243,7 +243,7 @@ void SleControllerService::UpdateSleHidCoexModePendingInterval(const std::string
     HILOGE("fail to find coex device record: %{public}s", GetEncryptAddr(device).c_str());
     return;
 }
- 
+
 bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
@@ -292,7 +292,7 @@ bool SleControllerService::EnableSleHidCoexMode(const std::vector<std::string> &
     UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STARTING);
     return true;
 }
- 
+
 bool SleControllerService::DisableSleHidCoexMode()
 {
     auto adapter = static_cast<SleInterfaceAdapterSub *>
@@ -314,7 +314,7 @@ bool SleControllerService::DisableSleHidCoexMode()
     UpdateSleHidCoexIntervalForEach(sleHidCoexModeParam_.deviceList, 0, SleCoexModeStatus::STOPPING);
     return true;
 }
- 
+
 void SleControllerService::UpdateSleHidCoexIntervalForEach(
     const std::vector<SleHidCoexDevice> &deviceList, size_t index, SleCoexModeStatus state)
 {
@@ -369,7 +369,7 @@ void SleControllerService::UpdateSleHidCoexIntervalForEach(
         SLE_CONN_INTERVAL_UNIT_DIVISOR_8 + SLE_HID_COEX_UPDATE_TIMESLOT_10 : 0;
     StartSleHidCoexUpdateTimer(deviceList, index + 1, state, updateProtectingTime);
 }
- 
+
 void SleControllerService::StartSleHidCoexUpdateTimer(const std::vector<SleHidCoexDevice> &deviceList, size_t index,
     SleCoexModeStatus state, int64_t protectTime)
 {

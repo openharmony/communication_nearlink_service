@@ -16,7 +16,6 @@
 #include "sle_access_dli.h"
 #include "securec.h"
 #include "byte_codec.h"
-#include "cm_api.h"
 #include "cm_dli_adapter.h"
 #include "cm_errno.h"
 #include "cm_log.h"
@@ -379,7 +378,7 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     }
     // 共存场景下，HID interval设置不能小于15ms
     uint16_t coexInterval = 0;
-    if (CM_AdjustCoexAcbInterval(&link->rmtAddr, replyParam.connIntervalMin, &coexInterval)) {
+    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, replyParam.connIntervalMin)) {
         replyParam.connIntervalMin = coexInterval;
         replyParam.connIntervalMax = coexInterval;
     }
@@ -943,4 +942,34 @@ uint32_t SleAccessSetPhy(DLI_SetPhyParam *param)
     uint32_t ret = DLI_SetPhy(param);
     CM_CHECK_RETURN_RET((ret == DLI_SUCCESS), CM_FAIL, "DLI_SetPhy failed, ret:0x%08x", ret);
     return CM_SUCCESS;
+}
+
+bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incomingInterval)
+{
+    CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_HID_COEX_MODE);
+    CM_CHECK_RETURN_RET(cbk != NULL, false, "cbk is null");
+    CM_CHECK_RETURN_RET(addr != NULL, false, "addr is null");
+    CM_CHECK_RETURN_RET(coexInterval != NULL, false, "coexInterval is null");
+
+    void *context = NULL;
+    CM_HidCoexModeRsp_S coexParam = { 0 };
+    coexParam.eventType = CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL;
+    coexParam.addr = *addr;
+    coexParam.incomingInterval = incomingInterval;
+    coexParam.coexInterval = 0;
+    CM_ExecuteCmdPar_S paramCbk = {0};
+    paramCbk.eventParameter = &coexParam;
+    paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
+
+    cbk(context, DLI_SUCCESS, &paramCbk);
+    if (coexParam.coexInterval != 0) {
+        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %hu, "
+            "coex interval: %hu", GET_ENC_ADDR(addr), incomingInterval, coexParam.coexInterval);
+        *coexInterval = coexParam.coexInterval;
+    }
+    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
+    paramCbk.eventParameter = &coexParam;
+    paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
+    cbk(context, DLI_SUCCESS, &paramCbk);
+    return coexParam.coexInterval != 0;
 }
