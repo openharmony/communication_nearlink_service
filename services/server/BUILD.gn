@@ -137,6 +137,7 @@ ohos_shared_library("nearlink_server") {
     "qos_manager:concurrent_task_client",
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
+    "ability_base:want",
   ]
 
   if (nearlink_deps_hicollie_exist) {

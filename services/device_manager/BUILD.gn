@@ -103,6 +103,7 @@ ohos_shared_library("nearlink_device_manager") {
     "libxml2:libxml2",  # xml_parase.cpp
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
+    "ability_base:want",
   ]
 
   sources = [
