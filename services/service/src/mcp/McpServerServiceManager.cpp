@@ -889,8 +889,8 @@ void McpServerServiceManager::impl::SendKeyEvent(const McpMessage &event)
 /* 如果当前音频设备已在播放中，合作集内其他设备同步状态 */
 void McpServerServiceManager::impl::CheckRenderStateChanged()
 {
-    HILOGI("enter");
     if (realTimeRenderState_ == McpRenderState::KPlaying) {
+        HILOGI("enter");
         UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
         return;
     }
