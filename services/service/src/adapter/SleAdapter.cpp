@@ -437,11 +437,9 @@ bool SleAdapter::DisableTask()
         GetContext()->OnDisable(ADAPTER_NAME_SLE, pimpl->btmEnableFlag_);
         return false;
     }
-    InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
 
     adapterProperties_->SavePeerDeviceInfoToConf();
     adapterProperties_->ClearPeerDeviceGroupId();
-    ClearPeerDeviceInfo();
     int ret = SleProperties::GetInstance().SetBondableMode(static_cast<int>(BondableMode::BONDABLE_MODE_OFF));
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         LOG_ERROR("[SleAdapter]:SetBondableMode failed!");
@@ -461,6 +459,9 @@ bool SleAdapter::DisableTask()
     }
     SleDliSnoop::GetInstance().SnoopShutDown();
     GetContext()->OnDisable(ADAPTER_NAME_SLE, ret);
+
+    ClearPeerDeviceInfo();
+    InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
     return ret;
 }
 
@@ -1902,10 +1903,6 @@ void SleAdapter::ConnectionStateTask(const CM_LogicLinkState_S &connResult)
 
 void SleAdapter::OnAcbStateChanged(const RawAddress &device, int connectState, int reason) const
 {
-    InterfaceCloudPairService::GetInstance().HandleAcbStateChanged(device, connectState, reason);
-    pimpl->slePeripheralCallback_.ForEach([device, connectState, reason](ISlePeripheralCallback &observer) {
-        observer.OnAcbStateChanged(device, connectState, reason);
-    });
     NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
     if (reason == static_cast<int>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR)) {
         LOG_INFO("remote device deletes pair record, addr:%{public}s", GetEncryptAddr(device.GetAddress()).c_str());
@@ -1913,6 +1910,10 @@ void SleAdapter::OnAcbStateChanged(const RawAddress &device, int connectState, i
             sleAdapterImpl->CancelPairingTask(device);
         });
     }
+    InterfaceCloudPairService::GetInstance().HandleAcbStateChanged(device, connectState, reason);
+    pimpl->slePeripheralCallback_.ForEach([device, connectState, reason](ISlePeripheralCallback &observer) {
+        observer.OnAcbStateChanged(device, connectState, reason);
+    });
 }
 
 bool SleAdapter::ConnectionCompleteTaskInner(int pairState, uint16_t lcid,
@@ -2575,13 +2576,13 @@ void SleAdapter::EncryptionKeyMissingComplete(const RawAddress &device) const
     ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
         SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));
     NL_CHECK_RETURN(cdsmService, "ProfileCdsm is null.");
-    if (!cdsmService->CdsmCheckIsCooperationDevice(device)) {
+    if (!adapterProperties_->IsAudioDevice(device.GetAddress())) {
         return;
     }
     if (isVendorDevice) {
         UpdateKeyMissingCdsmGroup(device);
         InterfaceCloudPairService::GetInstance().SetKeyMissingPairState(device);
-    } else {
+    } else if (cdsmService->CdsmCheckIsCooperationReport(device)){
         RawAddress member;
         if (cdsmService->CdsmGetOtherAddr(device, member)) {
             HILOGI("[SleAdapter]cdsm report device(%{public}s) is keymissing, cancel member(%{public}s) acb req",

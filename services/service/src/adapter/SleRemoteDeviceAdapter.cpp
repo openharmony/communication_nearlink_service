@@ -944,7 +944,6 @@ void SleRemoteDeviceAdapter::UpdateSlePeripheralDeviceInfo(const RawAddress &dev
 void SleRemoteDeviceAdapter::UpdateSlePeripheralDeviceHiLinkInfo(const RawAddress &reportAddr,
     std::shared_ptr<SlePeripheralDevice> value) const
 {
-    HILOGI("enter");
     int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(reportAddr.GetAddress());
     businessType = businessType == 0 ?
         InterfaceCloudPairService::GetInstance().GetCloudDeviceManufacturerBusinessType(reportAddr) : businessType;
@@ -981,6 +980,8 @@ void SleRemoteDeviceAdapter::UpdateSlePeripheralDeviceHiLinkInfo(const RawAddres
     if (!value->GetIsAudioDeviceFlag()) {
         value->SetIsAudioDeviceFlag(isAudioDevice);
     }
+    HILOGI("[SleRemoteDeviceAdapter]:reportAddr:%{public}s, businessType:%{public}d, isAudioDevice:%{public}d",
+        GET_ENCRYPT_ADDR(reportAddr), businessType, isAudioDevice);
 }
 
 
