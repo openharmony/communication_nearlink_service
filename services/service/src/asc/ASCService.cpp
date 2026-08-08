@@ -6797,6 +6797,9 @@ void ASCService::AcbSubrateChangeReq(const RawAddress &device, const SleAcbSubra
 
 bool ASCService::IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam)
 {
+    if (eventParam.subrate == NLSTK_SUBRATE_1) {
+        return false;
+    }
     if (GetASCSubRateStatus(device) == NL_SLE_ASC_SETTING) {
         return false;
     }
