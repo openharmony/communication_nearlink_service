@@ -40,6 +40,7 @@ typedef enum {
  * @brief 星闪链路subrate类型
  */
 typedef enum : uint16_t {
+    NLSTK_SUBRATE_1 = 0x01,                     /*!< 芯片硬件要求级别高 */
     NLSTK_DEFAULT_SUBRATE = 0x06,               /*!< 音频场景默认subrate */
     NLSTK_MULTI_LINK_SUBRATE = 0x0C,            /*!< 音频场景多连接subrate */
     NLSTK_SUBRATE_2 = 0x02,                     /*!< 语音唤醒提速subrate */
