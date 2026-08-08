@@ -927,6 +927,7 @@ bool SleAdapter::StartPairTask(const RawAddress &device)
         LOG_INFO("acb connected");
         bool ret = pimpl->sleSecurity_.StartPair(realAddr, peerAddrType);
         NL_CHECK_RETURN_RET(ret, false, "[SleAdapter]:failed");
+        adapterProperties_->SetConnDirect(peerAddr, static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE));
         PairingStatus(realAddr);
         return true;
     }
