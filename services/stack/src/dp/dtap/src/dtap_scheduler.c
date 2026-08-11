@@ -14,6 +14,7 @@
  */
 
 #include "dtap_scheduler.h"
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include "securec.h"
@@ -32,12 +33,17 @@
 #include "sdf_dlist.h"
 #include "sdf_mem.h"
 #include "nlstk_public_define.h"
+#include "time_utils.h"
 
 #define DTAP_PACKET_MAX_SIZE 10000
 #define DTAP_SCHED_BLOCK_TIMEOUT_MS 1000
 #define DTAP_SCHED_SUB(x, y) (((x) > (y)) ? ((x) - (y)) : 0)
 #define DTAP_FRAGMENT_TCID TCID_MAX
 #define DTAP_MIN_BUFFER_NUM 1
+#define DTAP_RATE_CALC_INTERVAL_MS 10000
+#define DTAP_RATE_PRINT_MIN_VALUE 1.0f
+#define DTAP_MS_PER_SEC 1000
+#define DTAP_BYTES_PER_KB 1024
 
 typedef struct {
     SDF_DListEntry_S entry;
@@ -60,13 +66,6 @@ typedef struct {
     uint8_t priority;             // 即DTAP_ModuleType，值越小优先级越高
     uint32_t pktCnt;              // 最大为DTAP_MODULE_QUEUE_MAX_SIZE
 } DTAP_PriorityQueue;
-
-typedef struct {
-    SDF_DListEntry_S entry;
-    uint16_t lcid;
-    uint32_t quota;               // 该LCID的发送配额
-    uint32_t sendNotAckPktCnt;    // 该LCID的发送但未确认的包数
-} DTAP_LcidBufferNode;
 
 static DTAP_PriorityQueue g_dtapScheduler[DTAP_PRIORITY_MAX] = {0};
 static SDF_DListHead_S g_lcidBufferList = {{&g_lcidBufferList.list, &g_lcidBufferList.list}, 0};
@@ -95,7 +94,12 @@ static bool DTAP_AddLcidBufferNode(uint16_t connHandle)
         return false;
     }
     node->lcid = connHandle;
+    node->quota = 0;
+    node->lastQuota = 0;
     node->sendNotAckPktCnt = 0;
+    node->queuedPktCnt = 0;
+    node->windowBytes = 0;
+    node->lastRateCalcTime = 0;
     SDF_DListEntryInit(&node->entry);
     SDF_DListElmTailInsert(&g_lcidBufferList, node, entry);
     return true;
@@ -116,7 +120,7 @@ static bool DTAP_DeleteLcidBufferNode(uint16_t connHandle)
     return false;
 }
 
-static DTAP_LcidBufferNode *DTAP_GetLcidBufferNode(uint16_t lcid)
+DTAP_LcidBufferNode *DTAP_GetLcidBufferNode(uint16_t lcid)
 {
     DTAP_LcidBufferNode *node = NULL;
     SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
@@ -128,6 +132,37 @@ static DTAP_LcidBufferNode *DTAP_GetLcidBufferNode(uint16_t lcid)
     return NULL;
 }
 
+static void DTAP_DecLcidQueuedPktCnt(uint16_t lcid, uint32_t cnt)
+{
+    DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(lcid);
+    if (node != NULL) {
+        node->queuedPktCnt = DTAP_SCHED_SUB(node->queuedPktCnt, cnt);
+    }
+}
+
+static void DTAP_CalcLcidSendRate(DTAP_LcidBufferNode *node, uint64_t pktBytes)
+{
+    node->windowBytes += pktBytes;
+    uint64_t now = DP_GetMonoTimeMs();
+    if (node->lastRateCalcTime == 0) {
+        node->lastRateCalcTime = now;
+        return;
+    }
+
+    uint64_t elapsed = DTAP_SCHED_SUB(now, node->lastRateCalcTime);
+    if (elapsed < DTAP_RATE_CALC_INTERVAL_MS) {
+        return;
+    }
+
+    double rateKB = (double)node->windowBytes / elapsed * DTAP_MS_PER_SEC / DTAP_BYTES_PER_KB;
+    node->windowBytes = 0;
+    node->lastRateCalcTime = now;
+    if (rateKB > DTAP_RATE_PRINT_MIN_VALUE) {
+        DTAP_LOGI("connHandle %hu, average sendRate %.2f KB/s in %" PRIu64 "s",
+            node->lcid, rateKB, elapsed / DTAP_MS_PER_SEC);
+    }
+}
+
 static void DTAP_FreeLcidBufferNode(SDF_DListEntry_S *entry)
 {
     DTAP_LcidBufferNode *node = (DTAP_LcidBufferNode *)entry;
@@ -137,22 +172,79 @@ static void DTAP_FreeLcidBufferNode(SDF_DListEntry_S *entry)
     SDF_MemFree(node);
 }
 
-static void DTAP_RecalcLcidQuota(void)
+// 统计所有链路待发送pkt之和，无需求时返回0
+static uint64_t DTAP_CalcTotalQueuedPktCnt(void)
 {
-    uint32_t lcidNums = SDF_DListCount(&g_lcidBufferList);
-    uint32_t quota = (lcidNums == 0) ? 0 :
-        (g_apBufferNum / lcidNums) == 0 ? DTAP_MIN_BUFFER_NUM : g_apBufferNum / lcidNums;
-    uint32_t remainQuota = DTAP_SCHED_SUB(g_apBufferNum, (quota * lcidNums));
+    uint64_t total = 0;
     DTAP_LcidBufferNode *node = NULL;
     SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
-        if (remainQuota > 0) {
-            node->quota = quota + 1;
-            remainQuota--;
-            DTAP_LOGI("lcid %d, quota %d, sendNotAckPktCnt %d", node->lcid, node->quota, node->sendNotAckPktCnt);
-            continue;
+        total += node->queuedPktCnt;
+    }
+    return total;
+}
+
+// 按比例分配LCID配额：按比例截断分配 + 最大余数法补齐， 保证Σbonus=bonusPool
+// 内部函数，调用前保证totalQueuedPktCnt不为0
+static void DTAP_AllocLcidQuota(uint64_t totalQueuedPktCnt)
+{
+    uint32_t lcidNums = SDF_DListCount(&g_lcidBufferList);
+    uint8_t bonusPool = (g_apBufferNum > lcidNums * DTAP_MIN_BUFFER_NUM) ?
+        (g_apBufferNum - lcidNums * DTAP_MIN_BUFFER_NUM) : 0;
+    // 按比例截断分配
+    uint8_t sumBonus = 0;
+    DTAP_LcidBufferNode *node = NULL;
+    SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
+        uint8_t bonus = (uint64_t)bonusPool * node->queuedPktCnt / totalQueuedPktCnt;
+        node->quota = DTAP_MIN_BUFFER_NUM + bonus;
+        sumBonus += bonus;
+    }
+    // 最大余数法补齐：选frac最大的未补齐节点各+1
+    for (uint8_t rem = bonusPool - sumBonus; rem > 0; rem--) {
+        uint64_t maxFrac = 0;
+        DTAP_LcidBufferNode *maxNode = NULL;
+        SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
+            uint64_t product = (uint64_t)bonusPool * node->queuedPktCnt;
+            uint8_t floorBonus = product / totalQueuedPktCnt;
+            // quota - MIN_BUFFER_NUM 为该节点已分到的bonus；若已超过向下取整值 floorBonus，
+            // 说明本轮已被补齐过(+1)，跳过以保证补齐阶段每个节点最多+1
+            if (node->quota - DTAP_MIN_BUFFER_NUM > floorBonus) {
+                continue;
+            }
+            uint64_t frac = product % totalQueuedPktCnt;
+            if (frac > maxFrac) {
+                maxFrac = frac;
+                maxNode = node;
+            }
         }
-        node->quota = quota;
-        DTAP_LOGI("lcid %d, quota %d, sendNotAckPktCnt %d", node->lcid, node->quota, node->sendNotAckPktCnt);
+        if (maxNode != NULL) {
+            maxNode->quota++;
+        }
+    }
+}
+
+static void DTAP_RecalcLcidQuota(void)
+{
+    DTAP_LcidBufferNode *node = NULL;
+    uint64_t totalQueuedPktCnt = DTAP_CalcTotalQueuedPktCnt();
+    if (totalQueuedPktCnt != 0) {
+        DTAP_AllocLcidQuota(totalQueuedPktCnt);
+        SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
+            if (node->quota != node->lastQuota) {
+                DTAP_LOGD("lcid %hu, quota %u, queued %u, sendNotAck %u", node->lcid, node->quota,
+                    node->queuedPktCnt, node->sendNotAckPktCnt);
+                node->lastQuota = node->quota;
+            }
+        }
+        return;
+    }
+
+    SDF_DListElmForeach(node, &g_lcidBufferList, entry) {
+        node->quota = DTAP_MIN_BUFFER_NUM;
+        if (node->quota != node->lastQuota) {
+            DTAP_LOGD("lcid %hu, quota %u, queued %u, sendNotAck %u", node->lcid, node->quota,
+                node->queuedPktCnt, node->sendNotAckPktCnt);
+            node->lastQuota = node->quota;
+        }
     }
 }
 
@@ -171,6 +263,7 @@ static void DTAP_DLIConnectCbk(void *context, uint16_t status, DLI_ExecuteCmdRet
     if (DTAP_AddLcidBufferNode(connHandle)) {
         DTAP_RecalcLcidQuota();
     }
+    DTAP_LOGI("g_sendNotAckPktCnt: %hhu, g_apBufferNum: %hhu", g_sendNotAckPktCnt, g_apBufferNum);
 }
 
 static void DTAP_DLIDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
@@ -191,6 +284,7 @@ static void DTAP_DLIDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmd
     if (DTAP_DeleteLcidBufferNode(connHandle)) {
         DTAP_RecalcLcidQuota();
     }
+    DTAP_LOGI("g_sendNotAckPktCnt: %hhu, g_apBufferNum: %hhu", g_sendNotAckPktCnt, g_apBufferNum);
 }
 
 static void DTAP_DestroyPacket(SDF_DListEntry_S *entry)
@@ -299,7 +393,7 @@ static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid)
 
 static void DTAP_SetApBufferNum(uint8_t bufferNum)
 {
-    DTAP_LOGI("ap buffer num is setted:%hhu", bufferNum);
+    DTAP_LOGI("ap buffer num is set:%hhu", bufferNum);
     g_apBufferNum = bufferNum;
     DTAP_RecalcLcidQuota();
 }
@@ -427,9 +521,11 @@ static void DTAP_ChannelDownProc(DTAP_PriorityQueue *q, uint16_t lcid, uint8_t s
             if (channelNode->lcid != lcid || channelNode->srcTcid != srcTcid) {
                 continue;
             }
+            uint32_t channelPktCnt = SDF_DListCount(&channelNode->pktList);
+            DTAP_DecLcidQueuedPktCnt(lcid, channelPktCnt);
             SDF_DListElmDel(&lcidNode->channelList, channelNode, schedEntry);
-            lcidNode->pktCnt = DTAP_SCHED_SUB(lcidNode->pktCnt, (uint32_t)SDF_DListCount(&channelNode->pktList));
-            q->pktCnt = DTAP_SCHED_SUB(q->pktCnt, (uint32_t)SDF_DListCount(&channelNode->pktList));
+            lcidNode->pktCnt = DTAP_SCHED_SUB(lcidNode->pktCnt, channelPktCnt);
+            q->pktCnt = DTAP_SCHED_SUB(q->pktCnt, channelPktCnt);
             SDF_DListDestroy(&channelNode->pktList, DTAP_DestroyPacketAndBuff);
             SDF_DListHeadInit(&channelNode->pktList);
             if (q->priority == DTAP_PRIORITY_FRAGMENT) {
@@ -483,7 +579,7 @@ static bool DTAP_PriorityQueuePeek(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNod
 }
 
 static void DTAP_PriorityQueuePop(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode,
-    DTAP_Channel_S *channelNode, DTAP_PendingPacket *pkt)
+    DTAP_Channel_S *channelNode, DTAP_LcidBufferNode *node, DTAP_PendingPacket *pkt)
 {
     uint32_t seq = pkt->seq;
     if (!SDF_DListIsEmpty(&channelNode->pktList)) {
@@ -493,6 +589,7 @@ static void DTAP_PriorityQueuePop(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode
 
     lcidNode->pktCnt = DTAP_SCHED_SUB(lcidNode->pktCnt, 1);
     q->pktCnt = DTAP_SCHED_SUB(q->pktCnt, 1);
+    node->queuedPktCnt = DTAP_SCHED_SUB(node->queuedPktCnt, 1);
     DTAP_LOGD("pop success, priority %d, lcid %d, srcTcid %d, queue pktCnt %d, lcid pktCnt %d, pkt seq %d", q->priority,
         channelNode->lcid, channelNode->srcTcid, q->pktCnt, lcidNode->pktCnt, seq);
     // 已调度发送过的非空channel，移动到链表尾部，保证公平性
@@ -607,28 +704,36 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
     return true;
 }
 
+static void DTAP_PrintSendInfo(const DTAP_PriorityQueue *q, const DTAP_LcidNode *lcidNode,
+    const DTAP_Channel_S *channelNode, const DTAP_LcidBufferNode *node, const DTAP_PendingPacket *pkt)
+{
+    DTAP_LOGD("send start, queue pktCnt %u, lcid pktCnt %u, channel pktCnt %u, priority %hhu, lcid %hu, "
+        "srcTcid %hhu, dstTcid %hhu, pkt seq %u, pkt len %llu, quota %hhu, sendNotAck %u, queued %u", q->pktCnt,
+        lcidNode->pktCnt, SDF_DListCount((SDF_DListHead_S *)&channelNode->pktList), q->priority, channelNode->lcid,
+        channelNode->srcTcid, channelNode->dstTcid, pkt->seq, SDF_DataLenGet(pkt->buff), node->quota,
+        node->sendNotAckPktCnt, node->queuedPktCnt);
+}
+
 static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DTAP_LcidBufferNode *node)
 {
     DTAP_Channel_S *channelNode = NULL;
     while (DTAP_CanSend(node) && DTAP_PriorityQueuePeek(q, lcidNode, &channelNode)) {
         DTAP_PendingPacket *pkt = (DTAP_PendingPacket *)SDF_DListFirst(&channelNode->pktList);
 
-        DTAP_LOGD("send start, queue pktCnt %d, lcid pktCnt %d, channel pktCnt %d, priority %d, lcid %d, "
-            "srcTcid %d, dstTcid %d, pkt seq %d, pkt len %d", q->pktCnt, lcidNode->pktCnt,
-            SDF_DListCount(&channelNode->pktList), q->priority, channelNode->lcid, channelNode->srcTcid,
-            channelNode->dstTcid, pkt->seq, SDF_DataLenGet(pkt->buff));
+        DTAP_PrintSendInfo(q, lcidNode, channelNode, node, pkt);
 
         if (pkt->isSplited) {
-            if (DTAP_SendData(channelNode->lcid, pkt->buff)) {
-                DTAP_PriorityQueuePop(q, lcidNode, channelNode, pkt);
-                node->sendNotAckPktCnt++;
-                g_sendNotAckPktCnt++;
-                continue;
-            } else {
-                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
-                    channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(pkt->buff));
+            uint64_t dataLen = SDF_DataLenGet(pkt->buff);
+            if (!DTAP_SendData(channelNode->lcid, pkt->buff)) {
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %" PRIu64 "", q->priority,
+                    channelNode->lcid, channelNode->srcTcid, dataLen);
                 return false;
             }
+            DTAP_CalcLcidSendRate(node, dataLen);
+            DTAP_PriorityQueuePop(q, lcidNode, channelNode, node, pkt);
+            node->sendNotAckPktCnt++;
+            g_sendNotAckPktCnt++;
+            continue;
         }
 
         uint32_t fragmentCnt = DLI_GetDataFragmentNums(pkt->buff);
@@ -639,16 +744,18 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
         SDF_BuffFree(pkt->buff);
         uint32_t sendCnt = 0;
         for (; DTAP_CanSend(node) && sendCnt < fragmentCnt; sendCnt++, node->sendNotAckPktCnt++) {
+            uint64_t dataLen = SDF_DataLenGet(fragmentBuf[sendCnt]);
             if (!DTAP_SendData(channelNode->lcid, fragmentBuf[sendCnt])) {
                 // 发送失败，暂停发送，等待下次继续发送
-                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %d", q->priority,
-                    channelNode->lcid, channelNode->srcTcid, SDF_DataLenGet(fragmentBuf[sendCnt]));
+                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %" PRIu64 "", q->priority,
+                    channelNode->lcid, channelNode->srcTcid, dataLen);
                 break;
             }
+            DTAP_CalcLcidSendRate(node, dataLen);
             g_sendNotAckPktCnt++;
         }
 
-        DTAP_PriorityQueuePop(q, lcidNode, channelNode, pkt);
+        DTAP_PriorityQueuePop(q, lcidNode, channelNode, node, pkt);
         if (sendCnt >= fragmentCnt) {
             continue;
         }
@@ -712,51 +819,58 @@ static void DTAP_SchedulerRun(void)
     }
 }
 
+static DTAP_LcidNode *DTAP_GetLcidNode(const DTAP_PriorityQueue *q, uint16_t lcid)
+{
+    if (SDF_DListIsEmpty(&q->lcidList)) {
+        return NULL;
+    }
+    DTAP_LcidNode *lcidNode = NULL;
+    SDF_DListElmForeach(lcidNode, &q->lcidList, entry) {
+        if (lcidNode->lcid == lcid) {
+            return lcidNode;
+        }
+    }
+    return NULL;
+}
+
+static void DTAP_InsertChannelToLcidNode(const DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode,
+    DTAP_Channel_S *transChan)
+{
+    DTAP_Channel_S *channelNode = NULL;
+    SDF_DListElmForeach(channelNode, &lcidNode->channelList, schedEntry) {
+        if (channelNode->lcid == transChan->lcid && channelNode->srcTcid == transChan->srcTcid) {
+            return;
+        }
+    }
+    SDF_DListElmTailInsert(&lcidNode->channelList, transChan, schedEntry);
+    DTAP_LOGI("insert channel node to queue, priority %d, lcid %d, srcTcid %d, dstTcid %d", q->priority,
+        transChan->lcid, transChan->srcTcid, transChan->dstTcid);
+}
+
 static uint32_t DTAP_PriorityQueuePush(DTAP_PriorityQueue *q, DTAP_Channel_S *transChan, uint32_t pktCnt)
 {
     DTAP_LOGD("enter, q size %d, priority %d, lcid %d, srcTcid %d", SDF_DListCount(&q->lcidList), q->priority,
         transChan->lcid, transChan->srcTcid);
-    bool found = false;
-    DTAP_LcidNode *lcidNode = NULL;
-    if (!SDF_DListIsEmpty(&q->lcidList)) {
-        SDF_DListElmForeach(lcidNode, &q->lcidList, entry) {
-            if (lcidNode->lcid == transChan->lcid) {
-                found = true;
-                break;
-            }
-        }
-    }
-    if (!found) {
-        DTAP_LOGD("not found lcid node, malloc new lcid node");
+    DTAP_LcidNode *lcidNode = DTAP_GetLcidNode(q, transChan->lcid);
+    if (lcidNode == NULL) {
         lcidNode = DTAP_CreateLcidNode(transChan->lcid, q->priority);
         if (lcidNode == NULL) {
             DTAP_LOGE("malloc lcid node failed");
             return DTAP_TRANS_MALLOC_ERR;
         }
-        SDF_DListElmTailInsert(&lcidNode->channelList, transChan, schedEntry);
-        DTAP_LOGI("insert channel node to queue, priority %d, lcid %d, srcTcid %d, dstTcid %d", q->priority,
-            transChan->lcid, transChan->srcTcid, transChan->dstTcid);
-
         SDF_DListElmTailInsert(&q->lcidList, lcidNode, entry);
-        DTAP_LOGD("insert lcid node to queue, priority %d, lcid %d", q->priority, lcidNode->lcid);
-    } else {
-        DTAP_LOGD("found lcid node %d, begin foreach channel node", lcidNode->lcid);
-        found = false;
-        DTAP_Channel_S *channelNode = NULL;
-        SDF_DListElmForeach(channelNode, &lcidNode->channelList, schedEntry) {
-            if (channelNode->lcid == transChan->lcid && channelNode->srcTcid == transChan->srcTcid) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            SDF_DListElmTailInsert(&lcidNode->channelList, transChan, schedEntry);
-            DTAP_LOGI("insert channel node to queue, priority %d, lcid %d, srcTcid %d, dstTcid %d", q->priority,
-                transChan->lcid, transChan->srcTcid, transChan->dstTcid);
-        }
+        DTAP_LOGI("insert lcid node to queue, priority %d, lcid %d", q->priority, lcidNode->lcid);
     }
+
+    DTAP_InsertChannelToLcidNode(q, lcidNode, transChan);
+
     lcidNode->pktCnt += pktCnt;
     q->pktCnt += pktCnt;
+    DTAP_LcidBufferNode *bufNode = DTAP_GetLcidBufferNode(transChan->lcid);
+    if (bufNode != NULL) {
+        bufNode->queuedPktCnt += pktCnt;
+    }
+
     DTAP_LOGD("push success, priority %d, lcid %d, srcTcid %d, queue pktCnt %d, lcid pktCnt %d", q->priority,
         transChan->lcid, transChan->srcTcid, q->pktCnt, lcidNode->pktCnt);
     return DTAP_SUCCESS;
@@ -782,7 +896,7 @@ uint32_t DTAP_DataSendWithPriority(DTAP_Channel_S *transChan, SDF_Buff_S *buff)
     }
 
     DTAP_PriorityQueue *q = &g_dtapScheduler[transChan->priority];
-    if (q->priority != DTAP_PRIORITY_CMD && q->pktCnt >= DTAP_PACKET_MAX_SIZE) {
+    if (q->pktCnt >= DTAP_PACKET_MAX_SIZE) {
         DTAP_LOGE("queue is full, priority: %d, lcid: %d, srcTcid: %d", q->priority, transChan->lcid,
             transChan->srcTcid);
         return DTAP_TRANS_EXCEED_MAX_ERR;
@@ -806,6 +920,13 @@ uint32_t DTAP_DataSendWithPriority(DTAP_Channel_S *transChan, SDF_Buff_S *buff)
     DTAP_LOGD("insert pending packet to channel node success, priority %d, lcid %d, srcTcid %d, dstTcid %d, pkt seq %d",
         q->priority, transChan->lcid, transChan->srcTcid, transChan->dstTcid, pkt->seq);
 
+    DTAP_LcidBufferNode *bufNode = DTAP_GetLcidBufferNode(transChan->lcid);
+    if (bufNode != NULL) {
+        // 配额已满且全局有余量时重算：配额有余量时重算无收益，全局满载时重算也发不出
+        if (bufNode->sendNotAckPktCnt >= bufNode->quota && g_sendNotAckPktCnt < g_apBufferNum) {
+            DTAP_RecalcLcidQuota();
+        }
+    }
     DTAP_SchedulerRun();
 
     return DTAP_SUCCESS;
@@ -822,5 +943,6 @@ static void DTAP_SendCompleteCbk(uint16_t connHandle, uint8_t numCompletedPacket
     g_sendNotAckPktCnt = DTAP_SCHED_SUB(g_sendNotAckPktCnt, numCompletedPackets);
     COLLAB_ContinueAssignTransBuffer(g_sendNotAckPktCnt);
     node->sendNotAckPktCnt = DTAP_SCHED_SUB(node->sendNotAckPktCnt, numCompletedPackets);
+    DTAP_RecalcLcidQuota();
     DTAP_SchedulerRun();
 }
