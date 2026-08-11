@@ -3879,36 +3879,6 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     ProcessCachedSubrate();
     // 主副切换
     SetDeviceRole(device);
-    // // 状态：已开始音频流传输
-    // SetASCStatus(device, NL_SLE_ASC_STARTED);
-    // // 添加到已打开列表
-    // std::list<AudioStreamType>& list = GetStartedStreamList(device);
-    // RawAddress coSetDevice;
-    // if (IsSync(device) && IsCoSetDeviceExist(device, coSetDevice)) {
-    //     if (IsStreamExists(coSetDevice, streamType)) {
-    //         list.emplace_back(streamType);
-    //     }
-    // } else {
-    //     list.emplace_back(streamType);
-    // }
-    // RawAddress reportAddr = GetReportAddr(device);
-    // CancelStopDelay(reportAddr);
-
-    // // 上报状态: 音频流打开,成功
-    // ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
-    //     NL_SLE_ASC_RESULT_SUCC, NL_NO_ERROR);
-    // // 判断是否需要起语音助手
-    // OpenVoiceAssistant(device, streamType);
-    // if (IsNeedDisconnect(device)) {
-    //     StopPlayingExcute(device, streamType);
-    //     return;
-    // }
-    // // 空间音频开关判断
-    // ProcSpatialIfNeed(device, streamType);
-    // // 取出缓存任务处理
-    // ProcBuff(device, NL_SLE_ASC_STARTED);
-    // // 查看合作集设备状态，进行同步
-    // SyncWhenStartStream(device, streamType);
 }
 
 bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
