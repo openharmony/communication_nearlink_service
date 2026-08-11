@@ -135,6 +135,7 @@ public:
     virtual void HidDataStatisticsProc(const std::string &address) = 0;
     virtual void RssiChangedCbkProc(const std::string &address, int8_t rssi) = 0;
     virtual void UpdateSleFreqBandAbility(const std::string &address) = 0;
+    
     virtual void CollaborationProc(CollaborationProcType type) = 0;
     virtual void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
         std::string &info) = 0;
