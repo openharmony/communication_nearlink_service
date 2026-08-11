@@ -53,8 +53,8 @@ public:
     void HidDataStatisticsProc(const std::string &address) override;
     void RssiChangedCbkProc(const std::string &address, int8_t rssi) override;
     void UpdateSleFreqBandAbility(const std::string &address) override;
-    void ServiceManagerPluginLoader::IsNeedCustomParam(bool* isNeed);
-    void ServiceManagerPluginLoader::UpdateCustomParam(uint16_t* intervalMin, uint16_t* intervalMax, int appearance);
+    void IsNeedCustomParam(bool* isNeed) override;
+    void UpdateCustomParam(uint16_t* intervalMin, uint16_t* intervalMax, int appearance) override;
     void CollaborationProc(CollaborationProcType type) override;
     void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
         std::string &info) override;
