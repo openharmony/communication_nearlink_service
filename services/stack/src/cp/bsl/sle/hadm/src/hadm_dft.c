@@ -19,5 +19,5 @@ void HadmDftReportExcep(SLE_Addr_S *addr, uint16_t errCode, uint16_t res)
 {
     DftCache(addr, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_EXCEP_ERR_CODE,
         NLSTK_DFT_PARAM_VALUE_TYPE_UINT16, &errCode);
-    DftReport(addr, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_RES, res);
+    DftReport(addr, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_EXCEP_RES, res);
 }
