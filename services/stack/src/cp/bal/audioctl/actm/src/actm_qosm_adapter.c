@@ -538,6 +538,7 @@ static void SetDownDataPath(ActmRemoteDevice_S *device, ActmQosmLink_S *link)
     }
     if ((group->direction & NLSTK_ACTM_DIRECTION_DOWN) != 0) {
         link->direction |= NLSTK_ACTM_DIRECTION_DOWN;
+        ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
         return;
     }
     group->direction |= NLSTK_ACTM_DIRECTION_DOWN;
@@ -862,6 +863,7 @@ static void IcgDataPathChanged(const QOSM_DataPathParamCb *param)
         }
         if (param->state == QOSM_DATAPATH_ADDED) {
             link->direction |= direction;
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
         } else if (param->state == QOSM_DATAPATH_DELETED) {
             link->direction &= ~direction;
         }
@@ -885,6 +887,9 @@ static void QosmDataPathChangedCbk(const QOSM_DataPathParamCb *param)
     } else if (param->state == QOSM_DATAPATH_ADDED) {
         NLSTK_CHECK_RETURN_VOID((link->direction & direction) == 0, "[ACTM] exist direction: %d", direction);
         link->direction |= direction;
+        if (direction == NLSTK_ACTM_DIRECTION_DOWN) {
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
+        }
     }
     NLSTK_LOG_INFO("[ACTM] link datapath changed, direction: %d, handle: 0x%x", link->direction, link->connHandle);
 }

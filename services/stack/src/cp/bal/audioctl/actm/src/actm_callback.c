@@ -68,3 +68,11 @@ void ActmCallBitUpDownCbk(NLSTK_ActmAutoRateSendMsg_S *upDownParam)
         g_Cbk.callBitUpDownCbk(upDownParam);
     }
 }
+
+void ActmSetDirectionCbk(SLE_Addr_S *addr, uint8_t result)
+{
+    NLSTK_ActmSetDirection_S param = {.result = result};
+    if (g_Cbk.addDataPathCbk != NULL) {
+        g_Cbk.addDataPathCbk(addr, &param);
+    }
+}
