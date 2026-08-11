@@ -25,6 +25,7 @@ void ActmSetCallback(NLSTK_ActmCbk_S *cbk)
     g_Cbk.bitCbk = cbk->bitCbk;
     g_Cbk.locationCbk = cbk->locationCbk;
     g_Cbk.callBitUpDownCbk = cbk->callBitUpDownCbk;
+    g_Cbk.addDataPathCbk = cbk->addDataPathCbk;
 }
 
 void ActmEventCbk(SLE_Addr_S *addr, uint8_t event, uint8_t result, void *param)
