@@ -199,8 +199,8 @@ static void NAI_DftReportHadm(SLE_Addr_S *addr, uint16_t eventId, uint16_t param
     CP_CHECK_LOG_RETURN_VOID(params != NULL, "DftParamC create failed");
 
     const char *inputAddr = DFT_GET_ADDR(addr);
-    peerParams[PARAM_INDEX_0] = CreateStrParamC(HADM_EXCEP_DEVICE_ADDR, DFT_ADDR_SIZE, inputAddr);
-    peerParams[PARAM_INDEX_1] = CreateUi16ParamC(paramId, res);
+    params[PARAM_INDEX_0] = CreateStrParamC(HADM_EXCEP_DEVICE_ADDR, DFT_ADDR_SIZE, inputAddr);
+    params[PARAM_INDEX_1] = CreateUi16ParamC(paramId, res);
 
     DftManagerReport((DftEventEnum)eventId, params, NAI_DFT_PARAM_SIZE_2);
     DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_2);
