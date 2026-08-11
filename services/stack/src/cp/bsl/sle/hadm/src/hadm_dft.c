@@ -12,17 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stddef.h>
 #include "nlstk_dft.h"
 #include "hadm_dft.h"
 
-void HadmDftCacheTimestamp(NLSTK_DftEventId_E eventId, uint16_t paramId)
+void HadmDftReportExcep(SLE_Addr_S *addr, uint16_t errCode, uint16_t res)
 {
-    DftCacheTimestamp(NULL, eventId, paramId);
-}
-
-void HadmDftReport(uint16_t errVal)
-{
-    (void)errVal;
-    DftReport(NULL, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_RES, HADM_DFT_RES_FAIL);
+    DftCache(addr, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_EXCEP_ERR_CODE,
+        NLSTK_DFT_PARAM_VALUE_TYPE_UINT16, &errCode);
+    DftReport(addr, NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_RES, res);
 }

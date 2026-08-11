@@ -16,7 +16,6 @@
 #include "sdf_vector.h"
 #include "sdf_mem.h"
 #include "securec.h"
-#include "hadm_dft.h"
 #include "dli_errno.h"
 #include "dli_cmd.h"
 #include "dli_def.h"
@@ -147,7 +146,6 @@ uint32_t HadmSetMeasureParam(uint16_t lcid, HadmSoundingParam_S *args)
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure params post dli task fail. %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -176,7 +174,6 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
     DLI_SetMeasureEnableParam params = { 0 };
     params.connHandle = lcid;
     params.enable = csEnable;
-    HadmDftCacheTimestamp(NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_ENABLE_TIME);
     if (DLI_IsSupportNewDisMeasure()) {
         NLSTK_LOG_INFO(
             "[HADM] Start to set measure enable, conn id: %u, enable: %u.", params.connHandle, params.enable);
@@ -192,7 +189,6 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure enable post dli task fail. ret: %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);  // pop_back
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -214,7 +210,6 @@ uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
 {
     DLI_ReadRemoteMeasureCapsParam params = { 0 };
     params.connHandle = lcid;
-    HadmDftCacheTimestamp(NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_READ_REMOTE_MEASURE_TIME);
     uint32_t ret = DLI_SUCCESS;
     if (DLI_IsSupportNewDisMeasure()) {
         NLSTK_LOG_INFO("[HADM] Start to read remote measure caps, conn id: %u.", params.connHandle);
@@ -227,7 +222,6 @@ uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
     }
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Read remote measure caps post dli task fail, ret: %u", ret);
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;

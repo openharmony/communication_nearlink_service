@@ -22,6 +22,7 @@
 #include "hadm_config_dli.h"
 #include "hadm_config_cm.h"
 #include "hadm_sm.h"
+#include "hadm_dft.h"
 
 #define HADM_SOUNDING_ENABLE 0   // 开启HADM测量
 #define HADM_SOUNDING_DISABLE 1  // 关闭HADM测量
@@ -723,6 +724,7 @@ uint32_t HadmReportSoundingIqInfoFromDli(uint16_t lcid, HadmIqInfoFromDli_S *iqI
     HadmSoundingState_E state = HadmGetSoundingStateByAddr(addr);
     if (state == HADM_SOUNDING_STATE_INVALID) {
         NLSTK_LOG_ERROR("[HADM]get invalid state when trige state machine, addr: %s", GET_ENC_ADDR(addr));
+        HadmDftReportExcep(addr, HADM_DFT_EVT_INVALID_STATE_WHEN_IQ, (uint16_t)state);
         return NLSTK_ERRCODE_FAIL;
     } else if (state != HADM_SOUNDING_STATE_SOUNDING) {
         // 这里不返回，因为之前未下沉的代码中也没有这种逻辑的判断，因此仅打印日志；

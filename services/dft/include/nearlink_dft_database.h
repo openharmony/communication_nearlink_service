@@ -101,6 +101,7 @@ typedef enum DftEventEnum : int {
     DFT_QOSM_CODEC_EXCEP,
     DFT_QOSM_CHOPPY_EXCEP,
     DFT_QOSM_STATS,
+    DFT_STACK_HADM_EXCEP,
     // add exception and ue event above this
     DFT_EXCEP_BUTT,
     // add sub event below this
@@ -481,6 +482,25 @@ typedef enum DftStackSmEncpExcepParamEnum : int {
     // add normal param above this
     SM_ENCP_PARAM_BUTT,
 } DftStackSmEncpExcepParamEnum;
+
+typedef enum DftStackHadmExcepParamEnum : int {
+    HADM_EXCEP_INVALID = 0,
+    // add key param below this
+    HADM_EXCEP_DEVICE_ADDR,
+    // add key param above this
+    HADM_EXCEP_KEY_BUTT,
+    // add normal param below this
+    HADM_EXCEP_READ_LOCAL_CS_TIME,
+    HADM_EXCEP_READ_LOCAL_CS_END_TIME,
+    HADM_EXCEP_READ_REMOTE_CS_TIME,
+    HADM_EXCEP_READ_REMOTE_CS_END_TIME,
+    HADM_EXCEP_ENABLE_TIME,
+    HADM_EXCEP_ENABLE_END_TIME,
+    HADM_EXCEP_ERR_CODE,
+    HADM_EXCEP_RES,
+    // add normal param above this
+    HADM_EXCEP_PARAM_BUTT,
+} DftStackHadmExcepParamEnum;
 
 // NEARLINK_DTFR_CONN param enum
 typedef enum DftDatatransferConnParamEnum : int {
