@@ -3879,6 +3879,72 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     ProcessCachedSubrate();
     // 主副切换
     SetDeviceRole(device);
+    // // 状态：已开始音频流传输
+    // SetASCStatus(device, NL_SLE_ASC_STARTED);
+    // // 添加到已打开列表
+    // std::list<AudioStreamType>& list = GetStartedStreamList(device);
+    // RawAddress coSetDevice;
+    // if (IsSync(device) && IsCoSetDeviceExist(device, coSetDevice)) {
+    //     if (IsStreamExists(coSetDevice, streamType)) {
+    //         list.emplace_back(streamType);
+    //     }
+    // } else {
+    //     list.emplace_back(streamType);
+    // }
+    // RawAddress reportAddr = GetReportAddr(device);
+    // CancelStopDelay(reportAddr);
+
+    // // 上报状态: 音频流打开,成功
+    // ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
+    //     NL_SLE_ASC_RESULT_SUCC, NL_NO_ERROR);
+    // // 判断是否需要起语音助手
+    // OpenVoiceAssistant(device, streamType);
+    // if (IsNeedDisconnect(device)) {
+    //     StopPlayingExcute(device, streamType);
+    //     return;
+    // }
+    // // 空间音频开关判断
+    // ProcSpatialIfNeed(device, streamType);
+    // // 取出缓存任务处理
+    // ProcBuff(device, NL_SLE_ASC_STARTED);
+    // // 查看合作集设备状态，进行同步
+    // SyncWhenStartStream(device, streamType);
+}
+
+bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
+{
+    ASCState state = GetASCStatus(device);
+    int startPlayMergeIndex =
+        ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(MANU_ABILITY_ASC_START_PLAYING_MERGE);
+    bool isStartPlayMerge = (startPlayMergeIndex >= 0) &&
+        SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
+        device, static_cast<uint8_t>(startPlayMergeIndex));
+    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED);
+    if ((!isStartPlayMerge && !IsStarting(state)) || (isStartPlayMerge && !isConfig)) {
+        HILOGE("[ASCService]CbkStartStream state error %{public}s state %{public}d isStartPlayMerge %{public}d",
+            GetEncryptAddr(device.GetAddress()).c_str(), state, isStartPlayMerge);
+        return false;
+    }
+    // 结果检查
+    if (result != NL_NO_ERROR) {
+        HILOGE("[ASCService]CbkStartStream callback result %{public}s %{public}d",
+            GetEncryptAddr(device.GetAddress()).c_str(), result);
+        // 上报状态: 音频流打开,失败
+        ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
+            NL_SLE_ASC_RESULT_FAIL, result);
+        // 取出缓存任务处理
+        ProcBuff(device, NL_SLE_ASC_CREATED);
+        return false;
+    }
+    return true;
+}
+
+void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
+{
+    // 取出处理中的流类型
+    AudioStreamType streamType = GetProcessingStreamType(device);
+    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
+        result, streamType);
     // 状态：已开始音频流传输
     SetASCStatus(device, NL_SLE_ASC_STARTED);
     // 添加到已打开列表
@@ -3909,34 +3975,6 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     ProcBuff(device, NL_SLE_ASC_STARTED);
     // 查看合作集设备状态，进行同步
     SyncWhenStartStream(device, streamType);
-}
-
-bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
-{
-    ASCState state = GetASCStatus(device);
-    int startPlayMergeIndex =
-        ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(MANU_ABILITY_ASC_START_PLAYING_MERGE);
-    bool isStartPlayMerge = (startPlayMergeIndex >= 0) &&
-        SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
-        device, static_cast<uint8_t>(startPlayMergeIndex));
-    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED);
-    if ((!isStartPlayMerge && !IsStarting(state)) || (isStartPlayMerge && !isConfig)) {
-        HILOGE("[ASCService]CbkStartStream state error %{public}s state %{public}d isStartPlayMerge %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), state, isStartPlayMerge);
-        return false;
-    }
-    // 结果检查
-    if (result != NL_NO_ERROR) {
-        HILOGE("[ASCService]CbkStartStream callback result %{public}s %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), result);
-        // 上报状态: 音频流打开,失败
-        ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
-            NL_SLE_ASC_RESULT_FAIL, result);
-        // 取出缓存任务处理
-        ProcBuff(device, NL_SLE_ASC_CREATED);
-        return false;
-    }
-    return true;
 }
 
 void ASCService::ClearWhenDisconnect(const RawAddress& device)
@@ -5123,6 +5161,8 @@ void ASCService::ProcessStackCbkEvent(const ASCMessage &event)
         case ASC_STACK_CBK_CREATE_STREAM:
             CbkCreateStream(device, result, event.ascStreamInfo_);
             break;
+        case ASC_STACK_CBK_ADD_DATA_PATH:
+            CbkAddDataPath(device, result);
         default:
             break;
     }

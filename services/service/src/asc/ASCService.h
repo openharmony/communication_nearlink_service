@@ -109,6 +109,7 @@ public:
     void CbkReleaseStream(const RawAddress& device, uint8_t result, uint16_t connHandle);
     void CbkDisconnect(const RawAddress& device, uint8_t result);
     void ClearWhenDisconnect(const RawAddress& device);
+    void CbkAddDataPath(const RawAddress& device, uint8_t result);
 
     bool CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
