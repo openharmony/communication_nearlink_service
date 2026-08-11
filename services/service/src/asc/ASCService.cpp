@@ -5133,6 +5133,7 @@ void ASCService::ProcessStackCbkEvent(const ASCMessage &event)
             break;
         case ASC_STACK_CBK_ADD_DATA_PATH:
             CbkAddDataPath(device, result);
+            break;
         default:
             break;
     }
@@ -5172,12 +5173,28 @@ static void StackStreamTypeChangedCbk(SLE_Addr_S *stackAddr, uint32_t availableS
     service->PostEvent(event);
 }
 
+static void StackAddDataPathCbk(SLE_Addr_S *stackAddr, NLSTK_ActmSetDirection_S *param)
+{
+    NL_CHECK_RETURN(stackAddr != nullptr, "[ASCService]StackAddDataPathCbk stackAddr is null.");
+    const RawAddress& device = RawAddress::ConvertToString(stackAddr->addr);
+
+    ASCService *service = ASCService::GetService();
+    NL_CHECK_RETURN(service != nullptr, "[ASCService]StackAddDataPathCbk nullptr %{public}s",
+        GetEncryptAddr(device.GetAddress()).c_str());
+
+    ASCMessage event(ASC_STACK_EVENT_CBK_EVT);
+    event.dev_ = device.GetAddress();
+    event.eventType_ = ASC_STACK_CBK_ADD_DATA_PATH;
+    event.result_ = param->result;
+    service->PostEvent(event);
+}
+
 void ASCService::Init()
 {
     InitDisconnProcTable();
     // 向stack注册回调
     NLSTK_ActmCbk_S cbk = {StackEventCbk, StackPropCbk, StackBitrateCbk, StackLocationChangeCbk,
-        StackStreamTypeChangedCbk, StackAutoRateMsgCbk};
+        StackStreamTypeChangedCbk, StackAutoRateMsgCbk, StackAddDataPathCbk};
     uint32_t ret = NLSTK_ActmRegisterCallback(&cbk);
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         HILOGD("[ASCService]Init ret %{public}d", ret);
