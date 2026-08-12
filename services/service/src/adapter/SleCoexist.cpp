@@ -96,7 +96,7 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     });
 
     // 检查是否有多个连接
-    ServiceManagerPluginInterface:: GetInstance()->IsNeedCustomParam(&isNeed);
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(&isNeed);
     if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeed) {
         StartParamUpdateTimer();
     }
@@ -147,13 +147,13 @@ void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const S
     updateParam.supervisionTimeout = timeout;
     updateParam.systemTimeUnit = CM_CONN_TIME_UNIT;
     updateParam.txRxFlag = CM_CONN_T_TX_RX_FLAG;
-    CM_ConnectUpdateParamReq(&updateParam);
     if (isNeed) {
         RawAddress device = RawAddress::ConvertToString(addr.addr);
         int appearance = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
-        ServiceManagerPluginInterface::GetInstance->UpdateCustomParam(&updateParam.intervalMin,
+        ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(&updateParam.intervalMin,
             &updateParam.intervalMax, appearance);
     }
+    CM_ConnectUpdateParamReq(&updateParam);
 }
 
 } // namespace Nearlink
