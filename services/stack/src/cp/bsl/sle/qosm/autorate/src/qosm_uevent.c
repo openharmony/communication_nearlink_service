@@ -215,15 +215,15 @@ void QOSM_UeventDeinit(void)
         return;
     }
 
+    SDF_EvcInstanceClose(g_qosmUeventData.evcHandle);
+
     if (g_qosmUeventData.fd != -1) {
         QOSM_LOGI("uevent deinited, fd=%d", g_qosmUeventData.fd);
-        SDF_EvcCancelEvent(g_qosmUeventData.fd);
         close(g_qosmUeventData.fd);
         g_qosmUeventData.fd = -1;
     }
 
-    SDF_EvcInstanceClose(g_qosmUeventData.evcHandle);
-
+    g_qosmUeventData.process = NULL;
     g_qosmUeventData.threadRunning = false;
     QOSM_LOGI("deinit done");
 }
