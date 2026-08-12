@@ -118,6 +118,12 @@ private:
     void GetAllNotPairedCloudDeviceList(std::vector<std::string> &cloudDeviceAddrList);
     void UpdateCloudDev(NearlinkCloudPairDevice &dev, std::shared_ptr<DownCloudPairDevice> downDevice);
     void DelCloudDevFromMap(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos);
+    bool CheckMemberIsSameCdsmGroup(std::vector<std::string> &downMembers) const;
+    void FilterDownCloudDevice(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos,
+        std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos,
+        std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos);
+    void UpdateDetachCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos);
+    void UpdateCoupleCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos);
     void EnableVirtualAutoSwitch(const RawAddress &reportAddr);
     void ProcCreateCloudDeviceCdsmGroup(const RawAddress &reportAddr);
     void RemovePairedDeviceFromConf(const RawAddress &reportAddr);
