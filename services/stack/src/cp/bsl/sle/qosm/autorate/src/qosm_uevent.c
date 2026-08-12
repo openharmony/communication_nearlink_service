@@ -223,6 +223,7 @@ void QOSM_UeventDeinit(void)
         g_qosmUeventData.fd = -1;
     }
 
+    g_qosmUeventData.process = NULL;
     g_qosmUeventData.threadRunning = false;
     QOSM_LOGI("deinit done");
 }
