@@ -3917,7 +3917,8 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
     ASCState state = GetASCStatus(device);
     HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), result, streamType);
-    if (state != NL_SLE_ASC_SET_DIRECTION) {
+    if (state != NL_SLE_ASC_SET_DIRECTION && result != NL_NO_ERROR) {
+        // 状态和结果检查不满足条件
         HILOGE("[ASCService]state error %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), state);
         return;
     }
@@ -5182,11 +5183,11 @@ static void StackStreamTypeChangedCbk(SLE_Addr_S *stackAddr, uint32_t availableS
 
 static void StackAddDataPathCbk(SLE_Addr_S *stackAddr, NLSTK_ActmSetDirection_S *param)
 {
-    NL_CHECK_RETURN(stackAddr != nullptr, "[ASCService]StackAddDataPathCbk stackAddr is null.");
+    NL_CHECK_RETURN(stackAddr != nullptr, "[ASCService]stackAddr is null.");
     const RawAddress& device = RawAddress::ConvertToString(stackAddr->addr);
 
     ASCService *service = ASCService::GetService();
-    NL_CHECK_RETURN(service != nullptr, "[ASCService]StackAddDataPathCbk nullptr %{public}s",
+    NL_CHECK_RETURN(service != nullptr, "[ASCService]nullptr %{public}s",
         GetEncryptAddr(device.GetAddress()).c_str());
 
     ASCMessage event(ASC_STACK_EVENT_CBK_EVT);
