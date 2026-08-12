@@ -362,7 +362,7 @@ int SleRemoteDeviceManager::GetManufacturerBusinessType(const RawAddress &device
         businessType = value->GetManufacturerBusiness();
     };
     bool res = peerConnDeviceSafeList_.GetValueAndOpt(device.GetAddress(), getType);
-    HILOGI("[SleRemoteDeviceManager]:peer addr:%{public}s,bussiness type:%{public}d, res:%{public}d",
+    HILOGD("[SleRemoteDeviceManager]:peer addr:%{public}s,bussiness type:%{public}d, res:%{public}d",
                 GET_ENCRYPT_ADDR(device), businessType, res);
     return businessType;
 }

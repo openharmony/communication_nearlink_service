@@ -24,6 +24,7 @@ void ActmSetCallback(NLSTK_ActmCbk_S *cbk)
     g_Cbk.propCbk = cbk->propCbk;
     g_Cbk.bitCbk = cbk->bitCbk;
     g_Cbk.locationCbk = cbk->locationCbk;
+    g_Cbk.streamTypeCbk = cbk->streamTypeCbk;
     g_Cbk.callBitUpDownCbk = cbk->callBitUpDownCbk;
 }
 
