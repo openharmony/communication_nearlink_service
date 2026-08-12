@@ -20,7 +20,6 @@
 #include "raw_address.h"
 #include "nearlink_def.h"
 #include "SleRemoteDeviceAdapter.h"
-#include "parameters.h"
 #include "IServiceManagerPlugin.h"
 
 namespace OHOS {
@@ -72,7 +71,6 @@ void SleCoexist::StopParamUpdateTimer()
 
 void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
 {
-    bool isNeed = 0;
     HILOGD("[SleCoexist] ConnectionParamChanged lcid=0x%{public}x, interval=0x%{public}x, latency=%{public}d,"
         " timeout=%{public}d", param.lcid,
         param.extension.interval, param.extension.latency, param.extension.supervisionTimeout);
@@ -96,6 +94,7 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     });
 
     // 检查是否有多个连接
+    bool isNeed = false;
     ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(&isNeed);
     if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeed) {
         StartParamUpdateTimer();
@@ -118,10 +117,10 @@ void SleCoexist::UpdateConnParam()
     HILOGD("[SleCoexist] Update params");
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
-    bool isNeed = 0;
+    bool isNeed = false;
     ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(&isNeed);
     // 检查是否有多个连接
-    if (!manager->HasMultipleConnections() && !isNeed) {
+    if (!(manager->HasMultipleConnections() && isNeed)) {
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
