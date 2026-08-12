@@ -150,7 +150,7 @@ void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const S
     CM_ConnectUpdateParamReq(&updateParam);
     if (isNeed) {
         RawAddress device = RawAddress::ConvertToString(addr.addr);
-        int appearance = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppenrance(device);
+        int appearance = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
         ServiceManagerPluginInterface::GetInstance->UpdateCustomParam(&updateParam.intervalMin,
             &updateParam.intervalMax, appearance);
     }
