@@ -3878,6 +3878,7 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     ProcWhenIOBCreated(device, qosmInfo);
     ProcessCachedSubrate();
     // 主副切换
+    SetASCStatus(device, NL_SLE_ASC_SET_DIRECTION);
     SetDeviceRole(device);
 }
 
@@ -3913,8 +3914,14 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
 {
     // 取出处理中的流类型
     AudioStreamType streamType = GetProcessingStreamType(device);
-    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
-        result, streamType);
+    ASCState state = GetASCStatus(device);
+    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), result, streamType);
+    if (state != NL_SLE_ASC_SET_DIRECTION) {
+        HILOGE("[ASCService]state error %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), state);
+        return;
+    }
+
     // 状态：已开始音频流传输
     SetASCStatus(device, NL_SLE_ASC_STARTED);
     // 添加到已打开列表
