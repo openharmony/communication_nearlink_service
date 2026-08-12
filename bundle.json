@@ -83,7 +83,6 @@
                 "qos_manager",
                 "input",
                 "audio_framework",
-                "json",
                 "av_session",
                 "call_manager",
                 "core_service",
@@ -94,7 +93,6 @@
                 "bounds_checking_function",
                 "runtime_core",
                 "resource_schedule_service",
-                "resource_management",
                 "bundle_framework",
                 "taihe_ffi_gen"
             ],
