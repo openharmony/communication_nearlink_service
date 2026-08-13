@@ -59,7 +59,7 @@ private:
     void UpdateConnParam();
 
     // 发送连接参数到底层
-    void SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
+    void SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr, bool isNeed);
 
     // 定时器控制
     void StartParamUpdateTimer();

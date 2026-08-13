@@ -149,6 +149,16 @@ void ServiceManagerPluginLoader::RssiChangedCbkProc(const std::string &address, 
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(RssiChangedCbkProc, address, rssi);
 }
 
+void ServiceManagerPluginLoader::IsNeedCustomParam(bool &isNeed)
+{
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(IsNeedCustomParam, isNeed);
+}
+
+void ServiceManagerPluginLoader::UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance)
+{
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(UpdateCustomParam, intervalMin, intervalMax, appearance);
+}
+
 void ServiceManagerPluginLoader::UpdateSleFreqBandAbility(const std::string &address)
 {
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(UpdateSleFreqBandAbility, address);

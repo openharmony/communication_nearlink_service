@@ -13,10 +13,14 @@
  * limitations under the License.
  */
 #include "SleCoexist.h"
+#include "IServiceManagerPlugin.h"
 #include "SleCoexistManager.h"
+#include "SleRemoteDeviceAdapter.h"
 #include "SleUtils.h"
 #include "ThreadUtil.h"
 #include "cm_api.h"
+#include "nearlink_def.h"
+#include "raw_address.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -90,7 +94,9 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     });
 
     // 检查是否有多个连接
-    if (manager->HasMultipleConnections() && isIntervalUnderThread) {
+    bool isNeed = false;
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
+    if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeed) {
         StartParamUpdateTimer();
     }
 }
@@ -111,21 +117,23 @@ void SleCoexist::UpdateConnParam()
     HILOGD("[SleCoexist] Update params");
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
+    bool isNeed = false;
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
     // 检查是否有多个连接
-    if (!manager->HasMultipleConnections()) {
+    if (!(manager->HasMultipleConnections() && isNeed)) {
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
     // 遍历所有连接，更新需要调整的参数
-    manager->IterateConnInfo([sleCoexist = selfWeak_.lock()](const CoexistConnInfo& info) {
+    manager->IterateConnInfo([sleCoexist = selfWeak_.lock(), isNeed](const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
-        if (info.interval < CM_CONN_COEXIST_INTERAL_THRED) {
-            sleCoexist->SendConnectionParam(info.timeout, info.latency, info.addr);
+        if ((info.interval < CM_CONN_COEXIST_INTERAL_THRED) || isNeed) {
+            sleCoexist->SendConnectionParam(info.timeout, info.latency, info.addr, isNeed);
         }
     });
 }
 
-void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr)
+void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr, bool isNeed)
 {
     CM_ConnectUpdateParamReq_S updateParam;
     memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
@@ -138,6 +146,12 @@ void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const S
     updateParam.supervisionTimeout = timeout;
     updateParam.systemTimeUnit = CM_CONN_TIME_UNIT;
     updateParam.txRxFlag = CM_CONN_T_TX_RX_FLAG;
+    if (isNeed) {
+        RawAddress device = RawAddress::ConvertToString(addr.addr);
+        int appearance = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+        ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(&updateParam.intervalMin,
+            &updateParam.intervalMax, appearance);
+    }
     CM_ConnectUpdateParamReq(&updateParam);
 }
 
