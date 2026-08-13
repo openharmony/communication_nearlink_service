@@ -133,7 +133,6 @@ public:
     virtual void HighPowerProc(uint16_t lcid) = 0;
     virtual void SleTvMgrProc(const std::string &address) = 0;
     virtual void HidDataStatisticsProc(const std::string &address) = 0;
-    virtual void RssiChangedCbkProc(const std::string &address, int8_t rssi) = 0;
     virtual void UpdateSleFreqBandAbility(const std::string &address) = 0;
     virtual void IsNeedCustomParam(bool &isNeed) = 0;
     virtual void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) = 0;
