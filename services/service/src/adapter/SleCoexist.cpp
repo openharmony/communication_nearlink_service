@@ -13,14 +13,14 @@
  * limitations under the License.
  */
 #include "SleCoexist.h"
+#include "IServiceManagerPlugin.h"
 #include "SleCoexistManager.h"
+#include "SleRemoteDeviceAdapter.h"
 #include "SleUtils.h"
 #include "ThreadUtil.h"
 #include "cm_api.h"
-#include "raw_address.h"
 #include "nearlink_def.h"
-#include "SleRemoteDeviceAdapter.h"
-#include "IServiceManagerPlugin.h"
+#include "raw_address.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -95,7 +95,7 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
 
     // 检查是否有多个连接
     bool isNeed = false;
-    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(&isNeed);
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
     if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeed) {
         StartParamUpdateTimer();
     }
@@ -118,7 +118,7 @@ void SleCoexist::UpdateConnParam()
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
     bool isNeed = false;
-    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(&isNeed);
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
     // 检查是否有多个连接
     if (!(manager->HasMultipleConnections() && isNeed)) {
         HILOGD("[SleCoexist]not multiple connection");
