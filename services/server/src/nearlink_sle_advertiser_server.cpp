@@ -61,6 +61,7 @@ private:
 };
 
 struct NearlinkSleAdvertiserServer::impl::SleAdvertiserRemoteInfo {
+    SleAdvertiserRemoteInfo() = default;
     SleAdvertiserRemoteInfo(int32_t pid, int32_t uid)
         : pid(pid), uid(uid) {}
     virtual ~SleAdvertiserRemoteInfo() = default;
@@ -129,6 +130,20 @@ public:
         it->second.advHandles.erase(handle);
     }
 
+    bool GetAdvHandleOwner(int32_t handle, int32_t &pid, int32_t &uid)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [handle](const auto &obj) {
+            return obj.second.advHandles.find(handle) != obj.second.advHandles.end(); });
+        if (it == vec_.end()) {
+            HILOGE("can't find advHandle: %{public}d", handle);
+            return false;
+        }
+        pid = it->second.pid;
+        uid = it->second.uid;
+        return true;
+    }
+
     std::set<int32_t> GetAdvHandles(const wptr<IRemoteObject> &remote)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
@@ -174,8 +189,18 @@ public:
     {
         int opcode = static_cast<int>(SleAdvOpcode::SLE_ADV_DEFAULT_OP_CODE);
         HILOGI("result: %{public}d, advHandle: %{public}d, opcode: %{public}d", result, advHandle, opcode);
-
-        observers_->ForEach([this, result, advHandle, opcode](INearlinkSleAdvertiseCallback *observer) {
+        auto impl = impl_.lock();
+        NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, result, advHandle, opcode, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
             observer->OnStartResultEvent(result, static_cast<int32_t>(advHandle), opcode);
         });
     }
@@ -183,18 +208,38 @@ public:
     void OnStopResultEvent(int result, uint8_t advHandle) override
     {
         HILOGI("result: %{public}d, advHandle: %{public}d", result, advHandle);
-        observers_->ForEach([this, result, advHandle](INearlinkSleAdvertiseCallback *observer) {
-            observer->OnStopResultEvent(result, advHandle);
-        });
         auto impl = impl_.lock();
         NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
+            observer->OnStopResultEvent(result, advHandle);
+        });
         impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnEnableResultEvent(int result, uint8_t advHandle) override
     {
         HILOGI("result: %{public}d, advHandle: %{public}d", result, advHandle);
-        observers_->ForEach([this, result, advHandle](INearlinkSleAdvertiseCallback *observer) {
+        auto impl = impl_.lock();
+        NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
             observer->OnEnableResultEvent(result, advHandle);
         });
     }
@@ -202,7 +247,18 @@ public:
     void OnDisableResultEvent(int result, uint8_t advHandle) override
     {
         HILOGI("result: %{public}d, advHandle: %{public}d", result, advHandle);
-        observers_->ForEach([this, result, advHandle](INearlinkSleAdvertiseCallback *observer) {
+        auto impl = impl_.lock();
+        NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
             observer->OnDisableResultEvent(result, advHandle);
         });
     }
@@ -210,19 +266,38 @@ public:
     void OnAutoStopAdvEvent(uint8_t advHandle) override
     {
         HILOGI("advHandle: %{public}d", advHandle);
-
-        observers_->ForEach(
-            [advHandle](INearlinkSleAdvertiseCallback *observer) { observer->OnAutoStopAdvEvent(advHandle); });
         auto impl = impl_.lock();
         NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, advHandle, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
+            observer->OnAutoStopAdvEvent(advHandle);
+        });
         impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnSetAdvDataEvent(int result, uint8_t advHandle) override
     {
         HILOGI("result: %{public}d, advHandle: %{public}d", result, advHandle);
-
-        observers_->ForEach([this, result, advHandle](INearlinkSleAdvertiseCallback *observer) {
+        auto impl = impl_.lock();
+        NL_CHECK_RETURN(impl, "impl has been destroyed");
+        int32_t ownerPid = 0;
+        int32_t ownerUid = 0;
+        NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
+            "no owner of advHandle, drop event");
+        observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
+            INearlinkSleAdvertiseCallback *observer) {
+            SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid != ownerPid || info.uid != ownerUid) { // 仅上报对应应用
+                return;
+            }
             observer->OnSetAdvDataEvent(result, advHandle);
         });
     }
