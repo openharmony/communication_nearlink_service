@@ -51,12 +51,7 @@ SDF_Buff_S *SDF_BuffNewWithExtraReserve(uint32_t size, uint16_t extraSize)
 {
     SDF_Buff_S *buff = NULL;
 
-    uint32_t totalSize = sizeof(SDF_Buff_S) + SDF_BUFF_MAX_RESERVED_SIZE;
-    if (totalSize > UINT32_MAX - size || totalSize + size > UINT32_MAX - extraSize) {
-        return NULL;
-    }
-    totalSize += size + extraSize;
-    buff = (SDF_Buff_S *)SDF_MemZalloc(totalSize);
+    buff = (SDF_Buff_S *)SDF_MemZalloc(sizeof(SDF_Buff_S) + SDF_BUFF_MAX_RESERVED_SIZE + size + extraSize);
     if (buff == NULL) {
         return NULL;
     }

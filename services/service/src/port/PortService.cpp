@@ -24,13 +24,9 @@
 #include "IRemoteDeviceQuery.h"
 
 #include <future>
-#include <chrono>
 
 namespace OHOS {
 namespace Nearlink {
-namespace {
-constexpr int PORT_WAIT_TIMEOUT_MS = 3000;
-}
 struct PortService::impl {
     impl() = default;
     ~impl() = default;
@@ -202,36 +198,26 @@ uint16_t PortService::GetRemotePortByUuid(const RawAddress &device, const Uuid::
     NL_CHECK_RETURN_RET((uuid.size() == static_cast<std::size_t>(Uuid::UUID128_BYTES_TYPE)),
         static_cast<int>(ReturnValue::RET_BAD_PARAM), "get remote port by uuid but uuid is err!");
 
-    auto promise = std::make_shared<std::promise<uint16_t>>();
+    std::promise<uint16_t> promise;
 
-    DoInPortThread([this, &device, &uuid, promise]() -> void {
+    DoInPortThread([this, &device, &uuid, &promise]() -> void {
         uint16_t result = pimpl->clientStackAdapter_.GetRemotePortByUuid(device, uuid);
         HILOGD("[Port Service] GetRemotePortByUuid result:%{public}d", result);
-        promise->set_value(result);
+        promise.set_value(result);
     });
-    auto future = promise->get_future();
-    if (future.wait_for(std::chrono::milliseconds(PORT_WAIT_TIMEOUT_MS)) == std::future_status::ready) {
-        return future.get();
-    }
-    HILOGE("[Port Service] GetRemotePortByUuid timeout");
-    return static_cast<int>(ReturnValue::RET_BAD_STATUS);
+    return promise.get_future().get();
 }
 
 int PortService::GetConnectState(const RawAddress &device)
 {
-    auto promise = std::make_shared<std::promise<int>>();
-    DoInPortThread([this, &device, promise]() -> void {
+    std::promise<int> promise;
+    DoInPortThread([this, &device, &promise]() -> void {
         int state = static_cast<int>(SleConnectState::DISCONNECTED);
         int result = pimpl->clientStackAdapter_.GetConnectState(device, state);
         HILOGD("[Port Service] GetConnectState result:%{public}d", result);
-        promise->set_value(static_cast<int>(state));
+        promise.set_value(static_cast<int>(state));
     });
-    auto future = promise->get_future();
-    if (future.wait_for(std::chrono::milliseconds(PORT_WAIT_TIMEOUT_MS)) == std::future_status::ready) {
-        return future.get();
-    }
-    HILOGE("[Port Service] GetConnectState timeout");
-    return static_cast<int>(SleConnectState::DISCONNECTED);
+    return promise.get_future().get();
 }
 
 int PortService::GetConnectState()

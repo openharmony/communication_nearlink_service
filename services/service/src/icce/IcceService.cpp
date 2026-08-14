@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include <future>
-#include <chrono>
 #include "BaseObserverList.h"
 #include "ClassCreator.h"
 #include "IcceDefines.h"
@@ -33,7 +32,6 @@
 namespace OHOS {
 namespace Nearlink {
 constexpr uint8_t ICCE_MAX_CONNECTION_NUM = 6;
-constexpr int ICCE_WAIT_TIMEOUT_MS = 3000;
 
 struct IcceService::impl {
     class IcceClientCallback : public IcceClientStackCallback {
@@ -175,17 +173,12 @@ int32_t IcceService::GetPortTask(const RawAddress &device)
 
 int32_t IcceService::GetPort(const RawAddress &device)
 {
-    auto promise = std::make_shared<std::promise<int32_t>>();
-    DoInIcceThread([this, device, promise] ()-> void {
+    std::promise<int32_t> promise;
+    DoInIcceThread([this, device, &promise] ()-> void {
         int32_t port = GetPortTask(device);
-        promise->set_value(port);
+        promise.set_value(port);
     });
-    auto future = promise->get_future();
-    if (future.wait_for(std::chrono::milliseconds(ICCE_WAIT_TIMEOUT_MS)) == std::future_status::ready) {
-        return future.get();
-    }
-    HILOGE("[ICCE Profile] GetPort timeout");
-    return ICCE_INVAILD;
+    return promise.get_future().get();
 }
 
 void IcceService::RegisterObserver(IcceObserver &icceObserver)
