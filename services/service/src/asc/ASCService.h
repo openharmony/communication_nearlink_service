@@ -484,6 +484,11 @@ private:
         return (state == NL_SLE_ASC_STARTED);
     }
 
+    inline bool IsStreamStarted(ASCState state) const
+    {
+        return (state == NL_SLE_ASC_STARTED) || (state == NL_SLE_ASC_SET_DIRECTION);
+    }
+
     bool IsInStopProcess(ASCState state) const;
 
     inline bool IsStopping(ASCState state) const
@@ -673,6 +678,7 @@ private:
     void SetSubrateCachedInfo(const RawAddress &device, const SleAcbSubrateParam &eventParam);
     void UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo);
     std::string ASCToDSPInfoToString(const ASCToDSPInfo& ascToDspInfo);
+    uint16_t GetDeviceBps(const RawAddress& device, uint16_t bps);
 
     // 移动全景音
     void ProcessColAudioSwitchChangeEvent(const ASCMessage &event);

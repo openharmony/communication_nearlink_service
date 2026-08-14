@@ -799,7 +799,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.encodeDspVersion = GetDspL2hcVersion(info);
     ascToDspInfo.encodeBitDepth = info.bitSamp;
     ascToDspInfo.encodeSampleRate = info.rate;
-    ascToDspInfo.encodeBps = info.bps;
+    ascToDspInfo.encodeBps = GetDeviceBps(device, info.bps);
     ascToDspInfo.encodeFrame = info.frame;
     ascToDspInfo.sduInterval = info.sduInterval;
     ascToDspInfo.frameNumPerSdu = static_cast<uint8_t>((info.frame != 0) ? (info.sduInterval / info.frame) : 0);
@@ -818,6 +818,28 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.bn = info.bn;
     ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos);
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
+}
+
+uint16_t ASCService::GetDeviceBps(const RawAddress& device, uint16_t bps)
+{
+    RawAddress coSetDevice;
+    if (!IsSync(device) || !IsCoSetDeviceExist(device, coSetDevice)) {
+        // 非单切双或合作集设备不存在，不需要同步
+        return bps;
+    }
+
+    ASCState coStatus = GetASCStatus(coSetDevice);
+    if (!IsStarted(coStatus)) {
+        // 合作集地址未起播完成，不同步
+        return bps;
+    }
+
+    uint16_t autoRateBps = 0;
+    if (GetAutoRateBps(coSetDevice, autoRateBps)) {
+        // 单切双场景，同步合作集设备码率
+        return autoRateBps;
+    }
+    return bps;
 }
 
 /**
@@ -1432,7 +1454,7 @@ uint8_t ASCService::GetBpsBitIndex(const RawAddress &device, uint64_t resultBps,
     if (IsL2HC(codecId) && IsSameAsFormer(formerPlayRecord_, device, qos, codecId) &&
             IsStartAtLowBps(formerPlayRecord_, qos)) {
         // 保护时间内，若上一次停流时为160k，本次起播按160k，若为96k/48k，本次按96k起播 bit4：单声道96kbps
-        if (formerPlayRecord_.autoRateBpsBit <= L2HC_BPS_S_96_BIT){
+        if (formerPlayRecord_.autoRateBpsBit <= L2HC_BPS_S_96_BIT) {
             return L2HC_BPS_S_96_BIT;
         } else {
             return L2HC_BPS_S_160_BIT;
@@ -2782,7 +2804,7 @@ void ASCService::SetAutoRateBps(const RawAddress &device, uint16_t autoRateBps)
             GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
-    if (device == formerPlayRecord_.addr && autoRateBps > 0){
+    if (device == formerPlayRecord_.addr && autoRateBps > 0) {
         formerPlayRecord_.autoRateBpsBit = ASCUtils::GetBpsBitIndexByBps(autoRateBps);
         HILOGI("[ASCService]SetAutoRateBps to formerPlayRecord");
     }
@@ -5743,7 +5765,7 @@ void ASCService::ProcessSetActiveSinkDeviceEvent(const ASCMessage &event)
         formerSinkDevice_ = activeSinkDevice_;
         activeSinkDevice_ = device;
         sinkDeviceStreamType_ = streamType;
-        if (formerPlayRecord_.addr == formerSinkDevice_){
+        if (formerPlayRecord_.addr == formerSinkDevice_) {
             SetPlayRecord(activeSinkDevice_, Qos::NL_SLE_QOS_NONE, 0, 0);
             HILOGI("[ASCService]Record sink device changed");
         }
