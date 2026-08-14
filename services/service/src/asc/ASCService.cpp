@@ -5052,7 +5052,6 @@ bool ASCService::IsExcuteChangeLocalBitrateNow(uint32_t groupId)
 
 void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
 {
-
     // 配置DSP AutoRate参数;
     SetAutorateParameter(ascBitrate);
     // 保存码率，用于单切双起播码率同步
@@ -5062,7 +5061,8 @@ void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(activeSinkDevice_, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
     for (const auto& info : cdsmList) {
-        if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) && IsStarted(GetASCStatus(info.addr_))) {
+        if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) &&
+            IsStreamStarted(GetASCStatus(info.addr_))) {
             SetAutoRateBps(info.addr_, ascBitrate.downBitrate);
         }
     }
