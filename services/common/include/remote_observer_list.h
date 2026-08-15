@@ -163,7 +163,7 @@ bool RemoteObserverList<T>::UnregisterInternal(typename ObserverMap::iterator it
     HILOGI("RemoteObserverList<T>::UnregisterInternal called");
     sptr<ObserverDeathRecipient> dr = iter->second;
 
-    if (!dr->GetObserver()->AsObject()->RemoveDeathRecipient(dr)) {
+    if (iter->first->AsObject()->IsProxyObject() && !dr->GetObserver()->AsObject()->RemoveDeathRecipient(dr)) {
         HILOGE("Failed to unlink death recipient from observer");
         return false;
     }
