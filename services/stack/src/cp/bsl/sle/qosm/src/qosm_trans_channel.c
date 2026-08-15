@@ -672,7 +672,7 @@ static void QOSM_TransChannelEstablishRspCbk(const CM_DynTransChanEstablishParam
         .srcPort = param->srcPort,
         .dstPort = param->dstPort,
         // 兼容耳机场景（耳机不支持分片），QOSM_TransChannelMtuNegotiate协商时保证mtu值不小于CM_CAP_MIN_MTU
-        .mtu = param->mtu - CM_CAP_MIN_MTU,
+        .mtu = param->mtu > CM_CAP_MIN_MTU ? (param->mtu - CM_CAP_MIN_MTU) : 0,
         .slqi = QOSM_TRANS_CHANNEL_SLQI_MAX,
         .frameType = (QOSM_TransConnFrameType_E)param->frameType,
     };
@@ -738,7 +738,7 @@ static void QOSM_TransChannStatusIndicationCbk(const CM_DynTransChanStatusIndica
         .tcid = param->srcTcid,
         .srcPort = param->srcPort,
         .dstPort = param->dstPort,
-        .mtu = param->mtu - CM_CAP_MIN_MTU,
+        .mtu = param->mtu > CM_CAP_MIN_MTU ? (param->mtu - CM_CAP_MIN_MTU) : 0,
         .slqi = QOSM_TRANS_CHANNEL_SLQI_MAX,
     };
     if (param->slqiList.slqiNum != 0) {
