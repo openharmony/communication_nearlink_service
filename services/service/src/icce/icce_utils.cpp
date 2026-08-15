@@ -15,6 +15,7 @@
 #include <securec.h>
 #include <cstring>
 #include <string>
+#include "log.h"
 #include "icce_utils.h"
 #include "IRemoteDeviceQuery.h"
 
@@ -32,6 +33,7 @@ SLE_Addr_S ConvertToStackAddr(const RawAddress &addr)
 
 RawAddress ConvertSleAddrToRawAddress(SLE_Addr_S *addr)
 {
+    NL_CHECK_RETURN_RET(addr != nullptr, RawAddress(""), "addr is null");
     return RawAddress::ConvertToString(addr->addr);
 }
 
