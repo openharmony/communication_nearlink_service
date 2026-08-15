@@ -94,9 +94,10 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     });
 
     // 检查是否有多个连接
-    bool isNeed = false;
-    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
-    if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeed) {
+    RawAddress device = RawAddress::ConvertToString(param.addr,addr);
+    appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
+    if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeedCustomParam_) {
         StartParamUpdateTimer();
     }
 }
@@ -117,23 +118,25 @@ void SleCoexist::UpdateConnParam()
     HILOGD("[SleCoexist] Update params");
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
-    bool isNeed = false;
-    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeed);
     // 检查是否有多个连接
-    if (!(manager->HasMultipleConnections() && isNeed)) {
+    if (!(manager->HasMultipleConnections() && isNeedCustomParam_)) {
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
     // 遍历所有连接，更新需要调整的参数
-    manager->IterateConnInfo([sleCoexist = selfWeak_.lock(), isNeed](const CoexistConnInfo& info) {
+    manager->IterateConnInfo([sleCoexist = selfWeak_.lock()](const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
-        if ((info.interval < CM_CONN_COEXIST_INTERAL_THRED) || isNeed) {
-            sleCoexist->SendConnectionParam(info.timeout, info.latency, info.addr, isNeed);
+        RawAddress device = RawAddress::ConvertToString(info.addr,addr);
+        sleCoexist->appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+        ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(sleCoexist->isNeedCustomParam_,
+            sleCoexist->appearance_, info.interval);
+        if ((info.interval < CM_CONN_COEXIST_INTERAL_THRED) || sleCoexist->isNeedCustomParam_) {
+            sleCoexist->SendConnectionParam(info.timeout, info.latency, info.addr);
         }
     });
 }
 
-void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr, bool isNeed)
+void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr)
 {
     CM_ConnectUpdateParamReq_S updateParam;
     memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
@@ -146,11 +149,9 @@ void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const S
     updateParam.supervisionTimeout = timeout;
     updateParam.systemTimeUnit = CM_CONN_TIME_UNIT;
     updateParam.txRxFlag = CM_CONN_T_TX_RX_FLAG;
-    if (isNeed) {
-        RawAddress device = RawAddress::ConvertToString(addr.addr);
-        int appearance = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+    if (isNeedCustomParam_) {
         ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(&updateParam.intervalMin,
-            &updateParam.intervalMax, appearance);
+            &updateParam.intervalMax, appearance_);
     }
     CM_ConnectUpdateParamReq(&updateParam);
 }
