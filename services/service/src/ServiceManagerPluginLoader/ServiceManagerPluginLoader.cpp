@@ -144,11 +144,6 @@ void ServiceManagerPluginLoader::HidDataStatisticsProc(const std::string &addres
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(HidDataStatisticsProc, address);
 }
 
-void ServiceManagerPluginLoader::RssiChangedCbkProc(const std::string &address, int8_t rssi)
-{
-    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(RssiChangedCbkProc, address, rssi);
-}
-
 void ServiceManagerPluginLoader::IsNeedCustomParam(bool &isNeed)
 {
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(IsNeedCustomParam, isNeed);

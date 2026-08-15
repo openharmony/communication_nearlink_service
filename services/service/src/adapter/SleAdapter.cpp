@@ -1812,7 +1812,6 @@ void SleAdapter::RssiChangedCallbackTask(const DisconChipInfo &info)
     std::string addr = GetAddressByConnHandle(info.connHandle);
     HILOGI("device:%{public}s, channel noise:%{public}s, rssi:%{public}d", GET_ENCRYPT_ADDR(RawAddress(addr)),
         noise.c_str(), info.signalStrength);
-    ServiceManagerPluginInterface::GetInstance()->RssiChangedCbkProc(addr, info.signalStrength);
     DftCacheDisconChipInfo(addr, info.signalStrength, noise);
 }
 
