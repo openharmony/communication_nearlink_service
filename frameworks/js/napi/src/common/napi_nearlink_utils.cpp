@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 #include <optional>
+#include <vector>
 #include "nearlink_errorcode.h"
 #include "log_util.h"
 #include "napi/native_api.h"
@@ -27,9 +28,70 @@
 
 namespace OHOS {
 namespace Nearlink {
+
+namespace {
 constexpr size_t NAPI_ARRAY_MAX_LENGTH = 0xFFFF;
 
+const std::vector<int> DEVICE_CLASS_VALUES = {
+    static_cast<int>(DeviceClass::DEVICE_INVALID_CLASS),
+    static_cast<int>(DeviceClass::DEVICE_UNCATEGORIZED),
+    static_cast<int>(DeviceClass::DEVICE_PHONE),
+    static_cast<int>(DeviceClass::DEVICE_SMARTPHONE),
+    static_cast<int>(DeviceClass::DEVICE_COMPUTER),
+    static_cast<int>(DeviceClass::DEVICE_LAPTOP),
+    static_cast<int>(DeviceClass::DEVICE_TABLET),
+    static_cast<int>(DeviceClass::DEVICE_ALL_IN_ONE_COMPUTER),
+    static_cast<int>(DeviceClass::DEVICE_MINI_PC),
+    static_cast<int>(DeviceClass::DEVICE_WATCH),
+    static_cast<int>(DeviceClass::DEVICE_SMART_WATCH),
+    static_cast<int>(DeviceClass::DEVICE_HUMAN_INTERFACE),
+    static_cast<int>(DeviceClass::DEVICE_KEYBOARD),
+    static_cast<int>(DeviceClass::DEVICE_MOUSE),
+    static_cast<int>(DeviceClass::DEVICE_HANDLE),
+    static_cast<int>(DeviceClass::DEVICE_STYLUS),
+    static_cast<int>(DeviceClass::DEVICE_TOUCHPAD),
+    static_cast<int>(DeviceClass::DEVICE_AUDIO_PLAYBACK),
+    static_cast<int>(DeviceClass::DEVICE_SMART_SPEAKER),
+    static_cast<int>(DeviceClass::DEVICE_ECHO_WALL),
+    static_cast<int>(DeviceClass::DEVICE_AUDIO_CAPTURE),
+    static_cast<int>(DeviceClass::DEVICE_KARAOKE_MICROPHONE),
+    static_cast<int>(DeviceClass::DEVICE_LAPEL_MICROPHONE),
+    static_cast<int>(DeviceClass::DEVICE_WEARABLE_AUDIO),
+    static_cast<int>(DeviceClass::DEVICE_IN_EAR_EARPHONE),
+    static_cast<int>(DeviceClass::DEVICE_HEADSET),
+    static_cast<int>(DeviceClass::DEVICE_OVER_EAR_HEADPHONE),
+    static_cast<int>(DeviceClass::DEVICE_NECKBAND_EARPHONE),
+    static_cast<int>(DeviceClass::DEVICE_PERSONAL_CARE),
+    static_cast<int>(DeviceClass::DEVICE_INTELLIGENT_TOOTHBRUSH),
+    static_cast<int>(DeviceClass::DEVICE_SMART_CUP),
+    static_cast<int>(DeviceClass::DEVICE_INTELLIGENT_SHAVER),
+    static_cast<int>(DeviceClass::DEVICE_HVAC),
+    static_cast<int>(DeviceClass::DEVICE_AIR_PURIFIER),
+    static_cast<int>(DeviceClass::DEVICE_HUMIDIFIER),
+    static_cast<int>(DeviceClass::DEVICE_AIR_CIRCULATION_FAN),
+    static_cast<int>(DeviceClass::DEVICE_ELECTRIC_RIDE),
+    static_cast<int>(DeviceClass::DEVICE_ELECTRIC_SCOOTER),
+    static_cast<int>(DeviceClass::DEVICE_ELECTRIC_BICYCLE),
+    static_cast<int>(DeviceClass::DEVICE_LIGHT_FITTING),
+    static_cast<int>(DeviceClass::DEVICE_SMART_TABLE_LAMP),
+    static_cast<int>(DeviceClass::DEVICE_REMOTE_CONTROL),
+    static_cast<int>(DeviceClass::DEVICE_TV_REMOTE_CONTROL),
+    static_cast<int>(DeviceClass::DEVICE_IMAGING),
+    static_cast<int>(DeviceClass::DEVICE_SMART_TV),
+    static_cast<int>(DeviceClass::DEVICE_IP_CAMERA),
+    static_cast<int>(DeviceClass::DEVICE_SCREEN_CASTER),
+    static_cast<int>(DeviceClass::DEVICE_NETWORKING),
+    static_cast<int>(DeviceClass::DEVICE_IOT_GATEWAY),
+    static_cast<int>(DeviceClass::DEVICE_ACCESS_CONTROL),
+    static_cast<int>(DeviceClass::DEVICE_INTELLIGENT_LOCK),
+    static_cast<int>(DeviceClass::DEVICE_SMART_KEY),
+    static_cast<int>(DeviceClass::DEVICE_VEHICLE_KEY),
+    static_cast<int>(DeviceClass::DEVICE_VEHICLE_LOCK),
+};
+}  // namespace
+
 using namespace std;
+
 bool ParseString(napi_env env, string &param, napi_value args)
 {
     napi_valuetype valuetype;
@@ -289,6 +351,8 @@ int NapiToJsPairState(int state)
             jsPairState = static_cast<int>(PairingState::PAIRING_STATE_PAIRED);
             break;
         default:
+            HILOGE("Pair state is outside of expectations.");
+            jsPairState = static_cast<int>(PairingState::PAIRING_STATE_NONE);
             break;
     }
     return jsPairState;
@@ -317,6 +381,40 @@ int NapiToJsAcbState(int state)
             break;
     }
     return jsAcbState;
+}
+
+int NapiToJsConnState(int state)
+{
+    int jsConnState = static_cast<int>(ConnectionState::STATE_DISCONNECTED);
+    switch (state) {
+        case static_cast<int>(SleConnectState::CONNECTING):
+            jsConnState = static_cast<int>(ConnectionState::STATE_CONNECTING);
+            break;
+        case static_cast<int>(SleConnectState::CONNECTED):
+            jsConnState = static_cast<int>(ConnectionState::STATE_CONNECTED);
+            break;
+        case static_cast<int>(SleConnectState::DISCONNECTING):
+            jsConnState = static_cast<int>(ConnectionState::STATE_DISCONNECTING);
+            break;
+        case static_cast<int>(SleConnectState::DISCONNECTED):
+            jsConnState = static_cast<int>(ConnectionState::STATE_DISCONNECTED);
+            break;
+        default:
+            HILOGE("Conn state is outside of expectations.");
+            jsConnState = static_cast<int>(ConnectionState::STATE_DISCONNECTED);
+            break;
+    }
+    return jsConnState;
+}
+
+int NapiToJsDeviceClass(int appearance)
+{
+    if (std::find(DEVICE_CLASS_VALUES.begin(), DEVICE_CLASS_VALUES.end(), appearance) !=
+        DEVICE_CLASS_VALUES.end()) {
+        return appearance;
+    }
+    HILOGE("Device class is outside of expectations.");
+    return static_cast<int>(DeviceClass::DEVICE_INVALID_CLASS);
 }
 }  // namespace Nearlink
 }  // namespace OHOS

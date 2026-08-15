@@ -141,10 +141,15 @@ napi_value NapiNearlinkCdsm::CdsmConstructor(napi_env env, napi_callback_info in
     napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr);
 
     std::string deviceAddr;
-    NapiParseString(env, argv[PARAM0], deviceAddr);
+    if (NapiParseString(env, argv[PARAM0], deviceAddr) != napi_ok) {
+        HILOGE("CdsmConstructor ParseString failed, deviceAddr is invalid");
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+        return nullptr;
+    }
     auto nearlinkCdsm = new (std::nothrow) NapiNearlinkCdsm(deviceAddr);
     if (nearlinkCdsm == nullptr) {
         HILOGE("nearlinkCdsm is nullptr");
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
 
@@ -161,6 +166,7 @@ napi_value NapiNearlinkCdsm::CdsmConstructor(napi_env env, napi_callback_info in
         HILOGE("napi_wrap failed");
         delete nearlinkCdsm;
         nearlinkCdsm = nullptr;
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
     HILOGI("Constructor nearlink cdsm success.");
