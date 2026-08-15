@@ -94,7 +94,7 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     });
 
     // 检查是否有多个连接
-    RawAddress device = RawAddress::ConvertToString(param.addr,addr);
+    RawAddress device = RawAddress::ConvertToString(param.addr.addr);
     appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
     ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
     if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeedCustomParam_) {
@@ -126,7 +126,7 @@ void SleCoexist::UpdateConnParam()
     // 遍历所有连接，更新需要调整的参数
     manager->IterateConnInfo([sleCoexist = selfWeak_.lock()](const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
-        RawAddress device = RawAddress::ConvertToString(info.addr,addr);
+        RawAddress device = RawAddress::ConvertToString(info.addr.addr);
         sleCoexist->appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
         ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(sleCoexist->isNeedCustomParam_,
             sleCoexist->appearance_, info.interval);
