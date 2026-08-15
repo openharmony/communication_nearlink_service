@@ -332,6 +332,7 @@ void ASCService::InitDisconnProcTable()
         {NL_SLE_ASC_CREATING,          &ASCService::DisconnProcAction},
         {NL_SLE_ASC_CONFIG_SUBRATE_CHANGED,   &ASCService::DisconnProcSetFlag},
         {NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED, &ASCService::DisconnProcSetFlag},
+        {NL_SLE_ASC_SET_DIRECTION,            &ASCService::DisconnProcStopPlaying},
     };
 
     HILOGD("[ASCService]InitDisconnProcTable OK");
@@ -829,7 +830,7 @@ uint16_t ASCService::GetDeviceBps(const RawAddress& device, uint16_t bps)
     }
 
     ASCState coStatus = GetASCStatus(coSetDevice);
-    if (!IsStarted(coStatus)) {
+    if (!IsStreamStarted(coStatus)) {
         // 合作集地址未起播完成，不同步
         return bps;
     }
@@ -3912,7 +3913,8 @@ bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t res
     bool isStartPlayMerge = (startPlayMergeIndex >= 0) &&
         SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
         device, static_cast<uint8_t>(startPlayMergeIndex));
-    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED);
+    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED) ||
+        (state == NL_SLE_ASC_SET_DIRECTION);
     if ((!isStartPlayMerge && !IsStarting(state)) || (isStartPlayMerge && !isConfig)) {
         HILOGE("[ASCService]CbkStartStream state error %{public}s state %{public}d isStartPlayMerge %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), state, isStartPlayMerge);
@@ -3937,13 +3939,12 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
     // 取出处理中的流类型
     AudioStreamType streamType = GetProcessingStreamType(device);
     ASCState state = GetASCStatus(device);
-    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d",
-        GetEncryptAddr(device.GetAddress()).c_str(), result, streamType);
-    if (state != NL_SLE_ASC_SET_DIRECTION && result != NL_NO_ERROR) {
-        // 状态和结果检查不满足条件
-        HILOGE("[ASCService]state error %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), state);
-        return;
-    }
+    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d, state %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), result, streamType, state);
+
+    // 状态和结果检查
+    NL_CHECK_RETURN(state != NL_SLE_ASC_SET_DIRECTION, "state error");
+    NL_CHECK_RETURN(CheckStartStreamCondition(device, result, streamType), "add data path failed");
 
     // 状态：已开始音频流传输
     SetASCStatus(device, NL_SLE_ASC_STARTED);
@@ -5205,7 +5206,7 @@ static void StackStreamTypeChangedCbk(SLE_Addr_S *stackAddr, uint32_t availableS
 
 static void StackAddDataPathCbk(SLE_Addr_S *stackAddr, NLSTK_ActmSetDirection_S *param)
 {
-    NL_CHECK_RETURN(stackAddr != nullptr, "[ASCService]stackAddr is null.");
+    NL_CHECK_RETURN((stackAddr != nullptr && param != nullptr), "[ASCService]stackAddr is null.");
     const RawAddress& device = RawAddress::ConvertToString(stackAddr->addr);
 
     ASCService *service = ASCService::GetService();

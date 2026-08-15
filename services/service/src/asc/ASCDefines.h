@@ -211,8 +211,8 @@ enum ASCState {
     NL_SLE_ASC_CREATING                 = 23,
     NL_SLE_ASC_CONFIG_SUBRATE_CHANGED   = 24,
     NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED = 25,
-    NL_SLE_ASC_BUTT                     = 26,
-    NL_SLE_ASC_SET_DIRECTION            = 27,
+    NL_SLE_ASC_SET_DIRECTION            = 26,
+    NL_SLE_ASC_BUTT                     = 27,
 };
 
 // ASCService内部错误码(1~100:下层协议栈 100以上:service)
