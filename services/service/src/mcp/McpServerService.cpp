@@ -181,7 +181,7 @@ void McpServerService::impl::McpInit()
     NLSTK_McpMediaInfo_S mcpMediaInfo{};
     (void)memset_s(&mcpMediaInfo, sizeof(mcpMediaInfo), 0x00, sizeof(mcpMediaInfo));
     mcpMediaInfo.type = NLSTK_MCP_COMMON_SERVICE;
-    static const char instanceName[] = "NearlinkAudio";  // 实例名称暂定为 NearlinkAudio
+    char instanceName[] = "NearlinkAudio";  // 实例名称暂定为 NearlinkAudio
     mcpMediaInfo.instanceName.data = reinterpret_cast<uint8_t*>(instanceName);
     mcpMediaInfo.instanceName.len = strlen(instanceName);
     mcpMediaInfo.mediaBaseInfo.mediaType = NLSTK_MEDIA_UNSPECIFIED;   // 初始化媒体类型为---未指定媒体
