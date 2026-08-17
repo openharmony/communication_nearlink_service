@@ -14,6 +14,7 @@
  */
 
 #include "ScanService.h"
+#include "SleFrame4AntennaMgr.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_dft_exception.h"
 #include "nearlink_dft_device_data.h"
@@ -156,6 +157,7 @@ void ScanService::RemoveScannerId(uint32_t scannerId)
     HILOGI("scannerId(%{public}d)", scannerId);
     DoInScanThread([this, scannerId]() -> void {
         pimpl->scanStackAdapter_.RemoveScannerId(scannerId);
+        SleFrame4AntennaMgr::GetInstance().OnScanStopped(scannerId);
     });
 }
 
@@ -165,6 +167,7 @@ void ScanService::StartScan(uint32_t scannerId, const NearlinkSleScanSettings &s
     HILOGI("scannerId(%{public}d)", scannerId);
     DftDealAccurateSearchScanInfo(NearLinkPermissionManager::GetCallingName(), DFT_SCAN);
     DoInScanThread([this, scannerId, settings, filters]() -> void {
+        SleFrame4AntennaMgr::GetInstance().OnScanStarted(scannerId, settings.GetScanMode(), settings.GetFrameType());
         pimpl->scanStackAdapter_.StartScan(scannerId, settings, filters);
     });
 }
@@ -174,6 +177,7 @@ void ScanService::StopScan(uint32_t scannerId) const
     HILOGI("scannerId(%{public}d)", scannerId);
     DoInScanThread([this, scannerId]() -> void {
         pimpl->scanStackAdapter_.StopScan(scannerId);
+        SleFrame4AntennaMgr::GetInstance().OnScanStopped(scannerId);
     });
 }
 
@@ -183,6 +187,7 @@ void ScanService::StopAllScan()
     std::future<void> future = stopAllScanPromise->get_future();
     DoInScanThread([this, &stopAllScanPromise]() -> void {
         pimpl->scanStackAdapter_.StopAllScan(stopAllScanPromise);
+        SleFrame4AntennaMgr::GetInstance().OnAllScanStopped();
     });
     HILOGI("waiting for stop all scan....");
     auto status = future.wait_for(std::chrono::milliseconds(STOP_ALL_SCAN_WAIT_TIMEOUT_MS));

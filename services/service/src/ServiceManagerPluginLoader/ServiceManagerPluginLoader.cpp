@@ -215,6 +215,11 @@ void ServiceManagerPluginLoader::RejectSetSubrate(const RawAddress &device)
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(RejectSetSubrate, device);
 }
 
+void ServiceManagerPluginLoader::ControlAntennaFix(bool enable, AntennaFixScene scene)
+{
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(ControlAntennaFix, enable, scene);
+}
+
 // chiputil模块函数 end
 
 std::string ServiceManagerPluginLoader::GetBundleName(BundleNameType type)

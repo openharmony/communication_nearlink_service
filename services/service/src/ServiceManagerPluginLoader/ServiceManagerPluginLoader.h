@@ -69,6 +69,7 @@ public:
     void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) override;
     void SetConnFrameType4Subrate(const RawAddress &device) override;
     void RejectSetSubrate(const RawAddress &device) override;
+    void ControlAntennaFix(bool enable, AntennaFixScene scene) override;
     // chiputil模块函数 end
 
     std::string GetBundleName(BundleNameType type) override;

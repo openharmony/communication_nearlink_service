@@ -104,6 +104,7 @@ ohos_unittest("nl_service_test") {
     "hid_host_service_test.cpp",
     "hid_host_uhid_test.cpp",
     "sle_name_change_manager_test.cpp",
+    "sle_frame4_antenna_mgr_test.cpp",
   ]
 
   configs = [ ":service_unit_test_config" ]
