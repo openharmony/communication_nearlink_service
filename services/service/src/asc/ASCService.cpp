@@ -405,7 +405,7 @@ int ASCService::DisconnProcStopPlaying(const RawAddress &device, ASCState state)
     CancelStopDelay(device);
 
     // 设置需要disconnect标记
-    SetNeedDisconnect(device, true);   
+    SetNeedDisconnect(device, true);
 
     // 有音频流的场景，先停止+释放流
     StopPlayingExcuteExt(device, streamType);
