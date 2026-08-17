@@ -4312,7 +4312,7 @@ bool ASCService::IsInStartProcess(ASCState state) const
         (state == NL_SLE_ASC_OPENED) || (state == NL_SLE_ASC_STARTING) || (state == NL_SLE_ASC_RECONFIGURING) ||
         (state == NL_SLE_ASC_RECONFIGED) || (state == NL_SLE_ASC_RECONFIG_STOPPING) ||
         (state == NL_SLE_ASC_RECONFIG_STOPPED) || (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) ||
-        (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED));
+        (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_SET_DIRECTION));
 }
 
 bool ASCService::IsInConnectedState(ASCState state) const
