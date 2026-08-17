@@ -150,11 +150,7 @@
                     "name": "//foundation/communication/nearlink_service/utils:nearlink_utils"
                 },
                 {
-                    "name": "//foundation/communication/nearlink_service/services/common:nearlink_service_common",
-                    "header": {
-                        "header_base": "//foundation/communication/nearlink_service/services/common/include",
-                        "header_files": []
-                    }
+                    "name": "//foundation/communication/nearlink_service/services/common:nearlink_service_common"
                 },
                 {
                     "name": "//foundation/communication/nearlink_service/services/stack/src/dli:nearlink_stack_base"
