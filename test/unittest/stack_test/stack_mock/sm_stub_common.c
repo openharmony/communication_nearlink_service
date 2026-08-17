@@ -94,11 +94,12 @@ void SendBuffer(DLI_ControllerDataEvt *buff)
     g_recvFunc(NULL, 0, &param);
 }
 
-void Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len)
+uint32_t Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len)
 {
     for (int i = 0; i < len; i++) {
         out[i] = i;
     }
+    return 0;
 }
 
 void Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair)

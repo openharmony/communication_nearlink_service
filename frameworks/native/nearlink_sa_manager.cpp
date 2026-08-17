@@ -190,10 +190,11 @@ int32_t NearlinkSaManager::AllocateProfileId()
 {
     std::shared_ptr<NearlinkRegisterInfo> info = nullptr;
     while (profileIdFuncMap_.GetValue(g_profileId, info)) {
-        g_profileId++;
         if (g_profileId == INT32_MAX) {
             HILOGW("The profileId reaches the maximum value.");
             g_profileId = INITIAL_ID;
+        } else {
+            g_profileId++;
         }
     }
     return g_profileId;

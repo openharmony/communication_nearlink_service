@@ -772,7 +772,7 @@ void SleProfileConnectManager::SleConnectAllProfile(const RawAddress &device) co
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
         LOG_INFO("add new SleProfileConnectInst, device:%{public}s",
             GetEncryptAddr(device.GetAddress()).c_str());
-        std::shared_ptr<SleProfileConnectInst> profConnInst = std::make_shared<SleProfileConnectInst>(device);
+        profConnInst = std::make_shared<SleProfileConnectInst>(device);
         int appId = ssapClientService->RegisterApplication(profConnInst->GetSsapClientCallback(),
             device, SleTransport::ADAPTER_SLE, 0);
         LOG_INFO("appId_ %{public}d", appId);
@@ -821,7 +821,7 @@ void SleProfileConnectManager::NotifyConnectAcb(const RawAddress &device)
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
         InterfaceProfileSsapClient *ssapClientService = GetSsapClientService();
         NL_CHECK_RETURN(ssapClientService, "ssapClientService is null.");
-        std::shared_ptr<SleProfileConnectInst> profConnInst = std::make_shared<SleProfileConnectInst>(device);
+        profConnInst = std::make_shared<SleProfileConnectInst>(device);
         int appId = ssapClientService->RegisterApplication(profConnInst->GetSsapClientCallback(),
             device, SleTransport::ADAPTER_SLE, 0);
         LOG_INFO("appId_ %{public}d", appId);

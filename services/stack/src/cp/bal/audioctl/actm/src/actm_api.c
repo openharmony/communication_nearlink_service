@@ -137,6 +137,7 @@ uint32_t NLSTK_ActmReadRemoteProp(SLE_Addr_S *addr)
     }
     readIn->appId = appId;
     if (SchedulePostTask(ActmReadRemotePropInner, readIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(readIn);
         NLSTK_SsapClientDeregApp(appId);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
@@ -165,6 +166,7 @@ uint32_t NLSTK_ActmDisconnect(SLE_Addr_S *addr)
     NLSTK_CHECK_RETURN(addrIn != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[ACTM] addr malloc error");
     (void)memcpy_s(addrIn, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     if (SchedulePostTask(ActmDisconnectInner, addrIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(addrIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -201,6 +203,7 @@ uint32_t NLSTK_ActmCreateStream(SLE_Addr_S* addr, NLSTK_ActmStreamParam_S *param
     createIn->pointType = param->pointType;
     createIn->commType = param->commType;
     if (SchedulePostTask(CreateStreamInner, createIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(createIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -238,6 +241,7 @@ uint32_t NLSTK_ActmDeleteStream(SLE_Addr_S* addr, uint8_t streamId)
     (void)memcpy_s(&deleteIn->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     deleteIn->streamId = streamId;
     if (SchedulePostTask(DeleteStreamInner, deleteIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(deleteIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -267,6 +271,7 @@ uint32_t NLSTK_ActmRecvAutoRateMsg(SLE_Addr_S* addr, NLSTK_ActmAutoRateRecvMsg_S
     updateIn->msgType = param->msgType;
     updateIn->result = param->result;
     if (SchedulePostTask(RecvAutoRateMsgInner, updateIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(updateIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -403,6 +408,7 @@ uint32_t NLSTK_ActmConfigAudioStream(SLE_Addr_S *addr, NLSTK_ActmConfigParam_S *
     configIn->isImg = param->isImg;
     (void)memcpy_s(&configIn->encp, sizeof(NLSTK_ActmImgEncpParam_S), &param->encp, sizeof(NLSTK_ActmImgEncpParam_S));
     if (SchedulePostTask(ConfigAudioStreamInner, configIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(configIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -456,6 +462,7 @@ uint32_t NLSTK_ActmStartAudioStream(SLE_Addr_S *addr, NLSTK_ActmConfigParam_S *p
     configIn->isImg = param->isImg;
     (void)memcpy_s(&configIn->encp, sizeof(NLSTK_ActmImgEncpParam_S), &param->encp, sizeof(NLSTK_ActmImgEncpParam_S));
     if (SchedulePostTask(StartAudioStreamInner, configIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(configIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -488,6 +495,7 @@ uint32_t NLSTK_ActmOpenAudioStream(SLE_Addr_S *addr, NLSTK_ActmOpenParam_S *para
     (void)memcpy_s(&openIn->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     openIn->streamId = param->streamId;
     if (SchedulePostTask(OpenAudioStreamInner, openIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(openIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -529,6 +537,7 @@ uint32_t NLSTK_ActmChangeAudioStream(SLE_Addr_S *addr, NLSTK_ActmChangeParam_S *
     changeIn->streamId = param->streamId;
     changeIn->op = param->op;
     if (SchedulePostTask(ChangeAudioStreamInner, changeIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(changeIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -569,6 +578,7 @@ uint32_t NLSTK_ActmReleaseAudioStream(SLE_Addr_S *addr, NLSTK_ActmReleaseParam_S
     (void)memcpy_s(&releaseIn->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     releaseIn->streamId = param->streamId;
     if (SchedulePostTask(ReleaseAudioStreamInner, releaseIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(releaseIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -587,6 +597,7 @@ uint32_t NLSTK_ActmRegisterCallback(NLSTK_ActmCbk_S *cbk)
     NLSTK_CHECK_RETURN(cbkIn != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[ACTM] cbk malloc error");
     (void)memcpy_s(cbkIn, sizeof(NLSTK_ActmCbk_S), cbk, sizeof(NLSTK_ActmCbk_S));
     if (SchedulePostTask(RegisterCallbackInner, cbkIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(cbkIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -610,6 +621,7 @@ uint32_t NLSTK_ActmSetDirection(SLE_Addr_S *addr, uint8_t direction)
     (void)memcpy_s(&dataPath->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     dataPath->direction = direction;
     if (SchedulePostTask(SetDirectionInner, dataPath, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(dataPath);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -642,6 +654,7 @@ uint32_t NLSTK_ActmUpdateBitrate(SLE_Addr_S *addr, NLSTK_ActmBitrateParam_S *par
     bitrateIn->streamId = param->streamId;
     bitrateIn->bitrate = param->bitrate;
     if (SchedulePostTask(UpdateBitrateInner, bitrateIn, SDF_MemFree) != NLSTK_OK) {
+        SDF_MemFree(bitrateIn);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;

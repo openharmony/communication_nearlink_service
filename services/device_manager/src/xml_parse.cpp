@@ -307,7 +307,8 @@ bool XmlParse::Parse()
     if (pimpl->doc_ != NULL) {
         xmlFreeDoc(pimpl->doc_);
     }
-    pimpl->doc_ = xmlReadFile(this->filePath_.c_str(), "UTF-8", XML_PARSE_NOBLANKS | XML_PARSE_RECOVER);
+    pimpl->doc_ = xmlReadFile(this->filePath_.c_str(), "UTF-8",
+        XML_PARSE_NOBLANKS | XML_PARSE_RECOVER | XML_PARSE_NONET);
     if (pimpl->doc_ == NULL) {
         const xmlError *xmlErr = xmlGetLastError();
         std::string xmlErrMessage = (xmlErr != nullptr) ? xmlErr->message : "get no error from xml";

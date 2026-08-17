@@ -307,7 +307,7 @@ void SleDliSnoop::OpenSnoopFile()
     // 打开方式：只写、文件不存在则创建、文件已存在则覆写；文件权限：rw-rw-r--
     logFileFd_ =
         open(snoopLogfilePath_.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
-            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
     if (logFileFd_ < 0) {
         HILOGE("unable to open '%{public}s', err:%{public}s", snoopLogfilePath_.c_str(), strerror(errno));
         logFileFd_ = INVALID_FD;

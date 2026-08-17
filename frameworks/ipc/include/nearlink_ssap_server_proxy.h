@@ -28,19 +28,19 @@ public:
     ~NearlinkSsapServerProxy(){};
 
     NlErrCode AddService(int32_t appId, NearlinkSsapServiceParcel *services) override;
-    NlErrCode ClearServices(int appId) override;
-    NlErrCode CancelConnection(int appId, const NearlinkSsapDevice &device) override;
+    NlErrCode ClearServices(int32_t appId) override;
+    NlErrCode CancelConnection(int32_t appId, const NearlinkSsapDevice &device) override;
     NlErrCode RegisterApplication(const sptr<INearlinkSsapServerCallback> &callback, int32_t &appId) override;
-    NlErrCode DeregisterApplication(int appId) override;
-    NlErrCode NotifyClient(int appId,
+    NlErrCode DeregisterApplication(int32_t appId) override;
+    NlErrCode NotifyClient(int32_t appId,
         NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device, bool needConfirm) override;
-    NlErrCode NotifyEvent(int appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
+    NlErrCode NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
         const NearlinkSsapDevice &device, bool needConfirm) override;
     NlErrCode SetPropertyValue(int32_t appId, NearlinkSsapPropertyParcel *property) override;
     NlErrCode SetDescriptorValue(int32_t appId, NearlinkSsapDescriptorParcel *descriptor) override;
     NlErrCode Connect(int32_t appId, const NearlinkSsapDevice &device, uint8_t secureReq, bool autoConnect) override;
     NlErrCode RemoveService(int32_t appId, const NearlinkSsapServiceParcel &services) override;
-    NlErrCode AuthorizeResponse(int appId, uint16_t requestId, bool allow) override;
+    NlErrCode AuthorizeResponse(int32_t appId, uint16_t requestId, bool allow) override;
 
 private:
     static inline BrokerDelegator<NearlinkSsapServerProxy> delegator_;

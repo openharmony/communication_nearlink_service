@@ -138,7 +138,11 @@ ErrCode NearlinkASCCallbackStub::OnAddSleVirtualAudioDeviceInner(MessageParcel &
     if (!device) {
         return TRANSACTION_ERR;
     }
-    AudioStreamType streamType = static_cast<AudioStreamType>(data.ReadUint32());
+    uint32_t streamTypeValue = data.ReadUint32();
+    if (streamTypeValue > static_cast<uint32_t>(AUDIO_STREAM_SING)) {
+        return TRANSACTION_ERR;
+    }
+    AudioStreamType streamType = static_cast<AudioStreamType>(streamTypeValue);
     HILOGI("NearlinkASCCallbackStub OnAddSleVirtualAudioDevice %{public}s, streamType %{public}d",
         GetEncryptAddr(device->GetAddress()).c_str(), streamType);
     OnAddSleVirtualAudioDevice(*device, streamType);

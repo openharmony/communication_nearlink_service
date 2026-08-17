@@ -375,7 +375,7 @@ typedef struct {
 /**
  * @brief  安全管理模块加密函数类型
  */
-typedef void (*NLSTK_SmRandNumGenAlgo)(uint8_t *out, uint8_t len);
+typedef uint32_t (*NLSTK_SmRandNumGenAlgo)(uint8_t *out, uint8_t len);
 typedef void (*NLSTK_SmKeyPairGenAlgo)(NLSTK_SmKeyPair_S *keyPair);
 typedef void (*NLSTK_SmSecKeyGenAlgo)(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
 typedef void (*NLSTK_SmDerivedKeyGenAlgo)(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);

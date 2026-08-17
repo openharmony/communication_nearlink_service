@@ -46,10 +46,34 @@ std::string DialogPairing::BuildStartCommand(const RawAddress &device, const std
     cJSON *root = cJSON_CreateObject();
     NL_CHECK_RETURN_RET(root, "", "Failed to create cJSON object.");
     std::string uiType = "sysDialog/common";
-    cJSON_AddItemToObject(root, "ability.want.params.uiExtensionType", cJSON_CreateString(uiType.c_str()));
-    cJSON_AddItemToObject(root, "deviceId", cJSON_CreateString(device.GetAddress().c_str()));
-    cJSON_AddItemToObject(root, "pinCode", cJSON_CreateString(passKey.c_str()));
-    cJSON_AddItemToObject(root, "pinType", cJSON_CreateNumber(type));
+    cJSON *uiTypeJson = cJSON_CreateString(uiType.c_str());
+    if (uiTypeJson == nullptr) {
+        HILOGE("create uiType json failed.");
+        cJSON_Delete(root);
+        return "";
+    }
+    cJSON_AddItemToObject(root, "ability.want.params.uiExtensionType", uiTypeJson);
+    cJSON *deviceIdJson = cJSON_CreateString(device.GetAddress().c_str());
+    if (deviceIdJson == nullptr) {
+        HILOGE("create deviceId json failed.");
+        cJSON_Delete(root);
+        return "";
+    }
+    cJSON_AddItemToObject(root, "deviceId", deviceIdJson);
+    cJSON *pinCodeJson = cJSON_CreateString(passKey.c_str());
+    if (pinCodeJson == nullptr) {
+        HILOGE("create pinCode json failed.");
+        cJSON_Delete(root);
+        return "";
+    }
+    cJSON_AddItemToObject(root, "pinCode", pinCodeJson);
+    cJSON *pinTypeJson = cJSON_CreateNumber(type);
+    if (pinTypeJson == nullptr) {
+        HILOGE("create pinType json failed.");
+        cJSON_Delete(root);
+        return "";
+    }
+    cJSON_AddItemToObject(root, "pinType", pinTypeJson);
     HILOGI("address: %{public}s, type: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), type);
     char* cmdData = cJSON_Print(root);
     if (cmdData == nullptr) {

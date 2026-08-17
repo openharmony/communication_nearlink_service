@@ -31,31 +31,34 @@ void QOSM_RegisterExtFunc(void *soHandle)
         return;
     }
 
-    g_funcList.antennaDfxSendQueryCmd =
+    // 全有或全无：先加载到临时结构，全部成功后再原子替换，避免部分填充导致状态不一致
+    QOSM_ExtFuncList tmpFuncList = {0};
+    tmpFuncList.antennaDfxSendQueryCmd =
         (QOSM_AntennaDfxSendQueryCmdPtr)dlsym(soHandle, "QOSM_AntennaDfxSendQueryCmd");
-    if (g_funcList.antennaDfxSendQueryCmd == NULL) {
+    if (tmpFuncList.antennaDfxSendQueryCmd == NULL) {
         ADAPTER_LOGE("null antennaDfxSendQueryCmd\n");
         return;
     }
-    g_funcList.antennaDfxGetAntennaPolicy =
+    tmpFuncList.antennaDfxGetAntennaPolicy =
         (QOSM_AntennaDfxGetAntennaPolicyPtr)dlsym(soHandle, "QOSM_AntennaDfxGetAntennaPolicy");
-    if (g_funcList.antennaDfxGetAntennaPolicy == NULL) {
+    if (tmpFuncList.antennaDfxGetAntennaPolicy == NULL) {
         ADAPTER_LOGE("null antennaDfxGetAntennaPolicy\n");
         return;
     }
-    g_funcList.isLastEnableFreqBandByRecommend =
+    tmpFuncList.isLastEnableFreqBandByRecommend =
         (QOSM_IsLastEnableFreqBandByRecommendPtr)dlsym(soHandle, "IsLastEnableFreqBandByRecommend");
-    if (g_funcList.isLastEnableFreqBandByRecommend == NULL) {
+    if (tmpFuncList.isLastEnableFreqBandByRecommend == NULL) {
         ADAPTER_LOGE("null isLastEnableFreqBandByRecommend\n");
         return;
     }
-    g_funcList.isNeedRecoverFreqBandAbility =
+    tmpFuncList.isNeedRecoverFreqBandAbility =
         (QOSM_IsNeedRecoverFreqBandAbilityPtr)dlsym(soHandle, "IsNeedRecoverFreqBandAbility");
-    if (g_funcList.isNeedRecoverFreqBandAbility == NULL) {
+    if (tmpFuncList.isNeedRecoverFreqBandAbility == NULL) {
         ADAPTER_LOGE("null isNeedRecoverFreqBandAbility\n");
         return;
     }
 
+    g_funcList = tmpFuncList;
     ADAPTER_LOGI("qosm register ext func finished\n");
 }
 

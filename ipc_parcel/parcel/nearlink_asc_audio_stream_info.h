@@ -25,6 +25,7 @@ class NearlinkASCAudioStreamInfo : public Parcelable {
 public:
     NearlinkASCAudioStreamInfo() = default;
     explicit NearlinkASCAudioStreamInfo(const NearlinkASCAudioStreamInfo &other)
+        : streamInfo_(other.streamInfo_)
     {}
     NearlinkASCAudioStreamInfo& operator = (const NearlinkASCAudioStreamInfo &other);
     ~NearlinkASCAudioStreamInfo() override = default;

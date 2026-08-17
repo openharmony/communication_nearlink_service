@@ -27,6 +27,12 @@ using PluginInitFunc = void(*)();
 std::atomic<bool> pluginLoaded_{false};
 void* pluginHandle_ = nullptr;
 ffrt::mutex pluginMutex_;
+
+#ifdef __aarch64__
+constexpr const char* PLUGIN_PATH = "/system/lib64/libnearlink_hadm_closed_plugin.z.so";
+#else
+constexpr const char* PLUGIN_PATH = "/system/lib/libnearlink_hadm_closed_plugin.z.so";
+#endif
 }
 
 void LoadHadmClosedPlugin()
@@ -38,7 +44,7 @@ void LoadHadmClosedPlugin()
         return;
     }
 
-    const char* pluginPath = "libnearlink_hadm_closed_plugin.z.so";
+    const char* pluginPath = PLUGIN_PATH;
 
     pluginHandle_ = dlopen(pluginPath, RTLD_NOW | RTLD_LOCAL);
     if (pluginHandle_ == nullptr) {

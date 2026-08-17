@@ -468,7 +468,7 @@ void HidHostUhid::ReadUhidSetReport(uhid_event ev)
         hidHostService->HidHostSetReport(address_, HID_HOST_INPUT_REPORT, ev.u.set_report.size, ev.u.set_report.data);
     }
 
-    taskId_ = static_cast<int>(ev.u.feature.id);
+    taskId_ = static_cast<int>(ev.u.set_report.id);
     taskType_ = HID_HOST_DATA_TYPE_SET_REPORT;
 }
 

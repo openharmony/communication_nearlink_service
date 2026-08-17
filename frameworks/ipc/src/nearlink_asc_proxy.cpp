@@ -238,7 +238,12 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceCodecInfo(const NearlinkRawAddress &de
         return NL_ERR_IPC_TRANS_FAILED;
     }
     for (uint32_t i = 0; i < mapCnt; i++) {
-        AudioStreamType StreamType = static_cast<AudioStreamType>(reply.ReadUint32());
+        uint32_t streamTypeValue = reply.ReadUint32();
+        if (streamTypeValue > static_cast<uint32_t>(AUDIO_STREAM_SING)) {
+            HILOGE("stream type is error");
+            return NL_ERR_IPC_TRANS_FAILED;
+        }
+        AudioStreamType StreamType = static_cast<AudioStreamType>(streamTypeValue);
 
         AudioStreamCodecInfo codec;
         codec.codecType = reply.ReadUint64();

@@ -322,9 +322,9 @@ NlErrCode NearlinkSsapClientProxy::GetServices(int32_t appId, std::vector<Nearli
     if (exception != NL_NO_ERROR) {
         return exception;
     }
-    int ssapServiceNumber = reply.ReadInt32();
-    NL_CHECK_RETURN_RET(ssapServiceNumber <= SSAP_CLIENT_READ_DATA_SIZE_MAX_LEN, NL_ERR_INVALID_STATE,
-        "read Parcelable size failed.");
+    int32_t ssapServiceNumber = reply.ReadInt32();
+    NL_CHECK_RETURN_RET(ssapServiceNumber >= 0 && ssapServiceNumber <= SSAP_CLIENT_READ_DATA_SIZE_MAX_LEN,
+        NL_ERR_INVALID_STATE, "read Parcelable size failed.");
     for (int i = ssapServiceNumber; i > 0; i--) {
         std::shared_ptr<NearlinkSsapServiceParcel> dev(reply.ReadParcelable<NearlinkSsapServiceParcel>());
         NL_CHECK_RETURN_RET(dev, NL_ERR_INTERNAL_ERROR, "read Parcelable dev failed.");

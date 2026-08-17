@@ -38,6 +38,7 @@ sptr<NearlinkHostProxy> GetHostProxy()
     sptr<ISystemAbilityManager> samgr = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN_RET(samgr, nullptr, "GetSystemAbilityManager fail");
     sptr<IRemoteObject> remote = samgr->GetSystemAbility(NEARLINK_HOST_SYS_ABILITY_ID);
+    NL_CHECK_RETURN_RET(remote, nullptr, "GetSystemAbility fail");
 
     sptr<NearlinkHostProxy> hostProxy = new (std::nothrow) NearlinkHostProxy(remote);
     return hostProxy;
@@ -364,7 +365,7 @@ bool NearlinkRemoteDevice::IsValidPassCode(const std::string& passCode)
         return false;
     }
     for (char c : passCode) {
-        if (!std::isdigit(c)) {
+        if (!std::isdigit(static_cast<unsigned char>(c))) {
             return false;
         }
     }

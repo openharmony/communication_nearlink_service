@@ -15,6 +15,7 @@
 
 #include "nearlink_uuid_parcel.h"
 #include "log.h"
+#include "ipc_types.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -44,6 +45,10 @@ NearlinkUuidParcel *NearlinkUuidParcel::Unmarshalling(Parcel &parcel)
 {
     uint64_t mostSigBits = parcel.ReadUint64();
     uint64_t leastSigBits = parcel.ReadUint64();
+    if (parcel.GetError() != ERR_NONE) {
+        HILOGE("read uuid from parcel error");
+        return nullptr;
+    }
     NearlinkUuidParcel *uuid = new (std::nothrow)
         NearlinkUuidParcel(Uuid::ConvertFromMostAndLeastBit(mostSigBits, leastSigBits));
     if (uuid == nullptr) {

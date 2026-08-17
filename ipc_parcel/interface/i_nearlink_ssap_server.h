@@ -37,19 +37,19 @@ public:
     DECLARE_INTERFACE_DESCRIPTOR(u"ohos.ipc.INearlinkSsapServer");
 
     virtual NlErrCode AddService(int32_t appId, NearlinkSsapServiceParcel *services) = 0;
-    virtual NlErrCode ClearServices(int appId) = 0;
-    virtual NlErrCode CancelConnection(int appId, const NearlinkSsapDevice &device) = 0;
+    virtual NlErrCode ClearServices(int32_t appId) = 0;
+    virtual NlErrCode CancelConnection(int32_t appId, const NearlinkSsapDevice &device) = 0;
     virtual NlErrCode RegisterApplication(const sptr<INearlinkSsapServerCallback> &callback, int32_t &appId) = 0;
     virtual NlErrCode DeregisterApplication(int32_t appId) = 0;
     virtual NlErrCode NotifyClient(
-        int appId, NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device, bool needConfirm) = 0;
-    virtual NlErrCode NotifyEvent(int appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
+        int32_t appId, NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device, bool needConfirm) = 0;
+    virtual NlErrCode NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
         const NearlinkSsapDevice &device, bool needConfirm) = 0;
     virtual NlErrCode SetPropertyValue(int32_t appId, NearlinkSsapPropertyParcel *property) = 0;
     virtual NlErrCode SetDescriptorValue(int32_t appId, NearlinkSsapDescriptorParcel *descriptor) = 0;
     virtual NlErrCode Connect(int32_t appId, const NearlinkSsapDevice &device, uint8_t secureReq, bool autoConnect) = 0;
     virtual NlErrCode RemoveService(int32_t appId, const NearlinkSsapServiceParcel &services) = 0;
-    virtual NlErrCode AuthorizeResponse(int appId, uint16_t requestId, bool allow) = 0;
+    virtual NlErrCode AuthorizeResponse(int32_t appId, uint16_t requestId, bool allow) = 0;
 };
 }  // namespace Nearlink
 }  // namespace OHOS

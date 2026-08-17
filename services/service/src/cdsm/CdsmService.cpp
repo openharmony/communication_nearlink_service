@@ -169,8 +169,14 @@ std::list<RawAddress> CdsmService::GetConnectDevices()
 /* cdsm服务状态机状态跃迁回调 */
 void CdsmService::NotifyStateChanged(const RawAddress &device, CdsmClientState state, CdsmClientState preState)
 {
-    int newState = stateMap_.at(state);
-    int oldState = stateMap_.at(preState);
+    auto stateIt = stateMap_.find(state);
+    auto preStateIt = stateMap_.find(preState);
+    if (stateIt == stateMap_.end() || preStateIt == stateMap_.end()) {
+        HILOGE("[Cdsm Service]:invalid state");
+        return;
+    }
+    int newState = stateIt->second;
+    int oldState = preStateIt->second;
 
     cdsmObservers_.ForEach([device, newState, oldState](CdsmObserver &observer) {
         observer.OnConnectionStateChanged(device, newState, oldState);

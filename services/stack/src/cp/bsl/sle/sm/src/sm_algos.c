@@ -37,8 +37,7 @@ bool SmGenRandNum(uint8_t *out, uint8_t len)
     NLSTK_CHECK_RETURN(out != NULL && len != 0, false, "rand num params invalid");
     if (g_algoFuncs.randNumFunc != NULL) {
         NLSTK_LOG_DEBUG("[SM] Start to generate rand number.");
-        g_algoFuncs.randNumFunc(out, len);
-        return true;
+        return g_algoFuncs.randNumFunc(out, len) == NLSTK_ERRCODE_SUCCESS;
     }
     return false;
 }

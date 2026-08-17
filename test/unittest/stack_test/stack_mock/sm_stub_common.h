@@ -57,7 +57,7 @@ uint32_t CM_GetLogicLinkByAddrForTStub(SLE_Addr_S *addr, CM_LogicLink_S *logicLi
 uint32_t DLI_CmdCbkRegStub(const ModuleType module, const DLI_InnerCbkLineStru *innerTable, const uint32_t innerSize,
     const DLI_CbkLineStru *table, const uint32_t size);
 void SendBuffer(DLI_ControllerDataEvt *buff);
-void Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len);
+uint32_t Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len);
 void Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair);
 void Crypto_SecKeyGenerateStub(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
 void Crypto_DerivedKeyGenerateStub(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);

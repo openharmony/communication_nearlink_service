@@ -87,6 +87,13 @@ int SleSwitchDependency::Init()
             int32_t ret = samgrProxy->SubscribeSystemAbility(systemAbilityId, systemAbilityStatusListener_);
             if (ret != ERR_OK) {
                 HILOGE("subscribe systemAbilityId(%{public}d) failed!", systemAbilityId);
+                // 退订本次失败前已订阅的系统能力，避免资源泄漏
+                for (auto [subscribedId, _] : dependedSystemAbilityMap_) {
+                    if (subscribedId == systemAbilityId) {
+                        break;
+                    }
+                    samgrProxy->UnSubscribeSystemAbility(subscribedId, systemAbilityStatusListener_);
+                }
                 systemAbilityStatusListener_ = nullptr;
                 return -1;
             }

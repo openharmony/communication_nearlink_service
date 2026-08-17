@@ -441,12 +441,16 @@ NLSTK_ERRCODE SleAdvertiserImpl::FillAdvParam(uint8_t advHandle, NLSTK_DevdSetAd
     }
 
     // 设置广播拓展参数
-    NL_CHECK_RETURN_RET(
-        SetAdvExtParam(advParams, settings) == NLSTK_ERRCODE_SUCCESS, NLSTK_ERRCODE_FAIL, "set adv ext params failed.");
+    if (SetAdvExtParam(advParams, settings) != NLSTK_ERRCODE_SUCCESS) {
+        return NLSTK_ERRCODE_FAIL;
+    }
 
     // 设置广播连接参数
-    NL_CHECK_RETURN_RET(
-        SetAdvConnParam(advParams) == NLSTK_ERRCODE_SUCCESS, NLSTK_ERRCODE_FAIL, "set adv conn params failed.");
+    if (SetAdvConnParam(advParams) != NLSTK_ERRCODE_SUCCESS) {
+        delete advParams.param.extParam;
+        advParams.param.extParam = nullptr;
+        return NLSTK_ERRCODE_FAIL;
+    }
 
     return NLSTK_ERRCODE_SUCCESS;
 }
