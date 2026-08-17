@@ -508,10 +508,8 @@ void TwsService::TwsServiceProcessSendRsp(const TwsMessage &event)
 
 void TwsService::TwsServiceProcessSendRemoteInfo(const TwsMessage &event)
 {
-    /* 数据经 serviceData_ 传递，拷贝构造深拷贝，所有权由 unique_ptr 管理 */
-    NL_CHECK_RETURN(event.serviceData_ != nullptr,
-        "[Tws Service]:TwsServiceProcessSendRemoteInfo, serviceData_ is nullptr.");
-    std::string value(reinterpret_cast<const char *>(event.serviceData_.get()));
+    NL_CHECK_RETURN(event.arg2M, "[Tws Service]:TwsServiceProcessSendRemoteInfo, arg2M is nullptr.");
+    std::string value(static_cast<const char*>(event.arg2M));
     std::vector<uint8_t> vec(value.begin(), value.end());
 
     if (callback_ != nullptr) {
@@ -519,6 +517,7 @@ void TwsService::TwsServiceProcessSendRemoteInfo(const TwsMessage &event)
         RawAddress reportAddr = TwsService::GetReportAddr(addr);
         callback_->OnTwsRemoteInfo(reportAddr.GetAddress(), vec);
     }
+    delete[] static_cast<char *>(event.arg2M);
 }
 
 /* 收到对端（请求/响应）消息 */

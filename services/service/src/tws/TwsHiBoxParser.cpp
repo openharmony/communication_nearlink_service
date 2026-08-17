@@ -786,16 +786,19 @@ bool TwsHiBoxParser::SendRemoteInfo(const RawAddress &peerAddr, const std::strin
 {
     TwsMessage event(TWS_SERVICE_SEND_REMOTE_INFO_EVENT);
     event.dev_ = peerAddr.GetAddress();
-    event.serviceDataLen_ = value.length() + 1; /* +1: 包含结尾\0 */
-    event.serviceData_ = std::make_unique<uint8_t[]>(event.serviceDataLen_);
-    errno_t ret = memcpy_s(event.serviceData_.get(), event.serviceDataLen_, value.c_str(), value.length() + 1);
+    char *charStr = new (std::nothrow) char[value.length() + 1];
+    NL_CHECK_RETURN_RET(charStr, false, "[Tws MsgProc]:send remote info fail,memory alloc failed");
+    errno_t ret = strncpy_s(charStr, value.length() + 1, value.c_str(), value.length());
     if (ret != EOK) {
-        HILOGE("[Tws MsgProc]:send remote info fail,memcpy_s ret:%{public}d", ret);
+        HILOGE("[Tws MsgProc]:send remote info fail,strncpy_s ret:%{public}d", ret);
+        delete[] charStr;
         return false;
     }
+    event.arg2M = charStr;
     TwsService *twsService = TwsService::GetService();
     if (twsService == nullptr) {
         HILOGE("[Tws MsgProc]:send remote info fail,tws service invalid!");
+        delete[] charStr;
         return false;
     }
     twsService->PostEvent(event);
