@@ -61,6 +61,7 @@ bool IcceAddDevice(IcceDevice_S *dev)
 void IcceRemoveDevice(SLE_Addr_S *addr)
 {
     NLSTK_CHECK_RETURN_VOID(addr != NULL, "[ICCE] addr is null");
+    NLSTK_CHECK_RETURN_VOID(g_icceDevice != NULL, "[ICCE] g_icceDevice is null");
     size_t index = 0;
     NLSTK_CHECK_RETURN_VOID(SDF_VectorFindFirst(g_icceDevice, IcceCompAddr, addr, &index), "[ICCE] addr not found");
     SDF_VectorRemove(g_icceDevice, index);
@@ -68,6 +69,7 @@ void IcceRemoveDevice(SLE_Addr_S *addr)
 
 IcceDevice_S *IcceFindDeviceByAppId(int32_t appId)
 {
+    NLSTK_CHECK_RETURN(g_icceDevice != NULL, NULL, "[ICCE] g_icceDevice is null");
     size_t index = 0;
     NLSTK_CHECK_RETURN(SDF_VectorFindFirst(g_icceDevice, IcceCompAppId, &appId, &index),
         NULL, "[ICCE] appId not found");
@@ -78,6 +80,7 @@ IcceDevice_S *IcceFindDeviceByAppId(int32_t appId)
 IcceDevice_S *IcceFindDeviceByAddr(SLE_Addr_S *addr)
 {
     NLSTK_CHECK_RETURN(addr != NULL, NULL, "[HID] addr is null");
+    NLSTK_CHECK_RETURN(g_icceDevice != NULL, NULL, "[ICCE] g_icceDevice is null");
     size_t index = 0;
     NLSTK_CHECK_RETURN(SDF_VectorFindFirst(g_icceDevice, IcceCompAddr, addr, &index), NULL, "[ICCE] addr not found");
     IcceDevice_S *dev = (IcceDevice_S *)SDF_VectorElementAt(g_icceDevice, index);

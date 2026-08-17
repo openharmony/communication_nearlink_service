@@ -33,6 +33,7 @@ NlErrCode NearlinkCdsmClientProxy::RegisterCdsmClientCallback(const NearlinkRawA
                                                               const sptr<INearlinkCdsmClientCallback> &callback)
 {
     HILOGD("[Cdsm]Enter");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "[Cdsm]callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkCdsmClientProxy::GetDescriptor()),
                         NL_ERR_INTERNAL_ERROR, "[Cdsm]Write Token error");

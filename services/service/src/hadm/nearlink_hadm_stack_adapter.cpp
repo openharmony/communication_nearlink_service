@@ -38,13 +38,17 @@ NearlinkHadmStackAdapter::NearlinkHadmStackAdapter(HadmStackAdapterCallback &cal
     }
 }
 
-NearlinkHadmStackAdapter::~NearlinkHadmStackAdapter() = default;
+NearlinkHadmStackAdapter::~NearlinkHadmStackAdapter()
+{
+    g_hadmClientStackAdapter = nullptr;
+}
 
 void NearlinkHadmStackAdapter::onSetSoundingEnableDisable(SLE_Addr_S *addr, HadmUserOperate_E ctrlType,
     NLSTK_Errcode_E errorCode)
 {
     HILOGI("Receive sounding enable or disable event. status=0x%{public}d", static_cast<int>(ctrlType));
     NL_CHECK_RETURN(addr != nullptr, "addr is nullptr");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
     const RawAddress device = RawAddress::ConvertToString(addr->addr);
     g_hadmClientStackAdapter->callback_.OnSoundingStateChange(device, static_cast<int>(ctrlType),
         static_cast<int>(errorCode));
@@ -53,6 +57,7 @@ void NearlinkHadmStackAdapter::onSetSoundingEnableDisable(SLE_Addr_S *addr, Hadm
 void NearlinkHadmStackAdapter::onSoundingMeasureStateChange(HadmSoundingStateInfo_S *state)
 {
     NL_CHECK_RETURN(state, "hadm service measure state is null.");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
     g_hadmClientStackAdapter->callback_.onSoundingMeasureStateChange(state->status,
         state->posMeasureSigConfigIdx, state->measureState);
 }
@@ -62,6 +67,7 @@ void NearlinkHadmStackAdapter::onReportSoundingIQResult(SLE_Addr_S *addr, HadmSo
     HILOGI("Enter");
     NL_CHECK_RETURN(addr, "addr is nullptr.");
     NL_CHECK_RETURN(args, "data is nullptr.");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
 
     NearlinkHadmSoundingResult result;
     std::vector<uint16_t> dutIData(args->iqChnlNum);

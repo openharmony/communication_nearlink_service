@@ -72,6 +72,7 @@ HadmSoundCb_S *HadmGetLinkCb(SLE_Addr_S *addr)
 {
     size_t index = 0;
     NLSTK_CHECK_RETURN(addr != NULL, NULL, "[HADM]the input point is NULL when get the link cb in hadm");
+    NLSTK_CHECK_RETURN(g_hadmLinkCbVec != NULL, NULL, "[HADM] g_hadmLinkCbVec is null");
     if (SDF_VectorFindFirst(g_hadmLinkCbVec, HadmComparaLinkAddrs, addr, &index) == true) {
         return SDF_VectorElementAt(g_hadmLinkCbVec, index);
     } else {
@@ -82,6 +83,7 @@ HadmSoundCb_S *HadmGetLinkCb(SLE_Addr_S *addr)
 HadmSoundCb_S *HadmAllocLinkCb(SLE_Addr_S *addr, uint16_t lcid)
 {
     NLSTK_CHECK_RETURN(addr != NULL, NULL, "[HADM]the input point is NULL when alloc the link cb in hadm");
+    NLSTK_CHECK_RETURN(g_hadmLinkCbVec != NULL, NULL, "[HADM] g_hadmLinkCbVec is null");
     NLSTK_LOG_INFO("[HADM] alloc link cb, addr is %s, lcid is %d", GET_ENC_ADDR(addr), lcid);
     size_t index = 0;
     if (SDF_VectorFindFirst(g_hadmLinkCbVec, HadmComparaLinkAddrs, addr, &index) == true) {
@@ -110,6 +112,7 @@ HadmSoundCb_S *HadmAllocLinkCb(SLE_Addr_S *addr, uint16_t lcid)
 
 void HadmFreeLinkCb(SLE_Addr_S *addr)
 {
+    NLSTK_CHECK_RETURN_VOID(g_hadmLinkCbVec != NULL, "[HADM] g_hadmLinkCbVec is null");
     size_t index = 0;
     NLSTK_LOG_INFO("[HADM] free link cb, addr is %s", GET_ENC_ADDR(addr));
     if (SDF_VectorFindFirst(g_hadmLinkCbVec, HadmComparaLinkAddrs, addr, &index) == true) {
@@ -123,6 +126,7 @@ uint16_t HadmGetLcid(SLE_Addr_S *addr)
 {
     size_t index = 0;
     NLSTK_CHECK_RETURN(addr != NULL, 0, "[HADM]the input point is NULL when get the lcid by addr.");
+    NLSTK_CHECK_RETURN(g_hadmLinkCbVec != NULL, 0, "[HADM] g_hadmLinkCbVec is null");
     if (!SDF_VectorFindFirst(g_hadmLinkCbVec, HadmComparaLinkAddrs, addr, &index)) {
         NLSTK_LOG_ERROR("[HADM]can not find the linkcb when get the lcid by addr, addr is %s", GET_ENC_ADDR(addr));
         return NLSTK_INVALID_LCID;
@@ -133,6 +137,7 @@ uint16_t HadmGetLcid(SLE_Addr_S *addr)
 
 uint32_t HadmGetAddrsByLcid(uint16_t lcid, SLE_Addr_S *addr)
 {
+    NLSTK_CHECK_RETURN(g_hadmLinkCbVec != NULL, NLSTK_ERRCODE_SYS_ERROR, "[HADM] g_hadmLinkCbVec is null");
     for (size_t index = 0; index < g_hadmLinkCbVec->size; index++) {
         HadmSoundCb_S *linkCb = SDF_VectorElementAt(g_hadmLinkCbVec, index);
         if (linkCb == NULL) {
@@ -408,6 +413,7 @@ uint32_t HadmGetSoundingNumAndAddr(SLE_Addr_S *addr, uint32_t soundingAddrNum)
 {
     uint32_t soundingCbNumber = 0;  // 默认值为0
     uint32_t addrIndex = 0;          // 用于记录当前addr的索引
+    NLSTK_CHECK_RETURN(g_hadmLinkCbVec != NULL, 0, "[HADM] g_hadmLinkCbVec is null");
     for (size_t index = 0; index < g_hadmLinkCbVec->size; index++) {
         HadmSoundCb_S *linkCb = SDF_VectorElementAt(g_hadmLinkCbVec, index);
         if (linkCb == NULL) {

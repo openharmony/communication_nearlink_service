@@ -25,6 +25,7 @@ NlErrCode NearlinkSsapClientProxy::RegisterApplication(const sptr<INearlinkSsapC
     uint8_t secureReq, const NearlinkRawAddress &addr, int32_t transport, int &appId)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapClientProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");
@@ -53,6 +54,7 @@ NlErrCode NearlinkSsapClientProxy::RegisterApplication(const sptr<INearlinkSsapC
     const NearlinkRawAddress &addr, int32_t transport, int32_t &appId)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapClientProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");

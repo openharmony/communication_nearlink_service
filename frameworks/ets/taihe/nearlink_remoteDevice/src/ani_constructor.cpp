@@ -25,6 +25,8 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
         std::cerr << "Error from ohos::nearlink::remoteDevice::ANIRegister" << std::endl;
         return ANI_ERROR;
     }
-    *result = ANI_VERSION_1;
+    if (result != nullptr) {
+        *result = ANI_VERSION_1;
+    }
     return ANI_OK;
 }
