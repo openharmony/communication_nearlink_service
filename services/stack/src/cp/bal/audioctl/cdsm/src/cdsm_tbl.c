@@ -222,7 +222,7 @@ void CdsmNotifyStateChange(SLE_Addr_S *addr, uint8_t type)
     CP_CHECK_LOG_RETURN_VOID(set != NULL, "[CDSM] not find coop set");
     CP_LOG_INFO("[CDSM] meb state change, state: %u, gid: 0x%x, addr: %s", type, set->gid, GET_ENC_ADDR(addr));
     size_t memInfoCount = set->mebs->size;
-    if (memInfoCount == 0 || memInfoCount > set->num) {
+    if (memInfoCount != set->num) {
          CP_LOG_ERROR("[CDSM] invalid memInfoCount: %zu, num: %u", memInfoCount, set->num);
         return;
     }

@@ -359,6 +359,11 @@ static void CdsmReadMemberAddrHandle(CdsmCoopSet_S *coopSet, CdsmCoopSetMeb_S *s
         CdsmCoopSetMeb_S *meb = SDF_VectorElementAt(coopSet->mebs, index);
         CdsmRemoveCoopSetMember(coopSet->gid, &meb->addr);
     }
+    if (coopSet->mebs->size != coopSet->num) {
+        CP_LOG_ERROR("[CDSM] mebs size(%zu) mismatch num(%u) after addr read, correcting",
+            coopSet->mebs->size, coopSet->num);
+        coopSet->num = (uint8_t)coopSet->mebs->size;
+    }
     setMeb->state = CDSM_READ_MEMBER_ADDR_FINISH;
     SDF_MemFree(addrList);
 }

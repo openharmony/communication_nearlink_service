@@ -245,7 +245,8 @@ void ASCUtils::TransferProperty(const RawAddress& device, uint8_t num, NLSTK_Act
         AscAbility* ascAbility = &(ascProp.ability);
         ascAbility->codecNum = actmAbility->codecNum;
 
-        for (uint8_t j = 0; j < ascAbility->codecNum; j++) {
+        uint8_t codecNum = ascAbility->codecNum < ASC_CODEC_NUM_MAX ? ascAbility->codecNum : ASC_CODEC_NUM_MAX;
+        for (uint8_t j = 0; j < codecNum; j++) {
             NLSTK_ActmCodecParam_S* actmCodec = &(actmAbility->codec[j]);
             AscCodecConfig* ascCodec = &(ascAbility->codec[j]);
             ascCodec->codecId = actmCodec->codecId;
