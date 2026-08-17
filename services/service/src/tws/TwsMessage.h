@@ -65,10 +65,14 @@ public:
             return *this;
         }
 
+        /* 先释放目标已有数据，避免 src 对应长度为 0 时目标残留旧数据 */
+        serviceData_.reset();
+        dataStream_.reset();
+
         /* 基类数据拷贝 */
         whatM = src.whatM;
         arg1M = src.arg1M;
-        arg2M = nullptr;
+        arg2M = nullptr; /* arg2M 所有权不归本类管理，统一置空 */
 
         dev_ = src.dev_;
         serviceDataLen_ = src.serviceDataLen_;
