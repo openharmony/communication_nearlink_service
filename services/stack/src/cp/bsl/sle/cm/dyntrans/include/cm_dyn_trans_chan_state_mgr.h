@@ -15,7 +15,7 @@
 
 /****************************************************************************
  *
- * this file contains the CM for dynmaic trans channel state management definitions
+ * this file contains the CM for dynamic trans channel state management definitions
  *
  ***************************************************************************/
 

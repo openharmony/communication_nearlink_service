@@ -36,7 +36,6 @@
 
 static void SleDliReadAcceptFilterListSizeCallback(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "cmd res or event param is null");
 
@@ -501,7 +500,6 @@ static void SleAccessSetRxDataFilterCbk(void *context, uint16_t status, DLI_Exec
 
 static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -551,7 +549,6 @@ static void SleAccessDataLenChangeCbk(void *context, uint16_t statuss, DLI_Execu
 
 static void SleAccessSetDataLenCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -730,7 +727,6 @@ static void SleAccessEnableConnHighPowerCbk(void *context, uint16_t dliStatus, D
 
 static void SleAccessSetPeerDevTypeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((context != NULL), "context is null");
 

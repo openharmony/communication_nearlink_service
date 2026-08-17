@@ -392,7 +392,7 @@ uint32_t CM_ConnectReleaseReq(CM_DisconnectParamReq_S *param)
         CM_NotifyReleasingReqCanceled(param, DLI_COMMAND_DISALLOWED);
         return CM_FAIL;
     }
-    link->status = CM_LINK_STATE_DISCONNECTTING;
+    link->status = CM_LINK_STATE_DISCONNECTING;
     accessParam.lcid = link->lcid;
     accessParam.version = CM_CONNECT_VERSION_1_0;
     accessParam.localIndex = CM_CONNECT_LOCAL_INDEX_0;

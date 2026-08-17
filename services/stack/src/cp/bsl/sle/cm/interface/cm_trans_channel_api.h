@@ -45,7 +45,7 @@ typedef enum {
     CM_TCID_SLE_SMTC = 0x0A,        /* SLE服务管理传输通道(Service Management Transmission Channel) */
 
     CM_TCID_SLB_RSMTC = 0x10,       /* SLB中继服务管理传输通道(Relay Service Management Transmission Channel) */
-    CM_TCID_MDCMTC = 0x11,          /* 多域协调与管理传输通道(Multi-Domain Coordination and Managemet Transmission Channel) */
+    CM_TCID_MDCMTC = 0x11,          /* 多域协调与管理传输通道(Multi-Domain Coordination and Management Transmission Channel) */
     CM_TCID_5GITC = 0x12,           /* 5G融合传输通道(5G Interworking Transmission Channel) */
 
     CM_TCID_FTC_RFU_END = 0x1D,     /* 固定传输通道RFU(Reserved for Future Use)结束 */

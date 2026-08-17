@@ -82,7 +82,7 @@ typedef enum {
     CM_LINK_STATE_CONNECTED                 = 0x00,  /* 已经连接 */
     CM_LINK_STATE_CONNECTING                = 0x01,  /* 连接中 */
     CM_LINK_STATE_DISCONNECTED              = 0x02,  /* 已经断开 */
-    CM_LINK_STATE_DISCONNECTTING            = 0x03,  /* 断开中 */
+    CM_LINK_STATE_DISCONNECTING             = 0x03,  /* 断开中 */
 } CM_ConnectLinkState_E;
 
 /**
@@ -239,17 +239,6 @@ typedef struct CM_LogicLinkCbks {
     CM_LogicLinkRemoteFeaturesCbk remoteFeaturesCbk; /* 可空 */
     CM_LogicLinkConnUpdateParamCbk connUpdateParamCbk;   /* 可空 */
 } CM_LogicLinkCbks_S;
-
-/**
- * @brief 星闪逻辑链路连接状态
- */
-typedef enum {
-    CM_STATE_CONNECTED = 0x00, /*!< 已经连接 */
-    CM_STATE_CONNECTING,       /*!< 连接中 */
-    CM_STATE_DISCONNECTED,     /*!< 已经断开 */
-    CM_STATE_DISCONNECTTING,   /*!< 断开中 */
-    CM_STATE_CONNECT_UPDATED,  /*!< 连接更新 */
-} CM_ConnectState_E;
 
 /**
  * @brief 星闪原语版本号
