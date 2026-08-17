@@ -400,15 +400,15 @@ int ASCService::DisconnProcStopPlaying(const RawAddress &device, ASCState state)
     AudioStreamType streamType = GetProcessingStreamType(device);
     HILOGI("[ASCService]Disconnect StopPlaying %{public}s state %{public}d streamType %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), state, streamType);
-    // 有音频流的场景，先停止+释放流
-    if (streamType != AUDIO_STREAM_NONE) {
-        // 清除延迟释放标记
-        CancelStopDelay(device);
+    
+    // 清除延迟释放标记
+    CancelStopDelay(device);
 
-        // 设置需要disconnect标记
-        SetNeedDisconnect(device, true);
-        StopPlayingExcute(device, streamType);
-    }
+    // 设置需要disconnect标记
+    SetNeedDisconnect(device, true);
+
+    // 有音频流的场景，先停止+释放流
+    StopPlayingExcuteExt(device, streamType);
     return NL_NO_ERROR;
 }
 
@@ -4182,10 +4182,7 @@ void ASCService::ExcuteDelayStop(const RawAddress &device)
         // 对于合作集设备，给组内所有成员（包括当前设备）发停播
         if (IsConnected(info.addr_)) {
             AudioStreamType streamType = GetStopStreamType(info.addr_);
-            if (streamType == AUDIO_STREAM_NONE) {
-                continue;
-            }
-            StopPlayingExcute(info.addr_, streamType);
+            StopPlayingExcuteExt(info.addr_, streamType);
         }
     }
     return;
@@ -5427,6 +5424,24 @@ void ASCService::ReconfigStream(const RawAddress& device, AudioStreamType stream
     QosM::GetInstance().SetCos(device, nos);
     HILOGI("[ASCService]Reconfig %{public}s streamType %{public}d COS %{public}d to NOS %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), streamTypeToReconfig, cos, nos);
+}
+
+void ASCService::StopPlayingExcuteExt(const RawAddress& device, AudioStreamType streamType)
+{
+    if (streamType == AUDIO_STREAM_NONE) {
+        HILOGE("[ASCService] device %{public}s streamType is None", GetEncryptAddr(device.GetAddress()).c_str());
+        return;
+    }
+
+    ASCState state = GetASCStatus(device);
+    if (IsInStartProcess(state)) {
+        // 缓存本次配置，在进行中的音频流配置/流打开流程结束后，再触发停流流程
+        HILOGI("[ASCService] device %{public}s not started", GetEncryptAddr(device.GetAddress()).c_str());
+        GetStopBuff(device).push(streamType);
+        return;
+    }
+
+    StopPlayingExcute(device, streamType);
 }
 
 void ASCService::StopPlayingExcute(const RawAddress& device, AudioStreamType streamType)

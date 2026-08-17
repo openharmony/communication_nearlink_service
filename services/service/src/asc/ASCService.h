@@ -393,6 +393,7 @@ private:
     void OpenVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void CloseVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void StopPlayingExcute(const RawAddress& device, AudioStreamType streamType);
+    void StopPlayingExcuteExt(const RawAddress& device, AudioStreamType streamType);
     void JudgeQosWhenStopPlaying(const RawAddress& device, AudioStreamType streamType, bool& isDelayStop,
         bool& isStopStream, bool& isNeedReconfig);
 
