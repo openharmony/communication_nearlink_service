@@ -667,6 +667,7 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         };
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_TYPE_AND_FORMAT_DESC) {
+        NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len > 0, "[HID] type and format desc len is 0");
         HidTypeAndFormatDesc_S value = {0};
         value.type = readMsg->property->value.data[0];
         value.descLen = readMsg->property->value.len - 1;

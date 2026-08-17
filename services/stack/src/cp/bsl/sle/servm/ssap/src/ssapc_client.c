@@ -67,6 +67,7 @@ void SSAPC_FindReqErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] FindRspErrorHandle lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
     uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(lastSize >= sizeof(SSAP_PduFindStructReq_S), "[SSAP] lastSize too small for find req");
     uint32_t reqUuidSize = lastSize - sizeof(SSAP_PduFindStructReq_S);
     SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)lastBuf;
     uint8_t preFindType = req->ctrl.findType;
@@ -105,6 +106,7 @@ void SSAPC_ReadByUuidErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
     uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(lastSize >= sizeof(SSAP_PduReadByUuidReq_S), "[SSAP] lastSize too small for read by uuid req");
     SSAP_PduReadByUuidReq_S *req = (SSAP_PduReadByUuidReq_S *)lastBuf;
     uint32_t reqUuidSize = lastSize - sizeof(SSAP_PduReadByUuidReq_S);
     SSAP_ReadByUuidComplete_S complete = {0};
