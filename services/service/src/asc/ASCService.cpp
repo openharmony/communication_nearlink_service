@@ -5439,7 +5439,7 @@ void ASCService::StopPlayingExcuteExt(const RawAddress& device, AudioStreamType 
         HILOGI("[ASCService] device %{public}s not started", GetEncryptAddr(device.GetAddress()).c_str());
         GetStopBuff(device).push(streamType);
         return;
-    } 
+    }
 
     StopPlayingExcute(device, streamType);
 }
