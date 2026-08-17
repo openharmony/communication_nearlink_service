@@ -3943,7 +3943,7 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
         GetEncryptAddr(device.GetAddress()).c_str(), result, streamType, state);
 
     // 状态和结果检查
-    NL_CHECK_RETURN(state != NL_SLE_ASC_SET_DIRECTION, "state error");
+    NL_CHECK_RETURN(state == NL_SLE_ASC_SET_DIRECTION, "state error");
     NL_CHECK_RETURN(CheckStartStreamCondition(device, result, streamType), "add data path failed");
 
     // 状态：已开始音频流传输

@@ -43,6 +43,7 @@ typedef enum {
 typedef struct {
     SLE_Addr_S addr;
     bool used;
+    bool needReportDataPath;
     uint8_t state;
     uint8_t direction;
     uint16_t connHandle;
