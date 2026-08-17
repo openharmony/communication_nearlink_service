@@ -71,7 +71,7 @@ private:
     int updateDuration_ = CM_CONN_UPDATE_DURATION; // ms
     std::weak_ptr<SleCoexist> selfWeak_;
     bool isNeedCustomParam_ = false;
- 	int appearance_ = INVALID_APPEARANCE;
+    int appearance_ = INVALID_APPEARANCE;
 };
 }  // namespace Nearlink
 }  // namespace OHOS
