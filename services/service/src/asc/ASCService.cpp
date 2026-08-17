@@ -4187,7 +4187,7 @@ void ASCService::ExcuteDelayStop(const RawAddress &device)
             }
 
             ASCState state = GetASCStatus(info.addr_);
-            if (IsInStartProcess(State)) {
+            if (IsInStartProcess(state)) {
                 // 缓存本次配置，在进行中的音频流配置/流打开流程结束后，再触发停流流程
                 HILOGI("[ASCService] device %{public}s not started", GetEncryptAddr(device.GetAddress()).c_str());
                 GetStopBuff(info.addr_).push(streamType);
