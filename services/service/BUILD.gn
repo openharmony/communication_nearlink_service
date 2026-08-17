@@ -511,6 +511,7 @@ ohos_shared_library("nearlink_mcp_manager") {
     "ability_base:want",
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
+    "bundle_framework:appexecfwk_core",
   ]
   sources = []
 
