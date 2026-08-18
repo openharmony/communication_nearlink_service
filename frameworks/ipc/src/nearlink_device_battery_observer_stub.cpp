@@ -63,9 +63,6 @@ ErrCode NearlinkDeviceBatteryObserverStub::OnGetBatteryLevelEventInner(MessagePa
     NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device transaction wrong.");
 
     int32_t batteryLevel = data.ReadInt32();
-    if (batteryLevel < 0 || batteryLevel > 100) {
-        return TRANSACTION_ERR;
-    }
 
     HILOGI("starts");
     OnGetBatteryLevelEvent(*device, batteryLevel);
@@ -79,9 +76,6 @@ ErrCode NearlinkDeviceBatteryObserverStub::OnBatteryLevelChangedInner(MessagePar
     NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device transaction wrong.");
 
     int32_t batteryLevel = data.ReadInt32();
-    if (batteryLevel < 0 || batteryLevel > 100) {
-        return TRANSACTION_ERR;
-    }
 
     HILOGI("starts");
     OnBatteryLevelChanged(*device, batteryLevel);
