@@ -103,7 +103,7 @@ void ScanService::DeregisterSleCentralManagerCallback() const
 {
     HILOGI("enter");
     DoInScanThread([this]() -> void {
-        if (pimpl->sleCentralManagerCallback_) {
+        if (!pimpl->sleCentralManagerCallback_) {
             pimpl->sleCentralManagerCallback_ = nullptr;
         }
     });
