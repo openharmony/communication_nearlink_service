@@ -68,9 +68,6 @@ ErrCode NearlinkHostObserverStub::OnStateChangedInner(MessageParcel &data, Messa
 {
     int32_t transport = data.ReadInt32();
     int32_t state = data.ReadInt32();
-    if (transport < ADAPTER_SLB || transport > ADAPTER_SLE || state < STATE_TURNING_ON || state > STATE_TURN_HALF) {
-        return TRANSACTION_ERR;
-    }
 
     HILOGD("starts");
     OnStateChanged(transport, state);
@@ -82,9 +79,6 @@ ErrCode NearlinkHostObserverStub::OnFullStateChangedInner(MessageParcel &data, M
 {
     int32_t transport = data.ReadInt32();
     int32_t state = data.ReadInt32();
-    if (transport < ADAPTER_SLB || transport > ADAPTER_SLE || state < STATE_TURNING_ON || state > STATE_TURN_HALF) {
-        return TRANSACTION_ERR;
-    }
 
     HILOGD("starts");
     OnFullStateChanged(transport, state);
@@ -95,9 +89,6 @@ ErrCode NearlinkHostObserverStub::OnFullStateChangedInner(MessageParcel &data, M
 ErrCode NearlinkHostObserverStub::OnSwitchStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     int32_t state = data.ReadInt32();
-    if (state < STATE_TURNING_ON || state > STATE_TURN_HALF) {
-        return TRANSACTION_ERR;
-    }
 
     HILOGD("starts");
     OnSwitchStateChanged(state);
