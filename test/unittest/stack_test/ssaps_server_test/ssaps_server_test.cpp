@@ -40,11 +40,9 @@ static uint8_t g_buffCache[TEST_MAX_BUF_CACHE] = {0};
 static uint8_t g_buffLen = 0;
 
 static uint8_t reqPktMethod[] = {0x13, 0x03, 0x11};
-static uint8_t reqPktMethod2[] = {0x13, 0x02, 0x11, 0x00};
 static uint8_t reqPktMethod3[] = {0x13, 0x03, 0x11, 0x00};
 
 static uint8_t rspPktErr[] = {0x01, 0x00, 0x13, 0x00, 0x00, 0x01};
-static uint8_t rspPktErr2[] = {0x01, 0x00, 0x13, 0x11, 0x00, 0x10};
 static uint8_t rspPktErr3[] = {0x01, 0x00, 0x13, 0x11, 0x00, 0x0C};
 static uint8_t rspPktErr4[] = {0x01, 0x00, 0x13, 0x11, 0x00, 0x04};
 
@@ -125,23 +123,6 @@ TEST_F(UT_SSAPS_SERVER, CALL_METHOD_REQ_001)
     DeleteLink();
     EXPECT_EQ(g_buffLen, sizeof(rspPktErr));
     EXPECT_EQ(memcmp(g_buffCache, rspPktErr, g_buffLen), 0);
-}
-
-// 调用方法，非完整包
-TEST_F(UT_SSAPS_SERVER, CALL_METHOD_REQ_002)
-{
-    AddServiceClientCfg();
-
-    SSAP_Link_S *link = CreateLink();
-    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(reqPktMethod2));
-    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(reqPktMethod2));
-    (void)memcpy_s(tmpBuf, sizeof(reqPktMethod2), reqPktMethod2, sizeof(reqPktMethod2));
-    SSAPS_MethodReqHandle(link, tmp);
-    SDF_BuffFree(tmp);
-
-    DeleteLink();
-    EXPECT_EQ(g_buffLen, sizeof(rspPktErr2));
-    EXPECT_EQ(memcmp(g_buffCache, rspPktErr2, g_buffLen), 0);
 }
 
 // 调用方法，不存在该条目

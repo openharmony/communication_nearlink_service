@@ -27,6 +27,7 @@
 #include "sdf_buff.h"
 #include "sdf_mem.h"
 #include "ssaps_service.h"
+#include "ssap_type.h"
 #include "ssap_manager.h"
 #include "ssap_utils.h"
 #include "ssaps_service_param.h"
@@ -42,7 +43,7 @@ using namespace testing::ext;
 using namespace OHOS;
 
 static uint8_t g_buffCache[TEST_MAX_BUF_CACHE] = {0};
-static uint8_t g_buffLen = 0;
+static uint16_t g_buffLen = 0;  // 大响应（>255B）需16位长度，如FIND MIX 893B
 static bool isSendRsp = false;
 static SLE_Addr_S g_addr = {.type = PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
 static uint16_t g_lcid = 1;
@@ -157,6 +158,23 @@ static void AddCusServiceWithCusProp()
     SSAP_StartService(NULL);
 }
 
+// 注册count个UUID各异的标准主服务（无属性）：用于FIND MIX指示头count（7bit，上限127）截止组包场景
+static void AddStdServices(uint16_t count)
+{
+    NLSTK_SsapUuid_S serviceUuid = {.uuid = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA,
+        0xB7, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+    for (uint16_t i = 1; i <= count; i++) {
+        serviceUuid.uuid[SSAP_UUID128_LEN - 2] = (uint8_t)(i & 0xFF);
+        serviceUuid.uuid[SSAP_UUID128_LEN - 1] = (uint8_t)((i >> 8) & 0xFF);
+        SSAP_ParamAddService_S *serviceParam = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
+        serviceParam->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+        (void)memcpy_s(&serviceParam->uuid, sizeof(NLSTK_SsapUuid_S), &serviceUuid, sizeof(NLSTK_SsapUuid_S));
+        SSAP_CacheService(serviceParam);
+        SDF_MemFree(serviceParam);
+        SSAP_StartService(NULL);
+    }
+}
+
 static void MockSendCb(SSAP_Link *link, SDF_Buff_S *buff, uint8_t opcode)
 {
     CP_LOG_INFO("[TEST] enter MockSendCb");
@@ -169,7 +187,7 @@ static void MockSendCb(SSAP_Link *link, SDF_Buff_S *buff, uint8_t opcode)
     } else {
         SSAP_LinkSetTask(link, buff, opcode);
     }
-    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] MockSendCb test dtap data send: %s.", SDF_GET_UINT8_STR(g_buffCache, g_buffLen));
+    PrintFormatHexWithSpaces(g_buffCache, g_buffLen, true);
 }
 
 static SSAP_Link* CreateLink()
@@ -252,6 +270,40 @@ TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_PROPERTY_MIX_UUID)
 
     EXPECT_EQ(g_buffLen, sizeof(rspPkt4));
     EXPECT_EQ(memcmp(g_buffCache, rspPkt4, g_buffLen), 0);
+}
+
+// FIND MIX组包计数上限：注册130个标准主服务，空间足够但指示头count为7bit（上限127）→ 截止装入127项，
+// 第128项起不装入（防截断污染count/type位导致对端handle错位）
+TEST_F(UT_SSAP_SERVER_FIND, FIND_RSP_PRIMARY_SERVICE_MIX_COUNT_LIMIT)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] begin: FIND_RSP_PRIMARY_SERVICE_MIX_COUNT_LIMIT");
+    AddStdServices(130);
+    // 前置校验：130个标准主服务全部注册成功
+    EXPECT_EQ(SSAPS_GetServices()->size, 130u);
+
+    SSAP_Link_S *link = CreateLink();
+    link->mtu = 1024;  // 空间可装145项 > 127，确保计数先于空间截止
+    link->fragCtx.fragment = false;
+    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(reqPkt3));
+    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(reqPkt3));
+    (void)memcpy_s(tmpBuf, sizeof(reqPkt3), reqPkt3, sizeof(reqPkt3));
+    SSAP_Recv(&g_dtapDataInfo, tmp);
+    SDF_BuffFree(tmp);
+    DeleteLink();
+
+    // 响应 = 头2B + std指示{count=127,type=0}=0x7F + 127×7B + cus指示{count=0,type=1}=0x80 = 893B
+    EXPECT_EQ(g_buffLen, 893u);
+    EXPECT_EQ(g_buffCache[0], 0x05);  // FIND_STRUCTURE_RSP
+    EXPECT_EQ(g_buffCache[1], 0x0B);  // itemType=MIX(0x02<<2) + fragment=NO_FRAG(0x03)
+    EXPECT_EQ(g_buffCache[2], 0x7F);  // std指示：count=127，type位未被污染
+    // 首项start handle=0x0010（服务handle自0x10起）
+    EXPECT_EQ(g_buffCache[3], 0x10);
+    EXPECT_EQ(g_buffCache[4], 0x00);
+    // 末项（第127项）start handle = 0x0010+126 = 0x008E；其后紧跟cus指示，无第128项
+    EXPECT_EQ(g_buffCache[885], 0x8E);
+    EXPECT_EQ(g_buffCache[886], 0x00);
+    EXPECT_EQ(g_buffCache[892], 0x80);  // cus指示：count=0，type=1
+    CP_LOG_INFO("[UT_SSAP_SERVER_FIND] end: FIND_RSP_PRIMARY_SERVICE_MIX_COUNT_LIMIT");
 }
 
 static void Test_SSAP_RecvReq(uint8_t *req, size_t reqLen)

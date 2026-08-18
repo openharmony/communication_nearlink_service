@@ -54,7 +54,6 @@ static uint8_t reqPkt9[] = {0x08, 0x03, 0x11, 0x00, 0x02};
 static uint8_t reqPktLen1[] = {0x08, 0x03};
 static uint8_t reqPktLen2[] = {0x08, 0x03, 0x11, 0x00, 0x02, 0x03};
 static uint8_t reqPktType[] = {0x08, 0x03, 0x11, 0x00, 0x06};
-static uint8_t reqPkt10[] = {0x08, 0x00, 0x11, 0x00, 0x02};
 static uint8_t reqPkt11[] = {0x0a, 0x00, 0x01, 0x00, 0xFF, 0x00, 0x00};
 static uint8_t reqPkt12[] = {0x0a, 0x00, 0x01, 0x00, 0xFF, 0x00, 0x07, 0x03, 0x02};
 static uint8_t reqPkt13[] = {0x0a, 0x01, 0x01, 0x00, 0xFF, 0x00, 0x00, 0x03, 0x02};
@@ -78,7 +77,6 @@ static uint8_t rspPkt14[] = {0x0B, 0x0B, 0x00, 0x00, 0x04, 0x00};
 static uint8_t rspPktLen1[] = {0x01, 0x00, 0x08, 0x00, 0x00, 0x01};
 static uint8_t rspPktLen2[] = {0x01, 0x00, 0x08, 0x00, 0x00, 0x01};
 static uint8_t rspPktType[] = {0x01, 0x00, 0x08, 0x00, 0x00, 0x02};
-static uint8_t rspPktCtrl[] = {0x09, 0x0B, 0x10, 0x00};
 
 class UT_SSAP_SERVER_READ : public testing::Test {
 protected:
@@ -124,6 +122,65 @@ static void AddService()
     (void)memcpy_s(&serviceParam2->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
     SSAP_CacheService(serviceParam2);
     SDF_MemFree(serviceParam2);
+    SSAP_StartService(NULL);
+}
+
+// 注册含2个同UUID 30B属性的标准服务：用于READ_BY_UUID多值响应超MTU且对端不支持分包场景
+static void AddServiceUuidMulti()
+{
+    SSAP_ParamAddService_S *serviceParam = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
+    serviceParam->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    (void)memcpy_s(&serviceParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid1, sizeof(NLSTK_SsapUuid_S));
+    SSAP_CacheService(serviceParam);
+    SDF_MemFree(serviceParam);
+    for (uint8_t i = 0; i < 2; i++) {
+        SSAP_ParamAddProperty_S *propertyParam =
+            (SSAP_ParamAddProperty_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddProperty_S) + 30);
+        (void)memcpy_s(&propertyParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2, sizeof(NLSTK_SsapUuid_S));
+        (void)memset_s(propertyParam->val.value, 30, i == 0 ? 0xAA : 0xBB, 30);
+        propertyParam->val.len = 30;
+        propertyParam->operation.operationValue = 1;
+        SSAP_CacheProperty(propertyParam);
+        SDF_MemFree(propertyParam);
+    }
+    SSAP_StartService(NULL);
+}
+
+// 注册含1个同UUID 38B属性的标准服务：用于READ_BY_UUID单属性响应超MTU且对端不支持分包场景
+static void AddServiceUuidSingleBig()
+{
+    SSAP_ParamAddService_S *serviceParam = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
+    serviceParam->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    (void)memcpy_s(&serviceParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid1, sizeof(NLSTK_SsapUuid_S));
+    SSAP_CacheService(serviceParam);
+    SDF_MemFree(serviceParam);
+    SSAP_ParamAddProperty_S *propertyParam =
+        (SSAP_ParamAddProperty_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddProperty_S) + 38);
+    (void)memcpy_s(&propertyParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2, sizeof(NLSTK_SsapUuid_S));
+    (void)memset_s(propertyParam->val.value, 38, 0xCC, 38);
+    propertyParam->val.len = 38;
+    propertyParam->operation.operationValue = 1;
+    SSAP_CacheProperty(propertyParam);
+    SDF_MemFree(propertyParam);
+    SSAP_StartService(NULL);
+}
+
+// 注册含1个超单条目length字段上限（32767B）属性的标准服务：用于属性值超15bit长度字段场景
+static void AddServiceValueOverItemLenMax()
+{
+    SSAP_ParamAddService_S *serviceParam = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
+    serviceParam->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    (void)memcpy_s(&serviceParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid1, sizeof(NLSTK_SsapUuid_S));
+    SSAP_CacheService(serviceParam);
+    SDF_MemFree(serviceParam);
+    SSAP_ParamAddProperty_S *propertyParam =
+        (SSAP_ParamAddProperty_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddProperty_S) + 32768);
+    (void)memcpy_s(&propertyParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2, sizeof(NLSTK_SsapUuid_S));
+    (void)memset_s(propertyParam->val.value, 32768, 0xDD, 32768);
+    propertyParam->val.len = 32768;
+    propertyParam->operation.operationValue = 1;
+    SSAP_CacheProperty(propertyParam);
+    SDF_MemFree(propertyParam);
     SSAP_StartService(NULL);
 }
 
@@ -477,23 +534,6 @@ TEST_F(UT_SSAP_SERVER_READ, READ_REQ_PROPERTY_TYPE)
     EXPECT_EQ(memcmp(g_buffCache, rspPktType, g_buffLen), 0);
 }
 
-// 读属性，控制码错误
-TEST_F(UT_SSAP_SERVER_READ, READ_REQ_PROPERTY_CTRL_FAILED)
-{
-    AddServiceClientCfg();
-
-    SSAP_Link_S *link = CreateLink();
-    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(reqPkt10));
-    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(reqPkt10));
-    (void)memcpy_s(tmpBuf, sizeof(reqPkt10), reqPkt10, sizeof(reqPkt10));
-    SSAPS_ReadReqHandle(link, tmp);
-    SDF_BuffFree(tmp);
-
-    DeleteLink();
-    EXPECT_EQ(g_buffLen, sizeof(rspPktCtrl));
-    EXPECT_EQ(memcmp(g_buffCache, rspPktCtrl, g_buffLen), 0);
-}
-
 // 读属性，报文长度错误
 TEST_F(UT_SSAP_SERVER_READ, READ_BY_UUID_REQ_PROPERTY_FAILED_001)
 {
@@ -572,4 +612,85 @@ TEST_F(UT_SSAP_SERVER_READ, READ_BY_UUID_REQ_PROPERTY_FAILED_005)
     DeleteLink();
     EXPECT_EQ(g_buffLen, sizeof(rspPkt14));
     EXPECT_EQ(memcmp(g_buffCache, rspPkt14, g_buffLen), 0);
+}
+
+// READ_BY_UUID多值响应超MTU且对端不支持分包：不做部分返回，响应携带单个不支持分包错误项
+TEST_F(UT_SSAP_SERVER_READ, READ_BY_UUID_MULTI_OVER_MTU_NO_FRAG)
+{
+    AddServiceUuidMulti();
+    SSAP_Link_S *link = CreateLink();
+    link->mtu = 40;
+    link->fragCtx.fragment = false;  // 对端不支持分包
+
+    // READ_BY_UUID_REQ：标准uuid(0x0203小端{0x03,0x02})，handle范围覆盖全部
+    uint8_t req[] = {0x0A, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0x00, 0x03, 0x02};
+    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(req));
+    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(req));
+    (void)memcpy_s(tmpBuf, sizeof(req), req, sizeof(req));
+    SSAPS_ReadByUuidReqHandle(link, tmp);
+    SDF_BuffFree(tmp);
+
+    // 响应 = 头2B + 单个SERVER_FRAG错误项{handle=0, length=SERVER_FRAG, success=0} = 6B
+    EXPECT_EQ(g_buffLen, 6u);
+    EXPECT_EQ(g_buffCache[0], SSAP_READ_BY_UUID_RSP);
+    EXPECT_EQ(g_buffCache[1], 0x0B);  // fragment=NO_FRAG(0x03) + error(0x08)，multi=0
+    EXPECT_EQ(g_buffCache[2], 0u);
+    EXPECT_EQ(g_buffCache[3], 0u);
+    EXPECT_EQ(g_buffCache[4], SSAP_ERRCODE_SERVER_FRAG);
+    EXPECT_FALSE(g_buffCache[5] & 0x80);
+    DeleteLink();
+}
+
+// READ_BY_UUID单属性响应超MTU（SingleItem布局：2B头+38B值=40B > mtu-2）且对端不支持分包：
+// 不做部分返回，响应携带单个不支持分包错误项（原W2检视窗口，修复前会静默无响应）
+TEST_F(UT_SSAP_SERVER_READ, READ_BY_UUID_SINGLE_OVER_MTU_NO_FRAG)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_READ] begin: READ_BY_UUID_SINGLE_OVER_MTU_NO_FRAG");
+    AddServiceUuidSingleBig();
+    SSAP_Link_S *link = CreateLink();
+    link->mtu = 40;
+    link->fragCtx.fragment = false;  // 对端不支持分包
+
+    // READ_BY_UUID_REQ：标准uuid(0x0203小端{0x03,0x02})，handle范围覆盖全部
+    uint8_t req[] = {0x0A, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0x00, 0x03, 0x02};
+    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(req));
+    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(req));
+    (void)memcpy_s(tmpBuf, sizeof(req), req, sizeof(req));
+    SSAPS_ReadByUuidReqHandle(link, tmp);
+    SDF_BuffFree(tmp);
+
+    // 响应 = 头2B + 单个SERVER_FRAG错误项{handle=0, length=SERVER_FRAG, success=0} = 6B
+    EXPECT_EQ(g_buffLen, 6u);
+    EXPECT_EQ(g_buffCache[0], SSAP_READ_BY_UUID_RSP);
+    EXPECT_EQ(g_buffCache[1], 0x0B);  // fragment=NO_FRAG(0x03) + error(0x08)，multi=0
+    EXPECT_EQ(g_buffCache[2], 0u);
+    EXPECT_EQ(g_buffCache[3], 0u);
+    EXPECT_EQ(g_buffCache[4], SSAP_ERRCODE_SERVER_FRAG);
+    EXPECT_FALSE(g_buffCache[5] & 0x80);
+    DeleteLink();
+    CP_LOG_INFO("[UT_SSAP_SERVER_READ] end: READ_BY_UUID_SINGLE_OVER_MTU_NO_FRAG");
+}
+
+// 属性值超单条目length字段上限（32767）且对端支持分包：READ_RSP明确报DATA_LENGTH，不发送截断报文
+TEST_F(UT_SSAP_SERVER_READ, READ_REQ_PROPERTY_OVER_ITEM_LEN_MAX)
+{
+    CP_LOG_INFO("[UT_SSAP_SERVER_READ] begin: READ_REQ_PROPERTY_OVER_ITEM_LEN_MAX");
+    AddServiceValueOverItemLenMax();
+    SSAP_Link_S *link = CreateLink();
+    link->fragCtx.fragment = true;  // 对端支持分包（绕过分包预检，进入32767上限校验）
+
+    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(reqPkt1));
+    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(reqPkt1));
+    (void)memcpy_s(tmpBuf, sizeof(reqPkt1), reqPkt1, sizeof(reqPkt1));
+    SSAPS_ReadReqHandle(link, tmp);
+    SDF_BuffFree(tmp);
+
+    // 响应 = READ_RSP头2B + 错误项{length=DATA_LENGTH, success=0} = 4B
+    DeleteLink();
+    EXPECT_EQ(g_buffLen, 4u);
+    EXPECT_EQ(g_buffCache[0], SSAP_READ_RSP);
+    EXPECT_EQ(g_buffCache[1], 0x0B);  // fragment=NO_FRAG(0x03) + error(0x08)
+    EXPECT_EQ(g_buffCache[2], SSAP_ERRCODE_DATA_LENGTH);
+    EXPECT_EQ(g_buffCache[3], 0u);
+    CP_LOG_INFO("[UT_SSAP_SERVER_READ] end: READ_REQ_PROPERTY_OVER_ITEM_LEN_MAX");
 }

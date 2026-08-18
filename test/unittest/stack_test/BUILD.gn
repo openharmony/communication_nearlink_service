@@ -38,6 +38,7 @@ group("nl_stack_test") {
     "ssap_client_read_test:nl_stack_ssap_client_read_unittest",
     "ssap_client_write_test:nl_stack_ssap_client_write_unittest",
     "ssap_control_test:nl_stack_ssap_control_unittest",
+    "ssap_fragment_test:nl_stack_ssap_fragment_unittest",
     "ssap_server_find_test:nl_stack_ssap_server_find_unittest",
     "ssap_server_find_sdf_fail_test:nl_stack_ssap_server_find_sdf_fail_unittest",
     "ssap_server_read_test:nl_stack_ssap_server_read_unittest",
