@@ -228,7 +228,7 @@ NlErrCode NearlinkASCServer::RegisterApplication(const sptr<INearlinkASCCallback
 
     pimpl->remoteObservers_.Register(callback);
 
-    impl::AscClientRemoteInfo info(callback->GetUid());
+    impl::AscClientRemoteInfo info(IPCSkeleton::GetCallingUid());
     pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
 
     HILOGI("[NearlinkASCServer]Register Callback success");
