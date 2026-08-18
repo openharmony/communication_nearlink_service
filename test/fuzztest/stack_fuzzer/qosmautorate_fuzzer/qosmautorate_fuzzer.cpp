@@ -202,13 +202,13 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
     QOSM_AutoRateCallback callback = {};
-    callback.paramChangedCbk = ParamChangedCbkImpl;
-    callback.connChangedCbk = ConnChangedCbkImpl;
-    callback.dataPathChangedCbk = DataPathChangedCbkImpl;
-    callback.bitrateChangedCbk = BitrateChangedCbkImpl;
-    callback.frequencyBandChangedCbk = FreqBandChangedCbkImpl;
-    callback.highPowerModeChangedCbk = HighPowerModeChangedCbkImpl;
-    callback.callBitrateUpDownCbk = AutoRateSendMsgCbkImpl;
+    callback.paramChangedCbk = OHOS::ParamChangedCbkImpl;
+    callback.connChangedCbk = OHOS::ConnChangedCbkImpl;
+    callback.dataPathChangedCbk = OHOS::DataPathChangedCbkImpl;
+    callback.bitrateChangedCbk = OHOS::BitrateChangedCbkImpl;
+    callback.frequencyBandChangedCbk = OHOS::FreqBandChangedCbkImpl;
+    callback.highPowerModeChangedCbk = OHOS::HighPowerModeChangedCbkImpl;
+    callback.callBitrateUpDownCbk = OHOS::AutoRateSendMsgCbkImpl;
     (void)QOSM_AutoRateRegisterCallback(&callback);
     return 0;
 }
