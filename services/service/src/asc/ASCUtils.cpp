@@ -18,6 +18,7 @@
 #include "actm_api_type.h"
 #include "cm_api.h"
 #include "nearlink_dft_ue.h"
+#include <algorithm>
 
 namespace OHOS {
 namespace Nearlink {
@@ -245,7 +246,7 @@ void ASCUtils::TransferProperty(const RawAddress& device, uint8_t num, NLSTK_Act
         AscAbility* ascAbility = &(ascProp.ability);
         ascAbility->codecNum = actmAbility->codecNum;
 
-        uint8_t codecNum = ascAbility->codecNum < ASC_CODEC_NUM_MAX ? ascAbility->codecNum : ASC_CODEC_NUM_MAX;
+        uint8_t codecNum = std::min(ascAbility->codecNum, ASC_CODEC_NUM_MAX);
         for (uint8_t j = 0; j < codecNum; j++) {
             NLSTK_ActmCodecParam_S* actmCodec = &(actmAbility->codec[j]);
             AscCodecConfig* ascCodec = &(ascAbility->codec[j]);
