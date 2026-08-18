@@ -600,7 +600,6 @@ static void ReportCbk(NLSTK_DevdAdvReportInfo_S *report)
         NLSTK_LOG_WARN("[DEVDS] scan is stopped, but recv adv");
     }
 
-    ClearAdvDataCache(&result->addr);
     FreeAdvResult(result);
 }
 
