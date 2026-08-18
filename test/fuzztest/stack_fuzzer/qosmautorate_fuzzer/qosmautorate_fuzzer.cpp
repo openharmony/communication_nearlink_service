@@ -80,7 +80,7 @@ static QOSM_QosIndex ConsumeQosIndex(FuzzedDataProvider &fdp)
 void FuzzQosmSetParam(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateParam param = {0};
+    QOSM_AutoRateParam param = {};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.qosIndex = ConsumeQosIndex(fdp);
     param.supportedBitrateCnt = fdp.ConsumeIntegral<uint8_t>() % QOSM_AUTORATE_MAX_SUPPORTED_BITRATE_CNT;
@@ -107,10 +107,10 @@ void FuzzQosmRemoveParam(const uint8_t *fuzzData, size_t size)
 void FuzzQosmAddConnection(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_ConnParam link = {0};
+    QOSM_ConnParam link = {};
     link.connHandle = fdp.ConsumeIntegral<uint16_t>();
     link.lcid = fdp.ConsumeIntegral<uint16_t>();
-    QOSM_AutoRateConnParam param = {0};
+    QOSM_AutoRateConnParam param = {};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.linkCnt = 1;
     param.link = &link;
@@ -121,7 +121,7 @@ void FuzzQosmAddConnection(const uint8_t *fuzzData, size_t size)
 void FuzzQosmAddDataPath(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateDataPath param = {0};
+    QOSM_AutoRateDataPath param = {};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.connHandle = fdp.ConsumeIntegral<uint16_t>();
     param.direction = fdp.ConsumeIntegral<uint8_t>();
@@ -143,7 +143,7 @@ void FuzzQosmAddDataPath(const uint8_t *fuzzData, size_t size)
 void FuzzQosmDeleteDataPath(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateDeletedDataPath param = {0};
+    QOSM_AutoRateDeletedDataPath param = {};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.connHandle = fdp.ConsumeIntegral<uint16_t>();
     param.direction = fdp.ConsumeIntegral<uint8_t>();
@@ -153,7 +153,7 @@ void FuzzQosmDeleteDataPath(const uint8_t *fuzzData, size_t size)
 void FuzzQosmEarphoneFeedback(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateEarphoneFeedbackParam param = {0};
+    QOSM_AutoRateEarphoneFeedbackParam param = {};
     param.supportedBitrateCnt = fdp.ConsumeIntegral<uint8_t>() % QOSM_AUTORATE_MAX_SUPPORTED_BITRATE_CNT;
     for (uint32_t i = 0; i < param.supportedBitrateCnt; i++) {
         param.supportedBitrate[i] = fdp.ConsumeIntegral<uint16_t>();
@@ -164,7 +164,7 @@ void FuzzQosmEarphoneFeedback(const uint8_t *fuzzData, size_t size)
 void FuzzQosmCoexistSuggestion(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateCoexistSuggestionParam param = {0};
+    QOSM_AutoRateCoexistSuggestionParam param = {};
     param.maxBitrate = fdp.ConsumeIntegral<uint16_t>();
     param.dutyCycle = fdp.ConsumeIntegral<uint8_t>();
     (void)QOSM_AutoRateSetCoexistSuggestion(&param);
@@ -174,7 +174,7 @@ void FuzzQosmGetIcbParam(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     QOSM_QosIndex qosIndex = ConsumeQosIndex(fdp);
-    QOSM_ICBParam param = {0};
+    QOSM_ICBParam param = {};
     (void)QOSM_AutoRateGetICGG2TParam(qosIndex, &param);
     (void)QOSM_AutoRateGetICGT2GParam(qosIndex, &param);
 }
@@ -182,7 +182,7 @@ void FuzzQosmGetIcbParam(const uint8_t *fuzzData, size_t size)
 void FuzzQosmRecvAutoRateMsg(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateRecvMsgParam param = {0};
+    QOSM_AutoRateRecvMsgParam param = {};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.qosIndex = ConsumeQosIndex(fdp);
     param.labelId = fdp.ConsumeIntegral<uint8_t>();
@@ -201,7 +201,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     NLSTK_EnableStack();
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
-    QOSM_AutoRateCallback callback = {0};
+    QOSM_AutoRateCallback callback = {};
     callback.paramChangedCbk = ParamChangedCbkImpl;
     callback.connChangedCbk = ConnChangedCbkImpl;
     callback.dataPathChangedCbk = DataPathChangedCbkImpl;

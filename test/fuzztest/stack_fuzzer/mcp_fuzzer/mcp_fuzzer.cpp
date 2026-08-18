@@ -202,7 +202,7 @@ void FuzzMcpSetStreamVolume(const uint8_t *fuzzData, size_t size)
     SLE_Addr_S addr = {0};
     FillAddr(fdp, addr);
     uint8_t num = fdp.ConsumeIntegral<uint8_t>() % FUZZ_MCP_STREAM_VOLUME_MAX_NUM;
-    NLSTK_McpSetStreamVolume_S volumeArray[FUZZ_MCP_STREAM_VOLUME_MAX_NUM] = {0};
+    NLSTK_McpSetStreamVolume_S volumeArray[FUZZ_MCP_STREAM_VOLUME_MAX_NUM] = {};
     for (uint8_t i = 0; i < num; i++) {
         volumeArray[i].volume = fdp.ConsumeIntegral<uint8_t>();
         volumeArray[i].streamType = static_cast<NLSTK_McpSetStreamVolume_E>(fdp.ConsumeIntegral<uint8_t>() % 2);

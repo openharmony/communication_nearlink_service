@@ -68,9 +68,13 @@ void FuzzDisReadInfo(const uint8_t *fuzzData, size_t size)
     SLE_Addr_S addr = {0};
     FillAddr(fdp, addr);
     NLSTK_DisInfoType_E type = static_cast<NLSTK_DisInfoType_E>(fdp.ConsumeIntegral<uint8_t>() % 8);
-    NLSTK_DisPropData_S outData;
-    (void)memset_s(&outData, sizeof(outData), 0, sizeof(outData));
+    NLSTK_VariableData_S outData = {0};
+    outData.data = (uint8_t *)SDF_MemZalloc(DIS_MAX_VAR_LEN);
+    if (outData.data == nullptr) {
+        return;
+    }
     (void)NLSTK_DisReadInfo(&addr, type, &outData);
+    SDF_MemFree(outData.data);
 }
 
 void FuzzDisReadAllInfo(const uint8_t *fuzzData, size_t size)

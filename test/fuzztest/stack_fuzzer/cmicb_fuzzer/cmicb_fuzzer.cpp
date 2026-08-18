@@ -68,7 +68,7 @@ void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     CM_ICBParam icbParam[FUZZ_ICB_MAX_CNT];
-    struct CM_ICB icbInner[FUZZ_ICB_MAX_CNT][2];
+    CM_ICBParam::CM_ICB icbInner[FUZZ_ICB_MAX_CNT][2];
     (void)memset_s(icbParam, sizeof(icbParam), 0, sizeof(icbParam));
     (void)memset_s(icbInner, sizeof(icbInner), 0, sizeof(icbInner));
     uint8_t paramCnt = fdp.ConsumeIntegral<uint8_t>() % FUZZ_ICB_MAX_CNT;
@@ -83,7 +83,7 @@ void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
         }
         icbParam[i].param = icbInner[i];
     }
-    CM_ICGParam icgParam = {0};
+    CM_ICGParam icgParam = {};
     icgParam.type = ConsumeIcbType(fdp);
     icgParam.id = fdp.ConsumeIntegral<uint8_t>();
     icgParam.sduIntervalG2T = fdp.ConsumeIntegral<uint32_t>();
@@ -123,7 +123,7 @@ void FuzzIcgSetTestParam(const uint8_t *fuzzData, size_t size)
         icbParam[i].bnG2T = fdp.ConsumeIntegral<uint8_t>();
         icbParam[i].bnT2G = fdp.ConsumeIntegral<uint8_t>();
     }
-    CM_ICGTestParam icgParam = {0};
+    CM_ICGTestParam icgParam = {};
     icgParam.type = ConsumeIcbType(fdp);
     icgParam.id = fdp.ConsumeIntegral<uint8_t>();
     icgParam.labelId = fdp.ConsumeIntegral<uint8_t>();
@@ -144,7 +144,7 @@ void FuzzIcgSetTestParam(const uint8_t *fuzzData, size_t size)
 void FuzzIcgRemoveParam(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    CM_ICGRemovedParam icgParam = {0};
+    CM_ICGRemovedParam icgParam = {};
     icgParam.type = ConsumeIcbType(fdp);
     icgParam.id = fdp.ConsumeIntegral<uint8_t>();
     (void)CM_ICGRemoveParam(&icgParam);
@@ -162,7 +162,7 @@ void FuzzIcgSetLabel(const uint8_t *fuzzData, size_t size)
         icb[i].direction = fdp.ConsumeIntegral<uint8_t>();
         icb[i].labelId = fdp.ConsumeIntegral<uint8_t>();
     }
-    CM_ICGLabelParam icgLabel = {0};
+    CM_ICGLabelParam icgLabel = {};
     icgLabel.type = ConsumeIcbType(fdp);
     icgLabel.id = fdp.ConsumeIntegral<uint8_t>();
     icgLabel.icbCnt = icbCnt;
@@ -184,7 +184,7 @@ void FuzzIcbConnection(const uint8_t *fuzzData, size_t size)
         channel[i].direction = fdp.ConsumeIntegral<uint8_t>();
         channel[i].labelId = fdp.ConsumeIntegral<uint8_t>();
     }
-    CM_ICBConnectionParam connParam = {0};
+    CM_ICBConnectionParam connParam = {};
     connParam.type = ConsumeIcbType(fdp);
     connParam.id = fdp.ConsumeIntegral<uint8_t>();
     connParam.labelId = fdp.ConsumeIntegral<uint8_t>();
@@ -203,7 +203,7 @@ void FuzzIcgUpdateParam(const uint8_t *fuzzData, size_t size)
     for (uint8_t i = 0; i < icbCnt; i++) {
         connHandle[i] = fdp.ConsumeIntegral<uint16_t>();
     }
-    CM_ICGUpdatedParam icgParam = {0};
+    CM_ICGUpdatedParam icgParam = {};
     icgParam.type = ConsumeIcbType(fdp);
     icgParam.id = fdp.ConsumeIntegral<uint8_t>();
     icgParam.labelId = fdp.ConsumeIntegral<uint8_t>();
