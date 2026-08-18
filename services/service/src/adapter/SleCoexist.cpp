@@ -119,7 +119,7 @@ void SleCoexist::UpdateConnParam()
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
     // 检查是否有多个连接
-    if (!(manager->HasMultipleConnections() && isNeedCustomParam_)) {
+    if (!(manager->HasMultipleConnections() || isNeedCustomParam_)) {
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
@@ -150,8 +150,8 @@ void SleCoexist::SendConnectionParam(uint16_t timeout, uint16_t latency, const S
     updateParam.systemTimeUnit = CM_CONN_TIME_UNIT;
     updateParam.txRxFlag = CM_CONN_T_TX_RX_FLAG;
     if (isNeedCustomParam_) {
-        ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(&updateParam.intervalMin,
-            &updateParam.intervalMax, appearance_);
+        ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(updateParam.intervalMin,
+            updateParam.intervalMax, appearance_);
     }
     CM_ConnectUpdateParamReq(&updateParam);
 }
