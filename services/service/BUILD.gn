@@ -510,11 +510,8 @@ ohos_shared_library("nearlink_mcp_manager") {
   external_deps = [
     "hilog:libhilog",
     "ability_base:want",
-    "ability_base:configuration",
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
-    "json:nlohmann_json_static",
-    "resource_management:global_resmgr",
   ]
   sources = []
 
