@@ -423,18 +423,7 @@ bool SsapServerStackAdapter::FillDescriptorToProperty(
         dstProperty->descriptors[i].val.len = valLen;
         if (valLen != 0) {
             dstProperty->descriptors[i].val.data = new (std::nothrow) uint8_t[valLen];
-            if (dstProperty->descriptors[i].val.data == nullptr) {
-                for (uint16_t j = 0; j < i; j++) {
-                    if (dstProperty->descriptors[j].val.data != nullptr) {
-                        delete[] dstProperty->descriptors[j].val.data;
-                        dstProperty->descriptors[j].val.data = nullptr;
-                    }
-                }
-                delete[] dstProperty->descriptors;
-                dstProperty->descriptors = nullptr;
-                dstProperty->descriptorNum = 0;
-                return false;
-            }
+            NL_CHECK_RETURN_RET(dstProperty->descriptors[i].val.data != nullptr, false, "val.data is nullptr");
             (void)memset_s(dstProperty->descriptors[i].val.data, valLen, 0x00, valLen);
             std::copy(srcProperty.descriptors_[i].value_.begin(), srcProperty.descriptors_[i].value_.end(),
                 dstProperty->descriptors[i].val.data);
