@@ -74,13 +74,9 @@ ErrCode NearlinkASCCallbackStub::OnAudioControlInner(MessageParcel &data, Messag
 {
     HILOGI("NearlinkASCCallbackStub::OnAudioControlInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     std::shared_ptr<NearlinkASCAudioControlResult> result(data.ReadParcelable<NearlinkASCAudioControlResult>());
-    if (!result) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(result != nullptr, TRANSACTION_ERR, "read audio control result error");
     HILOGI("NearlinkASCCallbackStub OnAudioControl ret: %{public}d", result->GetResult());
     OnAudioControl(*device, *result);
     return NO_ERROR;
@@ -90,9 +86,7 @@ ErrCode NearlinkASCCallbackStub::OnAddSleAudioDeviceInner(MessageParcel &data, M
 {
     HILOGD("NearlinkASCCallbackStub::OnAddSleAudioDeviceInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     uint32_t streamType = data.ReadUint32();
     int32_t mediaVolume = data.ReadInt32();
     int32_t callVolume = data.ReadInt32();
@@ -106,9 +100,7 @@ ErrCode NearlinkASCCallbackStub::OnDeleteSleAudioDeviceInner(MessageParcel &data
 {
     HILOGD("NearlinkASCCallbackStub::OnDeleteSleAudioDeviceInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     OnDeleteSleAudioDevice(*device);
     return NO_ERROR;
 }
@@ -117,13 +109,9 @@ ErrCode NearlinkASCCallbackStub::OnSleAudioDeviceActionChangedInner(MessageParce
 {
     HILOGI("NearlinkASCCallbackStub::OnSleAudioDeviceActionChangedInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     std::shared_ptr<NearlinkASCAudioStreamInfo> streamInfo(data.ReadParcelable<NearlinkASCAudioStreamInfo>());
-    if (!streamInfo) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(streamInfo != nullptr, TRANSACTION_ERR, "read stream info error");
     int32_t action = data.ReadInt32();
     HILOGI("NearlinkASCCallbackStub OnSleAudioDeviceActionChanged %{public}s action %{public}d",
         GetEncryptAddr(device->GetAddress()).c_str(), action);
@@ -135,9 +123,7 @@ ErrCode NearlinkASCCallbackStub::OnAddSleVirtualAudioDeviceInner(MessageParcel &
 {
     HILOGI("NearlinkASCCallbackStub::OnAddSleVirtualAudioDeviceInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     uint32_t streamTypeValue = data.ReadUint32();
     NL_CHECK_RETURN_RET(streamTypeValue <= static_cast<uint32_t>(AUDIO_STREAM_SING), TRANSACTION_ERR,
         "stream type is error");
@@ -152,9 +138,7 @@ ErrCode NearlinkASCCallbackStub::OnDeleteSleVirtualAudioDeviceInner(MessageParce
 {
     HILOGI("NearlinkASCCallbackStub::OnDeleteSleVirtualAudioDeviceInner Triggered!");
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
-    if (!device) {
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(device != nullptr, TRANSACTION_ERR, "read device error");
     HILOGI("NearlinkASCCallbackStub OnDeleteSleVirtualAudioDevice %{public}s",
         GetEncryptAddr(device->GetAddress()).c_str());
     OnDeleteSleVirtualAudioDevice(*device);

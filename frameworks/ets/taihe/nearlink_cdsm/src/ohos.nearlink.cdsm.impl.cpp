@@ -41,7 +41,9 @@ public:
 
         auto callback = std::dynamic_pointer_cast<OHOS::Nearlink::NearlinkCdsmClientCallback>(callback_);
         cdsmClient_ = NearlinkCdsmClient::CreateNearlinkCdsmClient(*device_, callback);
-        NL_CHECK_RETURN(cdsmClient_ != nullptr, "CreateNearlinkCdsmClient failed");
+        if (cdsmClient_ == nullptr) {
+            HILOGE("CreateNearlinkCdsmClient failed");
+        }
     }
 
     ::ohos::nearlink::cdsm::CdsmInfo GetCdsmInfo()
