@@ -1856,9 +1856,7 @@ NlErrCode NearlinkHostServer::IsFeatureSupported(int32_t feature, bool &isSuppor
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
-    if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)) {
-        isSupported = sleService->IsFeatureSupported(feature) && NearlinkSystemConfig::IsFrame4Supported();
-    } else if (sleService->IsFeatureSupported(feature)) {
+    if (sleService->IsFeatureSupported(feature)) {
         isSupported = true;
     }
     HILOGI("isSupported(%{public}d)", isSupported);

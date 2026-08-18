@@ -103,11 +103,13 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
 
     std::mutex loadServiceMutex_;
     std::mutex isNearlinkEnableMutex_;
+    std::mutex isNearlinkSupportFrame4Mutex_;
     std::mutex isNearlinkAudioEnableMutex_;
     std::string stagingRealAddr_;
     std::string stagingRandomAddr_;
     int32_t profileRegisterId_{0};
     int isNearlinkEnable_ = NEARLINK_UNKNOWN;
+    int32_t isNearlinkSupportFrame4_ = NEARLINK_UNKNOWN;
     int32_t isNearlinkAudioEnable_ = NEARLINK_UNKNOWN;
 
 private:
@@ -1022,9 +1024,26 @@ NlErrCode NearlinkHost::SetBtAddrBySleAddr(const std::string &sleAddr, const std
     return proxy->SetBtAddrBySleAddr(sleAddr, btAddr);
 }
 
+bool NearlinkHost::IsNearlinkSupportFrame4() const
+{
+    HILOGD("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(pimpl != nullptr, false, "piml is nullptr");
+
+    std::unique_lock<std::mutex> lock(pimpl->isNearlinkSupportFrame4Mutex_);
+    if (pimpl->isNearlinkSupportFrame4_ == NEARLINK_UNKNOWN) {
+        pimpl->isNearlinkSupportFrame4_ = OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false) ?
+            NEARLINK_SUPPORTED : NEARLINK_NOT_SUPPORTED;
+    }
+    return pimpl->isNearlinkSupportFrame4_ == NEARLINK_SUPPORTED;
+}
+
 bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)
 {
     HILOGD("enter");
+    if (feature == SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4) {
+        return IsNearlinkSupportFrame4();
+    }
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), false, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);

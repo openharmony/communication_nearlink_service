@@ -411,6 +411,14 @@ public:
     bool IsNearlinkSupport() const;
 
     /**
+     * @brief Check whether nearlink frame4 is supported. Caller needn't ensure nearlink is on.
+     *
+     * @return Returns <b>true</b> if nearlink frame4 is support to caller;
+     *         returns <b>false</b> if nearlink frame4 is not support to caller.
+     */
+    bool IsNearlinkSupportFrame4() const;
+
+    /**
      * @brief Check whether nearlink audio is Support.
      *
      * @return Returns <b>true</b> if nearlink audio is support to caller;
