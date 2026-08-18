@@ -85,7 +85,7 @@ bool SleEdmManager::IsAllowedConnect(const std::string &profile)
         return true;
     } else if (find(forbiddenlist.begin(), forbiddenlist.end(), profile) == forbiddenlist.end()) {
         HILOGI("[EDM MODE]:profile not in forbiddenlist");
-        return true;
+        return false;
     } else {
         HILOGE("[EDM MODE]:profile %{public}s restricted by edm account forbiddenlist.", profile.c_str());
         return false;
