@@ -800,7 +800,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.encodeDspVersion = GetDspL2hcVersion(info);
     ascToDspInfo.encodeBitDepth = info.bitSamp;
     ascToDspInfo.encodeSampleRate = info.rate;
-    ascToDspInfo.encodeBps = GetDeviceBps(device, info.bps);
+    ascToDspInfo.encodeBps = GetASCToDspEncodeBps(device, info.bps);
     ascToDspInfo.encodeFrame = info.frame;
     ascToDspInfo.sduInterval = info.sduInterval;
     ascToDspInfo.frameNumPerSdu = static_cast<uint8_t>((info.frame != 0) ? (info.sduInterval / info.frame) : 0);
@@ -821,7 +821,12 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
 }
 
-uint16_t ASCService::GetDeviceBps(const RawAddress& device, uint16_t bps)
+/**
+ * @param device the remote nearlink device.
+ * @param bps the negotiated bitrate with the headset for start playing initiation
+ * @return Returns the encoding bitrate to notify to the dsp
+ */
+uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps)
 {
     RawAddress coSetDevice;
     if (!IsSync(device) || !IsCoSetDeviceExist(device, coSetDevice)) {
@@ -830,7 +835,7 @@ uint16_t ASCService::GetDeviceBps(const RawAddress& device, uint16_t bps)
     }
 
     ASCState coStatus = GetASCStatus(coSetDevice);
-    if (!IsStreamStarted(coStatus)) {
+    if (!IsStarted(coStatus) && !IsDirectionSet(coStatus)) {
         // 合作集地址未起播完成，不同步
         return bps;
     }
@@ -5062,8 +5067,9 @@ void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(activeSinkDevice_, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
     for (const auto& info : cdsmList) {
+        ASCState state = GetASCStatus(info.addr_);
         if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) &&
-            IsStreamStarted(GetASCStatus(info.addr_))) {
+            (IsStarted(state) || IsDirectionSet(state))) {
             SetAutoRateBps(info.addr_, ascBitrate.downBitrate);
         }
     }
