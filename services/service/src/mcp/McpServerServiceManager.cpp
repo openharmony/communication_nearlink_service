@@ -1030,11 +1030,7 @@ extern "C" {
 McpServerServiceManager *CreateMcpMediaInterface(void)
 {
     HILOGI("enter");
-    auto mcpManager = new (std::nothrow) McpServerServiceManager();
-    if (mcpManager == nullptr) {
-        HILOGE("mcpManager is nullptr");
-        return nullptr;
-    }
+    auto mcpManager = new McpServerServiceManager();
     mcpManager->Init();
     return mcpManager;
 }
