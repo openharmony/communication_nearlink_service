@@ -51,7 +51,7 @@ public:
     void HighPowerProc(uint16_t lcid) override;
     void SleTvMgrProc(const std::string &address) override;
     void HidDataStatisticsProc(const std::string &address) override;
-    void IsNeedCustomParam(bool &isNeed) override;
+    void IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval) override;
     void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) override;
     void UpdateSleFreqBandAbility(const std::string &address) override;
     void CollaborationProc(CollaborationProcType type) override;

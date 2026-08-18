@@ -140,7 +140,7 @@ public:
     virtual void SleTvMgrProc(const std::string &address) = 0;
     virtual void HidDataStatisticsProc(const std::string &address) = 0;
     virtual void UpdateSleFreqBandAbility(const std::string &address) = 0;
-    virtual void IsNeedCustomParam(bool &isNeed) = 0;
+    virtual void IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval) = 0;
     virtual void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) = 0;
     virtual void CollaborationProc(CollaborationProcType type) = 0;
     virtual void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
