@@ -24,15 +24,7 @@
 
 namespace OHOS {
 namespace Nearlink {
-#ifdef PC_STANDARD
-const int ENABLE_DISABLE_TIMEOUT_TIME = 70000;
-#else
-#ifdef WATCH_STANDARD
-const int ENABLE_DISABLE_TIMEOUT_TIME = 70000;
-#else
 const int ENABLE_DISABLE_TIMEOUT_TIME = 10000;
-#endif
-#endif
 const int TURNING_STATE_TIMEOUT_TIME = 1000;
 
 void AdapterStateMachine::Init(std::shared_ptr<SleInterfaceAdapter> adapter)

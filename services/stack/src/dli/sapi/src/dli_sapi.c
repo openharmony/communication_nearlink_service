@@ -66,10 +66,6 @@ uint32_t DLI_SapiInit(DLI_SapiPacketReceived cb)
         code = halInitRet != 0 ? DLI_STACK_HAL_INIT_ERRNO : DLI_STACK_INIT_TIMEOUT_ERRNO;
         DLI_LOGE("semaphore g_sem timeout halInitRet %d, waitRet = %u", halInitRet, waitRet);
         SleReset();
-#if defined(PC_STANDARD) || defined(TABLET_STANDARD) || defined(PHONE_STANDARD)
-        DLI_LOGE("SleHalClose enter");
-        DLI_SapiDeinit();
-#endif
     }
     SDF_SemDeinit(g_sem);
     SDF_MemFree(g_sem);
