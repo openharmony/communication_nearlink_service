@@ -61,7 +61,7 @@ static EVP_PKEY *RawKeyPairToPkey(uint8_t pri[CRYPTO_PRIVATE_KEY_LEN], uint8_t p
 static EVP_PKEY *RawPubkeyTopkey(uint8_t pub[CRYPTO_PUBLIC_KEY_LEN]);
 static bool DeriveDhKey(EVP_PKEY *keyPair, EVP_PKEY *remoteKey, uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
 
-static uint32_t RandNumGenerate(uint8_t *out, uint8_t len);
+static void RandNumGenerate(uint8_t *out, uint8_t len);
 static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
 static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
@@ -72,9 +72,9 @@ static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHa
                                     Interfaces
 *****************************************************************************************/
 
-uint32_t Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
+void Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
 {
-    return RandNumGenerate(out, len);
+    RandNumGenerate(out, len);
 }
 
 void Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
@@ -134,12 +134,8 @@ void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
  *  \param  out  指向输出缓冲区的指针，用于存放生成的随机数。
  *  \param  len  指定需要生成的随机数的长度（字节数）。
  */
-static uint32_t RandNumGenerate(uint8_t *out, uint8_t len)
+static void RandNumGenerate(uint8_t *out, uint8_t len)
 {
-    if (out == NULL || len == 0) {
-        NAI_LOG_ERROR("rand num params invalid.");
-        return 1;
-    }
     size_t left = len;
     int fd;
     fd = open("/dev/urandom", O_RDONLY);
@@ -147,8 +143,7 @@ static uint32_t RandNumGenerate(uint8_t *out, uint8_t len)
         fd = open("/dev/random", O_RDONLY);
         if (fd < 0) {
             NAI_LOG_ERROR("Failed to generate random num, fail to open file.");
-            (void)memset_s(out, len, 0, len);
-            return 1;
+            return;
         }
     }
     while (left > 0) {
@@ -157,14 +152,12 @@ static uint32_t RandNumGenerate(uint8_t *out, uint8_t len)
         if (ret <= 0) {
             close(fd);
             NAI_LOG_ERROR("Failed to generate random num, fail to read file.");
-            (void)memset_s(out, len, 0, len);
-            return 1;
+            return;
         }
         left -= (size_t)ret;
         out += ret;
     }
     close(fd);
-    return 0;
 }
 
 /** 此函数用于生成一对公私钥，并将其分别存储到 priKey 和 pubKey 缓冲区。

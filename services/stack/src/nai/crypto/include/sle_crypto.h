@@ -40,7 +40,7 @@ typedef enum {
     KEY_NEGOTIATION_ALGORITHM_ABILITY_RESERVED,
 } KeyNegoAlgoAbility;
 
-uint32_t Crypto_RandNumGenerate(uint8_t *out, uint8_t len);
+void Crypto_RandNumGenerate(uint8_t *out, uint8_t len);
 void Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
 void Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
 void Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);

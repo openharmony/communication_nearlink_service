@@ -408,7 +408,6 @@ NLSTK_Errcode_E NLSTK_DevdSetAdvData(NLSTK_DevdSetAdvData_S *setAdvData)
     }
     if (SchedulePostTask((SDF_WorkCb)DevdSetAdvData, advData, (SDF_FreeWorkArg)DevdFreeSetAdvData) != NLSTK_OK) {
         NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
-        DevdFreeSetAdvData(advData);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -434,7 +433,6 @@ NLSTK_Errcode_E NLSTK_DevdStartAdv(NLSTK_DevdSetAdvParams_S *advParams)
     }
     if (SchedulePostTask((SDF_WorkCb)DevdSetAdvParam, setParam, (SDF_FreeWorkArg)DevdFreeSetAdvParams) != NLSTK_OK) {
         NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
-        DevdFreeSetAdvParams(setParam);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
