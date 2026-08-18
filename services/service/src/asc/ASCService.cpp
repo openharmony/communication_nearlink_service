@@ -4657,6 +4657,7 @@ void ASCService::HandleChangeVoiceCallBitrate(uint8_t result)
     if (isLevelUp && result != NL_SLE_ASC_RESULT_SUCC) {
         HILOGI("actm roll back, no need change dsp bitrate");
         RemoveAutorateGroupByAddr(activeSinkDevice_);
+        return;
     }
     for (const AscPhyStatus& item : it->second.phyStatusList) {
         RawAddress dev = RawAddress(item.addr);
