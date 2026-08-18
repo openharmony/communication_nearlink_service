@@ -50,6 +50,8 @@ public:
         std::vector<NearlinkSsapServiceParcel> &service) override;
     NlErrCode RequestPropertyNotification(int32_t appId, uint16_t propertyHandle,
         bool enable, uint8_t notifyOption) override;
+
+    DISALLOW_COPY_AND_MOVE(NearlinkSsapClientProxy);
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);
     static inline BrokerDelegator<NearlinkSsapClientProxy> delegator_;

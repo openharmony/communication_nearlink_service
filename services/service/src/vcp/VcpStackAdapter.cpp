@@ -34,7 +34,10 @@ VcpStackAdapter::VcpStackAdapter(VcpStackCallback &callback)
     g_vcpStackAdapter = this;
 }
 
-VcpStackAdapter::~VcpStackAdapter() = default;
+VcpStackAdapter::~VcpStackAdapter()
+{
+    g_vcpStackAdapter = nullptr;
+}
 
 void VcpStackAdapter::OnVolumeChangeEventTask(const RawAddress &device, uint8_t volume)
 {
@@ -47,6 +50,7 @@ void VcpStackAdapter::OnVolumeChangeEvent(SLE_Addr_S *addr, uint8_t volume)
     const RawAddress device = RawAddress::ConvertToString(addr->addr);
     HILOGI("[VcpStackAdapter]device=%{public}s, volume=%{public}d", GET_ENCRYPT_ADDR(device), volume);
     DoInVcpThread([vcpStackAdapter = g_vcpStackAdapter, device, volume]() -> void {
+        NL_CHECK_RETURN(vcpStackAdapter, "[VcpStackAdapter] adapter is null");
         vcpStackAdapter->OnVolumeChangeEventTask(device, volume);
     });
 }
@@ -62,6 +66,7 @@ void VcpStackAdapter::OnMuteStatusChangeEvent(SLE_Addr_S *addr, uint8_t muteStat
     const RawAddress device = RawAddress::ConvertToString(addr->addr);
     HILOGI("[VcpStackAdapter]device=%{public}s, muteStatus=%{public}d", GET_ENCRYPT_ADDR(device), muteStatus);
     DoInVcpThread([vcpStackAdapter = g_vcpStackAdapter, device, muteStatus]() -> void {
+        NL_CHECK_RETURN(vcpStackAdapter, "[VcpStackAdapter] adapter is null");
         vcpStackAdapter->OnMuteStatusChangeEventTask(device, muteStatus);
     });
 }
@@ -88,6 +93,7 @@ void VcpStackAdapter::OnNotifyVolumeChange(SLE_Addr_S *addr, NLSTK_McpVolumeProp
         streamVolumes.emplace_back(mediaStreamVolume);
 
         DoInVcpThread([vcpStackAdapter = g_vcpStackAdapter, device, streamVolumes]() -> void {
+            NL_CHECK_RETURN(vcpStackAdapter, "[VcpStackAdapter] adapter is null");
             vcpStackAdapter->OnNotifyVolumeChangeTask(device, streamVolumes);
         });
     }
@@ -111,6 +117,7 @@ void VcpStackAdapter::OnConnectionStateChanged(SLE_Addr_S *addr, uint8_t state, 
     const RawAddress device = RawAddress::ConvertToString(addr->addr);
     HILOGD("[VcpStackAdapter]device=%{public}s, state=%{public}d", GET_ENCRYPT_ADDR(device), state);
     DoInVcpThread([vcpStackAdapter = g_vcpStackAdapter, device, state, preState]() -> void {
+        NL_CHECK_RETURN(vcpStackAdapter, "[VcpStackAdapter] adapter is null");
         vcpStackAdapter->OnConnectStateChangeTask(device, state, preState);
     });
 }

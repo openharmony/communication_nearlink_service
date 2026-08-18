@@ -79,13 +79,11 @@ static int OutputSuccess(const std::string& message)
     cJSON_AddItemToObject(response, "data", data);
     char* jsonStr = cJSON_PrintUnformatted(response);
     if (jsonStr == nullptr) {
-        cJSON_Delete(data);
         cJSON_Delete(response);
         return 0;
     }
     std::cout << jsonStr << std::endl;
     cJSON_free(jsonStr);
-    cJSON_Delete(data);
     cJSON_Delete(response);
     return 0;
 }

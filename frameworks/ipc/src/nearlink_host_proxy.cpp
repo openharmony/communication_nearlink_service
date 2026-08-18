@@ -505,7 +505,12 @@ NlErrCode NearlinkHostProxy::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvData
 
     NlErrCode exception = static_cast<NlErrCode>(reply.ReadInt32());
     if (exception == NL_NO_ERROR) {
-        maxAdvDataLen = static_cast<uint32_t>(reply.ReadInt32());
+        int32_t rawLen = reply.ReadInt32();
+        if (rawLen < 0) {
+            HILOGE("Invalid maxAdvDataLen: %{public}d", rawLen);
+            return NL_ERR_INTERNAL_ERROR;
+        }
+        maxAdvDataLen = static_cast<uint32_t>(rawLen);
     }
     return exception;
 }

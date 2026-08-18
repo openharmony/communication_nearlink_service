@@ -276,7 +276,7 @@ napi_status NapiCheckObjectPropertiesName(napi_env env, napi_value object, const
 
 int NapiToJsPairState(int state)
 {
-    int jsPairState;
+    int jsPairState = static_cast<int>(PairingState::PAIRING_STATE_NONE);
     switch (state) {
         case static_cast<int>(SlePairState::SLE_PAIR_NONE):
             jsPairState = static_cast<int>(PairingState::PAIRING_STATE_NONE);
@@ -287,6 +287,8 @@ int NapiToJsPairState(int state)
         case static_cast<int>(SlePairState::SLE_PAIR_PAIRED):
         case static_cast<int>(SlePairState::SLE_PAIR_CANCELING):
             jsPairState = static_cast<int>(PairingState::PAIRING_STATE_PAIRED);
+            break;
+        default:
             break;
     }
     return jsPairState;
