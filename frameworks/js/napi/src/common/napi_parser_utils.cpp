@@ -287,7 +287,8 @@ napi_status NapiParseTransMode(napi_env env, napi_value value, uint8_t &outTrans
         outTransMode = static_cast<uint8_t>(ConnectionParams::PortTransMode::TRANSPORT_MODE_RELIABLE);
     } else {
         HILOGE("Invalid transMode: %{public}d", transMode);
-        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+        // 非 TransferMode 枚举值，属入参类型错误，抛 401
+        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_PARAM);
         return napi_invalid_arg;
     }
     return napi_ok;
