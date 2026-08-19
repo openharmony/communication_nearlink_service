@@ -56,9 +56,7 @@ void SleAudioFrameworkAdapter::UnregisterAudioFrameworkAdapterListener()
     DoInAudioFwAdapterThread([this]() {
         this->UnregisterOutputPipeChangeListener();
         this->UnregisterRendererDataTransferListener();
-        this->StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_EMPTY_STREAM);
-        this->StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
-        this->StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO);
+        this->StopAllEmptyMuteScMcpPauseTimers();
     });
 }
 
@@ -191,11 +189,11 @@ void SleAudioFrameworkAdapter::JudgeEmptyStreamByRendererState(const RawAddress 
         HILOGD("[SleAudioFrameworkAdapter] rendererState=%{public}d, streamUsage=%{public}d, streamId=%{public}d",
                it.status, it.streamUsage, it.streamId);
         if (isCallStreamType(it.streamUsage)) {
-            StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_EMPTY_STREAM);
+            StopAllEmptyMuteScMcpPauseTimers();
             return;
         }
         if (it.status == AudioStandard::RendererState::RENDERER_RUNNING) {
-            StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_EMPTY_STREAM);
+            StopAllEmptyMuteScMcpPauseTimers();
             return;
         }
         if (it.status == AudioStandard::RendererState::RENDERER_STOPPED ||
@@ -554,6 +552,13 @@ void SleAudioFrameworkAdapter::StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL typ
         GetEmptyMuteCheckTimer(type)->Stop();
         SetEmptyMuteCheckTimer(type, nullptr);
     }
+}
+
+void StopAllEmptyMuteScMcpPauseTimers()
+{
+    StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_EMPTY_STREAM);
+    StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
+    StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO);
 }
 
 void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
