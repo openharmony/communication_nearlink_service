@@ -841,7 +841,6 @@ uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps
         return autoRateBps;
     }
 
-    
     if (GetAutoRateBps(coSetDevice, autoRateBps)) {
         // 单切双场景，同步合作集设备码率
         return autoRateBps;
