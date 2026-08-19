@@ -37,7 +37,6 @@ public:
         const NearlinkASCAudioStreamInfo &streamInfo, int action) = 0;
     virtual void OnAddSleVirtualAudioDevice(const NearlinkRawAddress &device, AudioStreamType streamType) = 0;
     virtual void OnDeleteSleVirtualAudioDevice(const NearlinkRawAddress &device) = 0;
-    virtual uid_t GetUid() = 0;
 };
 }  // namespace Nearlink
 }  // namespace OHOS

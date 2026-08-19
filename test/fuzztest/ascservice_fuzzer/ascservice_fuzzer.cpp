@@ -40,10 +40,6 @@ public:
         int action) {}
     void OnAddSleVirtualAudioDevice(const NearlinkRawAddress &device, AudioStreamType streamType) {}
     void OnDeleteSleVirtualAudioDevice(const NearlinkRawAddress &device) {}
-    uid_t GetUid()
-    {
-        return 0;
-    }
 };
 
 namespace {

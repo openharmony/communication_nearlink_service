@@ -136,11 +136,6 @@ void NearlinkASCCallbackProxy::OnDeleteSleVirtualAudioDevice(const NearlinkRawAd
     NL_CHECK_RETURN(error == NO_ERROR, "done fail, error: %{public}d", error);
 }
 
-uid_t NearlinkASCCallbackProxy::GetUid()
-{
-    return uid_;
-}
-
 ErrCode NearlinkASCCallbackProxy::InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data,
     MessageParcel &reply)
 {
