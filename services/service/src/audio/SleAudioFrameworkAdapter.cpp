@@ -554,7 +554,7 @@ void SleAudioFrameworkAdapter::StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL typ
     }
 }
 
-void StopAllEmptyMuteScMcpPauseTimers()
+void SleAudioFrameworkAdapter::StopAllEmptyMuteScMcpPauseTimers()
 {
     StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_EMPTY_STREAM);
     StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
