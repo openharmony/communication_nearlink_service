@@ -3919,25 +3919,30 @@ bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t res
     bool isStartPlayMerge = (startPlayMergeIndex >= 0) &&
         SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
         device, static_cast<uint8_t>(startPlayMergeIndex));
-    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED) ||
-        (state == NL_SLE_ASC_SET_DIRECTION);
+    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED);
     if ((!isStartPlayMerge && !IsStarting(state)) || (isStartPlayMerge && !isConfig)) {
         HILOGE("[ASCService]CbkStartStream state error %{public}s state %{public}d isStartPlayMerge %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), state, isStartPlayMerge);
         return false;
     }
+
     // 结果检查
-    if (result != NL_NO_ERROR) {
-        HILOGE("[ASCService]CbkStartStream callback result %{public}s %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), result);
-        // 上报状态: 音频流打开,失败
-        ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
-            NL_SLE_ASC_RESULT_FAIL, result);
-        // 取出缓存任务处理
-        ProcBuff(device, NL_SLE_ASC_CREATED);
-        return false;
+    return CheckCbkResult(device, result, streamType);
+}
+
+bool ASCService::CheckCbkResult(const RawAddress& device, uint8_t result, AudioStreamType streamType)
+{
+    if (result == NL_NO_ERROR) {
+        return true;
     }
-    return true;
+    
+    HILOGE("[ASCService]callback result %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), result);
+    // 上报状态: 音频流打开,失败
+    ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
+        NL_SLE_ASC_RESULT_FAIL, result);
+    // 取出缓存任务处理
+    ProcBuff(device, NL_SLE_ASC_CREATED);
+    return false;
 }
 
 void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
@@ -3950,7 +3955,7 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
 
     // 状态和结果检查
     NL_CHECK_RETURN(state == NL_SLE_ASC_SET_DIRECTION, "state error");
-    NL_CHECK_RETURN(CheckStartStreamCondition(device, result, streamType), "add data path failed");
+    NL_CHECK_RETURN(CheckCbkResult(device, result, streamType), "add data path failed");
 
     // 状态：已开始音频流传输
     SetASCStatus(device, NL_SLE_ASC_STARTED);

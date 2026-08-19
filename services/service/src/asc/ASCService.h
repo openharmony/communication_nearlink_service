@@ -112,6 +112,7 @@ public:
     void CbkAddDataPath(const RawAddress& device, uint8_t result);
 
     bool CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool CheckCbkResult(const RawAddress& device, uint8_t result, AudioStreamType streamType);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
     const NearlinkRawAddress GetActiveSinkDevice() const override;
     void SleAudioDeviceActionChanged(const NearlinkRawAddress &device, int action) override;
