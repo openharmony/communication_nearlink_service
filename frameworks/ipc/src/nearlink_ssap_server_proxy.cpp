@@ -242,7 +242,8 @@ NlErrCode NearlinkSsapServerProxy::AuthorizeResponse(int32_t appId, uint16_t req
         MessageOption::TF_SYNC
     };
 
-    ErrCode error = InnerTransact(NearlinkSsapServerInterfaceCode::SSAP_SERVER_AUTHORIZE_RESPONSE, option, data, reply);
+    ErrCode error = InnerTransact(NearlinkSsapServerInterfaceCode::SSAP_SERVER_AUTHORIZE_RESPONSE,
+        option, data, reply);
     NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", error);
     return static_cast<NlErrCode>(reply.ReadInt32());
 }

@@ -64,7 +64,8 @@ int32_t NearlinkSsapServerStub::OnRemoteRequest(
     CHECK_PERMISSION_AND_EXECUTE(NearlinkSsapServerStub);
 }
 
-int32_t NearlinkSsapServerStub::AddServiceInner(NearlinkSsapServerStub *stub, MessageParcel &data, MessageParcel &reply)
+int32_t NearlinkSsapServerStub::AddServiceInner(NearlinkSsapServerStub *stub, MessageParcel &data,
+    MessageParcel &reply)
 {
     int32_t appID = data.ReadInt32();
     std::shared_ptr<NearlinkSsapServiceParcel> service(data.ReadParcelable<NearlinkSsapServiceParcel>());

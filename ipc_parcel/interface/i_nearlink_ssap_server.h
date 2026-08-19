@@ -47,7 +47,8 @@ public:
         const NearlinkSsapDevice &device, bool needConfirm) = 0;
     virtual NlErrCode SetPropertyValue(int32_t appId, NearlinkSsapPropertyParcel *property) = 0;
     virtual NlErrCode SetDescriptorValue(int32_t appId, NearlinkSsapDescriptorParcel *descriptor) = 0;
-    virtual NlErrCode Connect(int32_t appId, const NearlinkSsapDevice &device, uint8_t secureReq, bool autoConnect) = 0;
+    virtual NlErrCode Connect(int32_t appId, const NearlinkSsapDevice &device, uint8_t secureReq,
+        bool autoConnect) = 0;
     virtual NlErrCode RemoveService(int32_t appId, const NearlinkSsapServiceParcel &services) = 0;
     virtual NlErrCode AuthorizeResponse(int32_t appId, uint16_t requestId, bool allow) = 0;
 };

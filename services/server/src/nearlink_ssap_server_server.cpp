@@ -76,7 +76,9 @@ public:
         int appId = -1;
         {
             std::lock_guard<std::mutex> lk(vecMutex_);
-            auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+            auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) {
+                return obj.first == remote;
+            });
             NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
             appId = it->second.appId;
         }
