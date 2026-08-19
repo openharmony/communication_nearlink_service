@@ -828,24 +828,25 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
  */
 uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps)
 {
+    uint16_t autoRateBps = bps;
     RawAddress coSetDevice;
     if (!IsSync(device) || !IsCoSetDeviceExist(device, coSetDevice)) {
         // 非单切双或合作集设备不存在，不需要同步
-        return bps;
+        return autoRateBps;
     }
 
     ASCState coStatus = GetASCStatus(coSetDevice);
     if (!IsStarted(coStatus) && !IsDirectionSet(coStatus)) {
         // 合作集地址未起播完成，不同步
-        return bps;
+        return autoRateBps;
     }
 
-    uint16_t autoRateBps = 0;
+    
     if (GetAutoRateBps(coSetDevice, autoRateBps)) {
         // 单切双场景，同步合作集设备码率
         return autoRateBps;
     }
-    return bps;
+    return autoRateBps;
 }
 
 /**
