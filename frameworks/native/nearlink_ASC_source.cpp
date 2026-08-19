@@ -59,7 +59,6 @@ public:
     explicit NearlinkASCCallbackStubImpl(std::weak_ptr<SleAudioStream> audio) : audio_(audio)
     {
         HILOGI("NearlinkASCCallbackStubImpl");
-        uid_ = getuid();
     }
 
     ~NearlinkASCCallbackStubImpl() override
@@ -174,13 +173,8 @@ public:
         WPTR_ASC_CBACK(audioSptr->pimpl->callback_, OnDeleteSleVirtualAudioDevice, remotDevice);
     }
 
-    uid_t GetUid() override
-    {
-        return uid_;
-    }
 private:
     std::weak_ptr<SleAudioStream> audio_;
-    uid_t uid_ = 0;
 };
 
 void SleAudioStream::impl::Init(std::weak_ptr<SleAudioStream> client)

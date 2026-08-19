@@ -25,9 +25,8 @@ class NearlinkASCCallbackProxy : public IRemoteProxy<INearlinkASCCallback> {
 public:
     explicit NearlinkASCCallbackProxy(const sptr<IRemoteObject> &impl)
         : IRemoteProxy<INearlinkASCCallback>(impl)
-    {
-        uid_ = getuid();
-    }
+    {}
+
     ~NearlinkASCCallbackProxy()
     {}
 
@@ -39,11 +38,9 @@ public:
         int action) override;
     void OnAddSleVirtualAudioDevice(const NearlinkRawAddress &device, AudioStreamType streamType) override;
     void OnDeleteSleVirtualAudioDevice(const NearlinkRawAddress &device) override;
-    uid_t GetUid() override;
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);
     static inline BrokerDelegator<NearlinkASCCallbackProxy> delegator_;
-    uid_t uid_ = 0;
 };
 }  // namespace Nearlink
 }  // namespace OHOS
