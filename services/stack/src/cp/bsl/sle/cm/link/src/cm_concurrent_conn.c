@@ -645,7 +645,7 @@ static void CM_DoingConnDirectAfterInsertFailProc(
 static void CM_DoingConnDirectSetTimerParam(SDF_TimerParam *param, CM_DoingDirectConnAlarm_S *alarm)
 {
     param->expires = CM_DIRECT_CONN_TIMEOUT_MS;
-    param->period = false,
+    param->period = false;
     param->callback = CM_DirectConnTimeoutCbkInner;
     param->args = alarm;
 }
@@ -871,6 +871,10 @@ static uint32_t CM_BgConnectAddDoingConnBgList(uint8_t moduleId, uint8_t addrArr
 {
     for (uint8_t i = 0; i < addrArrCount; i++) {
         CM_BgConnAddrParam_S *bgAddr = &addrArr[i];
+        if (CM_IsEmptyAddr(&bgAddr->addr)) {
+            CM_LOGW("addr is full zero, invalid, ignore it");
+            continue;
+        }
         CM_LOGI("bg connect add index[%hhu], addr:%s, isBypass:%d", i, GET_ENC_ADDR(&bgAddr->addr), bgAddr->isBypass);
         CM_AppConnectingDev_S *node = CM_ConnectingDevFind(&bgAddr->addr);
         if (node != NULL) {
@@ -1021,6 +1025,7 @@ uint32_t CM_BackgroundConnectRemove(uint8_t moduleId, const SLE_Addr_S *addr)
 {
     CM_CHECK_RETURN_RET(moduleId == CM_MODULE_ADPT, CM_INVALID_PARAM_ERR, "moduleId:%hhu is invalid", moduleId);
     CM_CHECK_RETURN_RET((addr != NULL), CM_INVALID_PARAM_ERR, "addr is null");
+    CM_CHECK_RETURN_RET(!CM_IsEmptyAddr(addr), CM_INVALID_PARAM_ERR, "addr is full zero, invalid");
     CM_LOGI("concurrent conn api, background connect remove, moduleId:%hhu, addr:%s", moduleId, GET_ENC_ADDR(addr));
     CM_BgConnectRmvReq_S *reqParam = (CM_BgConnectRmvReq_S *)SDF_MemZalloc(sizeof(CM_BgConnectRmvReq_S));
     CM_CHECK_RETURN_RET(reqParam != NULL, CM_MEM_ERR, "mem zalloc error");
@@ -1098,7 +1103,7 @@ static void CM_NotifyDisconnecting(uint8_t moduleId, uint16_t lcid, const SLE_Ad
     param.lcid = lcid;
     param.role = 0;
     (void)memcpy_s(&param.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
-    param.result = CM_LINK_STATE_DISCONNECTTING;
+    param.result = CM_LINK_STATE_DISCONNECTING;
     param.discReason = 0;  // 断连中，断连原因取0即可
     CM_ExecLogicLinkModuleCbks(moduleId, &param);
 }
@@ -1200,6 +1205,7 @@ uint32_t CM_DirectConnectAdd(uint8_t moduleId, const CM_DirectConnAddrParam_S *p
     CM_CHECK_RETURN_RET((param->frameType == CM_CONN_PARAM_FRAME_TYPE_1 ||
         param->frameType == CM_CONN_PARAM_FRAME_TYPE_4),
         CM_INVALID_PARAM_ERR, "param type:%hhu is not support", param->frameType);
+    CM_CHECK_RETURN_RET(!CM_IsEmptyAddr(&param->addr), CM_INVALID_PARAM_ERR, "addr is full zero, invalid");
     CM_LOGI("concurrent conn api, direct connect add, moduleId:%hhu, addr:%s, frameType:%hhu",
         moduleId, GET_ENC_ADDR(&param->addr), param->frameType);
     CM_DirectConnectAddReq_S *reqParam = (CM_DirectConnectAddReq_S *)SDF_MemZalloc(sizeof(CM_DirectConnectAddReq_S));
@@ -1243,7 +1249,7 @@ static void CM_DirectConnectRmvInner(void *arg)
                 return;
             }
             return;
-        } else if (link->status == CM_LINK_STATE_DISCONNECTTING) {
+        } else if (link->status == CM_LINK_STATE_DISCONNECTING) {
             CM_NotifyDisconnecting(moduleId, link->lcid, addr);
             return;
         }

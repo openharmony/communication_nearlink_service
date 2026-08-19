@@ -168,10 +168,10 @@ void PublishDeviceConnectionState(uint32_t acbCount, int connState)
     if (SleServiceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE) != STATE_TURN_ON) {
         return; // 仅星闪开启状态时上报
     }
-    if (acbCount == 0 && connState == CM_STATE_DISCONNECTED) {
+    if (acbCount == 0 && connState == CM_LINK_STATE_DISCONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::DISCONNECTED));
-    } else if (acbCount == 1 && connState == CM_STATE_CONNECTED) {
+    } else if (acbCount == 1 && connState == CM_LINK_STATE_CONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::CONNECTED));
     }
@@ -1887,11 +1887,11 @@ void SleAdapter::ConnectionStateTask(const CM_LogicLinkState_S &connResult)
     uint8_t result = connResult.result;
     uint16_t lcid = connResult.lcid;
     uint8_t role = connResult.role;
-    if (result == CM_STATE_CONNECTED) {
+    if (result == CM_LINK_STATE_CONNECTED) {
         ConnectionCompleteTask(connResult.addr, lcid, role, connResult.connCompleteType);
         NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
         pimpl->sleCoexist_->ConnectionStatusChanged(lcid, connResult.addr);
-    } else if (result == CM_STATE_DISCONNECTED) {
+    } else if (result == CM_LINK_STATE_DISCONNECTED) {
         DisconnectionCompleteTask(lcid, peerAddr, connResult.discReason);
         SleCoexistManager::GetInstance()->OnConnectionRemoved(lcid);
     }
@@ -2138,7 +2138,7 @@ void SleAdapter::ConnectionUpdateTask(const CM_ConnectUpdateParamRsp_S &param) c
     });
 
     NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
-    NL_CHECK_RETURN(param.result == CM_STATE_CONNECTED, "not connected");
+    NL_CHECK_RETURN(param.result == CM_LINK_STATE_CONNECTED, "not connected");
     pimpl->sleCoexist_->ConnectionParamChanged(param);
 }
 
@@ -2184,7 +2184,7 @@ bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint1
     (void)memset_s(&tmpAddr, sizeof(tmpAddr), 0x0, sizeof(tmpAddr));
     tmpAddr.type = peerAddrType;
     addr.ConvertToUint8(tmpAddr.addr, SLE_ADDR_LEN);
- 
+
     // 直接调用 Manager
     bool ret = SleCoexistManager::GetInstance()->GetConnectionParam(tmpAddr, timeout, maxLatency, interval);
     NL_CHECK_RETURN_RET(ret, false, "GetConnectionParam fail");
@@ -2602,10 +2602,10 @@ void SleAdapter::UpdateKeyMissingCdsmGroup(const RawAddress &device) const
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before remove pair");
 
     RawAddress scanReportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
-    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS,
         "invalid scanReportAddr");
     RawAddress scanCollaAddr = InterfaceScanService::GetInstance().GetCollaborateAddress(scanReportAddr);
-    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS,
         "invalid scanCollaAddr");
     if (otherAddr == scanReportAddr || otherAddr == scanCollaAddr) {
         // 扫描结果的副耳与合作集中的副耳一致，非耳机丢失场景，不处理
