@@ -36,7 +36,8 @@ public:
     NlErrCode RegisterApplication(const sptr<INearlinkSsapServerCallback> &callback, int32_t &appId) override;
     NlErrCode DeregisterApplication(int32_t appId) override;
     NlErrCode NotifyClient(
-        int32_t appId, NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device, bool needConfirm) override;
+        int32_t appId, NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device,
+        bool needConfirm) override;
     NlErrCode NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
         const NearlinkSsapDevice &device, bool needConfirm) override;
     NlErrCode SetPropertyValue(int32_t appId, NearlinkSsapPropertyParcel *property) override;

@@ -131,8 +131,8 @@ NlErrCode NearlinkSsapServerProxy::NotifyClient(int32_t appId,
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
-    const NearlinkSsapDevice &device, bool needConfirm)
+NlErrCode NearlinkSsapServerProxy::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event,
+    std::vector<uint8_t> &value, const NearlinkSsapDevice &device, bool needConfirm)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),

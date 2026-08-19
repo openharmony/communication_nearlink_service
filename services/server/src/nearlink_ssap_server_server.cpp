@@ -533,8 +533,8 @@ NlErrCode NearlinkSsapServerServer::NotifyClient(int32_t appId, NearlinkSsapProp
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
-    const NearlinkSsapDevice &device, bool needConfirm)
+NlErrCode NearlinkSsapServerServer::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event,
+    std::vector<uint8_t> &value, const NearlinkSsapDevice &device, bool needConfirm)
 {
     HILOGI("appId: %{public}d, addr: %{public}s, needConfirm: %{public}d, transport: %{public}d",
         appId, GET_ENCRYPT_SSAP_ADDR(device), needConfirm, device.transport_);
