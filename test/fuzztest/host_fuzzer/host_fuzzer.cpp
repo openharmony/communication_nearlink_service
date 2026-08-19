@@ -20,6 +20,8 @@
 #include "../nl_utils/fuzztest_utils.h"
 #include "nearlink_host_stub.h"
 #include "nearlink_host_server.h"
+#include "i_nearlink_device_battery_observer.h"
+#include "i_nearlink_device_rssi_observer.h"
 #include "nearlink_errorcode.h"
 #include "log.h"
 #include "securec.h"
@@ -52,6 +54,17 @@ public:
     void OnDeviceAddrChanged(const std::string &address) {}
 };
 
+class MockNearlinkDeviceBatteryObserverStub : public IRemoteStub<INearlinkDeviceBatteryObserver> {
+public:
+    void OnGetBatteryLevelEvent(const NearlinkRawAddress &device, int batteryLevel) {}
+    void OnBatteryLevelChanged(const NearlinkRawAddress &device, int batteryLevel) {}
+};
+
+class MockNearlinkDeviceRssiObserverStub : public IRemoteStub<INearlinkDeviceRssiObserver> {
+public:
+    void OnReadRemoteRssiEvent(const NearlinkRawAddress &device, int rssi, int status) {}
+};
+
 namespace {
 constexpr int HOST_FUZZ_DELAY_50_MS = 50;
 constexpr int HOST_FUZZ_DELAY_100_MS = 100;
@@ -60,6 +73,9 @@ constexpr int SLE_FREQ_ARRAY_LEN = 10;
 sptr<INearlinkSlePeripheralObserver> g_slePeripheralObserver =
     new (std::nothrow) MockNearlinkSlePeripheralObserverStub();
 sptr<INearlinkHostObserver> g_hostObserver = new (std::nothrow) MockNearlinkHostObserverStub();
+sptr<INearlinkDeviceBatteryObserver> g_batteryObserver =
+    new (std::nothrow) MockNearlinkDeviceBatteryObserverStub();
+sptr<INearlinkDeviceRssiObserver> g_rssiObserver = new (std::nothrow) MockNearlinkDeviceRssiObserverStub();
 }
 
 int32_t HostOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply)
@@ -888,6 +904,126 @@ void UpdateRefusePolicyFuzzTest(const uint8_t *fuzzData, size_t size)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
+
+void RegisterDeviceBatteryObserverTest(const uint8_t *fuzzData, size_t size)
+{
+    MessageParcel data;
+    MessageParcel reply;
+
+    if (g_batteryObserver == nullptr) {
+        HILOGE("g_batteryObserver is nullptr");
+        return;
+    }
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    data.WriteRemoteObject(g_batteryObserver->AsObject());
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_REGISTER_DEVICE_BATTERY_OBSERVER, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void DeregisterDeviceBatteryObserverTest(const uint8_t *fuzzData, size_t size)
+{
+    MessageParcel data;
+    MessageParcel reply;
+
+    if (g_batteryObserver == nullptr) {
+        HILOGE("g_batteryObserver is nullptr");
+        return;
+    }
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    data.WriteRemoteObject(g_batteryObserver->AsObject());
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_DEREGISTER_DEVICE_BATTERY_OBSERVER, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void RegisterDeviceRssiObserverTest(const uint8_t *fuzzData, size_t size)
+{
+    MessageParcel data;
+    MessageParcel reply;
+
+    if (g_rssiObserver == nullptr) {
+        HILOGE("g_rssiObserver is nullptr");
+        return;
+    }
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    data.WriteRemoteObject(g_rssiObserver->AsObject());
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_REGISTER_DEVICE_RSSI_OBSERVER, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void DeregisterDeviceRssiObserverTest(const uint8_t *fuzzData, size_t size)
+{
+    MessageParcel data;
+    MessageParcel reply;
+
+    if (g_rssiObserver == nullptr) {
+        HILOGE("g_rssiObserver is nullptr");
+        return;
+    }
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    data.WriteRemoteObject(g_rssiObserver->AsObject());
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_DEREGISTER_DEVICE_RSSI_OBSERVER, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void IsFeatureSupportedTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    int32_t feature = provider.ConsumeIntegral<int32_t>();
+    data.WriteInt32(feature);
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_IS_SLE_FEATURE_SUPPORTED, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void GetBatteryLevelTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    std::string address = BuildAddressString(provider);
+    data.WriteString(address);
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_GET_BATTERY_LEVEL, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void GetDeviceInformationTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+    std::string address = BuildAddressString(provider);
+    data.WriteString(address);
+    int32_t ret = HostOnRemoteRequest(NearlinkHostInterfaceCode::NL_GET_DEVICE_INFORMATION, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
 }  // namespace OHOS
 
 // fuzzer init
@@ -971,6 +1107,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::SetBtAddrBySleAddrTest(data, size);
     OHOS::GetBtAddrBySleAddrTest(data, size);
     OHOS::GetSleAddrByBtAddrTest(data, size);
+
+    OHOS::RegisterDeviceBatteryObserverTest(data, size);
+    OHOS::DeregisterDeviceBatteryObserverTest(data, size);
+    OHOS::RegisterDeviceRssiObserverTest(data, size);
+    OHOS::DeregisterDeviceRssiObserverTest(data, size);
+    OHOS::IsFeatureSupportedTest(data, size);
+    OHOS::GetBatteryLevelTest(data, size);
+    OHOS::GetDeviceInformationTest(data, size);
 
     return 0;
 }
