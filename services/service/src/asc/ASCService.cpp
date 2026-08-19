@@ -843,6 +843,7 @@ uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps
 
     if (GetAutoRateBps(coSetDevice, autoRateBps)) {
         // 单切双场景，同步合作集设备码率
+        HILOGI("[ASCService]sync %{public}s bps %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), autoRateBps);
         return autoRateBps;
     }
     return autoRateBps;
