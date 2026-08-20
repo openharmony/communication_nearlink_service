@@ -390,7 +390,7 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_ChannelDownTest)
 TEST_F(UT_DTAP_SCHEDULER, DTAP_CalcLcidSendRatePrintTest)
 {
     TEST_DtapSchedulerInit();
-    DLI_AllDataSet(100, 8, 0, 0);
+    DLI_AllDataSet(600, 8, 0, 0);
     EXPECT_EQ(g_collabTransFunc.dliAcbNumGet(), 8);
 
     DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 0);
