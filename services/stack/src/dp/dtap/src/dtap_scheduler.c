@@ -651,12 +651,12 @@ static bool DTAP_SendData(uint16_t lcid, SDF_Buff_S *buff, DTAP_LcidBufferNode *
     uint64_t buffLen = SDF_DataLenGet(buff);
     DLI_DataStru *dliData = DTAP_CreateDataStru(lcid, DLI_DATATYPE_ACB, 0, 0, buff);
     if (dliData == NULL) {
-        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %llu", lcid, buffLen);
+        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %" PRIu64 "", lcid, buffLen);
         return false;
     }
     uint32_t ret = DLI_DataSend(dliData);
     if (ret != DLI_SUCCESS) {
-        DTAP_LOGE("dli send data, ret %d, lcid %d, buff len %llu", ret, lcid, buffLen);
+        DTAP_LOGE("dli send data, ret %d, lcid %d, buff len %" PRIu64 "", ret, lcid, buffLen);
         SDF_MemFree(dliData);
         return false;
     }
@@ -673,7 +673,10 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
         DTAP_PendingPacket *pkt = DTAP_CreatePacket(buff[i]);
         if (pkt == NULL) {
             DTAP_LOGE("malloc pending packet failed, i %d, remainBuffCnt %d", i, remainBuffCnt);
-            goto FAILED;
+            for (uint32_t j = 0; j < j; j++) {
+                DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[j]);
+            }
+            return false;
         }
         pkt->isSplited = true;
         pendingPkt[i] = pkt;
