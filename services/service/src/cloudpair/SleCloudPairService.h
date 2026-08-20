@@ -47,7 +47,6 @@ public:
     void SetRole(std::string addr);
 
     void InitConnectedState();
-    bool IsAllMembersDisconnected();
     void SetConnectedState(std::string addr, bool isConnected);
 
     std::string GetPrimary();
@@ -80,8 +79,7 @@ public:
     bool CancelCloudPairing(const RawAddress &device) override;
     bool ChkCloudDeviceAndPermission(const RawAddress &device) override;
     bool CloudDeviceConnectionComplete(const RawAddress &device) override;
-    bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason, bool isCdsmAcbConnected,
-        int acbState) override;
+    bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason) override;
     void SetKeyMissingPairState(const RawAddress &device) override;
     bool ConnectCloudDeviceAllProfile(const RawAddress &device) override;
 

@@ -72,16 +72,6 @@ void DownCloudPairDevice::InitConnectedState()
     }
 }
 
-bool DownCloudPairDevice::IsAllMembersDisconnected()
-{
-    for (auto &it : connectedMaps_) {
-        if (it.second) {
-            return false;
-        }
-    }
-    return true;
-}
-
 void DownCloudPairDevice::SetConnectedState(std::string addr, bool isConnected)
 {
     NL_CHECK_RETURN(connectedMaps_.find(addr) != connectedMaps_.end(),
@@ -738,13 +728,13 @@ bool SleCloudPairService::SetConnectedState(const RawAddress &device, bool isCon
 
 bool SleCloudPairService::IsAllMembersDisconnected(const RawAddress &device)
 {
-    bool ret = true;
     RawAddress reportAddr = GetReportAddr(device);
-    cloudDevicesMap_.GetValueAndOpt(reportAddr.GetAddress(), [&ret](
-        std::string key, std::shared_ptr<DownCloudPairDevice> value) -> void {
-        ret = value->IsAllMembersDisconnected();
-    });
-    return ret;
+    int reportAcbState = SleRemoteDeviceAdapter::GetInstance()->GetAcbState(reportAddr.GetAddress());
+    std::string collabAddr = GetCollabAddrByReportAddr(reportAddr);
+    int collabAcbState = SleRemoteDeviceAdapter::GetInstance()->GetAcbState(collabAddr);
+
+    return reportAcbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED) &&
+           collabAcbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED);
 }
 
 void SleCloudPairService::GetAllNotPairedCloudDeviceList(std::vector<std::string> &cloudDeviceAddrList)
@@ -893,8 +883,7 @@ bool SleCloudPairService::CancelCloudPairing(const RawAddress &device)
     return false;
 }
 
-bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason,
-    bool isCdsmAcbConnected, int acbState)
+bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason)
 {
     RawAddress reportAddr = GetReportAddr(device);
     int32_t curCloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;
@@ -913,10 +902,8 @@ bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int 
     }
     // 场景3 : 耳机恢厂点连接，遇到keyMissing
     if (curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING) {
-        bool isNeedRepair = (preStatus == static_cast<int>(SlePairState::SLE_PAIR_PAIRING) ||
-                             preStatus == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) &&
-                             reason != static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED) &&
-                             isCdsmAcbConnected;
+        bool isNeedRepair = preStatus == static_cast<int>(SlePairState::SLE_PAIR_NONE) &&
+                            reason == static_cast<int>(PairingStateChangeReason::PAIRING_AUTH_FAILED);
         if (isNeedRepair) {
             needRepairDevices_.Insert(reportAddr.GetAddress());
         }
@@ -924,9 +911,6 @@ bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int 
         if (IsPreparingRepair(device)) {
             HILOGI("[CLOUD PAIR] device : %{public}s need repair", GET_ENCRYPT_ADDR(reportAddr));
             ClearToken(reportAddr);
-            if (acbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED)) {
-                SetConnectedState(device, true);
-            }
             return true;
         // 场景3.2 : 耳机在配对模式，发起重配对请求，用户取消或无响应，同步删除云配记录
         } else {
