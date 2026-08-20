@@ -75,6 +75,7 @@ private:
     void StartEmptyMuteScMcpPauseTimer(const RawAddress &device,
         bool isStart, uint32_t streamId, MCP_MUTE_CONTROL type);
     void StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL type);
+    void StopAllEmptyMuteScMcpPauseTimers();
     void DftEmptyMuteCheck(const RawAddress &device, MCP_MUTE_CONTROL type, uint32_t streamId);
     void HandleAudioPipeStatusChangeInner(const AudioStandard::AudioPipeChangeType changeType,
         const std::shared_ptr<AudioStandard::AudioOutputPipeInfo> &changedPipeInfo);

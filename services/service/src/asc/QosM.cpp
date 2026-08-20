@@ -294,6 +294,7 @@ bool QosM::JudgeQosPriority(const RawAddress &device, DevQosmStru& qosm, Qos nos
     if ((qosm.cos == NL_SLE_QOS_4 && nos == NL_SLE_QOS_8) || (qosm.cos == NL_SLE_QOS_8 && nos == NL_SLE_QOS_4)) {
         HILOGI("JudgeQosPriority %{public}s COS %{public}d equals NOS %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), qosm.cos, nos);
+        qosm.cos = nos;
         return true;
     }
     return false;
