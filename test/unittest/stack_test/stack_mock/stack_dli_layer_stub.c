@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include "dli_def.h"
 #include "dli_errno.h"
+#include "dli_layer_config.h"
 #include "dli_layer_stru.h"
 #include "sdf_buff.h"
 #include "sdf_mem.h"
@@ -53,13 +54,22 @@ uint32_t TEST_DLI_GetDataFragmentNumsStub(SDF_Buff_S *buf)
     if (buf == NULL) {
         return 0;
     }
-    uint16_t bufferLen = 600;
-    return (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
+    uint16_t bufferLen = DLI_DataLenGet(ACB_DATA_TYPE);
+    if (bufferLen == 0) {
+        DLI_LOGE("acb len is 0");
+        return 0;
+    }
+    uint32_t fragmentNums = (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
+    if (fragmentNums > DLI_MAX_FRAGMEN_NUM) {
+        DLI_LOGE("fragment nums exceeds max num");
+        return 0;
+    }
+    return fragmentNums;
 }
 
 uint32_t TEST_DLI_GetFragmentMaxLenStub(void)
 {
-    return 600 + DLI_HEADER;
+    return DLI_DataLenGet(ACB_DATA_TYPE) + DLI_HEADER;
 }
 
  static uint8_t g_pdFlag = UINT8_MAX;
