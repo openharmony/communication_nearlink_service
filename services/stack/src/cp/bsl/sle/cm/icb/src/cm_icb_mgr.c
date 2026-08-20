@@ -657,7 +657,6 @@ static void CM_ICBDisconnectCbk(void *context, uint16_t status, DLI_ExecuteCmdRe
             }
             channelNode->channel[i].isConnected = false;
             CM_LOGI("conn handler %u disconnected", channelNode->channel[i].connHandle);
-            CM_ICGHandleClean(channelNode);
 
             CM_LinkType type = channelNode->channel[i].lcid == connHandle ? CM_LINK_ACB : CM_LINK_ICB;
             NotifyDisconnectCallback(CM_ICB_STATE_ICB_DELETED, CM_ICB_SUCCESS, i, type, channelNode);
