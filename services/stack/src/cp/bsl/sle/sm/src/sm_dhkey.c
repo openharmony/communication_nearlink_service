@@ -35,8 +35,16 @@ typedef struct {
     uint8_t salt[SM_SALT_LEN];
 } KeySalt_S;
 
+typedef struct {
+    uint8_t *buff;
+    size_t size;
+} DhKeyCfmBuff_S;
+
 static bool GenDhKeyCfmCodeKey(uint8_t *randomR, uint8_t randLen, SmSLink_S *slink,
                                SLE_Addr_S gAddr, SLE_Addr_S tAddr, DhKeyAuthCode_S *dhkeyCode);
+
+static DhKeyCfmBuff_S BuildDhKeyCfmBuff(uint8_t *randomR, uint8_t randLen, SmSLink_S *slink,
+                                         SLE_Addr_S gAddr, SLE_Addr_S tAddr);
 
 void SmSendGNodeDhKey(SmSLink_S *slink)
 {
@@ -224,19 +232,68 @@ static bool GetInputKey(uint8_t randLen, SmSLink_S *slink, SLE_Addr_S gAddr, SLE
             tAddr.addr, SLE_ADDR_LEN) != EOK) ||
         /* DH Key截断 */
         (memcpy_s(input.key, SM_OCTETS_16, slink->dhKey, SM_OCTETS_16) != EOK)) {
+        (void)memset_s(buff, size, 0, size);
         SDF_MemFree(buff);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
         return false;
     }
     input.buff = buff;
     input.buffSize = size;
     if (!SmCmacGenerate(&input, key, keyLen)) {
         NLSTK_LOG_ERROR("[SM] Generate input key error.");
+        (void)memset_s(buff, size, 0, size);
         SDF_MemFree(buff);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
         return false;
     }
     NLSTK_LOG_DEBUG("[SM] Generate Input key succeed.");
+    (void)memset_s(buff, size, 0, size);
     SDF_MemFree(buff);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     return true;
+}
+
+/*
+ * G节点： 随机数Ra || salt(加盐) || G节点输入输出能力 || T节点输入输出能力 || 鉴权方式 || 密码算法 ||
+ *        G节点PSK指示 || T节点PSK指示 || G节点地址 || T节点地址
+ * T节点： 随机数Rb || salt(加盐) || G节点输入输出能力 || T节点输入输出能力 || 鉴权方式 || 密码算法 ||
+ *        G节点PSK指示 || T节点PSK指示 || G节点地址 || T节点地址
+ */
+static DhKeyCfmBuff_S BuildDhKeyCfmBuff(uint8_t *randomR, uint8_t randLen, SmSLink_S *slink,
+                                         SLE_Addr_S gAddr, SLE_Addr_S tAddr)
+{
+    DhKeyCfmBuff_S result = {0};
+    result.size = randLen + SM_SALT_LEN + SM_OCTETS_1 + SM_OCTETS_1 + SM_OCTETS_1 + SM_OCTETS_4 +
+                  SM_OCTETS_1 + SM_OCTETS_1 + SLE_ADDR_LEN + SLE_ADDR_LEN;
+    result.buff = SDF_MemZalloc(sizeof(uint8_t) * result.size);
+    if (result.buff == NULL) {
+        NLSTK_LOG_ERROR("[SM] Generate dhkey confirm code key malloc fail.");
+        result.size = 0;
+        return result;
+    }
+
+    KeySalt_S salt = {0};
+    GetDhKeySalt(slink, &salt);
+    result.buff[randLen + SM_SALT_LEN] = slink->gNode.ioAbility;
+    result.buff[randLen + SM_SALT_LEN + SM_OCTETS_1] = slink->tNode.ioAbility;
+    result.buff[randLen + SM_SALT_LEN + SM_OCTETS_2] = slink->negoParams.authMethod;
+    result.buff[randLen + SM_SALT_LEN + SM_OCTETS_7] = slink->gNode.pskFlag;
+    result.buff[randLen + SM_SALT_LEN + SM_OCTETS_8] = slink->tNode.pskFlag;
+    if ((memcpy_s(result.buff, randLen, randomR, randLen) != EOK) ||
+        (memcpy_s(result.buff + randLen, SM_SALT_LEN, salt.salt, SM_SALT_LEN) != EOK) ||
+        (memcpy_s(result.buff + randLen + SM_SALT_LEN + SM_OCTETS_3, SM_OCTETS_4,
+            slink->negoParams.codeAlgoCap, SM_OCTETS_4) != EOK) ||
+        (memcpy_s(result.buff + randLen + SM_SALT_LEN + SM_OCTETS_9, SLE_ADDR_LEN,
+            gAddr.addr, SLE_ADDR_LEN) != EOK) ||
+        (memcpy_s(result.buff + randLen + SM_SALT_LEN + SM_OCTETS_9 + SLE_ADDR_LEN, SLE_ADDR_LEN,
+            tAddr.addr, SLE_ADDR_LEN) != EOK)) {
+        (void)memset_s(result.buff, result.size, 0, result.size);
+        SDF_MemFree(result.buff);
+        result.buff = NULL;
+        result.size = 0;
+        return result;
+    }
+    return result;
 }
 
 static bool GenDhKeyCfmCodeKey(uint8_t *randomR, uint8_t randLen, SmSLink_S *slink,
@@ -244,50 +301,33 @@ static bool GenDhKeyCfmCodeKey(uint8_t *randomR, uint8_t randLen, SmSLink_S *sli
 {
     NLSTK_LOG_DEBUG("[SM] gAddr: %s, tAddr: %s", GET_ENC_ADDR(&gAddr), GET_ENC_ADDR(&tAddr));
     uint8_t key[SM_OCTETS_16];
-    if (!GetInputKey(randLen, slink, gAddr, tAddr, key, SM_OCTETS_16)) {
-        NLSTK_LOG_ERROR("[SM] Generate input key fail.");
-        return false;
-    }
-    /*
-     * G节点： 随机数Ra || salt(加盐) || G节点输入输出能力 || T节点输入输出能力 || 鉴权方式 || 密码算法 ||
-     *        G节点PSK指示 || T节点PSK指示 || G节点地址 || T节点地址
-     * T节点： 随机数Rb || salt(加盐) || G节点输入输出能力 || T节点输入输出能力 || 鉴权方式 || 密码算法 ||
-     *        G节点PSK指示 || T节点PSK指示 || G节点地址 || T节点地址
-     */
-    size_t size = randLen + SM_SALT_LEN + SM_OCTETS_1 + SM_OCTETS_1 + SM_OCTETS_1 + SM_OCTETS_4 +
-                  SM_OCTETS_1 + SM_OCTETS_1 + SLE_ADDR_LEN + SLE_ADDR_LEN;
-    uint8_t *buff = SDF_MemZalloc(sizeof(uint8_t) * size); // 生成dhkey确认码后释放
-    NLSTK_CHECK_RETURN(buff != NULL, false, "[SM] Generate dhkey confirm code key malloc fail.");
+    NLSTK_CHECK_RETURN(GetInputKey(randLen, slink, gAddr, tAddr, key, SM_OCTETS_16), false,
+        "[SM] Generate input key fail.");
 
-    KeySalt_S salt = {0};
-    GetDhKeySalt(slink, &salt);
-    buff[randLen + SM_SALT_LEN] = slink->gNode.ioAbility;
-    buff[randLen + SM_SALT_LEN + SM_OCTETS_1] = slink->tNode.ioAbility;
-    buff[randLen + SM_SALT_LEN + SM_OCTETS_2] = slink->negoParams.authMethod;
-    buff[randLen + SM_SALT_LEN + SM_OCTETS_7] = slink->gNode.pskFlag;
-    buff[randLen + SM_SALT_LEN + SM_OCTETS_8] = slink->tNode.pskFlag;
-    if ((memcpy_s(buff, randLen, randomR, randLen) != EOK) ||
-        (memcpy_s(buff + randLen, SM_SALT_LEN, salt.salt, SM_SALT_LEN) != EOK) ||
-        (memcpy_s(buff + randLen + SM_SALT_LEN + SM_OCTETS_3, SM_OCTETS_4,
-            slink->negoParams.codeAlgoCap, SM_OCTETS_4) != EOK) ||
-        (memcpy_s(buff + randLen + SM_SALT_LEN + SM_OCTETS_9, SLE_ADDR_LEN, gAddr.addr, SLE_ADDR_LEN) != EOK) ||
-        (memcpy_s(buff + randLen + SM_SALT_LEN + SM_OCTETS_9 + SLE_ADDR_LEN, SLE_ADDR_LEN,
-            tAddr.addr, SLE_ADDR_LEN) != EOK)) {
-        SDF_MemFree(buff);
+    DhKeyCfmBuff_S cfmBuff = BuildDhKeyCfmBuff(randomR, randLen, slink, gAddr, tAddr);
+    if (cfmBuff.buff == NULL) {
+        (void)memset_s(key, SM_OCTETS_16, 0, SM_OCTETS_16);
         return false;
     }
+
     NLSTK_SmDerivedMac_S input = {
         .algo = slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY],
-        .buff = buff,
-        .buffSize = size,
+        .buff = cfmBuff.buff,
+        .buffSize = cfmBuff.size,
     };
     (void)memcpy_s(input.key, SM_OCTETS_16, key, SM_OCTETS_16);
     if (!SmCmacGenerate(&input, dhkeyCode->authCode, SM_DHKEY_AUTHCODE_LEN)) {
         NLSTK_LOG_ERROR("[SM] Generate dhkey auth code error.");
-        SDF_MemFree(buff);
+        (void)memset_s(key, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        (void)memset_s(cfmBuff.buff, cfmBuff.size, 0, cfmBuff.size);
+        SDF_MemFree(cfmBuff.buff);
         return false;
     }
     NLSTK_LOG_DEBUG("[SM] Generate dhkey auth code succeed.");
-    SDF_MemFree(buff);
+    (void)memset_s(key, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+    (void)memset_s(cfmBuff.buff, cfmBuff.size, 0, cfmBuff.size);
+    SDF_MemFree(cfmBuff.buff);
     return true;
 }

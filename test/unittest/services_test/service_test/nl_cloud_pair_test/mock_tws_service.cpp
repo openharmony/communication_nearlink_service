@@ -157,5 +157,10 @@ void TwsService::SetDeviceManufacturerAbility(
     const RawAddress &device, const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manuAbility)  const
 {}
 
+RawAddress TwsService::GetReportAddr(const RawAddress &device)
+{
+    return device;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

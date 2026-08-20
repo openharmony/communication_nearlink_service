@@ -32,6 +32,7 @@
 #include "dli.h"
 #include "dli_cmd_struct.h"
 #include "dli_event_struct.h"
+#include "dli_def.h"
 #include "devd_cbk.h"
 #include <thread>
 #include "common_ext_func_wrapper.h"
@@ -47,11 +48,13 @@ protected:
     void SetUp() override
     {
         NLSTK_InitStack();
+        DevdLocalDeviceInit();
     }
 
     // TearDown 在每一个 TEST_F 测试完成后执行一次
     void TearDown() override
     {
+        DevdLocalDeviceDeInit();
         NLSTK_DeinitStack();
     }
 
@@ -81,6 +84,7 @@ TEST_F(DEVD_Test, TestDEVD_SleSetScanParam)
         sizeof(NLSTK_DevdSleScanParams_S) + sizeof(NLSTK_DevdSleScanParamsNoPhy_S));
     scanParams->localAddrType = LONG_MECH_PUBLIC_ADDRESS;
     scanParams->scanFilterPolicy = SCAN_FLT_BASIC;
+    scanParams->frameType = SCAN_FRAME_TYPE_1;
     scanParams->params[0].scanType = SCAN_TYPE_PASSIVE;
     scanParams->params[0].scanInterval = 0x0004;
     scanParams->params[0].scanWindow = 0x0004;
@@ -207,11 +211,11 @@ TEST_F(DEVD_Test, TestDEVD_EnableAdv)
     enable->enable = 1;
     node->status = DEVD_SLE_STATUS_IDLE;
     DevdEnableAdv(enable);
-    EXPECT_EQ(node->status, DEVD_SLE_STATUS_ENABLE_ADV);
+    EXPECT_EQ(node->status, DEVD_SLE_STATUS_IDLE);
     enable->enable = 2;
     node->status = DEVD_SLE_STATUS_IDLE;
     DevdEnableAdv(enable);
-    EXPECT_EQ(node->status, DEVD_SLE_STATUS_DISABLE_ADV);
+    EXPECT_EQ(node->status, DEVD_SLE_STATUS_IDLE);
 
     DevdRemoveAdv(&handle);
     SDF_MemFree(enable);

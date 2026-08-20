@@ -165,10 +165,8 @@ void NAI_DftCache(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, NLSTK_Df
     }
 }
 
-void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_t res)
+static void NAI_DftReportSm(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_t res)
 {
-    CP_LOG_DEBUG("[DFT] NAI_DftReport, eventId: %u, paramId: %u, res: %u", eventId, paramId, res);
-    CP_CHECK_LOG_RETURN_VOID(addr != NULL, "[DFT] DftParamC create failed");
     DftParamC *params = (DftParamC *)SDF_MemZalloc(NAI_DFT_PARAM_SIZE_3 * sizeof(DftParamC));
     CP_CHECK_LOG_RETURN_VOID(params != NULL, "DftParamC create failed");
 
@@ -176,7 +174,6 @@ void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_
     params[PARAM_INDEX_0] = CreateStrParamC(SM_DEVICE_ADDR, DFT_ADDR_SIZE, inputAddr);
     params[PARAM_INDEX_1] = CreateUi16ParamC(paramId, res);
 
-    // 组装peerInfo
     DftParamC *peerParams = (DftParamC *)SDF_MemZalloc(NAI_DFT_PARAM_SIZE_2 * sizeof(DftParamC));
     if (peerParams == NULL) {
         DftFreeParamsWithSubParam(params, NAI_DFT_PARAM_SIZE_2);
@@ -194,6 +191,40 @@ void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_
     params[PARAM_INDEX_2] = CreateRefParamC(SM_ENCP_PEER_INFO, peerInfoRef);
     DftManagerReport((DftEventEnum)eventId, params, NAI_DFT_PARAM_SIZE_3);
     DftFreeParamsWithSubParam(params, NAI_DFT_PARAM_SIZE_3);
+}
+
+static void NAI_DftReportHadm(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_t res)
+{
+    DftParamC *params = (DftParamC *)SDF_MemZalloc(NAI_DFT_PARAM_SIZE_2 * sizeof(DftParamC));
+    CP_CHECK_LOG_RETURN_VOID(params != NULL, "DftParamC create failed");
+
+    const char *inputAddr = DFT_GET_ADDR(addr);
+    params[PARAM_INDEX_0] = CreateStrParamC(HADM_EXCEP_DEVICE_ADDR, DFT_ADDR_SIZE, inputAddr);
+    params[PARAM_INDEX_1] = CreateUi16ParamC(paramId, res);
+
+    DftManagerReport((DftEventEnum)eventId, params, NAI_DFT_PARAM_SIZE_2);
+    DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_2);
+}
+
+void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_t res)
+{
+    CP_LOG_DEBUG("[DFT] NAI_DftReport, eventId: %u, paramId: %u, res: %u", eventId, paramId, res);
+    CP_CHECK_LOG_RETURN_VOID(addr != NULL, "[DFT] DftParamC create failed");
+
+    switch ((DftEventEnum)eventId) {
+        case DFT_STACK_SM_G_NEGO_EXCEP:
+        case DFT_STACK_SM_T_NEGO_EXCEP:
+        case DFT_STACK_SM_G_AUTH_EXCEP:
+        case DFT_STACK_SM_T_AUTH_EXCEP:
+        case DFT_STACK_SM_ENCP_EXCEP:
+            NAI_DftReportSm(addr, eventId, paramId, res);
+            break;
+        case DFT_STACK_HADM_EXCEP:
+            NAI_DftReportHadm(addr, eventId, paramId, res);
+            break;
+        default:
+            break;
+    }
 }
 
 uint32_t NAI_DftInit(void)

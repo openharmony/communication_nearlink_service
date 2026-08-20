@@ -724,6 +724,38 @@ HWTEST_F(NearlinkCdsmTest, CdsmClientCdsmStopInviteAdv001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:CdsmClientCdsmStopInviteAdv001 end");
 }
 
+/**
+ * @tc.name: IsVendorDevice_001
+ * @tc.desc: Test IsVendorDevice uses IRemoteDeviceQuery::GetInstance(), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, IsVendorDevice_001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:IsVendorDevice_001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    RawAddress device("11:22:33:44:55:66");
+    bool ret = cdsmService->IsVendorDevice(device);
+    EXPECT_FALSE(ret);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("NearlinkCdsmTest:IsVendorDevice_001 end");
+}
+
+/**
+ * @tc.name: SetPeerDeviceTypeToControllerInner_001
+ * @tc.desc: Test SetPeerDeviceTypeToControllerInner uses IRemoteDeviceQuery::GetInstance(), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerInner_001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 start");
+    MockCdsmService cdsmService;
+    RawAddress device("11:22:33:44:55:66");
+    cdsmService.SetPeerDeviceTypeToControllerInner(device);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 end");
+}
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

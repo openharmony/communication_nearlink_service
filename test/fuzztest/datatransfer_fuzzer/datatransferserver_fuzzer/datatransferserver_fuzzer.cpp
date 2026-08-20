@@ -230,26 +230,6 @@ void GetConnectionStateFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
 }
 
-void UpdateConnectIntervalTest(const uint8_t *fuzzData, size_t size)
-{
-    HILOGI("start");
-    FuzzedDataProvider provider(fuzzData, size);
-    std::string device = BuildAddressString(provider);
-    int32_t intervalType = provider.ConsumeIntegral<int32_t>();
-
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkSleDataTransferStub::GetDescriptor());
-    data.WriteString(device);
-    data.WriteInt32(intervalType);
-    int32_t ret = SleDataTransferOnRemoteRequest(
-        NearlinkSleDataTransferInterfaceCode::SLE_UPDATE_INTERVAL, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
-}
 } // namespace OHOS
 
 // fuzzer init
@@ -280,7 +260,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::RegisterSleDataTransferCallbackFuzzTest();
-    OHOS::UpdateConnectIntervalTest(data, size);
     OHOS::CreatePortFuzzTest();
     OHOS::SocketEmptyMsgFuzzTest(data, size);
     OHOS::DestroyPortFuzzTest(data, size);

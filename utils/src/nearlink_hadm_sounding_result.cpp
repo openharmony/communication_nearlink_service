@@ -95,36 +95,43 @@ void NearlinkHadmSoundingResult::AppendRtdQData(std::vector<uint16_t> iqData)
 
 const std::vector<uint16_t> NearlinkHadmSoundingResult::GetDutIData()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return dutIData_;
 }
 
 const std::vector<uint16_t> NearlinkHadmSoundingResult::GetRtdIData()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return rtdIData_;
 }
 
 const std::vector<uint16_t> NearlinkHadmSoundingResult::GetDutQData()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return dutQData_;
 }
 
 const std::vector<uint16_t> NearlinkHadmSoundingResult::GetRtdQData()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return rtdQData_;
 }
 
 uint16_t NearlinkHadmSoundingResult::GetDutTof()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return dutTof_;
 }
 
 uint16_t NearlinkHadmSoundingResult::GetRtdTof()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return rtdTof_;
 }
 
 uint32_t NearlinkHadmSoundingResult::GetTimeStampSn()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return timeStampSn_;
 }
 

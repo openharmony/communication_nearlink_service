@@ -101,7 +101,6 @@ typedef enum DftSwitchTypeEnum :int {
     SWITCH_RESET,
     SWITCH_FACTORY_RESET,
     SWITCH_HALF,
-    SWITCH_SELF_RECOVERY
 } DftSwitchTypeEnum;
 
 typedef enum DftSwitchOperRes :int {

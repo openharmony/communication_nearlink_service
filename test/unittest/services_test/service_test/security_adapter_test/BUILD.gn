@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -23,6 +23,7 @@ config("nl_security_service_unit_test_config") {
     "$NEARLINK_ROOT/services/service/src/util",
     "$NEARLINK_ROOT/services/service/src/adapter",
     "$NEARLINK_ROOT/services/service/src/common",
+    "$NEARLINK_ROOT/services/service/src/controller",
     "$NEARLINK_ROOT/services/service/src/base",
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/ipc/include",
@@ -56,7 +57,7 @@ unit_test_deps = [
   "$NEARLINK_ROOT/socket:nearlink_socket",
   "$NEARLINK_ROOT/utils:nearlink_utils",
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
-  "$NEARLINK_ROOT/services/server:nearlink_server_static",
+  "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
   "$NEARLINK_ROOT/services/service:nearlink_service_impl",

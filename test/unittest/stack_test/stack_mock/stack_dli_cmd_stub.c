@@ -31,7 +31,7 @@ uint32_t TEST_DLI_GetPublicAddressFail(DLI_PublicAddrParam *param)
     return 1;
 }
 
-uint32_t TEST_DLI_SetPublicAddress(uint8_t *addr)
+uint32_t TEST_DLI_SetPublicAddress(DLI_AddrStru *param)
 {
     return 0;
 }

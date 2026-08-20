@@ -51,7 +51,8 @@ public:
     void HighPowerProc(uint16_t lcid) override;
     void SleTvMgrProc(const std::string &address) override;
     void HidDataStatisticsProc(const std::string &address) override;
-    void RssiChangedCbkProc(const std::string &address, int8_t rssi) override;
+    void IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval) override;
+    void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) override;
     void UpdateSleFreqBandAbility(const std::string &address) override;
     void CollaborationProc(CollaborationProcType type) override;
     void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
@@ -67,6 +68,8 @@ public:
     // chiputil模块函数 start
     void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) override;
     void SetConnFrameType4Subrate(const RawAddress &device) override;
+    void RejectSetSubrate(const RawAddress &device) override;
+    void ControlAntennaFix(bool enable, AntennaFixScene scene) override;
     // chiputil模块函数 end
 
     std::string GetBundleName(BundleNameType type) override;

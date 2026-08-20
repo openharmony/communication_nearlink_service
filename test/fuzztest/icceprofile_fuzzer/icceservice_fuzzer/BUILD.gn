@@ -54,7 +54,7 @@ ohos_fuzztest("IcceServiceFuzzTest") {
     "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
     "$NEARLINK_ROOT/services/common:nearlink_service_common",
     "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager","${nearlink_fuzztest_utils_path}:fuzztest_utils_static",
-    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
   ]
 
   external_deps = [

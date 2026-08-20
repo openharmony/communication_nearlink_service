@@ -20,6 +20,7 @@
 #include "dli_log.h"
 #include "dli_errno.h"
 #include "dli.h"
+#include "dli_thread.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,7 @@ uint32_t DLI_SetCallback(const DLI_Callback *callback)
     DLI_LOGI("DLI_SetCallback %s", callback == NULL ? "disable" : "enable");
     if (callback == NULL) {
         (void)memset_s(&g_callback.dliCbk, sizeof(DLI_Callback), 0, sizeof(DLI_Callback));
+        DLI_ThreadSetCallback(NULL);
         return 0;
     }
     if (callback->postOtherThread == NULL ||
@@ -61,6 +63,7 @@ uint32_t DLI_SetCallback(const DLI_Callback *callback)
     }
 
     g_callback.dliCbk = *callback;
+    DLI_ThreadSetCallback(&g_callback.dliCbk);
     return 0;
 }
 

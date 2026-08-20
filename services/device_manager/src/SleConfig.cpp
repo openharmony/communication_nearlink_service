@@ -201,7 +201,7 @@ void SleConfig::EncryptCloudDeviceToken() const
             RemoveSpecificCloudDevice(addr);
             continue;
         }
-        CloudDeviceToken cloudDevicetoken;
+        CloudDeviceToken cloudDevicetoken{};
         if (!SleUtils::ConvertHexCharToInt(tokenChar, cloudDevicetoken.data(), OCTET32_LEN)) {
             HILOGE("[SleConfig] covert hexchar to int fail");
             (void)memset_s(tokenChar, RAW_CLOUD_PAIR_TOKEN_LENGTH + 1, 0x00, RAW_CLOUD_PAIR_TOKEN_LENGTH + 1);
@@ -277,12 +277,10 @@ bool SleConfig::Save() const
         HILOGE("[SleConfig] Save fail.");
         return false;
     }
-#ifdef TV_STANDARD
     if (!config_->Fsync()) {
         HILOGE("[SleConfig] Fsync fail.");
         return false;
     }
-#endif
     return true;
 }
 
@@ -1253,9 +1251,11 @@ bool SleConfig::SetCloudDeviceToken(const std::string &address, const std::vecto
     EncryptedCloudDeviceToken encryptedCloudDeviceToken;
     if (SleHksTool::GetInstance().SleCloudDeviceTokenEncrypt(
         cloudDeviceToken, encryptedCloudDeviceToken) != HKS_SUCCESS) {
+        (void)memset_s(&cloudDeviceToken, sizeof(CloudDeviceToken), 0x00, sizeof(CloudDeviceToken));
         LOG_ERROR("[SleConfig] Token encryption falied");
         return false;
     }
+    (void)memset_s(&cloudDeviceToken, sizeof(CloudDeviceToken), 0x00, sizeof(CloudDeviceToken));
     std::string encryptedToken = SleUtils::ConvertIntToHexString(
         encryptedCloudDeviceToken.data(), encryptedCloudDeviceToken.size());
     bool ret = config_->SetValue(SECTION_SLE_CLOUD_PAIRED_DEVICE_LIST, address,

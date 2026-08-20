@@ -359,6 +359,11 @@ static void CdsmReadMemberAddrHandle(CdsmCoopSet_S *coopSet, CdsmCoopSetMeb_S *s
         CdsmCoopSetMeb_S *meb = SDF_VectorElementAt(coopSet->mebs, index);
         CdsmRemoveCoopSetMember(coopSet->gid, &meb->addr);
     }
+    if ((coopSet->mebs->size != coopSet->num) && (coopSet->mebs->size <= UINT8_MAX)) {
+        CP_LOG_ERROR("[CDSM] mebs size(%zu) mismatch num(%u) after addr read, correcting",
+            coopSet->mebs->size, coopSet->num);
+        coopSet->num = (uint8_t)coopSet->mebs->size;
+    }
     setMeb->state = CDSM_READ_MEMBER_ADDR_FINISH;
     SDF_MemFree(addrList);
 }
@@ -395,7 +400,6 @@ static void DecodeCdsmProperty(CdsmCoopSet_S *coopSet, CdsmCoopSetMeb_S *setMeb,
 }
 
 static void CdsmPropertyReadCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property, NLSTK_Errcode_E ret)
- 
 {
     CP_LOG_DEBUG("enter CdsmPropertyReadCbk");
     CP_CHECK_LOG_RETURN_VOID(property != NULL, "[CDSM] property is null");
@@ -454,7 +458,7 @@ static void ReadCdsmProp(CdsmCoopSetMeb_S *meb, CdsmCacheService_S *cache)
     handles[OCTETS_1] = cache->memberNumHandle;
     handles[OCTETS_2] = cache->memberAddrHandle;
     handles[OCTETS_3] = cache->keyHandle;
-    if (CfgdbGetManufacturerSupport(&meb->addr, CFGDB_READ_MULTI_HANDLES)) {
+    if (SsapcIsSupportMultiProcessing(meb->appId)) {
         if (NLSTK_SsapClientReadProperties(meb->appId, handles, CDSM_READ_PROPERTY_NUM) != NLSTK_ERRCODE_SUCCESS) {
             CP_LOG_ERROR("[CDSM] ssap client read multi properties failed");
         }

@@ -21,7 +21,7 @@
 #include "SleServiceFfrtLog.h"
 #include "SleUtils.h"
 #include "ThreadUtil.h"
-#include "SleRemoteDeviceAdapter.h"
+#include "IRemoteDeviceQuery.h"
 
 #include <future>
 
@@ -119,7 +119,7 @@ void PortService::Disable()
 int PortService::Connect(const RawAddress &device)
 {
     DoInPortThread([this, device]() -> void {
-        SleRemoteDeviceAdapter::GetInstance()->SetConnDirectActive(device);
+        IRemoteDeviceQuery::GetInstance()->SetConnDirectActive(device);
         HILOGD("[Port Service] Connect addr(%{public}s)", GET_ENCRYPT_ADDR(device));
         int state = static_cast<int>(SleConnectState::DISCONNECTED);
         pimpl->clientStackAdapter_.GetConnectState(device, state);

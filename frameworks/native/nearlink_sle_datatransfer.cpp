@@ -152,30 +152,37 @@ void SleDataTransfer::impl::Init()
     portSocketManager_ = std::make_unique<PortSocketManager>();
 
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(SLE_DATATRANSFER_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = weak_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSleDataTransfer> proxy = iface_cast<INearlinkSleDataTransfer>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
-        NL_CHECK_RETURN(callbackImp_, "callbackImp_ is nullptr");
-        proxy->RegisterSleDataTransferCallback(callbackImp_);
+        NL_CHECK_RETURN(implSptr->callbackImp_, "callbackImp_ is nullptr");
+        proxy->RegisterSleDataTransferCallback(implSptr->callbackImp_);
     };
 
-    info->stateOffFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    info->stateOffFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSleDataTransfer> proxy = iface_cast<INearlinkSleDataTransfer>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
-        uuidAndPort_.FindAndRmv([this, proxy](std::string uuid, uint16_t portId) {
-            callbacks_.Erase(portId);
-            portSocketManager_->DestroyPort(portId); // 销毁socket
+        implSptr->uuidAndPort_.FindAndRmv([implSptr, proxy](std::string uuid, uint16_t portId) {
+            implSptr->callbacks_.Erase(portId);
+            implSptr->portSocketManager_->DestroyPort(portId); // 销毁socket
             proxy->DestroyPort(uuid, portId);
             return true;
         });
     };
 
-    info->serviceStoppedFunc_ = [this]() -> void {
-        uuidAndPort_.Iterate([this](std::string uuid, uint16_t portId) {
-            portSocketManager_->DestroyPort(portId);
+    info->serviceStoppedFunc_ = [wp]() -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        implSptr->uuidAndPort_.Iterate([implSptr](std::string uuid, uint16_t portId) {
+            implSptr->portSocketManager_->DestroyPort(portId);
         });
-        callbacks_.Clear();
-        uuidAndPort_.Clear();
+        implSptr->callbacks_.Clear();
+        implSptr->uuidAndPort_.Clear();
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
@@ -221,7 +228,7 @@ void SleDataTransfer::impl::SetSocketDataTransfer(uint16_t port, const std::stri
 
 SleDataTransfer::SleDataTransfer()
 {
-    pimpl = std::make_unique<impl>();
+    pimpl = std::make_shared<impl>();
     pimpl->Init();
     HILOGI("successful");
 }
@@ -419,23 +426,6 @@ bool SleDataTransfer::IsSupportHighSpeedDataTransfer() const
     HILOGI("support HighSpeedDataTransfer");
     pimpl->isHighSpeedSupported_ = HighSpeedSupportedType::HIGH_SPEED_SUPPORT;
     return true;
-}
-
-bool SleDataTransfer::UpdateConnectInterval(std::string device, int32_t intervalType) const
-{
-    bool result = false;
-#ifdef WATCH_STANDARD
-    sptr<INearlinkSleDataTransfer> proxy = GetProxy<INearlinkSleDataTransfer>(SLE_DATATRANSFER_SERVER);
-    NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr.");
-
-    NlErrCode ret = proxy->UpdateConnectInterval(device, intervalType, result);
-    NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, false,
-        "UpdateConnectInterval failed, error code: %{public}d", ret);
-    HILOGI("intervalType = %{public}d, result:%{public}d", intervalType, result);
-#else
-    HILOGE("only watch support Update datatransfer Connect Interval");
-#endif
-    return result;
 }
 
 bool SleDataTransfer::impl::ReceivedData(std::shared_ptr<InputStream> inputStream, uint16_t portId,

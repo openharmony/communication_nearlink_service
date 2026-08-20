@@ -158,7 +158,7 @@ public:
     bool GetAppConnectParamByAddr(const std::string &addr, AppConnectParamMapping &param);
     bool HasAppConnect();
     bool HasRemoteAddressConnect(const std::string &address);
-    bool StopAppConnect();
+    bool IsAppConnect(std::string &address);
     bool HasTargetAddr(const std::string &addr);
 #ifdef RES_SCHED_SUPPORT
     bool needRssReportDisconnect();

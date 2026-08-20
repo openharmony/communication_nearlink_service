@@ -42,7 +42,7 @@ NearlinkHidHost::impl::impl()
 {
     HILOGI("start");
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(PROFILE_HID_HOST_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    info->serviceStartedFunc_ = [](sptr<IRemoteObject> remote) -> void {
         sptr<INearlinkHidHost> proxy = iface_cast<INearlinkHidHost>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr");
     };
@@ -61,7 +61,7 @@ NearlinkHidHost::impl::~impl()
 
 NearlinkHidHost::NearlinkHidHost()
 {
-    pimpl = std::make_unique<impl>();
+    pimpl = std::make_shared<impl>();
 }
 
 NearlinkHidHost::~NearlinkHidHost() {}

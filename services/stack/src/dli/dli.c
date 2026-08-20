@@ -29,6 +29,7 @@
 #include "dli_secu_event.h"
 #include "dli_layer_config.h"
 #include "dli_nbc_event.h"
+#include "dli_cmd.h"
 #include "sdf_mem.h"
 
 #define DLI_CP_BLOCK_TIMEOUT 3000 // ms
@@ -117,6 +118,7 @@ static void DLI_InitInner(void *param)
         DLI_LOGE("dli inner event cbk register failed, ret=%u", ret);
         return;
     }
+    DLI_HadmEventSetIsSupportNewDisMeasure(DLI_IsSupportNewDisMeasure);
     ret = DLI_LayerInit();
     if (ret != DLI_SUCCESS) {
         DLI_InnerEventCbkUnReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
@@ -147,6 +149,7 @@ uint32_t DLI_Init(void)
 static void DLI_DeInitInner(void *param)
 {
     DLI_LayerDeinit();
+    DLI_HadmEventSetIsSupportNewDisMeasure(NULL);
     DLI_InnerEventCbkUnReg(g_commInnerCbkList, sizeof(g_commInnerCbkList) / sizeof(DLI_InnerCbkLineStru));
     DLI_DeInitEventCbkList();
     DLI_SetRecvEventCallback(NULL);

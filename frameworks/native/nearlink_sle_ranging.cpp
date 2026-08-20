@@ -28,7 +28,7 @@
 namespace OHOS {
 namespace Nearlink {
 
-struct NearlinkSleRanging::impl {
+struct NearlinkSleRanging::impl : public std::enable_shared_from_this<impl> {
     impl(std::shared_ptr<SleRangingCallback> callback);
     ~impl();
     void Init(std::weak_ptr<NearlinkSleRanging> nearlinkSleRanging);
@@ -99,7 +99,7 @@ NearlinkSleRanging::impl::~impl()
 NearlinkSleRanging::NearlinkSleRanging(std::shared_ptr<SleRangingCallback> callback) : pimpl(nullptr)
 {
     if (pimpl == nullptr) {
-        pimpl = std::make_unique<impl>(callback);
+        pimpl = std::make_shared<impl>(callback);
         NL_CHECK_RETURN(pimpl, "pimpl is nullptr");
     }
 }
@@ -112,14 +112,19 @@ void NearlinkSleRanging::impl::Init(std::weak_ptr<NearlinkSleRanging> nearlinkSl
 {
     callbackStubImp_ = new (std::nothrow) HadmClientCallbackStubImpl(nearlinkSleRanging);
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_HADM_CLIENT_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkHadmClient> proxy = iface_cast<INearlinkHadmClient>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
-        NL_CHECK_RETURN(callbackStubImp_, "callbackStubImp_ is nullptr.");
-        proxy->RegisterNearlinkHadmClientCallback(hadmId_, callbackStubImp_);
+        NL_CHECK_RETURN(implSptr->callbackStubImp_, "callbackStubImp_ is nullptr.");
+        proxy->RegisterNearlinkHadmClientCallback(implSptr->hadmId_, implSptr->callbackStubImp_);
     };
-    info->serviceStoppedFunc_ = [this]() -> void {
-        hadmId_ = SLE_HADM_INVALID_ID;
+    info->serviceStoppedFunc_ = [wp]() -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        implSptr->hadmId_ = SLE_HADM_INVALID_ID;
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
@@ -145,13 +150,15 @@ NlErrCode NearlinkSleRanging::StartSleRanging(const NearlinkRemoteDevice &device
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_PARAM, "invalid device");
     NL_CHECK_RETURN_RET(pimpl->hadmId_ != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR, "invalid hadmId");
-    HILOGI("sle ranging start, device:%{public}s, hadmId:%{public}u ",
-        GetEncryptAddr((device).GetDeviceAddr()).c_str(), pimpl->hadmId_);
+    HILOGI("sle ranging start, device:%{public}s, hadmId:%{public}u, algoMode:%{public}d, toneControl:%{public}d",
+        GetEncryptAddr((device).GetDeviceAddr()).c_str(), pimpl->hadmId_,
+        static_cast<int>(config.GetAlgoMode()), static_cast<int>(config.GetToneControl()));
     sptr<INearlinkHadmClient> proxy = GetProxy<INearlinkHadmClient>(NEARLINK_HADM_CLIENT_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
-    NL_CHECK_RETURN_RET(HadmRangingAdapter::GetInstance().InitHadmAlgo(), NL_ERR_INTERNAL_ERROR, "init Hadm failed.");
+    NL_CHECK_RETURN_RET(HadmRangingAdapter::GetInstance().InitHadmAlgo(config.GetAlgoMode()),
+        NL_ERR_INTERNAL_ERROR, "init Hadm failed.");
     NearlinkRawAddress rawAddr(device.GetDeviceAddr());
-    return proxy->StartSounding(pimpl->hadmId_, rawAddr);
+    return proxy->StartSounding(pimpl->hadmId_, rawAddr, static_cast<uint8_t>(config.GetToneControl()));
 }
 
 NlErrCode NearlinkSleRanging::StopSleRanging(const NearlinkRemoteDevice &device)
@@ -204,6 +211,25 @@ uint8_t RangingConfig::GetRefreshRate() const
     return refreshRate_;
 }
 
+void RangingConfig::SetAlgoMode(const RangingAlgoMode &algoMode)
+{
+    algoMode_ = algoMode;
+}
+
+RangingAlgoMode RangingConfig::GetAlgoMode() const
+{
+    return algoMode_;
+}
+
+void RangingConfig::SetToneControl(const ToneControlMode &toneControl)
+{
+    toneControl_ = toneControl;
+}
+
+ToneControlMode RangingConfig::GetToneControl() const
+{
+    return toneControl_;
+}
 
 RangingResult::RangingResult()
 {}

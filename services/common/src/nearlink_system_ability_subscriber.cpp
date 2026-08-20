@@ -23,7 +23,7 @@ namespace Nearlink {
 void NearlinkSystemAbilitySubscriber::OnAddSystemAbility(int32_t systemAbilityId, const std::string& deviceId)
 {
     HILOGI("systemAbilityId(%{public}d) is added", systemAbilityId);
-    if (saId_.find(systemAbilityId) != saId_.end()) {
+    if (saId_.find(systemAbilityId) != saId_.end() && onAddSystemAbilityCallback_) {
         onAddSystemAbilityCallback_(systemAbilityId);
     }
 }
@@ -31,7 +31,7 @@ void NearlinkSystemAbilitySubscriber::OnAddSystemAbility(int32_t systemAbilityId
 void NearlinkSystemAbilitySubscriber::OnRemoveSystemAbility(int32_t systemAbilityId, const std::string& deviceId)
 {
     HILOGI("systemAbilityId(%{public}d) is removed", systemAbilityId);
-    if (saId_.find(systemAbilityId) != saId_.end()) {
+    if (saId_.find(systemAbilityId) != saId_.end() && onRemoveSystemAbilityCallback_) {
         onRemoveSystemAbilityCallback_(systemAbilityId);
     }
 }

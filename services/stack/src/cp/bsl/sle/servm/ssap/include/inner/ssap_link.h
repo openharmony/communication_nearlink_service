@@ -85,7 +85,9 @@ struct SSAP_Link {
     SendCb sendFunc;                    // 发包钩子
     uint16_t lcid;                      // 链路id
     uint16_t mtu;                       // ssap mtu
-    uint16_t version;                   // 星闪version
+    uint16_t version;                   // 对端星闪version
+    bool fragment;                      // 对端是否支持分包，预留
+    bool multiProcessing;               // 对端是否支持多值处理
     int timerHandle;
 };
 

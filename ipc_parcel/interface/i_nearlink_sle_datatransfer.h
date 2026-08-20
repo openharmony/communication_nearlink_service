@@ -39,9 +39,6 @@ public:
     virtual NlErrCode Connect(NearlinkSleDataTransferConnectionParams &params) = 0;
     virtual NlErrCode Disconnect(NearlinkSleDataTransferConnectionParams &params) = 0;
     virtual NlErrCode GetConnectionState(NearlinkSleDataTransferConnectionParams &params, int32_t &connState) = 0;
-#ifdef WATCH_STANDARD
-    virtual NlErrCode UpdateConnectInterval(std::string device, int32_t intervalType, bool &result) = 0;
-#endif
 };
 }  // namespace OHOS::Nearlink
 #endif  // OHOS_NEARLINK_STANDARD_SLE_DATATRANSFER_INTERFACE_H

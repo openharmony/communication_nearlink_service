@@ -16,6 +16,7 @@
 #ifndef NAPI_ASYNC_CALLBACK_H
 #define NAPI_ASYNC_CALLBACK_H
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -45,11 +46,11 @@ public:
     bool Equal(napi_env env, napi_value &callback) const;
     void SetNapiEnvValidity(bool isValid)
     {
-        isValid_ = isValid;
+        isValid_.store(isValid);
     }
     bool IsValidNapiEnv(void) const
     {
-        return isValid_;
+        return isValid_.load();
     }
 
 private:
@@ -61,7 +62,7 @@ private:
     napi_env env_;
     napi_ref callbackRef_;
     /*************************** env_cleanup_hook ********************************/
-    bool isValid_ = true;
+    std::atomic<bool> isValid_ = true;
     /*************************** env_cleanup_hook ********************************/
 };
 }  // namespace Nearlink

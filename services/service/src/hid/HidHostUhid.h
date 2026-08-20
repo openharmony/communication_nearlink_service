@@ -61,8 +61,8 @@ private:
     std::atomic_bool keepPolling_ = false;
     std::atomic_bool readyForData_ = false;
     std::string address_;
-    int taskId_ = 0;
-    int taskType_ = -1;
+    std::atomic<int> taskId_ = 0;
+    std::atomic<int> taskType_ = -1;
     std::atomic<int> waitingTimes = 0;
 
     SLE_DISALLOW_COPY_AND_ASSIGN(HidHostUhid);

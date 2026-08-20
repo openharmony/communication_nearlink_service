@@ -27,7 +27,7 @@ const uint32_t SSAP_SERVICE_PARCEL_SIZE_MAX = 0x100;
 bool NearlinkSsapServiceParcel::SsapServiceMemberWrite(Parcel &parcel) const
 {
     uint32_t size = properties_.size();
-    if (!parcel.WriteUint32(size) || size > SSAP_SERVICE_PARCEL_SIZE_MAX) {
+    if (size > SSAP_SERVICE_PARCEL_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto pp : properties_) {
@@ -37,7 +37,7 @@ bool NearlinkSsapServiceParcel::SsapServiceMemberWrite(Parcel &parcel) const
         }
     }
     size = methods_.size();
-    if (!parcel.WriteUint32(size) || size > SSAP_SERVICE_PARCEL_SIZE_MAX) {
+    if (size > SSAP_SERVICE_PARCEL_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto mm : methods_) {
@@ -47,7 +47,7 @@ bool NearlinkSsapServiceParcel::SsapServiceMemberWrite(Parcel &parcel) const
         }
     }
     size = events_.size();
-    if (!parcel.WriteUint32(size) || size > SSAP_SERVICE_PARCEL_SIZE_MAX) {
+    if (size > SSAP_SERVICE_PARCEL_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto ee : events_) {
@@ -57,7 +57,7 @@ bool NearlinkSsapServiceParcel::SsapServiceMemberWrite(Parcel &parcel) const
         }
     }
     size = descriptors_.size();
-    if (!parcel.WriteUint32(size) || size > SSAP_SERVICE_PARCEL_SIZE_MAX) {
+    if (size > SSAP_SERVICE_PARCEL_SIZE_MAX || !parcel.WriteUint32(size)) {
         return false;
     }
     for (auto &des : descriptors_) {

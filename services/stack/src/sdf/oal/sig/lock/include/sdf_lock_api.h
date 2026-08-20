@@ -98,15 +98,6 @@ typedef struct SDF_MutexLockHooks {
     size_t lockSize; // 结构体大小
 } SDF_MutexLockHooks_S;
 
-/**
- * @brief           互斥锁方法注册接口
- * @param[IN/OUT]   pHooks 读写锁方法集
- * @return          int
- * @retval          成功返回0,失败返回其他
- * @remarks         NA
- */
-uint32_t SDF_MutexReg(const SDF_MutexLockHooks_S *pHooks);
-
 #ifdef __cplusplus
 }
 #endif

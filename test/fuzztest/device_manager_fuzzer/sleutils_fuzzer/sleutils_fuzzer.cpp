@@ -77,13 +77,6 @@ void FuzzSleUtilsStringDataToHexString(const uint8_t *data, size_t size)
     SleUtils::StringDataToHexString(strData);
 }
 
-void FuzzSleUtilsRand16hex(const uint8_t *data, size_t size)
-{
-    if (size < 2) return;
-    std::vector<uint8_t> randData;
-    SleUtils::Rand16hex(randData);
-}
-
 void FuzzSleUtilsGetRandomAddress(const uint8_t *data, size_t size)
 {
     if (size < 2) return;
@@ -110,14 +103,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (data == nullptr || size == 0) return 0;
     FuzzedDataProvider provider(data, size);
     uint32_t category = provider.ConsumeIntegral<uint32_t>();
-    switch (category % 7) {
+    switch (category % 6) {
         case 0: FuzzSleUtilsConvertHexStringToInt(data, size); break;
         case 1: FuzzSleUtilsConvertHexCharToInt(data, size); break;
         case 2: FuzzSleUtilsIntToHexString(data, size); break;
         case 3: FuzzSleUtilsConvertIntToHexString(data, size); break;
         case 4: FuzzSleUtilsStringDataToHexString(data, size); break;
-        case 5: FuzzSleUtilsRand16hex(data, size); break;
-        case 6: FuzzSleUtilsGetRandomAddress(data, size); break;
+        case 5: FuzzSleUtilsGetRandomAddress(data, size); break;
         default: break;
     }
     return 0;

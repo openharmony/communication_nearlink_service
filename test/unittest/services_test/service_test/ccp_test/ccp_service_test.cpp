@@ -237,32 +237,6 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 }
 
 /**
- * @tc.number: HandleMeeTimeDetailsChange001
- * @tc.name:
- * @tc.desc:
- */
-HWTEST_F(CcpServiceTest, HandleMeeTimeDetailsChange001, TestSize.Level1)
-{
-    HILOGI("HandleMeeTimeDetailsChange001 start");
-    CcpService* ccpService = CcpService::GetService();
-    CallAttributeInfo callAttributeInfo;
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_DIALING;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_INCOMING;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-
-    callAttributeInfo.callState = Telephony::TelCallState::CALL_STATUS_UNKNOWN;
-    ccpService->HandleMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    HILOGI("HandleMeeTimeDetailsChange001 end");
-}
-
-/**
  * @tc.number: HandleVoipStop001
  * @tc.name:
  * @tc.desc:
@@ -375,6 +349,39 @@ HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
     EXPECT_NE(nullptr, ccpService);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessAccountInfo001 end");
+}
+
+/**
+ * @tc.number: IsNearlinkActiveDevice001
+ * @tc.name: IsNearlinkActiveDevice via ProfileASC interface
+ * @tc.desc: Test IsNearlinkActiveDevice uses ProfileASC from profile manager, should not crash
+ */
+HWTEST_F(CcpServiceTest, IsNearlinkActiveDevice001, TestSize.Level1)
+{
+    HILOGI("IsNearlinkActiveDevice001 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    RawAddress reportAddr("11:22:33:44:55:66");
+    bool ret = ccpService->IsNearlinkActiveDevice(reportAddr);
+    EXPECT_FALSE(ret);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    HILOGI("IsNearlinkActiveDevice001 end");
+}
+
+/**
+ * @tc.number: NotifyAudioDeviceActionViaProfileAsc_001
+ * @tc.name: NotifyAudioDeviceAction via ProfileASC interface
+ * @tc.desc: Test NotifyAudioDeviceAction uses ProfileASC from profile manager, should not crash
+ */
+HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Level1)
+{
+    HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    RawAddress devAddr("11:22:33:44:55:66");
+    ccpService->NotifyAudioDeviceAction(devAddr, 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 end");
 }
 
 } // namespace TEST

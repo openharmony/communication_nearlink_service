@@ -44,12 +44,10 @@ static void SlinkSecMemFree(SmSLink_S *slink)
     NLSTK_LOG_INFO("[SM] Start to free security memory.");
     (void)memset_s(slink->dhKey, SM_DHKEY_LEN, 0, SM_DHKEY_LEN);
     (void)memset_s(slink->priKey, SM_PRIVATE_KEY_LEN, 0, SM_PRIVATE_KEY_LEN);
-    (void)memset_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, 0, SM_PUBLIC_KEY_LEN);
-    (void)memset_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, 0, SM_PUBLIC_KEY_LEN);
-    slink->gNode.passCode = 0;
-    slink->tNode.passCode = 0;
     (void)memset_s(slink->psk, SM_PSK_SEC_KEY_LEN, 0, SM_PSK_SEC_KEY_LEN);
     (void)memset_s(slink->linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+    (void)memset_s(&slink->gNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
+    (void)memset_s(&slink->tNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
     SDF_MemFree(slink);
 }
 

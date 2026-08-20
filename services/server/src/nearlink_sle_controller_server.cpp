@@ -110,5 +110,23 @@ NlErrCode NearlinkSleControllerServer::UpdateConnectInterval(const std::string &
     return NL_ERR_INTERNAL_ERROR;
 }
 
+NlErrCode NearlinkSleControllerServer::SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
+    const std::vector<ConnectionInterval> &paramList)
+{
+    HILOGI("Enter, mode: %{public}d", mode);
+ 
+    // Permission check
+    NL_CHECK_RETURN_RET(IsSetSleCoexParamAllowed(),
+        NL_ERR_INTERNAL_ERROR, "Permission check failed");
+ 
+    // Call Service layer
+    if (InterfaceSleController::GetInstance().SetSleCoexMode(mode, deviceList, paramList)) {
+        return NL_NO_ERROR;
+    }
+ 
+    HILOGE("SetSleCoexMode failed");
+    return NL_ERR_INTERNAL_ERROR;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

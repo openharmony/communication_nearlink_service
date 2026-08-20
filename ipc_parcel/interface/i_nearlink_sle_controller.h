@@ -18,6 +18,7 @@
 
 #include "nearlink_service_ipc_interface_code.h"
 #include "iremote_broker.h"
+#include "nearlink_def.h"
 #include "nearlink_errorcode.h"
 
 namespace OHOS::Nearlink {
@@ -31,6 +32,8 @@ public:
 
     virtual NlErrCode SetSleCoexParam(uint16_t maxBitRate, uint8_t dutyCycle) = 0;
     virtual NlErrCode UpdateConnectInterval(const std::string &device, int32_t intervalType) = 0;
+    virtual NlErrCode SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
+        const std::vector<ConnectionInterval> &paramList) = 0;
 };
 
 }  // namespace OHOS::Nearlink

@@ -17,6 +17,7 @@
 #define DLI_SAPI_H
 
 #include <stdint.h>
+#include <stdbool.h>
 // 适配hardware层，联调不用改源码，后续删除此宏相关的桩函数
 #ifdef NEARLINK_SERVICE_STACK_LOCAL_TEST
 #include "dli_data_stub.h"
@@ -47,9 +48,10 @@ void DLI_SapiDeinit(void);
  * @brief  数据发送
  * @param  [in] < data > 要发送的数据流, 包含命令及数据
  * @param  [in] < len >  要发送的数据流长度
- * @return 无
+ * @param  [in] < needErase >  是否需要清理拷贝后的数据
+ * @return 0: 成功, OTHER: 失败
  */
-int DLI_SapiSend(const uint8_t *data, uint32_t len);
+int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase);
 
 /**
  * @brief  获取芯片版本

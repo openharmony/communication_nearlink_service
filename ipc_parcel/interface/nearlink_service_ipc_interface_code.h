@@ -358,6 +358,7 @@ enum NearlinkVcpInterfaceCode {
 enum NearlinkSleControllerInterfaceCode {
     NL_SET_SLE_COEX_PARAM = 0,
     NL_SLE_UPDATE_INTERVAL,
+    NL_SET_SLE_COEX_MODE,
     // The last code, if you want to add a new code, please add it before this
     NL_SLE_CONTROLLER_BUTT
 };

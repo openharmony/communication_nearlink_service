@@ -28,6 +28,8 @@
 #include "ASCUtils.h"
 #include "SleDliSnoop.h"
 #include "SleInterfaceProfileASC.h"
+#include "SleInterfaceProfileCcp.h"
+#include "CcpService.h"
 #include "CdsmService.h"
 #include "actm_callback.h"
 #include "nlstk_api_type_ext.h"
@@ -5236,36 +5238,17 @@ HWTEST_F(ASCServiceTest, StartPlaying_ColAudio_001, TestSize.Level1)
 }
 
 /**
- * @tc.name: StackAddDataPathCbk_001
- * @tc.desc: NLSTK_ActmSetDirectionCbk StackAddDataPathCbk
+ * @tc.name: CheckStreamIsNeedNotifyCcp_CcpNull_001
+ * @tc.desc: CheckStreamIsNeedNotifyCcp when CcpService is not registered (null), should not crash
  * @tc.type: FUNC
  */
-HWTEST_F(ASCServiceTest, StackAddDataPathCbk_001, TestSize.Level1)
+HWTEST_F(ASCServiceTest, CheckStreamIsNeedNotifyCcp_CcpNull_001, TestSize.Level1)
 {
-    HILOGI("StackAddDataPathCbk_001 start");
-    SLE_Addr_S addr = {.type = PUBLIC_ADDRESS, .addr = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06}};
-    NLSTK_ActmSetDirection_S param = {.result = NLSTK_ACTM_SUCCESS};
+    HILOGI("CheckStreamIsNeedNotifyCcp_CcpNull_001 enter");
     ASCService *asc = new ASCService();
-    StackAddDataPathCbk(&addr, nullptr);
-    StackAddDataPathCbk(&addr, &param);
-    param.result = 1;
-    StackAddDataPathCbk(&addr, &param);
-    delete asc;
-    HILOGI("StackAddDataPathCbk_001 end");
-}
-
-/**
- * @tc.name: CbkAddDataPath_001
- * @tc.desc: CbkAddDataPath
- * @tc.type: FUNC
- */
-HWTEST_F(ASCServiceTest, CbkAddDataPath_001, TestSize.Level1)
-{
-    HILOGI("CbkAddDataPath_001 enter");
-    ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
     RawAddress device = RawAddress(deviceStr);
     asc->AddConnectDevices(device);
-    asc->SetProcessingStreamType(device, AUDIO_STREAM_MUSIC);
     std::vector<AscProp> properties {};
     AscProp prop {};
     prop.ability.comm = 1;
@@ -5277,20 +5260,74 @@ HWTEST_F(ASCServiceTest, CbkAddDataPath_001, TestSize.Level1)
     properties.emplace_back(prop);
     asc->SaveProperty(device, properties);
     QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
-    
-    asc->SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
-    asc->CbkAddDataPath(device, NL_NO_ERROR);
-    EXPECT_EQ(true, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
-
-    asc->SetASCStatus(device, NL_SLE_ASC_CREATED);
-    asc->CbkAddDataPath(device, NL_NO_ERROR);
-    EXPECT_EQ(false, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
-
-    asc->SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
-    asc->CbkAddDataPath(device, 1);
-    EXPECT_EQ(false, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
+    asc->SetASCStatus(device, NL_SLE_ASC_RELEASING);
+    asc->CheckStreamIsNeedNotifyCcp(device, AUDIO_STREAM_VOIP, NL_SLE_ASC_CONTROL_CMD_START);
+    asc->CheckStreamIsNeedNotifyCcp(device, AUDIO_STREAM_VOIP, NL_SLE_ASC_CONTROL_CMD_STOP);
+    QosM::GetInstance().ClearQosM(device);
     delete asc;
-    HILOGI("CbkAddDataPath_001 end");
+    HILOGI("CheckStreamIsNeedNotifyCcp_CcpNull_001 end");
+}
+
+/**
+ * @tc.name: IsLeftEarDevice_TwsNull_001
+ * @tc.desc: IsLeftEarDevice when TwsService is not registered (null), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, IsLeftEarDevice_TwsNull_001, TestSize.Level1)
+{
+    HILOGI("IsLeftEarDevice_TwsNull_001 start");
+    RawAddress targetAddr(INVALID_MAC_ADDRESS);
+    RawAddress huaweiAddr(coDeviceStr);
+    ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
+    asc->AddConnectDevices(targetAddr);
+    asc->AddConnectDevices(huaweiAddr);
+    EXPECT_TRUE(asc->IsLeftEarDevice(targetAddr));
+    EXPECT_TRUE(asc->IsLeftEarDevice(huaweiAddr));
+    delete asc;
+    HILOGI("IsLeftEarDevice_TwsNull_001 end");
+}
+
+/**
+ * @tc.name: IsRolePrimary_TwsNull_001
+ * @tc.desc: IsRolePrimary when TwsService is not registered (null), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, IsRolePrimary_TwsNull_001, TestSize.Level1)
+{
+    HILOGI("IsRolePrimary_TwsNull_001 start");
+    RawAddress targetAddr(INVALID_MAC_ADDRESS);
+    RawAddress huaweiAddr(coDeviceStr);
+    ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
+    asc->AddConnectDevices(targetAddr);
+    asc->AddConnectDevices(huaweiAddr);
+    EXPECT_TRUE(asc->IsRolePrimary(targetAddr));
+    EXPECT_TRUE(asc->IsRolePrimary(huaweiAddr));
+    delete asc;
+    HILOGI("IsRolePrimary_TwsNull_001 end");
+}
+
+/**
+ * @tc.name: SetDeviceRole_TwsNull_001
+ * @tc.desc: SetDeviceRole when TwsService is not registered (null), should not crash
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SetDeviceRole_TwsNull_001, TestSize.Level1)
+{
+    HILOGI("SetDeviceRole_TwsNull_001 start");
+    RawAddress targetAddr(INVALID_MAC_ADDRESS);
+    RawAddress huaweiAddr(coDeviceStr);
+    ASCService *asc = new ASCService();
+    ASSERT_NE(asc, nullptr);
+    asc->AddConnectDevices(targetAddr);
+    asc->AddConnectDevices(huaweiAddr);
+    asc->SetDeviceRole(targetAddr);
+    asc->SetDeviceRole(huaweiAddr);
+    QosM::GetInstance().ClearQosM(targetAddr);
+    QosM::GetInstance().ClearQosM(huaweiAddr);
+    delete asc;
+    HILOGI("SetDeviceRole_TwsNull_001 end");
 }
 }  // namespace Nearlink
 }  // namespace OHOS

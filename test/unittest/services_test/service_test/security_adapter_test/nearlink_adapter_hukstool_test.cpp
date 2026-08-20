@@ -302,7 +302,7 @@ TEST_F(SleAdapterSecurityTest, Get_Set_SleProperties001)
     uint32_t length = g_adapter->GetSleMaxAdvertisingDataLength();
     EXPECT_EQ(0xFF, length);
     int ioBility = g_adapter->GetIoCapability();
-    EXPECT_EQ(0, ioBility);
+    EXPECT_EQ(SLE_DEFAULT_IO, ioBility);
     bool result = g_adapter->SetIoCapability(1);
     EXPECT_EQ(true, result);
     bool enable = g_adapter->IsSleEnabled();
@@ -2354,7 +2354,7 @@ TEST_F(SleAdapterSecurityTest, adapter_callback003)
         .rssiIdx = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
         .actualRssiValue = {-50, -51, -52, -53, -54, -55, -56, -57, -58, -59, -60, -61, -62, -63}
     };
-    nbc_callback_param_t param1 = {
+    NbcCallbackParam param1 = {
         .data = &disconChipInfo,
         .dataLen = sizeof(DisconChipInfo)
     };
@@ -2364,7 +2364,7 @@ TEST_F(SleAdapterSecurityTest, adapter_callback003)
         .connHandle = 1234,
         .powerLevel = 50
     };
-    nbc_callback_param_t param2 = {
+    NbcCallbackParam param2 = {
         .data = &powerLevelInfo,
         .dataLen = sizeof(PowerLevelInfo)
     };
@@ -2544,14 +2544,14 @@ HWTEST_F(SleAdapterSecurityTest, AuthComplete001, TestSize.Level1)
 
 /**
  * @tc.name: AuthComplete002
- * @tc.desc: SM_ERR_ACTIVE_CANCEL，验证取消配对并返回false
+ * @tc.desc: SM_PAIR_ACTIVE_CANCEL，验证取消配对并返回false
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterSecurityTest, AuthComplete002, TestSize.Level1)
 {
     HILOGI("SleAdapterSecurityTest: AuthComplete002 start");
     NLSTK_SmAuthComplete_S param = {};
-    param.authStatus = SM_ERR_ACTIVE_CANCEL;
+    param.authStatus = SM_PAIR_ACTIVE_CANCEL;
     uint8_t addr[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
     (void)memcpy_s(param.addr.addr, sizeof(param.addr.addr), addr, sizeof(addr));
     param.addr.type = 0x0;
@@ -2612,10 +2612,10 @@ HWTEST_F(SleAdapterSecurityTest, EncryptionComplete001, TestSize.Level1)
     param.encStatus = SM_PAIR_ERROR;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
 
-    param.encStatus = SM_KEY_MISSING;
+    param.encStatus = SM_PAIR_KEY_MISSING;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
 
-    param.encStatus = SM_LINK_DISCONNCTED;
+    param.encStatus = SM_PAIR_LINK_DISCONNCTED;
     EXPECT_EQ(true, sleSecurity_.SmpEncComplete(param));
     HILOGI("SleAdapterSecurityTest: EncryptionComplete001 end");
 }

@@ -195,6 +195,7 @@ private:
     void CreateAvSessionController(const AVSession::AVSessionDescriptor &descriptor);
     void SetAVSessionFilter();
     void ProcessMediaStateChange();
+    void CheckRenderStateChanged();
     /* 判断AVSession返回的播放状态是否变化 */
     bool CheckPlaybackStateChanged(const AVSession::AVPlaybackState &state);
     bool CheckMetaDataChanged(const AVSession::AVMetaData &data);
@@ -274,6 +275,9 @@ void McpServerServiceManager::impl::CleanUp()
         avSessionController_->Destroy();
         avSessionController_ = nullptr;
     }
+    avSessionObserver_ = nullptr;
+    avControllerObserver_ = nullptr;
+    rendererStateCallback_ = nullptr;
     isCreatedAVSession = false;
 }
 
@@ -563,6 +567,7 @@ void McpServerServiceManager::impl::SendKeyEventToAvSession(const RawAddress &de
     NL_CHECK_RETURN(getAscProfileFunc_, "[McpServer]getAscProfileFunc_ is null");
     ProfileASC *ascService = getAscProfileFunc_();
     NL_CHECK_RETURN(ascService != nullptr, "[McpServer]Get ascService error!");
+    NL_CHECK_RETURN(!ascService->IsCalling(), "[McpServer]in call!");
     NearlinkRawAddress activeDevice = ascService->GetActiveSinkDevice();
     int32_t result = 0;
     // 判断激活设备是否为空
@@ -882,6 +887,16 @@ void McpServerServiceManager::impl::SendKeyEvent(const McpMessage &event)
     }
 }
 
+/* 如果当前音频设备已在播放中，合作集内其他设备同步状态 */
+void McpServerServiceManager::impl::CheckRenderStateChanged()
+{
+    if (realTimeRenderState_ == McpRenderState::KPlaying) {
+        HILOGI("enter");
+        UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
+        return;
+    }
+}
+
 void McpServerServiceManager::impl::ProcessEvent(const McpMessage &event)
 {
     if (event.whatM == MCP_EVT_START_SUCCESS) {
@@ -890,6 +905,7 @@ void McpServerServiceManager::impl::ProcessEvent(const McpMessage &event)
         currPlaybackState_.SetState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
         currentReportState_ = NLSTK_MCP_STATE_UNINITIALIZED;
         UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
+        CheckRenderStateChanged();
         HILOGI("[McpServer]start init success.");
         return;
     }

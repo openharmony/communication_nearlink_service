@@ -16,4 +16,8 @@
 
 void CP_TimerSetExecCallbackAtOnce(bool atOnce);
 
+void CP_TimerSetExecCallbackPostponed(bool postponed);
+
+void CP_TimerPostponedTimeout(void);
+
 void CP_TimerSetAddFailed(bool failed);

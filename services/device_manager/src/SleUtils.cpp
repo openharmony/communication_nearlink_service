@@ -72,7 +72,8 @@ void SleUtils::ConvertHexStringToInt(const std::string &str, std::vector<uint8_t
 
 bool SleUtils::ConvertHexStringToInt(const std::string &str, uint8_t* value, int length)
 {
-    NL_CHECK_RETURN_RET(length >= 0 && str.size() / SIZE_STRING_TO_UINT8 == static_cast<uint32_t>(length) && value,
+    NL_CHECK_RETURN_RET(length >= 0 && str.size() % SIZE_STRING_TO_UINT8 == 0 &&
+        str.size() / SIZE_STRING_TO_UINT8 == static_cast<uint32_t>(length) && value,
         false, "ConvertHexStringToInt failed, invalid params.");
     uint8_t k = 0;
     int idx = 0;
@@ -91,7 +92,8 @@ bool SleUtils::ConvertHexStringToInt(const std::string &str, uint8_t* value, int
 bool SleUtils::ConvertHexCharToInt(const char *str, uint8_t* value, int valueLength)
 {
     NL_CHECK_RETURN_RET(
-        str && valueLength >= 0 && strlen(str) / SIZE_STRING_TO_UINT8 == static_cast<uint32_t>(valueLength) &&
+        str && valueLength >= 0 && strlen(str) % SIZE_STRING_TO_UINT8 == 0 &&
+        strlen(str) / SIZE_STRING_TO_UINT8 == static_cast<uint32_t>(valueLength) &&
         value, false, "ConvertHexStringToInt failed, invalid params.");
     uint8_t k = 0;
     int idx = 0;
@@ -105,26 +107,6 @@ bool SleUtils::ConvertHexCharToInt(const char *str, uint8_t* value, int valueLen
         idx++;
     }
     return true;
-}
-
-void SleUtils::Rand16hex(std::vector<uint8_t> &key)
-{
-    uint8_t result = 0;
-    uint8_t n3 = 0;
-
-    std::random_device rd;
-    std::default_random_engine re(rd());
-    std::uniform_int_distribution<int> random_value(0, (((unsigned int)(-1)) >> 1));
-
-    for (int i = 0; i < SLE_IRK_HEX_ELN; i++) {
-        if (n3 == 0) {
-            result = random_value(re);
-            n3 = SLE_IRK_RAND_HEX_LEN;
-        }
-        key.push_back(result & SLE_IRK_RAND_ELN);
-        result >>= SLE_IRK_RAND_LEFT_SHIFT;
-        --n3;
-    }
 }
 
 void SleUtils::GetRandomAddress(std::vector<uint8_t> &addr, bool isNonResPriAddr)

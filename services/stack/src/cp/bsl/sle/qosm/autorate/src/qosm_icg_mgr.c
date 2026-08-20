@@ -1063,7 +1063,7 @@ static QOSM_ICBStateFunc g_icbStateFunc[] = {
 static void QOSM_ICBConnectionCbk(CM_ICBConnection *connection)
 {
     QOSM_CHECK_RETURN(connection != NULL, "connection is NULL");
-    QOSM_LOGI("Set Label id call back ret = %d", connection->errorCode);
+    QOSM_LOGI("ret = %d, state = %d", connection->errorCode, connection->state);
     static uint8_t funcs = sizeof(g_icbStateFunc) / sizeof(QOSM_ICBStateFunc);
     for (uint8_t i = 0; i < funcs; i++) {
         if (connection->state == g_icbStateFunc[i].state) {
@@ -1254,9 +1254,11 @@ static void QOSM_ICBLabelReportCbk(CM_ICBLabelReportParam *param)
 static void QOSM_ICBRecommandEnter5GIfNeed(QOSM_ICGInfo *icgInfo, uint16_t connHandle)
 {
     if (QOSM_IsLastEnableFreqBandByRecommend()) {
+        QOSM_LOGE("last enable freqBand");
         return;
     }
     if (icgInfo == NULL || !icgInfo->is5G || icgInfo->icbType != CM_IOB) {
+        QOSM_LOGE("input icgInfo param is invalid");
         return;
     }
     if (icgInfo->recommendEnter5GTimes >= QOSM_MAX_RECOMMEND_ENTER_5G_TIMES) {
@@ -1284,6 +1286,7 @@ static void QOSM_ICBRecommandEnter5GIfNeed(QOSM_ICGInfo *icgInfo, uint16_t connH
     }
     uint32_t ret = DLI_GetExtFuncList()->enableFreqBandExt(&freqParam);
     if (ret != DLI_SUCCESS) {
+        QOSM_LOGE("enable freqBand failed");
         return;
     }
     icgInfo->recommendEnter5GTimes++;

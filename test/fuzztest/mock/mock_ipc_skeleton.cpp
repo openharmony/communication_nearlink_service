@@ -19,10 +19,25 @@
 
 namespace OHOS {
 constexpr int32_t MOCK_UID_RESOURCE_MANAGER = 7680;
+constexpr uint32_t MOCK_TOKEN_ID = 0;
+constexpr uint64_t MOCK_FULL_TOKEN_ID = 0;
+
 int32_t IPCSkeleton::GetCallingUid()
 {
     HILOGI("Enter");
     return MOCK_UID_RESOURCE_MANAGER;
+}
+
+uint32_t IPCSkeleton::GetCallingTokenID()
+{
+    HILOGI("Enter");
+    return MOCK_TOKEN_ID;
+}
+
+uint64_t IPCSkeleton::GetCallingFullTokenID()
+{
+    HILOGI("Enter");
+    return MOCK_FULL_TOKEN_ID;
 }
 
 }  // namespace OHOS

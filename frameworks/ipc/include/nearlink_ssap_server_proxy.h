@@ -42,6 +42,7 @@ public:
     NlErrCode RemoveService(int32_t appId, const NearlinkSsapServiceParcel &services) override;
     NlErrCode AuthorizeResponse(int appId, uint16_t requestId, bool allow) override;
 
+    DISALLOW_COPY_AND_MOVE(NearlinkSsapServerProxy);
 private:
     static inline BrokerDelegator<NearlinkSsapServerProxy> delegator_;
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);

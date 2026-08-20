@@ -29,6 +29,8 @@ public:
 
     NlErrCode SetSleCoexParam(uint16_t maxBitRate, uint8_t dutyCycle) override;
     NlErrCode UpdateConnectInterval(const std::string &device, int32_t intervalType) override;
+    NlErrCode SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
+        const std::vector<ConnectionInterval> &paramList) override;
 
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);

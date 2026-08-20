@@ -273,8 +273,11 @@ static bool GenSixCompareCode(SmSLink_S *slink, SmAuthUserCode_S *code)
     input.buffSize = size;
     if (!SmCmacGenerate(&input, output, SM_OCTETS_16)) {
         NLSTK_LOG_ERROR("[SM][NUMCMP] Generate six compare code error.");
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        (void)memset_s(output, SM_OCTETS_16, 0, SM_OCTETS_16);
         return false;
     }
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     /* 将 uint8_t 数组转换为十进制 */
     uint32_t result = 0;
     uint32_t base = 1;
@@ -289,6 +292,7 @@ static bool GenSixCompareCode(SmSLink_S *slink, SmAuthUserCode_S *code)
         result = (result + (digit1 * base) % LOW_SIX_DIGIT) % LOW_SIX_DIGIT;
         base = (base * SM_OCTETS_16) % LOW_SIX_DIGIT;
     }
+    (void)memset_s(output, SM_OCTETS_16, 0, SM_OCTETS_16);
     // 获取低六位数字
     if (snprintf_s(code->code, SM_OCTETS_7, SM_OCTETS_6, "%06lu", result) < 0) {
         NLSTK_LOG_ERROR("[SM][NUMCMP] snprintf_s error.");

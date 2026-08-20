@@ -17,6 +17,7 @@
 #define SLE_ADAPTER_WRAPPER_H
 
 #include "IServiceManagerPlugin.h"
+#include "nearlink_sle_datatransfer_service.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -43,6 +44,7 @@ public:
     int HidSendData(const HidReportInfo &reportInfo) const override;
     int GetDeviceAppearance(const RawAddress &device) const override;
     bool DisconnectAllProfile(const RawAddress &device) override;
+    bool IsProxyConnectExisted(std::string &devAddress) override;
 };
 } // namespace Nearlink
 } // namespace OHOS

@@ -86,7 +86,7 @@ do { \
         *(p)++ = (int8_t)(u8); \
 } while (0)
 #define ARRAY_TO_STREAM(p, a, len) do { \
-        int ijk;                                                      \
+        uint32_t ijk; \
         for (ijk = 0; ijk < (len); ijk++) { \
             *(p)++ = (uint8_t)(a)[ijk]; \
         } \
@@ -125,14 +125,6 @@ do { \
                 ((((uint32_t)(*((p) + 2)))) << 16) +                      \
                 ((((uint32_t)(*((p) + 3)))) << 24));                      \
         (p) += 4;                                                         \
-} while (0)
-
-
-#define CONST_UNUSED(x) do { \
-    ((x)=(x)); \
-} while (0)
-#define unused(var) do { \
-    (void)(var); \
 } while (0)
 
 #define NEW     btos_new

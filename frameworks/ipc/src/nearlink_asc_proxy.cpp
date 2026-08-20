@@ -23,6 +23,7 @@ namespace Nearlink {
 NlErrCode NearlinkASCProxy::RegisterApplication(const sptr<INearlinkASCCallback> &callback)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");
@@ -42,6 +43,7 @@ NlErrCode NearlinkASCProxy::RegisterApplication(const sptr<INearlinkASCCallback>
 NlErrCode NearlinkASCProxy::DeregisterApplication(const sptr<INearlinkASCCallback> &callback)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");

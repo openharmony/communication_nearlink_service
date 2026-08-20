@@ -366,4 +366,16 @@ NEARLINK_DSP_OFFLOAD_STATS:
   CHANNEL_CONT_TIME_24G: {type: STRING, desc: 2G band using time}
   CHANNEL_CONT_TIME_58G: {type: STRING, desc: 5G2 band using time}
   CHANNEL_FREQ_BAND_CHANGE_TIMES: {type: UINT32, desc: Band change count}
+
+NEARLINK_STACK_HADM_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack hadm excep event}
+  DEVICE_ADDR: {type: STRING, desc: nearlink peer device addr}
+  READ_LOCAL_CS_TIME: {type: STRING, desc: timestamp that begin to read local channel sounding config}
+  READ_LOCAL_CS_END_TIME: {type: STRING, desc: timestamp that succeed to read local channel sounding config}
+  READ_REMOTE_CS_TIME: {type: STRING, desc: timestamp that begin to read remote cs}
+  READ_REMOTE_CS_END_TIME: {type: STRING, desc: timestamp that succeed to read remote cs}
+  ENABLE_TIME: {type: STRING, desc: timestamp that begin to enable HADM}
+  ENABLE_END_TIME: {type: STRING, desc: timestamp that succeed to enable HADM}
+  ERR_CODE: {type: UINT16, desc: specific}
+  HADM_RES: {type: UINT16, desc: hadm result}
 # nearLink dft event end

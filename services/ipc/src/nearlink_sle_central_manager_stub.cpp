@@ -66,19 +66,14 @@ int32_t NearlinkSleCentralManagerStub::RegisterSleCentralManagerCallbackInner(Ne
     MessageParcel &data, MessageParcel &reply)
 {
     sptr<IRemoteObject> remote = data.ReadRemoteObject();
+    NL_CHECK_RETURN_RET(remote != nullptr, TRANSACTION_ERR, "remote is nullptr");
     const sptr<INearlinkSleCentralManagerCallback> callBack =
         OHOS::iface_cast<INearlinkSleCentralManagerCallback>(remote);
     bool enableRandomAddrMode = data.ReadBool();
     uint32_t scannerId = 0;
     NlErrCode status = stub->RegisterSleCentralManagerCallback(scannerId, enableRandomAddrMode, callBack);
-    if (!reply.WriteInt32(status)) {
-        HILOGE("reply writing status failed");
-        return TRANSACTION_ERR;
-    }
-    if (!reply.WriteUint32(scannerId)) {
-        HILOGE("reply writing failed");
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "reply writing status failed");
+    NL_CHECK_RETURN_RET(reply.WriteUint32(scannerId), TRANSACTION_ERR, "reply writing failed");
     return NO_ERROR;
 }
 
@@ -90,10 +85,7 @@ int32_t NearlinkSleCentralManagerStub::DeregisterSleCentralManagerCallbackInner(
     const sptr<INearlinkSleCentralManagerCallback> callBack =
         OHOS::iface_cast<INearlinkSleCentralManagerCallback>(remote);
     NlErrCode status = stub->DeregisterSleCentralManagerCallback(scannerId, callBack);
-    if (!reply.WriteInt32(status)) {
-        HILOGE("reply writing status failed");
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "reply writing status failed");
     return NO_ERROR;
 }
 
@@ -102,15 +94,9 @@ int32_t NearlinkSleCentralManagerStub::StartFullScanInner(NearlinkSleCentralMana
 {
     uint32_t scannerId = data.ReadUint32();
     std::shared_ptr<NearlinkSleScanSettings> settings(data.ReadParcelable<NearlinkSleScanSettings>());
-    if (settings == nullptr) {
-        HILOGW("[StartFullScanInner] fail: read settings failed");
-        return ERR_INVALID_VALUE;
-    }
+    NL_CHECK_RETURN_RET(settings != nullptr, ERR_INVALID_VALUE, "[StartFullScanInner] fail: read settings failed");
     NlErrCode status = stub->StartFullScan(scannerId, *settings);
-    if (!reply.WriteInt32(status)) {
-        HILOGE("reply writing status failed");
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "reply writing status failed");
     return NO_ERROR;
 }
 
@@ -119,29 +105,19 @@ int32_t NearlinkSleCentralManagerStub::StartScanWithFilterInner(NearlinkSleCentr
 {
     uint32_t scannerId = data.ReadUint32();
     std::shared_ptr<NearlinkSleScanSettings> settings(data.ReadParcelable<NearlinkSleScanSettings>());
-    if (settings == nullptr) {
-        HILOGW("[StartScanWithFilterInner] fail: read settings failed");
-        return ERR_INVALID_VALUE;
-    }
+    NL_CHECK_RETURN_RET(settings != nullptr, ERR_INVALID_VALUE,
+        "[StartScanWithFilterInner] fail: read settings failed");
     std::vector<NearlinkSleScanFilter> filters;
     uint32_t filterSize = data.ReadUint32();
-    if (filterSize > FILTER_PARCEL_MAX_SIZE) {
-        HILOGE("Parcel size is too big");
-        return ERR_INVALID_VALUE;
-    }
+    NL_CHECK_RETURN_RET(filterSize <= FILTER_PARCEL_MAX_SIZE, ERR_INVALID_VALUE, "Parcel size is too big");
     for (uint32_t i = 0; i < filterSize; i++) {
         std::shared_ptr<NearlinkSleScanFilter> filter(data.ReadParcelable<NearlinkSleScanFilter>());
-        if (filter == nullptr) {
-            HILOGW("[StartScanWithFilterInner] fail: read filter failed");
-            return ERR_INVALID_VALUE;
-        }
+        NL_CHECK_RETURN_RET(filter != nullptr, ERR_INVALID_VALUE,
+            "[StartScanWithFilterInner] fail: read filter failed");
         filters.push_back(*filter);
     }
     NlErrCode status = stub->StartScanWithFilter(scannerId, *settings, filters);
-    if (!reply.WriteInt32(status)) {
-        HILOGE("reply writing status failed");
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "reply writing status failed");
     return NO_ERROR;
 }
 
@@ -150,10 +126,7 @@ int32_t NearlinkSleCentralManagerStub::StopScanInner(NearlinkSleCentralManagerSt
 {
     uint32_t scannerId = data.ReadUint32();
     NlErrCode status = stub->StopScan(scannerId);
-    if (!reply.WriteInt32(status)) {
-        HILOGE("reply writing status failed");
-        return TRANSACTION_ERR;
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "reply writing status failed");
     return NO_ERROR;
 }
 }  // namespace Nearlink

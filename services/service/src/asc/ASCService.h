@@ -48,7 +48,6 @@
 #include "audio_combine_denoising_manager.h"
 #include "cm_def.h"
 #include "SleInterfaceProfileMic.h"
-#include "TwsService.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -135,12 +134,12 @@ public:
     void ProcessEvent(const ASCMessage &event);
     void PostEvent(const ASCMessage &event);
     void UpdateDeviceNature(const RawAddress &device);
-    bool GetLocalDualRecordAbility();
-    bool GetLocalKaraokeAbility();
+    bool GetLocalDualRecordAbility() override;
+    bool GetLocalKaraokeAbility() override;
     bool GetKaraokeAbility(const RawAddress &device) override;
     bool IsEqualCodec(const AscCodecIdKey &codecA, const AscCodecIdKey &codecB);
     void ProcessCodecFCVersion(AscCodecIdKey &codec);
-    bool GetLocalVocieCallFrameFourAbility();
+    bool GetLocalVocieCallFrameFourAbility() override;
     bool GetLongRangeVoiceCallAbility(const RawAddress &device);
     uint8_t SelectCodecSampleRatePolicyInDualRec(AscCodecIdKey codec, uint16_t peerSampleRate);
     uint8_t SelectCodecBitDepthPolicyInDualRec(AscCodecIdKey codec, uint8_t inDepth);
@@ -399,6 +398,7 @@ private:
     void OpenVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void CloseVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void StopPlayingExcute(const RawAddress& device, AudioStreamType streamType);
+    void StopPlayingExcuteExt(const RawAddress& device, AudioStreamType streamType);
     void JudgeQosWhenStopPlaying(const RawAddress& device, AudioStreamType streamType, bool& isDelayStop,
         bool& isStopStream, bool& isNeedReconfig);
 
@@ -678,8 +678,7 @@ private:
     void SerialManagerSubrate(bool &needConfigStream, const RawAddress &device, uint16_t subrate);
     bool IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam);
     bool IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t subrate);
-    void ProcessCachedSubrate();
-    void SetSubrateCachedInfo(const RawAddress &device, const SleAcbSubrateParam &eventParam);
+    void RejectSetSubrate(const RawAddress &device);
     void UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo);
     std::string ASCToDSPInfoToString(const ASCToDSPInfo& ascToDspInfo);
     uint16_t GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps);
@@ -708,9 +707,6 @@ private:
         RawAddress      dev;              // dev
         bool            isCachedProc;     // 是否切换subrate(目前只限定2)
     } SubrateCached;
-
-    // 切subrate 2缓存
-    SubrateCached subrateCachedInfo_ {};
 
     // 已连接设备
     NearlinkSafeMap<std::string, ASCConnectedDev> connectedDev_;

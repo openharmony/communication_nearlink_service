@@ -30,6 +30,7 @@ public:
 
     NlErrCode HidHostSetReport(std::string device, uint8_t type, std::string &report, int& result) override;
 
+    DISALLOW_COPY_AND_MOVE(NearlinkHidHostProxy);
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);
     static inline BrokerDelegator<NearlinkHidHostProxy> delegator_;

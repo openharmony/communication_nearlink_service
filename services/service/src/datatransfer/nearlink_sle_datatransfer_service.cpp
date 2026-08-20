@@ -16,6 +16,7 @@
 #include "nearlink_sle_datatransfer_service.h"
 #include "SleInterfaceAdapterSub.h"
 #include "SleInterfaceManager.h"
+#include "SleControllerService.h"
 #include "IcceService.h"
 #include "PortService.h"
 #include "nearlink_safe_map.h"
@@ -729,6 +730,33 @@ void SleDataTransferService::GetRemotePortByConnectionState(const std::string &a
     }
 }
 
+bool SleDataTransferService::IsProxyConnectExisted(std::string &devAddress)
+{
+    bool res = false;
+    std::promise<std::pair<bool, std::string>> promise;
+    std::future<std::pair<bool, std::string>> future = promise.get_future();
+    DoInDataTransferThread([this, &promise]() {
+        std::string tempAddress;
+        auto stopNlProxy = [&tempAddress](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> bool {
+            VerificationContext ctx = { .uuid = value->GetUuid() };
+            bool result = NearlinkVerificationManager::GetInstance().CheckVerification(
+                VerificationType::DATATRANSFER_PROXY, ctx);
+            bool isAppConnected = value->IsAppConnect(tempAddress);
+            if (result && isAppConnected) {
+                return true;
+            }
+            return false;
+        };
+        bool isProxyConnect = pimpl->appConnectParamMap_.Find(stopNlProxy);
+        promise.set_value(std::make_pair(isProxyConnect, tempAddress));
+    });
+
+    auto result = future.get();
+    res = result.first;
+    devAddress = result.second;
+    return res;
+}
+
 void SleDataTransferService::StopNlProxyIfExisted()
 {
     DoInDataTransferThread([this]() {
@@ -736,7 +764,10 @@ void SleDataTransferService::StopNlProxyIfExisted()
             VerificationContext ctx = { .uuid = value->GetUuid() };
             bool result = NearlinkVerificationManager::GetInstance().CheckVerification(
                 VerificationType::DATATRANSFER_PROXY, ctx);
-            if (result && value->StopAppConnect()) {
+            std::string address;
+            bool isConnected = value->IsAppConnect(address);
+            if (result && isConnected) {
+                SleControllerService::GetInstance().UpdateConnectInterval(address, LOW_SPEED_INTERVAL_500);
                 return true;
             }
             return false;
@@ -860,6 +891,7 @@ void SleDataTransferService::ConnectPeerPortInner(const DataTransferConnectionPa
         temp.state_ == static_cast<int32_t>(SleConnectState::CONNECTING))) { // 已执行过 connectAction
         HILOGI("portId: %{public}d, addr: %{public}s, connectParam state: %{public}d",
             params.GetPort(), GET_ENCRYPT_ADDR(device), temp.state_);
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(temp, INVALID_FD);
     } else { // 若ACB和PORT PROFILE已连接 直接创建PORT CHANNEL
         GetRemotePortCreateChannel(params);
@@ -1169,6 +1201,7 @@ int SleDataTransferService::ReceiveDataCallback(const TRANS_Addr_S *addr, uint8_
 void SleDataTransferService::SendDataStateCallback(const SLE_Addr_S *devAddr, uint8_t tcid, uint16_t portId,
     uint8_t result)
 {
+    NL_CHECK_RETURN(devAddr != nullptr, "SendDataStateCallback devAddr is null");
     RawAddress rawAddress(RawAddress::ConvertToString(devAddr->addr));
     std::string address = rawAddress.GetAddress();
 
@@ -1262,6 +1295,7 @@ void SleDataTransferService::HandleConnectEvent(int32_t stat, uint16_t srcPort, 
     bool res = pimpl->appConnectParamMap_.GetValue(srcPort, cache);
     NL_CHECK_RETURN(res, "can not find app tokenId");
     uint64_t tokenId = cache->GetTokenId();
+    NL_CHECK_RETURN(pimpl->callback_ != nullptr, "callback_ is nullptr");
     temp.randomAddress = pimpl->callback_->GetRandomAddr(temp.address, cache->GetTokenId());
 
     DoInDataTransferThread([this, connectionParams, temp, fd, cache]() {
@@ -1273,6 +1307,7 @@ void SleDataTransferService::HandleConnectEvent(int32_t stat, uint16_t srcPort, 
         if (temp.state == static_cast<int32_t>(SleConnectState::DISCONNECTED)) {
             NotifyDisconnect(connectionParams.address_);
         }
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(connectionParams, fd);
     });
     DftReportDtfrStatisInfo(stat, temp.address, uuid);
@@ -1323,55 +1358,6 @@ int SleDataTransferService::DeregisterCallback()
     QOSM_TransChannelCbksUnregister();
     return NLSTK_ERRCODE_SUCCESS;
 }
-
-#ifdef WATCH_STANDARD
-bool SleDataTransferService::UpdateConnectInterval(std::string device, int32_t intervalType)
-{
-    NL_CHECK_RETURN_RET(!device.empty(), false, "device is empty");
-    CM_ConnectUpdateParamReq_S updateParam;
-    const DataTransferIntervalMap INTERVAL_MAP_TABLE[] = {
-        { HIGH_SPEED_INTERVAL, 0x24 },
-        { MID_SPEED_INTERVAL, 0x64 },
-        { LOW_SPEED_INTERVAL, 0x320 },
-    };
-    bool found = false;
-    uint16_t intervalValue = 0x24;
-    for (const auto &chipMap : INTERVAL_MAP_TABLE) {
-        if (intervalType == chipMap.intervalType) {
-            intervalValue = chipMap.intervalValue;
-            HILOGI("Connect Interval:%{public}d, value:0x%{public}x", intervalType, chipMap.intervalValue);
-            found = true;
-            break;
-        }
-    }
-
-    NL_CHECK_RETURN_RET(found, false, "intervalType not found");
-
-    RawAddress addr(device);
-    uint8_t peerAddrType = SleRemoteDeviceAdapter::GetInstance()->GetPeerDeviceAddrType(addr);
-    (void)memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
-    updateParam.addr = {peerAddrType, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-    addr.ConvertToUint8(updateParam.addr.addr, SLE_ADDR_LEN);
-    updateParam.intervalMin = intervalValue;
-    updateParam.intervalMax = intervalValue;
-    updateParam.version = 0;
-    updateParam.localIndex = 0;
-    updateParam.txRxInterval = DATATRANSFER_SLE_CONN_EVENT_IFS;
-    updateParam.eventInterval = DATATRANSFER_SLE_CONN_EVENT_IFS;
-    updateParam.maxLatency = 0;
-    updateParam.supervisionTimeout = DATATRANSFER_SLE_CONN_SUPERVISION_TIMEOUT;
-    updateParam.systemTimeUnit = DATATRANSFER_QOSM_SLE_CONN_TIME_UNIT;
-    updateParam.txRxFlag = 0;
-    uint32_t ret = CM_ConnectUpdateParamReq(&updateParam);
-    if (ret != 0) {
-        HILOGE("read remote channel sounding failed, ret=0x%{public}x", ret);
-        return false;
-    }
-    HILOGI("address: %{public}s, intervalMin: 0x%{public}x, intervalMax: 0x%{public}x",
-        GetEncryptAddr(device).c_str(), updateParam.intervalMin, updateParam.intervalMax);
-    return true;
-}
-#endif
 
 #ifdef RES_SCHED_SUPPORT
 void SleDataTransferService::CheckRssAppState(uint64_t tokenId, uint32_t uid)

@@ -29,12 +29,12 @@ struct SleAdvertiserAdapter::impl {
     impl &operator=(const impl &);
     ~impl();
 
-    std::unique_ptr<SleAdvertiserImpl> sleAdvertiser_ = nullptr;
+    std::shared_ptr<SleAdvertiserImpl> sleAdvertiser_ = nullptr;
 };
 
 SleAdvertiserAdapter::impl::impl()
 {
-    sleAdvertiser_ = std::make_unique<SleAdvertiserImpl>();
+    sleAdvertiser_ = std::make_shared<SleAdvertiserImpl>();
 }
 
 SleAdvertiserAdapter::impl::~impl()
@@ -204,6 +204,11 @@ void SleAdvertiserAdapter::DisableAdvertising(int32_t advHandle) const
             pimpl->sleAdvertiser_->DisableAdvertising(advHandle);
         }
     });
+}
+
+std::weak_ptr<SleAdvertiserImpl> SleAdvertiserAdapter::GetAdvertiserImplWeakPtr()
+{
+    return pimpl->sleAdvertiser_;
 }
 }  // namespace Nearlink
 }  // namespace OHOS

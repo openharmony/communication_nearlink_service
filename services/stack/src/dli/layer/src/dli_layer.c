@@ -133,8 +133,7 @@ static int DLI_CmdListSendInner(DLI_CmdStru *info)
     *p = DLI_DATATYPE_CMD;
     DLI_ENCODE2BYTE(p + 1, info->cmd);
     DLI_ENCODE2BYTE(p + 1 + DLI_PAYLOAD_BITS_LEN, info->parLen);
-    int result = DLI_SapiSend(p, info->parLen + DLI_HEADER);
-    return result;
+    return DLI_SapiSend(p, info->parLen + DLI_HEADER, info->needErase);
 }
 
 static void DLI_CmdTimerCallback(void *arg)
@@ -321,7 +320,7 @@ static int DLI_TrySend(const uint8_t *data, uint32_t len)
 {
     int i;
     for (i = 0; i < DLI_TRY_SEND_CNT; i++) {
-        if (DLI_SapiSend(data, len) == 0) {
+        if (DLI_SapiSend(data, len, false) == 0) {
             return 0;
         }
         SDF_ThreadSleep(DLI_TRY_SEND_SLEEP_TIME);

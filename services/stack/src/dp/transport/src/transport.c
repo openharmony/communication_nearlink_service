@@ -46,7 +46,7 @@
 typedef struct TRANS_Data {
     TRANS_Addr_S addr;
     SDF_Buff_S *buff;
-    TRANS_Result_t result;
+    TRANS_Result_E result;
     atomic_int refCount;
 } TRANS_Data_S;
 

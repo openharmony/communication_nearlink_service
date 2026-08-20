@@ -36,6 +36,7 @@ constexpr uint8_t PASS_CODE_LEN = 6;
 sptr<NearlinkHostProxy> GetHostProxy()
 {
     sptr<ISystemAbilityManager> samgr = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    NL_CHECK_RETURN_RET(samgr, nullptr, "GetSystemAbilityManager fail");
     sptr<IRemoteObject> remote = samgr->GetSystemAbility(NEARLINK_HOST_SYS_ABILITY_ID);
 
     sptr<NearlinkHostProxy> hostProxy = new (std::nothrow) NearlinkHostProxy(remote);

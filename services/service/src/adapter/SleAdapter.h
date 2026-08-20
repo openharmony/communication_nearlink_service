@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ enum class SleAdvState : int {
 typedef struct {
     void *data;
     uint32_t dataLen;
-} nbc_callback_param_t;
+} NbcCallbackParam;
 
 struct __attribute__((packed)) DisconChipInfo {
     uint16_t connHandle;
@@ -246,6 +246,8 @@ public:
     bool GetConnFrameType(const std::string &addr, uint8_t &frameType) const override;
     bool HasConnectedDevice() override;
     bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const override;
+    bool GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+        uint16_t &interval) const override;
     void SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType) override;
 private:
     int RegisterCallbackToCm();
@@ -310,6 +312,7 @@ private:
     void AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param);
     static void ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S *param);
     void ReadAcceptFilterListSizeCallbackTask(const CM_ReadAcceptFilterListSize_S &param);
+    static void HidCoexModeCallback(CM_HidCoexModeRsp_S *param);
     void PowerLevelChangedTask(const PowerLevelInfo &info);
     void RssiChangedCallbackTask(const DisconChipInfo &info);
     // ncb callback
@@ -354,6 +357,7 @@ private:
     void ProcCreateCdsmGroup(const RawAddress &reportAddr, const RawAddress &realAddr, bool eraseDeviceIfNeed) const;
     bool ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAddress &collabAddr,
         bool eraseDeviceIfNeed) const;
+    void ProcEarphoneLost(const RawAddress &existDev, const RawAddress &lostDev) const;
     bool ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReportAddr, const RawAddress &oldReportAddr,
         bool eraseDeviceIfNeed) const;
     void ProcCreateCdsmGroupAndEraseDevice(const RawAddress &reportAddr, const RawAddress &otherAddr) const;

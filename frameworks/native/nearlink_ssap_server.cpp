@@ -77,11 +77,17 @@ struct RequestInformation {
 
     bool operator<(const RequestInformation &rhs) const
     {
-        return (device < rhs.device && type == rhs.type);
+        if (device < rhs.device) {
+            return true;
+        }
+        if (rhs.device < device) {
+            return false;
+        }
+        return type < rhs.type;
     };
 };
 
-struct SsapServer::impl {
+struct SsapServer::impl : public std::enable_shared_from_this<impl> {
     class NearlinkSsapServerCallbackStubImpl;
     bool isRegisterSucceeded_;
     std::mutex requestListMutex_;
@@ -132,9 +138,8 @@ public:
         HILOGD("ssapServer conn state updated, remote device: %{public}s, state: %{public}s reason: 0x%{public}x",
             GET_ENCRYPT_SSAP_ADDR(device), GetConnStateString(state).c_str(), reason);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         std::shared_ptr<SsapDevice> dev = std::make_shared<SsapDevice>(device.addr_, device.transport_);
         if (state == static_cast<int>(SleConnectState::CONNECTED)) {
             serverSptr->pimpl->connectedDevices.Insert(dev);
@@ -150,8 +155,8 @@ public:
     {
         HILOGI("enter, ret: %{public}d", ret);
         auto serverSptr = GetServerSptr();
-        NL_CHECK_RETURN(serverSptr, "serverSptr nullptr.");
-        NL_CHECK_RETURN(serverSptr->pimpl && serverSptr->pimpl->callback_, "callback_ is nullptr.");
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
 
         std::shared_ptr<SsapService> ssapSvc = serverSptr->pimpl->BuildService(service);
         NL_CHECK_RETURN(ssapSvc, "ssapSvc is nullptr.");
@@ -165,9 +170,8 @@ public:
         HILOGI("device: %{public}s, handle: 0x%{public}04X, ret: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), property.handle_, ret, property.uuid_.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         SsapProperty proper(property.handle_, UUID::ConvertFrom128Bits(property.uuid_.ConvertTo128Bits()),
                 property.opInd_, property.permission_);
         bool isFindService = serverSptr->pimpl->ssapServices.Find([&proper](const uint16_t handle,
@@ -195,9 +199,8 @@ public:
             GET_ENCRYPT_SSAP_ADDR(device), property.handle_, ret, property.value_.size(),
             property.uuid_.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         SsapProperty reportProperty(property.handle_, UUID::ConvertFrom128Bits(property.uuid_.ConvertTo128Bits()),
             property.opInd_, property.permission_);
         reportProperty.SetValue(property.value_.data(), property.value_.size());
@@ -225,9 +228,8 @@ public:
         HILOGI("remote device: %{public}s, handle: 0x%{public}04X, ret: %{public}d",
             GET_ENCRYPT_SSAP_ADDR(device), descriptor.handle_, ret);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnDescriptorReadRequest(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             SsapDescriptor(descriptor.handle_, descriptor.type_, descriptor.permission_), ret);
@@ -239,9 +241,8 @@ public:
         HILOGI("remote device: %{public}s, handle: 0x%{public}04X, ret: %{public}d",
             GET_ENCRYPT_SSAP_ADDR(device), descriptor.handle_, ret);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnDescriptorWriteRequest(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             SsapDescriptor(descriptor.handle_, descriptor.type_, descriptor.permission_), ret);
@@ -251,10 +252,8 @@ public:
     {
         HILOGI("remote device: %{public}s, mtu: %{public}d", GET_ENCRYPT_SSAP_ADDR(device), mtu);
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnMtuUpdate(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_), mtu);
         return;
@@ -266,10 +265,8 @@ public:
         HILOGI("device: %{public}s, result: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), result, uuid.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnNotifyPropertyChanged(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             UUID::ConvertFrom128Bits(uuid.ConvertTo128Bits()), handle, result);
@@ -283,10 +280,8 @@ public:
         HILOGI("device: %{public}s, result: %{public}d, uuid: %{public}s",
             GET_ENCRYPT_SSAP_ADDR(device), result, uuid.GetEncryptUuid().c_str());
         auto serverSptr = GetServerSptr();
-        if (!serverSptr) {
-            return;
-        }
-
+        NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
+            "serverSptr pimpl or callback_ is nullptr");
         serverSptr->pimpl->callback_->OnNotifyEventChanged(
             NearlinkRemoteDevice(device.addr_.GetAddress(), device.transport_),
             UUID::ConvertFrom128Bits(uuid.ConvertTo128Bits()), handle, result);
@@ -372,7 +367,7 @@ SsapServer::impl::~impl()
 SsapServer::SsapServer(std::shared_ptr<SsapServerCallback> callback)
 {
     HILOGI("create SsapServer start.");
-    pimpl = std::make_unique<SsapServer::impl>(callback);
+    pimpl = std::make_shared<SsapServer::impl>(callback);
     if (!pimpl) {
         HILOGE("create SsapServer failed.");
     }
@@ -390,15 +385,18 @@ void SsapServer::impl::Init(std::weak_ptr<SsapServer> server)
 
     serviceCallback_ = new (std::nothrow) NearlinkSsapServerCallbackStubImpl(server);
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(PROFILE_SSAP_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSsapServer> proxy = iface_cast<INearlinkSsapServer>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
         int32_t appId = 0;
-        NL_CHECK_RETURN(serviceCallback_, "serviceCallback_ is nullptr.");
-        NlErrCode status = proxy->RegisterApplication(serviceCallback_, appId);
+        NL_CHECK_RETURN(implSptr->serviceCallback_, "serviceCallback_ is nullptr.");
+        NlErrCode status = proxy->RegisterApplication(implSptr->serviceCallback_, appId);
         if (status == NL_NO_ERROR && appId >= 0) {
-            applicationId_ = appId;
-            isRegisterSucceeded_ = true;
+            implSptr->applicationId_ = appId;
+            implSptr->isRegisterSucceeded_ = true;
         } else {
             HILOGE("Can not Register to ssap server service! result = %{public}d", status);
         }
@@ -456,6 +454,10 @@ NlErrCode SsapServer::AddService(SsapService &service)
     for (auto &proper : service.GetProperty()) {
         size_t length = 0;
         uint8_t *value = proper.GetValue(&length).get();
+        if (value == nullptr || length == 0) {
+            HILOGW("property handle=%{public}d value is empty, skip.", proper.GetHandle());
+            continue;
+        }
         std::vector<uint8_t> vecValue(value, value + length);
         Property p(proper.GetHandle(),
             Uuid::ConvertFrom128Bits(proper.GetUuid().ConvertTo128Bits()),
@@ -465,6 +467,10 @@ NlErrCode SsapServer::AddService(SsapService &service)
 
         for (auto &desc : proper.GetDescriptors()) {
             value = desc.GetValue(&length).get();
+            if (value == nullptr || length == 0) {
+                HILOGW("descriptor handle=%{public}d value is empty, skip.", desc.GetHandle());
+                continue;
+            }
             std::vector<uint8_t> temp(value, value + length);
             vecValue = std::move(temp);
             Descriptor d(desc.GetHandle(),
@@ -610,6 +616,7 @@ NlErrCode SsapServer::NotifyPropertyChanged(
 
     size_t length = 0;
     auto &propertyValue = property.GetValue(&length);
+    NL_CHECK_RETURN_RET(propertyValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "propertyValue is nullptr.");
     std::vector<uint8_t> vecValue(propertyValue.get(), propertyValue.get() + length);
 
     NearlinkSsapPropertyParcel proper(Property(handle, vecValue));
@@ -651,6 +658,7 @@ NlErrCode SsapServer::SetPropertyValue(SsapProperty &property)
 
     size_t length = 0;
     auto &propertyValue = property.GetValue(&length);
+    NL_CHECK_RETURN_RET(propertyValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "propertyValue is nullptr.");
     std::vector<uint8_t> vecValue(propertyValue.get(), propertyValue.get() + length);
     NearlinkSsapPropertyParcel proper(Property(property.GetHandle(), vecValue));
 
@@ -668,6 +676,7 @@ NlErrCode SsapServer::SetDescriptorValue(SsapDescriptor &descriptor)
 
     size_t length = 0;
     auto &descriptorValue = descriptor.GetValue(&length);
+    NL_CHECK_RETURN_RET(descriptorValue.get() != nullptr, NL_ERR_INTERNAL_ERROR, "descriptorValue is nullptr.");
     std::vector<uint8_t> vecValue(descriptorValue.get(), descriptorValue.get() + length);
     NearlinkSsapDescriptorParcel descript(
         Descriptor(descriptor.GetHandle(), descriptor.GetDescriptorType(), std::move(vecValue)));

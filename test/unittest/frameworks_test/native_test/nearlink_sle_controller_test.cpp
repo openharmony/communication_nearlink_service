@@ -82,6 +82,33 @@ HWTEST_F(NearlinkSleControllerTest, UpdateConnectInterval001, TestSize.Level1)
     HILOGI("NearlinkSleControllerTest:UpdateConnectInterval001 end");
 }
 
+/**
+ * @tc.name: SetSleCoexMode001
+ * @tc.desc: 测试正常和异常参数下的 SetSleCoexMode001 函数
+ * @tc.type: 功能测试
+ */
+HWTEST_F(NearlinkSleControllerTest, SetSleCoexMode001, TestSize.Level1)
+{
+    HILOGI("NearlinkSleControllerTest:SetSleCoexMode001 start");
+    char addr[] = "00:00:00:00:00:00";
+    std::string deviceId(addr);
+    ConnectionInterval intervalType = HIGH_SPEED_INTERVAL_4_5;
+ 
+    std::vector<std::string> addrList = {};
+    std::vector<ConnectionInterval> paramList = {};
+    addrList.emplace_back(deviceId);
+    NlErrCode status = NearlinkSleController::GetInstance().SetSleCoexMode(
+        SLE_HID_COEX_MODE_ENABLE, addrList, paramList);
+    ASSERT_TRUE(status == NL_ERR_INVALID_PARAM); // 校验共存模式地址和参数数量不一致异常场景
+ 
+    paramList.emplace_back(intervalType);
+    status = NearlinkSleController::GetInstance().SetSleCoexMode(
+        SLE_HID_COEX_MODE_ENABLE, addrList, paramList);
+    ASSERT_TRUE(status == NL_ERR_INTERNAL_ERROR);  // 校验 calling name 拦截
+ 
+    HILOGI("NearlinkSleControllerTest:SetSleCoexMode001 end");
+}
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

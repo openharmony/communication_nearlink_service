@@ -26,9 +26,6 @@ class ClassFactory {
 public:
     static void RegisterClass(const std::string &name, ClassCreateFun func);
     static void *NewInstance(const std::string &name);
-
-private:
-    static std::map<std::string, ClassCreateFun> registerInstance;
 };
 
 class ClassRegister {

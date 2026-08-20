@@ -64,6 +64,7 @@
 #include "SleRemoteDeviceManager.h"
 #include "SleCoexistManager.h"
 #include "SleCoexistData.h"
+#include "SleControllerService.h"
 #ifdef NEARLINK_KIA_ENABLE
 #include "SleKiaManager.h"
 #endif
@@ -167,10 +168,10 @@ void PublishDeviceConnectionState(uint32_t acbCount, int connState)
     if (SleServiceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE) != STATE_TURN_ON) {
         return; // 仅星闪开启状态时上报
     }
-    if (acbCount == 0 && connState == CM_STATE_DISCONNECTED) {
+    if (acbCount == 0 && connState == CM_LINK_STATE_DISCONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::DISCONNECTED));
-    } else if (acbCount == 1 && connState == CM_STATE_CONNECTED) {
+    } else if (acbCount == 1 && connState == CM_LINK_STATE_CONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::CONNECTED));
     }
@@ -436,11 +437,9 @@ bool SleAdapter::DisableTask()
         GetContext()->OnDisable(ADAPTER_NAME_SLE, pimpl->btmEnableFlag_);
         return false;
     }
-    InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
 
     adapterProperties_->SavePeerDeviceInfoToConf();
     adapterProperties_->ClearPeerDeviceGroupId();
-    ClearPeerDeviceInfo();
     int ret = SleProperties::GetInstance().SetBondableMode(static_cast<int>(BondableMode::BONDABLE_MODE_OFF));
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         LOG_ERROR("[SleAdapter]:SetBondableMode failed!");
@@ -460,6 +459,9 @@ bool SleAdapter::DisableTask()
     }
     SleDliSnoop::GetInstance().SnoopShutDown();
     GetContext()->OnDisable(ADAPTER_NAME_SLE, ret);
+
+    ClearPeerDeviceInfo();
+    InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
     return ret;
 }
 
@@ -651,7 +653,7 @@ void SleAdapter::SetSleConnectable()
     settingsImpl.SetInterval(static_cast<int>(AdvInterval::ADV_SLE_CONNECTABLE_ADV_INTERBAL));
     std::array<uint8_t, Nearlink::RawAddress::SLE_ADDRESS_BYTE_LEN> addr;
     SLE_Addr_S gleAddr = GetLocalSleAddress();
-    std::copy(std::begin(gleAddr.addr), std::end(gleAddr.addr), std::begin(gleAddr.addr));
+    std::copy(std::begin(gleAddr.addr), std::end(gleAddr.addr), std::begin(addr));
     settingsImpl.SetOwnAddr(addr);
     settingsImpl.SetOwnAddrType(static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
     SleAdvertiserDataImpl advData;
@@ -722,9 +724,7 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
     bool isRealExist = cdsmService->CdsmCheckIsCooperationDevice(reportAddr);
     if (isRealExist && eraseDeviceIfNeed) {
         if (cdsmService->CdsmGetOtherAddr(reportAddr, otherDev) && otherDev != collabAddr) {
-            cdsmService->CdsmDeleteGroup(reportAddr);
-            CancelPairingTask(otherDev);
-            adapterProperties_->RemovePeripheralDevice(reportAddr.GetAddress());
+            ProcEarphoneLost(reportAddr, otherDev);
             HILOGI("[SleAdapter]:Existing reportAddr:%{public}s, Lost dev:%{public}s",
                 GET_ENCRYPT_ADDR(reportAddr), GET_ENCRYPT_ADDR(otherDev));
         }
@@ -733,9 +733,7 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
     bool isCooperaExist = cdsmService->CdsmCheckIsCooperationDevice(collabAddr);
     if (isCooperaExist && eraseDeviceIfNeed) {
         if (cdsmService->CdsmGetOtherAddr(collabAddr, otherDev) && otherDev != reportAddr) {
-            cdsmService->CdsmDeleteGroup(collabAddr);
-            CancelPairingTask(otherDev);
-            adapterProperties_->RemovePeripheralDevice(collabAddr.GetAddress());
+            ProcEarphoneLost(collabAddr, otherDev);
             HILOGI("[SleAdapter]:Existing collabAddr:%{public}s, Lost dev:%{public}s",
                 GET_ENCRYPT_ADDR(collabAddr), GET_ENCRYPT_ADDR(otherDev));
         }
@@ -758,12 +756,29 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
         cdsmService->CdsmReplaceOldReportAddr(oldReportAddr, reportAddr);
+        SleReconnectManager::GetInstance().OnDeviceStartPair(reportAddr);
         if (eraseDeviceIfNeed) {
             adapterProperties_->RemovePeripheralDevice(reportAddr.GetAddress());
             adapterProperties_->RemovePeripheralDevice(collabAddr.GetAddress());
         }
     }
     return isReplace;
+}
+
+void SleAdapter::ProcEarphoneLost(const RawAddress &existDev, const RawAddress &lostDev) const
+{
+    CdsmService *cdsmService = CdsmService::GetService();
+    NL_CHECK_RETURN(cdsmService, "[SleAdapter]cdsmService is null.");
+    RawAddress lostReportAddr;
+    bool isNeedNotify = cdsmService->CdsmGetReportAddr(lostDev, lostReportAddr);
+    cdsmService->CdsmDeleteGroup(existDev);
+    if (isNeedNotify) {
+        NotifyPairStatusChanged(lostReportAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+            static_cast<int>(SlePairState::SLE_PAIR_NONE),
+            static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED));
+    }
+    CancelPairingTask(lostDev);
+    adapterProperties_->RemovePeripheralDevice(existDev.GetAddress());
 }
 
 bool SleAdapter::ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReportAddr, const RawAddress &oldReportAddr,
@@ -1673,6 +1688,21 @@ void SleAdapter::ReadAcceptFilterListSizeCallback(CM_ReadAcceptFilterListSize_S 
     });
 }
 
+void SleAdapter::HidCoexModeCallback(CM_HidCoexModeRsp_S *param)
+{
+    NL_CHECK_RETURN(param, "[SleAdapter] param is null");
+    NL_CHECK_RETURN(param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL ||
+        param->eventType == CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE, "[SleAdapter] invalid eventType");
+    RawAddress device = RawAddress::ConvertToString(param->addr.addr);
+    if (param->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL) {
+        SleControllerService::GetInstance().GetSleHidCoexInterval(device.GetAddress(), param->incomingInterval,
+            param->coexInterval);
+    } else {
+        SleControllerService::GetInstance().UpdateSleHidCoexModePendingInterval(device.GetAddress(),
+            param->incomingInterval);
+    }
+}
+
 void SleAdapter::AcbSubrateChangeReqTask(const CM_AcbSubrateCbParam_S &param)
 {
     HILOGI("Enter");
@@ -1709,6 +1739,7 @@ int SleAdapter::RegisterCallbackToCm()
     cbks.setAcbSubrateCbk = &SleAdapter::AcbSubrateChanged;
     cbks.reqAcbSubrateCbk = &SleAdapter::AcbSubrateChangeReq;
     cbks.readAcceptFilterListSizeCbk = &SleAdapter::ReadAcceptFilterListSizeCallback;
+    cbks.hidCoexModeCbk = &SleAdapter::HidCoexModeCallback;
 
     uint32_t ret = CM_Init();
     if (ret != 0) {
@@ -1764,7 +1795,7 @@ std::string CombineChannelAndNoise(const std::vector<uint8_t>& rssiIndex,
 void SleAdapter::RssiChangedCallback(void *param)
 {
     NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
-    nbc_callback_param_t chipInfo = *(reinterpret_cast<nbc_callback_param_t *>(param));
+    NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(DisconChipInfo), "param error");
     DisconChipInfo info = *(reinterpret_cast<DisconChipInfo *>(chipInfo.data));
 
@@ -1781,7 +1812,6 @@ void SleAdapter::RssiChangedCallbackTask(const DisconChipInfo &info)
     std::string addr = GetAddressByConnHandle(info.connHandle);
     HILOGI("device:%{public}s, channel noise:%{public}s, rssi:%{public}d", GET_ENCRYPT_ADDR(RawAddress(addr)),
         noise.c_str(), info.signalStrength);
-    ServiceManagerPluginInterface::GetInstance()->RssiChangedCbkProc(addr, info.signalStrength);
     DftCacheDisconChipInfo(addr, info.signalStrength, noise);
 }
 
@@ -1802,8 +1832,9 @@ std::string SleAdapter::GetAddressByConnHandle(uint16_t connHandle)
 
 void SleAdapter::PowerLevelChangedCallback(void *param)
 {
-    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
-    nbc_callback_param_t chipInfo = *(reinterpret_cast<nbc_callback_param_t *>(param));
+    NL_CHECK_RETURN(param != nullptr, "param is null");
+    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "sleAdapterImpl is null");
+    NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(PowerLevelInfo), "param error");
     PowerLevelInfo info = *(reinterpret_cast<PowerLevelInfo *>(chipInfo.data));
 
@@ -1856,11 +1887,11 @@ void SleAdapter::ConnectionStateTask(const CM_LogicLinkState_S &connResult)
     uint8_t result = connResult.result;
     uint16_t lcid = connResult.lcid;
     uint8_t role = connResult.role;
-    if (result == CM_STATE_CONNECTED) {
+    if (result == CM_LINK_STATE_CONNECTED) {
         ConnectionCompleteTask(connResult.addr, lcid, role, connResult.connCompleteType);
         NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
         pimpl->sleCoexist_->ConnectionStatusChanged(lcid, connResult.addr);
-    } else if (result == CM_STATE_DISCONNECTED) {
+    } else if (result == CM_LINK_STATE_DISCONNECTED) {
         DisconnectionCompleteTask(lcid, peerAddr, connResult.discReason);
         SleCoexistManager::GetInstance()->OnConnectionRemoved(lcid);
     }
@@ -1872,10 +1903,6 @@ void SleAdapter::ConnectionStateTask(const CM_LogicLinkState_S &connResult)
 
 void SleAdapter::OnAcbStateChanged(const RawAddress &device, int connectState, int reason) const
 {
-    InterfaceCloudPairService::GetInstance().HandleAcbStateChanged(device, connectState, reason);
-    pimpl->slePeripheralCallback_.ForEach([device, connectState, reason](ISlePeripheralCallback &observer) {
-        observer.OnAcbStateChanged(device, connectState, reason);
-    });
     NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
     if (reason == static_cast<int>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR)) {
         LOG_INFO("remote device deletes pair record, addr:%{public}s", GetEncryptAddr(device.GetAddress()).c_str());
@@ -1883,6 +1910,10 @@ void SleAdapter::OnAcbStateChanged(const RawAddress &device, int connectState, i
             sleAdapterImpl->CancelPairingTask(device);
         });
     }
+    InterfaceCloudPairService::GetInstance().HandleAcbStateChanged(device, connectState, reason);
+    pimpl->slePeripheralCallback_.ForEach([device, connectState, reason](ISlePeripheralCallback &observer) {
+        observer.OnAcbStateChanged(device, connectState, reason);
+    });
 }
 
 bool SleAdapter::ConnectionCompleteTaskInner(int pairState, uint16_t lcid,
@@ -2107,7 +2138,7 @@ void SleAdapter::ConnectionUpdateTask(const CM_ConnectUpdateParamRsp_S &param) c
     });
 
     NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
-    NL_CHECK_RETURN(param.result == CM_STATE_CONNECTED, "not connected");
+    NL_CHECK_RETURN(param.result == CM_LINK_STATE_CONNECTED, "not connected");
     pimpl->sleCoexist_->ConnectionParamChanged(param);
 }
 
@@ -2142,6 +2173,23 @@ void SleAdapter::ConnectionUpdateRequestCallback(CM_ConnectRemoteUpdateParamReq_
     });
     HILOGI("ConnectionParamChanged conn_hdl=0x%{public}x, interval_min=0x%{public}x, interval_max=0x%{public}x",
         param->lcid, minInterval, maxInterval);
+}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    RawAddress addr(device);
+    uint8_t peerAddrType = adapterProperties_->GetPeerDeviceAddrType(addr);
+    SLE_Addr_S tmpAddr;
+    (void)memset_s(&tmpAddr, sizeof(tmpAddr), 0x0, sizeof(tmpAddr));
+    tmpAddr.type = peerAddrType;
+    addr.ConvertToUint8(tmpAddr.addr, SLE_ADDR_LEN);
+
+    // 直接调用 Manager
+    bool ret = SleCoexistManager::GetInstance()->GetConnectionParam(tmpAddr, timeout, maxLatency, interval);
+    NL_CHECK_RETURN_RET(ret, false, "GetConnectionParam fail");
+    HILOGI("timeout: 0x%{public}x, max_latency: 0x%{public}x, interval: 0x%{public}x", timeout, maxLatency, interval);
+    return true;
 }
 
 void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, const int unpairedReason) const
@@ -2528,13 +2576,13 @@ void SleAdapter::EncryptionKeyMissingComplete(const RawAddress &device) const
     ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
         SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));
     NL_CHECK_RETURN(cdsmService, "ProfileCdsm is null.");
-    if (!cdsmService->CdsmCheckIsCooperationDevice(device)) {
+    if (!adapterProperties_->IsAudioDevice(device.GetAddress())) {
         return;
     }
     if (isVendorDevice) {
         UpdateKeyMissingCdsmGroup(device);
         InterfaceCloudPairService::GetInstance().SetKeyMissingPairState(device);
-    } else {
+    } else if (cdsmService->CdsmCheckIsCooperationReport(device)){
         RawAddress member;
         if (cdsmService->CdsmGetOtherAddr(device, member)) {
             HILOGI("[SleAdapter]cdsm report device(%{public}s) is keymissing, cancel member(%{public}s) acb req",
@@ -2547,20 +2595,30 @@ void SleAdapter::EncryptionKeyMissingComplete(const RawAddress &device) const
 
 void SleAdapter::UpdateKeyMissingCdsmGroup(const RawAddress &device) const
 {
-    // 主耳Keymissing, 删旧副耳配对记录，删旧cdsm合作集，删旧副耳连接白名单
     CdsmService *cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "[SleAdapter]cdsmService is null.");
     RawAddress realAddr = adapterProperties_->GetRealAddress(device);
     RawAddress otherAddr;
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before remove pair");
+
+    RawAddress scanReportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
+    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS,
+        "invalid scanReportAddr");
+    RawAddress scanCollaAddr = InterfaceScanService::GetInstance().GetCollaborateAddress(scanReportAddr);
+    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS,
+        "invalid scanCollaAddr");
+    if (otherAddr == scanReportAddr || otherAddr == scanCollaAddr) {
+        // 扫描结果的副耳与合作集中的副耳一致，非耳机丢失场景，不处理
+        return;
+    }
+    // 主耳Keymissing, 副耳丢失，删旧副耳配对记录，删旧cdsm合作集，删旧副耳连接白名单
     CancelPairCompleteInner(otherAddr);
     DisconnectAcb(otherAddr, static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR));
     cdsmService->CdsmDeleteGroup(realAddr);
     HILOGI("KeyMissing and %{public}s remove pair", GET_ENCRYPT_ADDR(otherAddr));
 
     // 重建cdsm合作集，新建副耳配对记录
-    RawAddress reportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
-    ProcCreateCdsmGroup(reportAddr, realAddr, false);
+    ProcCreateCdsmGroup(scanReportAddr, realAddr, false);
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before update pair");
     adapterProperties_->CdsmAddOtherRecord(realAddr, otherAddr);
     HILOGI("KeyMissing and %{public}s update pair record", GET_ENCRYPT_ADDR(otherAddr));
@@ -2579,10 +2637,10 @@ void SleAdapter::EncryptionComplete(const RawAddress &device, const int status) 
             LOG_ERROR("[SleAdapter] set needReconnetDevice");
             pimpl->needReconnectDevices_.Emplace(device.GetAddress());
             return;
-        } else if (status == SM_KEY_MISSING) {
+        } else if (status == SM_PAIR_KEY_MISSING) {
             EncryptionKeyMissingComplete(device);
             return;
-        } else if (status == SM_LINK_DISCONNCTED) {
+        } else if (status == SM_PAIR_LINK_DISCONNCTED) {
             return;
         }
     }
@@ -2692,7 +2750,7 @@ bool SleAdapter::IsProfileStateReport(const RawAddress &device, RawAddress &repo
     bool isNeedReport = false;
 
     switch (newConnState) {
-        case static_cast<int>(SleConnectState::CONNECTED): /* 已连接，已连接数大于1时上报 */
+        case static_cast<int>(SleConnectState::CONNECTED): /* 已连接，已连接数是1时上报(只报report) */
             if (connectedCnt == 1) {
                 isNeedReport = true;
             }

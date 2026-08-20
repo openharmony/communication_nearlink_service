@@ -27,10 +27,11 @@
 #include "ProfileServiceManager.h"
 #include "CcpDefines.h"
 #include "NearlinkCallPhoneState.h"
+#include "SleInterfaceProfileCcp.h"
 
 namespace OHOS {
 namespace Nearlink {
-class CcpService : public SleInterfaceProfile, public utility::Context {
+class CcpService : public ProfileCcp, public utility::Context {
 public:
     static CcpService *GetService();
     explicit CcpService();
@@ -61,8 +62,8 @@ public:
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
     void HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState);
+    void HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info);
     void HandleCallDetailChange(const Telephony::CallAttributeInfo &info);
-    void HandleMeeTimeDetailsChange(const Telephony::CallAttributeInfo &info);
     bool IsNearlinkActiveDevice(const RawAddress &reportAddr);
     
     void SetGeneralInstanceId(int32_t instanceId)
@@ -70,9 +71,9 @@ public:
         instanceId_ = instanceId;
     }
 
-    void HandleVoipStart(const RawAddress &device);
-    void HandleVoipStop(const RawAddress &device);
-    void TryResumeCurrentCalls();
+    void HandleVoipStart(const RawAddress &device) override;
+    void HandleVoipStop(const RawAddress &device) override;
+    void TryResumeCurrentCalls() override;
     void CreateVoipCallInfo();
 
 private:

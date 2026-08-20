@@ -402,7 +402,6 @@ static napi_value Init(napi_env env, napi_value exports)
     HILOGI("-----DataTransfer Init start------");
 
     NapiNearlinkDataTransfer::DefineDataTransferJSObject(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----DataTransfer Init end------");
     return exports;
 }

@@ -715,6 +715,7 @@ NLSTK_DevdAdvResult_S *DevdAdvDataReport(NLSTK_DevdAdvReportInfo_S *report)
         }
         NLSTK_CHECK_RETURN(cache != NULL, NULL, "[DEVDS] cache is null");
         result = DevdGetParsedAdvResult(advType, frameType, rssi, &addr, cache);
+        ClearAdvDataCache(&addr);
     // 一段的帧一广播（无扫描响应数据）或帧四广播，直接上报
     } else {
         if (report->dataLength == 0) {

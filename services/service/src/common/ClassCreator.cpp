@@ -16,21 +16,27 @@
 
 namespace OHOS {
 namespace Nearlink {
-std::map<std::string, ClassCreateFun> ClassFactory::registerInstance;
+
+static std::map<std::string, ClassCreateFun> &GetRegisterInstance()
+{
+    static std::map<std::string, ClassCreateFun> instance;
+    return instance;
+}
 
 void ClassFactory::RegisterClass(const std::string &name, ClassCreateFun func)
 {
-    registerInstance[name] = func;
+    GetRegisterInstance()[name] = func;
 }
 
 void *ClassFactory::NewInstance(const std::string &name)
 {
-    for (auto it = registerInstance.cbegin(); it != registerInstance.cend(); ++it) {
+    auto &reg = GetRegisterInstance();
+    for (auto it = reg.cbegin(); it != reg.cend(); ++it) {
         if (it->first.compare(name) == 0) {
             return it->second();
         }
     }
     return nullptr;
 }
-}  // namespace Sle
+}  // namespace Nearlink
 }

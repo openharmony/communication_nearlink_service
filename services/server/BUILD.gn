@@ -170,8 +170,54 @@ config("nearlink_server_test_public_config") {
   ]
 }
 
-# only for test
+# only for fuzztesttest
 ohos_static_library("nearlink_server_static") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    debug = false
+  }
+
+  public_configs = [ ":nearlink_server_test_public_config" ]
+
+  sources = []
+  sources = nearlink_server_sources
+
+  deps = [
+    "$NEARLINK_ROOT/services/etc/init:etc",
+    "$NEARLINK_ROOT/services/etc/param:etc",
+    "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
+    "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/socket:nearlink_socket",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+    "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+    "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+    "ability_runtime:wantagent_innerkits",
+    "init:libbegetutil",
+    "time_service:time_client",
+    "qos_manager:concurrent_task_client",
+    "hisysevent:libhisysevent",
+    "hisysevent:libhisyseventmanager",
+  ]
+
+  part_name = "nearlink_service"
+  subsystem_name = "communication"
+}
+
+# only for unittest
+ohos_static_library("nearlink_server_static_tdd") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   sanitize = {
     cfi = true                             # Enable/disable control flow integrity detection

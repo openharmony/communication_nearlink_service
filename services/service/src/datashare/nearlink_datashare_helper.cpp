@@ -15,7 +15,7 @@
 
 #include "nearlink_datashare_helper.h"
 
-
+#include <charconv>
 #include "log.h"
 #include "datashare_predicates.h"
 #include "datashare_errno.h"
@@ -243,7 +243,13 @@ int32_t NearlinkDataShareHelper::GetSwitchState()
     std::string value;
     bool ret = GetValue(uri, NEARLINK_SWITCH_KEYWORD, value);
     NL_CHECK_RETURN_RET(ret, SWITCH_STATE, "GetSwitchState failed, return default value");
-    return atoi(value.c_str());
+    int32_t result = SWITCH_STATE;
+    auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), result);
+    if (!(ec == std::errc{} && ptr == value.data() + value.size())) {
+        HILOGE("GetSwitchState invalid value %{public}s", value.c_str());
+        return SWITCH_STATE;
+    }
+    return result;
 }
 
 bool NearlinkDataShareHelper::GetAirplaneModeState()
@@ -293,8 +299,13 @@ bool NearlinkDataShareHelper::GetValue(Uri &uri, const std::string &key, std::st
     }
 
     rows->GoToFirstRow();
-    int32_t columnIndex;
-    rows->GetColumnIndex(DATA_COLUMN_VALUE, columnIndex);
+    int32_t columnIndex = -1;
+    if (rows->GetColumnIndex(DATA_COLUMN_VALUE, columnIndex) != DataShare::E_OK || columnIndex < 0) {
+        HILOGE("GetColumnIndex failed");
+        rows->Close();
+        dataShareHelper->Release();
+        return false;
+    }
     int32_t ret = rows->GetString(columnIndex, value);
     if (ret != DataShare::E_OK) {
         HILOGE("GetInt failed with ret=%{public}d", ret);
@@ -308,7 +319,7 @@ bool NearlinkDataShareHelper::GetValue(Uri &uri, const std::string &key, std::st
     return true;
 }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
 void NearlinkDataShareHelper::SaveNearlinkSwitchStatus(const std::string &sleState)
 {
     HILOGD("enter");

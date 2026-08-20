@@ -71,6 +71,24 @@ void RegisterApplicationFuzzTest(const uint8_t *fuzzData, size_t size)
     }
 }
 
+void GetCdsmInfoFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkCdsmClientStub::GetDescriptor());
+    std::string addrStr = BuildAddressString(provider);
+    NearlinkRawAddress addr = NearlinkRawAddress(addrStr);
+    data.WriteParcelable(&addr);
+
+    int32_t ret = CdsmClientOnRemoteRequest(
+        NearlinkCdsmClientInterfaceCode::NL_CDSM_CLIENT_GET_CDS_INFO, data, reply);
+    if (ret != NL_NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+}
+
 void DeregisterApplicationFuzzTest()
 {
     MessageParcel data;
@@ -118,6 +136,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::RegisterApplicationFuzzTest(data, size);
+    OHOS::GetCdsmInfoFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest();
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;

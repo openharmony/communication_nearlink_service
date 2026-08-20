@@ -34,7 +34,10 @@ IcceClientStackAdapter::IcceClientStackAdapter(IcceClientStackCallback &callback
     g_icceClientStackAdapter = this;
 }
 
-IcceClientStackAdapter::~IcceClientStackAdapter() = default;
+IcceClientStackAdapter::~IcceClientStackAdapter()
+{
+    g_icceClientStackAdapter = nullptr;
+}
 
 int IcceClientStackAdapter::Connect(const RawAddress &device)
 {
@@ -77,6 +80,7 @@ void IcceClientStackAdapter::OnConnectionStateChange(SLE_Addr_S *sleAddr, NLSTK_
     DoInIcceThread([icceClientStackAdapter = g_icceClientStackAdapter,
         addr = ConvertSleAddrToRawAddress(sleAddr), newState = static_cast<SleConnectState>(curState),
             oldState = static_cast<SleConnectState>(prevState)]() -> void {
+        NL_CHECK_RETURN(icceClientStackAdapter, "[IcceClient] adapter is null");
         icceClientStackAdapter->OnConnectionStateChangedTask(addr, newState, oldState);
     });
 }

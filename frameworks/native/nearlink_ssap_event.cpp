@@ -104,7 +104,9 @@ void SsapEvent::SetUuid(UUID uuidParam)
 
 const std::unique_ptr<uint8_t[]> &SsapEvent::GetParameter(size_t *size) const
 {
-    *size = length_;
+    if(size != nullptr) {
+        *size = length_;
+    }
     return parameter_;
 }
 

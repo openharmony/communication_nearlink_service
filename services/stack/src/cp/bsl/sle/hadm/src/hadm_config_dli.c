@@ -16,7 +16,6 @@
 #include "sdf_vector.h"
 #include "sdf_mem.h"
 #include "securec.h"
-#include "hadm_dft.h"
 #include "dli_errno.h"
 #include "dli_cmd.h"
 #include "dli_def.h"
@@ -58,6 +57,7 @@ void HadmDeInitDliCmdVec(void)
 static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
 {
     NLSTK_LOG_INFO("[hadm]HadmPushDliCmd lcid:%u expectRspTyp:%u", lcid, expectRspTyp);
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_ERRCODE_SYS_ERROR, "[HADM] g_hadmDliCmdVec is null");
     HadmDliCmd_S *dliCmd = (HadmDliCmd_S *)SDF_MemZalloc(sizeof(HadmDliCmd_S));
     if (dliCmd == NULL) {
         NLSTK_LOG_ERROR("[hadm] alloc dli cmd fail");
@@ -75,6 +75,7 @@ static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
 
 uint16_t HadmPopLastDliCmd(uint16_t *expectRspType)
 {
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_INVALID_LCID, "[HADM] g_hadmDliCmdVec is null");
     if (g_hadmDliCmdVec->size == 0) {
         NLSTK_LOG_ERROR("[HADM] DliCmdVec is empty.");
         return NLSTK_INVALID_LCID;
@@ -95,12 +96,15 @@ static void BuildMeasureParam(uint16_t lcid, HadmSoundingParam_S *args, DLI_SetM
 {
     uint8_t pmInitSignal2Tone = args->pmInitSignal2Tone;
     uint8_t pmReflSignal2Tone = args->pmReflSignal2Tone;
-    HADM_ExtCheckAndUpdateMultiToneConfig(lcid, &pmInitSignal2Tone, &pmReflSignal2Tone);
+    uint16_t occurrenceGroupPeriod = args->occurrenceGroupPeriod;
+    uint8_t toneControl = args->sleHadmMode;
+    HADM_ExtCheckAndUpdateMultiToneConfig(lcid,
+        &pmInitSignal2Tone, &pmReflSignal2Tone, &occurrenceGroupPeriod, toneControl);
     params->connHandle = lcid;
     params->configId = args->configId;
     params->measureConfigDirect = MEASURE_CONFIG_DIRECT;
-    params->occurrenceGroupPeriod = args->occurrenceGroupPeriod;
-    params->schedulingTimeslot = args->schedulingTimeslot;
+    params->occurrenceGroupPeriod = occurrenceGroupPeriod;
+    params->schedulingTimeslot = SCHEDULING_TIME_SLOT_125;
     params->rttPhy = args->rttPhy;
     params->freqHoppingMode = args->freqHoppingMode;
     params->fmFreq = args->fmFreq;
@@ -144,7 +148,6 @@ uint32_t HadmSetMeasureParam(uint16_t lcid, HadmSoundingParam_S *args)
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure params post dli task fail. %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -173,7 +176,6 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
     DLI_SetMeasureEnableParam params = { 0 };
     params.connHandle = lcid;
     params.enable = csEnable;
-    HadmDftCacheTimestamp(NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_ENABLE_TIME);
     if (DLI_IsSupportNewDisMeasure()) {
         NLSTK_LOG_INFO(
             "[HADM] Start to set measure enable, conn id: %u, enable: %u.", params.connHandle, params.enable);
@@ -189,7 +191,6 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure enable post dli task fail. ret: %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);  // pop_back
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;
@@ -211,7 +212,6 @@ uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
 {
     DLI_ReadRemoteMeasureCapsParam params = { 0 };
     params.connHandle = lcid;
-    HadmDftCacheTimestamp(NLSTK_DFT_EVENT_HADM_EXCEP, HADM_DFT_READ_REMOTE_MEASURE_TIME);
     uint32_t ret = DLI_SUCCESS;
     if (DLI_IsSupportNewDisMeasure()) {
         NLSTK_LOG_INFO("[HADM] Start to read remote measure caps, conn id: %u.", params.connHandle);
@@ -224,7 +224,6 @@ uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
     }
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Read remote measure caps post dli task fail, ret: %u", ret);
-        HadmDftReport((uint16_t)ret);
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     return NLSTK_ERRCODE_SUCCESS;

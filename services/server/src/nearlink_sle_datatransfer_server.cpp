@@ -296,6 +296,11 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
     NearlinkSleDataTransferConnectionParams &params, int32_t &connState)
 {
     HILOGD("enter");
+    int32_t pid = IPCSkeleton::GetCallingPid();
+    int32_t uid = IPCSkeleton::GetCallingUid();
+    uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
+        "tokenId is invalid.");
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(params.address_, realAddr);
     params.address_ = realAddr;
@@ -306,20 +311,15 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
 NlErrCode NearlinkSleDataTransferServer::SocketEmptyMsg(uint16_t portId, std::string address)
 {
     HILOGI("enter");
+    int32_t pid = IPCSkeleton::GetCallingPid();
+    int32_t uid = IPCSkeleton::GetCallingUid();
+    uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, portId), NL_ERR_INVALID_PARAM,
+        "tokenId is invalid.");
     int result = 0;
     SleInterfaceDataTransfer::GetInstance().ChangeSocketState(portId, address, result);
     return NL_NO_ERROR;
 }
-
-#ifdef WATCH_STANDARD
-NlErrCode NearlinkSleDataTransferServer::UpdateConnectInterval(std::string device, int32_t intervalType, bool &result)
-{
-    result = SleInterfaceDataTransfer::GetInstance().UpdateConnectInterval(device, intervalType);
-    HILOGI("address: %{public}s, intervalType: %{public}d, result: %{public}d",
-        GetEncryptAddr(device).c_str(), intervalType, result);
-    return NL_NO_ERROR;
-}
-#endif
 
 NlErrCode NearlinkSleDataTransferServer::RegisterSleDataTransferCallback(
     const sptr<INearlinkSleDataTransferCallback> &callback)

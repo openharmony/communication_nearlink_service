@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include "sdf_worker.h"
 #include "sdf_evc.h"
+#include "dli_callback.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,7 @@ extern "C" {
 
 uint32_t DLI_ThreadInit(void);
 void DLI_ThreadDeinit(void);
+void DLI_ThreadSetCallback(DLI_Callback *cbk);
 int DLI_ThreadEvcHandleGet(void);
 uint32_t DLI_ThreadAddWork(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb);
 void DLI_ThreadPostEvent(void);

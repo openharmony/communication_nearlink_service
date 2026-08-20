@@ -351,8 +351,8 @@ void FuzzEnableScan(uint8_t *data, size_t size)
 
 void FuzzSetPublicAddress(uint8_t *data, size_t size)
 {
-    if (size >= SLE_ADDR_LEN) {
-        DLI_SetPublicAddress(data);
+    if (size >= sizeof(DLI_AddrStru)) {
+        DLI_SetPublicAddress((DLI_AddrStru *)data);
     }
 }
 

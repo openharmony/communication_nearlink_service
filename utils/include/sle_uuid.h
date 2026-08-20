@@ -263,11 +263,16 @@ public:
     /**
      * @brief In order to use the object key in the map object, overload the operator <.
      * @param[in] uuid : Uuid object.
-     * @return @c bool : If the object uuid is the same, return true, otherwise return false.
+     * @return @c bool : Returns true if this uuid is lexicographically less than uuid.
      */
     bool operator<(const Uuid &uuid) const
     {
-        return *this != uuid;
+        for (int i = 0; i < UUID128_BYTES_TYPE; i++) {
+            if (this->uuid_[i] != uuid.uuid_[i]) {
+                return this->uuid_[i] < uuid.uuid_[i];
+            }
+        }
+        return false;
     }
 
     /**

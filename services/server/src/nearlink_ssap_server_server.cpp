@@ -598,7 +598,8 @@ NlErrCode NearlinkSsapServerServer::AuthorizeResponse(int appId, uint16_t reques
     HILOGI("appId: %{public}d, requestId: %{public}d, allow: %{public}d", appId, requestId, allow);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
-
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapServerApp(appId), NL_ERR_INTERNAL_ERROR,
+        "check failed.");
     int ret = serverService->AuthorizeResponse(appId, requestId, allow);
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }

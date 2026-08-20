@@ -78,6 +78,7 @@ bool SmGenConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink, SmConfirmNu
     NLSTK_CHECK_RETURN(buff != NULL, false, "[SM] Generate confirm num malloc fail.");
     if ((memcpy_s(buff, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN) != EOK) ||
         (memcpy_s(buff + SM_PUBLIC_KEY_LEN, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN) != EOK)) {
+        (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN, 0, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN);
         SDF_MemFree(buff);
         return false;
     }
@@ -89,9 +90,13 @@ bool SmGenConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink, SmConfirmNu
     (void)memcpy_s(input.key, SM_OCTETS_16, key, keyLen);
     if (!SmCmacGenerate(&input, confirm->confirm, SM_CONFIRM_NUMBER_LEN)) {
         NLSTK_LOG_ERROR("[SM] Generate confirm code error.");
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN, 0, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN);
         SDF_MemFree(buff);
         return false;
     }
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+    (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN, 0, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN);
     SDF_MemFree(buff);
     return true;
 }

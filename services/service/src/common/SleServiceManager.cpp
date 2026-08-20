@@ -1010,7 +1010,7 @@ void SleServiceManager::OnAdapterStateChangeTask(const SleTransport transport, c
         ServiceManagerPluginLoader::GetInstance()->PowerMgrProc();
     }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
     AdapterStateChangeNotifyDataShare(transport, state);
 #endif
 
@@ -1105,7 +1105,7 @@ void SleServiceManager::ResetNearlinkService() const
     NL_CHECK_RETURN(ret, "failed to set nearlink reset_service parameter");
 }
 
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
 void SleServiceManager::AdapterStateChangeNotifyDataShare(const SleTransport transport, const SleStateID state) const
 {
     NL_CHECK_RETURN(transport == ADAPTER_SLE, "transport not SLE no processing");
@@ -1125,6 +1125,7 @@ bool SleServiceManager::IsDisabling() const
 void SleServiceManager::OnChipResetNotify() const
 {
     HILOGW("chip is reset");
+    NL_CHECK_RETURN(pimpl->stateMachine_, "stateMachine is null");
     SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
     if (targetState != SleStateID::STATE_TURN_OFF) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishChipResetEvent(static_cast<int>(targetState));
@@ -1280,9 +1281,13 @@ void SleServiceManager::InitializeAfterAllDependencyOn()
 
     WaitDriverLoadCompleted();
 #ifndef CONFIG_FACTORY_VERSION
-    SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
-    if ((!IsSleSwitchRestricted()) && (targetState == SleStateID::STATE_TURN_OFF)) {
-        RestoreSwitchStatus();
+    if (pimpl->stateMachine_ == nullptr) {
+        HILOGE("stateMachine_ is nullptr, skip RestoreSwitchStatus");
+    } else {
+        SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
+        if ((!IsSleSwitchRestricted()) && (targetState == SleStateID::STATE_TURN_OFF)) {
+            RestoreSwitchStatus();
+        }
     }
 #endif
 #ifdef NEARLINK_EDM_ENABLE

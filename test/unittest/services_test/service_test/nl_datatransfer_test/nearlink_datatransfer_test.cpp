@@ -550,25 +550,6 @@ HWTEST_F(NearlinkDataTransferTest, OnConnectionStateChanged001, TestSize.Level1)
 }
 
 /**
- * @tc.number: UpdateConnectInterval001
- * @tc.name: Test UpdateConnectInterval.
- * @tc.desc: FUNC
- */
-HWTEST_F(NearlinkDataTransferTest, UpdateConnectInterval001, TestSize.Level1)
-{
-    HILOGI("UpdateConnectInterval001 start");
-
-    SleDataTransferService &instance = SleDataTransferService::GetInstance();
-    std::string device = DEVICE_SLE_ADDR;
-    int32_t intervalType = INTERVAL_TYPE;
-#ifdef WATCH_STANDARD
-    bool res = instance.UpdateConnectInterval(device, intervalType);
-    EXPECT_EQ(res, true);
-#endif
-    HILOGI("UpdateConnectInterval001 end");
-}
-
-/**
  * @tc.number: DisconnectCarWhenRemoteDie001
  * @tc.name: Test DisconnectCarWhenRemoteDie.
  * @tc.desc: FUNC

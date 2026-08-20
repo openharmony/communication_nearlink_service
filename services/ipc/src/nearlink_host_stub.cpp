@@ -693,9 +693,9 @@ int32_t NearlinkHostStub::GetDeviceUuidsInner(NearlinkHostStub *stub, MessagePar
             HILOGE("size is too big, size=%{public}zu", size);
             size = DEVICE_UUID_MAX_NUM;
         }
-        NL_CHECK_RETURN_RET(reply.WriteUint32(size), TRANSACTION_ERR, "WriteUint32 failed.");
-        for (auto uuid : uuids) {
-            NL_CHECK_RETURN_RET(reply.WriteString(uuid), TRANSACTION_ERR, "WriteString failed.");
+        NL_CHECK_RETURN_RET(reply.WriteUint32(static_cast<uint32_t>(size)), TRANSACTION_ERR, "WriteUint32 failed.");
+        for (size_t i = 0; i < size; i++) {
+            NL_CHECK_RETURN_RET(reply.WriteString(uuids[i]), TRANSACTION_ERR, "WriteString failed.");
         }
     }
     return NO_ERROR;

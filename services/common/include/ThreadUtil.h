@@ -50,6 +50,7 @@ enum ThreadId {
     THREAD_ID_FIND_CLIENT,
     THREAD_ID_FIND_SERVER,
     THREAD_ID_FIND_PDR,
+    THREAD_ID_ANTENNA,
     // please add before this.
     THREAD_ID_BUTT
 };
@@ -245,6 +246,13 @@ void DoInAudioFwAdapterThread(const ThreadUtilFunc &func, uint64_t delayTime = 0
  * @param delayTime Process the event after 'delayTime' milliseconds.
  */
 void DoInDeviceAdapterThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
+
+/**
+ * @brief Post the task to the antenna thread.
+ * @param func The task to be executed.
+ * @param delayTime Process the event after 'delayTime' milliseconds.
+ */
+void DoInAntennaThread(const ThreadUtilFunc &func, uint64_t delayTime = 0);
 
 class ThreadUtil {
 public:

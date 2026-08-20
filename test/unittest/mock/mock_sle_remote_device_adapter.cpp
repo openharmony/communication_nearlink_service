@@ -14,6 +14,7 @@
  */
 
 #include "SleRemoteDeviceAdapter.h"
+#include "IRemoteDeviceQuery.h"
 #include "log.h"
 
 namespace OHOS {
@@ -31,6 +32,11 @@ SleRemoteDeviceAdapter* SleRemoteDeviceAdapter::GetInstance(void)
 {
     static SleRemoteDeviceAdapter instance;
     return &instance;
+}
+
+IRemoteDeviceQuery *IRemoteDeviceQuery::GetInstance()
+{
+    return SleRemoteDeviceAdapter::GetInstance();
 }
 
 void SleRemoteDeviceAdapter::AddPeripheralDevice(const std::string &address, std::shared_ptr<SlePeripheralDevice>& peerDevice)

@@ -27,7 +27,7 @@
 
 namespace OHOS {
 namespace Nearlink {
-struct SleCentralManager::impl {
+struct SleCentralManager::impl : public std::enable_shared_from_this<impl> {
     impl(std::shared_ptr<SleCentralManagerCallback> callback);
     ~impl();
     void Init(std::weak_ptr<SleCentralManager> sleCentralManager);
@@ -129,7 +129,7 @@ SleCentralManager::impl::~impl()
 SleCentralManager::SleCentralManager(std::shared_ptr<SleCentralManagerCallback> callback) : pimpl(nullptr)
 {
     if (pimpl == nullptr) {
-        pimpl = std::make_unique<impl>(callback);
+        pimpl = std::make_shared<impl>(callback);
         NL_CHECK_RETURN(pimpl, "pimpl is nullptr");
     }
 }
@@ -141,16 +141,22 @@ void SleCentralManager::impl::Init(std::weak_ptr<SleCentralManager> sleCentralMa
 {
     callbackImp_ = new (std::nothrow) NearlinkSleCentralManagerCallbackImp(sleCentralManager);
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(SLE_CENTRAL_MANAGER_SERVER);
-    info->serviceStartedFunc_ = [this](sptr<IRemoteObject> remote) -> void {
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
         sptr<INearlinkSleCentralManager> proxy = iface_cast<INearlinkSleCentralManager>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
-        std::lock_guard<std::mutex> lock(scannerIdMutex_);
-        NL_CHECK_RETURN(callbackImp_, "callbackImp_ is nullptr");
-        proxy->RegisterSleCentralManagerCallback(scannerId_, enableRandomAddrMode_, callbackImp_);
+        std::lock_guard<std::mutex> lock(implSptr->scannerIdMutex_);
+        NL_CHECK_RETURN(implSptr->callbackImp_, "callbackImp_ is nullptr");
+        proxy->RegisterSleCentralManagerCallback(implSptr->scannerId_, implSptr->enableRandomAddrMode_,
+            implSptr->callbackImp_);
     };
-    info->serviceStoppedFunc_ = [this]() -> void {
-        std::lock_guard<std::mutex> lock(scannerIdMutex_);
-        scannerId_ = SLE_SCAN_INVALID_ID;
+    info->serviceStoppedFunc_ = [wp]() -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        std::lock_guard<std::mutex> lock(implSptr->scannerIdMutex_);
+        implSptr->scannerId_ = SLE_SCAN_INVALID_ID;
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {

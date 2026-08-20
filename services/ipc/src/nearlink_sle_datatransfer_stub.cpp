@@ -53,8 +53,6 @@ NearlinkSleDataTransferStub::NearlinkSleDataTransferStub()
         {STUB_FUNC(SLE_CONNECT, ConnectInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(SLE_DISCONNECT, DisconnectInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(SLE_GET_CONNECTION_STATE, GetConnectionStateInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
-        {STUB_FUNC(SLE_UPDATE_INTERVAL, UpdateConnectIntervalInner,
-            CHECK_PERM(false, {MANAGE_NEARLINK}))},
     };
 }
 
@@ -168,23 +166,6 @@ int32_t NearlinkSleDataTransferStub::GetConnectionStateInner(
     NL_CHECK_RETURN_RET(ret, TRANSACTION_ERR, "reply GetConnectionState failed");
     ret = reply.WriteInt32(connState);
     NL_CHECK_RETURN_RET(ret, TRANSACTION_ERR, "reply connState failed");
-    return NO_ERROR;
-}
-
-int32_t NearlinkSleDataTransferStub::UpdateConnectIntervalInner(
-    NearlinkSleDataTransferStub *stub, MessageParcel &data, MessageParcel &reply)
-{
-#ifdef WATCH_STANDARD
-    std::string device;
-    NL_CHECK_RETURN_RET(data.ReadString(device), TRANSACTION_ERR, "Read address failed.");
-    int32_t intervalType;
-    NL_CHECK_RETURN_RET(data.ReadInt32(intervalType), TRANSACTION_ERR, "Read type failed.");
-    bool result = false;
-    NlErrCode status = stub->UpdateConnectInterval(device, intervalType, result);
-    HILOGI("status: %{public}d, result: %{public}d, intervalType: %{public}d", status, result, intervalType);
-    NL_CHECK_RETURN_RET(reply.WriteInt32(status), TRANSACTION_ERR, "WriteInt32 failed.");
-    NL_CHECK_RETURN_RET(reply.WriteBool(result), TRANSACTION_ERR, "WriteBool failed.");
-#endif
     return NO_ERROR;
 }
 }  // namespace OHOS::Nearlink

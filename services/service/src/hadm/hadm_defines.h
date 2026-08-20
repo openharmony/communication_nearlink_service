@@ -60,7 +60,6 @@ const uint8_t HADM_CONFIG_FREQ_HOP_BAND = 0x01; // 跳频频带
 const uint8_t HADM_CONFIG_ANCHOR_NUM = 0x01; // 需要连接的锚点数量
 const size_t HADM_MEASURE_PM_24G_BAND_LEN = 10; // 跳频信道指示的长度
 const uint32_t HDAM_SOUNDING_TS_MAX_DIFF = 10; // HADM双端IQ测量值时间戳最大差值
-const uint8_t HADM_SOUNDING_FRESH_RATE = 4; // 刷新率档位
 
 // RSSI溢出值
 const uint16_t HADM_RSSI_CHANGE_FLAG = 256;

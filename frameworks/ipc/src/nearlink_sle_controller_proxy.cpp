@@ -14,10 +14,16 @@
  */
 
 #include "nearlink_sle_controller_proxy.h"
+ 
+#include <cmath>
 #include "nearlink_errorcode.h"
 #include "log.h"
 
 namespace OHOS::Nearlink {
+namespace {
+constexpr size_t MAX_COEX_DEVICE_NUM = 32;
+}
+
 NearlinkSleControllerProxy::NearlinkSleControllerProxy(const sptr<IRemoteObject> &impl)
     : IRemoteProxy<INearlinkSleController>(impl)
 {}
@@ -52,6 +58,32 @@ NlErrCode NearlinkSleControllerProxy::UpdateConnectInterval(const std::string &d
     MessageParcel reply;
     MessageOption option{MessageOption::TF_SYNC};
     ErrCode ret = InnerTransact(NearlinkSleControllerInterfaceCode::NL_SLE_UPDATE_INTERVAL, option, data, reply);
+    NL_CHECK_RETURN_RET(ret == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", ret);
+    NlErrCode exception = static_cast<NlErrCode>(reply.ReadInt32());
+    return exception;
+}
+
+NlErrCode NearlinkSleControllerProxy::SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
+    const std::vector<ConnectionInterval> &paramList)
+{
+    MessageParcel data;
+    NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), NL_ERR_INVALID_PARAM,
+        "device and param list size not match");
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxy::GetDescriptor()),
+        NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(mode), NL_ERR_IPC_TRANS_FAILED, "Write mode error.");
+    size_t deviceSize = std::min(deviceList.size(), MAX_COEX_DEVICE_NUM);
+    NL_CHECK_RETURN_RET(data.WriteInt32(static_cast<int32_t>(deviceSize)), NL_ERR_IPC_TRANS_FAILED,
+        "Write deviceSize error.");
+    for (size_t i = 0; i < deviceSize; i++) {
+        NL_CHECK_RETURN_RET(data.WriteString(deviceList[i]), NL_ERR_IPC_TRANS_FAILED, "write device error.");
+        int32_t param = static_cast<int32_t>(paramList[i]);
+        NL_CHECK_RETURN_RET(data.WriteInt32(param), NL_ERR_IPC_TRANS_FAILED, "write param error.");
+    }
+ 
+    MessageParcel reply;
+    MessageOption option{MessageOption::TF_SYNC};
+    ErrCode ret = InnerTransact(NearlinkSleControllerInterfaceCode::NL_SET_SLE_COEX_MODE, option, data, reply);
     NL_CHECK_RETURN_RET(ret == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", ret);
     NlErrCode exception = static_cast<NlErrCode>(reply.ReadInt32());
     return exception;

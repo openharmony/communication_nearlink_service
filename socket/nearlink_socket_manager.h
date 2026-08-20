@@ -40,8 +40,7 @@ void SetNonblock(int fd) {
         HILOGE("Failed to get flags for fd = %{public}d errno:%{public}d", fd, errno);
         return;
     }
-    uint8_t flag = static_cast<uint8_t>(flags);
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
         HILOGE("Failed to set flags nonblock for fd = %{public}d errno:%{public}d", fd, errno);
     };
 }

@@ -33,7 +33,6 @@ static napi_value Init(napi_env env, napi_value exports)
 
     NapiNearlinkSsapServer::DefineSsapServerJSClass(env, exports);
     NapiNearlinkSsapClient::DefineSsapClientJSClass(env, exports);
-    NapiHaManager::AddProcessor();
     HILOGI("-----Ssap Init end------");
     return exports;
 }

@@ -100,6 +100,14 @@ typedef enum {
     CM_CONN_COMPLETE_ADV = 1,    // 通过广播建立的连接（被动连接）
 } CM_ConnCompleteType_E;
 
+/**
+ * @brief 星闪共存模式回调事件枚举值
+ */
+typedef enum {
+    CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL = 0,          /* HID共存模式参数获取 */
+    CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE,         /* HID共存模式参数更新 */
+} CM_HidCoexModeEventType_E;
+
 #pragma pack (1)
 
 /**
@@ -298,6 +306,13 @@ typedef struct {
     uint16_t supervisionTimeout;        /* 超时时间，单位10ms */
 } CM_AcbSubrateCbParam_S;
 
+typedef struct {
+    CM_HidCoexModeEventType_E eventType;
+    SLE_Addr_S addr;
+    uint16_t incomingInterval;
+    uint16_t coexInterval;
+} CM_HidCoexModeRsp_S;
+
 #pragma pack ()
 
 /**
@@ -351,6 +366,8 @@ typedef void (*CM_ReqAcbSubrateCbk)(CM_AcbSubrateCbParam_S *param);
 
 typedef void (*CM_ReadRemoteRssiCbk)(CM_ReadRemoteRssiRsp_S *rsp);
 
+typedef void (*CM_HidCoexModeCbk)(CM_HidCoexModeRsp_S *param);
+
 /**
  * @brief  连接管理模块回调函数
  */
@@ -367,6 +384,7 @@ typedef struct CM_ConnectCbks {
     CM_ReqAcbSubrateCbk reqAcbSubrateCbk;                          /* 可选 */
     CM_ReadAcceptFilterListSizeCbk readAcceptFilterListSizeCbk;    /* 可选 */
     CM_ReadRemoteRssiCbk readRemoteRssiCbk;                        /* 可选 */
+    CM_HidCoexModeCbk hidCoexModeCbk;                              /* 可选 */
 } CM_ConnectCbks_S;
 
 /**

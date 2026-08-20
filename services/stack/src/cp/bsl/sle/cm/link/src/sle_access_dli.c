@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 
 static void SleDliReadAcceptFilterListSizeCallback(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "cmd res or event param is null");
 
@@ -376,6 +375,12 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
         replyParam.connIntervalMin = evt->connIntervalMin;
         replyParam.connIntervalMax = evt->connIntervalMax;
     }
+    // 共存场景下，HID interval设置不能小于15ms
+    uint16_t coexInterval = 0;
+    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, replyParam.connIntervalMin)) {
+        replyParam.connIntervalMin = coexInterval;
+        replyParam.connIntervalMax = coexInterval;
+    }
     replyParam.txRxInterval  = evt->txRxInterval;
     replyParam.eventInterval = evt->eventInterval;
     replyParam.maxLatency = evt->maxLatency;
@@ -495,7 +500,6 @@ static void SleAccessSetRxDataFilterCbk(void *context, uint16_t status, DLI_Exec
 
 static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -545,7 +549,6 @@ static void SleAccessDataLenChangeCbk(void *context, uint16_t statuss, DLI_Execu
 
 static void SleAccessSetDataLenCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -724,7 +727,6 @@ static void SleAccessEnableConnHighPowerCbk(void *context, uint16_t dliStatus, D
 
 static void SleAccessSetPeerDevTypeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((context != NULL), "context is null");
 
@@ -936,4 +938,34 @@ uint32_t SleAccessSetPhy(DLI_SetPhyParam *param)
     uint32_t ret = DLI_SetPhy(param);
     CM_CHECK_RETURN_RET((ret == DLI_SUCCESS), CM_FAIL, "DLI_SetPhy failed, ret:0x%08x", ret);
     return CM_SUCCESS;
+}
+
+bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr, uint16_t incomingInterval)
+{
+    CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_HID_COEX_MODE);
+    CM_CHECK_RETURN_RET(cbk != NULL, false, "cbk is null");
+    CM_CHECK_RETURN_RET(addr != NULL, false, "addr is null");
+    CM_CHECK_RETURN_RET(coexInterval != NULL, false, "coexInterval is null");
+
+    void *context = NULL;
+    CM_HidCoexModeRsp_S coexParam = { 0 };
+    coexParam.eventType = CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL;
+    coexParam.addr = *addr;
+    coexParam.incomingInterval = incomingInterval;
+    coexParam.coexInterval = 0;
+    CM_ExecuteCmdPar_S paramCbk = {0};
+    paramCbk.eventParameter = &coexParam;
+    paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
+
+    cbk(context, DLI_SUCCESS, &paramCbk);
+    if (coexParam.coexInterval != 0) {
+        CM_LOGI("sle connection update in hid coex mode, addr: %s, incoming interval: %hu, "
+            "coex interval: %hu", GET_ENC_ADDR(addr), incomingInterval, coexParam.coexInterval);
+        *coexInterval = coexParam.coexInterval;
+    }
+    coexParam.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
+    paramCbk.eventParameter = &coexParam;
+    paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
+    cbk(context, DLI_SUCCESS, &paramCbk);
+    return coexParam.coexInterval != 0;
 }

@@ -46,7 +46,7 @@ typedef struct CM_LocalSupportInfo {
     uint8_t measureEnable;
     uint8_t identifier;
     CM_TransMode transMode;
-    uint16_t defaultVeraion;
+    uint16_t defaultVersion;
     uint16_t mtu;
     uint16_t mps;
     uint8_t wnd;
@@ -59,7 +59,7 @@ static CM_LocalSupportInfo g_localInfo = {
     .transMode.flowMode = CM_CAP_ENABLE,
     .transMode.reliableMode = CM_CAP_ENABLE,
     .transMode.reverse = 0,
-    .defaultVeraion = CM_CAP_DEFAULT_VERSION,
+    .defaultVersion = CM_CAP_DEFAULT_VERSION,
     .mtu = CM_CAP_MTU,
     .mps = CM_CAP_MPS,
     .wnd = CM_CAP_WND,
@@ -98,7 +98,7 @@ CM_SignalingHead_S *CM_ParseSignalingBuff(SDF_Buff_S *buf)
 {
     uint64_t dataLen = SDF_DataLenGet(buf);
     if (dataLen < sizeof(CM_SignalingHead_S)) {
-        CM_LOGE("CM_ParseSignalingBuff buf len %lu is error", dataLen);
+        CM_LOGE("CM_ParseSignalingBuff buf len %llu is error", dataLen);
         return NULL;
     }
     CM_SignalingHead_S *head = CM_GET_SIGNALING_HEAD(buf);
@@ -109,10 +109,10 @@ CM_SignalingHead_S *CM_ParseSignalingBuff(SDF_Buff_S *buf)
 
     head->length = DECODE2BYTE_LITTLE((uint8_t *)SDF_DataOffset(buf) + CM_SIGNALING_HDR_LEN_OFFSET);
     if (head->length != dataLen - sizeof(CM_SignalingHead_S)) {
-        CM_LOGE("CM_ParseSignalingBuff length %lu is no match dataLen %hu", head->length, dataLen);
+        CM_LOGE("CM_ParseSignalingBuff length %hu is no match dataLen %llu", head->length, dataLen);
         return NULL;
     }
-    CM_LOGD("length %u", head->length);
+    CM_LOGD("length %hu", head->length);
     return head;
 }
 
@@ -137,7 +137,7 @@ static int SetTransModeCapability(const uint8_t *data, uint32_t len,
         CM_LOGE("SetTransModeCapability memcpy failed\r\n");
         return CM_INVALID_RET;
     }
-    CM_LOGI("SetVersionCapability set capInfo transMode 0x%04x", tmp);
+    CM_LOGI("SetTransModeCapability set capInfo transMode 0x%04x", tmp);
     return (int)tmpLen;
 }
 
@@ -147,7 +147,7 @@ static inline int SetMeasurementCapability(const uint8_t *data, uint32_t len,
     (void)data;
     (void)len;
     (void)value;
-    CM_LOGI("SetVersionCapability set enable Measurement capability");
+    CM_LOGI("SetMeasurementCapability set enable Measurement capability");
     return 0;
 }
 
@@ -162,7 +162,7 @@ static int SetAccessSleCapability(const uint8_t *data, uint32_t len,
         CM_LOGE("SetAccessSleCapability memcpy failed\r\n");
         return CM_INVALID_RET;
     }
-    CM_LOGI("SetVersionCapability set capInfo AccessSle %02X:%02X:**:**:**:%02X",
+    CM_LOGI("SetAccessSleCapability set capInfo AccessSle %02X:%02X:**:**:**:%02X",
         value->accessSle[SLE_INDEX_0], value->accessSle[SLE_INDEX_1], value->accessSle[SLE_INDEX_5]);
     return (int)aceLen;
 }
@@ -178,7 +178,7 @@ static int SetAccessSlbCapability(const uint8_t *data, uint32_t len,
         CM_LOGE("SetAccessSlbCapability memcpy failed\r\n");
         return CM_INVALID_RET;
     }
-    CM_LOGI("SetVersionCapability set capInfo AccessSlb %02X:%02X:**:**:**:%02X",
+    CM_LOGI("SetAccessSlbCapability set capInfo AccessSlb %02X:%02X:**:**:**:%02X",
         value->accessSlb[SLE_INDEX_0], value->accessSlb[SLE_INDEX_1], value->accessSlb[SLE_INDEX_5]);
     return (int)acbLen;
 }
@@ -191,7 +191,7 @@ static inline int SetMtuCapability(const uint8_t *data, uint32_t len,
         return CM_INVALID_RET;
     }
     value->mtu = DECODE2BYTE_LITTLE(data);
-    CM_LOGD("SetVersionCapability set capInfo mtu %hu", value->mtu);
+    CM_LOGD("SetMtuCapability set capInfo mtu %hu", value->mtu);
     return (int)mtuLen;
 }
 
@@ -389,12 +389,12 @@ static inline uint32_t GetMpsCapability(uint8_t *data, uint32_t len)
 
 static inline uint32_t GetVersionCapability(uint8_t *data, uint32_t len)
 {
-    uint32_t verLen = (uint32_t)sizeof(g_localInfo.defaultVeraion);
+    uint32_t verLen = (uint32_t)sizeof(g_localInfo.defaultVersion);
     if (len < verLen) {
         return 0;
     }
-    CM_LOGI("local capInfo version 0x%04x", g_localInfo.defaultVeraion);
-    ENCODE2BYTE_LITTLE(data, g_localInfo.defaultVeraion);
+    CM_LOGI("local capInfo version 0x%04x", g_localInfo.defaultVersion);
+    ENCODE2BYTE_LITTLE(data, g_localInfo.defaultVersion);
     return verLen;
 }
 

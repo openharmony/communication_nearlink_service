@@ -99,16 +99,21 @@ int SleHalInit(SleDliCallbackFunc *callbacks)
 
     g_sleDliCallbacks = new (std::nothrow) SleDliCallbacks(callbacks);
     if (g_sleDliCallbacks == nullptr) {
+        g_iSleDli = nullptr;
         return INITIALIZATION_ERROR;
     }
 
     auto ret = g_iSleDli->SleHalInit(g_sleDliCallbacks);
     if (ret != SleStatus::SUCCESS) {
         HILOGE("SleDli is fail");
+        g_iSleDli = nullptr;
+        g_sleDliCallbacks = nullptr;
         return INITIALIZATION_ERROR;
     }
 
     if (!RegisterSleDliDeathRecipient()) {
+        g_iSleDli = nullptr;
+        g_sleDliCallbacks = nullptr;
         return INITIALIZATION_ERROR;
     }
 

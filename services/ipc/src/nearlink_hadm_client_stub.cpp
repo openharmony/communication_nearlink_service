@@ -88,7 +88,9 @@ int32_t NearlinkHadmClientStub::StartSoundingInner(NearlinkHadmClientStub *stub,
     uint32_t hadmId = data.ReadUint32();
     std::shared_ptr<NearlinkRawAddress> addr(data.ReadParcelable<NearlinkRawAddress>());
     NL_CHECK_RETURN_RET(addr, TRANSACTION_ERR, "addr read failed.");
-    NlErrCode result = stub->StartSounding(hadmId, *addr);
+    uint8_t toneControl = 0;
+    (void)data.ReadUint8(toneControl);
+    NlErrCode result = stub->StartSounding(hadmId, *addr, toneControl);
     bool ret = reply.WriteInt32(result);
     NL_CHECK_RETURN_RET(ret, TRANSACTION_ERR, "reply writing failed.");
     return NO_ERROR;

@@ -23,15 +23,11 @@
 #define CM_INNER_API_H
 
 #include <stdint.h>
+#include "cm_icb_mgr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct {
-    uint16_t lcid;
-    uint16_t subrate;       /* 单位为10ms */
-} CM_SetACBSubrateInnerParam;
 
 /**
  * @brief 星闪逻辑链路创建和释放响应扩展参数结构体

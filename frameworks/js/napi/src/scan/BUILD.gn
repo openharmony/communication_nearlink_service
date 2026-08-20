@@ -14,7 +14,6 @@
 import("//build/ohos.gni")
 
 SLE_PART_DIR = "../../../../.."
-SLE_NAPI_DIR = "$SLE_PART_DIR/frameworks/js/napi"
 
 ohos_shared_library("scan") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
@@ -51,7 +50,7 @@ ohos_shared_library("scan") {
   ]
 
   include_dirs = [
-    "$SLE_NAPI_DIR/include",
+    "$SLE_PART_DIR/frameworks/js/napi/include",
   ]
 
   defines = [
@@ -60,15 +59,6 @@ ohos_shared_library("scan") {
   ]
 
   sources = [
-    "$SLE_NAPI_DIR/src/common/napi_async_callback.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_async_work.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_nearlink_error.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_nearlink_utils.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_native_object.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_parser_utils.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_timer.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_event_subscribe_module.cpp",
-    "$SLE_NAPI_DIR/src/common/napi_ha_manager.cpp",
     "napi_nearlink_scan_callback.cpp",
     "napi_nearlink_scan.cpp",
   ]
@@ -76,6 +66,7 @@ ohos_shared_library("scan") {
   deps = [
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
     "$SLE_PART_DIR/utils:nearlink_utils",
+    "$SLE_PART_DIR/frameworks/js/napi/src/common:nearlink_napi_common",
   ]
 
   external_deps = [

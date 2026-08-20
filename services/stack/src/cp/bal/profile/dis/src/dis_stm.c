@@ -18,6 +18,7 @@
 #include "nlstk_dis_client.h"
 #include "sdf_mem.h"
 #include "ssap_type.h"
+#include "ssapc_app.h"
 #include "nlstk_ssap_app_link.h"
 #include "nlstk_ssap_app_client.h"
 #include "nlstk_cfgdb.h"
@@ -329,7 +330,7 @@ static void DisHandleEvcInLinkConnectedState(DisDeviceInfo_S *devInfo, DisStmPar
             NLSTK_LOG_DEBUG("[DIS] cur state is DIS_LINK_CONNECTED next state is DIS_SERVICE_FOUND");
             devInfo->state = DIS_SERVICE_FOUND;
             uint32_t ret = NLSTK_ERRCODE_SUCCESS;
-            if (CfgdbGetManufacturerSupport(&devInfo->addr, CFGDB_READ_MULTI_HANDLES)) {
+            if (SsapcIsSupportMultiProcessing(devInfo->appId)) {
                 ret = DisReadProperties(devInfo);
             } else {
                 ret = DisReadSsapClientProperty(devInfo);

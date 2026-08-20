@@ -52,18 +52,18 @@ SocketTransState OutputStream::Write(const uint8_t *buf, size_t length)
     int32_t bufSize;
     socklen_t optlen = sizeof(bufSize);
     int sockOptRet = getsockopt(socketFd_, SOL_SOCKET, SO_SNDBUF, &bufSize, &optlen);
-    unsigned long bytesInBuffer = 0;
+    int bytesInBuffer = 0;
     int ioctlRet = ioctl(socketFd_, TIOCOUTQ, &bytesInBuffer);
-    HILOGD("sockOptRet : %{public}d, ioctlRet : %{public}d, bufSize : %{public}u, bytesInBuffer %{public}lu",
+    HILOGD("sockOptRet : %{public}d, ioctlRet : %{public}d, bufSize : %{public}d, bytesInBuffer %{public}d",
         sockOptRet, ioctlRet, bufSize, bytesInBuffer);
-    if (sockOptRet != -1 && ioctlRet != -1 && static_cast<unsigned long>(bufSize) > bytesInBuffer) { // -1代表无权限获取发送队列大小
+    if (sockOptRet != -1 && ioctlRet != -1 && bufSize > bytesInBuffer) { // -1代表无权限获取发送队列大小
         // 该方法是跟踪send前socket发送通道是否占满导致发包阻塞
-        unsigned long availableLength = static_cast<unsigned long>(bufSize) - bytesInBuffer;
-        int32_t sendLength = static_cast<int32_t>(length) + SOCKET_PACKET_HEAD_LENGTH;
-        HILOGD("availableLength=%{public}lu, sendLength=%{public}lu",
-            availableLength, static_cast<unsigned long>(sendLength));
-        if (availableLength < static_cast<unsigned long>(sendLength)) {
-            HILOGW("send queue is full, availableLength is %{public}lu, sendlength is %{public}d",
+        int availableLength = bufSize - bytesInBuffer;
+        int64_t sendLength = static_cast<int64_t>(length) + SOCKET_PACKET_HEAD_LENGTH;
+        HILOGD("availableLength=%{public}d, sendLength=%{public}" PRId64,
+            availableLength, sendLength);
+        if (availableLength < sendLength) {
+            HILOGW("send queue is full, availableLength is %{public}d, sendlength is %{public}" PRId64,
                 availableLength, sendLength);
             return SLE_TRANS_RESULT_CACHE_FULL;
         }

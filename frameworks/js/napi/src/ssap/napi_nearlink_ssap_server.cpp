@@ -467,7 +467,7 @@ napi_value NapiNearlinkSsapServer::NotifyPropertyChanged(napi_env env, napi_call
         }
         SsapProperty property(0, napiSsapProperty.propertyUuid_, napiSsapProperty.operation_, 0);
         Nearlink::NearlinkRemoteDevice device(sleAddress, static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-        property.SetValue(&napiSsapProperty.value_[0], napiSsapProperty.value_.size());
+        property.SetValue(napiSsapProperty.value_.data(), napiSsapProperty.value_.size());
         NlErrCode err = ssapServer->NotifyPropertyChanged(device, property, false);
         if (err != NL_NO_ERROR) {
             return NapiAsyncWorkRet(err);

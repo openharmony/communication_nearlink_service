@@ -270,7 +270,7 @@ TEST_F(UT_TRANS_TEST, TRANS_SendData_Fail)
     addr.proto = TRANS_PROTO_CONNECTION;
     ret = TRANS_SendData(&addr, data, dataLen);
     EXPECT_NE(ret, TRANS_SUCCESS);
-    addr.proto = (TRANS_Protocol_t)UINT8_MAX;
+    addr.proto = (TRANS_Protocol_E)UINT8_MAX;
     ret = TRANS_SendData(&addr, data, dataLen);
     EXPECT_NE(ret, TRANS_SUCCESS);
     addr.proto = TRANS_PROTO_CONNECTIONLESS;

@@ -22,6 +22,7 @@
 #include "hadm_config_dli.h"
 #include "hadm_config_cm.h"
 #include "hadm_sm.h"
+#include "hadm_dft.h"
 
 #define HADM_SOUNDING_ENABLE 0   // 开启HADM测量
 #define HADM_SOUNDING_DISABLE 1  // 关闭HADM测量
@@ -637,8 +638,10 @@ static HadmSoundingIqData_S *HadmBuildIqDataToService(SLE_Addr_S *addr, HadmIqIn
     * 双端测距值 = (本端tof_result + 对端tof_result) * 0.03 / 2 - tofCalib * 2
     * 其中 tofCalib的含义：Calibration value(校准值) of ToF.
     */
-    iqData->dutTof = localIqInfo->tofResult * 3 / 100;  // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
-    iqData->rtdTof = remoteIqInfo->tofResult * 3 / 100;  // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
+    // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
+    iqData->dutTof = (uint16_t)((uint64_t)(localIqInfo->tofResult) * 3 / 100);  
+    // 3/100是为了乘以光速，将时间转换成距离，详细说明见上面注释
+    iqData->rtdTof = (uint16_t)((uint64_t)(remoteIqInfo->tofResult) * 3 / 100);  
     iqData->iqChnlNum = remoteIqInfo->iqChnlNum > localIqInfo->iqChnlNum ? localIqInfo->iqChnlNum :
                                                                           remoteIqInfo->iqChnlNum;
     iqData->iqData = (HadmReportIqData_S *)SDF_MemZalloc(sizeof(HadmReportIqData_S) * iqData->iqChnlNum);
@@ -721,6 +724,7 @@ uint32_t HadmReportSoundingIqInfoFromDli(uint16_t lcid, HadmIqInfoFromDli_S *iqI
     HadmSoundingState_E state = HadmGetSoundingStateByAddr(addr);
     if (state == HADM_SOUNDING_STATE_INVALID) {
         NLSTK_LOG_ERROR("[HADM]get invalid state when trige state machine, addr: %s", GET_ENC_ADDR(addr));
+        HadmDftReportExcep(addr, HADM_DFT_EVT_INVALID_STATE_WHEN_IQ, (uint16_t)state);
         return NLSTK_ERRCODE_FAIL;
     } else if (state != HADM_SOUNDING_STATE_SOUNDING) {
         // 这里不返回，因为之前未下沉的代码中也没有这种逻辑的判断，因此仅打印日志；

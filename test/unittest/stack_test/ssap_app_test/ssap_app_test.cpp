@@ -313,3 +313,37 @@ TEST_F(SSAP_APP_TEST, SERVER_TEST_010)
     param->serviceEventNum = 0;
     NLSTK_SsapFreeServiceParam((void*)param);
 }
+
+// multiProcessing查询成功，appId is invalid
+TEST_F(SSAP_APP_TEST, GET_MULTI_PROCESSING_TEST_001)
+{
+    bool multiProcessing = false;
+    NLSTK_Errcode_E ret = NLSTK_SsapGetMultiProcessing(g_appId, &multiProcessing);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(multiProcessing, false);
+}
+
+// multiProcessing查询成功，link is null
+TEST_F(SSAP_APP_TEST, GET_MULTI_PROCESSING_TEST_002)
+{
+    NLSTK_SsapAppClientCb_S cb = {0};
+    cb.onFindService = Stub_SsapClientFindServiceCb;
+    NLSTK_Errcode_E ret = NLSTK_SsapClientRegApp(&g_appId, &cb, &g_addr);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+
+    bool multiProcessing = false;
+    ret = NLSTK_SsapGetMultiProcessing(g_appId, &multiProcessing);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(multiProcessing, false);
+    Stub_ResetData();
+}
+
+// 添加队列失败
+TEST_F(SSAP_APP_TEST, GET_MULTI_PROCESSING_TEST_003)
+{
+    EXPECT_CALL(scheduleMock, SchedulePostTaskBlocked).WillRepeatedly(TEST_SchedulePostTaskBlockedStubFail);
+
+    bool multiProcessing = false;
+    NLSTK_Errcode_E ret = NLSTK_SsapGetMultiProcessing(g_appId, &multiProcessing);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_TASK_FAIL);
+}

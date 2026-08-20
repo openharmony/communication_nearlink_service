@@ -29,17 +29,34 @@ static bool GenerateGroupKey(uint8_t algo, uint8_t *groupKey, uint8_t keyLen)
     uint8_t rand2[SM_OCTETS_16] = {0};
     uint8_t out[SM_OCTETS_16] = {0};
     bool ret = SmGenRandNum(rand1, SM_OCTETS_16);
-    NLSTK_CHECK_RETURN(ret, false, "[SM] Generate rand1 failed.");
+    if (!ret) {
+        (void)memset_s(rand1, SM_OCTETS_16, 0, SM_OCTETS_16);
+        return false;
+    }
     ret = SmGenRandNum(rand2, SM_OCTETS_16);
-    NLSTK_CHECK_RETURN(ret, false, "[SM] Generate rand2 failed.");
+    if (!ret) {
+        (void)memset_s(rand1, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(rand2, SM_OCTETS_16, 0, SM_OCTETS_16);
+        return false;
+    }
     NLSTK_SmDerivedMac_S input = {0};
     input.algo = algo;
     input.buff = rand2;
     input.buffSize = SM_OCTETS_16;
     (void)memcpy_s(input.key, SM_OCTETS_16, rand1, SM_OCTETS_16);
     ret = SmCmacGenerate(&input, out, SM_OCTETS_16);
-    NLSTK_CHECK_RETURN(ret, false, "[SM] Generate GK failed.");
+    if (!ret) {
+        (void)memset_s(rand1, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(rand2, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(out, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        return false;
+    }
     (void)memcpy_s(groupKey, SM_OCTETS_16, out, SM_OCTETS_16);
+    (void)memset_s(rand1, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(rand2, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(out, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     return true;
 }
 
@@ -75,8 +92,14 @@ static bool GenerateKg(uint8_t algo, uint8_t *linkKey, uint8_t *rand, uint8_t *o
     input.buffSize = SM_OCTETS_16;
     (void)memcpy_s(input.key, SM_OCTETS_16, linkKey, SM_OCTETS_16);
     ret = SmCmacGenerate(&input, out, SM_OCTETS_16);
-    NLSTK_CHECK_RETURN(ret, false, "[SM] Generate Kg failed.");
+    if (!ret) {
+        (void)memset_s(out, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        return false;
+    }
     (void)memcpy_s(output, SM_OCTETS_16, out, SM_OCTETS_16);
+    (void)memset_s(out, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     return true;
 }
 
@@ -90,12 +113,18 @@ static bool SendImgSecuConfig(SmSLink_S *slink, uint8_t imgId, uint8_t *groupKey
     uint8_t kg[SM_OCTETS_16] = {0};
     uint8_t rand[SM_OCTETS_16] = {0};
     bool ret = GenerateKg(codeAlgoCap[SM_OCTETS_0], slink->linkKey, rand, kg);
-    NLSTK_CHECK_RETURN(ret, false, "[SM] Generate Kg failed.");
+    if (!ret) {
+        (void)memset_s(kg, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(rand, SM_OCTETS_16, 0, SM_OCTETS_16);
+        return false;
+    }
     (void)memcpy_s(msg.rand, SM_OCTETS_16, rand, SM_OCTETS_16);
     for (uint8_t i = 0; i < SM_OCTETS_16; i++) {
         msg.c[i] = groupKey[i] ^ kg[i];
     }
     ret = SmSendMessage(slink, SM_IMG_SECU_CONFIG, (const uint8_t *)&msg, sizeof(SmImgSecuConfigMsg_S));
+    (void)memset_s(kg, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(rand, SM_OCTETS_16, 0, SM_OCTETS_16);
     NLSTK_CHECK_RETURN(ret, false, "[SM] Send Message failed.");
     return true;
 }
@@ -111,6 +140,7 @@ void SmSendImgMsg(void *arg)
         NLSTK_LOG_ERROR("[SM] not find slink.");
         cmpl.sendStatus = SM_IMG_ERROR;
         SmExternalCbks(SM_CBK_EVENT_IMG_SEND_MESSAGE, &cmpl);
+        (void)memset_s(config->groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
         return;
     }
     uint8_t codeAlgoCap[SM_OCTETS_3] = {0};
@@ -120,6 +150,7 @@ void SmSendImgMsg(void *arg)
     bool ret = SendImgSecuConfig(slink, config->imgId, config->groupKey, codeAlgoCap, config->giv);
     cmpl.sendStatus = ret ? SM_IMG_OK : SM_IMG_ERROR;
     SmExternalCbks(SM_CBK_EVENT_IMG_SEND_MESSAGE, &cmpl);
+    (void)memset_s(config->groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
 }
 
 void SmEnableImgEncryption(void *arg)
@@ -135,5 +166,12 @@ void SmEnableImgEncryption(void *arg)
     }
     (void)memcpy_s(&param.iv, sizeof(uint64_t), &enable->giv, sizeof(uint64_t));
     (void)memcpy_s(&param.key, SM_OCTETS_16, &enable->groupKey, SM_OCTETS_16);
-    NLSTK_CHECK_RETURN_VOID(DLI_EnableIMGEncryption(&param) == DLI_SUCCESS, "[SM] dli enable img encryption failed.");
+    if (DLI_EnableIMGEncryption(&param) != DLI_SUCCESS) {
+        (void)memset_s(&param.key, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&enable->groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
+        NLSTK_LOG_ERROR("[SM] dli enable img encryption failed.");
+        return;
+    }
+    (void)memset_s(&param.key, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(&enable->groupKey, SM_OCTETS_16, 0, SM_OCTETS_16);
 }

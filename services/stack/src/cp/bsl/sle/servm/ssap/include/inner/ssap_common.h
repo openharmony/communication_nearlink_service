@@ -38,6 +38,7 @@ typedef struct {
     NLSTK_SsapUuid_S uuid;                        // UUID标识, 缺省0:发现所有服务
     uint8_t errCode;
     uint16_t preFindHandle;
+    uint16_t endHandle;
 } SSAP_DiscoveryComplete_S;
 
 /**

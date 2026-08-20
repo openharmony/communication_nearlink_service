@@ -132,22 +132,6 @@ HWTEST_F(CcpSystemInterfaceTest, OnCallDetailsChange001, TestSize.Level1)
 }
 
 /*
- * @tc.number: OnMeeTimeDetailsChange001
- * @tc.name:
- * @tc.desc:
-*/
-HWTEST_F(CcpSystemInterfaceTest, OnMeeTimeDetailsChange001, TestSize.Level1)
-{
-    HILOGI("OnMeeTimeDetailsChange001 start");
-    CallAttributeInfo callAttributeInfo;
-    callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
-    callManagerCallbackImpl_->OnMeeTimeDetailsChange(callAttributeInfo);
-    EXPECT_NE(0, 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    HILOGI("OnMeeTimeDetailsChange001 end");
-}
-
-/*
  * @tc.number: OnPhoneStateChange001
  * @tc.name:
  * @tc.desc:

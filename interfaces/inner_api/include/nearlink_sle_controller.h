@@ -74,6 +74,18 @@ public:
      */
     NlErrCode UpdateConnectInterval(const std::string &device, ConnectionInterval intervalType) const;
 
+    /**
+     * @brief The function to set sle coexist mode.
+     * @param mode coexist mode.
+     *         SLE_HID_COEX_MODE_ENABLE, // enable HID coexist mode, restrain HID interval to low speed
+     *         SLE_HID_COEX_MODE_DISABLE, // disable HID coexist mode
+     * @param deviceList device list in which sle param should be adjust during coexist mode
+     * @param paramList params of device list
+     * @return Returns the status code for this function called.
+     */
+    NlErrCode SetSleCoexMode(SleCoexMode mode, const std::vector<std::string> &deviceList,
+        const std::vector<ConnectionInterval> &paramList);
+
 private:
     NearlinkSleController();
     ~NearlinkSleController();

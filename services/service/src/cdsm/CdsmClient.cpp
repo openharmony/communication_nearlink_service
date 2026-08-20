@@ -18,7 +18,6 @@
 #include "sle_uuid.h"
 #include "SleInterfaceAdapter.h"
 #include "SleInterfaceManager.h"
-#include "sysdep.h"
 #include "SleServiceFfrtLog.h"
 #include "ThreadUtil.h"
 #include "nlstk_public_define.h"
@@ -44,7 +43,7 @@ std::shared_ptr<CdsmClient> CdsmClient::CreateCdsmClient(const std::string &addr
 /* 调用底层接口开始连接合作集服务 */
 bool CdsmClient::CdsmClientStartConnect()
 {
-    SLE_Addr_S peerAddr;
+    SLE_Addr_S peerAddr = {};
     RawAddress CdsmAddr(address_);
     CdsmAddr.ConvertToUint8(peerAddr.addr, SLE_ADDR_LEN);
     uint32_t ret = NLSTK_CdsmConnect(&peerAddr);
@@ -53,7 +52,7 @@ bool CdsmClient::CdsmClientStartConnect()
 
 bool CdsmClient::CdsmClientStartDisconnect()
 {
-    SLE_Addr_S peerAddr;
+    SLE_Addr_S peerAddr = {};
     RawAddress CdsmAddr(address_);
     CdsmAddr.ConvertToUint8(peerAddr.addr, SLE_ADDR_LEN);
     uint32_t ret = NLSTK_CdsmDisconnect(&peerAddr);
@@ -87,7 +86,7 @@ void CdsmClient::CdsmClientUpdateState(CdsmClientState toState)
     /* 主耳连接成功，启动邀请广播（公版方案） */
     if (toState == CdsmClientState::CDSM_STATE_CONNECTED &&
         cdsmService->CdsmCheckIsCooperationReport(device)) {
-        SLE_Addr_S reportAddr;
+        SLE_Addr_S reportAddr = {};
         device.ConvertToUint8(reportAddr.addr, SLE_ADDR_LEN);
         NLSTK_CdsmStartAdv(&reportAddr);
         HILOGI("[Cdsm Client]:start cdsm invition adv.");
@@ -103,7 +102,7 @@ void CdsmClient::CdsmStopInviteAdv()
         return;
     }
 
-    SLE_Addr_S reportAddr;
+    SLE_Addr_S reportAddr = {};
     device.ConvertToUint8(reportAddr.addr, SLE_ADDR_LEN);
     NLSTK_CdsmStopAdv(&reportAddr);
     HILOGI("[Cdsm Client]:stop cdsm invition adv,addr:%{public}s.", GetEncryptAddr(address_).c_str());

@@ -14,6 +14,7 @@
  */
 
 #include "ScanService.h"
+#include "SleFrame4AntennaMgr.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_dft_exception.h"
 #include "nearlink_dft_device_data.h"
@@ -94,8 +95,8 @@ ScanService &ScanService::GetInstance()
 void ScanService::RegisterSleCentralManagerCallback(ISleCentralManagerCallback &callback)
 {
     HILOGI("enter");
-    DoInScanThread([this, &callback]() -> void {
-        pimpl->sleCentralManagerCallback_ = &callback;
+    DoInScanThread([this, callbackPtr = &callback]() -> void {
+        pimpl->sleCentralManagerCallback_ = callbackPtr;
     });
 }
 
@@ -103,9 +104,7 @@ void ScanService::DeregisterSleCentralManagerCallback() const
 {
     HILOGI("enter");
     DoInScanThread([this]() -> void {
-        if (!pimpl->sleCentralManagerCallback_) {
-            pimpl->sleCentralManagerCallback_ = nullptr;
-        }
+        pimpl->sleCentralManagerCallback_ = nullptr;
     });
 }
 
@@ -156,6 +155,7 @@ void ScanService::RemoveScannerId(uint32_t scannerId)
     HILOGI("scannerId(%{public}d)", scannerId);
     DoInScanThread([this, scannerId]() -> void {
         pimpl->scanStackAdapter_.RemoveScannerId(scannerId);
+        SleFrame4AntennaMgr::GetInstance().OnScanStopped(scannerId);
     });
 }
 
@@ -165,6 +165,7 @@ void ScanService::StartScan(uint32_t scannerId, const NearlinkSleScanSettings &s
     HILOGI("scannerId(%{public}d)", scannerId);
     DftDealAccurateSearchScanInfo(NearLinkPermissionManager::GetCallingName(), DFT_SCAN);
     DoInScanThread([this, scannerId, settings, filters]() -> void {
+        SleFrame4AntennaMgr::GetInstance().OnScanStarted(scannerId, settings.GetScanMode(), settings.GetFrameType());
         pimpl->scanStackAdapter_.StartScan(scannerId, settings, filters);
     });
 }
@@ -174,6 +175,7 @@ void ScanService::StopScan(uint32_t scannerId) const
     HILOGI("scannerId(%{public}d)", scannerId);
     DoInScanThread([this, scannerId]() -> void {
         pimpl->scanStackAdapter_.StopScan(scannerId);
+        SleFrame4AntennaMgr::GetInstance().OnScanStopped(scannerId);
     });
 }
 
@@ -183,6 +185,7 @@ void ScanService::StopAllScan()
     std::future<void> future = stopAllScanPromise->get_future();
     DoInScanThread([this, &stopAllScanPromise]() -> void {
         pimpl->scanStackAdapter_.StopAllScan(stopAllScanPromise);
+        SleFrame4AntennaMgr::GetInstance().OnAllScanStopped();
     });
     HILOGI("waiting for stop all scan....");
     auto status = future.wait_for(std::chrono::milliseconds(STOP_ALL_SCAN_WAIT_TIMEOUT_MS));
@@ -552,6 +555,14 @@ void ScanService::AddPeripheralDevice(const SleScanResultImpl &scanResult)
 {
     SlePeripheralDevice device = scanResult.GetPeripheralDevice();
     RawAddress addr = device.GetRawAddress();
+
+    /* 配对广播携带信息更多，已扫描到配对广播，回连广播不覆盖已有扫描数据，防止信息丢失；回连广播上层不感知，无需上报 */
+    SleScanResultImpl value;
+    if (pimpl->sleScanResults_.GetValue(addr.GetAddress(), value) &&
+        value.GetPeripheralDevice().GetManufacturerBusiness() == SLE_PRIVATE_AUDIO_BUSINESS_TYPE &&
+        device.GetAdFlag() == static_cast<uint8_t>(SleAdvertiserFlag::SLE_ADV_FLAG_NON_DISC)) {
+        return;
+    }
     ClearOldPeripheralDevice(addr, device);
     if (pimpl->sleScanResults_.FindIf(addr.GetAddress())) {
         pimpl->sleScanResults_.EnsureInsert(addr.GetAddress(), scanResult);

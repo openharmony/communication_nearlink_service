@@ -161,7 +161,7 @@ static void InitHandleEncpParamReqReply(State *state, SmSLink_S *slink)
 {
     SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_KEY_MISSING);
     NLSTK_LOG_ERROR("[SM] Pin or key missing since local device in %s state.", g_smStateName[SM_STATE_INIT]);
-    SmSLinkAuthCbk(slink, SM_KEY_MISSING);
+    SmSLinkAuthCbk(slink, SM_PAIR_KEY_MISSING);
     if (SmSLinkBindLogicLink(slink)) {
         uint32_t ret = DLI_EncryptionParamReqNegativeReply(&(DLI_ConnHandleStru) { .connHandle = slink->lcid });
         if (ret != DLI_SUCCESS) {
@@ -234,7 +234,7 @@ static void NegoEntry(State *state)
 static void NegoHandleDisconn(State *state, SmSLink_S *slink)
 {
     NLSTK_LOG_ERROR("[SM] Error occurred in %s state.", g_smStateName[SM_STATE_NEGO]);
-    SmSLinkAuthCbk(slink, SM_LINK_DISCONNCTED);
+    SmSLinkAuthCbk(slink, SM_PAIR_LINK_DISCONNCTED);
     state->Transition(state, g_smStateName[SM_STATE_REMV]);
 }
 
@@ -243,8 +243,9 @@ static void NegoHandleError(State *state, Message msg, SmSLink_S *slink)
     NLSTK_LOG_ERROR("[SM] Error occurred in %s state.", g_smStateName[SM_STATE_NEGO]);
     if (msg.extData != NULL) {
         uint8_t pkg = (uint8_t)(uintptr_t)msg.extData;
-        SmSLinkAuthCbk(slink, pkg);
+        NLSTK_LOG_ERROR("[SM] Nego error, error code: %d.", pkg);
     }
+    SmSLinkAuthCbk(slink, SM_PAIR_ERROR);
     state->Transition(state, g_smStateName[SM_STATE_REMV]);
 }
 
@@ -255,7 +256,7 @@ static void NegoHandleRemovePair(State *state, Message msg, SmSLink_S *slink)
     if ((uintptr_t)msg.extData == SM_ERR_ACTIVE_CANCEL) {
         NLSTK_LOG_ERROR("[SM] Active cancel in %s state.", g_smStateName[SM_STATE_NEGO]);
         uint8_t pkg = SM_ERR_ACTIVE_CANCEL;
-        SmSLinkAuthCbk(slink, SM_ERR_ACTIVE_CANCEL);
+        SmSLinkAuthCbk(slink, SM_PAIR_ACTIVE_CANCEL);
         bool ret = SmSendMessage(slink, SM_PAIR_FAIL_MESSAGE_OPCODE, &pkg, 1);
         NLSTK_CHECK_RETURN_VOID(ret, "[SM] Send Message failed.");
     }
@@ -266,7 +267,7 @@ static void NegoHandleEncpParamReqReply(State *state, SmSLink_S *slink)
 {
     NLSTK_LOG_ERROR("[SM] Pin or key missing since local device in %s state.", g_smStateName[SM_STATE_NEGO]);
     SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_KEY_MISSING);
-    SmSLinkAuthCbk(slink, SM_KEY_MISSING);
+    SmSLinkAuthCbk(slink, SM_PAIR_KEY_MISSING);
     uint32_t ret = DLI_EncryptionParamReqNegativeReply(&(DLI_ConnHandleStru) { .connHandle = slink->lcid });
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[SM] Send encryption negative reply command failure.");
@@ -347,7 +348,7 @@ static void AuthDispatch(State *state, Message msg)
         }
         case SM_LCHANNEL_DISCONN: {
             NLSTK_LOG_ERROR("[SM] Error occurred in %s state.", g_smStateName[SM_STATE_AUTH]);
-            SmSLinkAuthCbk(slink, SM_LINK_DISCONNCTED);
+            SmSLinkAuthCbk(slink, SM_PAIR_LINK_DISCONNCTED);
             state->Transition(state, g_smStateName[SM_STATE_REMV]);
             break;
         }
@@ -357,8 +358,9 @@ static void AuthDispatch(State *state, Message msg)
             NLSTK_LOG_ERROR("[SM] Error occurred in %s state.", g_smStateName[SM_STATE_AUTH]);
             if (msg.extData != NULL) {
                 uint8_t pkg = (uint8_t)(uintptr_t)msg.extData;
-                SmSLinkAuthCbk(slink, pkg);
+                NLSTK_LOG_ERROR("[SM] Auth error, error code: %d.", pkg);
             }
+            SmSLinkAuthCbk(slink, SM_PAIR_ERROR);
             state->Transition(state, g_smStateName[SM_STATE_REMV]);
             break;
         }
@@ -367,7 +369,7 @@ static void AuthDispatch(State *state, Message msg)
             if ((uintptr_t)msg.extData == SM_ERR_ACTIVE_CANCEL) {
                 NLSTK_LOG_ERROR("[SM] Active cancel in %s state.", g_smStateName[SM_STATE_AUTH]);
                 uint8_t pkg = SM_ERR_ACTIVE_CANCEL;
-                SmSLinkAuthCbk(slink, SM_ERR_ACTIVE_CANCEL);
+                SmSLinkAuthCbk(slink, SM_PAIR_ACTIVE_CANCEL);
                 bool ret = SmSendMessage(slink, SM_PAIR_FAIL_MESSAGE_OPCODE, &pkg, 1);
                 NLSTK_CHECK_RETURN_VOID(ret == true, "[SM] Send Message failed.");
             }
@@ -439,8 +441,9 @@ static void EncpHandleInternalError(State *state, Message msg)
     SmSLink_S *slink = SM_STM_M(state->stm_, slink);
     if (msg.extData != NULL) {
         uint8_t pkg = (uint8_t)(uintptr_t)msg.extData;
-        SmSLinkEncpCbk(slink, pkg);
+        NLSTK_LOG_ERROR("[SM] Encp internal error, error code: %d.", pkg);
     }
+    SmSLinkEncpCbk(slink, SM_PAIR_ERROR);
 }
 
 static void EncpHandleEncpFail(State *state, Message msg)
@@ -452,7 +455,8 @@ static void EncpHandleEncpFail(State *state, Message msg)
         state->Transition(state, g_smStateName[SM_STATE_MISS]);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_MISS_HANDLE });
     } else {
-        SmSLinkEncpCbk(slink, (uint8_t)(uintptr_t)msg.extData);
+        NLSTK_LOG_ERROR("[SM] Start to handle encryption fail, error code: %d.", (uint8_t)(uintptr_t)msg.extData);
+        SmSLinkEncpCbk(slink, SM_PAIR_ERROR);
     }
 }
 
@@ -485,7 +489,7 @@ static void EncpDispatch(State *state, Message msg)
         }
         case SM_LCHANNEL_DISCONN: {
             SmSLink_S *slink = SM_STM_M(state->stm_, slink);
-            SmSLinkEncpCbk(slink, SM_LINK_DISCONNCTED);
+            SmSLinkEncpCbk(slink, SM_PAIR_LINK_DISCONNCTED);
             break;
         }
         case SM_ENCP_FAIL: {
@@ -522,7 +526,7 @@ static void MissEntry(State *state)
 {
     NLSTK_LOG_INFO("[SM] State machine enter key missing state.");
     SmSLink_S *slink = SM_STM_M(state->stm_, slink);
-    SmSLinkEncpCbk(slink, SM_KEY_MISSING);
+    SmSLinkEncpCbk(slink, SM_PAIR_KEY_MISSING);
     slink->curStateIndex = SM_STATE_MISS;
 }
 

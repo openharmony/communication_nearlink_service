@@ -202,8 +202,8 @@ typedef enum {
     QOS_MEAS_RSP = 0x33,      /* Qos测量响应 */
     QOS_RECONFIG_REQ = 0x34,  /* Qos重配请求 */
     QOS_RECONFIG_RSP = 0x35,  /* Qos重配响应 */
-    QOS_RELEASE_REQ = 0x34,   /* Qos释放请求 */
-    QOS_RELEASE_RSP = 0x35,   /* Qos释放响应 */
+    QOS_RELEASE_REQ = 0x36,   /* Qos释放请求 */
+    QOS_RELEASE_RSP = 0x37,   /* Qos释放响应 */
 
     MEASURE_STARTUP_REQ = 0x40,         /* 测量实例建立请求 */
     MEASURE_STARTUP_RSP = 0x41,         /* 测量实例建立响应 */

@@ -51,7 +51,7 @@ static void CM_ConnectionProcInterruptReq(SleLogicLink_S *link, uint8_t version,
 {
     // 基础连接完成后，若流程异常，则发起释放连接请求
     CM_AccessParamReq_S accessParam = { 0 };
-    link->status = CM_LINK_STATE_DISCONNECTTING;
+    link->status = CM_LINK_STATE_DISCONNECTING;
     accessParam.lcid = link->lcid;
     accessParam.version = version;
     accessParam.localIndex = localIndex;
@@ -147,7 +147,7 @@ static void CM_SleDisconnectProc(void *context, uint8_t result, const CM_Execute
     (void)memcpy_s(&connectRsp->addr, sizeof(SLE_Addr_S), &link->rmtAddr, sizeof(SLE_Addr_S));
     CM_LOGI("sle connect disconnect proc, link status:%d", link->status);
     if (link->status != CM_LINK_STATE_DISCONNECTED) {
-        if (link->status == CM_LINK_STATE_CONNECTED || link->status == CM_LINK_STATE_DISCONNECTTING) {
+        if (link->status == CM_LINK_STATE_CONNECTED || link->status == CM_LINK_STATE_DISCONNECTING) {
             CM_ReleaseFixedTransChannel(connectRsp->lcid);
         }
         SleLogicLinkRemove(link);
@@ -349,6 +349,14 @@ static void CM_SleReadRemoteRssiCbkProc(void *context, uint8_t result, const CM_
     CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_READ_REMOTE_RSSI, (void *)param);
 }
 
+static void CM_SleHidCoexModeCbkProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
+{
+    CM_LOGI("CM_SleHidCoexModeCbkProc");
+    CM_CHECK_RETURN((par != NULL && par->eventParameter != NULL), "CM_SleHidCoexModeCbkProc param invalid");
+    CM_HidCoexModeRsp_S *param = (CM_HidCoexModeRsp_S *)par->eventParameter;
+    CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_HID_COEX_MODE, (void *)param);
+}
+
 static void CM_RegEventCbk(void)
 {
     CM_AccessRegCbk(SLE_ACCESS_CBK_CONNECT, CM_SleCreateConnectionProc);
@@ -370,6 +378,7 @@ static void CM_RegEventCbk(void)
     CM_AccessRegCbk(SLE_ACCESS_CBK_REQ_SUBRATE, CM_SleReqSubrateCbkProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_READ_ACCEPT_FLT_LIST_SIZE, CM_SleReadAcceptFilterListSizeProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_READ_REMOTE_RSSI, CM_SleReadRemoteRssiCbkProc);
+    CM_AccessRegCbk(SLE_ACCESS_CBK_HID_COEX_MODE, CM_SleHidCoexModeCbkProc);
 }
 
 void CM_EventCoreInit(void)

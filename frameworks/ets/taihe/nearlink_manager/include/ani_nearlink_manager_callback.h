@@ -20,6 +20,7 @@
 #include "ohos.nearlink.manager.proj.hpp"
 #include "ohos.nearlink.manager.impl.hpp"
 #include "taihe/runtime.hpp"
+#include <shared_mutex>
 
 namespace OHOS {
 namespace Nearlink {
@@ -28,14 +29,19 @@ using namespace Nearlink;
 constexpr int MAX_CB_NUM = 100;
 extern std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>>>
     g_stateChangedObserverVec;
+extern std::shared_mutex g_stateChangedMutex;
 extern std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>>>
     g_pairingRequestObserverVec;
+extern std::shared_mutex g_pairingRequestMutex;
 extern std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>>>
     g_pairStatusChangedObserverVec;
+extern std::shared_mutex g_pairStatusChangedMutex;
 extern std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>>>
     g_connectionStateChangedObserverVec;
+extern std::shared_mutex g_connectionStateChangedMutex;
 extern std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>>>
     g_acbStateChangedObserverVec;
+extern std::shared_mutex g_acbStateChangedMutex;
 
 class AniNearlinkManagerObserver : public NearlinkHostObserver {
 public:

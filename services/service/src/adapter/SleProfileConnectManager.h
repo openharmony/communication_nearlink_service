@@ -172,7 +172,7 @@ private:
     void DeregisterSsapClientApplication(const RawAddress &addr) const;
     void DisconnectAcbInAbnormalSituations(const RawAddress &device, uint8_t acbDisconnReason, int connChangedReason);
     void ProfileConnTimeoutTask(const RawAddress &device);
-#ifdef WATCH_STANDARD
+#ifdef NEARLINK_SYNC_AP_TO_MCU
     void ProfileConnectedNotifyDataShare(const std::string &profileName, const RawAddress &device);
 #endif
 

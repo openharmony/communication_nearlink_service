@@ -72,6 +72,7 @@ static void CM_InitInner(void *param)
     CM_TransChannelMgrInit();
     CM_EventCoreInit();
     CM_ConcurrentConnInit();
+    CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubrate);
     CM_ICBInit();
     g_cmIsInited = true;
     CM_LOGI("CM_InitInner success");
@@ -102,6 +103,7 @@ static void CM_DeInitInner(void *param)
     (void)param;
     CM_CHECK_RETURN(g_cmIsInited, "CM has not inited");
     CM_ICBDeinit();
+    CM_ICBMgrSetInnerSetACBSubrate(NULL);
     CM_ConcurrentConnDeInit();
     CM_EventCoreDeInit();
     SleAccessUnRegCbks();
@@ -390,7 +392,7 @@ uint32_t CM_ConnectReleaseReq(CM_DisconnectParamReq_S *param)
         CM_NotifyReleasingReqCanceled(param, DLI_COMMAND_DISALLOWED);
         return CM_FAIL;
     }
-    link->status = CM_LINK_STATE_DISCONNECTTING;
+    link->status = CM_LINK_STATE_DISCONNECTING;
     accessParam.lcid = link->lcid;
     accessParam.version = CM_CONNECT_VERSION_1_0;
     accessParam.localIndex = CM_CONNECT_LOCAL_INDEX_0;
@@ -461,6 +463,12 @@ static void CM_ConnectUpdateParamReqInner(void *arg)
     } else {
         updateParam.connIntervalMin = param->intervalMin;
         updateParam.connIntervalMax = param->intervalMax;
+    }
+    // 共存场景下，HID interval设置不能小于15ms
+    uint16_t coexInterval = 0;
+    if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, updateParam.connIntervalMin)) {
+        updateParam.connIntervalMin = coexInterval;
+        updateParam.connIntervalMax = coexInterval;
     }
     updateParam.txRxInterval = param->txRxInterval;
     updateParam.eventInterval = param->eventInterval;

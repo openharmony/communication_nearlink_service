@@ -19,14 +19,16 @@
 ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
 {
     ani_env *env;
-    if (ANI_OK != vm->GetEnv(ANI_VERSION_1, &env)) {
+    if (vm == nullptr || ANI_OK != vm->GetEnv(ANI_VERSION_1, &env)) {
         return ANI_ERROR;
     }
     if (ANI_OK != ohos::nearlink::manager::ANIRegister(env)) {
         std::cerr << "Error from ohos::nearlink::manager::ANIRegister" << std::endl;
         return ANI_ERROR;
     }
-    *result = ANI_VERSION_1;
+    if (result != nullptr) {
+        *result = ANI_VERSION_1;
+    }
     OHOS::Nearlink::AniNearlinkManager::CallbackInit();
     return ANI_OK;
 }

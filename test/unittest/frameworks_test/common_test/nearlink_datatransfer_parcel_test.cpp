@@ -54,14 +54,14 @@ public:
 HWTEST_F(NearlinkDataTransferParcelTest, SerializeDataAndDeserializeData001, TestSize.Level1)
 {
     HILOGI("SerializeDataAndDeserializeData001 start");
-    std::string address = "";
-    std::string uuid = "";
+    std::string address = "aa";
+    std::string uuid = "bb";
     uint16_t portId = 30300;
     const std::vector<uint8_t> datas = {1, 2, 3, 4, 5, 6};
     DataTransferDataParams dataParams(address, uuid, portId, datas);
     size_t totalLen = 0;
     std::unique_ptr<uint8_t[]> packageData = NearlinkDataTransferDataParams::SerializeData(dataParams, totalLen);
-    EXPECT_EQ(40, totalLen);
+    EXPECT_EQ(44, totalLen);
 
     std::vector<DataTransferDataParams> packageList =
         NearlinkDataTransferDataParams::DeserializeDataList(packageData.get(), totalLen);

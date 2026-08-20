@@ -33,7 +33,7 @@ public:
         const sptr<INearlinkHadmClientCallback> &callback) = 0;
     virtual NlErrCode DeregisterNearlinkHadmClientCallback(uint32_t hadmId,
         const sptr<INearlinkHadmClientCallback> &callback) = 0;
-    virtual NlErrCode StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr) = 0;
+    virtual NlErrCode StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr, uint8_t toneControl) = 0;
     virtual NlErrCode StopSounding(uint32_t hadmId, const NearlinkRawAddress &addr) = 0;
     virtual NlErrCode GetHadmFeature(uint8_t &capability) = 0;
 };

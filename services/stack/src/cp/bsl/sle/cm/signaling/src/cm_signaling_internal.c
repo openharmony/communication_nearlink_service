@@ -81,7 +81,7 @@ int CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
     }
 
     uint8_t code = *(SDF_DataOffset(buff));
-    CM_LOGI("CM_DataRecv code 0x%02x, lcid 0x%04x dataLen %lu",
+    CM_LOGI("CM_DataRecv code 0x%02x, lcid 0x%04x dataLen %llu",
         code, info->lcid, SDF_BuffLenGet(buff));
     CM_SignalingHandle handle = CM_SignalingGetManagerHandler(code);
     if (handle == NULL) {

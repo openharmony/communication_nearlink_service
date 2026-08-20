@@ -45,8 +45,8 @@ bool DialogGenerate::DialogConnectExtensionAbility(const AAFwk::Want &want, cons
     std::string identity = IPCSkeleton::ResetCallingIdentity();
     auto ret = AAFwk::ExtensionManagerClient::GetInstance().ConnectServiceExtensionAbility(want, connection, nullptr,
                                                                                            -1);
-    NL_CHECK_RETURN_RET(ret == ERR_OK, false, "ret isn't ERR_OK");
     IPCSkeleton::SetCallingIdentity(identity);
+    NL_CHECK_RETURN_RET(ret == ERR_OK, false, "ret isn't ERR_OK");
     return true;
 }
 

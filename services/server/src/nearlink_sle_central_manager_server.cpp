@@ -31,6 +31,8 @@
 #include "nearlink_verification_manager.h"
 #include "nearlink_system_config.h"
 #include "nearlink_raw_address.h"
+#include "nearlink_def.h"
+#include "SleInterfaceAdapterSub.h"
 namespace OHOS {
 namespace Nearlink {
 namespace {
@@ -292,6 +294,14 @@ NlErrCode NearlinkSleCentralManagerServer::StartScan(uint32_t scannerId, const N
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteScannerId(scannerId), NL_ERR_INTERNAL_ERROR,
         "scannerId is invalid.");
     NL_CHECK_RETURN_RET(scannerId != SLE_SCAN_INVALID_ID, NL_ERR_INTERNAL_ERROR, "invalid scannerId");
+    if (settings.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) {
+        SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
+            (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
+        NL_CHECK_RETURN_RET(
+            sleService->IsFeatureSupported(static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)),
+            NL_ERR_API_NOT_SUPPORT, "frame4 scan is not supported.");
+    }
 
     std::vector<SleScanFilterImpl> filterImpls;
     ConvertToScanFilterImpl(filters, filterImpls);

@@ -17,6 +17,8 @@
 #include <cstring>
 #include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceProfileASC.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfileTws.h"
 #include "singleton.h"
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
@@ -25,8 +27,6 @@
 #include "ThreadUtil.h"
 #include "CcpStackAdapter.h"
 #include "CcpSystemInterface.h"
-#include "ASCService.h"
-#include "TwsService.h"
 #include "nearlink_dft_ue.h"
 
 namespace OHOS {
@@ -49,7 +49,7 @@ struct CcpService::impl {
     std::set<int32_t> voipIdSet_;
     /* 当前voip通话的callId */
     int32_t currentVoipCallId_ = INVALID_CCP_VOIP_ID;
-    bool isInMeetimeCall = false;
+    bool isInVoipCall = false;
 
     uint8_t GetIndexForCall(const int32_t callId, const Telephony::TelCallState callStatus);
     void RemoveCallIndex(const int32_t callId);
@@ -219,7 +219,8 @@ void CcpService::HandleHangUp(const RawAddress &device, int32_t instanceId, uint
 
 bool CcpService::IsNearlinkActiveDevice(const RawAddress &reportAddr)
 {
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN_RET(ascService, false, "cant find ASC service");
 
     // 获取到的是report地址
@@ -234,7 +235,8 @@ void CcpService::NotifyAudioDeviceAction(const RawAddress &devAddr, int action)
 {
     HILOGI("[CcpService]:NotifyAudioDeviceAction, addr:%{public}s, action:%{public}d",
         GetEncryptAddr(devAddr.GetAddress()).c_str(), action);
-    ASCService *ascService = ASCService::GetService();
+    ProfileASC *ascService = static_cast<ProfileASC *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
     NL_CHECK_RETURN(ascService, "cant find ASC service");
     ascService->SleAudioDeviceActionChanged(NearlinkRawAddress(devAddr), action);
 }
@@ -291,24 +293,26 @@ void CcpService::HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState
     ProcessCallStateInfo(callInfoVec);
 }
 
-void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
-{
-    ProcessCallDetailChange(info);
-}
-
-void CcpService::HandleMeeTimeDetailsChange(const Telephony::CallAttributeInfo &info)
+void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
     switch (info.callState) {
         case TelCallState::CALL_STATUS_DIALING:
         case TelCallState::CALL_STATUS_INCOMING:
-            pimpl->isInMeetimeCall = true;
+            pimpl->isInVoipCall = true;
             break;
         case TelCallState::CALL_STATUS_DISCONNECTED:
             /* 通话挂断 */
-            pimpl->isInMeetimeCall = false;
+            pimpl->isInVoipCall = false;
             break;
         default:
             break;
+    }
+}
+
+void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
+{
+    if (info.callType == Telephony::CallType::TYPE_VOIP) {
+        HandleVoipCallDetailChange(info);
     }
     ProcessCallDetailChange(info);
 }
@@ -327,8 +331,10 @@ void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &inf
             /* 更新通话终止信息 */
             ProcessCallTerminateInfo(info);
             /* 更新挂断时间戳 */
-            ASCService *ascService = ASCService::GetService();
-            TwsService *twsService = TwsService::GetService();
+            ProfileASC *ascService = static_cast<ProfileASC *>(
+                SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
+            ProfileTws *twsService = static_cast<ProfileTws *>(
+                SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
             if (ascService != nullptr && twsService != nullptr) {
                 NearlinkRawAddress device = ascService->GetActiveSinkDevice(); // 获取到的是report地址
                 if (!device.GetAddress().empty()) {
@@ -478,7 +484,7 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        NL_CHECK_RETURN(!pimpl->isInMeetimeCall, "Now Is in meetime, not need to create new call state.");
+        NL_CHECK_RETURN(!pimpl->isInVoipCall, "Now Is in VoIP, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
         pimpl->currentVoipCallId_ = voipId;
@@ -499,9 +505,9 @@ void CcpService::HandleVoipStop(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        if (pimpl->isInMeetimeCall) {
-            HILOGI("[CcpService]Now Is in meetime, not need to create new call state");
-            pimpl->isInMeetimeCall = false;
+        if (pimpl->isInVoipCall) {
+            HILOGI("[CcpService]Now Is in VoIP, not need to create new call state");
+            pimpl->isInVoipCall = false;
             return;
         }
         Telephony::CallAttributeInfo info;

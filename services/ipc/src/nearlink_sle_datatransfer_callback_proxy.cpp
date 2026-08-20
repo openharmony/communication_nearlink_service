@@ -28,9 +28,20 @@ void NearlinkSleDataTransferCallbackProxy::OnConnectionStateChanged(
     const NearlinkSleDataTransferConnectionParams &connectionParams, int fd)
 {
     MessageParcel data;
-    NL_CHECK_RETURN(
-        data.WriteInterfaceToken(NearlinkSleDataTransferCallbackProxy::GetDescriptor()), "Write Token error");
-    NL_CHECK_RETURN(data.WriteParcelable(&connectionParams), "write connect failed");
+    if (!data.WriteInterfaceToken(NearlinkSleDataTransferCallbackProxy::GetDescriptor())) {
+        HILOGE("Write Token error");
+        if (fd != -1) {
+            close(fd);
+        }
+        return;
+    }
+    if (!data.WriteParcelable(&connectionParams)) {
+        HILOGE("write connect failed");
+        if (fd != -1) {
+            close(fd);
+        }
+        return;
+    }
     if (fd != -1) {
         if (!data.WriteFileDescriptor(fd)) {
             HILOGE("write fd failed");

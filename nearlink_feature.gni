@@ -21,10 +21,15 @@ declare_args() {
     nearlink_service_rss_background_task = false
     nearlink_service_bas_enable = false
     nearlink_service_pluggable_supported = false
+    nearlink_service_sync_ap_to_mcu = false
+    nearlink_service_non_audio_device_direct_conn = false
+    nearlink_service_min_conn_interval = 0
+    nearlink_service_direct_conn_scan_params = 0
 }
 
 # 弱耦合部件依赖检查
 declare_args() {
+    nearlink_hiappevent_enabled = false
     nearlink_deps_power_manager_exist = false
     nearlink_deps_audio_exist = false
     nearlink_deps_telephony_exist = false
@@ -64,5 +69,9 @@ declare_args() {
     if (defined(global_parts_info) &&
         defined(global_parts_info.resourceschedule_resource_schedule_service)) {
         nearlink_deps_resource_schedule_service_exist = true
+    }
+
+    if (defined(global_parts_info) && defined(global_parts_info.hiviewdfx_hiappevent)) {
+        nearlink_hiappevent_enabled = true
     }
 }

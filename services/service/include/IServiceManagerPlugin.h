@@ -57,6 +57,7 @@ public:
     virtual int HidSendData(const HidReportInfo &reportInfo) const = 0;
     virtual int GetDeviceAppearance(const RawAddress &device) const = 0;
     virtual bool DisconnectAllProfile(const RawAddress &device) = 0;
+    virtual bool IsProxyConnectExisted(std::string &devAddress) = 0;
 };
 
 /**
@@ -96,6 +97,12 @@ enum class BundleNameType {
     BUNDLE_NAME_TYPE_MAX,
 };
 
+enum class AntennaFixScene {
+    ANTENNA_FIX_SCENE_FRAME4_ADV = 0,
+    ANTENNA_FIX_SCENE_FRAME4_SCAN = 1,
+    ANTENNA_FIX_SCENE_TYPE_MAX,
+};
+
 // 函数调用枚举结束
 
 struct AcbSubrateParam_S {
@@ -132,8 +139,9 @@ public:
     virtual void HighPowerProc(uint16_t lcid) = 0;
     virtual void SleTvMgrProc(const std::string &address) = 0;
     virtual void HidDataStatisticsProc(const std::string &address) = 0;
-    virtual void RssiChangedCbkProc(const std::string &address, int8_t rssi) = 0;
     virtual void UpdateSleFreqBandAbility(const std::string &address) = 0;
+    virtual void IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval) = 0;
+    virtual void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) = 0;
     virtual void CollaborationProc(CollaborationProcType type) = 0;
     virtual void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
         std::string &info) = 0;
@@ -148,6 +156,8 @@ public:
     // chiputil模块 start
     virtual void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) = 0;
     virtual void SetConnFrameType4Subrate(const RawAddress &device) = 0;
+    virtual void RejectSetSubrate(const RawAddress &device) = 0;
+    virtual void ControlAntennaFix(bool enable, AntennaFixScene scene) = 0;
     // chiputil模块 end
 
     virtual std::string GetBundleName(BundleNameType type) = 0;

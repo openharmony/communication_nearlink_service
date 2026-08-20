@@ -27,11 +27,11 @@
 
 #include "SleInterfaceProfileTws.h"
 #include "SleInterfaceAdapter.h"
+#include "TwsDefines.h"
 #include "nearlink_def.h"
 #include "nearlink_safe_map.h"
 #include "context.h"
 #include "log_util.h"
-#include "DeviceBatteryManager.h"
 
 namespace OHOS {
 namespace Nearlink {

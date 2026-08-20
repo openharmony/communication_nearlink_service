@@ -168,7 +168,13 @@ struct SsapDevice {
 
     bool operator<(const SsapDevice& rhs) const
     {
-        return ((addr_ < rhs.addr_) && (transport_ == rhs.transport_));
+        if (addr_ < rhs.addr_) {
+            return true;
+        }
+        if (rhs.addr_ < addr_) {
+            return false;
+        }
+        return transport_ < rhs.transport_;
     }
 
     // see SsapTransportType

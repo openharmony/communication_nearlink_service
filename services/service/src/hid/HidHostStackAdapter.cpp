@@ -177,6 +177,7 @@ std::list<RawAddress> HidHostStackAdapter::GetConnectDevices()
         if (freeFunc != nullptr) {
             freeFunc(addrs);
         }
+        return deviceList;
     }
     for (size_t index = 0; index < num; index++) {
         RawAddress device = ConvertSleAddrToRawAddress(&(addrs[index]));

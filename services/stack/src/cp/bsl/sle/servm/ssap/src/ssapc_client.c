@@ -78,6 +78,7 @@ void SSAPC_FindReqErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     complete.type = preFindType;
     complete.errCode = errCode;
     complete.preFindHandle = req->startHandle;
+    complete.endHandle = req->endHandle;
     (void)memcpy_s(&complete.uuid, sizeof(NLSTK_SsapUuid_S), &reqUuid, sizeof(NLSTK_SsapUuid_S));
     (void)memcpy_s(&complete.addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
     CP_LOG_INFO("[SSAP] discovery complete callback, opcode: %u, lcid: %u, type: %u, errcode: %u, addr: %s,",
@@ -157,22 +158,26 @@ void SSAPC_ExchangeInfoRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     uint16_t mtu = 0;
     uint16_t version = 0;
     if (exchangePkt->ctrl.mtu != 0) {
-        CP_LOG_INFO("[SSAP] exchange mtu is: %d", exchangePkt->msgMtu);
         mtu = exchangePkt->msgMtu;
+        if (mtu < SSAP_STACK_MTU_DEFAULT) {
+            CP_LOG_ERROR("[SSAP] mtu is less than default, mtu: %d", mtu);
+            link->mtu = SSAP_STACK_MTU_DEFAULT;
+        } else if (mtu > SSAP_STACK_MTU_MAX) {
+            CP_LOG_ERROR("[SSAP] mtu is greater than default, mtu: %d", mtu);
+            link->mtu = SSAP_STACK_MTU_MAX;
+        } else {
+            link->mtu = mtu;
+        }
     }
     if (exchangePkt->ctrl.version != 0) {
-        CP_LOG_INFO("[SSAP] exchange version is: %d", exchangePkt->msgVersion);
         version = exchangePkt->msgVersion;
+        link->version = (version < link->version) ? version : link->version;
+        if (link->version >= SSAP_VERSION_1_3) {
+            link->fragment = exchangePkt->ctrl.fragment;
+            link->multiProcessing = exchangePkt->ctrl.multiProcessing;
+        }
     }
-    if (mtu < SSAP_STACK_MTU_DEFAULT) {
-        CP_LOG_ERROR("[SSAP] mtu is less than default, mtu: %d", mtu);
-        link->mtu = SSAP_STACK_MTU_DEFAULT;
-    } else if (mtu > SSAP_STACK_MTU_MAX) {
-        CP_LOG_ERROR("[SSAP] mtu is greater than default, mtu: %d", mtu);
-        link->mtu = SSAP_STACK_MTU_MAX;
-    } else {
-        link->mtu = mtu;
-    }
+    CP_LOG_INFO("[SSAP] exchange info rsp handle mtu is: %d, version is 0x%04x", mtu, version);
     complete.errCode = SSAP_ERRCODE_SUCCESS;
     (void)memcpy_s(&complete.addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
     complete.mtu = link->mtu;
@@ -685,6 +690,7 @@ static void SSAPC_FindRspHandleCbk(SSAP_Link_S *link, SSAP_PduFindStructReq_S *r
     complete.lcid = link->lcid;
     complete.type = preFindType;
     complete.preFindHandle = req->startHandle;
+    complete.endHandle = req->endHandle;
     (void)memcpy_s(&complete.uuid, sizeof(NLSTK_SsapUuid_S), uuid, sizeof(NLSTK_SsapUuid_S));
     (void)memcpy_s(&complete.addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
     SsapTaskExecuteCallback(link, &complete);
@@ -1046,7 +1052,9 @@ static void HandleWriteRspHandleError(SSAP_Link_S *link, SSAP_PduWriteReq_S *req
     SSAP_PduWriteRsp_S *writeRsp, uint16_t len)
 {
     CP_CHECK_LOG_RETURN_VOID(len == SSAP_WRITE_RSP_ERROR_OFFSET, "[SSAP] write rsp handle data len error");
-    SSAP_PduWriteRspErrorItem_S *writeRspItem = (SSAP_PduWriteRspErrorItem_S *)(writeRsp->items);
+
+    SSAP_PduWriteRspErrorInfo_S *errInfo = (SSAP_PduWriteRspErrorInfo_S *)(writeRsp->items);
+    SSAP_PduWriteRspErrorItem_S *writeRspItem = &(errInfo->errList[0]);
     SSAP_ValuePkt_S *valuePkt = (SSAP_ValuePkt_S *)SDF_MemZalloc(sizeof(SSAP_ValuePkt_S));
     CP_CHECK_LOG_RETURN_VOID(valuePkt != NULL, "[SSAP] write rsp handle valuePkt malloc fail");
     valuePkt->opCode = writeRsp->msgCode;
@@ -1354,6 +1362,7 @@ void SSAPC_ExchangeInfoReq(SSAP_Link_S *link, void *arg)
     exchangePkt->msgCode = SSAP_EXCHANGE_INFO_REQ;
     exchangePkt->ctrl.mtu = 1;
     exchangePkt->ctrl.version = 1;
+    exchangePkt->ctrl.multiProcessing = 1;
     exchangePkt->msgMtu = exchangeInfoReqInfo->mtu;
     exchangePkt->msgVersion = SSAP_EXCHANGE_VERSION;
     CP_LOG_INFO("[SSAP] exchange info req mtu: %d, version: 0x%x", exchangePkt->msgMtu, exchangePkt->msgVersion);

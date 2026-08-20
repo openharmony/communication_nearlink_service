@@ -19,7 +19,7 @@ uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param)
 {
     return 0;
 }
-uint32_t DLI_SetPublicAddress(uint8_t *addr)
+uint32_t DLI_SetPublicAddress(DLI_AddrStru *param)
 {
     return 0;
 }

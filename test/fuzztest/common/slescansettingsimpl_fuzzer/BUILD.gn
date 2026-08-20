@@ -47,7 +47,7 @@ ohos_fuzztest("SleScanSettingsImplFuzzTest") {
     "$NEARLINK_ROOT/utils:nearlink_utils",
     "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
     "$NEARLINK_ROOT/services/server:nearlink_server",
-    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+    "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
   ]
 
   external_deps = [

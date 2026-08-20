@@ -73,6 +73,7 @@ static void SSAPS_SendExchangeInfoRsp(SSAP_Link_S *link, uint16_t mtu, uint16_t 
     /* 消息控制码 */
     exchangePkt->ctrl.mtu = 1;
     exchangePkt->ctrl.version = 1;
+    exchangePkt->ctrl.multiProcessing = 1;
     /* MTU */
     exchangePkt->msgMtu = mtu;
     /* version */
@@ -92,17 +93,29 @@ void SSAPS_ExchangeInfoReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     CP_CHECK_LOG_RETURN_VOID(len >= SSAP_EXCHANGE_INFO_PKT_LEN, "[SSAP] exchange info req handle data len error.");
     SSAP_PduExchangePkt_S *exchangePkt = (SSAP_PduExchangePkt_S *)SDF_DataOffset(sdfBuff);
 
-    uint16_t mtu = exchangePkt->msgMtu;
-    uint16_t version = exchangePkt->msgVersion;
-    CP_LOG_INFO("[SSAP] exchange info req handle mtu is: %d, version is 0x%02x", mtu, version);
-    if (mtu < SSAP_STACK_MTU_DEFAULT) {
-        CP_LOG_ERROR("[SSAP] exchange info req handle mtu is less than default, mtu: %d", mtu);
-        mtu = SSAP_STACK_MTU_DEFAULT;
-    } else if (mtu > SSAP_STACK_MTU_MAX) {
-        CP_LOG_ERROR("[SSAP] exchange info req handle mtu is greater than default, mtu: %d", mtu);
-        mtu = SSAP_STACK_MTU_MAX;
+    uint16_t mtu = 0;
+    uint16_t version = 0;
+    if (exchangePkt->ctrl.mtu != 0) {
+        CP_LOG_INFO("[SSAP] exchange mtu is: %d", exchangePkt->msgMtu);
+        mtu = exchangePkt->msgMtu;
+        if (mtu < SSAP_STACK_MTU_DEFAULT) {
+            CP_LOG_ERROR("[SSAP] exchange info req handle mtu is less than default, mtu: %d", mtu);
+            mtu = SSAP_STACK_MTU_DEFAULT;
+        } else if (mtu > SSAP_STACK_MTU_MAX) {
+            CP_LOG_ERROR("[SSAP] exchange info req handle mtu is greater than default, mtu: %d", mtu);
+            mtu = SSAP_STACK_MTU_MAX;
+        }
+        link->mtu = mtu < link->mtu ? mtu : link->mtu;
     }
-    link->mtu = mtu < link->mtu ? mtu : link->mtu;
+    if (exchangePkt->ctrl.version != 0) {
+        version = exchangePkt->msgVersion;
+        link->version = (version < link->version) ? version : link->version;
+        if (link->version >= SSAP_VERSION_1_3) {
+            link->fragment = exchangePkt->ctrl.fragment;
+            link->multiProcessing = exchangePkt->ctrl.multiProcessing;
+        }
+    }
+    CP_LOG_INFO("[SSAP] exchange info req handle mtu is: %d, version is 0x%04x", mtu, version);
     SSAPS_SendExchangeInfoRsp(link, link->mtu, SSAP_EXCHANGE_VERSION);
     SSAP_MtuInfo_S mtuInfo = {0};
     mtuInfo.version = SSAP_EXCHANGE_VERSION;

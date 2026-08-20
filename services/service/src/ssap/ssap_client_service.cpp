@@ -993,7 +993,7 @@ void SsapClientService::CallMethodTask(int appId, Method &method, bool withoutRs
 
 int SsapClientService::CallMethod(int appId, Method &method, bool withoutRsp)
 {
-    SSAP_LOGI("call method id=%{public}d hdl=%{public}d psize=%{public}lu withoutRsp=%{public}d",
+    SSAP_LOGI("call method id=%{public}d hdl=%{public}d psize=%{public}zu withoutRsp=%{public}d",
         appId, method.handle_, method.parameter_.size(), withoutRsp);
     if (!pimpl->InRunningState()) {
         SSAP_LOGE("call method not enable id=%{public}d", appId);

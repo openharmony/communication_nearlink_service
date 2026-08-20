@@ -15,6 +15,7 @@
 
 #include "cm_icb_api.h"
 #include "cm_icb_init.h"
+#include "cm_icb_mgr.h"
 #include "cm_errno.h"
 
 uint32_t CM_ICBInit(void)
@@ -50,4 +51,9 @@ uint32_t CM_ICBEnable(void)
 uint32_t CM_ICBDisable(void)
 {
     return CM_SUCCESS;
+}
+
+void CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubratePtr func)
+{
+    (void)func;
 }

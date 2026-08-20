@@ -66,6 +66,23 @@ bool SleCoexistManager::GetConnectionParam(const SLE_Addr_S& addr,
     return found;
 }
 
+bool SleCoexistManager::GetConnectionParam(const SLE_Addr_S& addr,
+    uint16_t& timeout, uint16_t& maxLatency, uint16_t &interval)
+{
+    bool found = false;
+    connInfoList_.Iterate([&addr, &timeout, &maxLatency, &interval, &found](const CoexistConnInfo& info) {
+        if (memcmp(&info.addr, &addr, sizeof(SLE_Addr_S)) == 0) {
+            timeout = info.timeout;
+            maxLatency = info.latency;
+            interval = info.interval;
+            found = true;
+            HILOGI("[CoexistMgr] GetParam timeout=0x%{public}x, latency=0x%{public}x, interval=0x%{public}x",
+                   timeout, maxLatency, interval);
+        }
+    });
+    return found;
+}
+
 void SleCoexistManager::IterateConnInfo(std::function<void(const CoexistConnInfo&)> callback)
 {
     connInfoList_.Iterate([callback](const CoexistConnInfo& info) {

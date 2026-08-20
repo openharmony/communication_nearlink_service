@@ -25,14 +25,15 @@
 #include "SleASC.h"
 #include "CdsmService.h"
 #include "SleInterfaceProfileTws.h"
+#include "SleInterfaceProfileManager.h"
+#include "SleInterfaceProfileCcp.h"
 #include "VcpService.h"
-#include "TwsService.h"
+#include "TwsDefines.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceAdapterSub.h"
 #include <future>
 #include "VasService.h"
 #include "McpServerService.h"
-#include "CcpService.h"
 #include "nearlink_dft_ue.h"
 #include "nearlink_dft_exception.h"
 #include "cm_api.h"
@@ -116,7 +117,8 @@ void ASCService::AddConnectDevices(const RawAddress &device)
 bool ASCService::IsLeftEarDevice(const RawAddress &device)
 {
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return true;
         }
@@ -399,15 +401,15 @@ int ASCService::DisconnProcStopPlaying(const RawAddress &device, ASCState state)
     AudioStreamType streamType = GetProcessingStreamType(device);
     HILOGI("[ASCService]Disconnect StopPlaying %{public}s state %{public}d streamType %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), state, streamType);
-    // 有音频流的场景，先停止+释放流
-    if (streamType != AUDIO_STREAM_NONE) {
-        // 清除延迟释放标记
-        CancelStopDelay(device);
+    
+    // 清除延迟释放标记
+    CancelStopDelay(device);
 
-        // 设置需要disconnect标记
-        SetNeedDisconnect(device, true);
-        StopPlayingExcute(device, streamType);
-    }
+    // 设置需要disconnect标记
+    SetNeedDisconnect(device, true);
+
+    // 有音频流的场景，先停止+释放流
+    StopPlayingExcuteExt(device, streamType);
     return NL_NO_ERROR;
 }
 
@@ -908,7 +910,8 @@ bool ASCService::IsRolePrimary(const RawAddress& device)
 {
     bool isRolePrimary = true;
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return true;
         }
@@ -3698,7 +3701,8 @@ void ASCService::SetDeviceRole(const RawAddress& device)
     uint8_t direction = NLSTK_ACTM_DIRECTION_BOTH;
     bool isRolePrimary = false;
     if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
-        TwsService* twsService = TwsService::GetService();
+        ProfileTws *twsService = static_cast<ProfileTws *>(
+            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
         if (twsService == nullptr) {
             return;
         }
@@ -3905,7 +3909,6 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     NL_CHECK_RETURN(IsMeetStartStreamCondition(device, result, streamType), "start stream failed");
     // 同步链路建立OK后的处理
     ProcWhenIOBCreated(device, qosmInfo);
-    ProcessCachedSubrate();
     // 主副切换
     SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
     SetDeviceRole(device);
@@ -4245,10 +4248,7 @@ void ASCService::ExcuteDelayStop(const RawAddress &device)
         // 对于合作集设备，给组内所有成员（包括当前设备）发停播
         if (IsConnected(info.addr_)) {
             AudioStreamType streamType = GetStopStreamType(info.addr_);
-            if (streamType == AUDIO_STREAM_NONE) {
-                continue;
-            }
-            StopPlayingExcute(info.addr_, streamType);
+            StopPlayingExcuteExt(info.addr_, streamType);
         }
     }
     return;
@@ -4723,6 +4723,7 @@ void ASCService::HandleChangeVoiceCallBitrate(uint8_t result)
     if (isLevelUp && result != NL_SLE_ASC_RESULT_SUCC) {
         HILOGI("actm roll back, no need change dsp bitrate");
         RemoveAutorateGroupByAddr(activeSinkDevice_);
+        return;
     }
     for (const AscPhyStatus& item : it->second.phyStatusList) {
         RawAddress dev = RawAddress(item.addr);
@@ -5510,6 +5511,24 @@ void ASCService::ReconfigStream(const RawAddress& device, AudioStreamType stream
     QosM::GetInstance().SetCos(device, nos);
     HILOGI("[ASCService]Reconfig %{public}s streamType %{public}d COS %{public}d to NOS %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), streamTypeToReconfig, cos, nos);
+}
+
+void ASCService::StopPlayingExcuteExt(const RawAddress& device, AudioStreamType streamType)
+{
+    if (streamType == AUDIO_STREAM_NONE) {
+        HILOGE("[ASCService] device %{public}s streamType is None", GetEncryptAddr(device.GetAddress()).c_str());
+        return;
+    }
+
+    ASCState state = GetASCStatus(device);
+    if (IsInStartProcess(state)) {
+        // 缓存本次配置，在进行中的音频流配置/流打开流程结束后，再触发停流流程
+        HILOGI("[ASCService] device %{public}s not started", GetEncryptAddr(device.GetAddress()).c_str());
+        GetStopBuff(device).push(streamType);
+        return;
+    }
+
+    StopPlayingExcute(device, streamType);
 }
 
 void ASCService::StopPlayingExcute(const RawAddress& device, AudioStreamType streamType)
@@ -6580,7 +6599,8 @@ void ASCService::CheckStreamIsNeedNotifyCcp(const RawAddress &device, AudioStrea
     if (type != AUDIO_STREAM_VOIP) {
         return;
     }
-    CcpService* ccpService = CcpService::GetService();
+    ProfileCcp* ccpService = static_cast<ProfileCcp *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
     NL_CHECK_RETURN(ccpService, "[ASCService]CcpService is null.");
     if (cmd == NL_SLE_ASC_CONTROL_CMD_START) {
         ccpService->HandleVoipStart(device);
@@ -6601,7 +6621,8 @@ void ASCService::ProcessMcpInit(const RawAddress& device)
 void ASCService::ProcessCcpInit(const RawAddress& device)
 {
     HILOGD("[ASCService]Enter");
-    CcpService* ccpService = CcpService::GetService();
+    ProfileCcp* ccpService = static_cast<ProfileCcp *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
     NL_CHECK_RETURN(ccpService, "[ASCService]CcpService is null.");
     CdsmService* cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "[ASCService]cdsmService is null.");
@@ -6722,7 +6743,8 @@ int32_t ASCService::SetMusicMuteWhenAudioRelease()
         HILOGI("activeDevice is not vendor device");
         return NL_ERR_INTERNAL_ERROR;
     }
-    TwsService *twsService = TwsService::GetService();
+    ProfileTws *twsService = static_cast<ProfileTws *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
     NL_CHECK_RETURN_RET(twsService != nullptr, NL_ERR_INTERNAL_ERROR, "cant find TWS service");
     uint8_t mediaState = twsService->TwsGetDeviceAudioMusicType(device);
     HILOGI("[ASCService]: mediaState: %{public}d", mediaState);
@@ -6827,20 +6849,6 @@ void ASCService::SerialManagerSubrate(bool &needConfigStream, const RawAddress &
     }
 }
 
-/* 收到上一次完成后继续处理之前未设置的subrate 2下发 */
-void ASCService::ProcessCachedSubrate()
-{
-    if (subrateCachedInfo_.isCachedProc) {
-        HILOGI("[ASCService] CachedSubrateChange %{public}s ",
-            GetEncryptAddr(subrateCachedInfo_.dev.GetAddress()).c_str());
-        SleAcbSubrateParam subrateParam {};
-        subrateParam.onlySubrate = true;
-        subrateParam.subrate = static_cast<uint16_t>(NLSTK_SUBRATE_2);
-        SetSubrate(subrateCachedInfo_.dev, subrateParam);
-        subrateCachedInfo_ = {};
-    }
-}
-
 void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
 {
     RawAddress device(event.dev_);
@@ -6877,7 +6885,6 @@ void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
             NL_SLE_ASC_RESULT_FAIL, result);
         return;
     }
-    ProcessCachedSubrate();
 }
 
 void ASCService::AcbSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &subrateParam)
@@ -6892,6 +6899,9 @@ void ASCService::AcbSubrateChangeReq(const RawAddress &device, const SleAcbSubra
 
 bool ASCService::IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam)
 {
+    if (eventParam.subrate == NLSTK_SUBRATE_1) {
+        return false;
+    }
     if (GetASCSubRateStatus(device) == NL_SLE_ASC_SETTING) {
         return false;
     }
@@ -6929,12 +6939,9 @@ bool ASCService::IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t 
     return false;
 }
 
-void ASCService::SetSubrateCachedInfo(const RawAddress &device, const SleAcbSubrateParam &eventParam)
+void ASCService::RejectSetSubrate(const RawAddress &device)
 {
-    if (eventParam.subrate == static_cast<uint16_t>(NLSTK_SUBRATE_2)) {
-        subrateCachedInfo_.dev = device;
-        subrateCachedInfo_.isCachedProc = true;
-    }
+    ServiceManagerPluginLoader::GetInstance()->RejectSetSubrate(device);
 }
 
 void ASCService::ProcessSubrateChangeReq(const ASCMessage &event)
@@ -6942,7 +6949,9 @@ void ASCService::ProcessSubrateChangeReq(const ASCMessage &event)
     RawAddress device(event.dev_);
     const SleAcbSubrateParam &eventParam = event.subratePara_;
     if (!IsAllowSubrateChangeReq(device, eventParam)) {
-        SetSubrateCachedInfo(device, eventParam);
+        if (SleRemoteDeviceAdapter::GetInstance()->IsVendorDevice(device)) {
+            RejectSetSubrate(device);
+        }
         HILOGW("[ASCService] dev:%{public}s subrate: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
             eventParam.subrate);
         return;
@@ -7192,7 +7201,6 @@ void ASCService::SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bo
 void ASCService::ClearASCSubrateInfo(const RawAddress &device)
 {
     ascSubrateMap_.erase(device.GetAddress());
-    subrateCachedInfo_ = {};
 }
 REGISTER_CLASS_CREATOR(ASCService);
 

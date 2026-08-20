@@ -56,7 +56,7 @@ struct DiscoverInfomation {
     {}
 };
 
-struct SsapClient::impl {
+struct SsapClient::impl : public std::enable_shared_from_this<impl> {
     class NearlinkSsapClientCallbackStubImpl;
 
     bool isGetServiceYet_;
@@ -427,7 +427,7 @@ private:
 SsapClient::SsapClient(std::shared_ptr<NearlinkRemoteDevice> device)
 {
     HILOGI("create SsapClient start.");
-    pimpl = std::make_unique<SsapClient::impl>(device);
+    pimpl = std::make_shared<SsapClient::impl>(device);
     if (!pimpl) {
         HILOGE("create SsapClient failed.");
     }
@@ -458,15 +458,20 @@ void SsapClient::impl::Init(std::weak_ptr<SsapClient> client)
         HILOGE("Failed to create NearlinkRegisterInfo");
         return;
     }
-    info->stateOffFunc_ = [this](sptr<IRemoteObject> remote) -> void {
-        applicationId_.store(0);
-        isRegisterSucceeded_.store(false);
-        connectionState_.store(static_cast<int>(SleConnectState::DISCONNECTED));
+    std::weak_ptr<impl> wp = shared_from_this();
+    info->stateOffFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        implSptr->applicationId_.store(0);
+        implSptr->isRegisterSucceeded_.store(false);
+        implSptr->connectionState_.store(static_cast<int>(SleConnectState::DISCONNECTED));
     };
-    info->serviceStoppedFunc_ = [this]() -> void {
-        applicationId_.store(0);
-        isRegisterSucceeded_.store(false);
-        connectionState_.store(static_cast<int>(SleConnectState::DISCONNECTED));
+    info->serviceStoppedFunc_ = [wp]() -> void {
+        auto implSptr = wp.lock();
+        NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        implSptr->applicationId_.store(0);
+        implSptr->isRegisterSucceeded_.store(false);
+        implSptr->connectionState_.store(static_cast<int>(SleConnectState::DISCONNECTED));
     };
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {

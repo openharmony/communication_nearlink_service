@@ -40,14 +40,9 @@
 
 // 白名单连接设置参数
 // 主动连接参数
-#ifdef TV_STANDARD
-// 通过算法计算的参数，实际验证，该组参数直连效果更优
-#define CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW  0x66F   // 0x66F * 0.125 = 205.875ms
-#define CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL 0xB48  // 0xB48 * 0.125 = 361ms
-#else
+#define BIT_OPT_SIXTEEN_BYTE 16
 #define CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW  0xF0   // 0xF0 * 0.125 = 30ms
 #define CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL 0x1E0 // 0x1E0 * 0.125 = 60ms
-#endif
 // 背景连接参数
 #define CM_BG_CONN_SCAN_PRIVATE_WINDOW   0x190     // 0x190 * 0.125 = 50ms
 #define CM_BG_CONN_SCAN_PRIVATE_INTERVAL 0x960     // 0x960 * 0.125 = 300ms
@@ -303,6 +298,10 @@ static uint32_t CM_ConnectSetAllowListParam(bool isDirectDoing, uint8_t bitFrame
     if (isDirectDoing) {
         scanInterval = CM_DIRECT_CONN_SCAN_PRIVATE_INTERVAL;
         scanWindow = CM_DIRECT_CONN_SCAN_PRIVATE_WINDOW;
+#if defined(DIRECT_CONN_SCAN_PARAMS) && (DIRECT_CONN_SCAN_PARAMS != 0)
+        scanWindow = DIRECT_CONN_SCAN_PARAMS >> BIT_OPT_SIXTEEN_BYTE;
+        scanInterval = DIRECT_CONN_SCAN_PARAMS & 0xFFFF;
+#endif
     }
     setParam.enableFilterPolicy = true;
     setParam.scanInterval = scanInterval;
@@ -646,7 +645,7 @@ static void CM_DoingConnDirectAfterInsertFailProc(
 static void CM_DoingConnDirectSetTimerParam(SDF_TimerParam *param, CM_DoingDirectConnAlarm_S *alarm)
 {
     param->expires = CM_DIRECT_CONN_TIMEOUT_MS;
-    param->period = false,
+    param->period = false;
     param->callback = CM_DirectConnTimeoutCbkInner;
     param->args = alarm;
 }
@@ -741,14 +740,14 @@ static bool CM_ConnCompleteProcAndCheckHasConnecting(const SLE_Addr_S *addr, uin
 {
     // connectResult 有两种状态：已连接成功或者(因主动连接超时或者取消连接的)断开连接
     if (connectResult == CM_LINK_STATE_CONNECTED) {
+        // 有可能同时在主动建链时，收到被动链接，需要尝试删除
         if (!SDF_MapErase(g_cmConnectingDevMap, (SLE_Addr_S *)addr)) {
-            // 有可能是从别处建链来的
-            CM_LOGE("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(addr));
-            return false;
+            CM_LOGI("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(addr));
+        } else {
+            g_cmSizeConnectingDev--;
+            CM_LOGI("complete connect, erase a connecting dev map node, dev:%s, current size:%zu",
+                GET_ENC_ADDR(addr), g_cmSizeConnectingDev);
         }
-        g_cmSizeConnectingDev--;
-        CM_LOGI("complete connect, erase a connecting dev map node, dev:%s, current size:%zu",
-            GET_ENC_ADDR(addr), g_cmSizeConnectingDev);
     }
     return !CM_ConnectingDevMapIsEmpty();
 }
@@ -758,11 +757,6 @@ void CM_ConcurrentConnDoingComplete(const SLE_Addr_S *addr, uint8_t connectResul
     CM_CHECK_RETURN(addr != NULL, "param addr is null");
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
     CM_LOGI("connection complete enter, addr:%s, connectResult:%hhu", GET_ENC_ADDR(addr), connectResult);
-
-    if (!CM_IsEmptyAddr(addr) && SDF_MapFind(g_cmConnectingDevMap, (SLE_Addr_S *)addr) == NULL) {
-        // 过滤正常主动断链和被动断链的地址，还有其他主动连接的地址
-        return;
-    }
 
     CM_LOGI("connection complete start, addr:%s", GET_ENC_ADDR(addr));
     if (CM_ConnCompleteProcAndCheckHasConnecting(addr, connectResult)) {
@@ -877,6 +871,10 @@ static uint32_t CM_BgConnectAddDoingConnBgList(uint8_t moduleId, uint8_t addrArr
 {
     for (uint8_t i = 0; i < addrArrCount; i++) {
         CM_BgConnAddrParam_S *bgAddr = &addrArr[i];
+        if (CM_IsEmptyAddr(&bgAddr->addr)) {
+            CM_LOGW("addr is full zero, invalid, ignore it");
+            continue;
+        }
         CM_LOGI("bg connect add index[%hhu], addr:%s, isBypass:%d", i, GET_ENC_ADDR(&bgAddr->addr), bgAddr->isBypass);
         CM_AppConnectingDev_S *node = CM_ConnectingDevFind(&bgAddr->addr);
         if (node != NULL) {
@@ -1027,6 +1025,7 @@ uint32_t CM_BackgroundConnectRemove(uint8_t moduleId, const SLE_Addr_S *addr)
 {
     CM_CHECK_RETURN_RET(moduleId == CM_MODULE_ADPT, CM_INVALID_PARAM_ERR, "moduleId:%hhu is invalid", moduleId);
     CM_CHECK_RETURN_RET((addr != NULL), CM_INVALID_PARAM_ERR, "addr is null");
+    CM_CHECK_RETURN_RET(!CM_IsEmptyAddr(addr), CM_INVALID_PARAM_ERR, "addr is full zero, invalid");
     CM_LOGI("concurrent conn api, background connect remove, moduleId:%hhu, addr:%s", moduleId, GET_ENC_ADDR(addr));
     CM_BgConnectRmvReq_S *reqParam = (CM_BgConnectRmvReq_S *)SDF_MemZalloc(sizeof(CM_BgConnectRmvReq_S));
     CM_CHECK_RETURN_RET(reqParam != NULL, CM_MEM_ERR, "mem zalloc error");
@@ -1104,7 +1103,7 @@ static void CM_NotifyDisconnecting(uint8_t moduleId, uint16_t lcid, const SLE_Ad
     param.lcid = lcid;
     param.role = 0;
     (void)memcpy_s(&param.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
-    param.result = CM_LINK_STATE_DISCONNECTTING;
+    param.result = CM_LINK_STATE_DISCONNECTING;
     param.discReason = 0;  // 断连中，断连原因取0即可
     CM_ExecLogicLinkModuleCbks(moduleId, &param);
 }
@@ -1206,6 +1205,7 @@ uint32_t CM_DirectConnectAdd(uint8_t moduleId, const CM_DirectConnAddrParam_S *p
     CM_CHECK_RETURN_RET((param->frameType == CM_CONN_PARAM_FRAME_TYPE_1 ||
         param->frameType == CM_CONN_PARAM_FRAME_TYPE_4),
         CM_INVALID_PARAM_ERR, "param type:%hhu is not support", param->frameType);
+    CM_CHECK_RETURN_RET(!CM_IsEmptyAddr(&param->addr), CM_INVALID_PARAM_ERR, "addr is full zero, invalid");
     CM_LOGI("concurrent conn api, direct connect add, moduleId:%hhu, addr:%s, frameType:%hhu",
         moduleId, GET_ENC_ADDR(&param->addr), param->frameType);
     CM_DirectConnectAddReq_S *reqParam = (CM_DirectConnectAddReq_S *)SDF_MemZalloc(sizeof(CM_DirectConnectAddReq_S));
@@ -1249,7 +1249,7 @@ static void CM_DirectConnectRmvInner(void *arg)
                 return;
             }
             return;
-        } else if (link->status == CM_LINK_STATE_DISCONNECTTING) {
+        } else if (link->status == CM_LINK_STATE_DISCONNECTING) {
             CM_NotifyDisconnecting(moduleId, link->lcid, addr);
             return;
         }

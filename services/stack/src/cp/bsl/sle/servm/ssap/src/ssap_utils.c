@@ -22,6 +22,7 @@
 #define SSAP_ENC_LOG_UUID_INDEX_1 1
 #define SSAP_ENC_LOG_UUID_INDEX_14 14
 #define SSAP_ENC_LOG_UUID_INDEX_15 15
+#define MAX_PRINT_LEN 200
 
 static uint8_t g_ssapStdBaseUuid[] = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA,
     0xB7, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -144,7 +145,7 @@ uint8_t GetDescriptorCountLenByItemType(uint8_t itemType)
         case ITEM_TYPE_VENDOR_EVENT:
             return SSAP_FIND_DESCRIPTOR_COUNT_LEN;
         default:
-            // ITEM_TYPE_STD_SERVICE_REFERENCE 
+            // ITEM_TYPE_STD_SERVICE_REFERENCE
             // ITEM_TYPE_VENDOR_SERVICE_REFERENCE
             return 0;
     }
@@ -175,5 +176,42 @@ uint8_t GetOperationLenByItemType(uint8_t itemType)
             return SSAP_FIND_OPERATION_LEN;
         default:
             return 0;
+    }
+}
+
+void PrintFormatHexWithSpaces(const uint8_t *dataBuf, size_t dataSize, bool isTx)
+{
+    char dataStr[SSAP_STACK_MTU_MAX + SSAP_STACK_MTU_MAX + 1] = { 0 };
+    int count = 0;
+    for (uint32_t i = 0; i < dataSize; i++) {
+        (void)sprintf_s(&dataStr[2 * count], (SSAP_STACK_MTU_MAX - count) * 2, "%02x", dataBuf[i]); // 2 hex char
+        if (++count >= SSAP_STACK_MTU_MAX - 1) {
+            break;
+        }
+    }
+
+    size_t dataStrLen = strlen(dataStr);
+    for (uint32_t i = 0, j = 0; i < dataStrLen; j++) {
+        char temp[MAX_PRINT_LEN + 1];
+        memset_s(temp, sizeof(temp), 0, sizeof(temp));
+        if (dataStrLen - i >= MAX_PRINT_LEN) {
+            if (memcpy_s(temp, sizeof(temp), &dataStr[i], MAX_PRINT_LEN) != EOK) {
+                HILOGE("memcpy_s failed");
+                return;
+            }
+            i += MAX_PRINT_LEN;
+        } else {
+            if (memcpy_s(temp, sizeof(temp), &dataStr[i], dataStrLen - i) != EOK) {
+                HILOGE("memcpy_s failed");
+                return;
+            }
+            i += dataStrLen - i;
+        }
+
+        if (isTx) {
+            CP_LOG_DEBUG("[SSAP] send msg[%d]: %s", j, temp);
+        } else {
+            CP_LOG_DEBUG("[SSAP] recv msg[%d]: %s", j, temp);
+        }
     }
 }

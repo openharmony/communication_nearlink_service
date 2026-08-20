@@ -425,6 +425,8 @@ static uint32_t McpAddMediaInstanceIcon(NLSTK_SsapServicePropertyParam_S *proper
     (void)memcpy_s(&property->uuid, sizeof(NLSTK_SsapUuid_S), &uuidStru, sizeof(NLSTK_SsapUuid_S));
     uint8_t right = basicInfo->propertyRights[NLSTK_MCP_MEDIA_INSTANCE_ICON];
     McpSetPersimissonAndOperation(property, right, true);
+    NLSTK_CHECK_RETURN(basicInfo->optionalItem.instanceIcon.iconLen <= UINT16_MAX - MCP_MEDIA_ICON_TYPE_LEN,
+        NLSTK_ERRCODE_PARAM_ERR, "[MCP] iconLen overflow");
     property->val.len = basicInfo->optionalItem.instanceIcon.iconLen + MCP_MEDIA_ICON_TYPE_LEN;
     property->val.data = (uint8_t *)SDF_MemZalloc(property->val.len);
     NLSTK_CHECK_RETURN(property->val.data != NULL, NLSTK_ERRCODE_MALLOC_FAIL,

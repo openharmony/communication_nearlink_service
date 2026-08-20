@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "SleServiceManager.h"
+#include "SleFrame4AntennaMgr.h"
 #include "interface_advertiser_service.h"
 #include "SleFeature.h"
 #include "SleProperties.h"
@@ -23,10 +24,11 @@
 #include "nlstk_devd_api.h"
 #include "nlstk_api_type_ext.h"
 
+#include "SleAdvertiserAdapter.h"
 #include "SleAdvertiserImpl.h"
+
 namespace OHOS {
 namespace Nearlink {
-static SleAdvertiserImpl *g_advertiserImpl = nullptr;
 struct SleAdvertiserImpl::impl {
     std::map<uint8_t, SleAdvertiserImplData> advHandleSettingDatas_ {};
     uint8_t connectableHandle_;
@@ -35,7 +37,6 @@ struct SleAdvertiserImpl::impl {
 SleAdvertiserImpl::SleAdvertiserImpl() : pimpl(std::make_unique<SleAdvertiserImpl::impl>())
 {
     LOG_INFO("enter");
-    g_advertiserImpl = this;
     pimpl->connectableHandle_ = static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE);
 }
 
@@ -43,7 +44,6 @@ SleAdvertiserImpl::~SleAdvertiserImpl()
 {
     LOG_INFO("enter");
     pimpl->advHandleSettingDatas_.clear();
-    g_advertiserImpl = nullptr;
 }
 
 void SleAdvertiserImpl::RegisterSleAdvertiserCallback(std::weak_ptr<ISleAdvertiserCallback> callback)
@@ -66,9 +66,14 @@ void SleAdvertiserImpl::AdvEventResult(NLSTK_DevdAdvCbkParam_S *param)
     }
     LOG_INFO("event=%{public}hhu, adv_handle=%{public}hhu, result=%{public}hhu", param->event, param->advHandle,
         param->result);
-    DoInAdvThread([advImp = g_advertiserImpl, event = param->event, handle = param->advHandle, 
-        result = param->result]() -> void {
-        advImp->HandleDdEvent(event, handle, result);
+    DoInAdvThread([advImplWptr = SleAdvertiserAdapter::GetInstance().GetAdvertiserImplWeakPtr(),
+        event = param->event, handle = param->advHandle, result = param->result]() -> void {
+        auto advImpl = advImplWptr.lock();
+        if (!advImpl) {
+            LOG_ERROR("advertiser expired, ignore event");
+            return;
+        }
+        advImpl->HandleDdEvent(event, handle, result);
     });
 }
 
@@ -694,6 +699,7 @@ uint8_t SleAdvertiserImpl::CreateConnectableAdvertiserSetHandle() const
 void SleAdvertiserImpl::RemoveAdvHandle(uint8_t handle, int &advStatus) const
 {
     LOG_INFO("handle=%{public}d", handle);
+    SleFrame4AntennaMgr::GetInstance().OnAdvRemoved(handle);
     ChangeAdvertisingStatus(static_cast<int>(ADVERTISE_STATUS::REMOVING), advStatus, handle);
     NLSTK_DevdRemoveAdv(&handle);
 }
@@ -796,6 +802,7 @@ void SleAdvertiserImpl::DdAdvEnableCompleteEvt(uint8_t advHandle, uint8_t result
         return;
     }
     LOG_INFO("Start advertising success!");
+    SleFrame4AntennaMgr::GetInstance().OnAdvStarted(advHandle, iter->second.advParams.primaryFrameType);
     OnStartResultEvent(static_cast<int>(ADV_RESULT_SUCCESS), advHandle);
 }
 

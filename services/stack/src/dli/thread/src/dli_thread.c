@@ -18,7 +18,6 @@
 #include "securec.h"
 #include "dli_errno.h"
 #include "dli_log.h"
-#include "dli_layer_callback.h"
 #include "sdf_evc.h"
 #include "sdf_event.h"
 #include "sdf_worker.h"
@@ -41,6 +40,13 @@ static struct DLI_ThreadStru g_dliThreadStru = {
     .eventHandle = 0,
     .worker = NULL
 };
+
+static DLI_Callback *g_dliCallback = NULL;
+
+void DLI_ThreadSetCallback(DLI_Callback *cbk)
+{
+    g_dliCallback = cbk;
+}
 
 static void DliWorkerRunOnce(void *args)
 {
@@ -173,26 +179,24 @@ static void DLI_FreeArg(void *arg, SDF_FreeWorkArg freeCb)
 
 uint32_t DLI_PostOtherThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
 {
-    DLI_Callback *cbk = DLI_GetCallback();
-    if (cbk == NULL || cbk->postOtherThread == NULL) {
+    if (g_dliCallback == NULL || g_dliCallback->postOtherThread == NULL) {
         DLI_LOGE("postOtherThread is null");
         DLI_FreeArg(arg, freeCb);
         return DLI_STACK_POST_BLOCK_ERROR;
     }
 
-    return cbk->postOtherThread(cb, arg, freeCb);
+    return g_dliCallback->postOtherThread(cb, arg, freeCb);
 }
 
 uint32_t DLI_PostOtherBlockedThread(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)
 {
-    DLI_Callback *cbk = DLI_GetCallback();
-    if (cbk == NULL || cbk->postOtherBlockedThread == NULL) {
+    if (g_dliCallback == NULL || g_dliCallback->postOtherBlockedThread == NULL) {
         DLI_LOGE("postOtherBlockedThread is null");
         DLI_FreeArg(arg, freeCb);
         return DLI_STACK_POST_BLOCK_ERROR;
     }
 
-    return cbk->postOtherBlockedThread(cb, arg, freeCb, timeout);
+    return g_dliCallback->postOtherBlockedThread(cb, arg, freeCb, timeout);
 }
 
 int DLI_ThreadEvcHandleGet(void)

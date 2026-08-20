@@ -48,6 +48,7 @@ typedef enum {
     CM_SLE_CBK_EVENT_REQ_SUBRATE,                        /* 请求subrate参数 */
     CM_SLE_CBK_EVENT_READ_ACCEPT_FLT_LIST_SIZE,          /* 读取白名单列表大小 */
     CM_SLE_CBK_EVENT_READ_REMOTE_RSSI,                   /* 读取rssi */
+    CM_SLE_CBK_EVENT_HID_COEX_MODE,                      /* 星闪HID共存模式回调 */
     CM_SLE_CBK_EVENT_MAX
 } CM_SleCbkEventType_S;
 

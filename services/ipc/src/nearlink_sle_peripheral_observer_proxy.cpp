@@ -86,7 +86,7 @@ void NearlinkSlePeripheralObserverProxy::OnAcbStateChanged(const NearlinkRawAddr
         "Write Token error");
     NL_CHECK_RETURN(data.WriteParcelable(&device), "write device failed.");
     NL_CHECK_RETURN(data.WriteInt32(state), "write state failed.");
-    NL_CHECK_RETURN(data.WriteUint32(reason), "write reason failed.");
+    NL_CHECK_RETURN(data.WriteInt32(reason), "write reason failed.");
 
     MessageParcel reply;
     MessageOption option = {MessageOption::TF_ASYNC};

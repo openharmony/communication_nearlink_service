@@ -23,9 +23,6 @@
 #include "napi_nearlink_ssap_client_callback.h"
 namespace OHOS {
 namespace Nearlink {
-namespace {
-static const int32_t DESCRIPTOR_TYPE_OFFSET = 1;
-}
 
 NapiNearlinkSsapClientCallback::NapiNearlinkSsapClientCallback()
     : eventSubscribe({SLE_SSAP_CLIENT_CALLBACK_CONNECTION_STATE_CHANGE,
@@ -38,9 +35,13 @@ NapiNearlinkSsapClientCallback::NapiNearlinkSsapClientCallback()
 void NapiNearlinkSsapClientCallback::OnConnectionStateChanged(int connectionState, int ret)
 {
     HILOGI("connectionState:%{public}d, ret:%{public}d", connectionState, ret);
-    NL_CHECK_RETURN(client_, "client is nullptr");
-    NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
-    std::string deviceId = client_->GetDevice()->GetDeviceAddr();
+    std::string deviceId;
+    {
+        std::shared_lock<std::shared_mutex> lock(clientMutex_);
+        NL_CHECK_RETURN(client_, "client is nullptr");
+        NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
+        deviceId = client_->GetDevice()->GetDeviceAddr();
+    }
     auto napiNative = std::make_shared<NapiNativeSsapConnectionState>(deviceId, connectionState);
     eventSubscribe.PublishEvent(SLE_SSAP_CLIENT_CALLBACK_CONNECTION_STATE_CHANGE, napiNative);
 }
@@ -100,8 +101,7 @@ void NapiNearlinkSsapClientCallback::OnDescriptorReadResult(const SsapDescriptor
 {
     HILOGI("ret: %{public}d", ret);
     SsapDescriptor ssapDescriptor(descriptor);
-    auto napiDesscriptor = std::make_shared<NapiNativeSsapDescriptor>(ssapDescriptor,
-        descriptor.GetDescriptorType() - DESCRIPTOR_TYPE_OFFSET);
+    auto napiDesscriptor = std::make_shared<NapiNativeSsapDescriptor>(ssapDescriptor);
     AsyncWorkCallFunction(asyncPromiseMap_, NapiAsyncType::SSAP_CLIENT_READ_DESCRIPTOR, napiDesscriptor, ret);
 }
 

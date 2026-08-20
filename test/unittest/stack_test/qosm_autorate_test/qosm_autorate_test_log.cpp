@@ -14,7 +14,6 @@
  */
 
 #include <inttypes.h>
-#include "sysdep.h"
 #include "sdf_log_api.h"
 #include "securec.h"
 #include "hilog/log.h"

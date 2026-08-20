@@ -36,10 +36,10 @@ bool NearlinkSsapDescriptorParcel::Marshalling(Parcel &parcel) const
             return false;
         }
     }
-    if (!parcel.WriteInt8(writeInd_)) {
+    if (!parcel.WriteUint8(writeInd_)) {
         return false;
     }
-    if (!parcel.WriteInt16(permission_)) {
+    if (!parcel.WriteUint16(permission_)) {
         return false;
     }
     return true;

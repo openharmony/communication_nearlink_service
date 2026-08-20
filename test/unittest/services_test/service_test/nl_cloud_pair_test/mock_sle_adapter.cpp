@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -455,6 +455,12 @@ bool SleAdapter::HasConnectedDevice()
 }
 
 bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const
+{
+    return true;
+}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
 {
     return true;
 }

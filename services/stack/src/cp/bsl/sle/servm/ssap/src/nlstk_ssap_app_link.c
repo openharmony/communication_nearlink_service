@@ -47,4 +47,3 @@ NLSTK_Errcode_E NLSTK_SsapClientDisconnect(int32_t appId)
     }
     return NLSTK_ERRCODE_SUCCESS;
 }
-

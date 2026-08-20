@@ -166,7 +166,12 @@ public:
      */
     bool operator<(const UUID &uuid) const
     {
-        return !Equals(uuid);
+        for (int i = 0; i < UUID_16_BYTES_LEN; i++) {
+            if(this->uuid_[i] != uuid.uuid_[i]) {
+                return this->uuid_[i] < uuid.uuid_[i];
+            }
+        }
+        return false;
     }
 
 private:

@@ -272,6 +272,8 @@ static void GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8
     input.buff = buffM;
     input.buffSize = size;
     SmCmacGenerate(&input, mixWord, wordLen);
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+    (void)memset_s(buffM, size, 0, size);
     SDF_MemFree(buffM);
 }
 
@@ -292,6 +294,7 @@ static bool GenPassWordConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink
     };
     if (memcpy_s(input.key, SM_OCTETS_16, key, keyLen) != EOK) {
         NLSTK_LOG_ERROR("[SM][PASSWORD] Generate password memcpy failed keyLen: %u.", keyLen);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
         (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
             SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
         return false;
@@ -300,10 +303,12 @@ static bool GenPassWordConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink
     input.buffSize = SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + wordLen;
     if (!SmCmacGenerate(&input, confirm->confirm, SM_CONFIRM_NUMBER_LEN)) {
         NLSTK_LOG_ERROR("[SM][PASSWORD] Generate password confirm num error.");
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
         (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
             SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
         return false;
     }
+    (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     (void)memset_s(buff, SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN, 0,
         SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSWORD_LEN);
     return true;

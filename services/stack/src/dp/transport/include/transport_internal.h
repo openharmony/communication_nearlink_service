@@ -39,17 +39,17 @@ typedef enum {
     TRANS_RESULT_CHANNEL_NOT_FOUND,
     TRANS_RESULT_EXCEED_MTU_ERR,
     TRANS_RESULT_TX_CACHE_FULL,
-} TRANS_Result_t;   // 数据发送结果，和transport_result_t定义保持一致
+} TRANS_Result_E;   // 数据发送结果，和transport_result_t定义保持一致
 
 typedef enum : uint8_t {
     TRANS_PROTO_CONNECTIONLESS = 0,  // 传输层无连接协议
     TRANS_PROTO_CONNECTION,          // 传输层面向连接协议
-} TRANS_Protocol_t;
+} TRANS_Protocol_E;
 
 typedef struct TRANS_Addr {
     SLE_Addr_S devAddr;          // 对端星闪设备地址
     uint8_t tcid;                // 发送时/接收时均为本端tcid
-    TRANS_Protocol_t proto;  // 传输层协议类型
+    TRANS_Protocol_E proto;  // 传输层协议类型
     uint16_t srcPort;            // 传输层源端口号
     uint16_t dstPort;            // 传输层目的端口号
 } TRANS_Addr_S;

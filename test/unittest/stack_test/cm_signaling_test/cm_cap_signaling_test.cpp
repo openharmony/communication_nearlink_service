@@ -227,7 +227,7 @@ TEST_F(UT_CAP_SIGNALING, CM_SignalingInitAndCallbackAndDeinit)
     g_logicLinkCbk.logicLinkCbk(&state);
     state.result = CM_LINK_STATE_CONNECTED;
     g_logicLinkCbk.logicLinkCbk(&state);
-    state.result = CM_LINK_STATE_DISCONNECTTING;
+    state.result = CM_LINK_STATE_DISCONNECTING;
     g_logicLinkCbk.logicLinkCbk(&state);
     state.result = CM_LINK_STATE_DISCONNECTED;
     g_logicLinkCbk.logicLinkCbk(&state);

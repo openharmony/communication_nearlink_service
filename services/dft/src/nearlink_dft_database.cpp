@@ -291,6 +291,20 @@ static DftParamDB g_stackSmEncpExcepParam[SM_ENCP_PARAM_BUTT] = {
     {"ENCP_RES", HISYSEVENT_UINT16}
 };
 
+static DftParamDB g_stackHadmExcepParam[HADM_EXCEP_PARAM_BUTT] = {
+    {"", HISYSEVENT_INVALID},                           // HADM_EXCEP_INVALID
+    {"DEVICE_ADDR", HISYSEVENT_STRING},
+    {"", HISYSEVENT_INVALID},                           // HADM_EXCEP_KEY_BUTT
+    {"READ_LOCAL_CS_TIME", HISYSEVENT_STRING},
+    {"READ_LOCAL_CS_END_TIME", HISYSEVENT_STRING},
+    {"READ_REMOTE_CS_TIME", HISYSEVENT_STRING},
+    {"READ_REMOTE_CS_END_TIME", HISYSEVENT_STRING},
+    {"ENABLE_TIME", HISYSEVENT_STRING},
+    {"ENABLE_END_TIME", HISYSEVENT_STRING},
+    {"ERR_CODE", HISYSEVENT_UINT16},
+    {"HADM_RES", HISYSEVENT_UINT16},
+};
+
 static DftParamDB g_datatransferConnParam[DATATRANSFERCONN_PARAM_BUTT] = {
     {"", HISYSEVENT_INVALID},                           // DATATRANSFERCONN_INVALID
     {"DEVICE_ADDR", HISYSEVENT_STRING},
@@ -595,6 +609,7 @@ static DftExcepTypeDB g_dftEventType[DFT_EXCEP_BUTT] = {
     {"NEARLINK_DSP_CODEC_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_DSP_CHOPPY_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_DSP_STATS", HISYSEVENT_STATISTIC},
+    {"NEARLINK_STACK_HADM_EXCEP", HISYSEVENT_FAULT},
 };
 
 static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
@@ -641,6 +656,7 @@ static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
     {"NEARLINK_DSP_CHOPPY_EXCEPTION", NL_DFT_CHOPPY_EXCEP_KEY_BUTT, NL_DFT_CHOPPY_EXCEP_PARAM_BUTT,
         g_audioChoppyExcepParam},
     {"NEARLINK_DSP_OFFLOAD_STATS", NL_DFT_STATS_KEY_BUTT, NL_DFT_STATS_PARAM_BUTT, g_audioStatsParam},
+    {"NEARLINK_STACK_HADM_EXCEP", HADM_EXCEP_KEY_BUTT, HADM_EXCEP_PARAM_BUTT, g_stackHadmExcepParam},
     {"", 0, 1, nullptr},                                // DFT_EXCEP_BUTT
     {"STATE_FLOW_INFO", STATE_FLOW_KEY_BUTT, STATE_FLOW_PARAM_BUTT, g_stateFlowParam},
     {"STATE_PEER_INFO", PEER_INFO_KEY_BUTT, PEER_INFO_PARAM_BUTT, g_peerInfoParam},
@@ -722,6 +738,9 @@ HiSysEventEventType GetEventType(DftEventEnum eventId)
 
 const char *GetDomainName(DftEventEnum eventId)
 {
+    if(!IsValidExcep(eventId)) {
+        return "NEARLINK_SERVICE"; 
+    }
     HiSysEventEventType eventType = g_dftEventType[eventId].eventType;
     switch (eventType) {
         case HISYSEVENT_FAULT:
@@ -730,5 +749,7 @@ const char *GetDomainName(DftEventEnum eventId)
             return "NEARLINK_SERVICE";  // 故障/统计/安全事件的域名
         case HISYSEVENT_BEHAVIOR:
             return "NEARLINK_UE";       // 行为事件的域名
+        default:
+            return "NEARLINK_SERVICE";
     }
 }

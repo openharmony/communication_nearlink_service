@@ -16,7 +16,7 @@
 #include "PortService.h"
 #include "log_util.h"
 #include "nearlink_dft_exception.h"
-#include "SleRemoteDeviceAdapter.h"
+#include "IRemoteDeviceQuery.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -29,7 +29,7 @@ SLE_Addr_S ConvertToStackAddr(const RawAddress &addr)
     SLE_Addr_S sleAddr;
     (void)memset_s(&sleAddr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
     addr.ConvertToUint8(sleAddr.addr);
-    sleAddr.type = SleRemoteDeviceAdapter::GetInstance()->GetPeerDeviceAddrType(addr);
+    sleAddr.type = IRemoteDeviceQuery::GetInstance()->GetPeerDeviceAddrType(addr);
     return sleAddr;
 }
 

@@ -34,6 +34,19 @@ extern "C" {
 #define CM_MAX_LABEL_COUNT 16
 
 typedef struct {
+    uint16_t lcid;
+    uint16_t subrate;       /* 单位为10ms */
+} CM_SetACBSubrateInnerParam;
+
+typedef uint32_t (*CM_InnerSetACBSubratePtr)(const CM_SetACBSubrateInnerParam *param);
+
+/**
+ * @brief  注册设置异步链路subrate的函数指针，用于解耦icb与link模块
+ * @param  [in] func: 设置异步链路subrate的函数指针
+ */
+void CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubratePtr func);
+
+typedef struct {
     uint16_t connHandle;
     uint16_t lcid;
 } CM_GetLcidCtx;

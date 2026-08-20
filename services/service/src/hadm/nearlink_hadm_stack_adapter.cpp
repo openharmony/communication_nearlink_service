@@ -38,13 +38,17 @@ NearlinkHadmStackAdapter::NearlinkHadmStackAdapter(HadmStackAdapterCallback &cal
     }
 }
 
-NearlinkHadmStackAdapter::~NearlinkHadmStackAdapter() = default;
+NearlinkHadmStackAdapter::~NearlinkHadmStackAdapter()
+{
+    g_hadmClientStackAdapter = nullptr;
+}
 
 void NearlinkHadmStackAdapter::onSetSoundingEnableDisable(SLE_Addr_S *addr, HadmUserOperate_E ctrlType,
     NLSTK_Errcode_E errorCode)
 {
     HILOGI("Receive sounding enable or disable event. status=0x%{public}d", static_cast<int>(ctrlType));
     NL_CHECK_RETURN(addr != nullptr, "addr is nullptr");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
     const RawAddress device = RawAddress::ConvertToString(addr->addr);
     g_hadmClientStackAdapter->callback_.OnSoundingStateChange(device, static_cast<int>(ctrlType),
         static_cast<int>(errorCode));
@@ -53,6 +57,7 @@ void NearlinkHadmStackAdapter::onSetSoundingEnableDisable(SLE_Addr_S *addr, Hadm
 void NearlinkHadmStackAdapter::onSoundingMeasureStateChange(HadmSoundingStateInfo_S *state)
 {
     NL_CHECK_RETURN(state, "hadm service measure state is null.");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
     g_hadmClientStackAdapter->callback_.onSoundingMeasureStateChange(state->status,
         state->posMeasureSigConfigIdx, state->measureState);
 }
@@ -62,6 +67,7 @@ void NearlinkHadmStackAdapter::onReportSoundingIQResult(SLE_Addr_S *addr, HadmSo
     HILOGI("Enter");
     NL_CHECK_RETURN(addr, "addr is nullptr.");
     NL_CHECK_RETURN(args, "data is nullptr.");
+    NL_CHECK_RETURN(g_hadmClientStackAdapter != nullptr, "g_hadmClientStackAdapter is nullptr");
 
     NearlinkHadmSoundingResult result;
     std::vector<uint16_t> dutIData(args->iqChnlNum);
@@ -111,7 +117,7 @@ void NearlinkHadmStackAdapter::SetHadmConnectionParam(HadmConnectionParam_S *con
     connectionParamIn->txRxFlag = 0;
 }
 
-void NearlinkHadmStackAdapter::SetSoundingParam(HadmSoundingParam_S *paramIn) const
+void NearlinkHadmStackAdapter::SetSoundingParam(HadmSoundingParam_S *paramIn, uint8_t toneControl) const
 {
     uint8_t pm2400mBand[HADM_MEASURE_PM_24G_BAND_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
     paramIn->configId = 0x00;
@@ -135,24 +141,24 @@ void NearlinkHadmStackAdapter::SetSoundingParam(HadmSoundingParam_S *paramIn) co
     paramIn->pmFreqHoppingBand = HADM_CONFIG_FREQ_HOP_BAND;
     (void)memcpy_s(paramIn->pm2400mBand, HADM_MEASURE_PM_24G_BAND_LEN, pm2400mBand, HADM_MEASURE_PM_24G_BAND_LEN);
     paramIn->glpMode = 0x00;
-    paramIn->sleHadmMode = 0x00;
+    paramIn->sleHadmMode = toneControl;
     paramIn->isCsParamChg = 0x00;
     paramIn->freqSpace = 0x00;
     paramIn->conAnchorNum = HADM_CONFIG_ANCHOR_NUM;
-    paramIn->refreshRate = HADM_SOUNDING_FRESH_RATE;
+    paramIn->refreshRate = 0x00;
     paramIn->acbInterval = 0x00;
     paramIn->csInterval = 0x00;
 }
 
-int NearlinkHadmStackAdapter::StartSounding(const RawAddress &addr, std::string callingName) const
+int NearlinkHadmStackAdapter::StartSounding(const RawAddress &addr, std::string callingName, uint8_t toneControl) const
 {
-    HILOGI("Address:%{public}s", GetEncryptAddr(addr.GetAddress()).c_str());
+    HILOGI("Address:%{public}s, toneControl:%{public}d", GetEncryptAddr(addr.GetAddress()).c_str(), toneControl);
 
     HadmConnectionParam_S updateParam = {};
     SetHadmConnectionParam(&updateParam);
 
     HadmSoundingParam_S paramIn = {};
-    SetSoundingParam(&paramIn);
+    SetSoundingParam(&paramIn, toneControl);
 
     SLE_Addr_S stackAddr = ConvertToSleAddr(addr);
     NLSTK_Errcode_E ret = HadmStartSounding(&stackAddr, &updateParam, &paramIn);

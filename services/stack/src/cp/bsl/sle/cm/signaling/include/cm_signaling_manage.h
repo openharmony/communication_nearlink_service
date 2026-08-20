@@ -30,25 +30,6 @@
 extern "C" {
 #endif
 
-#define CM_DECODE2BYTE(_ptr) (uint16_t)(*(uint8_t *)(_ptr) | (*(uint8_t *)((_ptr) + 1) << 8))
-#define CM_ENCODE2BYTE(_ptr, value) \
-do { \
-    *((uint8_t *)(_ptr) + 1) = (uint8_t)((uint16_t)(value) >> 8); \
-    *(uint8_t *)(_ptr) = (uint8_t)(value); \
-} while (0)
-
-#define CM_DECODE4BYTE(_ptr) \
-    (uint32_t)(*(uint8_t *)(_ptr) | (*(uint8_t *)((_ptr) + 1) << 8) \
-    | (*(uint8_t *)((_ptr) + 2) << 16) | (*(uint8_t *)((_ptr) + 3) << 24))
-
-#define CM_ENCODE4BYTE(_ptr, value) \
-do { \
-    *(uint8_t *)((_ptr) + 3) = (uint8_t)((value) >> 24); \
-    *(uint8_t *)((_ptr) + 2) = (uint8_t)((value) >> 16); \
-    *(uint8_t *)((_ptr) + 1) = (uint8_t)((value) >> 8); \
-    *(uint8_t *)(_ptr) = (uint8_t)(value); \
-} while (0)
-
 // 信令超时回调函数
 typedef void (*CM_SignalingTimeoutCbk)(void *args);
 

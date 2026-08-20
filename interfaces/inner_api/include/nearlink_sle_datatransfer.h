@@ -381,17 +381,6 @@ public:
      */
     bool IsSupportHighSpeedDataTransfer() const;
 
-     /**
-     * @brief The function to update connect interval for Wearlink Proxy.
-     * @param[in] intervalType for data transfer.
-     *         HIGH_SPEED_INTERVAL---0;
-     *         MID_SPEED_INTERVAL---1;
-     *         LOW_SPEED_INTERVAL---2;
-     * @return Returns <b>true</b> update connect interval success;
-     *         returns <b>false</b> update connect interval fail.
-     */
-    bool UpdateConnectInterval(std::string device, int32_t intervalType) const;
-
 private:
     SleDataTransfer();
 

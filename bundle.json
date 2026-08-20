@@ -36,7 +36,11 @@
             "nearlink_service_kia_enable",
             "nearlink_service_rss_background_task",
             "nearlink_service_bas_enable",
-            "nearlink_service_pluggable_supported"
+            "nearlink_service_pluggable_supported",
+            "nearlink_service_sync_ap_to_mcu",
+            "nearlink_service_non_audio_device_direct_conn",
+            "nearlink_service_min_conn_interval",
+            "nearlink_service_direct_conn_scan_params"
         ],
         "adapted_system_type": [
             "standard"
@@ -89,6 +93,7 @@
                 "bounds_checking_function",
                 "runtime_core",
                 "resource_schedule_service",
+                "bundle_framework",
                 "taihe_ffi_gen"
             ],
             "third_party": [
@@ -111,6 +116,7 @@
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/datatransfer:datatransfer",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/ssap:ssap",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/cdsm:cdsm",
+                    "//foundation/communication/nearlink_service/frameworks/js/napi/src/common:nearlink_napi_common",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",

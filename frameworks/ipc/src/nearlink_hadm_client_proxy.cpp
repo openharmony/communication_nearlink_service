@@ -65,13 +65,14 @@ NlErrCode NearlinkHadmClientProxy::DeregisterNearlinkHadmClientCallback(uint32_t
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHadmClientProxy::StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr)
+NlErrCode NearlinkHadmClientProxy::StartSounding(uint32_t hadmId, const NearlinkRawAddress &addr, uint8_t toneControl)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHadmClientProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteUint32(hadmId), NL_ERR_IPC_TRANS_FAILED, "Write hadmId error");
     NL_CHECK_RETURN_RET(data.WriteParcelable(&addr), NL_ERR_INTERNAL_ERROR, "Write addr error");
+    NL_CHECK_RETURN_RET(data.WriteUint8(toneControl), NL_ERR_IPC_TRANS_FAILED, "Write toneControl error");
 
     MessageParcel reply;
     MessageOption option {

@@ -61,7 +61,6 @@ private:
         CallManagerCallbackImpl() = default;
         ~CallManagerCallbackImpl() override = default;
         int32_t OnCallDetailsChange(const Telephony::CallAttributeInfo &info) override;
-        int32_t OnMeeTimeDetailsChange(const Telephony::CallAttributeInfo &info) override;
         int32_t OnPhoneStateChange(
             int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number) override;
 

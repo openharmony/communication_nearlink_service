@@ -40,6 +40,7 @@ typedef enum {
  * @brief 星闪链路subrate类型
  */
 typedef enum : uint16_t {
+    NLSTK_SUBRATE_1 = 0x01,                     /*!< 芯片硬件要求级别高 */
     NLSTK_DEFAULT_SUBRATE = 0x06,               /*!< 音频场景默认subrate */
     NLSTK_MULTI_LINK_SUBRATE = 0x0C,            /*!< 音频场景多连接subrate */
     NLSTK_SUBRATE_2 = 0x02,                     /*!< 语音唤醒提速subrate */
@@ -65,6 +66,15 @@ typedef struct {
     uint16_t continuationNum;           /* 当前执行周期里面基础周期的执行个数 */
     uint16_t supervisionTimeout;        /* 超时时间，单位10ms */
 } NLSTK_SetAcbSubrateParam_S;
+
+/**
+ * @brief  拒绝异步链路subrate
+ */
+typedef struct {
+    uint16_t lcid;
+    uint8_t errorCode;      /* 默认值0 */
+} NLSTK_RejAcbSubrateParam_S;
+
 #pragma pack ()
 #ifndef NLSTK_REMOTE_FEATURE_LEN
 #define NLSTK_REMOTE_FEATURE_LEN 16

@@ -35,7 +35,7 @@ public:
     static InterfaceHadmClientService &GetInstance();
     virtual void RegisterNearlinkHadmClientCallback(std::shared_ptr<InterfaceHadmClientServiceCallback> callback) = 0;
     virtual void DeregisterNearlinkHadmClientCallback() const = 0;
-    virtual void StartSounding(uint32_t hadmId, const RawAddress &addr) const = 0;
+    virtual void StartSounding(uint32_t hadmId, const RawAddress &addr, uint8_t toneControl) const = 0;
     virtual void StopSounding(uint32_t hadmId, const RawAddress &addr) const = 0;
     virtual uint32_t AllocHadmId() = 0;
     virtual void RemoveHadmId(uint32_t hadmId);

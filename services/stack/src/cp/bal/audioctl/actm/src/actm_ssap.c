@@ -83,7 +83,7 @@ static bool IsUuidEqual(uint16_t uuid, NLSTK_SsapPrty_S *property)
 
 static void ReadDeviceProperties(ActmRemoteDevice_S *device, uint16_t *handles, uint8_t num)
 {
-    if (CfgdbGetManufacturerSupport(&device->addr, CFGDB_READ_MULTI_HANDLES)) {
+    if (SsapcIsSupportMultiProcessing(device->appId)) {
         if (NLSTK_SsapClientReadProperties(device->appId, handles, num) != NLSTK_ERRCODE_SUCCESS) {
             NLSTK_LOG_ERROR("[ACTM] read multi handles error");
         }

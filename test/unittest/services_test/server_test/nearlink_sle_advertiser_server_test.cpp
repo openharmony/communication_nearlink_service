@@ -14,6 +14,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <atomic>
+#include <new>
 #include <thread>
 #include "nearlink_sle_advertiser_stub.h"
 #include "nearlink_sle_advertiser_callback_proxy.h"
@@ -57,6 +59,21 @@ namespace {
         advertiserCbTestStatus_ = static_cast<int>(AdvertiserCBTest::ADVERTISER_EVENT_TEST_MAX);
     }
 
+    // 带独立计数器的observer，用于验证事件定向分发不会误发给其他应用
+    class NearlinkSleAdvertiserIsolationCbTest : public NearlinkSleAdvertiseCallbackStub {
+    public:
+        static std::atomic<int32_t> startResultEventCount_;
+        void OnAutoStopAdvEvent(int32_t advHandle) override {}
+        void OnStartResultEvent(int32_t result, int32_t advHandle, int32_t opcode) override {
+            startResultEventCount_++;
+        }
+        void OnEnableResultEvent(int32_t result, int32_t advHandle) override {}
+        void OnDisableResultEvent(int32_t result, int32_t advHandle) override {}
+        void OnStopResultEvent(int32_t result, int32_t advHandle) override {}
+        void OnSetAdvDataEvent(int32_t result, int32_t advHandle) override {}
+    };
+    std::atomic<int32_t> NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_{0};
+
     class NearlinkSleAdvertiserCallBackStubTest : public NearlinkSleAdvertiseCallbackStub {
     public:
         void OnStartResultEvent(int32_t result, int32_t advHandle, int32_t opcode) override {
@@ -82,25 +99,11 @@ namespace {
         }
     };
 
-    class MockNearlinkSleAdvertiserCallbackStub : public IRemoteStub<INearlinkSleAdvertiseCallback> {
+    class MockNearlinkSleAdvertiserCallbackStub : public NearlinkSleAdvertiserCallBackStubTest {
     public:
-        void OnStartResultEvent(int32_t result, int32_t advHandle, int32_t opcode) {
-        }
-        void OnStopResultEvent(int32_t result, int32_t advHandle) {
-        }
-        void OnEnableResultEvent(int32_t result, int32_t advHandle) {
-        }
-        void OnDisableResultEvent(int32_t result, int32_t advHandle) {
-        }
-        void OnAutoStopAdvEvent(int32_t advHandle) {
-        }
-        void OnSetAdvDataEvent(int32_t result, int32_t advHandle) {
-        }
         sptr<OHOS::IRemoteObject> AsObject() override
         {
-            sptr<NearlinkSleAdvertiserCallBackStubTest> nearlinkSleAdvertiserCallBackStubTest =
-            new NearlinkSleAdvertiserCallBackStubTest();
-            return nearlinkSleAdvertiserCallBackStubTest;
+            return static_cast<NearlinkSleAdvertiserCallBackStubTest*>(this);
         }
     };
 
@@ -452,12 +455,20 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest002, TestSize.Level1)
 HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest003, TestSize.Level1)
 {
     HILOGI("AdvertiserServerTest003 start");
+    sptr<INearlinkSleAdvertiseCallback> cb = new (std::nothrow) MockNearlinkSleAdvertiserCallbackStub();
+    ASSERT_NE(cb, nullptr);
+    g_advertiserServer->RegisterSleAdvertiserCallback(cb);
+    int32_t handle = -1;
+    g_advertiserServer->GetAdvertiserHandle(handle);
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, advHandle_);
+    g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, handle);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_START_RESULT_EVENT_TEST));
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnStopResultEvent(0, advHandle_);
+    int32_t handle2 = -1;
+    g_advertiserServer->GetAdvertiserHandle(handle2);
+    g_advertiserServer->pimpl->observerImp_->OnStopResultEvent(0, handle2);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_STOP_RESULT_EVENT_TEST));
+    g_advertiserServer->DeregisterSleAdvertiserCallback(cb);
     HILOGI("AdvertiserServerTest003 end");
 }
 
@@ -469,12 +480,18 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest003, TestSize.Level1)
 HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest004, TestSize.Level1)
 {
     HILOGI("AdvertiserServerTest004 start");
+    sptr<INearlinkSleAdvertiseCallback> cb = new (std::nothrow) MockNearlinkSleAdvertiserCallbackStub();
+    ASSERT_NE(cb, nullptr);
+    g_advertiserServer->RegisterSleAdvertiserCallback(cb);
+    int32_t handle = -1;
+    g_advertiserServer->GetAdvertiserHandle(handle);
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnEnableResultEvent(0, advHandle_);
+    g_advertiserServer->pimpl->observerImp_->OnEnableResultEvent(0, handle);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_ENABLE_RESULT_EVENT_TEST));
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnDisableResultEvent(0, advHandle_);
+    g_advertiserServer->pimpl->observerImp_->OnDisableResultEvent(0, handle);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_DISABLE_RESULT_EVENT_TEST));
+    g_advertiserServer->DeregisterSleAdvertiserCallback(cb);
     HILOGI("AdvertiserServerTest004 end");
 }
 
@@ -486,12 +503,20 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest004, TestSize.Level1)
 HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest005, TestSize.Level1)
 {
     HILOGI("AdvertiserServerTest005 start");
+        sptr<INearlinkSleAdvertiseCallback> cb = new (std::nothrow) MockNearlinkSleAdvertiserCallbackStub();
+    ASSERT_NE(cb, nullptr);
+    g_advertiserServer->RegisterSleAdvertiserCallback(cb);
+    int32_t handle = -1;
+    g_advertiserServer->GetAdvertiserHandle(handle);
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnAutoStopAdvEvent(advHandle_);
+    g_advertiserServer->pimpl->observerImp_->OnAutoStopAdvEvent(handle);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_AUTO_STOP_ADV_EVENT_TEST));
     ResetAdvertiserCbTestStatus();
-    g_advertiserServer->pimpl->observerImp_->OnSetAdvDataEvent(0, advHandle_);
+    int32_t handle2 = -1;
+    g_advertiserServer->GetAdvertiserHandle(handle2);
+    g_advertiserServer->pimpl->observerImp_->OnSetAdvDataEvent(0, handle2);
     EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ON_SET_ADV_DATA_EVENT_TEST));
+    g_advertiserServer->DeregisterSleAdvertiserCallback(cb);
     HILOGI("AdvertiserServerTest005 end");
 }
 
@@ -506,6 +531,63 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest006, TestSize.Level2)
     NlErrCode res = g_advertiserServer->DeregisterSleAdvertiserCallback(nullptr);
     EXPECT_EQ(res, NL_ERR_IMPL_ERROR);
     HILOGI("AdvertiserServerTest006 end");
+}
+
+/**
+ * @tc.name: AdvertiserServerTest008
+ * @tc.desc: advertiser server 事件无归属handle时丢弃，不转发给任何observer
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest008, TestSize.Level1)
+{
+    HILOGI("AdvertiserServerTest008 start");
+    ResetAdvertiserCbTestStatus();
+    int32_t handle = -1;
+    NlErrCode res = g_advertiserServer->GetAdvertiserHandle(handle);
+    EXPECT_EQ(res, NL_NO_ERROR);
+    // 移除归属记录，模拟客户端退出后handle已清理的场景
+    g_advertiserServer->pimpl->remoteContainer_->RemoveAdvHandle(handle);
+    g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, handle);
+    EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ADVERTISER_EVENT_TEST_MAX));
+    HILOGI("AdvertiserServerTest008 end");
+}
+
+/**
+ * @tc.name: AdvertiserServerTest009
+ * @tc.desc: advertiser server 事件仅上报归属应用，其他应用的observer收不到
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest009, TestSize.Level1)
+{
+    HILOGI("AdvertiserServerTest009 start");
+    NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_ = 0;
+    sptr<INearlinkSleAdvertiseCallback> outsider =
+        new (std::nothrow) NearlinkSleAdvertiserIsolationCbTest();
+    ASSERT_NE(outsider, nullptr);
+    NlErrCode res = g_advertiserServer->RegisterSleAdvertiserCallback(outsider);
+    EXPECT_EQ(res, NL_NO_ERROR);
+    // 修改outsider在容器中的归属，模拟其他应用(不同uid)
+    int32_t ownerPid = IPCSkeleton::GetCallingPid();
+    int32_t ownerUid = IPCSkeleton::GetCallingUid();
+    g_advertiserServer->pimpl->remoteContainer_->DeleteRemoteInfo(outsider->AsObject());
+    g_advertiserServer->pimpl->remoteContainer_->AddRemoteInfo(outsider->AsObject(),
+        NearlinkSleAdvertiserServer::impl::SleAdvertiserRemoteInfo(ownerPid, ownerUid + 1));
+    // 申请一个本进程拥有的handle
+    int32_t handle = -1;
+    res = g_advertiserServer->GetAdvertiserHandle(handle);
+    EXPECT_EQ(res, NL_NO_ERROR);
+    // 触发事件，outsider因归属不同不应收到
+    g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, handle);
+    EXPECT_EQ(NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_, 0);
+    // 恢复outsider归属为本进程并绑定该handle，验证其可以收到
+    g_advertiserServer->pimpl->remoteContainer_->DeleteRemoteInfo(outsider->AsObject());
+    g_advertiserServer->pimpl->remoteContainer_->AddRemoteInfo(outsider->AsObject(),
+        NearlinkSleAdvertiserServer::impl::SleAdvertiserRemoteInfo(ownerPid, ownerUid));
+    g_advertiserServer->pimpl->remoteContainer_->AddAdvHandle(outsider->AsObject(), handle);
+    g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, handle);
+    EXPECT_EQ(NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_, 1);
+    g_advertiserServer->DeregisterSleAdvertiserCallback(outsider);
+    HILOGI("AdvertiserServerTest009 end");
 }
 
 /**

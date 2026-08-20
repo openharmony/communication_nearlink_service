@@ -15,7 +15,7 @@
 
 /****************************************************************************
  *
- * this file contains the CM for dynmaic transport channel management definitions
+ * this file contains the CM for dynamic transport channel management definitions
  *
  ***************************************************************************/
 
