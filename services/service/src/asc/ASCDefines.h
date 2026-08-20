@@ -211,7 +211,7 @@ enum ASCState {
     NL_SLE_ASC_CREATING                 = 23,
     NL_SLE_ASC_CONFIG_SUBRATE_CHANGED   = 24,
     NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED = 25,
-    NL_SLE_ASC_SET_DIRECTION            = 26,
+    NL_SLE_ASC_ADD_DATA_PATH            = 26,
     NL_SLE_ASC_BUTT                     = 27,
 };
 
