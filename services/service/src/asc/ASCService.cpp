@@ -3915,8 +3915,9 @@ bool ASCService::IsMeetStartStreamCondition(const RawAddress& device, uint8_t re
 {
     ASCState state = GetASCStatus(device);
     bool isStartPlayMerge = IsSupportStartPlayMerged(device);
-    if (result == NL_NO_ERROR && (IsStartStreamStateCorrected(state, isStartPlayMerge) ||
-        IsVendorStartStreamStateCorrected(state, isStartPlayMerge))) {
+    bool isStateCorrect = isStartPlayMerge ?
+        IsVendorStartStreamStateCorrected(state) : IsStartStreamStateCorrected(state);
+    if (result == NL_NO_ERROR && isStateCorrect) {
         return true;
     }
     
@@ -3936,22 +3937,16 @@ bool ASCService::IsSupportStartPlayMerged(const RawAddress& device)
             device, static_cast<uint8_t>(startPlayMergeIndex)));
 }
 
-bool ASCService::IsStartStreamStateCorrected(ASCState state, bool isStartPlayMerge)
+bool ASCService::IsStartStreamStateCorrected(ASCState state)
 {
     // 走标准协议的设备
-    if (!isStartPlayMerge && !IsStarting(state)) {
-        return false;
-    }
-    return true;
+    return IsStarting(state);
 }
 
-bool ASCService::IsVendorStartStreamStateCorrected(ASCState state, bool isStartPlayMerge)
+bool ASCService::IsVendorStartStreamStateCorrected(ASCState state)
 {
     // 自研设备
-    if (isStartPlayMerge && !IsSubrateChanged(state)) {
-        return false;
-    }
-    return true;
+    return IsSubrateChanged(state);
 }
 
 bool ASCService::IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)

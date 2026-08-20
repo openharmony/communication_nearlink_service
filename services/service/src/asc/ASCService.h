@@ -114,8 +114,8 @@ public:
     bool IsMeetStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
     bool IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
     bool IsSupportStartPlayMerged(const RawAddress& device);
-    bool IsStartStreamStateCorrected(ASCState state, bool isStartPlayMerge);
-    bool IsVendorStartStreamStateCorrected(ASCState state, bool isStartPlayMerge);
+    bool IsStartStreamStateCorrected(ASCState state);
+    bool IsVendorStartStreamStateCorrected(ASCState state);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
     const NearlinkRawAddress GetActiveSinkDevice() const override;
     void SleAudioDeviceActionChanged(const NearlinkRawAddress &device, int action) override;
