@@ -368,7 +368,8 @@ private:
 // 配对请求 start
     class ServiceSsapConnectInst {
     public:
-        class ServiceSsapCallback : public InterfaceSsapClientCallback {
+        class ServiceSsapCallback : public InterfaceSsapClientCallback,
+            public std::enable_shared_from_this<ServiceSsapCallback> {
         public:
             explicit ServiceSsapCallback(const RawAddress &addr) : device_(addr)
             {}
