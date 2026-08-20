@@ -653,7 +653,6 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         NLSTK_CHECK_RETURN_VOID(SDF_VectorFindFirst(dev->report, HidCompHandle, &readMsg->property->handle, &index),
             "[HID] report handle not found");
         HidReport_S *report = SDF_VectorElementAt(dev->report, index);
-        // 先校验零长度读再释放旧值，并将旧指针置空，避免 len==0 提前返回后再次释放造成 double free
         NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len != 0 && readMsg->property->value.data != NULL,
             "[HID] readMsg property value error");
         SDF_MemFree(report->reportInfoValue.data);
