@@ -56,12 +56,10 @@ uint32_t TEST_DLI_GetDataFragmentNumsStub(SDF_Buff_S *buf)
     }
     uint16_t bufferLen = DLI_DataLenGet(ACB_DATA_TYPE);
     if (bufferLen == 0) {
-        DLI_LOGE("acb len is 0");
         return 0;
     }
     uint32_t fragmentNums = (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
     if (fragmentNums > DLI_MAX_FRAGMEN_NUM) {
-        DLI_LOGE("fragment nums exceeds max num");
         return 0;
     }
     return fragmentNums;
