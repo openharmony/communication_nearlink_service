@@ -672,7 +672,7 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
     for (uint32_t i = 0; i < remainBuffCnt; i++) {
         DTAP_PendingPacket *pkt = DTAP_CreatePacket(buff[i]);
         if (pkt == NULL) {
-            for (uint32_t j = 0; j < j; j++) {
+            for (uint32_t j = 0; j < i; j++) {
                 DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[j]);
             }
             DTAP_LOGE("malloc pending packet failed, i %d, remainBuffCnt %d", i, remainBuffCnt);
