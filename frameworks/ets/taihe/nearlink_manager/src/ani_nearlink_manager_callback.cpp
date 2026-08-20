@@ -52,7 +52,7 @@ void AniNearlinkManagerObserver::OnStateChanged(const int transport, const int s
     }
     ::ohos::nearlink::manager::NearlinkState result =
         static_cast<::ohos::nearlink::manager::NearlinkState::key_t>(status);
-    // 锁内拷贝回调快照、锁外调用，避免持锁调用外部回调导致死锁
+    // 锁内拷贝、锁外调用，避免持锁调用外部回调导致死锁
     decltype(g_stateChangedObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_stateChangedMutex);
@@ -73,7 +73,7 @@ void AniRemoteDeviceObserver::OnPairingRequest(const NearlinkRemoteDevice &devic
         .passkey = static_cast<::taihe::string>(passkey),
         .pairingType = static_cast<::ohos::nearlink::manager::PairingType::key_t>(type)
     };
-    // 锁内拷贝回调快照、锁外调用，避免持锁调用外部回调导致死锁
+    // 锁内拷贝、锁外调用，避免持锁调用外部回调导致死锁
     decltype(g_pairingRequestObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_pairingRequestMutex);
@@ -97,7 +97,7 @@ void AniRemoteDeviceObserver::OnPairStatusChanged(const NearlinkRemoteDevice &de
         .state = static_cast<::ohos::nearlink::constant::PairingState::key_t>(state),
         .reason = static_cast<::ohos::nearlink::manager::PairingReason::key_t>(reason)
     };
-    // 锁内拷贝回调快照、锁外调用，避免持锁调用外部回调导致死锁
+    // 锁内拷贝、锁外调用，避免持锁调用外部回调导致死锁
     decltype(g_pairStatusChangedObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
@@ -121,7 +121,7 @@ void AniRemoteDeviceObserver::OnConnectionStateChanged(const NearlinkRemoteDevic
         .state = static_cast<::ohos::nearlink::constant::ConnectionState::key_t>(state),
         .connectionReason = static_cast<::ohos::nearlink::manager::ConnectionReason::key_t>(reason)
     };
-    // 锁内拷贝回调快照、锁外调用，避免持锁调用外部回调导致死锁
+    // 锁内拷贝、锁外调用，避免持锁调用外部回调导致死锁
     decltype(g_connectionStateChangedObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
@@ -142,7 +142,7 @@ void AniRemoteDeviceObserver::OnAcbStateChanged(const NearlinkRemoteDevice &devi
         .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
         .state = static_cast<::ohos::nearlink::constant::AcbState::key_t>(state)
     };
-    // 锁内拷贝回调快照、锁外调用，避免持锁调用外部回调导致死锁
+    // 锁内拷贝、锁外调用，避免持锁调用外部回调导致死锁
     decltype(g_acbStateChangedObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
