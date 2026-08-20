@@ -18,7 +18,6 @@
 #include "actm_api_type.h"
 #include "cm_api.h"
 #include "nearlink_dft_ue.h"
-#include <algorithm>
 
 namespace OHOS {
 namespace Nearlink {
