@@ -111,8 +111,11 @@ public:
     void ClearWhenDisconnect(const RawAddress& device);
     void CbkAddDataPath(const RawAddress& device, uint8_t result);
 
-    bool CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
-    bool CheckCbkResult(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsSupportStartPlayMerged(const RawAddress& device);
+    bool IsStartStreamStateCorrected(ASCState state, bool isStartPlayMerge);
+    bool IsVendorStartStreamStateCorrected(ASCState state, bool isStartPlayMerge);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
     const NearlinkRawAddress GetActiveSinkDevice() const override;
     void SleAudioDeviceActionChanged(const NearlinkRawAddress &device, int action) override;
@@ -487,7 +490,7 @@ private:
 
     inline bool IsDirectionSet(ASCState state) const
     {
-        return (state == NL_SLE_ASC_SET_DIRECTION);
+        return (state == NL_SLE_ASC_ADD_DATA_PATH);
     }
 
     bool IsInStopProcess(ASCState state) const;
