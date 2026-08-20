@@ -3967,7 +3967,7 @@ void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
 {
     // 取出处理中的流类型
     AudioStreamType streamType = GetProcessingStreamType(device);
-    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d, state %{public}d",
+    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), result, streamType);
 
     // 状态和结果检查

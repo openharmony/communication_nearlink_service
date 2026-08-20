@@ -43,6 +43,7 @@ static void ClearLinkInfo(ActmQosmLink_S *link)
     link->used = false;
     link->direction = NLSTK_ACTM_DIRECTION_UNCONFIG;
     link->bitrate = 0;
+    link->needReportDataPath = false;
 }
 
 ActmQosmGroup_S *ActmFindQosmGroupById(uint16_t icgId)
