@@ -969,6 +969,8 @@ static void SSAPC_ReadByUuidRspDecode(uint8_t controlCode, uint8_t *data, uint16
                 valueLen = 0;
             }
         } else if ((controlCode & SSAP_READ_BY_UUID_RSP_ERR_CONTROL) != 0) {
+            CP_CHECK_LOG_RETURN_VOID(dataLen >= (index + SSAP_HANDLE_LEN + SSAP_INDICATION_LEN),
+                "[SSAP] data len error");
             dataIndication = SSAP_BYTE_TO_UINT16_LITTLE(data + SSAP_HANDLE_LEN);
             errorCode = dataIndication & ~(1 << SSAP_READ_BY_UUID_RSP_ERROR_CONTROL);
             dataIndicationLen = SSAP_INDICATION_LEN;
