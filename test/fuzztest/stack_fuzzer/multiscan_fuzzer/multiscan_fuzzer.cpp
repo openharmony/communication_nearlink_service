@@ -269,14 +269,6 @@ namespace OHOS {
         (void)NLSTK_DevdEnableAdv(&setEnable);
     }
 
-    static void FuzzNlstkDevdSetTxPower(uint8_t* fuzzData, size_t* idx, size_t size)
-    {
-        NLSTK_DevdSetTxPower_S setTxPower = {0};
-        setTxPower.bleMaxPower = FuzzGetI8(fuzzData, idx, size);
-        setTxPower.sleMaxPower = FuzzGetI8(fuzzData, idx, size);
-        (void)NLSTK_DevdSetTxPower(&setTxPower);
-    }
-
     static void FuzzNlstkDevdRemoveAdv(void)
     {
         uint8_t removeHandle = g_advHandle;
@@ -360,8 +352,6 @@ namespace OHOS {
         FuzzNlstkDevdStartAdv(data, &idx, size);
 
         FuzzNlstkDevdEnableAdv(data, &idx, size);
-
-        FuzzNlstkDevdSetTxPower(data, &idx, size);
 
         FuzzNlstkDevdRemoveAdv();
 

@@ -91,8 +91,3 @@ NLSTK_Errcode_E NLSTK_DevdEnableAdv(NLSTK_DevdSetAdvEnable_S *setEnable)
     }
     return NLSTK_ERRCODE_SUCCESS;
 }
-
-NLSTK_Errcode_E NLSTK_DevdSetTxPower(NLSTK_DevdSetTxPower_S *setTxPower)
-{
-    return NLSTK_ERRCODE_SUCCESS;
-}

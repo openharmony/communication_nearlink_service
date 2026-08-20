@@ -33,7 +33,6 @@ static uint32_t RegDliCbk(void)
         {DLI_CBK_ENABLE_SCAN, (void *)DevdSleEnableScanCbk},
         {DLI_CBK_ADV_REPORT, (void *)DevdSleScanReportCbk},
         {DLI_CBK_SET_SCAN_FILTER, (void *)DevdSleSetScanFilterCbk},
-        {DLI_CBK_SET_TX_POWER, (void *)DevdSetTxPowerCbk},
     };
     uint32_t ret = DLI_CmdCbkReg(DEVD, NULL, 0, cbkTable, sizeof(cbkTable) / sizeof(DLI_CbkLineStru));
 
