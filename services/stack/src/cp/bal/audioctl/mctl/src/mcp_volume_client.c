@@ -232,7 +232,6 @@ static void UpdateMcpVolumeClient(McpVolumeDevice_S *dev, NLSTK_Errcode_E ret,
 static void McpParseStreamVolumeData(McpVolumeDevice_S *dev, uint8_t *data, uint16_t dataLen,
     NLSTK_McpStreamVolumeStatus_S *streamVolume)
 {
-    // 先校验至少可读 1 字节的 num，避免 dataLen==0 时 PARSE_TO_UINT8 越界读
     NLSTK_CHECK_RETURN_VOID(dataLen >= 1, "[MCP] stream volume data len error");
     uint8_t num = 0;
     PARSE_TO_UINT8(num, data);

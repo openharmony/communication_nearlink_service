@@ -2482,7 +2482,6 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnConnectionStateC
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    // 捕获 shared_ptr 保活回调对象，避免 DeregisterServiceSsapApplication 释放后跨线程访问 device_ 造成 UAF
     auto self = shared_from_this();
     DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, state]() -> void {
         sleAdapterImpl->OnSsapConnectionStateChangedTask(self->device_, state);
@@ -2509,7 +2508,6 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnReadPropertiesBy
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    // 捕获 shared_ptr 保活回调对象，避免 DeregisterServiceSsapApplication 释放后跨线程访问 device_ 造成 UAF
     auto self = shared_from_this();
     DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, list, ret]() -> void {
         sleAdapterImpl->OnSsapReadPropertiesByUuidTask(self->device_, list, ret);
