@@ -1318,7 +1318,7 @@ static uint32_t GetStructureInfoSize(SSAP_FindStructureInfo_S *info)
     uint8_t operationLen = GetOperationLenByItemType(info->itemType);
 
     uint8_t descriptorCountLen = GetDescriptorCountLenByItemType(info->itemType);
-    uint8_t descriptorTypeListLen = 0;
+    uint16_t descriptorTypeListLen = 0;
     if (descriptorCountLen != 0) {
         descriptorTypeListLen = descriptorCountLen + info->descriptorCount;
     }

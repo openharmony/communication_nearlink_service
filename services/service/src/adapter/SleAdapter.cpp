@@ -2482,8 +2482,9 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnConnectionStateC
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, this, state]() -> void {
-        sleAdapterImpl->OnSsapConnectionStateChangedTask(device_, state);
+    auto self = shared_from_this();
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, state]() -> void {
+        sleAdapterImpl->OnSsapConnectionStateChangedTask(self->device_, state);
     });
 }
 
@@ -2507,8 +2508,9 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnReadPropertiesBy
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, this, list, ret]() -> void {
-        sleAdapterImpl->OnSsapReadPropertiesByUuidTask(device_, list, ret);
+    auto self = shared_from_this();
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, list, ret]() -> void {
+        sleAdapterImpl->OnSsapReadPropertiesByUuidTask(self->device_, list, ret);
     });
 }
 
