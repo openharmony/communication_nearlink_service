@@ -248,7 +248,6 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
             size_t ignoredCnt = static_cast<size_t>(std::distance(cachedEventVec_.begin(), it));
             RemoveIgnoredCachedEvent(ignoredCnt);
         }
-        cachedEventVec_.erase(cachedEventVec_.begin());
         return ProcessNearlinkSwitchCachedEvent(event);
     }
 

@@ -47,7 +47,8 @@ RawAddress GenerateRandomMacAddress()
     int ret = 0;
     std::string randomMac = "";
     char strMacTmp[ARRAY_SIZE] = {0};
-    std::mt19937_64 gen(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
     for (int i = 0; i < MAC_BIT_SIZE; i++) {
         if (i != FIRST_BIT) {
             std::uniform_int_distribution<> distribution(0, HEX_BASE - 1);

@@ -195,6 +195,7 @@ static void PassWordSendTNodeCfmWithRb(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][PASSWORD] T node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     /* 计算link Key */
@@ -202,9 +203,11 @@ static void PassWordSendTNodeCfmWithRb(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][PASSWORD] T node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmSLinkWaitExpectOpCode(slink, SM_AUTH_G_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void PassWordRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, size_t size)

@@ -139,6 +139,7 @@ static void OobRecvGNodeCfmWithRa(SmSLink_S *slink, const uint8_t *pkg, size_t s
         NLSTK_LOG_ERROR("[SM][OOB] T node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     /* 计算link Key */
@@ -146,10 +147,12 @@ static void OobRecvGNodeCfmWithRa(SmSLink_S *slink, const uint8_t *pkg, size_t s
         NLSTK_LOG_ERROR("[SM][OOB] T node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     /* 发送携带Rb的T节点确认码 */
     OobSendTNodeCfmWithRb(slink);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void OobSendTNodeCfmWithRb(SmSLink_S *slink)
@@ -192,6 +195,7 @@ static void OobRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, size_t s
         NLSTK_LOG_ERROR("[SM][OOB] G node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     /* 计算link Key */
@@ -199,10 +203,12 @@ static void OobRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, size_t s
         NLSTK_LOG_ERROR("[SM][OOB] G node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmSendGNodeDhKey(slink);
     SmSLinkWaitExpectOpCode(slink, SM_AUTH_T_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 /*****************************************************************************************

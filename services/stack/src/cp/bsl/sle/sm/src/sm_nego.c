@@ -217,6 +217,7 @@ static void SendPairingCfm(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM] Generate pubkey and prikey fail.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     (void)memcpy_s(slink->priKey, SM_PRIVATE_KEY_LEN, keyPair.priKey, SM_PRIVATE_KEY_LEN);
@@ -226,6 +227,7 @@ static void SendPairingCfm(SmSLink_S *slink)
     bool ret = SmSendMessage(slink, SM_NEGO_PAIRING_CONFIRM, (const uint8_t *)&msg, sizeof(SmPairCfmMsg_S));
     NLSTK_CHECK_RETURN_VOID(ret == true, "[SM] Send Message failed.");
     SmSLinkWaitExpectOpCode(slink, SM_NEGO_PAIRING_INIT_INFO, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
@@ -267,6 +269,7 @@ static void SendPairingInitInfo(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM] Generate pubkey and prikey fail.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     (void)memcpy_s(slink->priKey, SM_PRIVATE_KEY_LEN, keyPair.priKey, SM_PRIVATE_KEY_LEN);
@@ -274,6 +277,7 @@ static void SendPairingInitInfo(SmSLink_S *slink)
     /* 发送公钥 */
     (void)memcpy_s(msg.tNodePubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
     SmSendMessage(slink, SM_NEGO_PAIRING_INIT_INFO, (const uint8_t *)&msg, sizeof(SmPairInitInfoMsg_S));
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void RecvPairingInitInfo(SmSLink_S *slink, const uint8_t *pkg, size_t size)

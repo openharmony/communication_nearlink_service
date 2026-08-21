@@ -290,6 +290,7 @@ static void PassCodeSendTNodeCfmWithRb(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][PASSCODE] T node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     /* 计算link Key */
@@ -298,10 +299,12 @@ static void PassCodeSendTNodeCfmWithRb(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][PASSCODE] T node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_T_AUTH_EXCEP, SM_DFT_T_AUTH_GEN_KEY_TIME);
     SmSLinkWaitExpectOpCode(slink, SM_AUTH_G_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void PassCodeRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, size_t size)
@@ -334,6 +337,7 @@ static void PassCodeRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, siz
         NLSTK_LOG_ERROR("[SM][PASSCODE] G node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_G_AUTH_EXCEP, SM_DFT_G_AUTH_GEN_KEY_TIME);
@@ -343,10 +347,12 @@ static void PassCodeRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, siz
         NLSTK_LOG_ERROR("[SM][PASSCODE] G node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmSendGNodeDhKey(slink);
     SmSLinkWaitExpectOpCode(slink, SM_AUTH_T_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 /*****************************************************************************************
