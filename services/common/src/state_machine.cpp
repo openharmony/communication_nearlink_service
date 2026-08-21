@@ -93,7 +93,7 @@ inline int StateMachine::GetStateDepth(State &state)
 {
     int depth = 0;
     State *tmp = &state;
-    while (tmp != nullptr) {
+    while (tmp != nullptr && depth < stackDepth) {
         depth++;
         tmp = tmp->parent_;
     }

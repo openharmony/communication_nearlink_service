@@ -64,10 +64,8 @@ NlErrCode NearlinkASCProxy::AudioControl(const NearlinkRawAddress &device, Audio
 {
     HILOGI("NearlinkASCProxy::AudioControl start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::AudioControl WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::AudioControl WriteInterfaceToken error");
 
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
     NL_CHECK_RETURN_RET(data.WriteUint32(streamType), NL_ERR_INTERNAL_ERROR, "Write streamType error");
@@ -79,10 +77,8 @@ NlErrCode NearlinkASCProxy::AudioControl(const NearlinkRawAddress &device, Audio
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_CONTROL, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::AudioControl done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::AudioControl done fail, error: %{public}d", error);
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
@@ -90,10 +86,8 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceList(std::vector<NearlinkRawAddress> &
 {
     HILOGI("NearlinkASCProxy::GetSleAudioDeviceList start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::GetSleAudioDeviceList WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetSleAudioDeviceList WriteInterfaceToken error");
 
     MessageParcel reply;
     MessageOption option {
@@ -101,27 +95,19 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceList(std::vector<NearlinkRawAddress> &
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_GET_AUDIO_DEVICE_LIST, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetSleAudioDeviceList done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::GetSleAudioDeviceList done fail, error: %{public}d", error);
 
     int result = reply.ReadInt32();
-    if (result != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetSleAudioDeviceList done fail, result: %{public}d", result);
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(result == NO_ERROR, NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetSleAudioDeviceList done fail, result: %{public}d", result);
 
     uint32_t vecCnt = reply.ReadUint32();
-    if ((vecCnt <= 0) || (vecCnt > MAX_AUDIO_DEVICE_COUNT)) {
-        HILOGE("vector size is error");
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET((vecCnt > 0) && (vecCnt <= MAX_AUDIO_DEVICE_COUNT), NL_ERR_IPC_TRANS_FAILED,
+        "vector size is error");
     for (uint32_t i = 0; i < vecCnt; i++) {
         std::shared_ptr<NearlinkRawAddress> device(reply.ReadParcelable<NearlinkRawAddress>());
-        if (!device) {
-            return NL_ERR_IPC_TRANS_FAILED;
-        }
+        NL_CHECK_RETURN_RET(device != nullptr, NL_ERR_IPC_TRANS_FAILED, "read device error");
         devices.push_back(*device);
     }
 
@@ -132,10 +118,8 @@ NlErrCode NearlinkASCProxy::GetVirtualAudioDeviceList(std::vector<NearlinkRawAdd
 {
     HILOGI("NearlinkASCProxy::GetVirtualAudioDeviceList start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::GetVirtualAudioDeviceList WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetVirtualAudioDeviceList WriteInterfaceToken error");
 
     MessageParcel reply;
     MessageOption option {
@@ -143,27 +127,19 @@ NlErrCode NearlinkASCProxy::GetVirtualAudioDeviceList(std::vector<NearlinkRawAdd
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_GET_VIRTUAL_AUDIO_DEVICE_LIST, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetVirtualAudioDeviceList done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::GetVirtualAudioDeviceList done fail, error: %{public}d", error);
 
     int result = reply.ReadInt32();
-    if (result != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetVirtualAudioDeviceList done fail, result: %{public}d", result);
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(result == NO_ERROR, NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetVirtualAudioDeviceList done fail, result: %{public}d", result);
 
     uint32_t vecCnt = reply.ReadUint32();
-    if ((vecCnt <= 0) || (vecCnt > MAX_AUDIO_DEVICE_COUNT)) {
-        HILOGE("vector size is error");
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET((vecCnt > 0) && (vecCnt <= MAX_AUDIO_DEVICE_COUNT), NL_ERR_IPC_TRANS_FAILED,
+        "vector size is error");
     for (uint32_t i = 0; i < vecCnt; i++) {
         std::shared_ptr<NearlinkRawAddress> device(reply.ReadParcelable<NearlinkRawAddress>());
-        if (!device) {
-            return NL_ERR_IPC_TRANS_FAILED;
-        }
+        NL_CHECK_RETURN_RET(device != nullptr, NL_ERR_IPC_TRANS_FAILED, "read device error");
         devices.push_back(*device);
     }
 
@@ -174,10 +150,8 @@ NlErrCode NearlinkASCProxy::GetSupportStreamType(const NearlinkRawAddress &devic
 {
     HILOGI("NearlinkASCProxy::GetSupportStreamType start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::GetSupportStreamType WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetSupportStreamType WriteInterfaceToken error");
 
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
 
@@ -187,16 +161,12 @@ NlErrCode NearlinkASCProxy::GetSupportStreamType(const NearlinkRawAddress &devic
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_GET_SUPPORT_STREAM_TYPE, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetSupportStreamType done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::GetSupportStreamType done fail, error: %{public}d", error);
 
     int result = reply.ReadInt32();
-    if (result != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetSupportStreamType done fail, result: %{public}d", result);
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(result == NO_ERROR, NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetSupportStreamType done fail, result: %{public}d", result);
 
     supportStreamType = reply.ReadUint32();
     HILOGD("supportStreamType %{public}d", supportStreamType);
@@ -209,10 +179,8 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceCodecInfo(const NearlinkRawAddress &de
 {
     HILOGI("NearlinkASCProxy::GetAudioDeviceCodecInfo start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::GetAudioDeviceCodecInfo WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetAudioDeviceCodecInfo WriteInterfaceToken error");
 
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
 
@@ -222,25 +190,21 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceCodecInfo(const NearlinkRawAddress &de
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_GET_AUDIO_DEVICE_CODEC_INFO, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetAudioDeviceCodecInfo done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::GetAudioDeviceCodecInfo done fail, error: %{public}d", error);
 
     int result = reply.ReadInt32();
-    if (result != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::GetAudioDeviceCodecInfo done fail, result: %{public}d", result);
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(result == NO_ERROR, NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::GetAudioDeviceCodecInfo done fail, result: %{public}d", result);
 
     uint32_t mapCnt = reply.ReadUint32();
     const uint32_t maxCodecType = 3;
-    if ((mapCnt <= 0) || (mapCnt > maxCodecType)) {
-        HILOGE("map size is error");
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET((mapCnt > 0) && (mapCnt <= maxCodecType), NL_ERR_IPC_TRANS_FAILED, "map size is error");
     for (uint32_t i = 0; i < mapCnt; i++) {
-        AudioStreamType StreamType = static_cast<AudioStreamType>(reply.ReadUint32());
+        uint32_t streamTypeValue = reply.ReadUint32();
+        NL_CHECK_RETURN_RET(streamTypeValue <= static_cast<uint32_t>(AUDIO_STREAM_SING),
+            NL_ERR_IPC_TRANS_FAILED, "stream type is error");
+        AudioStreamType StreamType = static_cast<AudioStreamType>(streamTypeValue);
 
         AudioStreamCodecInfo codec;
         codec.codecType = reply.ReadUint64();
@@ -260,10 +224,8 @@ NlErrCode NearlinkASCProxy::SetActiveSinkDevice(const NearlinkRawAddress &device
 {
     HILOGD("NearlinkASCProxy::SetActiveSinkDevice start");
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("NearlinkASCProxy::SetActiveSinkDevice WriteInterfaceToken error");
-        return NL_ERR_INTERNAL_ERROR;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_INTERNAL_ERROR,
+        "NearlinkASCProxy::SetActiveSinkDevice WriteInterfaceToken error");
 
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
     NL_CHECK_RETURN_RET(data.WriteUint32(supportStreamType), NL_ERR_INTERNAL_ERROR, "Write supportStreamType error");
@@ -274,20 +236,16 @@ NlErrCode NearlinkASCProxy::SetActiveSinkDevice(const NearlinkRawAddress &device
     };
     ErrCode error = InnerTransact(
         NearlinkASCInterfaceCode::NL_ASC_SET_ACTIVE_SINK_DEVICE, option, data, reply);
-    if (error != NO_ERROR) {
-        HILOGE("NearlinkASCProxy::SetActiveSinkDevice done fail, error: %{public}d", error);
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
+        "NearlinkASCProxy::SetActiveSinkDevice done fail, error: %{public}d", error);
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
 NlErrCode NearlinkASCProxy::GetDualRecordAbility(const NearlinkRawAddress &device, bool &isSupport)
 {
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("Write Token error");
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_IPC_TRANS_FAILED,
+        "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
     MessageParcel reply;
     MessageOption option {
@@ -305,10 +263,8 @@ NlErrCode NearlinkASCProxy::GetDualRecordAbility(const NearlinkRawAddress &devic
 NlErrCode NearlinkASCProxy::GetKaraokeAbility(const NearlinkRawAddress &device, bool &isSupport)
 {
     MessageParcel data;
-    if (!data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor())) {
-        HILOGE("Write Token error");
-        return NL_ERR_IPC_TRANS_FAILED;
-    }
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkASCProxy::GetDescriptor()), NL_ERR_IPC_TRANS_FAILED,
+        "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteParcelable(&device), NL_ERR_INTERNAL_ERROR, "Write device error");
     MessageParcel reply;
     MessageOption option {

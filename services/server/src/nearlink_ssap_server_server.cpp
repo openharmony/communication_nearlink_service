@@ -76,7 +76,9 @@ public:
         int appId = -1;
         {
             std::lock_guard<std::mutex> lk(vecMutex_);
-            auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+            auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) {
+                return obj.first == remote;
+            });
             NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
             appId = it->second.appId;
         }
@@ -454,7 +456,7 @@ NlErrCode NearlinkSsapServerServer::AddService(int32_t appId, NearlinkSsapServic
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::ClearServices(int appId)
+NlErrCode NearlinkSsapServerServer::ClearServices(int32_t appId)
 {
     HILOGI("enter, appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
@@ -465,7 +467,7 @@ NlErrCode NearlinkSsapServerServer::ClearServices(int appId)
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::CancelConnection(int appId, const NearlinkSsapDevice &device)
+NlErrCode NearlinkSsapServerServer::CancelConnection(int32_t appId, const NearlinkSsapDevice &device)
 {
     HILOGI("appId: %{public}d, addr: %{public}s", appId, GET_ENCRYPT_SSAP_ADDR(device));
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
@@ -517,7 +519,7 @@ NlErrCode NearlinkSsapServerServer::DeregisterApplication(int32_t appId)
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::NotifyClient(int appId, NearlinkSsapPropertyParcel *property,
+NlErrCode NearlinkSsapServerServer::NotifyClient(int32_t appId, NearlinkSsapPropertyParcel *property,
     const NearlinkSsapDevice &device, bool needConfirm)
 {
     RawAddress realAddr("");
@@ -533,8 +535,8 @@ NlErrCode NearlinkSsapServerServer::NotifyClient(int appId, NearlinkSsapProperty
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::NotifyEvent(int appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
-    const NearlinkSsapDevice &device, bool needConfirm)
+NlErrCode NearlinkSsapServerServer::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event,
+    std::vector<uint8_t> &value, const NearlinkSsapDevice &device, bool needConfirm)
 {
     HILOGI("appId: %{public}d, addr: %{public}s, needConfirm: %{public}d, transport: %{public}d",
         appId, GET_ENCRYPT_SSAP_ADDR(device), needConfirm, device.transport_);
@@ -547,7 +549,7 @@ NlErrCode NearlinkSsapServerServer::NotifyEvent(int appId, NearlinkSsapEventParc
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::SetPropertyValue(int appId, NearlinkSsapPropertyParcel *property)
+NlErrCode NearlinkSsapServerServer::SetPropertyValue(int32_t appId, NearlinkSsapPropertyParcel *property)
 {
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
@@ -558,7 +560,7 @@ NlErrCode NearlinkSsapServerServer::SetPropertyValue(int appId, NearlinkSsapProp
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::SetDescriptorValue(int appId, NearlinkSsapDescriptorParcel *descriptor)
+NlErrCode NearlinkSsapServerServer::SetDescriptorValue(int32_t appId, NearlinkSsapDescriptorParcel *descriptor)
 {
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
@@ -568,7 +570,7 @@ NlErrCode NearlinkSsapServerServer::SetDescriptorValue(int appId, NearlinkSsapDe
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::Connect(int appId, const NearlinkSsapDevice &device,
+NlErrCode NearlinkSsapServerServer::Connect(int32_t appId, const NearlinkSsapDevice &device,
     uint8_t secureReq, bool autoConnect)
 {
     HILOGI("appId: %{public}d, addr: %{public}s, transport: %{public}d, secureReq: %{public}d,"
@@ -593,7 +595,7 @@ NlErrCode NearlinkSsapServerServer::RemoveService(int32_t appId, const NearlinkS
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);
 }
 
-NlErrCode NearlinkSsapServerServer::AuthorizeResponse(int appId, uint16_t requestId, bool allow)
+NlErrCode NearlinkSsapServerServer::AuthorizeResponse(int32_t appId, uint16_t requestId, bool allow)
 {
     HILOGI("appId: %{public}d, requestId: %{public}d, allow: %{public}d", appId, requestId, allow);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();

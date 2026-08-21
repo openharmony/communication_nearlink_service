@@ -66,6 +66,7 @@ int32_t NearlinkHidHostStub::HidHostSetReportInner(NearlinkHidHostStub *stub, Me
     NlErrCode ec = stub->HidHostSetReport(address, type, report, result);
     if (ec == NL_NO_ERROR) {
         NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "result writing failed.");
+        return NO_ERROR;
     }
     return TRANSACTION_ERR;
 }

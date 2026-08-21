@@ -64,7 +64,8 @@ int32_t NearlinkSsapServerStub::OnRemoteRequest(
     CHECK_PERMISSION_AND_EXECUTE(NearlinkSsapServerStub);
 }
 
-int32_t NearlinkSsapServerStub::AddServiceInner(NearlinkSsapServerStub *stub, MessageParcel &data, MessageParcel &reply)
+int32_t NearlinkSsapServerStub::AddServiceInner(NearlinkSsapServerStub *stub, MessageParcel &data,
+    MessageParcel &reply)
 {
     int32_t appID = data.ReadInt32();
     std::shared_ptr<NearlinkSsapServiceParcel> service(data.ReadParcelable<NearlinkSsapServiceParcel>());
@@ -83,7 +84,7 @@ int32_t NearlinkSsapServerStub::AddServiceInner(NearlinkSsapServerStub *stub, Me
 int32_t NearlinkSsapServerStub::ClearServicesInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     NlErrCode result = stub->ClearServices(appId);
     bool ret = reply.WriteInt32(result);
     if (!ret) {
@@ -96,7 +97,7 @@ int32_t NearlinkSsapServerStub::ClearServicesInner(NearlinkSsapServerStub *stub,
 int32_t NearlinkSsapServerStub::CancelConnectionInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapDevice> device(data.ReadParcelable<NearlinkSsapDevice>());
     if (!device) {
         return TRANSACTION_ERR;
@@ -116,7 +117,7 @@ int32_t NearlinkSsapServerStub::RegisterApplicationInner(NearlinkSsapServerStub 
     sptr<IRemoteObject> remote = data.ReadRemoteObject();
     const sptr<INearlinkSsapServerCallback> callback = OHOS::iface_cast<INearlinkSsapServerCallback>(remote);
     NL_CHECK_RETURN_RET(callback, NL_ERR_IPC_TRANS_FAILED, "callback is nullptr.");
-    int appId = 0;
+    int32_t appId = 0;
     NlErrCode result = stub->RegisterApplication(callback, appId);
     bool ret = reply.WriteInt32(result);
     if (!ret) {
@@ -134,7 +135,7 @@ int32_t NearlinkSsapServerStub::RegisterApplicationInner(NearlinkSsapServerStub 
 int32_t NearlinkSsapServerStub::DeregisterApplicationInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     NlErrCode result = stub->DeregisterApplication(appId);
     bool ret = reply.WriteInt32(result);
     if (!ret) {
@@ -147,7 +148,7 @@ int32_t NearlinkSsapServerStub::DeregisterApplicationInner(NearlinkSsapServerStu
 int32_t NearlinkSsapServerStub::NotifyClientInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapPropertyParcel> property(data.ReadParcelable<NearlinkSsapPropertyParcel>());
     if (!property) {
         return TRANSACTION_ERR;
@@ -169,7 +170,7 @@ int32_t NearlinkSsapServerStub::NotifyClientInner(NearlinkSsapServerStub *stub, 
 int32_t NearlinkSsapServerStub::NotifyEventInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapEventParcel> event(data.ReadParcelable<NearlinkSsapEventParcel>());
     if (!event) {
         return TRANSACTION_ERR;
@@ -195,7 +196,7 @@ int32_t NearlinkSsapServerStub::NotifyEventInner(NearlinkSsapServerStub *stub, M
 int32_t NearlinkSsapServerStub::SetPropertyValueInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapPropertyParcel> property(data.ReadParcelable<NearlinkSsapPropertyParcel>());
     if (!property) {
         return TRANSACTION_ERR;
@@ -212,7 +213,7 @@ int32_t NearlinkSsapServerStub::SetPropertyValueInner(NearlinkSsapServerStub *st
 int32_t NearlinkSsapServerStub::SetDescriptorValueInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapDescriptorParcel> descriptor(data.ReadParcelable<NearlinkSsapDescriptorParcel>());
     if (!descriptor) {
         return TRANSACTION_ERR;
@@ -228,7 +229,7 @@ int32_t NearlinkSsapServerStub::SetDescriptorValueInner(NearlinkSsapServerStub *
 
 int32_t NearlinkSsapServerStub::ConnectInner(NearlinkSsapServerStub *stub, MessageParcel &data, MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapDevice> device(data.ReadParcelable<NearlinkSsapDevice>());
     if (!device) {
         return TRANSACTION_ERR;
@@ -247,7 +248,7 @@ int32_t NearlinkSsapServerStub::ConnectInner(NearlinkSsapServerStub *stub, Messa
 int32_t NearlinkSsapServerStub::RemoveServiceInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     std::shared_ptr<NearlinkSsapServiceParcel> service(data.ReadParcelable<NearlinkSsapServiceParcel>());
     if (!service) {
         return TRANSACTION_ERR;
@@ -264,7 +265,7 @@ int32_t NearlinkSsapServerStub::RemoveServiceInner(NearlinkSsapServerStub *stub,
 int32_t NearlinkSsapServerStub::AuthorizeResponseInner(NearlinkSsapServerStub *stub, MessageParcel &data,
     MessageParcel &reply)
 {
-    int appId = data.ReadInt32();
+    int32_t appId = data.ReadInt32();
     uint16_t requestId = data.ReadUint16();
     bool allow = data.ReadBool();
     NlErrCode result = stub->AuthorizeResponse(appId, requestId, allow);

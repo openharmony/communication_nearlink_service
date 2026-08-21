@@ -69,6 +69,9 @@ ErrCode NearlinkSleDataTransferCallbackStub::OnConnectionStateChangedInner(Messa
     int fd = -1;
     if (connectionParams->state_ == static_cast<int32_t>(SleConnectState::CONNECTED)) {
         fd = data.ReadFileDescriptor();
+        if (fd < 0) {
+            return TRANSACTION_ERR;
+        }
     }
     OnConnectionStateChanged(*connectionParams, fd);
     return NO_ERROR;
