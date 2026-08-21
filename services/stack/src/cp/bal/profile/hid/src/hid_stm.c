@@ -674,6 +674,7 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         (void)memcpy_s(value.desc, value.descLen, readMsg->property->value.data + 1, value.descLen);
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_WORK_STATUS_INDICATION) {
+        NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len > 0, "[HID] work status len is 0");
         uint8_t value = readMsg->property->value.data[0];
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_REPORT_INDEX_INFO) {

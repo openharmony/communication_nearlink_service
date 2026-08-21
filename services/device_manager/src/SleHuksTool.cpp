@@ -163,7 +163,7 @@ int32_t SleHksTool::SleEncrypt(const T &plainText, S &encryptedText, int plainTe
         return CleanUpResources(genParamSet, encryptParamSet, ret);
     }
     (void)memset_s(&hksBlobStr, sizeof(hksBlobStr), 0x00, sizeof(hksBlobStr));
-    if (cipherData.size > COMMON_SIZE) {
+    if (cipherData.size > COMMON_SIZE || cipherData.size > static_cast<uint32_t>(encryptedTextLength)) {
         HILOGE("cipherData size %{public}u exceeds buffer size", cipherData.size);
         return CleanUpResources(genParamSet, encryptParamSet, HKS_FAILURE);
     }

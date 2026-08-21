@@ -51,6 +51,9 @@ void SSAPC_ExchangeInfoErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
+    uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduExchangePkt_S), "[SSAP] lastSize too small for exchange info req");
     SSAP_PduExchangePkt_S *exchangeInfoReqInfo = (SSAP_PduExchangePkt_S *)lastBuf;
     SSAP_ExchangeComplete_S complete = {0};
     complete.mtu = exchangeInfoReqInfo->msgMtu;
@@ -129,6 +132,9 @@ void SSAPC_CallMethodErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
+    uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduCallMethodReq_S), "[SSAP] lastSize too small for call method req");
     SSAP_PduCallMethodReq_S *req = (SSAP_PduCallMethodReq_S *)lastBuf;
     SSAP_MethodResult_S result = {0};
     result.errorCode = errCode;
