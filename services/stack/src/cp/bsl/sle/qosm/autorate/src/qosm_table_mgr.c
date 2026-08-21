@@ -29,7 +29,7 @@
 #define QOS_HD_RECORDING_SIZE (sizeof(g_qosHdRecording) / sizeof(QOSM_LinkParam))
 #define QOS_VOICE_ASSISTANT_SIZE (sizeof(g_qosVoiceAssistant) / sizeof(QOSM_LinkParam))
 #define QOS_LONGRANGE_CALL_SIZE (sizeof(g_qosLongRangeCall) / sizeof(QOSM_LinkParam))
-#define QOS_KARAKOE_SIZE (sizeof(g_qosKaraoke) / sizeof(QOSM_LinkParam))
+#define QOS_KARAOKE_SIZE (sizeof(g_qosKaraoke) / sizeof(QOSM_LinkParam))
 #define QOS_OTHERS_SIZE (sizeof(g_qosOthers) / sizeof(QOSM_LinkParam))
 
 #define QOS_BYTE_FRAME_NUM 1 /* DSP帧数占用的字节数 */
@@ -549,7 +549,7 @@ static QOSM_QosIndexTable g_qosIndexTable[] = {
         QOSM_QOSINDEX_HD_RECORDING, QOS_HD_RECORDING_SIZE, g_qosHdRecording
     },
     {
-        QOSM_QOSINDEX_KARAOKE, QOS_KARAKOE_SIZE, g_qosKaraoke 
+        QOSM_QOSINDEX_KARAOKE, QOS_KARAOKE_SIZE, g_qosKaraoke 
     },
     {
         QOSM_QOSINDEX_VOICE_ASSISTANT, QOS_VOICE_ASSISTANT_SIZE, g_qosVoiceAssistant
@@ -642,7 +642,7 @@ static QOSM_QosIndexStartLevel g_qosStartLevel[] = {
         QOSM_QOSINDEX_VOICE_ASSISTANT /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
     },
     {
-        QOSM_QOSINDEX_KARAKOE /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
+        QOSM_QOSINDEX_KARAOKE /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
     },
     {
         QOSM_QOSINDEX_OTHERS /* qosIndex */, QOS_LEVEL_3 /* qosLevel */
