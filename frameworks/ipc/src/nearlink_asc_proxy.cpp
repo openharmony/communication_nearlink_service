@@ -103,7 +103,7 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceList(std::vector<NearlinkRawAddress> &
         "NearlinkASCProxy::GetSleAudioDeviceList done fail, result: %{public}d", result);
 
     uint32_t vecCnt = reply.ReadUint32();
-    NL_CHECK_RETURN_RET((vecCnt > 0) && (vecCnt <= MAX_AUDIO_DEVICE_COUNT), NL_ERR_IPC_TRANS_FAILED,
+    NL_CHECK_RETURN_RET(vecCnt <= MAX_AUDIO_DEVICE_COUNT, NL_ERR_IPC_TRANS_FAILED,
         "vector size is error");
     for (uint32_t i = 0; i < vecCnt; i++) {
         std::shared_ptr<NearlinkRawAddress> device(reply.ReadParcelable<NearlinkRawAddress>());
@@ -135,7 +135,7 @@ NlErrCode NearlinkASCProxy::GetVirtualAudioDeviceList(std::vector<NearlinkRawAdd
         "NearlinkASCProxy::GetVirtualAudioDeviceList done fail, result: %{public}d", result);
 
     uint32_t vecCnt = reply.ReadUint32();
-    NL_CHECK_RETURN_RET((vecCnt > 0) && (vecCnt <= MAX_AUDIO_DEVICE_COUNT), NL_ERR_IPC_TRANS_FAILED,
+    NL_CHECK_RETURN_RET(vecCnt <= MAX_VIRTUAL_AUDIO_DEVICE_COUNT, NL_ERR_IPC_TRANS_FAILED,
         "vector size is error");
     for (uint32_t i = 0; i < vecCnt; i++) {
         std::shared_ptr<NearlinkRawAddress> device(reply.ReadParcelable<NearlinkRawAddress>());
@@ -198,8 +198,8 @@ NlErrCode NearlinkASCProxy::GetAudioDeviceCodecInfo(const NearlinkRawAddress &de
         "NearlinkASCProxy::GetAudioDeviceCodecInfo done fail, result: %{public}d", result);
 
     uint32_t mapCnt = reply.ReadUint32();
-    const uint32_t maxCodecType = 3;
-    NL_CHECK_RETURN_RET((mapCnt > 0) && (mapCnt <= maxCodecType), NL_ERR_IPC_TRANS_FAILED, "map size is error");
+    const uint32_t maxCodecType = 13;  // AudioStreamType 有效枚举值个数
+    NL_CHECK_RETURN_RET(mapCnt <= maxCodecType, NL_ERR_IPC_TRANS_FAILED, "map size is error");
     for (uint32_t i = 0; i < mapCnt; i++) {
         uint32_t streamTypeValue = reply.ReadUint32();
         NL_CHECK_RETURN_RET(streamTypeValue <= static_cast<uint32_t>(AUDIO_STREAM_SING),

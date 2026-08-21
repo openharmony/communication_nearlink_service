@@ -370,7 +370,7 @@ int32_t NearlinkHostStub::RemoveAllPairsInner(NearlinkHostStub *stub, MessagePar
 {
     HILOGD("Enter");
     NlErrCode result = stub->RemoveAllPairs();
-    NL_CHECK_RETURN_RET(reply.WriteBool(result), TRANSACTION_ERR, "WriteBool failed.");
+    NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "WriteInt32 failed.");
     return NO_ERROR;
 }
 

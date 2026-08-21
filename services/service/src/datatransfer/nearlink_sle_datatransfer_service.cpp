@@ -536,6 +536,7 @@ bool SleDataTransferService::ReceivedData(std::shared_ptr<InputStream> inputStre
         NL_CHECK_RETURN_RET(res == pLen, false, "data len err");
         std::shared_ptr<DataTransferDataParams> result = std::make_shared<DataTransferDataParams>();
         NearlinkDataTransferDataParams::DeserializeData(pBuf, pLen, *result);
+        NL_CHECK_RETURN_RET(result->port_ == portId, false, "port not match");
         result->address_ = address;
         std::promise<int> promise;
         DoInDataTransferThread([this, result, &promise]() {

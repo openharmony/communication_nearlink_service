@@ -528,6 +528,8 @@ NlErrCode NearlinkSsapServerServer::NotifyClient(int32_t appId, NearlinkSsapProp
         appId, GET_ENCRYPT_ADDR(realAddr), needConfirm, device.transport_);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapServerApp(appId), NL_ERR_INTERNAL_ERROR,
+        "check failed.");
     Property proper(property->handle_);
     proper.value_ = std::move(property->value_);
 
@@ -542,6 +544,8 @@ NlErrCode NearlinkSsapServerServer::NotifyEvent(int32_t appId, NearlinkSsapEvent
         appId, GET_ENCRYPT_SSAP_ADDR(device), needConfirm, device.transport_);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapServerApp(appId), NL_ERR_INTERNAL_ERROR,
+        "check failed.");
 
     Event eve(event->handle_, event->uuid_);
 
@@ -554,6 +558,8 @@ NlErrCode NearlinkSsapServerServer::SetPropertyValue(int32_t appId, NearlinkSsap
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapServerApp(appId), NL_ERR_INTERNAL_ERROR,
+        "check failed.");
     Property proper(property->handle_, property->uuid_);
 
     int ret = serverService->SetPropertyValue(appId, proper);
@@ -565,6 +571,8 @@ NlErrCode NearlinkSsapServerServer::SetDescriptorValue(int32_t appId, NearlinkSs
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapServerApp(appId), NL_ERR_INTERNAL_ERROR,
+        "check failed.");
 
     int ret = serverService->SetDescriptorValue(appId, *descriptor);
     return (ret == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR);

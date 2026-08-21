@@ -42,7 +42,7 @@ NearlinkSleAdvertiserStub::NearlinkSleAdvertiserStub()
             CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(SLE_DE_REGISTER_SLE_ADVERTISER_CALLBACK, DeregisterSleAdvertiserCallbackInner,
             CHECK_PERM(false, {ACCESS_NEARLINK}))},
-        {STUB_FUNC(SLE_START_ADVERTISING, StartAdvertisingInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
+        {STUB_FUNC(SLE_START_ADVERTISING, StartAdvertisingInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},
         {STUB_FUNC(SLE_STOP_ADVERTISING, StopAdvertisingInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(SLE_GET_ADVERTISER_HANDLE, GetAdvertiserHandleInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(SLE_SET_ADVERTISING_DATA, SetAdvertisingDataInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},

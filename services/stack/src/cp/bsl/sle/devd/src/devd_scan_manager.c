@@ -249,6 +249,8 @@ NLSTK_Errcode_E DevdAddScanParam(uint32_t scannerId, NLSTK_DevdScanSetting_S *se
     NLSTK_CHECK_RETURN(SDF_VectorFindFirst(manager->scanners, CompScannerId, &scannerId, &index),
         NLSTK_ERRCODE_PARAM_ERR, "[DEVDS] scannerId not found");
     NLSTK_DevdScanner_S *scanner = (NLSTK_DevdScanner_S *)SDF_VectorElementAt(manager->scanners, index);
+    NLSTK_CHECK_RETURN(setting->frameType == DEVD_SCAN_FRAME_TYPE_1 || setting->frameType == DEVD_SCAN_FRAME_TYPE_4,
+        NLSTK_ERRCODE_PARAM_ERR, "[DEVDS] invalid frameType");
     SDF_Vector_S *filtersClone = DevdCloneFiltersVector(filters);
     NLSTK_CHECK_RETURN(filtersClone != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[DEVDS] filters clone fail");
     DevdAddFilters(manager->scanners, scanner, setting, filtersClone);
@@ -278,9 +280,6 @@ NLSTK_Errcode_E DevdAddScanParam(uint32_t scannerId, NLSTK_DevdScanSetting_S *se
                 NLSTK_ERRCODE_FAIL, "[DEVDS] set frame 4 scan duration failed");
             UpdateExpireTimer(manager, false);
         }
-    } else {
-        NLSTK_LOG_ERROR("[DEVDS] invalid frameType");
-        return NLSTK_ERRCODE_PARAM_ERR;
     }
     PrintScanSettingLog(manager);
     return NLSTK_ERRCODE_SUCCESS;
