@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -270,7 +270,16 @@ uint32_t DLI_GetDataFragmentNums(SDF_Buff_S *buf)
 {
     DLI_CHECK_RETURN_RET(buf != NULL, DLI_STACK_PARAMS_ERRNO, "buf is null");
     uint16_t bufferLen = DLI_DataLenGet(ACB_DATA_TYPE);
-    return bufferLen == 0 ? 0 : (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
+    if (bufferLen == 0) {
+        DLI_LOGE("acb len is 0");
+        return 0;
+    }
+    uint32_t fragmentNums = (SDF_DataLenGet(buf) + bufferLen - 1) / bufferLen;
+    if (fragmentNums > DLI_MAX_FRAGMEN_NUM) {
+        DLI_LOGE("fragment nums exceeds max num");
+        return 0;
+    }
+    return fragmentNums;
 }
 
 uint32_t DLI_GetFragmentMaxLen(void)

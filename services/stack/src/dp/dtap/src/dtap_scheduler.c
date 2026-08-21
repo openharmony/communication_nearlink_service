@@ -359,7 +359,7 @@ static DTAP_LcidNode *DTAP_CreateLcidNode(uint16_t lcid, uint8_t priority)
     return lcidNode;
 }
 
-static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid)
+static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid, bool *hasCreated)
 {
     DTAP_LcidNode *lcidNode = NULL;
     DTAP_LcidNode *temp = NULL;
@@ -381,6 +381,7 @@ static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid)
         DTAP_LOGE("malloc dtap channel failed, lcid %d", lcid);
         return NULL;
     }
+    *hasCreated = true;
     SDF_DListHeadInit(&channel->pktList);
     SDF_DListEntryInit(&channel->schedEntry);
     channel->priority = DTAP_PRIORITY_FRAGMENT;
@@ -646,20 +647,23 @@ static DLI_DataStru *DTAP_CreateDataStru(uint16_t lcid, uint16_t type,
     return dataInfo;
 }
 
-static bool DTAP_SendData(uint16_t lcid, SDF_Buff_S *buff)
+static bool DTAP_SendData(uint16_t lcid, SDF_Buff_S *buff, DTAP_LcidBufferNode *node)
 {
     uint64_t buffLen = SDF_DataLenGet(buff);
     DLI_DataStru *dliData = DTAP_CreateDataStru(lcid, DLI_DATATYPE_ACB, 0, 0, buff);
     if (dliData == NULL) {
-        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %llu", lcid, buffLen);
+        DTAP_LOGE("malloc dli data failed, lcid %d, buff len %" PRIu64 "", lcid, buffLen);
         return false;
     }
     uint32_t ret = DLI_DataSend(dliData);
-    DTAP_LOGD("dli send data, ret %d, lcid %d, buff len %llu", ret, lcid, buffLen);
     if (ret != DLI_SUCCESS) {
+        DTAP_LOGE("dli send data, ret %d, lcid %d, buff len %" PRIu64 "", ret, lcid, buffLen);
         SDF_MemFree(dliData);
         return false;
     }
+    DTAP_CalcLcidSendRate(node, buffLen);
+    node->sendNotAckPktCnt++;
+    g_sendNotAckPktCnt++;
     return true;
 }
 
@@ -679,29 +683,33 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
         pendingPkt[i] = pkt;
     }
 
-    DTAP_Channel_S *fragmentChannel = DTAP_GetOrCreateFragmentChannel(lcid);
+    bool hasCreated = false;
+    DTAP_Channel_S *fragmentChannel = DTAP_GetOrCreateFragmentChannel(lcid, &hasCreated);
     if (fragmentChannel == NULL) {
-        for (uint32_t i = 0; i < remainBuffCnt; i++) {
-            DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[i]);
-        }
         DTAP_LOGE("get fragment channel failed, lcid %d", lcid);
-        return false;
-    }
-
-    for (uint32_t i = 0; i < remainBuffCnt; i++) {
-        SDF_DListElmTailInsert(&fragmentChannel->pktList, pendingPkt[i], entry);
+        goto FAILED;
     }
 
     uint32_t ret = DTAP_PriorityQueuePush(&g_dtapScheduler[fragmentChannel->priority], fragmentChannel, remainBuffCnt);
     if (ret != DTAP_SUCCESS) {
         DTAP_LOGE("push pending packet failed, priority %d, lcid %d, srcTcid %d", fragmentChannel->priority,
             lcid, fragmentChannel->srcTcid);
-        SDF_DListDestroy(&fragmentChannel->pktList, DTAP_DestroyPacket);
-        SDF_MemFree(fragmentChannel);
-        return false;
+        if (hasCreated) {
+            SDF_MemFree(fragmentChannel);
+        }
+        goto FAILED;
+    }
+
+    for (uint32_t i = 0; i < remainBuffCnt; i++) {
+        SDF_DListElmTailInsert(&fragmentChannel->pktList, pendingPkt[i], entry);
     }
     DTAP_LOGD("save fragment data success, lcid %d, remainBuffCnt %d", lcid, remainBuffCnt);
     return true;
+FAILED:
+    for (uint32_t i = 0; i < remainBuffCnt; i++) {
+        DTAP_DestroyPacket((SDF_DListEntry_S *)pendingPkt[i]);
+    }
+    return false;
 }
 
 static void DTAP_PrintSendInfo(const DTAP_PriorityQueue *q, const DTAP_LcidNode *lcidNode,
@@ -723,36 +731,25 @@ static bool DTAP_ScheduleLcid(DTAP_PriorityQueue *q, DTAP_LcidNode *lcidNode, DT
         DTAP_PrintSendInfo(q, lcidNode, channelNode, node, pkt);
 
         if (pkt->isSplited) {
-            uint64_t dataLen = SDF_DataLenGet(pkt->buff);
-            if (!DTAP_SendData(channelNode->lcid, pkt->buff)) {
-                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %" PRIu64 "", q->priority,
-                    channelNode->lcid, channelNode->srcTcid, dataLen);
+            if (!DTAP_SendData(channelNode->lcid, pkt->buff, node)) {
                 return false;
             }
-            DTAP_CalcLcidSendRate(node, dataLen);
             DTAP_PriorityQueuePop(q, lcidNode, channelNode, node, pkt);
-            node->sendNotAckPktCnt++;
-            g_sendNotAckPktCnt++;
             continue;
         }
 
         uint32_t fragmentCnt = DLI_GetDataFragmentNums(pkt->buff);
+        CHECK_AND_RETURN_RET_LOG(DTAP_TAG, fragmentCnt != 0, false, "fragmentCnt is 0");
         SDF_Buff_S *fragmentBuf[fragmentCnt];
         if (!DTAP_SplitData(channelNode->lcid, pkt->buff, fragmentBuf, fragmentCnt)) {
             return false;
         }
         SDF_BuffFree(pkt->buff);
         uint32_t sendCnt = 0;
-        for (; DTAP_CanSend(node) && sendCnt < fragmentCnt; sendCnt++, node->sendNotAckPktCnt++) {
-            uint64_t dataLen = SDF_DataLenGet(fragmentBuf[sendCnt]);
-            if (!DTAP_SendData(channelNode->lcid, fragmentBuf[sendCnt])) {
-                // 发送失败，暂停发送，等待下次继续发送
-                DTAP_LOGE("send data failed, priority %d, lcid %d, srcTcid %d, len %" PRIu64 "", q->priority,
-                    channelNode->lcid, channelNode->srcTcid, dataLen);
+        for (; DTAP_CanSend(node) && sendCnt < fragmentCnt; sendCnt++) {
+            if (!DTAP_SendData(channelNode->lcid, fragmentBuf[sendCnt], node)) {
                 break;
             }
-            DTAP_CalcLcidSendRate(node, dataLen);
-            g_sendNotAckPktCnt++;
         }
 
         DTAP_PriorityQueuePop(q, lcidNode, channelNode, node, pkt);

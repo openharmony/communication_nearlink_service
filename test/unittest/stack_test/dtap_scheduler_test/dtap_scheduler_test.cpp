@@ -325,6 +325,21 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySingleNumTest)
     SDF_MemFree(channel);
 }
 
+TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPriorityMaxFragmentNumTest)
+{
+    TEST_DtapSchedulerInit();
+    DLI_AllDataSet(1, 8, 0, 0);
+    DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_HIGH, 0);
+    EXPECT_NE(channel, NULL);
+    SDF_Buff_S *buf = SDF_BuffNewWithReserve(DTAP_MAX_PAYLOAD_LEN);
+    EXPECT_NE(buf, nullptr);
+    EXPECT_NE(SDF_BuffAppend(buf, DTAP_MAX_PAYLOAD_LEN), nullptr);
+    EXPECT_EQ(DTAP_DataSendWithPriority(channel, buf), DTAP_SUCCESS);
+    TEST_DtapSchedulerDeinit();
+
+    SDF_MemFree(channel);
+}
+
 TEST_F(UT_DTAP_SCHEDULER, DTAP_DataSendWithPrioritySendFailedTest)
 {
     TEST_DtapSchedulerInit();
@@ -375,7 +390,7 @@ TEST_F(UT_DTAP_SCHEDULER, DTAP_ChannelDownTest)
 TEST_F(UT_DTAP_SCHEDULER, DTAP_CalcLcidSendRatePrintTest)
 {
     TEST_DtapSchedulerInit();
-    DLI_AllDataSet(100, 8, 0, 0);
+    DLI_AllDataSet(600, 8, 0, 0);
     EXPECT_EQ(g_collabTransFunc.dliAcbNumGet(), 8);
 
     DTAP_Channel_S *channel = TEST_DtapChannelCreate(g_connHandle1, DTAP_PRIORITY_CMD, 0);
