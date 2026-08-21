@@ -359,7 +359,7 @@ static DTAP_LcidNode *DTAP_CreateLcidNode(uint16_t lcid, uint8_t priority)
     return lcidNode;
 }
 
-static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid)
+static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid, bool *hasCreated)
 {
     DTAP_LcidNode *lcidNode = NULL;
     DTAP_LcidNode *temp = NULL;
@@ -381,6 +381,7 @@ static DTAP_Channel_S *DTAP_GetOrCreateFragmentChannel(uint16_t lcid)
         DTAP_LOGE("malloc dtap channel failed, lcid %d", lcid);
         return NULL;
     }
+    *hasCreated = true;
     SDF_DListHeadInit(&channel->pktList);
     SDF_DListEntryInit(&channel->schedEntry);
     channel->priority = DTAP_PRIORITY_FRAGMENT;
@@ -682,7 +683,8 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
         pendingPkt[i] = pkt;
     }
 
-    DTAP_Channel_S *fragmentChannel = DTAP_GetOrCreateFragmentChannel(lcid);
+    bool hasCreated = false;
+    DTAP_Channel_S *fragmentChannel = DTAP_GetOrCreateFragmentChannel(lcid, &hasCreated);
     if (fragmentChannel == NULL) {
         DTAP_LOGE("get fragment channel failed, lcid %d", lcid);
         goto FAILED;
@@ -692,7 +694,9 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
     if (ret != DTAP_SUCCESS) {
         DTAP_LOGE("push pending packet failed, priority %d, lcid %d, srcTcid %d", fragmentChannel->priority,
             lcid, fragmentChannel->srcTcid);
-        SDF_MemFree(fragmentChannel);
+        if (hasCreated) {
+            SDF_MemFree(fragmentChannel);
+        }
         goto FAILED;
     }
 
