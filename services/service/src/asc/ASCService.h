@@ -488,7 +488,7 @@ private:
         return (state == NL_SLE_ASC_STARTED);
     }
 
-    inline bool IsDirectionSet(ASCState state) const
+    inline bool IsAddDataPathState(ASCState state) const
     {
         return (state == NL_SLE_ASC_ADD_DATA_PATH);
     }

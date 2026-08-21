@@ -838,7 +838,7 @@ uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps
     }
 
     ASCState coStatus = GetASCStatus(coSetDevice);
-    if (!IsStarted(coStatus) && !IsDirectionSet(coStatus)) {
+    if (!IsStarted(coStatus) && !IsAddDataPathState(coStatus)) {
         // 合作集地址未起播完成，不同步
         return autoRateBps;
     }
@@ -3955,11 +3955,12 @@ bool ASCService::IsVendorStartStreamStateCorrected(ASCState state)
 bool ASCService::IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
 {
     ASCState state = GetASCStatus(device);
-    if (result == NL_NO_ERROR && IsDirectionSet(state)) {
+    if (result == NL_NO_ERROR && IsAddDataPathState(state)) {
         return true;
     }
     
-    HILOGE("[ASCService]callback result %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), result);
+    HILOGE("[ASCService]add data path callback result %{public}s %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), result);
     // 上报状态: 音频流打开,失败
     ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
         NL_SLE_ASC_RESULT_FAIL, result);
@@ -5092,7 +5093,7 @@ void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
     for (const auto& info : cdsmList) {
         ASCState state = GetASCStatus(info.addr_);
         if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) &&
-            (IsStarted(state) || IsDirectionSet(state))) {
+            (IsStarted(state) || IsAddDataPathState(state))) {
             SetAutoRateBps(info.addr_, ascBitrate.downBitrate);
         }
     }
