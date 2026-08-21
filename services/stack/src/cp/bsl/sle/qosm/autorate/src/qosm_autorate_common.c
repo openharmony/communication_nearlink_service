@@ -160,12 +160,12 @@ bool QOSM_IsAutorateSupported(QOSM_ICGInfo *icgInfo)
     }
 
     if (!QOSM_AutorateIsDspOn()) {
-        QOSM_LOGI("dsp is off, not support autorate");
+        QOSM_LOGE("dsp is off, not support autorate");
         return false;
     }
 
     if (!icgInfo->supportAutorate) {
-        QOSM_LOGI("remote, not support autorate");
+        QOSM_LOGE("remote, not support autorate");
         return false;
     }
 
@@ -173,7 +173,7 @@ bool QOSM_IsAutorateSupported(QOSM_ICGInfo *icgInfo)
         && icgInfo->qosIndex != QOSM_QOSINDEX_SPATIAL_AUDIO && icgInfo->qosIndex != QOSM_QOSINDEX_OTHERS &&
         icgInfo->qosIndex != QOSM_QOSINDEX_HD_RECORDING && icgInfo->qosIndex != QOSM_QOSINDEX_KARAOKE &&
         !(icgInfo->qosIndex == QOSM_QOSINDEX_CALL && icgInfo->isSupportFrame4)) {
-        QOSM_LOGI("ignore qos index: %u, qosId: %hhu", icgInfo->qosIndex, icgInfo->qosId);
+        QOSM_LOGE("ignore qos index: %u, qosId: %hhu", icgInfo->qosIndex, icgInfo->qosId);
         return false;
     }
 
