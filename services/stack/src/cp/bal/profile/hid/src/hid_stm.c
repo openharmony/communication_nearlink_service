@@ -661,10 +661,8 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         NLSTK_CHECK_RETURN_VOID(report->reportInfoValue.data != NULL, "[HID] report value malloc fail");
         (void)memcpy_s(report->reportInfoValue.data, report->reportInfoValue.len,
             readMsg->property->value.data, readMsg->property->value.len);
-        HidReportInfo_S value = {
-            .reportIdAndType = { .reportId = report->reportId, .reportType = report->reportType },
-            .reportInfoValue = report->reportInfoValue
-        };
+        HidReportInfo_S value = { .reportIdAndType = { .reportId = report->reportId,
+            .reportType = report->reportType }, .reportInfoValue = report->reportInfoValue };
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_TYPE_AND_FORMAT_DESC) {
         NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len > 0, "[HID] type and format desc len is 0");
@@ -681,8 +679,7 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len >= HID_REPORT_INDEX_INFO_LEN,
             "[HID] report index info len error");
         HidReportIndexInfo_S value = {0};
-        uint8_t *data = readMsg->property->value.data;
-        HidParseReportIndexInfo(&value, data);
+        HidParseReportIndexInfo(&value, readMsg->property->value.data);
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     }
 }
