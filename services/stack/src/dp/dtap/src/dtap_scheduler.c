@@ -692,6 +692,7 @@ static bool DTAP_SaveFragmentData(uint16_t lcid, SDF_Buff_S *buff[], uint32_t re
     if (ret != DTAP_SUCCESS) {
         DTAP_LOGE("push pending packet failed, priority %d, lcid %d, srcTcid %d", fragmentChannel->priority,
             lcid, fragmentChannel->srcTcid);
+        SDF_MemFree(fragmentChannel);
         goto FAILED;
     }
 
