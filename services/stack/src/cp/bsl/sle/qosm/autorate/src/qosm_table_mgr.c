@@ -642,7 +642,7 @@ static QOSM_QosIndexStartLevel g_qosStartLevel[] = {
         QOSM_QOSINDEX_VOICE_ASSISTANT /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
     },
     {
-        QOSM_QOSINDEX_KARAOKE /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
+        QOSM_QOSINDEX_KARAKOE /* qosIndex */, QOS_LEVEL_1 /* qosLevel */
     },
     {
         QOSM_QOSINDEX_OTHERS /* qosIndex */, QOS_LEVEL_3 /* qosLevel */
