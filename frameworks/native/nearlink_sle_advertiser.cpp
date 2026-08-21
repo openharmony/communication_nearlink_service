@@ -65,12 +65,12 @@ public:
         NL_CHECK_RETURN(sleAdvertiserSptr, "sleAdvertiserSptr is nullptr.");
 
         std::shared_ptr<SleAdvertiseCallback> callbackSptr = GetAdvCallback(advHandle, sleAdvertiserSptr);
-        if (callbackSptr) {
-            callbackSptr->OnStartResultEvent(result, advHandle);
-        }
         if (result == ADV_RESULT_FAILED_CHECK_PARA_FAIL) {
             HILOGE("start adv failed, result(%{public}d), advHandle(%{public}d)", result, advHandle);
             sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
+        }
+        if (callbackSptr) {
+            callbackSptr->OnStartResultEvent(result, advHandle);
         }
     }
 
@@ -81,10 +81,10 @@ public:
         NL_CHECK_RETURN(sleAdvertiserSptr, "sleAdvertiserSptr is nullptr.");
 
         std::shared_ptr<SleAdvertiseCallback> callbackSptr = GetAdvCallback(advHandle, sleAdvertiserSptr);
+        sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
         if (callbackSptr) {
             callbackSptr->OnStopResultEvent(result, advHandle);
         }
-        sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
     }
 
     void OnEnableResultEvent(int32_t result, int32_t advHandle) override
