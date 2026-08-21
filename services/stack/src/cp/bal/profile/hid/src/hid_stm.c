@@ -679,7 +679,8 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len >= HID_REPORT_INDEX_INFO_LEN,
             "[HID] report index info len error");
         HidReportIndexInfo_S value = {0};
-        HidParseReportIndexInfo(&value, readMsg->property->value.data);
+        uint8_t *data = readMsg->property->value.data;
+        HidParseReportIndexInfo(&value, data);
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     }
 }
