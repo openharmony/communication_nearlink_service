@@ -29,6 +29,7 @@
 #define QOS_HD_RECORDING_SIZE (sizeof(g_qosHdRecording) / sizeof(QOSM_LinkParam))
 #define QOS_VOICE_ASSISTANT_SIZE (sizeof(g_qosVoiceAssistant) / sizeof(QOSM_LinkParam))
 #define QOS_LONGRANGE_CALL_SIZE (sizeof(g_qosLongRangeCall) / sizeof(QOSM_LinkParam))
+#define QOS_KARAOKE_SIZE (sizeof(g_qosKaraoke) / sizeof(QOSM_LinkParam))
 #define QOS_OTHERS_SIZE (sizeof(g_qosOthers) / sizeof(QOSM_LinkParam))
 
 #define QOS_BYTE_FRAME_NUM 1 /* DSP帧数占用的字节数 */
@@ -327,7 +328,7 @@ static QOSM_LinkParam g_qosHdRecording[] = {
  * 双耳K歌
  */
 static QOSM_LinkParam g_qosKaraoke[] = {
-{
+    {
         QOS_DUTY_CYCLE_50P /* dutyCycle */, QOS_LEVEL_4 /* qosLevel */, QOS_LEVEL_4 /* upQosLevel */,
         QOS_LEVEL_2 /* downQosLevel */, 320 /* downwardBitrate */, 0 /* upwardBitrate */,
         10000 /* sduIntervalG2T */, 10000 /* sduIntervalT2G */, 0 /* sca */, 1 /* packing */, 0 /* framing */,
@@ -548,7 +549,7 @@ static QOSM_QosIndexTable g_qosIndexTable[] = {
         QOSM_QOSINDEX_HD_RECORDING, QOS_HD_RECORDING_SIZE, g_qosHdRecording
     },
     {
-        QOSM_QOSINDEX_KARAOKE, sizeof(g_qosKaraoke)/sizeof(QOSM_LinkParam), g_qosKaraoke 
+        QOSM_QOSINDEX_KARAOKE, QOS_KARAOKE_SIZE, g_qosKaraoke 
     },
     {
         QOSM_QOSINDEX_VOICE_ASSISTANT, QOS_VOICE_ASSISTANT_SIZE, g_qosVoiceAssistant
@@ -607,7 +608,7 @@ static QOSM_QosIndexStartParam g_qosStartParam[] = {
         QOSM_QOSINDEX_KARAOKE,
         {
             QOS_LEVEL_1 /* startLevel */, QOS_BAND_2D4 /* startBand */, QOS_DUTY_CYCLE_100P /* startDutyCycle */,
-            QOS_LOW_LATENCY_SIZE /* levelCnt */
+            QOS_KARAOKE_SIZE /* levelCnt */
         }
     },
     {
@@ -932,6 +933,20 @@ static struct QOSM_AutoRateThreshold g_autorateThresholdQos7DutyCycle50P[] = {
     { 96, 70, 0, 255, -128, 0 },
 };
 
+static struct QOSM_AutoRateThreshold g_autorateThresholdQos9DutyCycle100P[] = {
+    /* bitrate, up ackrate, down ackrate, up diff max, up rssi, down rssi */
+    { 320, 100, 55, 0, 0, 0 },
+    { 192, 85, 60, 255, -128, 0 },
+    { 96, 75, 0, 255, -128, 0 },
+};
+
+static struct QOSM_AutoRateThreshold g_autorateThresholdQos9DutyCycle50P[] = {
+    /* bitrate, up ackrate, down ackrate, up diff max, up rssi, down rssi */
+    { 320, 100, 82, 0, 0, 0 },
+    { 192, 85, 60, 255, -128, 0 },
+    { 96, 75, 0, 255, -128, 0 },
+};
+
 static struct QOSM_AutoRateThresholdItem g_autoRateThreshold100P[QOSM_QOSINDEX_MAX] = {
     // qos index 0, not used
     { NULL, 0 },
@@ -949,6 +964,10 @@ static struct QOSM_AutoRateThresholdItem g_autoRateThreshold100P[QOSM_QOSINDEX_M
     { NULL, 0 },
     // qos index 7
     { g_autorateThresholdQos7DutyCycle100P, QOSM_ARRAY_LEN(g_autorateThresholdQos7DutyCycle100P), },
+    // qos index 8, not used
+    { NULL, 0 },
+    // qos index 9
+    { g_autorateThresholdQos9DutyCycle100P, QOSM_ARRAY_LEN(g_autorateThresholdQos9DutyCycle100P), },
 };
 
 static struct QOSM_AutoRateThresholdItem g_autoRateThreshold50P[QOSM_QOSINDEX_MAX] = {
@@ -968,6 +987,10 @@ static struct QOSM_AutoRateThresholdItem g_autoRateThreshold50P[QOSM_QOSINDEX_MA
     { NULL, 0 },
     // qos index 7
     { g_autorateThresholdQos7DutyCycle50P, QOSM_ARRAY_LEN(g_autorateThresholdQos7DutyCycle50P), },
+    // qos index 8, not used
+    { NULL, 0 },
+    // qos index 9
+    { g_autorateThresholdQos9DutyCycle50P, QOSM_ARRAY_LEN(g_autorateThresholdQos9DutyCycle50P), },
 };
 
 
