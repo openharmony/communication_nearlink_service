@@ -865,7 +865,10 @@ std::vector<Uuid> SlePeripheralDevice::GetServiceUUID() const
 Uuid SlePeripheralDevice::GetServiceUUID(int index) const
 {
     Uuid uuid {};
-    return serviceUUIDs_.empty() ? uuid : serviceUUIDs_[index];
+    if (serviceUUIDs_.empty() || index < 0 || static_cast<size_t>(index) >= serviceUUIDs_.size()) {
+        return uuid;
+    }
+    return serviceUUIDs_[index];
 }
 
 /**

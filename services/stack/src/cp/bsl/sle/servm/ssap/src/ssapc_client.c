@@ -51,6 +51,9 @@ void SSAPC_ExchangeInfoErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
+    uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduExchangePkt_S), "[SSAP] lastSize too small for exchange info req");
     SSAP_PduExchangePkt_S *exchangeInfoReqInfo = (SSAP_PduExchangePkt_S *)lastBuf;
     SSAP_ExchangeComplete_S complete = {0};
     complete.mtu = exchangeInfoReqInfo->msgMtu;
@@ -67,6 +70,8 @@ void SSAPC_FindReqErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] FindRspErrorHandle lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
     uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduFindStructReq_S), "[SSAP] lastSize too small for find req");
     uint32_t reqUuidSize = lastSize - sizeof(SSAP_PduFindStructReq_S);
     SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)lastBuf;
     uint8_t preFindType = req->ctrl.findType;
@@ -105,6 +110,8 @@ void SSAPC_ReadByUuidErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
     uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduReadByUuidReq_S), "[SSAP] lastSize too small for read by uuid req");
     SSAP_PduReadByUuidReq_S *req = (SSAP_PduReadByUuidReq_S *)lastBuf;
     uint32_t reqUuidSize = lastSize - sizeof(SSAP_PduReadByUuidReq_S);
     SSAP_ReadByUuidComplete_S complete = {0};
@@ -125,6 +132,9 @@ void SSAPC_CallMethodErrorHandle(SSAP_Link_S *link, uint8_t errCode)
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] lastBuff is NULL");
     uint8_t *lastBuf = SDF_DataOffset(lastBuff);
+    uint32_t lastSize = (uint32_t)SDF_DataLenGet(lastBuff);
+    CP_CHECK_LOG_RETURN_VOID(
+        lastSize >= sizeof(SSAP_PduCallMethodReq_S), "[SSAP] lastSize too small for call method req");
     SSAP_PduCallMethodReq_S *req = (SSAP_PduCallMethodReq_S *)lastBuf;
     SSAP_MethodResult_S result = {0};
     result.errorCode = errCode;
@@ -965,6 +975,8 @@ static void SSAPC_ReadByUuidRspDecode(uint8_t controlCode, uint8_t *data, uint16
                 valueLen = 0;
             }
         } else if ((controlCode & SSAP_READ_BY_UUID_RSP_ERR_CONTROL) != 0) {
+            CP_CHECK_LOG_RETURN_VOID(dataLen >= (index + SSAP_HANDLE_LEN + SSAP_INDICATION_LEN),
+                "[SSAP] data len error");
             dataIndication = SSAP_BYTE_TO_UINT16_LITTLE(data + SSAP_HANDLE_LEN);
             errorCode = dataIndication & ~(1 << SSAP_READ_BY_UUID_RSP_ERROR_CONTROL);
             dataIndicationLen = SSAP_INDICATION_LEN;
