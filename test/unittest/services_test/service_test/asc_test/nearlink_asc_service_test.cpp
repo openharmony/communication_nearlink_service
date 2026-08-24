@@ -5329,5 +5329,63 @@ HWTEST_F(ASCServiceTest, SetDeviceRole_TwsNull_001, TestSize.Level1)
     delete asc;
     HILOGI("SetDeviceRole_TwsNull_001 end");
 }
+
+/**
+ * @tc.name: StackAddDataPathCbk_001
+ * @tc.desc: NLSTK_ActmSetDirectionCbk StackAddDataPathCbk
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, StackAddDataPathCbk_001, TestSize.Level1)
+{
+    HILOGI("StackAddDataPathCbk_001 start");
+    SLE_Addr_S addr = {.type = PUBLIC_ADDRESS, .addr = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06}};
+    NLSTK_ActmSetDirection_S param = {.result = NLSTK_ACTM_SUCCESS};
+    ASCService *asc = new ASCService();
+    StackAddDataPathCbk(&addr, nullptr);
+    StackAddDataPathCbk(&addr, &param);
+    param.result = 1;
+    StackAddDataPathCbk(&addr, &param);
+    delete asc;
+    HILOGI("StackAddDataPathCbk_001 end");
+}
+
+/**
+ * @tc.name: CbkAddDataPath_001
+ * @tc.desc: CbkAddDataPath
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, CbkAddDataPath_001, TestSize.Level1)
+{
+    HILOGI("CbkAddDataPath_001 enter");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    asc->AddConnectDevices(device);
+    asc->SetProcessingStreamType(device, AUDIO_STREAM_MUSIC);
+    std::vector<AscProp> properties {};
+    AscProp prop {};
+    prop.ability.comm = 1;
+    prop.ability.codecNum = 1;
+    prop.ability.codec[0].codecId = ASC_L2HC_5_0_CODEC.codecId;
+    prop.ability.codec[0].companyId = 3;
+    prop.ability.codec[0].vendorId = 4;
+    prop.ability.codec[0].param.l2hcParam.version = 5;
+    properties.emplace_back(prop);
+    asc->SaveProperty(device, properties);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+    
+    asc->SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
+    asc->CbkAddDataPath(device, NL_NO_ERROR);
+    EXPECT_EQ(true, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
+
+    asc->SetASCStatus(device, NL_SLE_ASC_CREATED);
+    asc->CbkAddDataPath(device, NL_NO_ERROR);
+    EXPECT_EQ(false, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
+
+    asc->SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
+    asc->CbkAddDataPath(device, 1);
+    EXPECT_EQ(false, NL_SLE_ASC_STARTED == asc->GetASCStatus(device));
+    delete asc;
+    HILOGI("CbkAddDataPath_001 end");
+}
 }  // namespace Nearlink
 }  // namespace OHOS

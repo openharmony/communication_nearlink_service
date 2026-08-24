@@ -124,6 +124,8 @@ constexpr uint8_t ASC_STACK_CBK_DISCONNECT        = 6;
 constexpr uint8_t ASC_STACK_CBK_BITRATE_CHANGED   = 7;
 // 断连事件
 constexpr uint8_t ASC_STACK_CBK_CREATE_STREAM     = 8;
+// add data path事件
+constexpr uint8_t ASC_STACK_CBK_ADD_DATA_PATH     = 9;
 
 // 合作集设备最大数目
 constexpr uint8_t COSET_MAX_NUM         = 2;
@@ -209,7 +211,8 @@ enum ASCState {
     NL_SLE_ASC_CREATING                 = 23,
     NL_SLE_ASC_CONFIG_SUBRATE_CHANGED   = 24,
     NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED = 25,
-    NL_SLE_ASC_BUTT                     = 26,
+    NL_SLE_ASC_ADD_DATA_PATH            = 26,
+    NL_SLE_ASC_BUTT                     = 27,
 };
 
 // ASCService内部错误码(1~100:下层协议栈 100以上:service)

@@ -334,6 +334,7 @@ void ASCService::InitDisconnProcTable()
         {NL_SLE_ASC_CREATING,          &ASCService::DisconnProcAction},
         {NL_SLE_ASC_CONFIG_SUBRATE_CHANGED,   &ASCService::DisconnProcSetFlag},
         {NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED, &ASCService::DisconnProcSetFlag},
+        {NL_SLE_ASC_ADD_DATA_PATH,            &ASCService::DisconnProcStopPlaying},
     };
 
     HILOGD("[ASCService]InitDisconnProcTable OK");
@@ -801,7 +802,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.encodeDspVersion = GetDspL2hcVersion(info);
     ascToDspInfo.encodeBitDepth = info.bitSamp;
     ascToDspInfo.encodeSampleRate = info.rate;
-    ascToDspInfo.encodeBps = info.bps;
+    ascToDspInfo.encodeBps = GetASCToDspEncodeBps(device, info.bps);
     ascToDspInfo.encodeFrame = info.frame;
     ascToDspInfo.sduInterval = info.sduInterval;
     ascToDspInfo.frameNumPerSdu = static_cast<uint8_t>((info.frame != 0) ? (info.sduInterval / info.frame) : 0);
@@ -820,6 +821,34 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.bn = info.bn;
     ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos);
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
+}
+
+/**
+ * @param device the remote nearlink device.
+ * @param bps the negotiated bitrate with the headset for start playing initiation
+ * @return Returns the encoding bitrate to notify to the dsp
+ */
+uint16_t ASCService::GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps)
+{
+    uint16_t autoRateBps = bps;
+    RawAddress coSetDevice;
+    if (!IsSync(device) || !IsCoSetDeviceExist(device, coSetDevice)) {
+        // 非单切双或合作集设备不存在，不需要同步
+        return autoRateBps;
+    }
+
+    ASCState coStatus = GetASCStatus(coSetDevice);
+    if (!IsStarted(coStatus) && !IsAddDataPathState(coStatus)) {
+        // 合作集地址未起播完成，不同步
+        return autoRateBps;
+    }
+
+    if (GetAutoRateBps(coSetDevice, autoRateBps)) {
+        // 单切双场景，同步合作集设备码率
+        HILOGI("[ASCService]sync %{public}s bps %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), autoRateBps);
+        return autoRateBps;
+    }
+    return autoRateBps;
 }
 
 /**
@@ -1435,7 +1464,7 @@ uint8_t ASCService::GetBpsBitIndex(const RawAddress &device, uint64_t resultBps,
     if (IsL2HC(codecId) && IsSameAsFormer(formerPlayRecord_, device, qos, codecId) &&
             IsStartAtLowBps(formerPlayRecord_, qos)) {
         // 保护时间内，若上一次停流时为160k，本次起播按160k，若为96k/48k，本次按96k起播 bit4：单声道96kbps
-        if (formerPlayRecord_.autoRateBpsBit <= L2HC_BPS_S_96_BIT){
+        if (formerPlayRecord_.autoRateBpsBit <= L2HC_BPS_S_96_BIT) {
             return L2HC_BPS_S_96_BIT;
         } else {
             return L2HC_BPS_S_160_BIT;
@@ -2785,7 +2814,7 @@ void ASCService::SetAutoRateBps(const RawAddress &device, uint16_t autoRateBps)
             GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
-    if (device == formerPlayRecord_.addr && autoRateBps > 0){
+    if (device == formerPlayRecord_.addr && autoRateBps > 0) {
         formerPlayRecord_.autoRateBpsBit = ASCUtils::GetBpsBitIndexByBps(autoRateBps);
         HILOGI("[ASCService]SetAutoRateBps to formerPlayRecord");
     }
@@ -3877,11 +3906,77 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     HILOGI("[ASCService]CbkStartStream in %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
     // 取出处理中的流类型
     AudioStreamType streamType = GetProcessingStreamType(device);
-    NL_CHECK_RETURN(CheckStartStreamCondition(device, result, streamType), "start stream failed");
+    NL_CHECK_RETURN(IsMeetStartStreamCondition(device, result, streamType), "start stream failed");
     // 同步链路建立OK后的处理
     ProcWhenIOBCreated(device, qosmInfo);
     // 主副切换
+    SetASCStatus(device, NL_SLE_ASC_ADD_DATA_PATH);
     SetDeviceRole(device);
+}
+
+bool ASCService::IsMeetStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
+{
+    ASCState state = GetASCStatus(device);
+    bool isStartPlayMerge = IsSupportStartPlayMerged(device);
+    bool isStateCorrect = isStartPlayMerge ?
+        IsVendorStartStreamStateCorrected(state) : IsStartStreamStateCorrected(state);
+    if (result == NL_NO_ERROR && isStateCorrect) {
+        return true;
+    }
+    
+    HILOGE("[ASCService]callback result %{public}s %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), result);
+    // 上报状态: 音频流打开,失败
+    ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
+        NL_SLE_ASC_RESULT_FAIL, result);
+    return false;
+}
+
+bool ASCService::IsSupportStartPlayMerged(const RawAddress& device)
+{
+    int startPlayMergeIndex =
+        ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(MANU_ABILITY_ASC_START_PLAYING_MERGE);
+    return ((startPlayMergeIndex >= 0) &&
+        SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
+            device, static_cast<uint8_t>(startPlayMergeIndex)));
+}
+
+bool ASCService::IsStartStreamStateCorrected(ASCState state)
+{
+    // 走标准协议的设备
+    return IsStarting(state);
+}
+
+bool ASCService::IsVendorStartStreamStateCorrected(ASCState state)
+{
+    // 自研设备
+    return IsSubrateChanged(state);
+}
+
+bool ASCService::IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
+{
+    ASCState state = GetASCStatus(device);
+    if (result == NL_NO_ERROR && IsAddDataPathState(state)) {
+        return true;
+    }
+    
+    HILOGE("[ASCService]add data path callback result %{public}s %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), result);
+    // 上报状态: 音频流打开,失败
+    ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
+        NL_SLE_ASC_RESULT_FAIL, result);
+    return false;
+}
+
+void ASCService::CbkAddDataPath(const RawAddress& device, uint8_t result)
+{
+    // 取出处理中的流类型
+    AudioStreamType streamType = GetProcessingStreamType(device);
+    HILOGI("[ASCService]%{public}s result %{public}d, streamType %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), result, streamType);
+
+    // 状态和结果检查
+    NL_CHECK_RETURN(IsMeetAddDataPathCondition(device, result, streamType), "add data path failed");
+
     // 状态：已开始音频流传输
     SetASCStatus(device, NL_SLE_ASC_STARTED);
     // 添加到已打开列表
@@ -3912,34 +4007,6 @@ void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const 
     ProcBuff(device, NL_SLE_ASC_STARTED);
     // 查看合作集设备状态，进行同步
     SyncWhenStartStream(device, streamType);
-}
-
-bool ASCService::CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType)
-{
-    ASCState state = GetASCStatus(device);
-    int startPlayMergeIndex =
-        ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(MANU_ABILITY_ASC_START_PLAYING_MERGE);
-    bool isStartPlayMerge = (startPlayMergeIndex >= 0) &&
-        SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(
-        device, static_cast<uint8_t>(startPlayMergeIndex));
-    bool isConfig = (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED);
-    if ((!isStartPlayMerge && !IsStarting(state)) || (isStartPlayMerge && !isConfig)) {
-        HILOGE("[ASCService]CbkStartStream state error %{public}s state %{public}d isStartPlayMerge %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), state, isStartPlayMerge);
-        return false;
-    }
-    // 结果检查
-    if (result != NL_NO_ERROR) {
-        HILOGE("[ASCService]CbkStartStream callback result %{public}s %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), result);
-        // 上报状态: 音频流打开,失败
-        ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
-            NL_SLE_ASC_RESULT_FAIL, result);
-        // 取出缓存任务处理
-        ProcBuff(device, NL_SLE_ASC_CREATED);
-        return false;
-    }
-    return true;
 }
 
 void ASCService::ClearWhenDisconnect(const RawAddress& device)
@@ -4273,7 +4340,7 @@ bool ASCService::IsInStartProcess(ASCState state) const
         (state == NL_SLE_ASC_OPENED) || (state == NL_SLE_ASC_STARTING) || (state == NL_SLE_ASC_RECONFIGURING) ||
         (state == NL_SLE_ASC_RECONFIGED) || (state == NL_SLE_ASC_RECONFIG_STOPPING) ||
         (state == NL_SLE_ASC_RECONFIG_STOPPED) || (state == NL_SLE_ASC_CONFIG_SUBRATE_CHANGED) ||
-        (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED));
+        (state == NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED) || (state == NL_SLE_ASC_ADD_DATA_PATH));
 }
 
 bool ASCService::IsInConnectedState(ASCState state) const
@@ -5015,7 +5082,6 @@ bool ASCService::IsExcuteChangeLocalBitrateNow(uint32_t groupId)
 
 void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
 {
-
     // 配置DSP AutoRate参数;
     SetAutorateParameter(ascBitrate);
     // 保存码率，用于单切双起播码率同步
@@ -5025,7 +5091,9 @@ void ASCService::UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate)
     NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(activeSinkDevice_, cdsmList);
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "CdsmGetAllMemberInfo error.");
     for (const auto& info : cdsmList) {
-        if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) && IsStarted(GetASCStatus(info.addr_))) {
+        ASCState state = GetASCStatus(info.addr_);
+        if (info.state_ == static_cast<uint8_t>(CdsmConnectState::CONNECTED) &&
+            (IsStarted(state) || IsAddDataPathState(state))) {
             SetAutoRateBps(info.addr_, ascBitrate.downBitrate);
         }
     }
@@ -5124,6 +5192,9 @@ void ASCService::ProcessStackCbkEvent(const ASCMessage &event)
         case ASC_STACK_CBK_CREATE_STREAM:
             CbkCreateStream(device, result, event.ascStreamInfo_);
             break;
+        case ASC_STACK_CBK_ADD_DATA_PATH:
+            CbkAddDataPath(device, result);
+            break;
         default:
             break;
     }
@@ -5163,12 +5234,28 @@ static void StackStreamTypeChangedCbk(SLE_Addr_S *stackAddr, uint32_t availableS
     service->PostEvent(event);
 }
 
+static void StackAddDataPathCbk(SLE_Addr_S *stackAddr, NLSTK_ActmSetDirection_S *param)
+{
+    NL_CHECK_RETURN((stackAddr != nullptr && param != nullptr), "[ASCService]stackAddr is null.");
+    const RawAddress& device = RawAddress::ConvertToString(stackAddr->addr);
+
+    ASCService *service = ASCService::GetService();
+    NL_CHECK_RETURN(service != nullptr, "[ASCService]nullptr %{public}s",
+        GetEncryptAddr(device.GetAddress()).c_str());
+
+    ASCMessage event(ASC_STACK_EVENT_CBK_EVT);
+    event.dev_ = device.GetAddress();
+    event.eventType_ = ASC_STACK_CBK_ADD_DATA_PATH;
+    event.result_ = param->result;
+    service->PostEvent(event);
+}
+
 void ASCService::Init()
 {
     InitDisconnProcTable();
     // 向stack注册回调
     NLSTK_ActmCbk_S cbk = {StackEventCbk, StackPropCbk, StackBitrateCbk, StackLocationChangeCbk,
-        StackStreamTypeChangedCbk, StackAutoRateMsgCbk};
+        StackStreamTypeChangedCbk, StackAutoRateMsgCbk, StackAddDataPathCbk};
     uint32_t ret = NLSTK_ActmRegisterCallback(&cbk);
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         HILOGD("[ASCService]Init ret %{public}d", ret);
@@ -5727,7 +5814,7 @@ void ASCService::ProcessSetActiveSinkDeviceEvent(const ASCMessage &event)
         formerSinkDevice_ = activeSinkDevice_;
         activeSinkDevice_ = device;
         sinkDeviceStreamType_ = streamType;
-        if (formerPlayRecord_.addr == formerSinkDevice_){
+        if (formerPlayRecord_.addr == formerSinkDevice_) {
             SetPlayRecord(activeSinkDevice_, Qos::NL_SLE_QOS_NONE, 0, 0);
             HILOGI("[ASCService]Record sink device changed");
         }

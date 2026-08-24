@@ -210,6 +210,10 @@ typedef struct {
     uint32_t result;
 } NLSTK_ActmAutoRateRecvMsg_S;
 
+typedef struct {
+    uint8_t result;
+} NLSTK_ActmSetDirection_S;
+
 typedef void (*NLSTK_ActmEventCbk)(SLE_Addr_S *addr, uint8_t eventType, uint8_t result, void *param);
 
 typedef void (*NLSTK_ActmPropCbk)(SLE_Addr_S *addr, uint8_t num, NLSTK_ActmProp_S *prop);
@@ -222,6 +226,8 @@ typedef void (*NLSTK_ActmStreamTypeCbk)(SLE_Addr_S *addr, uint32_t availableStre
 
 typedef void (*NLSTK_ActmCallBitUpDownCbk)(NLSTK_ActmAutoRateSendMsg_S *upDownParam);
 
+typedef void (*NLSTK_ActmSetDirectionCbk)(SLE_Addr_S *addr, NLSTK_ActmSetDirection_S *param);
+
 typedef struct {
     NLSTK_ActmEventCbk eventCbk;
     NLSTK_ActmPropCbk propCbk;
@@ -229,6 +235,7 @@ typedef struct {
     NLSTK_ActmLocationCbk locationCbk;
     NLSTK_ActmStreamTypeCbk streamTypeCbk;
     NLSTK_ActmCallBitUpDownCbk callBitUpDownCbk;
+    NLSTK_ActmSetDirectionCbk addDataPathCbk;
 } NLSTK_ActmCbk_S;
 
 #define NLSTK_GROUP_KEY_LEN 16

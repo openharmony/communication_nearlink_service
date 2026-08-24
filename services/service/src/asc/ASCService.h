@@ -108,8 +108,13 @@ public:
     void CbkReleaseStream(const RawAddress& device, uint8_t result, uint16_t connHandle);
     void CbkDisconnect(const RawAddress& device, uint8_t result);
     void ClearWhenDisconnect(const RawAddress& device);
+    void CbkAddDataPath(const RawAddress& device, uint8_t result);
 
-    bool CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsSupportStartPlayMerged(const RawAddress& device);
+    bool IsStartStreamStateCorrected(ASCState state);
+    bool IsVendorStartStreamStateCorrected(ASCState state);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
     const NearlinkRawAddress GetActiveSinkDevice() const override;
     void SleAudioDeviceActionChanged(const NearlinkRawAddress &device, int action) override;
@@ -483,6 +488,11 @@ private:
         return (state == NL_SLE_ASC_STARTED);
     }
 
+    inline bool IsAddDataPathState(ASCState state) const
+    {
+        return (state == NL_SLE_ASC_ADD_DATA_PATH);
+    }
+
     bool IsInStopProcess(ASCState state) const;
 
     inline bool IsStopping(ASCState state) const
@@ -671,6 +681,7 @@ private:
     void RejectSetSubrate(const RawAddress &device);
     void UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo);
     std::string ASCToDSPInfoToString(const ASCToDSPInfo& ascToDspInfo);
+    uint16_t GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps);
 
     // 移动全景音
     void ProcessColAudioSwitchChangeEvent(const ASCMessage &event);

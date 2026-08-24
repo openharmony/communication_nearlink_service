@@ -26,6 +26,7 @@ void ActmSetCallback(NLSTK_ActmCbk_S *cbk)
     g_Cbk.locationCbk = cbk->locationCbk;
     g_Cbk.streamTypeCbk = cbk->streamTypeCbk;
     g_Cbk.callBitUpDownCbk = cbk->callBitUpDownCbk;
+    g_Cbk.addDataPathCbk = cbk->addDataPathCbk;
 }
 
 void ActmEventCbk(SLE_Addr_S *addr, uint8_t event, uint8_t result, void *param)
@@ -67,5 +68,13 @@ void ActmCallBitUpDownCbk(NLSTK_ActmAutoRateSendMsg_S *upDownParam)
 {
     if (g_Cbk.callBitUpDownCbk != NULL) {
         g_Cbk.callBitUpDownCbk(upDownParam);
+    }
+}
+
+void ActmSetDirectionCbk(SLE_Addr_S *addr, uint8_t result)
+{
+    NLSTK_ActmSetDirection_S param = {.result = result};
+    if (g_Cbk.addDataPathCbk != NULL) {
+        g_Cbk.addDataPathCbk(addr, &param);
     }
 }
