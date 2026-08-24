@@ -456,7 +456,6 @@ NlErrCode SsapServer::AddService(SsapService &service)
         uint8_t *value = proper.GetValue(&length).get();
         if (value == nullptr || length == 0) {
             HILOGW("property handle=%{public}d value is empty, skip.", proper.GetHandle());
-            continue;
         }
         std::vector<uint8_t> vecValue(value, value + length);
         Property p(proper.GetHandle(),
@@ -469,7 +468,6 @@ NlErrCode SsapServer::AddService(SsapService &service)
             value = desc.GetValue(&length).get();
             if (value == nullptr || length == 0) {
                 HILOGW("descriptor handle=%{public}d value is empty, skip.", desc.GetHandle());
-                continue;
             }
             std::vector<uint8_t> temp(value, value + length);
             vecValue = std::move(temp);
