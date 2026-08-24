@@ -63,7 +63,7 @@ public:
     RemoteObserverList &operator=(const RemoteObserverList &) = delete;
 
 private:
-    bool UnregisterInternal(typename ObserverMap::iterator iter);
+    void UnregisterInternal(typename ObserverMap::iterator iter);
 };
 
 template <typename T>
@@ -73,7 +73,8 @@ RemoteObserverList<T>::~RemoteObserverList()
     std::lock_guard<std::mutex> lock(lock_);
     for (auto it = observers_.begin(); it != observers_.end(); ++it) {
         sptr<ObserverDeathRecipient> dr = it->second;
-        if (!dr->GetObserver()->AsObject()->RemoveDeathRecipient(dr)) {
+        if (dr->GetObserver()->AsObject()->IsProxyObject() &&
+            !dr->GetObserver()->AsObject()->RemoveDeathRecipient(dr)) {
             HILOGE("Failed to unlink death recipient from observer");
         }
     }
@@ -113,7 +114,8 @@ bool RemoteObserverList<T>::Deregister(const sptr<T> &observer)
 
     for (auto it = observers_.begin(); it != observers_.end(); ++it) {
         if (it->first != nullptr && it->first->AsObject() == observer->AsObject()) {
-            return UnregisterInternal(it);
+            UnregisterInternal(it);
+            return true;
         }
     }
     HILOGW("Given observer not registered with this list");
@@ -147,9 +149,6 @@ void RemoteObserverList<T>::ObserverDeathRecipient::OnRemoteDied(const wptr<IRem
 
     for (auto it = owner_->observers_.begin(); it != owner_->observers_.end(); ++it) {
         if (it->first != nullptr && it->first->AsObject() == object) {
-            if (!it->first->AsObject()->RemoveDeathRecipient(it->second)) {
-                HILOGE("Failed to unlink death recipient from observer");
-            }
             owner_->observers_.erase(it);
             break;
         }
@@ -158,18 +157,15 @@ void RemoteObserverList<T>::ObserverDeathRecipient::OnRemoteDied(const wptr<IRem
 }
 
 template <typename T>
-bool RemoteObserverList<T>::UnregisterInternal(typename ObserverMap::iterator iter)
+void RemoteObserverList<T>::UnregisterInternal(typename ObserverMap::iterator iter)
 {
     HILOGI("RemoteObserverList<T>::UnregisterInternal called");
     sptr<ObserverDeathRecipient> dr = iter->second;
 
     if (iter->first->AsObject()->IsProxyObject() && !dr->GetObserver()->AsObject()->RemoveDeathRecipient(dr)) {
         HILOGE("Failed to unlink death recipient from observer");
-        return false;
     }
     observers_.erase(iter);
-
-    return true;
 }
 
 template <typename T>
