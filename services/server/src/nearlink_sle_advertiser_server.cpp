@@ -195,6 +195,9 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        if (result == static_cast<int>(ADV_RESULT_FAILED_CHECK_PARA_FAIL)) {
+            impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
+        }
         observers_->ForEach([this, result, advHandle, opcode, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -214,6 +217,7 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
         observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -222,7 +226,6 @@ public:
             }
             observer->OnStopResultEvent(result, advHandle);
         });
-        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnEnableResultEvent(int result, uint8_t advHandle) override
@@ -272,6 +275,7 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
         observers_->ForEach([this, advHandle, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -280,7 +284,6 @@ public:
             }
             observer->OnAutoStopAdvEvent(advHandle);
         });
-        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnSetAdvDataEvent(int result, uint8_t advHandle) override
