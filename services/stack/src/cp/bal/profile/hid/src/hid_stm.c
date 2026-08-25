@@ -620,7 +620,7 @@ static bool HidCheckPropertyParam(HidReadPropertyMsg_S *readMsg)
         NLSTK_LOG_ERROR("[HID] read property fail");
         return false;
     }
-    if (readMsg->property->value.len > HID_MAX_DATA_LEN) {
+    if (readMsg->property->value.len == 0 || readMsg->property->value.len > HID_MAX_DATA_LEN) {
         NLSTK_LOG_ERROR("[HID] property value len invalid");
         return false;
     }
