@@ -59,12 +59,14 @@ void NapiAsyncWork::Info::Complete(void)
         return;
     }
 
+    // promise 已由异步回调路径 settle 过，任何分支都不得再次 settle，否则 NAPI 双重 settle 导致 crash
+    if (napiAsyncWork->triggered_) {
+        HILOGE("NapiAsyncWork is triggered, Callback is earlier than Complete in thread scheduling");
+        return;
+    }
+
     // need wait callback
     if (needCallback && (errCode == NL_NO_ERROR)) {
-        if (napiAsyncWork->triggered_) {
-            HILOGE("NapiAsyncWork is triggered, Callback is earlier than Complete in thread scheduling");
-            return;
-        }
         // start timer to avoid the callback is lost.
         std::weak_ptr<NapiAsyncWork> asyncWorkWptr = napiAsyncWork;
         auto func = [asyncWorkWptr]() {

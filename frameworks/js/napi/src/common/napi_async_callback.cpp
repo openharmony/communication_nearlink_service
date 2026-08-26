@@ -42,8 +42,10 @@ void NapiAsyncCallback::CallFunction(int errCode, const std::shared_ptr<NapiNati
             napi_create_error(env_, eCode, message, &result);
             napi_reject_deferred(env_, deferred_, result);
         }
+        // settle 后置空 deferred，使重复调用退化为 no-op，防止 promise 双重 settle 导致 crash
+        deferred_ = nullptr;
     } else {
-        HILOGE("promise or deferred is nullptr");
+        HILOGE("promise or deferred is nullptr, maybe already settled");
         return;
     }
 }
