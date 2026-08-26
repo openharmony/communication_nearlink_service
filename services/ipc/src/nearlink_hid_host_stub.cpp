@@ -62,12 +62,10 @@ int32_t NearlinkHidHostStub::HidHostSetReportInner(NearlinkHidHostStub *stub, Me
     std::string report;
     NL_CHECK_RETURN_RET(data.ReadString(report), TRANSACTION_ERR, "Read report failed.");
     NL_CHECK_RETURN_RET(IsValidAddress(address),  INVALID_DATA, "address is invalid, data trans err !");
-    int result;
+    int result = 0;
     NlErrCode ec = stub->HidHostSetReport(address, type, report, result);
     NL_CHECK_RETURN_RET(reply.WriteInt32(ec), TRANSACTION_ERR, "NlErrCode writing failed.");
-    if (ec == NL_NO_ERROR) {
-        NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "result writing failed.");
-    }
+    NL_CHECK_RETURN_RET(reply.WriteInt32(result), TRANSACTION_ERR, "result writing failed.");
     return NO_ERROR;
 }
 
