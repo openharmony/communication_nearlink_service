@@ -468,7 +468,7 @@ static void SsapServerAppWriteDescriptorCallback(SSAP_BufferedOperation_S *opera
     }
     if (operation->needAuth) {
         // 需要授权
-        if (serverApp->cb.onWritePropertyAuthorizeRequest != NULL) {
+        if (serverApp->cb.onWriteDescriptorAuthorizeRequest != NULL) {
             serverApp->cb.onWriteDescriptorAuthorizeRequest(serverApp->appId, operation->requestId, writeInfo);
         }
     } else {
