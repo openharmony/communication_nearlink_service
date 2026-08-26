@@ -98,19 +98,6 @@ public:
         NL_CHECK_RETURN_RET(ret, ret, "hadmId: %{public}u, pid: %{public}d, uid: %{public}d", hadmId, pid, uid);
         return ret;
     }
-
-    bool CheckHadmIdCallback(uint32_t hadmId, const sptr<IRemoteObject> &remote)
-    {
-        std::lock_guard<std::mutex> lk(vecMutex_);
-        int32_t pid = IPCSkeleton::GetCallingPid();
-        int32_t uid = IPCSkeleton::GetCallingUid();
-        auto it = std::find_if(vec_.begin(), vec_.end(), [hadmId](const auto &obj) {
-            return obj.second.hadmId_ == hadmId; });
-        NL_CHECK_RETURN_RET(it != vec_.end(), false, "can't find hadmId: %{public}u", hadmId);
-        bool ret = (it->second.pid == pid && it->second.uid == uid && it->first == remote);
-        NL_CHECK_RETURN_RET(ret, ret, "hadmId: %{public}u, pid: %{public}d, uid: %{public}d", hadmId, pid, uid);
-        return ret;
-    }
 };
 
 class NearlinkHadmClientServer::impl::NearlinkHadmClientCallback : public InterfaceHadmClientServiceCallback {
@@ -241,8 +228,8 @@ NlErrCode NearlinkHadmClientServer::DeregisterNearlinkHadmClientCallback(uint32_
     HILOGI("enter");
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
-    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmIdCallback(hadmId, callback->AsObject()),
-        NL_ERR_INVALID_PARAM, "hadmId or callback is invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmId(hadmId), NL_ERR_INVALID_PARAM,
+        "hadmId is invalid.");
     pimpl->remoteObservers_.Deregister(callback);
     pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
     InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
