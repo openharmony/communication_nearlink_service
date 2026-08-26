@@ -361,14 +361,10 @@ public:
         HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
         NearlinkRawAddress nearlinkRawAddress(device);
         impl_->deviceBatteryObservers_.ForEach(
-            [this, device, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
+            [this, nearlinkRawAddress, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
                 NearlinkBasRemoteInfo info = impl_->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
-                NL_CHECK_RETURN(NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, info.fullToken),
-                    "false, check permission failed");
-                NearlinkRawAddress randomAddr;
-                NearlinkDeviceManager::GetInstance()->ConvertToRandomAddress(info.isRealMac, device, randomAddr, false);
                 if (info.isSendingReq) {
-                    observer->OnGetBatteryLevelEvent(randomAddr, batteryLevel);
+                    observer->OnGetBatteryLevelEvent(nearlinkRawAddress, batteryLevel);
                     impl_->remoteBatteryContainer_->UpdateRemoteInfo(observer->AsObject(), false);
                 }
             });
@@ -377,14 +373,11 @@ public:
     void OnBatteryLevelChanged(const RawAddress &device, int8_t batteryLevel) override
     {
         HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
+        NearlinkRawAddress nearlinkRawAddress(device);
+
         impl_->deviceBatteryObservers_.ForEach(
-            [this, device, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
-                NearlinkBasRemoteInfo info = impl_->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
-                NL_CHECK_RETURN(NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, info.fullToken),
-                    "false, check permission failed");
-                NearlinkRawAddress randomAddr;
-                NearlinkDeviceManager::GetInstance()->ConvertToRandomAddress(info.isRealMac, device, randomAddr, false);
-                observer->OnBatteryLevelChanged(randomAddr, batteryLevel);
+            [this, nearlinkRawAddress, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
+                observer->OnBatteryLevelChanged(nearlinkRawAddress, batteryLevel);
             });
     }
 
