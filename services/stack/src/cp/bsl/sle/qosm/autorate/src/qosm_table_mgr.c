@@ -201,7 +201,7 @@ static QOSM_LinkParam g_qosLowLatency[] = {
  */
 static QOSM_LinkParam g_qosCall[] = {
     {
-        QOS_DUTY_CYCLE_100P /* dutyCycle */, QOS_LEVEL_1 /* qosLevel */, QOS_LEVEL_1 /* upQosLevel */,
+        QOS_DUTY_CYCLE_ANY /* dutyCycle */, QOS_LEVEL_1 /* qosLevel */, QOS_LEVEL_1 /* upQosLevel */,
         QOS_LEVEL_0 /* downQosLevel */, 64 /* downwardBitrate */, 64 /* upwardBitrate */,
         20000 /* sduIntervalG2T */, 20000 /* sduIntervalT2G */, 0 /* sca */, 1 /* packing */, 0 /* framing */,
         60 /* maxLatencyG2T */, 60 /* maxLatencyT2G */, 80 /* icbInterval */, 3 /* ftG2T */, 3 /* ftT2G */,
@@ -211,7 +211,7 @@ static QOSM_LinkParam g_qosCall[] = {
         0 /* mcsG2T */, 0 /* mcsT2G */, 3 /* pilotG2T */, 3 /* pilotT2G */, 0 /* frameG2T */, 0 /* frameT2G */
     },
     {
-        QOS_DUTY_CYCLE_100P /* dutyCycle */, QOS_LEVEL_0 /* qosLevel */, QOS_LEVEL_1 /* upQosLevel */,
+        QOS_DUTY_CYCLE_ANY /* dutyCycle */, QOS_LEVEL_0 /* qosLevel */, QOS_LEVEL_1 /* upQosLevel */,
         QOS_LEVEL_0 /* downQosLevel */, 32 /* downwardBitrate */, 32 /* upwardBitrate */,
         20000 /* sduIntervalG2T */, 20000 /* sduIntervalT2G */, 0 /* sca */, 1 /* packing */, 0 /* framing */,
         60 /* maxLatencyG2T */, 60 /* maxLatencyT2G */, 80 /* icbInterval */, 3 /* ftG2T */, 3 /* ftT2G */,

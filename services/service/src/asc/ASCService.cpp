@@ -4383,6 +4383,8 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
             GetEncryptAddr(device.GetAddress()).c_str(), state);
         // 通知DSP断链的connhandle
         SetAudioDisconnInfo(device, connHandle);
+        // 通话 Autorate 还原帧格式为帧1
+        RecoverFrameTypeWhenReleaseStream(device);
         ClearWhenDisconnect(device);
         // 断连接场景会上报deleteDevice，音频框架会清空状态，不用上报流状态
         return;
@@ -4847,6 +4849,7 @@ void ASCService::RecoverFrameTypeWhenReleaseStream(const RawAddress &device)
         auto adapter =
             static_cast<SleInterfaceAdapterSub*>(SleInterfaceManager::GetInstance()->GetAdapter(ADAPTER_SLE));
         NL_CHECK_RETURN(adapter, "[ASCService]sleAdapter is null.");
+        SetVoiceCallAcbStatus(device, CM_RADIO_FRAME_TYPE_1, CM_PHY_TYPE_1M);
         adapter->SetPhy(device, CM_RADIO_FRAME_TYPE_1, CM_PHY_TYPE_1M);
     }
 }
@@ -4897,6 +4900,7 @@ void ASCService::RollBackPhyParam()
         uint8_t targetPhyType = ASCUtils::GetAutorateTargetPhyType(!isLevelUp);
         HILOGI("device %{public}s roll back frameType %{public}d, phyType %{public}d",
             GET_ENCRYPT_ADDR(dev), targetFrameType, targetPhyType);
+        SetVoiceCallAcbStatus(dev, targetFrameType, targetPhyType);
         adapter->SetPhy(dev, targetFrameType, targetPhyType);
     }
 }

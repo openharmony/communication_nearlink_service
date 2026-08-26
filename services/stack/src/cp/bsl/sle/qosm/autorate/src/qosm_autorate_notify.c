@@ -44,9 +44,8 @@ static uint16_t QOSM_GetRealBitrate(CM_ICBType icbType, uint16_t bitrate, uint8_
 
 static bool QOSM_IsBitrateAvailable(QOSM_ICGInfo *icgInfo, uint16_t downwardBitrate)
 {
-    /* 5G场景，媒体可用最大码率1.5Mpbs, 通话可用最小码率64kbps */
+    /* 5G场景，媒体可用最大码率1.5Mpbs */
     return downwardBitrate <= (icgInfo->is5G ? QOSM_5G_MAX_BITRATE : QOSM_MAX_BITRATE) &&
-        downwardBitrate >= (icgInfo->is5G ? QOSM_5G_MIN_BITRATE : QOSM_MIN_BITRATE) &&
         downwardBitrate <= atomic_load(&g_maxBitrate);
 }
 
