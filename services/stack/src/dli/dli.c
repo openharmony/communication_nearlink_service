@@ -173,11 +173,17 @@ void DLI_DeInit(void)
     DLI_LOGI("DLI_DeInit success");
 }
 
-void DLI_EnableTask(void *arg)
+static void DLI_EnableTask(void *arg)
 {
     DLI_CHECK_RETURN(arg != NULL, "arg is null");
     DLI_EnableParams *param = (DLI_EnableParams *)arg;
     param->ret = DLI_LayerEnable();
+}
+
+static void DLI_DisableTask(void *arg)
+{
+    (void)arg;
+    DLI_LayerDisable();
 }
 
 uint32_t DLI_Enable(void)
@@ -195,15 +201,14 @@ uint32_t DLI_Enable(void)
     } else {
         ret = param->ret;
         SDF_MemFree(param);
-        DLI_LOGI("enable success ret %u", ret);
+        DLI_LOGI("enable ret %u", ret);
+    }
+
+    if (ret != DLI_SUCCESS) {
+        uint32_t code = DLI_PostTask(DLI_DisableTask, NULL, NULL);
+        DLI_LOGW("enable failed, try disable ret %u", code);
     }
     return ret;
-}
-
-void DLI_DisableTask(void *arg)
-{
-    (void)arg;
-    DLI_LayerDisable();
 }
 
 void DLI_Disable(void)
