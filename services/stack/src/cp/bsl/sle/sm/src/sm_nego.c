@@ -247,12 +247,7 @@ static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
         return;
     }
     for (int i = 0; i < SM_OCTETS_4; i++) {
-        if (slink->negoParams.codeAlgoCap[i] != msg->codeAlgoCap[i]) {
-            NLSTK_LOG_ERROR("[SM] Code algo cap not match.");
-            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_AUTHENTICATION_REQUIREMENTS });
-            return;
-        }
+        slink->negoParams.codeAlgoCap[i] = msg->codeAlgoCap[i];
     }
     (void)memcpy_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, msg->gNodePubKey, SM_PUBLIC_KEY_LEN);
     SendPairingInitInfo(slink);
