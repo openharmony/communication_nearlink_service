@@ -431,8 +431,7 @@ public:
             GET_ENCRYPT_ADDR(device), reqType, number);
         impl_->sleObservers_.ForEach([this, transport, device, reqType, number](INearlinkHostObserver *observer) {
             NearlinkHostRemoteInfo info = impl_->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
-            NL_CHECK_RETURN(NearLinkPermissionManager::VerifyPermission(MANAGE_NEARLINK, info.fullToken) &&
-                NearLinkPermissionManager::CheckSystemPermission(info.fullToken),
+            NL_CHECK_RETURN(NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, info.fullToken),
                 "false, check permission failed");
             NearlinkRawAddress randomAddr;
             NearlinkDeviceManager::GetInstance()->ConvertToRandomAddress(info.isRealMac, device, randomAddr, false);
