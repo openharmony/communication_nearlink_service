@@ -68,20 +68,6 @@ namespace OHOS {
         DevdEnableAdv(&params);
     }
 
-    void FuzzDEVDSetTxPower(const uint8_t *fuzzData, size_t size)
-    {
-        if (size < sizeof(NLSTK_DevdSetTxPower_S)) {
-            return;
-        }
-
-        NLSTK_DevdSetTxPower_S params = {0};
-        if (memcpy_s(&params, sizeof(NLSTK_DevdSetTxPower_S), fuzzData, sizeof(NLSTK_DevdSetTxPower_S)) != EOK) {
-            NAI_LOG_ERROR("memcpy_s fail\n");
-            return;
-        }
-        DevdSetTxPower(&params);
-    }
-
     void FuzzFreeAdvData(const uint8_t *fuzzData, size_t size)
     {
         if (size < sizeof(NLSTK_DevdAdvData_S)) {
@@ -234,7 +220,6 @@ namespace OHOS {
     {
         DevdLocalDeviceInit();
         FuzzDEVDEnableAdv(fuzzData, size);
-        FuzzDEVDSetTxPower(fuzzData, size);
         FuzzFreeAdvData(fuzzData, size);
         FuzzFreeSetAdvData(fuzzData, size);
         FuzzFreeSetAdvDataParam(fuzzData, size);

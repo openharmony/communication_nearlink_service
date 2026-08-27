@@ -454,21 +454,6 @@ NLSTK_Errcode_E NLSTK_DevdEnableAdv(NLSTK_DevdSetAdvEnable_S *setEnable)
     return NLSTK_ERRCODE_SUCCESS;
 }
 
-NLSTK_Errcode_E NLSTK_DevdSetTxPower(NLSTK_DevdSetTxPower_S *setTxPower)
-{
-    NLSTK_CHECK_RETURN(setTxPower != NULL, NLSTK_ERRCODE_POINTER_NULL, "[DEVD] setTxPower is null");
-    NLSTK_DevdSetTxPower_S *txPower = (NLSTK_DevdSetTxPower_S *)SDF_MemZalloc(sizeof(NLSTK_DevdSetTxPower_S));
-    NLSTK_CHECK_RETURN(txPower != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[DEVD] txPower is null");
-    txPower->bleMaxPower = setTxPower->bleMaxPower;
-    txPower->sleMaxPower = setTxPower->sleMaxPower;
-
-    if (SchedulePostTask((SDF_WorkCb)DevdSetTxPower, txPower, SDF_MemFree) != NLSTK_OK) {
-        NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
-        return NLSTK_ERRCODE_TASK_FAIL;
-    }
-    return NLSTK_ERRCODE_SUCCESS;
-}
-
 NLSTK_Errcode_E NLSTK_DevdRemoveAdv(uint8_t *setAdvHandle)
 {
     NLSTK_CHECK_RETURN(setAdvHandle != NULL, NLSTK_ERRCODE_POINTER_NULL, "[DEVD] setAdvHandle is null");

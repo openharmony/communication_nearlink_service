@@ -201,11 +201,6 @@ NLSTK_Errcode_E NLSTK_DevdSleEnableScan(NLSTK_DevdSleScanEnable_S *sleScanEnable
     return NLSTK_ERRCODE_SUCCESS;
 }
 
-NLSTK_Errcode_E NLSTK_DevdSleSetScanFilter(NLSTK_DevdSleScanFilter_S *sleScanFilter)
-{
-    return NLSTK_ERRCODE_SUCCESS;
-}
-
 static void DevdScanReportCallbackStub(NLSTK_DevdAdvResult_S *result)
 {
     for (size_t i = 0; i < result->scannerIds->size; i++) {

@@ -471,12 +471,6 @@ SLE_Addr_S *NBC_GetPublicAddress(void)
     return &g_publicAddress;
 }
 
-uint32_t NLSTK_CfgdbGetChipLog(void)
-{
-    NLSTK_LOG_INFO("NLSTK_CfgdbGetChipLog");
-    return 0;
-}
-
 static bool CfgdbCompAddr(void *ptr, void *arg)
 {
     CfgdbManufacturerAbility_S *manuAbl = (CfgdbManufacturerAbility_S *)ptr;

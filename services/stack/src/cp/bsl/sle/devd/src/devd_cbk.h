@@ -27,8 +27,6 @@ void DevdSetAdvDataCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetP
 
 void DevdEnableAdvCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetParam *cmdRes);
 
-void DevdSetTxPowerCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetParam *cmdRes);
-
 void DevdRemoveAdvCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetParam *cmdRes);
 
 void DevdAdvTerminatedCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetParam *cmdRes);

@@ -46,13 +46,6 @@ NLSTK_Errcode_E NLSTK_DevdStartAdv(NLSTK_DevdSetAdvParams_S *advParams);
 NLSTK_Errcode_E NLSTK_DevdEnableAdv(NLSTK_DevdSetAdvEnable_S *setEnable);
 
 /**
- * @brief 设置发送功率
- * @param setTxPower 发送功率参数结构体指针
- * @return 返回错误码
- */
-NLSTK_Errcode_E NLSTK_DevdSetTxPower(NLSTK_DevdSetTxPower_S *setTxPower);
-
-/**
  * @brief 移除广播设置
  * @param setAdvHandle 广播设置句柄
  * @return 返回错误码

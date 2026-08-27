@@ -37,11 +37,6 @@ void DevdSetAdvData(void *arg);
 void DevdEnableAdv(void *arg);
 
 /**
- * @brief  设置发送功率
- */
-void DevdSetTxPower(void *arg);
-
-/**
  * @brief  移除广播
  */
 void DevdRemoveAdv(void *arg);

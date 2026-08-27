@@ -261,15 +261,6 @@ void DevdEnableAdv(void *arg)
     }
 }
 
-void DevdSetTxPower(void *arg)
-{
-    NLSTK_DevdSetTxPower_S *txPower = (NLSTK_DevdSetTxPower_S *)arg;
-    NLSTK_CHECK_RETURN_VOID(txPower != NULL, "[DEVD]txPower is null");
-    DLI_SetTxPowerParam param = {0};
-    param.bleMaxPower = txPower->bleMaxPower;
-    param.sleMaxPower = txPower->sleMaxPower;
-}
-
 void DevdRemoveAdv(void *arg)
 {
     uint8_t *advHandle = (uint8_t *)arg;
@@ -515,14 +506,6 @@ void DevdEnableAdvCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetPa
         node->advStatus = msg;
     }
     node->status = DEVD_SLE_STATUS_IDLE;
-    SDF_UNUSED(cmdRes);
-    return;
-}
-
-void DevdSetTxPowerCbk(void *context, uint16_t status, struct DLI_ExecuteCmdRetParam *cmdRes)
-{
-    SDF_UNUSED(context);
-    NLSTK_LOG_INFO("[DEVD]set txPower enable cbk, status = %d", status);
     SDF_UNUSED(cmdRes);
     return;
 }
