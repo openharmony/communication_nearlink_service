@@ -50,7 +50,8 @@ uint32_t BNL_ProxyInit(NLSTK_BnlProxyFunc_S *func)
         return NLSTK_ERRCODE_FAIL;
     }
 
-    return funcList->init(func);
+    funcList->init(func);
+    return NLSTK_ERRCODE_SUCCESS;
 }
 
 void BNL_ProxyDeInit(void)

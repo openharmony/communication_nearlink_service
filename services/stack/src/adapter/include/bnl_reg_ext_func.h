@@ -27,7 +27,7 @@ typedef void (*BnlProxyLinkStateChangePtr)(const NLSTK_BnlLogicLinkState_S *stat
 
 typedef void (*BnlProxyRecvMsgPtr)(const NLSTK_BnlSendMsg_S *msg);
 
-typedef uint32_t (*BnlProxyInitPtr)(NLSTK_BnlProxyFunc_S *func);
+typedef void (*BnlProxyInitPtr)(const NLSTK_BnlProxyFunc_S *func);
 
 typedef void (*BnlProxyDeInitPtr)(void);
 
