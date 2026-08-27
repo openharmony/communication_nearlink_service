@@ -695,7 +695,9 @@ static void QOSM_AudioDfxParseBitrateChangeDecision(const uint8_t *buf, uint32_t
     STREAM_TO_UINT16(qosIndex, p);
     STREAM_TO_UINT16(reportedDirection, p);
     STREAM_TO_UINT16(reportedQosLevel, p);
-    QOSM_AudioDfxNotifyDspStarted();
+    if (g_qosmAudioDfx.firstStarted == false) {
+        QOSM_AudioDfxNotifyDspStarted();
+    }
     QOSM_ExecuteBitrateChangeDecision(connHandle, qosIndex, reportedDirection, reportedQosLevel);
 }
 
