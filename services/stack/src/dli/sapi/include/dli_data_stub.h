@@ -68,6 +68,8 @@ void SleReset();
 // send to dli
 void SleSendToDliStub(SlePacketType type, const SlePacket *packet);
 int GetDliVersion(void);
+void SleDliSnoopRegisterSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum);
 #endif
 #ifdef __cplusplus
 }
