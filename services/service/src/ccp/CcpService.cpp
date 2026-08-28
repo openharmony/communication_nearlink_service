@@ -28,6 +28,7 @@
 #include "CcpStackAdapter.h"
 #include "CcpSystemInterface.h"
 #include "nearlink_dft_ue.h"
+#include "ServiceManagerPluginLoader.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -311,6 +312,9 @@ void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &
 
 void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
+    std::string bundleName = 
+        ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
+    NL_CHECK_RETURN(bundleName != info.voipCallInfo.voipBundleName, "is wechat call")
     if (info.callType == Telephony::CallType::TYPE_VOIP) {
         HandleVoipCallDetailChange(info);
     }

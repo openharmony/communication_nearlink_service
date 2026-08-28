@@ -94,6 +94,7 @@ enum class RegisterCallbackModule {
 enum class BundleNameType {
     BUNDLE_NAME_SETTINGS = 0,
     BUNDLE_NAME_AIBASE = 1,
+    BUNDLE_NAME_WECHAT = 2,
     BUNDLE_NAME_TYPE_MAX,
 };
 
