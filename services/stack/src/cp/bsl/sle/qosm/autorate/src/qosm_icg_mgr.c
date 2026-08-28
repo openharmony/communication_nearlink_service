@@ -55,7 +55,7 @@ static SDF_DListHead_S g_qosICGList = {{&(g_qosICGList.list), &(g_qosICGList.lis
 static uint8_t g_connectSeq = QOSM_INVALID_CONNECT_SEQ;
 
 static void QOSM_ICGMgrSetParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam);
-static void QOSM_ICGMgrSetTestParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam);
+static void QOSM_ICGMgrSetAutorateParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam);
 static void QOSM_ICGMgrAddConnectionInner(QOSM_ICGInfo *icgInfo, QOSM_AutoRateConnParam *connParam);
 static void QOSM_TrytoStopAddConnectionTimer(QOSM_ICGInfo *icgInfo, uint8_t connectSeq);
 static void QOSM_DestroyDelayConnTask(QOSM_ICGInfo *icgInfo, bool shouldNotify);
@@ -163,14 +163,14 @@ static QOSM_ICGInfo *QOSM_NewQosICGInfo(const QOSM_ICGMgrParam *param)
     return icgInfo;
 }
 
-static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *param, bool isTest, bool isResetParam)
+static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *param, bool isAutorate, bool isResetParam)
 {
     icgInfo->qosId = param->autorateParam.qosId;
     icgInfo->icgId = icgInfo->qosId; // 由于全局只有一个调用方，所以qosId充当icgId
     icgInfo->icbType = QOSM_GetICBTypeByIndex(param->autorateParam.qosIndex);
     icgInfo->qosIndex = param->autorateParam.qosIndex;
     icgInfo->levelCnt = 0;
-    icgInfo->isTest = isTest;
+    icgInfo->isAutorate = isAutorate;
     icgInfo->isResetParam = isResetParam;
 
     icgInfo->supportSubrate =
@@ -191,7 +191,7 @@ static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *pa
         param->autorateParam.supportedBitrateCnt);
 }
 
-static QOSM_ICGInfo *QOSM_CreateQosICGInfo(const QOSM_ICGMgrParam *param, bool isTest, bool isResetParam)
+static QOSM_ICGInfo *QOSM_CreateQosICGInfo(const QOSM_ICGMgrParam *param, bool isAutorate, bool isResetParam)
 {
     QOSM_CHECK_RETURN_RET(param->startParam.levelCnt != 0 && param->startParam.levelCnt <= QOSM_AUTORATE_MAX_LEVEL_CNT,
         NULL, "level cnt is illegal");
@@ -201,7 +201,7 @@ static QOSM_ICGInfo *QOSM_CreateQosICGInfo(const QOSM_ICGMgrParam *param, bool i
     QOSM_ICGInfo *icgInfo = QOSM_NewQosICGInfo(param);
     QOSM_CHECK_RETURN_RET(icgInfo != NULL, NULL, "malloc icg info failed");
 
-    QOSM_SetQosICGInfo(icgInfo, param, isTest, isResetParam);
+    QOSM_SetQosICGInfo(icgInfo, param, isAutorate, isResetParam);
 
     for (uint8_t i = 0, labelId = 0; i < param->startParam.levelCnt; i++) {
         icgInfo->level[i].qosParam = QOSM_GetQosParamByIndex(param->autorateParam.qosIndex, i);
@@ -220,8 +220,8 @@ static QOSM_ICGInfo *QOSM_CreateQosICGInfo(const QOSM_ICGMgrParam *param, bool i
             continue;
         }
 
-        if (isTest) {
-            icgInfo->level[i].testLabelId = labelId++;
+        if (isAutorate) {
+            icgInfo->level[i].autorateLabelId = labelId++;
         }
 
         icgInfo->levelCnt++;
@@ -304,19 +304,19 @@ static void QOSM_ConfigICG(CM_ICBConnection *connection)
     }
 
     QOSM_LOGI("type: %u, id: %u, test param cbk cnt: %u, level cnt: %u",
-        icgInfo->icbType, icgInfo->icgId, icgInfo->testParamCbkCnt, icgInfo->levelCnt);
+        icgInfo->icbType, icgInfo->icgId, icgInfo->autorateParamCbkCnt, icgInfo->levelCnt);
     // set test param会回调多次，中途不会失败，收到最后一次回调才进入处理流程，若其中有一次失败则整体失败
-    if (icgInfo->isTest) {
+    if (icgInfo->isAutorate) {
         if (connection->errorCode != CM_ICB_SUCCESS) {
-            icgInfo->setTestParamFailed = true;
+            icgInfo->setAutorateParamFailed = true;
         }
-        icgInfo->testParamCbkCnt++;
-        if (icgInfo->testParamCbkCnt < icgInfo->levelCnt) {
+        icgInfo->autorateParamCbkCnt++;
+        if (icgInfo->autorateParamCbkCnt < icgInfo->levelCnt) {
             return;
         }
-        icgInfo->testParamCbkCnt = 0;
+        icgInfo->autorateParamCbkCnt = 0;
     }
-    if (connection->errorCode != CM_ICB_SUCCESS || (icgInfo->isTest && icgInfo->setTestParamFailed)) {
+    if (connection->errorCode != CM_ICB_SUCCESS || (icgInfo->isAutorate && icgInfo->setAutorateParamFailed)) {
         QOSM_LOGE("failed, errorCode=%u", connection->errorCode);
         QOSM_NotifyParamChangedFailCb(icgInfo->qosId, QOSM_PARAM_SETTED);
         SDF_DListElmDel(&g_qosICGList, icgInfo, entry);
@@ -853,8 +853,8 @@ static void QOSM_ExecuteDelayParamTask(QOSM_ICGInfo *icgInfo)
 {
     if (icgInfo->delaySetParam != NULL) {
         QOSM_LOGI("now set param, icg type: %u, id: %u", icgInfo->icbType, icgInfo->icgId);
-        if (icgInfo->isTest) {
-            QOSM_ICGMgrSetTestParamInner(icgInfo->delaySetParam, icgInfo->isResetParam);
+        if (icgInfo->isAutorate) {
+            QOSM_ICGMgrSetAutorateParamInner(icgInfo->delaySetParam, icgInfo->isResetParam);
         } else {
             QOSM_ICGMgrSetParamInner(icgInfo->delaySetParam, icgInfo->isResetParam);
         }
@@ -1101,7 +1101,7 @@ static bool QOSM_IsQosParamEqual(const QOSM_LinkParam *linkParam, const CM_ICBLa
 
 uint8_t QOSM_GetRealLabelId(QOSM_ICGInfo *icgInfo, struct QosLevelLabel *level)
 {
-    return icgInfo->isTest ? level->testLabelId : level->labelId;
+    return icgInfo->isAutorate ? level->autorateLabelId : level->labelId;
 }
 
 bool QOSM_GetLabelId(QOSM_ICGInfo *icgInfo, QOSM_LinkParam *qosParam, uint8_t *labelId)
@@ -1453,7 +1453,7 @@ static uint32_t QOSM_ICGMgrRemoveParamInner(QOSM_ICGInfo *icgInfo)
     return ret;
 }
 
-static void QOSM_SetParamTimeoutCbkInner(void *args, bool isTest)
+static void QOSM_SetParamTimeoutCbkInner(void *args, bool isAutorate)
 {
     uint8_t qosId = (uint8_t)(uintptr_t)args;
     QOSM_ICGInfo *icgInfo = QOSM_FindQosIcbInfoByQosId(qosId);
@@ -1473,7 +1473,7 @@ static void QOSM_SetParamTimeoutCbk(void *args)
     QOSM_SetParamTimeoutCbkInner(args, false);
 }
 
-static void QOSM_SetTestParamTimeoutCbk(void *args)
+static void QOSM_SetAutorateParamTimeoutCbk(void *args)
 {
     QOSM_SetParamTimeoutCbkInner(args, true);
 }
@@ -1498,7 +1498,7 @@ static bool QOSM_DelaySetParam(QOSM_ICGInfo *icgInfo, QOSM_ICGMgrParam *autoRate
     param.period = false;
     param.expires = QOSM_DELAY_SET_PARAM_TIMEOUT_MS;
     param.args = (void *)(uintptr_t)icgInfo->qosId;
-    param.callback = icgInfo->isTest ? QOSM_SetTestParamTimeoutCbk : QOSM_SetParamTimeoutCbk;
+    param.callback = icgInfo->isAutorate ? QOSM_SetAutorateParamTimeoutCbk : QOSM_SetParamTimeoutCbk;
     uint32_t ret = CP_TimerAdd(&icgInfo->delayParamTaskTimerId, &param);
     if (ret != 0) {
         QOSM_LOGE("CP_TimerAdd failed, errno %u", ret);
@@ -1634,12 +1634,12 @@ void QOSM_ICGMgrSetParam(void *param)
     QOSM_ICGListPrint();
 }
 
-static bool QOSM_AssignICGTestParam(CM_ICGTestParam *icgParam, const QOSM_ICGInfo *icgInfo,
+static bool QOSM_AssignICGAutorateParam(CM_ICGAutorateParam *icgParam, const QOSM_ICGInfo *icgInfo,
     const struct QosLevelLabel *level)
 {
     icgParam->type = icgInfo->icbType;
     icgParam->id = icgInfo->icgId;
-    icgParam->labelId = level->testLabelId;
+    icgParam->labelId = level->autorateLabelId;
     icgParam->sduIntervalG2T = level->qosParam->sduIntervalG2T;
     icgParam->sduIntervalT2G = level->qosParam->sduIntervalT2G;
     icgParam->ftG2T = level->qosParam->ftG2T;
@@ -1648,7 +1648,7 @@ static bool QOSM_AssignICGTestParam(CM_ICGTestParam *icgParam, const QOSM_ICGInf
     icgParam->packing = level->qosParam->packing;
     icgParam->framing = level->qosParam->framing;
     icgParam->icbCnt = icgInfo->linkCnt;
-    icgParam->icbParam = (CM_ICBTestParam *)SDF_MemZalloc(sizeof(CM_ICBTestParam) * icgParam->icbCnt);
+    icgParam->icbParam = (CM_ICBAutorateParam *)SDF_MemZalloc(sizeof(CM_ICBAutorateParam) * icgParam->icbCnt);
     QOSM_CHECK_RETURN_RET(icgParam->icbParam != NULL, false, "malloc icbParam failed");
     for (uint8_t i = 0; i < icgParam->icbCnt; i++) {
         icgParam->icbParam[i].id = icgInfo->link[i].icbId;
@@ -1698,7 +1698,7 @@ static void QOSM_AudioDfxInfoSet(struct QOSM_AudioDfxInfo *dfxInfo, QOSM_ICGInfo
     dfxInfo->flowCtrlCb = QOSM_DspFlowCtrlCbk;
 }
 
-static void QOSM_ICGMgrSetTestParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam)
+static void QOSM_ICGMgrSetAutorateParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam)
 {
     QOSM_ICGInfo *icgInfo = QOSM_CreateQosICGInfo(autoRateParam, true, isResetParam);
     if (icgInfo == NULL) {
@@ -1726,9 +1726,9 @@ static void QOSM_ICGMgrSetTestParamInner(QOSM_ICGMgrParam *autoRateParam, bool i
                 icgInfo->level[i].qosParam->downwardBitrate);
             continue;
         }
-        CM_ICGTestParam icgParam = {};
-        if (!QOSM_AssignICGTestParam(&icgParam, icgInfo, &icgInfo->level[i])) {
-            QOSM_LOGE("QOSM_AssignICGTestParam failed");
+        CM_ICGAutorateParam icgParam = {};
+        if (!QOSM_AssignICGAutorateParam(&icgParam, icgInfo, &icgInfo->level[i])) {
+            QOSM_LOGE("QOSM_AssignICGAutorateParam failed");
             goto FAILED;
         }
         dfxInfo.param.sduInterval = icgParam.sduIntervalG2T;
@@ -1736,10 +1736,10 @@ static void QOSM_ICGMgrSetTestParamInner(QOSM_ICGMgrParam *autoRateParam, bool i
         if (icgParam.icbCnt > 0) {
             dfxInfo.param.bn = icgParam.icbParam[0].bnG2T;
         }
-        uint32_t ret = CM_ICGSetTestParam(&icgParam, icgInfo->supportAutorate);
+        uint32_t ret = CM_ICGSetAutorateParam(&icgParam, icgInfo->supportAutorate);
         SDF_MemFree(icgParam.icbParam);
         if (ret != CM_SUCCESS) {
-            QOSM_LOGE("CM_ICGSetTestParam failed, ret=%08x", ret);
+            QOSM_LOGE("CM_ICGSetAutorateParam failed, ret=%08x", ret);
             goto FAILED;
         }
     }
@@ -1755,7 +1755,7 @@ FAILED:
     QOSM_NotifyParamChangedFailCb(autoRateParam->autorateParam.qosId, QOSM_PARAM_SETTED);
 }
 
-void QOSM_ICGMgrSetTestParam(void *param)
+void QOSM_ICGMgrSetAutorateParam(void *param)
 {
     QOSM_ICGMgrParam *autoRateParam = (QOSM_ICGMgrParam *)param;
     QOSM_CHECK_RETURN(autoRateParam != NULL, "param is null");
@@ -1798,7 +1798,7 @@ void QOSM_ICGMgrSetTestParam(void *param)
         return;
     }
 
-    QOSM_ICGMgrSetTestParamInner(autoRateParam, false);
+    QOSM_ICGMgrSetAutorateParamInner(autoRateParam, false);
     QOSM_ICGListPrint();
 }
 

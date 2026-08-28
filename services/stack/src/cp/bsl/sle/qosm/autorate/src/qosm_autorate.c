@@ -95,9 +95,9 @@ uint32_t QOSM_AutoRateSetParam(const QOSM_AutoRateParam *param)
     return QOSM_AutoRateSetParamInner(param, QOSM_ICGMgrSetParam);
 }
 
-uint32_t QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param)
+uint32_t QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param)
 {
-    return QOSM_AutoRateSetParamInner(param, QOSM_ICGMgrSetTestParam);
+    return QOSM_AutoRateSetParamInner(param, QOSM_ICGMgrSetAutorateParam);
 }
 
 uint32_t QOSM_AutoRateRemoveParam(uint8_t qosId)

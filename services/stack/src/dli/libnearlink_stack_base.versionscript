@@ -71,7 +71,7 @@
       "*DLI_SetMeasureParam*";
       "*DLI_SetMeasureEnable*";
       "*DLI_SetICGParam*";
-      "*DLI_SetICGTestParam*";
+      "*DLI_SetICGAutorateParam*";
       "*DLI_RemoveICGParam*";
       "*DLI_SetICGLabel*";
       "*DLI_CreateICB*";
@@ -83,7 +83,6 @@
       "*DLI_UpdateICGParam*";
       "*DLI_AddDeviceToAcceptFilterList*";
       "*DLI_GetAcbDataLen*";
-      "*DLI_IsSupportNewDisMeasure*";
       "*DLI_IsSupportConnBypassAdv*";
   local:
     *;

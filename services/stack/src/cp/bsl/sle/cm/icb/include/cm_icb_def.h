@@ -144,7 +144,7 @@ typedef struct {
     uint8_t bnG2T;                      /* 0x00	G到T方向上没有ICB数据包
                                            0x01-0x0F	G到T方向上每一个IMB每个间隔内传输新ICB数据包的个数 */
     uint8_t bnT2G;
-} CM_ICBTestParam;
+} CM_ICBAutorateParam;
 #pragma pack()
 
 typedef struct {
@@ -161,8 +161,8 @@ typedef struct {
     uint8_t packing;                    /* 当前仅支持交叉 */
     uint8_t framing;                    /* 当前仅支持未切分 */
     uint8_t icbCnt;
-    CM_ICBTestParam *icbParam;
-} CM_ICGTestParam;
+    CM_ICBAutorateParam *icbParam;
+} CM_ICGAutorateParam;
 
 typedef struct {
     uint16_t connHandle;

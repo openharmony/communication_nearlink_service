@@ -104,7 +104,7 @@ uint32_t CM_ICBMgrSetParam(DLI_ICGParam *param);
  * @param  [in]  < param > 同步链路test参数
  * @return CM_SUCCESS: 成功, OTHER: 失败
  */
-uint32_t CM_ICBMgrSetTestParam(DLI_ICGTestParam *param, bool mcast, bool supportAutorate);
+uint32_t CM_ICBMgrSetAutorateParam(DLI_ICGAutorateParam *param, bool mcast, bool supportAutorate);
 
 /**
  * @brief  删除同步链路参数

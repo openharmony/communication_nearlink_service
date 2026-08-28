@@ -315,7 +315,7 @@ uint32_t DLI_SetICGParam(DLI_ICGParam *param, DLI_ICGCbkParam *cbkParam)
     return 0;
 }
 
-uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam)
+uint32_t DLI_SetICGAutorateParam(DLI_ICGAutorateParam *param, DLI_ICGCbkParam *cbkParam)
 {
     return 0;
 }
@@ -340,12 +340,7 @@ uint32_t DLI_EnableIMGEncryption(DLI_IMGEncryptParam *param)
     return 0;
 }
 
-bool DLI_IsSupportNewDisMeasure()
-{
-    return false;
-}
-
-uint32_t DLI_SetICGTestParamExt(DLI_ICGTestParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
+uint32_t DLI_SetICGAutorateParamExt(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
 {
     return 0;
 }

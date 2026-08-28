@@ -27,7 +27,7 @@ uint32_t TEST_QOSM_AutoRateRegisterCallback(const QOSM_AutoRateCallback *callbac
 
 uint32_t TEST_QOSM_AutoRateUnregisterCallback(void);
 
-uint32_t TEST_QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param);
+uint32_t AUTORATE_QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param);
 
 uint32_t TEST_QOSM_AutoRateAddConnection(const QOSM_AutoRateConnParam *callback);
 

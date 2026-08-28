@@ -153,7 +153,7 @@ typedef struct {
     uint8_t framing;                    /* 当前仅支持未切分 */
     uint8_t paramCnt;
     uint8_t param[0];
-} DLI_SetICGTestParameter;
+} DLI_SetICGAutorateParameter;
 
 typedef struct {
     uint8_t id;                         /* 用于标识一个ICG，取值范围[0x00,0xEF] */
@@ -196,38 +196,6 @@ typedef struct DLI_ScanParam {
 typedef struct {
     uint8_t mediaAccessLayerIDType; /*!< 媒体接入层标识类型 */
 } DLI_PublicAddrParam;
-
-typedef struct {
-    uint16_t connHandle;
-    uint8_t configId;                   /*!< 位置测量信号配置索引 */
-    uint8_t schedulingTimeslot;         /*!< 系统调度时隙 */
-    uint8_t rttPhy;                     /*!< 测量信号带宽指示 */
-    uint8_t freqHoppingMode;            /*!< 跳频方式指示 */
-    uint16_t fmFreq;                    /*!< 初始化阶段的频点 */
-    uint16_t fmInteractionType;         /*!< 初始化阶段交互类型指示，和glp有关 stepmode */
-    uint16_t occurrenceGroupPeriod;     /*!< 事件组周期 */
-    uint16_t fmOccurrenceGroupInterval; /*!< 初始化阶段事件间间隔, t_fc */
-    uint16_t pmMeasureType1Interval;    /*!< 测量帧类型1 事件间间隔 t_pm_type1 */
-    uint16_t pmMeasureType2Interval;    /*!< 测量帧类型2 事件间间隔 t_pm_type2 */
-    uint16_t fmTIp1Time;                /*!< 初始化阶段事件内间隔 t_ip1 120 */
-    uint16_t pmTIp2Time;                /*!< 事件内间隔 t_ip2 */
-    uint8_t fmTGuard;                   /*!< 初始化阶段的测量帧的内部切换间隔  t_guard 默认配10 */
-    uint8_t fmSignal2Length;            /*!< 初始化阶段的测量信号2的长度,t_fm */
-    uint8_t pmInitAntCount;             /*!< 先发节点天线数量指示 */
-    uint8_t pmInitSignal2Tone;          /*!< 先发链路测量信号2 多音指示 */
-    uint8_t pmReflAntCount;             /*!< 后发节点天线数量指示 */
-    uint8_t pmReflSignal2Tone;          /*!< 后发链路测量信号2 多音指示 */
-    uint8_t pmFreqHoppingBand;          /*!< 跳频频带 */
-    uint8_t pm2400mBand[SLE_MEASURE_PM_24G_BAND_LEN]; /* 2.4GHz 跳频信道指示 */
-    uint8_t glpMode;
-    uint8_t sleHadmMode;  /*!< slehadm的模式 */
-    uint8_t isCsParamChg; /*!< 是否需要更改测距连接参数，0：不需要更改，1：需要更改（首次设置参数需置0）[车钥匙应用] */
-    uint8_t freqSpace;    /*!< 频率间隔， 0：1M， 1：2M */
-    uint8_t conAnchorNum; /*!< 需要连接的锚点数量 */
-    uint8_t refreshRate;  /*!< 刷新率,1：高频刷新，2：中频刷新；4：低频刷新 */
-    uint16_t acbInterval; /*!< 根据参数计算的acb周期 */
-    uint16_t csInterval;  /*!< 根据参数计算的测距周期 */
-} DLI_MeasureConfigExtParam;   // 与HadmSoundingParam_S相差一个connHandle
 
 #pragma pack()
 

@@ -106,7 +106,7 @@ void QOSM_ICGMgrSetParam(void *param)
 {
 }
 
-void QOSM_ICGMgrSetTestParam(void *param)
+void QOSM_ICGMgrSetAutorateParam(void *param)
 {
 }
 
@@ -259,7 +259,7 @@ TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateSetParam)
     EXPECT_EQ(QOSM_AutoRateSetParam(&param), QOSM_SUCCESS);
 }
 
-TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateSetTestParam)
+TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateSetAutorateParam)
 {
     QOSM_AutoRateParam param = {0};
     param.qosId = 0;
@@ -268,10 +268,10 @@ TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateSetTestParam)
     param.qosIndex = QOSM_QOSINDEX_AUDIO;
 
     g_cpPostRet = 1;
-    EXPECT_EQ(QOSM_AutoRateSetTestParam(&param), QOSM_POST_TASK_ERR);
+    EXPECT_EQ(QOSM_AutoRateSetAutorateParam(&param), QOSM_POST_TASK_ERR);
 
     g_cpPostRet = CP_OK;
-    EXPECT_EQ(QOSM_AutoRateSetTestParam(&param), QOSM_SUCCESS);
+    EXPECT_EQ(QOSM_AutoRateSetAutorateParam(&param), QOSM_SUCCESS);
 }
 
 TEST_F(UT_QOSM_AUTORATE_TEST, QOSM_AutoRateRemoveParam)

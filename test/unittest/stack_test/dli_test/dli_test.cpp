@@ -514,9 +514,9 @@ HWTEST_F(DliTest, TestCaseSendIcbCmd, TestSize.Level1)
     uint32_t ret = DLI_SetICGParam(&freqParam, &cbkParam);
     ASSERT_EQ(0, ret);
 
-    DLI_ICGTestParam testParam = {0};
-    testParam.opCode = DLI_SET_IMG_PARAM_TEST;
-    ret = DLI_SetICGTestParam(&testParam, &cbkParam);
+    DLI_ICGAutorateParam autorateParam = {0};
+    autorateParam.opCode = DLI_SET_IMG_PARAM_AUTORATE;
+    ret = DLI_SetICGAutorateParam(&autorateParam, &cbkParam);
     ASSERT_EQ(0, ret);
 
     DLI_CmdOpcode opcode = DLI_REMOVE_ICB_DATA_PATH;

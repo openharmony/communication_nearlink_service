@@ -114,7 +114,7 @@ protected:
 
         EXPECT_CALL(qosmMock, QOSM_AutoRateRegisterCallback).WillRepeatedly(TEST_QOSM_AutoRateRegisterCallback);
         EXPECT_CALL(qosmMock, QOSM_AutoRateUnregisterCallback).WillRepeatedly(TEST_QOSM_AutoRateUnregisterCallback);
-        EXPECT_CALL(qosmMock, QOSM_AutoRateSetTestParam).WillRepeatedly(TEST_QOSM_AutoRateSetTestParam);
+        EXPECT_CALL(qosmMock, QOSM_AutoRateSetAutorateParam).WillRepeatedly(AUTORATE_QOSM_AutoRateSetAutorateParam);
         EXPECT_CALL(qosmMock, QOSM_AutoRateAddConnection).WillRepeatedly(TEST_QOSM_AutoRateAddConnection);
         EXPECT_CALL(qosmMock, QOSM_AutoRateAddDataPath).WillRepeatedly(TEST_QOSM_AutoRateAddDataPath);
         EXPECT_CALL(qosmMock, QOSM_AutoRateDeleteDataPath).WillRepeatedly(TEST_QOSM_AutoRateDeleteDataPath);

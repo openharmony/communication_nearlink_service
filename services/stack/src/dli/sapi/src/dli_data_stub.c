@@ -120,11 +120,6 @@ void SleReset()
     return;
 }
 
-int GetDliVersion(void)
-{
-    return 1;
-}
-
 void SleHalClose(void)
 {
     free(g_dliCb);

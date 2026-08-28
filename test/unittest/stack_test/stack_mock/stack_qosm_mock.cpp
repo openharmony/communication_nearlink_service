@@ -50,9 +50,9 @@ uint32_t QOSM_AutoRateUnregisterCallback(void)
     return QosmMock()->QOSM_AutoRateUnregisterCallback();
 }
 
-uint32_t QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param)
+uint32_t QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param)
 {
-    return QosmMock()->QOSM_AutoRateSetTestParam(param);
+    return QosmMock()->QOSM_AutoRateSetAutorateParam(param);
 }
 
 uint32_t QOSM_AutoRateAddConnection(const QOSM_AutoRateConnParam *callback)

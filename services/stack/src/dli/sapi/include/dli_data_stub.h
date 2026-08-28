@@ -67,7 +67,6 @@ void SleReset();
 
 // send to dli
 void SleSendToDliStub(SlePacketType type, const SlePacket *packet);
-int GetDliVersion(void);
 #endif
 #ifdef __cplusplus
 }

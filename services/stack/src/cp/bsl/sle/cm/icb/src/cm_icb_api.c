@@ -101,7 +101,7 @@ uint32_t CM_ICGSetParam(CM_ICGParam *icgParam)
     return CM_SUCCESS;
 }
 
-uint32_t CM_ICGSetTestParam(CM_ICGTestParam *icgParam, bool supportAutorate)
+uint32_t CM_ICGSetAutorateParam(CM_ICGAutorateParam *icgParam, bool supportAutorate)
 {
     CM_CHECK_RETURN_RET(CM_ICBIsInited(), CM_NOT_INITED, "icb mgr is not inited");
     CM_CHECK_RETURN_RET(icgParam != NULL && icgParam->icbParam != NULL, CM_INVALID_PARAM_ERR, "icgParam is null");
@@ -109,9 +109,9 @@ uint32_t CM_ICGSetTestParam(CM_ICGTestParam *icgParam, bool supportAutorate)
     CM_CHECK_RETURN_RET(icgParam->icbCnt != 0, CM_INVALID_PARAM_ERR, "param count is 0");
     CM_CHECK_RETURN_RET(icgParam->icbCnt <= CM_MAX_CHANNEL_COUNT, CM_INVALID_PARAM_ERR, "param count is over max");
 
-    DLI_ICGTestParam param = {};
+    DLI_ICGAutorateParam param = {};
     param.type = icgParam->type;
-    param.opCode = (icgParam->type == CM_IMB) ? DLI_SET_IMG_PARAM_TEST : DLI_SET_IOG_PARAM_TEST;
+    param.opCode = (icgParam->type == CM_IMB) ? DLI_SET_IMG_PARAM_AUTORATE : DLI_SET_IOG_PARAM_AUTORATE;
     param.id = icgParam->id;
     param.labelId = icgParam->labelId;
     param.sduIntervalG2T = icgParam->sduIntervalG2T;
@@ -123,16 +123,16 @@ uint32_t CM_ICGSetTestParam(CM_ICGTestParam *icgParam, bool supportAutorate)
     param.packing = icgParam->packing;
     param.framing = icgParam->framing;
     param.paramCnt = icgParam->icbCnt;
-    param.icbParam = (DLI_ICBTestParam *)icgParam->icbParam; // DLI_ICBTestParam与CM_ICBTestParam定义相同，所以可以强转
+    param.icbParam = (DLI_ICBAutorateParam *)icgParam->icbParam; // DLI_ICBAutorateParam与CM_ICBAutorateParam定义相同，所以可以强转
     CM_LOGI("type: %u, opcode: 0x%04x, id: %u, label id: %u, sdu interval g2t: %u,"
         " sdu interval t2g: %u, ft g2t: %u, ft t2g: %d, icb interval: %u, sca: %u, packing: %u,"
         " framing: %u, param count: %u",
         param.type, param.opCode, param.id, param.labelId, param.sduIntervalG2T,
         param.sduIntervalT2G, param.ftG2T, param.ftT2G, param.icbInterval, param.sca, param.packing,
         param.framing, param.paramCnt);
-    uint32_t ret = CM_ICBMgrSetTestParam(&param, icgParam->type == CM_IMB, supportAutorate);
+    uint32_t ret = CM_ICBMgrSetAutorateParam(&param, icgParam->type == CM_IMB, supportAutorate);
     if (ret != CM_ICB_SUCCESS) {
-        CM_LOGE("CM_ICBMgrSetTestParam failed, ret:%8x", ret);
+        CM_LOGE("CM_ICBMgrSetAutorateParam failed, ret:%8x", ret);
         return CM_FAIL;
     }
     return CM_SUCCESS;

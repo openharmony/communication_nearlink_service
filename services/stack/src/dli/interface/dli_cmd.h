@@ -348,7 +348,7 @@ uint32_t DLI_SetICGParam(DLI_ICGParam *param, DLI_ICGCbkParam *cbkParam);
  * @param  [in]  < cbkParam > 回调参数
  * @return DLI_SUCCESS: 成功, OTHER: 失败
  */
-uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam);
+uint32_t DLI_SetICGAutorateParam(DLI_ICGAutorateParam *param, DLI_ICGCbkParam *cbkParam);
 
 /**
  * @brief  移除同步链路参数
@@ -414,12 +414,6 @@ uint16_t DLI_GetAcbDataLen(void);
  * @return 0: 成功, OTHER: 失败
  */
 uint32_t DLI_SetCmd(DLI_CmdParams *params);
-
-/**
- * @brief  是否支持标准版测距命令
- * @return true: 支持, false: 不支持
- */
-bool DLI_IsSupportNewDisMeasure(void);
 
 /**
  * @brief  是否支持bypass自动回连特性

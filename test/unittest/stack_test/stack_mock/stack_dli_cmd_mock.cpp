@@ -84,10 +84,5 @@ uint32_t DLI_ReadLocalMeasureCaps(void)
     return 0;
 }
 
-bool DLI_IsSupportNewDisMeasure(void)
-{
-    return false;
-}
-
 }
 }

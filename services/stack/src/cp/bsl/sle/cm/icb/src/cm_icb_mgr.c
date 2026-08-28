@@ -1181,18 +1181,18 @@ uint32_t CM_ICBMgrSetParam(DLI_ICGParam *param)
     return errorCode;
 }
 
-uint32_t CM_ICBMgrSetTestParam(DLI_ICGTestParam *param, bool mcast, bool supportAutorate)
+uint32_t CM_ICBMgrSetAutorateParam(DLI_ICGAutorateParam *param, bool mcast, bool supportAutorate)
 {
     DLI_ICGCbkParam cbkParam = {};
     cbkParam.type = param->type;
     cbkParam.id = param->id;
     cbkParam.connHandleNum = 0;
     if (supportAutorate) {
-        if (DLI_SetICGTestParamExt(param, mcast, &cbkParam) == DLI_SUCCESS) {
+        if (DLI_SetICGAutorateParamExt(param, mcast, &cbkParam) == DLI_SUCCESS) {
             return CM_ICB_SUCCESS;
         }
     } else {
-        if (DLI_SetICGTestParam(param, &cbkParam) == DLI_SUCCESS) {
+        if (DLI_SetICGAutorateParam(param, &cbkParam) == DLI_SUCCESS) {
             return CM_ICB_SUCCESS;
         }
     }

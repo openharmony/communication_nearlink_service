@@ -431,7 +431,7 @@ typedef struct {
     uint8_t id;                         /* 用于标识一个ICG，取值范围[0x00,0xEF] */
 } DLI_ICGRemoveParam;
 
-typedef struct DLI_ICBTestParam {
+typedef struct DLI_ICBAutorateParam {
     uint8_t id;                         /* 用于标识一个ICB，取值范围[0x00,0xEF] */
     uint8_t nse;                        /* 0x01-0x1F	在IMG中每一个IMB每个间隔内的子事件个数 */
     uint16_t maxSduG2T;                 /* G到T最大SDU Payload字节数 */
@@ -471,7 +471,7 @@ typedef struct DLI_ICBTestParam {
     uint8_t bnG2T;                      /* 0x00	G到T方向上没有ICB数据包
                                            0x01-0x0F	G到T方向上每一个IMB每个间隔内传输新ICB数据包的个数 */
     uint8_t bnT2G;
-} DLI_ICBTestParam;
+} DLI_ICBAutorateParam;
 
 typedef struct {
     uint8_t type;                       /* 详见CM_ICBType */
@@ -488,8 +488,8 @@ typedef struct {
     uint8_t packing;                    /* 当前仅支持交叉 */
     uint8_t framing;                    /* 当前仅支持未切分 */
     uint8_t paramCnt;
-    DLI_ICBTestParam *icbParam;
-} DLI_ICGTestParam;
+    DLI_ICBAutorateParam *icbParam;
+} DLI_ICGAutorateParam;
 
 typedef struct {
     uint16_t connHandle;

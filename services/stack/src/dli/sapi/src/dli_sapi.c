@@ -108,11 +108,6 @@ int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase)
     return ret;
 }
 
-int DLI_GetDliVersion(void)
-{
-    return GetDliVersion();
-}
-
 #ifdef __cplusplus
 }
 #endif

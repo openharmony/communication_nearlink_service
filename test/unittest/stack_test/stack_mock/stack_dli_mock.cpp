@@ -92,10 +92,5 @@ uint32_t DLI_EncryptionParamReqReply(DLI_EncryptReqReplyParam *param)
 {
     return 0;
 }
-
-bool DLI_IsSupportNewDisMeasure()
-{
-    return false;
-}
 }
 } // namespace OHOS

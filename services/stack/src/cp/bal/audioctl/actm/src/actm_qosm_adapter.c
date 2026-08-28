@@ -366,7 +366,7 @@ void ActmSetQosmParam(ActmRemoteDevice_S *device, ActmStream_S *stream)
     param.lcidCnt = GetLcidParam(group, param.lcid);
     NLSTK_LOG_INFO("[ACTM] set qosm param, icgId: %d, qos index: %d, start bitrate: %u", param.qosId, param.qosIndex,
         param.bitrate);
-    if (QOSM_AutoRateSetTestParam(&param) != QOSM_SUCCESS) {
+    if (QOSM_AutoRateSetAutorateParam(&param) != QOSM_SUCCESS) {
         NLSTK_LOG_ERROR("[ACTM] set qosm param failed");
         NotifyQosmError(device);
         return;

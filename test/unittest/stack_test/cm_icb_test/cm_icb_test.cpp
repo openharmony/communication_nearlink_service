@@ -156,17 +156,17 @@ TEST_F(UT_CM_ICB_TEST, CM_ICGSetParam)
     SDF_MemFree(icbParam);
 }
 
-TEST_F(UT_CM_ICB_TEST, CM_ICGSetTestParam)
+TEST_F(UT_CM_ICB_TEST, CM_ICGSetAutorateParam)
 {
-    CM_ICGTestParam *icgParam = (CM_ICGTestParam *)SDF_MemZalloc(sizeof(CM_ICGTestParam));
+    CM_ICGAutorateParam *icgParam = (CM_ICGAutorateParam *)SDF_MemZalloc(sizeof(CM_ICGAutorateParam));
     EXPECT_NE(icgParam, nullptr);
-    CM_ICBTestParam *icbParam = (CM_ICBTestParam *)SDF_MemZalloc(sizeof(CM_ICBTestParam));
+    CM_ICBAutorateParam *icbParam = (CM_ICBAutorateParam *)SDF_MemZalloc(sizeof(CM_ICBAutorateParam));
     EXPECT_NE(icbParam, nullptr);
     icgParam->icbParam = icbParam;
     icgParam->icbCnt = 1;
     // ext wrapper func is null, return 0
-    EXPECT_EQ(CM_ICGSetTestParam(icgParam, true), CM_SUCCESS);
-    EXPECT_NE(CM_ICGSetTestParam(icgParam, false), CM_SUCCESS);
+    EXPECT_EQ(CM_ICGSetAutorateParam(icgParam, true), CM_SUCCESS);
+    EXPECT_NE(CM_ICGSetAutorateParam(icgParam, false), CM_SUCCESS);
     SDF_MemFree(icgParam);
     SDF_MemFree(icbParam);
 }

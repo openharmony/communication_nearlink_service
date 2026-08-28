@@ -212,11 +212,6 @@ uint32_t DLI_RemoveAdvSet(uint8_t advHandle)
     return DLI_SUCCESS;
 }
 
-bool DLI_IsSupportNewDisMeasure(void)
-{
-    return false;
-}
-
 uint32_t DLI_SetScanRspData(DLI_ScanRspData *scanRspData)
 {
     DLI_LOGI("[DEVD_API_TEST] enter stub DLI_SetScanRspData");

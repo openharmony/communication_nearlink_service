@@ -14,6 +14,7 @@
  */
 #include "dli_hadm_event.h"
 #include <stddef.h>
+#include <stdbool.h>
 #include "dli_opcode.h"
 #include "dli_log.h"
 #include "dli_event.h"
@@ -21,13 +22,6 @@
 
 #define SLE_IQ_MAX_CHNL_NUM 79
 static uint32_t DLI_GetSlemInfoDataLen(DLI_CsIqReportEvt *evt);
-
-static DLI_IsSupportNewDisMeasurePtr g_isSupportNewDisMeasure = NULL;
-
-void DLI_HadmEventSetIsSupportNewDisMeasure(DLI_IsSupportNewDisMeasurePtr func)
-{
-    g_isSupportNewDisMeasure = func;
-}
 
 void DLI_CsIqReportCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcode)
 {
@@ -70,22 +64,9 @@ void DLI_ReadRemoteCsCapsCbk(void *context, void *arg, uint32_t len, uint16_t ev
     }
 
     DLI_ReadRemoteCsCapsEvt data = {0};
-    if (g_isSupportNewDisMeasure == NULL) {
-        DLI_LOGW("isSupportNewDisMeasure not registered, skip callback");
-        return;
-    }
-    if (g_isSupportNewDisMeasure()) {
-        data.status = param->status;
-        data.connHandle = param->connHandle;
-        memcpy_s(&data.caps, sizeof(DLI_ReadCsCapsEvt), &caps, sizeof(DLI_ReadCsCapsEvt));
-    } else {
-        if (len >= sizeof(DLI_ReadRemoteCsCapsEvt)) {
-            memcpy_s(&data, sizeof(DLI_ReadRemoteCsCapsEvt), arg, sizeof(DLI_ReadRemoteCsCapsEvt));
-        } else {
-            DLI_LOGE("check len=%u, minDataLen=%u", len, sizeof(DLI_ReadRemoteCsCapsEvt));
-            return;
-        }
-    }
+    data.status = param->status;
+    data.connHandle = param->connHandle;
+    memcpy_s(&data.caps, sizeof(DLI_ReadCsCapsEvt), &caps, sizeof(DLI_ReadCsCapsEvt));
 
     DLI_RunRegCbk(DLI_CBK_READ_REMOTE_MEASURE_CAPS,
         context,
