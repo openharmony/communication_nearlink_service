@@ -75,23 +75,29 @@ void CM_SetSendSignalingDataCbk(CM_SendSignalingDataCbk cbk)
 int CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
 {
     if (info == NULL || buff == NULL || SDF_DataLenGet(buff) < sizeof(uint8_t)) {
-        return 0;
+        return CM_FAIL;
     }
 
     uint8_t code = *(SDF_DataOffset(buff));
-    CM_LOGI("CM_DataRecv code 0x%02x, lcid 0x%04x dataLen %lu",
+    CM_LOGI("CM_DataRecv code 0x%02x, lcid 0x%04x dataLen %llu",
         code, info->lcid, SDF_BuffLenGet(buff));
-    CM_SignalingHandle handle = CM_SignalingGetManagerHandler(code);
-    if (handle == NULL) {
-        return 0;
+    const CM_Signaling_S *signaling = CM_SignalingGet(code);
+    if (signaling == NULL || signaling->handle == NULL) {
+        return CM_FAIL;
     }
     CM_SignalingHead_S *head = CM_ParseSignalingBuff(buff);
     if (head == NULL) {
-        return 0;
+        return CM_FAIL;
     }
-    handle(info->lcid, head);
-    CM_SignalingCacheRemove(head->identifier, code);
-    return 0;
+
+    if (code != signaling->requestCode &&
+        !CM_SignalingCacheRemove(info->lcid, head->identifier, signaling->requestCode)) {
+        CM_LOGE("recv invalid signaling response");
+        return CM_FAIL;
+    }
+
+    signaling->handle(info->lcid, head);
+    return CM_SUCCESS;
 }
 
 static uint8_t g_stubType = CM_DEVTYPE_NEW;
