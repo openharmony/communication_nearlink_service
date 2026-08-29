@@ -225,9 +225,10 @@ static void SendPairingCfm(SmSLink_S *slink)
     /* 发送公钥 */
     (void)memcpy_s(msg.gNodePubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
     bool ret = SmSendMessage(slink, SM_NEGO_PAIRING_CONFIRM, (const uint8_t *)&msg, sizeof(SmPairCfmMsg_S));
+    /* 发送后立即清零（无论成败），失败路径提前 return 也不残留私钥 */
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
     NLSTK_CHECK_RETURN_VOID(ret == true, "[SM] Send Message failed.");
     SmSLinkWaitExpectOpCode(slink, SM_NEGO_PAIRING_INIT_INFO, SM_RECV_TIMEOUT_TIME);
-    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
