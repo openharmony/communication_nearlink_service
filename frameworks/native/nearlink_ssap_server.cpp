@@ -454,11 +454,12 @@ NlErrCode SsapServer::AddService(SsapService &service)
     for (auto &proper : service.GetProperty()) {
         size_t length = 0;
         uint8_t *value = proper.GetValue(&length).get();
-        if (value == nullptr || length == 0) {
-            HILOGW("property handle=%{public}d value is empty, skip.", proper.GetHandle());
-            continue;
+        std::vector<uint8_t> vecValue;
+        if (value != nullptr && length > 0) {
+            vecValue.assign(value, value + length);
+        } else {
+            HILOGW("property handle=%{public}d value is empty.", proper.GetHandle());
         }
-        std::vector<uint8_t> vecValue(value, value + length);
         Property p(proper.GetHandle(),
             Uuid::ConvertFrom128Bits(proper.GetUuid().ConvertTo128Bits()),
             vecValue,
@@ -467,11 +468,12 @@ NlErrCode SsapServer::AddService(SsapService &service)
 
         for (auto &desc : proper.GetDescriptors()) {
             value = desc.GetValue(&length).get();
-            if (value == nullptr || length == 0) {
-                HILOGW("descriptor handle=%{public}d value is empty, skip.", desc.GetHandle());
-                continue;
+            std::vector<uint8_t> temp;
+            if (value != nullptr && length > 0) {
+                temp.assign(value, value + length);
+            } else {
+                HILOGW("descriptor handle=%{public}d value is empty.", desc.GetHandle());
             }
-            std::vector<uint8_t> temp(value, value + length);
             vecValue = std::move(temp);
             Descriptor d(desc.GetHandle(),
                 desc.GetDescriptorType(),
