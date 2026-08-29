@@ -250,7 +250,6 @@ static void CM_SleSetDataLenProc(void *context, uint8_t result, const CM_Execute
         return;
     }
     // SetDataLen 成功完成，datalen已生效，通知各模块连接已建立
-    CM_LOGI("notify ssap connected, lcid:0x%04x", connectRsp->lcid);
     SleLogicLink_S *link = SleLogicLinkGetByLcid(connectRsp->lcid);
     if (link == NULL) {
         CM_LOGE("set data len proc success, link is not exists");
