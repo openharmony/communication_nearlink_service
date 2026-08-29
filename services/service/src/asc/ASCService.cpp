@@ -6907,7 +6907,7 @@ void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
     ASCState state = GetASCStatus(device);
     uint16_t subrate = event.subrate_;
     HILOGI("[ASCService] %{public}s subrate: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), subrate);
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate);
     // subrate1互斥：全部回调成功后若存在两路以上subrate1，一起切subrate2
     ContrSubrateOneNumInMulConn(device, subrate);
 
@@ -6954,6 +6954,9 @@ void ASCService::AcbSubrateChangeReq(const RawAddress &device, const SleAcbSubra
 
 bool ASCService::IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam)
 {
+    if (GetASCSubRateStatus(device) == NL_SLE_ASC_SETTING) { 
+        return false; 
+    }
     if (IsRejectInActivateDeviceReq(device, eventParam.subrate)) {
         return false;
     }
@@ -7110,7 +7113,7 @@ void ASCService::SetSubrate(const RawAddress &device, const SleAcbSubrateParam &
 {
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTING);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate);
     bool ret = false;
     ServiceManagerPluginLoader::GetInstance()->SetAcbSubrate(ret, device, subrateParam);
     if (!ret) {
