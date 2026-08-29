@@ -425,7 +425,6 @@ static void HidOnReadReportIndexInReadPropertyState(HidDevice_S *dev, HidReadPro
     }
 }
 
-
 static void HidOnReadReportInfoInReadPropertyState(HidDevice_S *dev, HidReadPropertyMsg_S * readMsg)
 {
     size_t index = 0;
