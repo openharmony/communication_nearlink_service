@@ -6907,7 +6907,7 @@ void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
     ASCState state = GetASCStatus(device);
     uint16_t subrate = event.subrate_;
     HILOGI("[ASCService] %{public}s subrate: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), subrate);
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED);
     // subrate1互斥：全部回调成功后若存在两路以上subrate1，一起切subrate2
     ContrSubrateOneNumInMulConn(device, subrate);
 
