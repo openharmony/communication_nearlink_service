@@ -21,6 +21,7 @@
 #include "SleServiceManager.h"
 #include "SleInterfaceProfileCdsm.h"
 #include "SleInterfaceProfileTws.h"
+#include "SleInterfaceProfileHidHost.h"
 #include "SleInterfaceProfile.h"
 #include "SleInterfaceProfileManager.h"
 #include "interface_cloud_pair_service.h"
@@ -1411,13 +1412,21 @@ void SleRemoteDeviceAdapter::SaveDeviceManufacturerAbility(const RawAddress &raw
 
 void SleRemoteDeviceAdapter::SaveDeviceManufacturerAbilityInner(const RawAddress &rawAddr)
 {
-    std::array<uint8_t, SLE_MANU_ABILITY_LEN> manfacturerAbility =
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> manufacturerAbility =
         SleRemoteDeviceManager::GetInstance()->GetManufacturerAbility(rawAddr);
+    ManufacturerAbilityLoader::GetInstance().FilterAbility(manufacturerAbility);
+
     ProfileTws *twsService = static_cast<ProfileTws *>(
-            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
-    NL_CHECK_RETURN(twsService != nullptr, "[SleRemoteDeviceAdapter]tws service instance invalid");
-    ManufacturerAbilityLoader::GetInstance().FilterAbility(manfacturerAbility);
-    twsService->SetDeviceManufacturerAbility(rawAddr, manfacturerAbility);
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
+    if (twsService != nullptr) {
+        twsService->SetDeviceManufacturerAbility(rawAddr, manufacturerAbility);
+    }
+
+    ProfileHidHost *hidService = static_cast<ProfileHidHost *>(
+        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_HID_HOST));
+    if (hidService != nullptr) {
+        hidService->SetDeviceManufacturerAbility(rawAddr, manufacturerAbility);
+    }
 }
 
 void SleRemoteDeviceAdapter::SavePairDirect(int connDirect, const RawAddress &device)
