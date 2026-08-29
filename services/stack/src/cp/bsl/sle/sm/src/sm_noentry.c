@@ -179,65 +179,75 @@ static void NoEntryRecvRandNumRb(SmSLink_S *slink, const uint8_t *pkg, size_t si
     SmSLinkWaitUapiInput(slink, SM_RECV_USER_CONFIRM_TIMEOUT_TIME);
 }
 
+static void NoEntryContinueGNode(SmSLink_S *slink)
+{
+    /* 计算DH Key */
+    NLSTK_SmKeyPair_S keyPair;
+    keyPair.algo = slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY];
+    (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, slink->priKey, SM_PRIVATE_KEY_LEN);
+    (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
+    (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
+    if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
+        NLSTK_LOG_ERROR("[SM] G node: dhkey generation failure.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        return;
+    }
+    /* 计算link Key */
+    if (!SmGenLinkKey(slink)) {
+        SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_GEN_LINKKEY_ERR);
+        NLSTK_LOG_ERROR("[SM] G node: Link key generation failure.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        return;
+    }
+    SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_G_AUTH_EXCEP, SM_DFT_G_AUTH_GEN_KEY_TIME);
+    /* 发送DHKey */
+    SmSendGNodeDhKey(slink);
+    SmSLinkWaitExpectOpCode(slink, SM_AUTH_T_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+}
+
+static void NoEntryContinueTNode(SmSLink_S *slink)
+{
+    /* 计算DH Key */
+    NLSTK_SmKeyPair_S keyPair;
+    keyPair.algo = slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY];
+    (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, slink->priKey, SM_PRIVATE_KEY_LEN);
+    (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
+    (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
+    if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
+        NLSTK_LOG_ERROR("[SM] T node: dhkey generation failure.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        return;
+    }
+    /* 计算link Key */
+    if (!SmGenLinkKey(slink)) {
+        SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_GEN_LINKKEY_ERR);
+        NLSTK_LOG_ERROR("[SM] T node: Link key generation failure.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        return;
+    }
+    SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_T_AUTH_EXCEP, SM_DFT_T_AUTH_GEN_KEY_TIME);
+    if (slink->tNode.recvFlag) {
+        slink->tNode.recvFlag = false;
+        SmRecvGNodeDhKey(slink, g_noEntryTNodeRecvDHKey.authData, sizeof(SmAuthDhkeyMsg_S));
+        (void)memset_s(g_noEntryTNodeRecvDHKey.authData, SM_OCTETS_16, 0, SM_OCTETS_16);
+    }
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+}
+
 void SmNoEntryContinueNoentry(SmSLink_S *slink)
 {
     if (slink->role == SM_G_NODE) {
-        /* 计算DH Key */
-        NLSTK_SmKeyPair_S keyPair;
-        keyPair.algo = slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY];
-        (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, slink->priKey, SM_PRIVATE_KEY_LEN);
-        (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
-        (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
-        if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
-            NLSTK_LOG_ERROR("[SM] G node: dhkey generation failure.");
-            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-            (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
-            return;
-        }
-        /* 计算link Key */
-        if (!SmGenLinkKey(slink)) {
-            SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_GEN_LINKKEY_ERR);
-            NLSTK_LOG_ERROR("[SM] G node: Link key generation failure.");
-            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-            (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
-            return;
-        }
-        SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_G_AUTH_EXCEP, SM_DFT_G_AUTH_GEN_KEY_TIME);
-        /* 发送DHKey */
-        SmSendGNodeDhKey(slink);
-        SmSLinkWaitExpectOpCode(slink, SM_AUTH_T_NODE_DHKEY, SM_RECV_TIMEOUT_TIME);
-        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        NoEntryContinueGNode(slink);
     } else {
-        /* 计算DH Key */
-        NLSTK_SmKeyPair_S keyPair;
-        keyPair.algo = slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY];
-        (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, slink->priKey, SM_PRIVATE_KEY_LEN);
-        (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
-        (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, slink->gNode.pubKey, SM_PUBLIC_KEY_LEN);
-        if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
-            NLSTK_LOG_ERROR("[SM] T node: dhkey generation failure.");
-            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-            (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
-            return;
-        }
-        /* 计算link Key */
-        if (!SmGenLinkKey(slink)) {
-            SmDftReport(&slink->rmtAddr, slink->curStateIndex, slink->role, SM_DFT_GEN_LINKKEY_ERR);
-            NLSTK_LOG_ERROR("[SM] T node: Link key generation failure.");
-            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-            (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
-            return;
-        }
-        SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_T_AUTH_EXCEP, SM_DFT_T_AUTH_GEN_KEY_TIME);
-        if (slink->tNode.recvFlag) {
-            slink->tNode.recvFlag = false;
-            SmRecvGNodeDhKey(slink, g_noEntryTNodeRecvDHKey.authData, sizeof(SmAuthDhkeyMsg_S));
-            (void)memset_s(g_noEntryTNodeRecvDHKey.authData, SM_OCTETS_16, 0, SM_OCTETS_16);
-        }
-        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+        NoEntryContinueTNode(slink);
     }
 }
