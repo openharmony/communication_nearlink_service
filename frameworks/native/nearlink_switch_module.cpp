@@ -246,7 +246,10 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
         if (it != cachedEventVec_.begin()) {
             // Ignore the cached events in front of 'expectedEventVec'
             size_t ignoredCnt = static_cast<size_t>(std::distance(cachedEventVec_.begin(), it));
-            RemoveIgnoredCachedEvent(ignoredCnt);
+            RemoveIgnoredCachedEvent(ignoredCnt);   // 会删掉当前状态
+        } else {
+            // 没有需要忽略的事件时删除当前动作事件
+            cachedEventVec_.erase(cachedEventVec_.begin());
         }
         return ProcessNearlinkSwitchCachedEvent(event);
     }
