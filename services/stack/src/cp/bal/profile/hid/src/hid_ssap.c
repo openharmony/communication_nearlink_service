@@ -23,6 +23,8 @@
 static void HidFindServicesByUuidCb(int32_t appId, NLSTK_SsapUuid_S *uuid, NLSTK_Errcode_E ret);
 static void HidConnectStateChangeCb(int32_t appId, uint8_t state, NLSTK_Errcode_E ret, int32_t reason);
 static void HidReadPropertyCb(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property, NLSTK_Errcode_E ret);
+static void HidReadPropertiesCb(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
+    NLSTK_Errcode_E ret);
 static void HidGetPropertyNtfCb(int32_t appId, NLSTK_SsapUuid_S *uuid, uint16_t handle, bool enable,
     NLSTK_Errcode_E ret);
 static void HidSetPropertyNtfCb(int32_t appId, NLSTK_SsapUuid_S *uuid, uint16_t handle, bool enable,
@@ -39,6 +41,7 @@ NLSTK_SsapAppClientCb_S HidGetSsapCbk(void)
         .onFindServiceByUuid = HidFindServicesByUuidCb,
         .onConnectionStateChanged = HidConnectStateChangeCb,
         .onReadProperty = HidReadPropertyCb,
+        .onReadProperties = HidReadPropertiesCb,
         .onGetPropertyNtf = HidGetPropertyNtfCb,
         .onSetPropertyNtf = HidSetPropertyNtfCb,
         .onPropertyChanged = HidPropertyChangedCb,
@@ -73,6 +76,15 @@ static void HidReadPropertyCb(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S 
     HidReadPropertyMsg_S readMsg = { .property = property, .ret = ret };
     HidStmParam_S msg = { .what = HID_ON_READ_PROPERTY, .extData = (void *)&readMsg };
     HidStateMachineCall(dev, msg);
+}
+
+static void HidReadPropertiesCb(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
+    NLSTK_Errcode_E ret)
+{
+    NLSTK_CHECK_RETURN_VOID(properties != NULL, "[HID] properties is null");
+    for (uint8_t i = 0; i < num; i++) {
+        HidReadPropertyCb(appId, &properties[i], ret);
+    }
 }
 
 static void HidGetPropertyNtfCb(int32_t appId, NLSTK_SsapUuid_S *uuid, uint16_t handle, bool enable,
