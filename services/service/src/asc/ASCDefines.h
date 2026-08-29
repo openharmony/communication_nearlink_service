@@ -22,6 +22,7 @@
 #include "actm_l2hc.h"
 #include "ASCCodec.h"
 #include "nearlink_ASC_source.h"
+#include "nlstk_api_type_ext.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -167,6 +168,9 @@ constexpr uint8_t ASC_REJECT_REASON_ONCE         = 0xC;
 
 // 无效lable id
 constexpr uint8_t ASC_INVALID_LABLE_ID          = 255;
+
+// 允许设置最大的subrate1数量
+constexpr uint8_t ASC_SUBRATE1_MAX_NUM          = 1;
 
 // 耳机侧对该值有长度校验(为12), 不允许扩展新增类型
 constexpr AudioStreamType ASC_AUDIO_STREAM_TYPE_LIST[] = {
@@ -399,6 +403,7 @@ typedef struct {
 typedef struct {
     ASCSubRateState      subrateState;               // subrate当前设置值的状态
     bool                 isStartStrChangeSubrate;    // 起流设置subrate当前状态NL_SLE_ASC_SETTING,需要待上一次完成后执行
+    uint16_t             subrateValue;
 } ASCSubRateInfo;
 // ASC模块通知DSP编解码信息
 typedef struct {

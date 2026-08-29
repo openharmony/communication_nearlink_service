@@ -262,6 +262,7 @@ private:
     void ProcessStackLocationChangeCbk(const ASCMessage &event);
     void ProcessStackStreamTypeChangeCbk(const ASCMessage &event);
     void SetSubrate(const RawAddress &device, const SleAcbSubrateParam &subrateParam);
+    uint16_t GetCachedSubrate(const RawAddress &device);
     void ProcessUpdateDeviceNature(const ASCMessage &event);
     void ProcessSpatialAudioSourceTypeEvent(const ASCMessage &event);
     void ProcessSpatialAudioAdaptiveSwitchRenderEvent(const ASCMessage &event);
@@ -672,8 +673,11 @@ private:
     bool IsASCNeedStartStreamChangeSubrate(const RawAddress &device);
     ASCSubRateState GetASCSubRateStatus(const RawAddress &device);
     void SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bool val);
-    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state);
+    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate);
     void SetSubratePreConfigStream(const RawAddress &device);
+    void SetOnlySubrate(const RawAddress &device, uint16_t subrate);
+    bool IsVendorAudioDevice(const RawAddress &device);
+    void ContrSubrateOneNumInMulConn(const RawAddress &device, uint16_t subrate);
     void ClearASCSubrateInfo(const RawAddress &device);
     void SerialManagerSubrate(bool &needConfigStream, const RawAddress &device, uint16_t subrate);
     bool IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam);
