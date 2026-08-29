@@ -7113,7 +7113,7 @@ void ASCService::SetSubrate(const RawAddress &device, const SleAcbSubrateParam &
 {
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTING, subrateParam.subrate);
     bool ret = false;
     ServiceManagerPluginLoader::GetInstance()->SetAcbSubrate(ret, device, subrateParam);
     if (!ret) {
