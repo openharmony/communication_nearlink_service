@@ -58,6 +58,8 @@ public:
     int HidHostSetReport(std::string device, uint8_t type, uint16_t size, const uint8_t* report) override;
     int HidHostGetReport(std::string device, uint8_t id, uint16_t size, uint8_t type) override;
     int GetHidDeviceInfo(const RawAddress &device, int infoType) override;
+    void SetDeviceManufacturerAbility(const RawAddress &device,
+ 	    const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manufacturerAbility) const override;
 
     void ReceiveHandShake(const RawAddress &addr, uint16_t err);
     int ReceiveControlData(const HidReportInfo &reportInfo);
