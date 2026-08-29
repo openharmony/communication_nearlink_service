@@ -48,7 +48,7 @@ bool NearlinkSsapMethodParcel::Marshalling(Parcel &parcel) const
             return false;
         }
     }
-    if (!parcel.WriteInt32(permission_)) {
+    if (!parcel.WriteUint16(permission_)) {
         return false;
     }
     return true;

@@ -331,7 +331,8 @@ int32_t NearlinkSsapClientStub::GetServicesByUuidInner(NearlinkSsapClientStub *s
     }
     NlErrCode result = stub->GetServicesByUuid(appId, *uuid, service);
     bool resultRet = reply.WriteInt32(result);
-    if (!resultRet) {
+    bool sizeRet = reply.WriteInt32(service.size());
+    if (!(resultRet && sizeRet)) {
         HILOGE("Write data failed");
         return ERR_INVALID_VALUE;
     }
