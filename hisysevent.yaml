@@ -378,4 +378,23 @@ NEARLINK_STACK_HADM_EXCEP:
   ENABLE_END_TIME: {type: STRING, desc: timestamp that succeed to enable HADM}
   ERR_CODE: {type: UINT16, desc: specific}
   HADM_RES: {type: UINT16, desc: hadm result}
+
+NEARLINK_FIND_EXCEPTION:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink find exception event}
+  INIT_DISTANCE: {type: UINT32, desc: inital distance value}
+  START_COUNT: {type: UINT32, desc: start operation count}
+  STOP_COUNT: {type: UINT32, desc: stop operation count}
+  REMOTE_SCAN_START_COUNT: {type: UINT32, desc: remote scan start count}
+  REMOTE_SCAN_STOP_COUNT: {type: UINT32, desc: remote scan stop count}
+  STATE_FLOW: {type: STRING, desc: state machine flow}
+  AUTH_FAIL_DISCONNECT: {type: BOOL, desc: auth fail disconnect occurred}
+  ENABLE_TIME: {type: STRING, desc: enable operation time}
+  DISABLE_TIME: {type: STRING, desc: disable operation time} 
+
+NEARLINK_DISCOVERY_EXCEPTION:
+  __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink discovery event}
+  DISCOVERY_TYPE: {type: UINT8, desc: discovery type 0 advertise|1 scan}
+  DISCOVERY_START_TIME: {type: STRING, desc: when start advertise or scan}
+  DISCOVERY_PKG_NAME: {type: STRING, desc: who start advertise or scan}
+  DISCOVERY_RESULT_CALLBACK_TIME: {type: STRING, desc: when scan result callback}
 # nearLink dft event end

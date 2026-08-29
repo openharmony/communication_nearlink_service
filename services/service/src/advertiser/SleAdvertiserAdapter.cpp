@@ -16,6 +16,8 @@
 #include "ThreadUtil.h"
 #include "SleServiceFfrtLog.h"
 #include "ipc_skeleton.h"
+#include "nearlink_dft_exception.h"
+#include "nearlink_permission_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -140,6 +142,7 @@ int SleAdvertiserAdapter::GetAdvertisingStatus() const
 void SleAdvertiserAdapter::StartAdvertising(const SleAdvertiserSettingsImpl &settings,
     const SleAdvertiserDataImpl &advData, const SleAdvertiserDataImpl &scanResponse, uint8_t advHandle)
 {
+    DftReportAdvertiseStart(NearLinkPermissionManager::GetCallingName());
     DoInAdvThread([this, settings, advData, scanResponse, advHandle]() -> void {
         if (pimpl->sleAdvertiser_ != nullptr) {
             pimpl->sleAdvertiser_->StartAdvertising(settings, advData, scanResponse, advHandle);

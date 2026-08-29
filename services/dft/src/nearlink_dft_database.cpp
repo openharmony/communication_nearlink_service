@@ -572,6 +572,29 @@ static DftParamDB g_audioStatsParam[NL_DFT_STATS_PARAM_BUTT] = {
     {"CHANNEL_FREQ_BAND_CHANGE_TIMES", HISYSEVENT_UINT32},
 };
 
+static DftParamDB g_findExcepParam[FIND_EXCEP_PARAM_BUTT] = {
+    {"", HISYSEVENT_INVALID},                           // FIND_EXCEP_INVALID
+    {"", HISYSEVENT_INVALID},                           // FIND_EXCEP_KEY_BUTT
+    {"INIT_DISTANCE", HISYSEVENT_UINT32},
+    {"START_COUNT", HISYSEVENT_UINT32},
+    {"STOP_COUNT", HISYSEVENT_UINT32},
+    {"REMOTE_SCAN_START_COUNT", HISYSEVENT_UINT32},
+    {"REMOTE_SCAN_STOP_COUNT", HISYSEVENT_UINT32},
+    {"STATE_FLOW", HISYSEVENT_STRING},
+    {"AUTH_FAIL_DISCONNECT", HISYSEVENT_BOOL},
+    {"ENABLE_TIME", HISYSEVENT_STRING},
+    {"DISABLE_TIME", HISYSEVENT_STRING},
+};
+
+static DftParamDB g_discoveryExcepParam[DISCOVERY_PARAM_BUTT] = {
+    {"", HISYSEVENT_INVALID},                           // DISCOVERY_INVALID
+    {"", HISYSEVENT_INVALID},                           // DISCOVERY_KEY_BUTT
+    {"DISCOVERY_TYPE", HISYSEVENT_UINT8},
+    {"DISCOVERY_START_TIME", HISYSEVENT_STRING},
+    {"DISCOVERY_PKG_NAME", HISYSEVENT_STRING},
+    {"DISCOVERY_RESULT_CALLBACK_TIME", HISYSEVENT_STRING},
+};
+
 /*******************************************************************************
  *  All events, including UE and Excep, are defined here.Note that the sequence is the same as that of DftEventEnum.
  ******************************************************************************/
@@ -610,6 +633,8 @@ static DftExcepTypeDB g_dftEventType[DFT_EXCEP_BUTT] = {
     {"NEARLINK_DSP_CHOPPY_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_DSP_STATS", HISYSEVENT_STATISTIC},
     {"NEARLINK_STACK_HADM_EXCEP", HISYSEVENT_FAULT},
+    {"NEARLINK_FIND_EXCEPTION", HISYSEVENT_STATISTIC},
+    {"NEARLINK_DISCOVERY_EXCEPTION", HISYSEVENT_STATISTIC},
 };
 
 static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
@@ -657,6 +682,8 @@ static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
         g_audioChoppyExcepParam},
     {"NEARLINK_DSP_OFFLOAD_STATS", NL_DFT_STATS_KEY_BUTT, NL_DFT_STATS_PARAM_BUTT, g_audioStatsParam},
     {"NEARLINK_STACK_HADM_EXCEP", HADM_EXCEP_KEY_BUTT, HADM_EXCEP_PARAM_BUTT, g_stackHadmExcepParam},
+    {"NEARLINK_FIND_EXCEPTION", FIND_EXCEP_KEY_BUTT, FIND_EXCEP_PARAM_BUTT, g_findExcepParam},
+    {"NEARLINK_DISCOVERY_EXCEPTION", DISCOVERY_KEY_BUTT, DISCOVERY_PARAM_BUTT, g_discoveryExcepParam},
     {"", 0, 1, nullptr},                                // DFT_EXCEP_BUTT
     {"STATE_FLOW_INFO", STATE_FLOW_KEY_BUTT, STATE_FLOW_PARAM_BUTT, g_stateFlowParam},
     {"STATE_PEER_INFO", PEER_INFO_KEY_BUTT, PEER_INFO_PARAM_BUTT, g_peerInfoParam},
