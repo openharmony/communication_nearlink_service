@@ -324,7 +324,6 @@ void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info
     ProcessCallDetailChange(info);
 }
 
-
 void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
     HILOGI("[CcpService]ProcessCallDetailChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
