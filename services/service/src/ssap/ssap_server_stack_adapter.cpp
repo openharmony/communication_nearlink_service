@@ -418,6 +418,14 @@ void SsapServerStackAdapter::SetMtu(uint16_t mtu)
     }
 }
 
+NLSTK_SsapItemType_E SsapServerStackAdapter::ConvertToServiceType(const Uuid &uuid, bool isPrimary)
+{
+    if (uuid.GetUuidType() == Uuid::UUID16_BYTES_TYPE) {
+        return isPrimary ? ITEM_TYPE_STD_PRIMARY_SERVICE : ITEM_TYPE_STD_SECONDARY_SERVICE;
+    }
+    return isPrimary ? ITEM_TYPE_VENDOR_PRIMARY_SERVICE : ITEM_TYPE_VENDOR_SECONDARY_SERVICE;
+}
+
 bool SsapServerStackAdapter::FillDescriptorToProperty(
     const Property &srcProperty, NLSTK_SsapServicePropertyParam_S *dstProperty)
 {
@@ -463,6 +471,8 @@ bool SsapServerStackAdapter::FillPropertyToService(const Service &srcService, NL
     (void)memset_s(dstService->property, sizeof(NLSTK_SsapServicePropertyParam_S) * servicePropertyNum, 0x00,
         sizeof(NLSTK_SsapServicePropertyParam_S) * servicePropertyNum);
     for (uint32_t i = 0; i < servicePropertyNum; i++) {
+        dstService->property[i].type = srcService.properties_[i].uuid_.GetUuidType() == Uuid::UUID16_BYTES_TYPE ?
+            ITEM_TYPE_STD_PROPERTY : ITEM_TYPE_VENDOR_PROPERTY;
         dstService->property[i].uuid = ConvertToSleUuid(srcService.properties_[i].uuid_);
         dstService->property[i].permission.permissionValue = srcService.properties_[i].permission_;
         dstService->property[i].operation.operationValue = srcService.properties_[i].opInd_;
@@ -569,6 +579,7 @@ void SsapServerStackAdapter::AddService(int appId, Service &service)
 
     NLSTK_ServiceParam_S stackService = {};
     stackService.serviceStatement.uuid = ConvertToSleUuid(service.uuid_);
+    stackService.serviceStatement.serviceType = ConvertToServiceType(service.uuid_, service.isPrimary_);
 
     if (!FillPropertyToService(service, &stackService)) {
         FreeStackService(&stackService);
