@@ -616,5 +616,44 @@ HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_011, Test
     HILOGI("OnNotifyProperty001 end");
 }
 
+/**
+ * @tc.name: NearlinkSsapServerStackAdapter_012
+ * @tc.desc: Test ConvertToServiceType and FillPropertyToService fill serviceType/property type.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_012, TestSize.Level1)
+{
+    HILOGI("NearlinkSsapServerStackAdapter_012 start");
+    SsapServerStackAdapter &stackAdapter = serverService_->pimpl->stackAdapter_;
+
+    // 16位标准UUID：primary/secondary
+    Uuid stdUuid = Uuid::ConvertFrom16Bits(0x1234);
+    EXPECT_EQ(stackAdapter.ConvertToServiceType(stdUuid, true), ITEM_TYPE_STD_PRIMARY_SERVICE);
+    EXPECT_EQ(stackAdapter.ConvertToServiceType(stdUuid, false), ITEM_TYPE_STD_SECONDARY_SERVICE);
+
+    // 128位自定义UUID：primary/secondary
+    Uuid vendorUuid = Uuid::ConvertFromString("37BEA880-FC70-11EA-B720-000000001234");
+    EXPECT_EQ(stackAdapter.ConvertToServiceType(vendorUuid, true), ITEM_TYPE_VENDOR_PRIMARY_SERVICE);
+    EXPECT_EQ(stackAdapter.ConvertToServiceType(vendorUuid, false), ITEM_TYPE_VENDOR_SECONDARY_SERVICE);
+
+    // FillPropertyToService：属性类型按UUID标准/自定义填充
+    Service service {};
+    service.isPrimary_ = false;
+    service.uuid_ = vendorUuid;
+    Property stdProperty {};
+    stdProperty.uuid_ = stdUuid;
+    Property vendorProperty {};
+    vendorProperty.uuid_ = vendorUuid;
+    service.properties_.push_back(stdProperty);
+    service.properties_.push_back(vendorProperty);
+    NLSTK_ServiceParam_S stackService {};
+    ASSERT_TRUE(stackAdapter.FillPropertyToService(service, &stackService));
+    EXPECT_EQ(stackService.servicePropertyNum, 2);
+    EXPECT_EQ(stackService.property[0].type, ITEM_TYPE_STD_PROPERTY);
+    EXPECT_EQ(stackService.property[1].type, ITEM_TYPE_VENDOR_PROPERTY);
+    stackAdapter.FreeStackService(&stackService);
+    HILOGI("NearlinkSsapServerStackAdapter_012 end");
+}
+
 } // namespace Nearlink
 } // namespace OHOS
