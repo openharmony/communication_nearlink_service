@@ -102,8 +102,8 @@ public:
      * @brief Hid Host Set Device Manufacturer Ability.
      *
      */
-    virtual int SetDeviceManufacturerAbility(
-        const RawAddress &device, const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manuAbility) = 0;
+    virtual void SetDeviceManufacturerAbility(
+        const RawAddress &device, const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manuAbility) const = 0;
 };
 
 } // namespace Sle
