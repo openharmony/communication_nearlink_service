@@ -30,7 +30,7 @@ QosDefineStru g_qosDefineTable[NL_SLE_QOS_BUTT] = {
     {NL_SLE_QOS_6,       6,                true,       true,       true},
     {NL_SLE_QOS_7,       1,                false,      false,      true},
     {NL_SLE_QOS_8,       2,                false,      false,      true},
-    {NL_SLE_QOS_9,       4,                true,      true,       true},
+    {NL_SLE_QOS_9,       4,                true,       true,       true},
     {NL_SLE_QOS_10,      3,                false,      false,      true},
 };
 
