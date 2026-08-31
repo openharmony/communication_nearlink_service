@@ -278,29 +278,6 @@ static void HidGetServiceStateDispatch(HidDevice_S *dev, HidStmParam_S msg)
     }
 }
 
-static void HidReadDescAndIndexProperties(HidDevice_S *dev)
-{
-    uint16_t handles[HID_READ_PROPERTY_NUM] = {0};
-    uint8_t num = 0;
-    if (dev->service.descHandle != 0) {
-        handles[num++] = dev->service.descHandle;
-    }
-    for (size_t i = 0; i < dev->service.indexHandle->size; i++) {
-        uint16_t *handle = SDF_VectorElementAt(dev->service.indexHandle, i);
-        if (handle != NULL && num < HID_READ_PROPERTY_NUM) {
-            handles[num++] = *handle;
-        }
-    }
-    dev->lastReadHandle = handles[num - 1];
-    NLSTK_LOG_DEBUG("[HID] merged read desc and index, num=%u", num);
-    NLSTK_Errcode_E ret = NLSTK_SsapClientReadProperties(dev->appId, handles, num);
-    if (ret != NLSTK_ERRCODE_SUCCESS) {
-        NLSTK_LOG_ERROR("[HID] merged read desc and index, ret=%d", ret);
-        HidStateChangeCbk(&dev->addr, HID_DISCONNECTED, HID_CONNECTING, ret);
-        HidHandleExceptionAfterLinkConnected(dev);
-    }
-}
-
 static void HidReadDescAndIndexSingle(HidDevice_S *dev)
 {
     NLSTK_Errcode_E ret = NLSTK_SsapClientReadProperty(dev->appId, dev->service.descHandle);
@@ -320,6 +297,34 @@ static void HidReadDescAndIndexSingle(HidDevice_S *dev)
             return;
         }
         dev->lastReadHandle = *handle;
+    }
+}
+
+static void HidReadDescAndIndexProperties(HidDevice_S *dev)
+{
+    uint16_t handles[HID_READ_PROPERTY_NUM] = {0};
+    uint8_t num = 0;
+    if (dev->service.descHandle != 0) {
+        handles[num++] = dev->service.descHandle;
+    }
+    for (size_t i = 0; i < dev->service.indexHandle->size; i++) {
+        uint16_t *handle = SDF_VectorElementAt(dev->service.indexHandle, i);
+        if (handle != NULL && num < HID_READ_PROPERTY_NUM) {
+            handles[num++] = *handle;
+        }
+    }
+    if (num <= 1) {
+        NLSTK_LOG_DEBUG("[HID] merged read desc and index fallback to single, num=%u", num);
+        HidReadDescAndIndexSingle(dev);
+        return;
+    }
+    dev->lastReadHandle = handles[num - 1];
+    NLSTK_LOG_DEBUG("[HID] merged read desc and index, num=%u", num);
+    NLSTK_Errcode_E ret = NLSTK_SsapClientReadProperties(dev->appId, handles, num);
+    if (ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[HID] merged read desc and index fail, ret=%d", ret);
+        HidStateChangeCbk(&dev->addr, HID_DISCONNECTED, HID_CONNECTING, ret);
+        HidHandleExceptionAfterLinkConnected(dev);
     }
 }
 
@@ -368,26 +373,6 @@ static bool HidParseReportIndex(HidDevice_S *dev, HidReadPropertyMsg_S *readMsg)
     return true;
 }
 
-static void HidReadReportInfoProperties(HidDevice_S *dev)
-{
-    uint16_t handles[HID_READ_PROPERTY_NUM] = {0};
-    uint8_t num = 0;
-    for (size_t i = 0; i < dev->report->size; i++) {
-        HidReport_S *report = SDF_VectorElementAt(dev->report, i);
-        if (report != NULL && num < HID_READ_PROPERTY_NUM) {
-            handles[num++] = report->reportHandle;
-        }
-    }
-    dev->lastReadHandle = handles[num - 1];
-    NLSTK_LOG_DEBUG("[HID] merged read report info, num=%u", num);
-    NLSTK_Errcode_E ret = NLSTK_SsapClientReadProperties(dev->appId, handles, num);
-    if (ret != NLSTK_ERRCODE_SUCCESS) {
-        NLSTK_LOG_ERROR("[HID] merged read report info fail, ret=%d", ret);
-        HidStateChangeCbk(&dev->addr, HID_DISCONNECTED, HID_CONNECTING, ret);
-        HidHandleExceptionAfterLinkConnected(dev);
-    }
-}
-
 static void HidReadReportInfoSingle(HidDevice_S *dev)
 {
     for (size_t i = 0; i < dev->report->size; i++) {
@@ -400,6 +385,31 @@ static void HidReadReportInfoSingle(HidDevice_S *dev)
             return;
         }
         dev->lastReadHandle = report->reportHandle;
+    }
+}
+
+static void HidReadReportInfoProperties(HidDevice_S *dev)
+{
+    uint16_t handles[HID_READ_PROPERTY_NUM] = {0};
+    uint8_t num = 0;
+    for (size_t i = 0; i < dev->report->size; i++) {
+        HidReport_S *report = SDF_VectorElementAt(dev->report, i);
+        if (report != NULL && num < HID_READ_PROPERTY_NUM) {
+            handles[num++] = report->reportHandle;
+        }
+    }
+    if (num <= 1) {
+        NLSTK_LOG_DEBUG("[HID] merged read report info fallback to single, num=%u", num);
+        HidReadReportInfoSingle(dev);
+        return;
+    }
+    dev->lastReadHandle = handles[num - 1];
+    NLSTK_LOG_DEBUG("[HID] merged read report info, num=%u", num);
+    NLSTK_Errcode_E ret = NLSTK_SsapClientReadProperties(dev->appId, handles, num);
+    if (ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[HID] merged read report info fail, ret=%d", ret);
+        HidStateChangeCbk(&dev->addr, HID_DISCONNECTED, HID_CONNECTING, ret);
+        HidHandleExceptionAfterLinkConnected(dev);
     }
 }
 
