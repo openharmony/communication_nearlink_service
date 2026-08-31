@@ -28,6 +28,7 @@
 #include "nearlink_def.h"
 
 #include "cJSON.h"
+#include "parse_auto_conn_policy.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -255,7 +256,14 @@ static int CmdEnable(int argc, char** argv)
         if (strncmp(argv[i], "--autoConnPolicy", MAX_ENABLE_PARAM_LENGTH) == 0 && 
             argv[i][MAX_ENABLE_PARAM_LENGTH] == '\0' && i + 1 < argc &&
             argv[i + 1] != nullptr && strlen(argv[i + 1]) <= MAX_ARGV_LENGTH) {
-            autoConnPolicy = atoi(argv[i + 1]);
+            if (!ParseAutoConnPolicy(argv[i + 1], autoConnPolicy)) {
+                CLI_ERROR("invalid autoConnPolicy: %s", argv[i + 1]);
+                return OutputError("ERR_NL_INVALID_PARAM",
+                    "Invalid autoConnPolicy value: " + std::string(argv[i + 1]),
+                    "autoConnPolicy must be a valid integer 0 (AUTO_CONN_GENERAL), "
+                    "1 (AUTO_CONN_EXCEPT_AUDIO_DEVICES), "
+                    "or 2 (AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES). Example: --autoConnPolicy 0");
+            }
         } else if (strncmp(argv[i], "--help", MAX_CMD_HELP_LENGTH) == 0 && argv[i][MAX_CMD_HELP_LENGTH] == '\0') {
             return CmdHelp(argc, argv);
         }
