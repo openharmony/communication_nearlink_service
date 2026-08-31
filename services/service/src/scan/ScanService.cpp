@@ -508,6 +508,7 @@ bool ScanService::ParseAdvEarphoneDisplayControl(SlePeripheralDevice &device, si
 void ScanService::ParseManufacturerDataHid(SlePeripheralDevice &device, std::string &privateData)
 {
     size_t msgIndex = 1;
+    uint8_t extendType = 0;
     while (msgIndex < privateData.size()) {
         if (msgIndex + SLE_ADV_MANUFACTURER_DATA_EXTEND_TYPE_LEN > privateData.size()) {
             HILOGE("parse hid manufactrue,msg type length invalid:%{public}u", privateData.size());
