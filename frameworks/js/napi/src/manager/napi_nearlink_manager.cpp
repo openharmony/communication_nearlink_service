@@ -69,7 +69,7 @@ napi_value NapiNearlinkManager::Enable(napi_env env, napi_callback_info info)
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().EnableNl();
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::Disable(napi_env env, napi_callback_info info)
@@ -77,7 +77,7 @@ napi_value NapiNearlinkManager::Disable(napi_env env, napi_callback_info info)
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().DisableNl();
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::GetState(napi_env env, napi_callback_info info)
@@ -152,9 +152,7 @@ napi_value NapiNearlinkManager::SetLocalName(napi_env env, napi_callback_info in
 
     NlErrCode err = NearlinkHost::GetInstance().SetLocalName(localName);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    napi_value res = nullptr;
-    napi_get_boolean((env), true, &res);
-    return res;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::GetPairedDevices(napi_env env, napi_callback_info info)

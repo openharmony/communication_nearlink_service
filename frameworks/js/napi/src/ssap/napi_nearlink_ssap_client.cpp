@@ -145,10 +145,15 @@ napi_value NapiNearlinkSsapClient::SsapClientConstructor(napi_env env, napi_call
     napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr);
 
     std::string deviceId;
-    NapiParseString(env, argv[PARAM0], deviceId);
+    if (NapiParseString(env, argv[PARAM0], deviceId) != napi_ok) {
+        HILOGE("SsapClientConstructor ParseString failed, deviceId is invalid");
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+        return nullptr;
+    }
     NapiNearlinkSsapClient *ssapClient = new (std::nothrow) NapiNearlinkSsapClient(deviceId);
     if (ssapClient == nullptr) {
         HILOGE("ssapClient is nullptr");
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
 
@@ -165,6 +170,7 @@ napi_value NapiNearlinkSsapClient::SsapClientConstructor(napi_env env, napi_call
         HILOGE("napi_wrap failed");
         delete ssapClient;
         ssapClient = nullptr;
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
     HILOGI("Constructor ssapClient success.");
@@ -439,7 +445,7 @@ napi_value NapiNearlinkSsapClient::Close(napi_env env, napi_callback_info info)
     int ret = client->Close();
     HILOGI("ret: %{public}d", ret);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, ret == NL_NO_ERROR, ret);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkSsapClient::RequestMtuSize(napi_env env, napi_callback_info info)

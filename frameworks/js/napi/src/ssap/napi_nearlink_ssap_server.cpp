@@ -112,6 +112,7 @@ napi_value NapiNearlinkSsapServer::SsapServerConstructor(napi_env env, napi_call
     NapiNearlinkSsapServer* ssapServer = new (std::nothrow) NapiNearlinkSsapServer();
     if (ssapServer == nullptr) {
         HILOGE("ssapServer is nullptr");
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
 
@@ -128,6 +129,7 @@ napi_value NapiNearlinkSsapServer::SsapServerConstructor(napi_env env, napi_call
         HILOGE("napi_wrap failed");
         delete ssapServer;
         ssapServer = nullptr;
+        HandleSyncErr(env, NL_ERR_INTERNAL_ERROR);
         return nullptr;
     }
     HILOGI("Constructor ssapServer success.");
@@ -317,7 +319,7 @@ napi_value NapiNearlinkSsapServer::AddService(napi_env env, napi_callback_info i
 
     int ret = server->AddService(*ssapService);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, ret == NL_NO_ERROR, ret);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 static napi_status CheckSsapServerClose(napi_env env, napi_callback_info info, std::shared_ptr<SsapServer> &outServer)

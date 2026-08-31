@@ -32,7 +32,7 @@ public:
 
     napi_value ToNapiValue(napi_env env) const override
     {
-        return NapiGetNull(env);
+        return NapiGetUndefinedRet(env);
     }
 };
 
