@@ -77,12 +77,6 @@ static bool CheckFindItemType(NLSTK_SsapUuid_S *uuid, SSAP_FindItemType_E findIt
     return false;
 }
 
-static bool IsServiceTypeSecondary(NLSTK_SsapItemType_E serviceType)
-{
-    return serviceType == ITEM_TYPE_STD_SECONDARY_SERVICE ||
-        serviceType == ITEM_TYPE_VENDOR_SECONDARY_SERVICE;
-}
-
 static void CopyToServiceInfo(SSAP_Service_S *service, SSAP_FindServiceInfo_S *info)
 {
     info->startHandle = service->handle;
@@ -120,8 +114,7 @@ static void FindPrimaryServiceList(SSAP_PduFindStructReq_S *req, NLSTK_SsapUuid_
     for (size_t i = 0; i < services->size; i++) {
         SSAP_Service_S *service = SDF_VectorElementAt(services, i);
         if ((!isByUuid || SSAP_IsUuidEqual(&service->uuid, uuid)) && service->handle >= req->startHandle &&
-            service->handle <= req->endHandle && CheckFindItemType(&service->uuid, req->ctrl.itemType) &&
-            !IsServiceTypeSecondary(service->serviceType)) {
+            service->handle <= req->endHandle && CheckFindItemType(&service->uuid, req->ctrl.itemType)) {
             SSAP_FindServiceInfo_S *info = (SSAP_FindServiceInfo_S *)SDF_MemZalloc(sizeof(SSAP_FindServiceInfo_S));
             CP_CHECK_LOG_RETURN_VOID(info != NULL, "[SSAP] FindPrimaryServiceList malloc failed");
             CopyToServiceInfo(service, info);
@@ -151,7 +144,7 @@ static void FindPrimaryServiceListV10(SSAP_PduFindStructReq_S *req, NLSTK_SsapUu
     for (size_t i = 0; i < services->size; i++) {
         SSAP_Service_S *service = SDF_VectorElementAt(services, i);
         if ((!isByUuid || SSAP_IsUuidEqual(&service->uuid, uuid)) && service->handle >= req->startHandle &&
-            service->handle <= req->endHandle && !IsServiceTypeSecondary(service->serviceType)) {
+            service->handle <= req->endHandle) {
             SSAP_FindServiceInfo_S *info = (SSAP_FindServiceInfo_S *)SDF_MemZalloc(sizeof(SSAP_FindServiceInfo_S));
             CP_CHECK_LOG_RETURN_VOID(info != NULL, "[SSAP] find primary service malloc failed");
             CopyToServiceInfo(service, info);
@@ -1131,10 +1124,6 @@ static bool ShouldIncludeService(SSAP_Service_S *service, NLSTK_SsapUuid_S *uuid
             return false;
         }
         if (!CheckFindItemType(&service->uuid, itemType)) {
-            return false;
-        }
-        // 对端客户端暂不支持secondary服务，结构发现响应中不下发secondary服务及其成员
-        if (IsServiceTypeSecondary(service->serviceType)) {
             return false;
         }
         return true;

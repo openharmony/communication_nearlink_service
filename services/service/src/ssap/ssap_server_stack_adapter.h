@@ -113,7 +113,7 @@ private:
         int appId, const RawAddress &addr, int state, int ret, int reason);
     void OnDisableTask(void);
 
-    NLSTK_SsapItemType_E ConvertToServiceType(const Uuid &uuid, bool isPrimary);
+    NLSTK_SsapItemType_E ConvertToServiceType(const Uuid &uuid);
     bool FillDescriptorToProperty(
         const Property &srcProperty, NLSTK_SsapServicePropertyParam_S *dstProperty);
     bool FillPropertyToService(const Service &srcService, NLSTK_ServiceParam_S *dstService);

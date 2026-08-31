@@ -26,6 +26,7 @@ config("nl_ssap_server_service_unit_test_config") {
     "$NEARLINK_ROOT/services/service/src/common",
     "$NEARLINK_ROOT/services/service/src/base",
     "$NEARLINK_ROOT/services/service/src/lis",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/servm/ssap/src",
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/test/unittest/mock",

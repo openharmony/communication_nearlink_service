@@ -17,6 +17,7 @@
 
 #include "ssap_server_service.cpp"
 #include "ssap_server_callback_mock.h"
+#include "ssaps_service.h"
 #include "ProfileServiceManager.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_access_token_mock.h"
@@ -28,7 +29,7 @@ namespace Nearlink {
 namespace {
 constexpr int DELAY_1000_MS = 1000;
 constexpr int DELAY_200_MS = 200;
-}
+} // namespace
 using namespace testing;
 using namespace testing::ext;
 
@@ -624,34 +625,52 @@ HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_011, Test
 HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_012, TestSize.Level1)
 {
     HILOGI("NearlinkSsapServerStackAdapter_012 start");
-    SsapServerStackAdapter &stackAdapter = serverService_->pimpl->stackAdapter_;
-
-    // 16位标准UUID：primary/secondary
+    // 128位自定义UUID服务 + isPrimary_=false，含标准/自定义两个属性：serviceType应上报为VENDOR_PRIMARY
     Uuid stdUuid = Uuid::ConvertFrom16Bits(0x1234);
-    EXPECT_EQ(stackAdapter.ConvertToServiceType(stdUuid, true), ITEM_TYPE_STD_PRIMARY_SERVICE);
-    EXPECT_EQ(stackAdapter.ConvertToServiceType(stdUuid, false), ITEM_TYPE_STD_SECONDARY_SERVICE);
-
-    // 128位自定义UUID：primary/secondary
-    Uuid vendorUuid = Uuid::ConvertFromString("37BEA880-FC70-11EA-B720-000000001234");
-    EXPECT_EQ(stackAdapter.ConvertToServiceType(vendorUuid, true), ITEM_TYPE_VENDOR_PRIMARY_SERVICE);
-    EXPECT_EQ(stackAdapter.ConvertToServiceType(vendorUuid, false), ITEM_TYPE_VENDOR_SECONDARY_SERVICE);
-
-    // FillPropertyToService：属性类型按UUID标准/自定义填充
-    Service service {};
-    service.isPrimary_ = false;
-    service.uuid_ = vendorUuid;
+    Uuid vendorUuid = Uuid::ConvertFromString("37BEA880-FC70-11EA-B720-123456789ABC");
     Property stdProperty {};
     stdProperty.uuid_ = stdUuid;
     Property vendorProperty {};
     vendorProperty.uuid_ = vendorUuid;
+    Service service {};
+    service.isPrimary_ = false;
+    service.uuid_ = vendorUuid;
     service.properties_.push_back(stdProperty);
     service.properties_.push_back(vendorProperty);
-    NLSTK_ServiceParam_S stackService {};
-    ASSERT_TRUE(stackAdapter.FillPropertyToService(service, &stackService));
-    EXPECT_EQ(stackService.servicePropertyNum, 2);
-    EXPECT_EQ(stackService.property[0].type, ITEM_TYPE_STD_PROPERTY);
-    EXPECT_EQ(stackService.property[1].type, ITEM_TYPE_VENDOR_PROPERTY);
-    stackAdapter.FreeStackService(&stackService);
+    int ret = serverService_->AddService(appId_, service);
+    EXPECT_EQ(ret, 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_200_MS));
+
+    // 从栈侧获取服务，检查服务type与属性type
+    NLSTK_SsapUuid_S serviceTarget {};
+    vendorUuid.ConvertToBytesLE(serviceTarget.uuid);
+    NLSTK_SsapUuid_S stdTarget {};
+    stdUuid.ConvertToBytesLE(stdTarget.uuid);
+    NLSTK_SsapUuid_S vendorTarget {};
+    vendorUuid.ConvertToBytesLE(vendorTarget.uuid);
+    SDF_Vector_S *services = SSAPS_GetServices();
+    ASSERT_NE(services, nullptr);
+    bool serviceFound = false;
+    for (size_t i = 0; i < services->size; i++) {
+        SSAP_Service_S *ssapService = static_cast<SSAP_Service_S *>(SDF_VectorElementAt(services, i));
+        if (ssapService == nullptr || ssapService->properties == nullptr ||
+            memcmp(ssapService->uuid.uuid, serviceTarget.uuid, sizeof(serviceTarget.uuid)) != 0) {
+            continue;
+        }
+        serviceFound = true;
+        // 服务type：忽略isPrimary_，统一按primary上报
+        EXPECT_EQ(ssapService->serviceType, ITEM_TYPE_VENDOR_PRIMARY_SERVICE);
+        // 属性按序缓存，属性type由uuid标准/自定义推导（与栈侧CreatePropertyStructureInfo一致）
+        EXPECT_EQ(ssapService->properties->size, 2);
+        SSAP_Property_S *prop0 = static_cast<SSAP_Property_S *>(SDF_VectorElementAt(ssapService->properties, 0));
+        SSAP_Property_S *prop1 = static_cast<SSAP_Property_S *>(SDF_VectorElementAt(ssapService->properties, 1));
+        ASSERT_NE(prop0, nullptr);
+        ASSERT_NE(prop1, nullptr);
+        EXPECT_EQ(memcmp(prop0->uuid.uuid, stdTarget.uuid, sizeof(stdTarget.uuid)), 0);
+        EXPECT_EQ(memcmp(prop1->uuid.uuid, vendorTarget.uuid, sizeof(vendorTarget.uuid)), 0);
+        break;
+    }
+    EXPECT_TRUE(serviceFound);
     HILOGI("NearlinkSsapServerStackAdapter_012 end");
 }
 

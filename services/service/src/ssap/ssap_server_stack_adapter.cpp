@@ -418,12 +418,13 @@ void SsapServerStackAdapter::SetMtu(uint16_t mtu)
     }
 }
 
-NLSTK_SsapItemType_E SsapServerStackAdapter::ConvertToServiceType(const Uuid &uuid, bool isPrimary)
+NLSTK_SsapItemType_E SsapServerStackAdapter::ConvertToServiceType(const Uuid &uuid)
 {
+    // 对端客户端暂不支持secondary服务，服务统一按primary服务上报
     if (uuid.GetUuidType() == Uuid::UUID16_BYTES_TYPE) {
-        return isPrimary ? ITEM_TYPE_STD_PRIMARY_SERVICE : ITEM_TYPE_STD_SECONDARY_SERVICE;
+        return ITEM_TYPE_STD_PRIMARY_SERVICE;
     }
-    return isPrimary ? ITEM_TYPE_VENDOR_PRIMARY_SERVICE : ITEM_TYPE_VENDOR_SECONDARY_SERVICE;
+    return ITEM_TYPE_VENDOR_PRIMARY_SERVICE;
 }
 
 bool SsapServerStackAdapter::FillDescriptorToProperty(
@@ -579,7 +580,7 @@ void SsapServerStackAdapter::AddService(int appId, Service &service)
 
     NLSTK_ServiceParam_S stackService = {};
     stackService.serviceStatement.uuid = ConvertToSleUuid(service.uuid_);
-    stackService.serviceStatement.serviceType = ConvertToServiceType(service.uuid_, service.isPrimary_);
+    stackService.serviceStatement.serviceType = ConvertToServiceType(service.uuid_);
 
     if (!FillPropertyToService(service, &stackService)) {
         FreeStackService(&stackService);
