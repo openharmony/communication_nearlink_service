@@ -403,7 +403,7 @@ typedef struct {
 typedef struct {
     ASCSubRateState      subrateState;               // subrate当前设置值的状态
     bool                 isStartStrChangeSubrate;    // 起流设置subrate当前状态NL_SLE_ASC_SETTING,需要待上一次完成后执行
-    uint16_t             subrateValue;
+    uint16_t             subrateValue = NLSTK_DEFAULT_SUBRATE;
 } ASCSubRateInfo;
 // ASC模块通知DSP编解码信息
 typedef struct {

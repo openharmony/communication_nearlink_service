@@ -6907,7 +6907,7 @@ void ASCService::ProcessSubrateChangedEvent(const ASCMessage &event)
     ASCState state = GetASCStatus(device);
     uint16_t subrate = event.subrate_;
     HILOGI("[ASCService] %{public}s subrate: %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), subrate);
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, subrate, event.result_);
     // subrate1互斥：全部回调成功后若存在两路以上subrate1，一起切subrate2
     ContrSubrateOneNumInMulConn(device, subrate);
 
@@ -6977,7 +6977,7 @@ bool ASCService::IsRejectInActivateDeviceReq(const RawAddress &device, uint16_t 
     if ((!(activeSinkDevice_.GetAddress().empty()) && reportAddr == activeSinkDevice_) &&
         subrate == NLSTK_SUBRATE_1 && SleAudioFrameworkAdapter::GetInstance().IsAudioServiceActivate()) {
         // 星闪激活设备正在音频业务中，拒绝subrate1切换请求
-        HILOGI("[ASCService]reject subrate change req for not activate device");
+        HILOGI("[ASCService]reject subrate change req for activate device");
         return true;
     }
 
@@ -7113,7 +7113,7 @@ void ASCService::SetSubrate(const RawAddress &device, const SleAcbSubrateParam &
 {
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
-    SetASCSubRateStatus(device, NL_SLE_ASC_SETTING, subrateParam.subrate);
+    SetASCSubRateStatus(device, NL_SLE_ASC_SETTING, subrateParam.subrate, NL_NO_ERROR);
     bool ret = false;
     ServiceManagerPluginLoader::GetInstance()->SetAcbSubrate(ret, device, subrateParam);
     if (!ret) {
@@ -7121,18 +7121,9 @@ void ASCService::SetSubrate(const RawAddress &device, const SleAcbSubrateParam &
         ASCMessage event(ASC_SUBRATE_CHANGED_EVT);
         event.dev_ = device.GetAddress();
         event.subrate_ = subrateParam.subrate;
+        event.result_ = NL_SLE_ASC_RESULT_FAIL;
         PostEvent(event);
     }
-}
-
-uint16_t ASCService::GetCachedSubrate(const RawAddress &device)
-{
-    uint16_t cachedSubrate = NLSTK_DEFAULT_SUBRATE;
-    auto it = ascSubrateMap_.find(device.GetAddress());
-    if (it != ascSubrateMap_.end()) {
-        cachedSubrate = it->second.subrateValue;
-    }
-    return cachedSubrate;
 }
 
 void ASCService::SetAutoConnectDevice(const RawAddress &device, bool isActive)
@@ -7247,12 +7238,14 @@ ASCSubRateState ASCService::GetASCSubRateStatus(const RawAddress &device)
     return state;
 }
 
-void ASCService::SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate)
+void ASCService::SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate, uint8_t result)
 {
     HILOGI("[ASCService] %{public}s state %{public}d subrate %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), state, subrate);
     ascSubrateMap_[device.GetAddress()].subrateState = state;
-    ascSubrateMap_[device.GetAddress()].subrateValue = subrate;
+    if (state == NL_SLE_ASC_SETTED && result == NL_NO_ERROR) {
+        ascSubrateMap_[device.GetAddress()].subrateValue = subrate;
+    }
 }
 
 bool ASCService::IsASCNeedStartStreamChangeSubrate(const RawAddress &device)

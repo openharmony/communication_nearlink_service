@@ -22,6 +22,8 @@ namespace OHOS {
 namespace Nearlink {
 namespace {
     std::set<std::string> g_mockVendorAudioAddr;
+    bool g_mockAudioServiceActivate = false;
+    bool g_mockBtOut = false;
 }
 
 void SetMockVendorAudioDevice(const std::string &addr) {
@@ -30,6 +32,19 @@ void SetMockVendorAudioDevice(const std::string &addr) {
 
 void ClearMockVendorAudioDevice() {
     g_mockVendorAudioAddr.clear();
+}
+
+void SetMockAudioServiceActivate(bool isActivate) {
+    g_mockAudioServiceActivate = isActivate;
+}
+
+void SetMockBtOut(bool isBtOut) {
+    g_mockBtOut = isBtOut;
+}
+
+void ClearMockAudioFwkState() {
+    g_mockAudioServiceActivate = false;
+    g_mockBtOut = false;
 }
 
 SleRemoteDeviceAdapter::SleRemoteDeviceAdapter()
@@ -489,5 +504,12 @@ bool SleRemoteDeviceAdapter::GetSleAddrByBtAddrTask(const std::string &btAddr, s
     return true;
 }
 
+bool SleRemoteDeviceAdapter::IsAudioServiceActivate() {
+    return g_mockAudioServiceActivate;
+}
+
+bool SleRemoteDeviceAdapter::IsBtOut() {
+    return g_mockBtOut;
+}
 } // namespace Nearlink
 } // namespace OHOS
