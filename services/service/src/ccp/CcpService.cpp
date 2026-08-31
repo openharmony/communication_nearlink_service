@@ -314,7 +314,7 @@ void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info
 {
     std::string bundleName = 
         ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
-    NL_CHECK_RETURN(bundleName != info.voipCallInfo.voipBundleName, "is wechat call")
+    NL_CHECK_RETURN(bundleName != info.voipCallInfo.voipBundleName, "is wechat call");
     if (info.callType == Telephony::CallType::TYPE_VOIP) {
         HandleVoipCallDetailChange(info);
     }
