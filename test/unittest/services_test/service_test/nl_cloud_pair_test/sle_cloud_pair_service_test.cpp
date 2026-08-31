@@ -715,14 +715,6 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest025, TestSize.Level1)
     device->SetConnectedState(DEVICE_SLE_MEMBER_ADDR, true);
     auto connectedMaps = device->GetConnectedMaps();
     EXPECT_EQ(connectedMaps[DEVICE_SLE_MEMBER_ADDR], true);
-
-    EXPECT_EQ(device->IsAllMembersDisconnected(), false);
-
-    device->SetConnectedState(DEVICE_SLE_MEMBER_ADDR, false);
-    EXPECT_EQ(device->IsAllMembersDisconnected(), true);
-
-    device->SetConnectedState(DEVICE_SLE_REPORT_ADDR, false);
-    EXPECT_EQ(device->IsAllMembersDisconnected(), true);
     HILOGI("SleCloudPairServiceTest025 end");
 }
 
@@ -739,8 +731,7 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest026, TestSize.Level1)
         NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING);
 
     bool result = SleCloudPairService::GetInstance().CancelCloudPairComplete(RawAddress(DEVICE_SLE_REPORT_ADDR),
-        static_cast<int>(SlePairState::SLE_PAIR_NONE), 0, true,
-        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+        static_cast<int>(SlePairState::SLE_PAIR_NONE), 0);
 
     EXPECT_EQ(result, false);
     int32_t cloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;

@@ -49,8 +49,7 @@ public:
     virtual bool CancelCloudPairing(const RawAddress &device) = 0;
     virtual bool ChkCloudDeviceAndPermission(const RawAddress &device) = 0;
     virtual bool CloudDeviceConnectionComplete(const RawAddress &device) = 0;
-    virtual bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason, bool isCdsmAcbConnected,
-        int acbState) = 0;
+    virtual bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason) = 0;
     virtual void SetKeyMissingPairState(const RawAddress &device) = 0;
     virtual bool ConnectCloudDeviceAllProfile(const RawAddress &device) = 0;
     virtual std::string GetCloudDeviceAliasName(const RawAddress &device) = 0;
