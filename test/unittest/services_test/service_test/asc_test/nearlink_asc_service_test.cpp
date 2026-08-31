@@ -5282,6 +5282,8 @@ HWTEST_F(ASCServiceTest, IsLeftEarDevice_TwsNull_001, TestSize.Level1)
     ASSERT_NE(asc, nullptr);
     asc->AddConnectDevices(targetAddr);
     asc->AddConnectDevices(huaweiAddr);
+    SetMockVendorAudioDevice(targetAddr.GetAddress());
+    SetMockVendorAudioDevice(huaweiAddr.GetAddress());
     EXPECT_TRUE(asc->IsLeftEarDevice(targetAddr));
     EXPECT_TRUE(asc->IsLeftEarDevice(huaweiAddr));
     delete asc;
@@ -5302,6 +5304,8 @@ HWTEST_F(ASCServiceTest, IsRolePrimary_TwsNull_001, TestSize.Level1)
     ASSERT_NE(asc, nullptr);
     asc->AddConnectDevices(targetAddr);
     asc->AddConnectDevices(huaweiAddr);
+    SetMockVendorAudioDevice(targetAddr.GetAddress());
+    SetMockVendorAudioDevice(huaweiAddr.GetAddress());
     EXPECT_TRUE(asc->IsRolePrimary(targetAddr));
     EXPECT_TRUE(asc->IsRolePrimary(huaweiAddr));
     delete asc;
@@ -5390,7 +5394,7 @@ HWTEST_F(ASCServiceTest, CbkAddDataPath_001, TestSize.Level1)
 
 /**
  * @tc.name: ContrSubrateOneNumInMulConn_001
- * @tc.desc: change all subrate1 to subrate2 if needed
+ * @tc.desc: change all subrate1 if needed
  * @tc.type: FUNC
  */
 HWTEST_F(ASCServiceTest, ContrSubrateOneNumInMulConn_001, TestSize.Level1)
@@ -5399,11 +5403,11 @@ HWTEST_F(ASCServiceTest, ContrSubrateOneNumInMulConn_001, TestSize.Level1)
     ASCService *asc = new ASCService();
     RawAddress device = RawAddress(deviceStr);
     RawAddress coDevice = RawAddress(coDeviceStr);
-    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
-    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
+    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
+    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
     asc->ContrSubrateOneNumInMulConn(device, NLSTK_SUBRATE_1);
 
-    // 非vendor设备应切换为subrate2
+    // 非vendor设备应切换subrate(中间态还是subrate1)
     EXPECT_EQ(asc->ascSubrateMap_[device.GetAddress()].subrateValue, NLSTK_SUBRATE_2);
     EXPECT_EQ(asc->ascSubrateMap_[coDevice.GetAddress()].subrateValue, NLSTK_SUBRATE_2);
     asc->ClearASCSubrateInfo(device);
@@ -5423,8 +5427,8 @@ HWTEST_F(ASCServiceTest, ContrSubrateOneNumInMulConn_002, TestSize.Level1)
     ASCService *asc = new ASCService();
     RawAddress device = RawAddress(deviceStr);
     RawAddress coDevice = RawAddress(coDeviceStr);
-    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
-    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
+    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
+    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
     // 触发设备为vendor音频设备，应早退不切换任何设备
     SetMockVendorAudioDevice(deviceStr);
     asc->ContrSubrateOneNumInMulConn(device, NLSTK_SUBRATE_1);
@@ -5448,8 +5452,8 @@ HWTEST_F(ASCServiceTest, ContrSubrateOneNumInMulConn_003, TestSize.Level1)
     ASCService *asc = new ASCService();
     RawAddress device = RawAddress(deviceStr);
     RawAddress coDevice = RawAddress(coDeviceStr);
-    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
-    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1, NL_NO_ERROR);
+    asc->SetASCSubRateStatus(device, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
+    asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
     // 触发设备为非vendor音频设备，另一个设备为vendor，循环内vendor设备被跳过
     SetMockVendorAudioDevice(coDeviceStr);
     asc->ContrSubrateOneNumInMulConn(device, NLSTK_SUBRATE_1);

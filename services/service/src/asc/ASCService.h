@@ -672,7 +672,7 @@ private:
     bool IsASCNeedStartStreamChangeSubrate(const RawAddress &device);
     ASCSubRateState GetASCSubRateStatus(const RawAddress &device);
     void SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bool val);
-    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate, uint8_t result);
+    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate);
     void SetSubratePreConfigStream(const RawAddress &device);
     void SetOnlySubrate(const RawAddress &device, uint16_t subrate);
     bool IsVendorAudioDevice(const RawAddress &device);
