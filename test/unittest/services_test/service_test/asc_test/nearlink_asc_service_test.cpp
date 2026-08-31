@@ -5482,7 +5482,7 @@ HWTEST_F(ASCServiceTest, IsRejectInActivateDeviceReq_001, TestSize.Level1)
     // 边界场景：activeSinkDevice_为空
     asc->activeSinkDevice_ = RawAddress();
     SetMockAudioServiceActivate(false);
-    EXPECT_EQ(false asc->IsRejectInActivateDeviceReq(device, NLSTK_SUBRATE_1));
+    EXPECT_EQ(false, asc->IsRejectInActivateDeviceReq(device, NLSTK_SUBRATE_1));
     delete asc;
     HILOGI("IsRejectInActivateDeviceReq_001 end");
 }
