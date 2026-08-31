@@ -478,7 +478,7 @@ int HidHostService::ReceiveControlData(const HidReportInfo &reportInfo)
     return HID_HOST_SUCCESS;
 }
 
-void HidHostService::SetDeviceManufacturerAbility(const RawAddress &device,
+int HidHostService::SetDeviceManufacturerAbility(const RawAddress &device,
     const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manufacturerAbility) const
 {
     SLE_Addr_S stackAddr = {};
@@ -490,7 +490,8 @@ void HidHostService::SetDeviceManufacturerAbility(const RawAddress &device,
     HILOGI("[HidHostService] SetDeviceManufacturerAbility dev=%{public}s, ability=0x%{public}02x",
         GET_ENCRYPT_ADDR(device), mAbility.ability[0]);
     uint32_t ret = NLSTK_CfgdbSetManufacturerAbility(&stackAddr, &mAbility);
-    NL_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS, "ret=%{public}d", ret);
+    NL_CHECK_RETURN_RET(ret == NLSTK_ERRCODE_SUCCESS, HID_HOST_FAILURE, "ret=%{public}d", ret);
+    return HID_HOST_SUCCESS;
 }
 
 REGISTER_CLASS_CREATOR(HidHostService);
