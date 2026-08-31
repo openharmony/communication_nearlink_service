@@ -39,6 +39,12 @@ void ClearMockAudioFwkState()
     g_mockBtOut = false;
 }
 
+SleAudioFrameworkAdapter& SleAudioFrameworkAdapter::GetInstance(void)
+{
+    static SleAudioFrameworkAdapter instance;
+    return instance;
+}
+
 bool SleAudioFrameworkAdapter::IsAudioServiceActivate()
 {
     HILOGI("[SleAudioFrameworkAdapter Mocker] IsAudioServiceActivate");
