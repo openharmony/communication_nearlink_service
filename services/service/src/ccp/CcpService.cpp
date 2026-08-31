@@ -312,14 +312,18 @@ void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &
 
 void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
-    std::string bundleName = 
-        ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
-    NL_CHECK_RETURN(bundleName != info.voipCallInfo.voipBundleName, "is wechat call");
     if (info.callType == Telephony::CallType::TYPE_VOIP) {
+        std::string bundleName =
+            ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
+        if (!bundleName.empty() && bundleName == info.voipCallInfo.voipBundleName) {
+            HILOGI("[CcpService]is wechat voip call");
+            return;
+        }
         HandleVoipCallDetailChange(info);
     }
     ProcessCallDetailChange(info);
 }
+
 
 void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
