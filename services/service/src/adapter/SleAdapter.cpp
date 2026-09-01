@@ -2292,6 +2292,7 @@ void SleAdapter::PairCmpSuccess(const RawAddress &device, int pairState, int con
     }
     LOG_INFO("[SleAdapter]:Save peer device info.");
     adapterProperties_->SavePeerDeviceInfoToConf();
+    adapterProperties_->SaveDeviceManufacturerAbility(device);
     RawAddress reportAddr(device);
     CdsmService *cdsmService = CdsmService::GetService();
     NL_CHECK_RETURN(cdsmService, "ProfileCdsm is null.");
@@ -2654,7 +2655,6 @@ void SleAdapter::EncryptionComplete(const RawAddress &device, const int status) 
             static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
 
         OnAcbStateChanged(device, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED), ACB_CONNECT_SUCCESS);
-        adapterProperties_->SaveDeviceManufacturerAbility(device);
         if ((connDirect == static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE)) ||
             ((pimpl->sleProfileConnectManager_.GetProfileConnectState(device) ==
                 SLE_ADAPTER_PROF_CONN_STATE_ACB_CONNECTING)) || isCdsmMember) {
