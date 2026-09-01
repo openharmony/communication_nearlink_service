@@ -193,6 +193,7 @@ static void SmNumCmpHandleGNode(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][NUMCMP] G node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     // 计算link Key
@@ -201,12 +202,14 @@ static void SmNumCmpHandleGNode(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][NUMCMP] G node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_G_AUTH_EXCEP, SM_DFT_G_AUTH_GEN_KEY_TIME);
     // 发送DHKey
     SmSendGNodeDhKey(slink);
     SmSLinkWaitExpectOpCode(slink, SM_AUTH_T_NODE_DHKEY, SM_RECV_USER_CONFIRM_TIMEOUT_TIME);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 static void SmNumCmpHandleTNode(SmSLink_S *slink)
@@ -222,6 +225,7 @@ static void SmNumCmpHandleTNode(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][NUMCMP] T node: dhkey generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     // 计算link Key
@@ -230,6 +234,7 @@ static void SmNumCmpHandleTNode(SmSLink_S *slink)
         NLSTK_LOG_ERROR("[SM][NUMCMP] T node: Link key generation failure.");
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         return;
     }
     SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_T_AUTH_EXCEP, SM_DFT_T_AUTH_GEN_KEY_TIME);
@@ -237,6 +242,7 @@ static void SmNumCmpHandleTNode(SmSLink_S *slink)
         slink->tNode.recvFlag = false;
         SmRecvGNodeDhKey(slink, g_numCmpTNodeRecvDHKey.authData, g_numCmpTNodeRecvDHKeySize);
     }
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
 }
 
 void SmNumCmpContinueNumComparison(SmSLink_S *slink)
