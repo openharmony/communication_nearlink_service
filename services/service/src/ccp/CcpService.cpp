@@ -28,6 +28,7 @@
 #include "CcpStackAdapter.h"
 #include "CcpSystemInterface.h"
 #include "nearlink_dft_ue.h"
+#include "ServiceManagerPluginLoader.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -49,7 +50,7 @@ struct CcpService::impl {
     std::set<int32_t> voipIdSet_;
     /* 当前voip通话的callId */
     int32_t currentVoipCallId_ = INVALID_CCP_VOIP_ID;
-    bool isInVoipCall = false;
+    bool isInVoipCallKit = false;
 
     uint8_t GetIndexForCall(const int32_t callId, const Telephony::TelCallState callStatus);
     void RemoveCallIndex(const int32_t callId);
@@ -295,14 +296,21 @@ void CcpService::HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState
 
 void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
+    std::string bundleName =
+        ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
+    /* 拦截没有接入CallKit的voip */
+    if (!bundleName.empty() && bundleName == info.voipCallInfo.voipBundleName) {
+        HILOGD("[CcpService]wechat voip call is intercepted");
+        return;
+    }
     switch (info.callState) {
         case TelCallState::CALL_STATUS_DIALING:
         case TelCallState::CALL_STATUS_INCOMING:
-            pimpl->isInVoipCall = true;
+            pimpl->isInVoipCallKit = true;
             break;
         case TelCallState::CALL_STATUS_DISCONNECTED:
             /* 通话挂断 */
-            pimpl->isInVoipCall = false;
+            pimpl->isInVoipCallKit = false;
             break;
         default:
             break;
@@ -484,7 +492,7 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        NL_CHECK_RETURN(!pimpl->isInVoipCall, "Now Is in VoIP, not need to create new call state.");
+        NL_CHECK_RETURN(!pimpl->isInVoipCallKit, "Now Is in VoIP Call Kit, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
         pimpl->currentVoipCallId_ = voipId;
@@ -505,9 +513,9 @@ void CcpService::HandleVoipStop(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        if (pimpl->isInVoipCall) {
+        if (pimpl->isInVoipCallKit) {
             HILOGI("[CcpService]Now Is in VoIP, not need to create new call state");
-            pimpl->isInVoipCall = false;
+            pimpl->isInVoipCallKit = false;
             return;
         }
         Telephony::CallAttributeInfo info;
