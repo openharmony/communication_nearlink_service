@@ -149,7 +149,9 @@ ohos_unittest("nl_asc_service_test") {
   ]
   sources += [
     "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_host_server.cpp",
-    "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_system_config.cpp"
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_system_config.cpp",
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_sle_audio_framework_adapter.cpp",
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_sle_remote_device_adapter.cpp",
   ]
 
   configs = [ ":nl_asc_service_unit_test_config" ]
