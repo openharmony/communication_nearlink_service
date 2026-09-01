@@ -51,11 +51,12 @@ public:
 
 class PairingStateParam : public NapiNativeObject {
 public:
-    PairingStateParam(std::string address, int preState, int state, int reason)
+    PairingStateParam(std::string address, int preState, int state, int reason, std::string reasonMsg)
         : address_(address),
           preState_(preState),
           state_(state),
-          reason_(reason)
+          reason_(reason),
+          reasonMsg_(reasonMsg)
     {
     }
     ~PairingStateParam() override = default;
@@ -67,15 +68,17 @@ private:
     int preState_;
     int state_;
     int reason_;
+    std::string reasonMsg_;
 };
 
 class ConnectionStateParam : public NapiNativeObject {
 public:
-    ConnectionStateParam(std::string address, int preState, int state, int connectionReason)
+    ConnectionStateParam(std::string address, int preState, int state, int connectionReason, std::string reasonMsg)
         : address_(address),
           preState_(preState),
           state_(state),
-          connectionReason_(connectionReason)
+          connectionReason_(connectionReason),
+          reasonMsg_(reasonMsg)
     {
     }
     ~ConnectionStateParam() override = default;
@@ -87,6 +90,7 @@ private:
     int preState_;
     int state_;
     int connectionReason_;
+    std::string reasonMsg_;
 };
 
 class PairingRequestParam : public NapiNativeObject {

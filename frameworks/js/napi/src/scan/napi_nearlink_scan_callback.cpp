@@ -15,6 +15,7 @@
 #include "napi_nearlink_scan_callback.h"
 
 #include "log_util.h"
+#include "napi_nearlink_utils.h"
 #include "securec.h"
 
 namespace OHOS {
@@ -50,6 +51,8 @@ void ConvertScanResult(const std::vector<SleScanResult> &results, const napi_env
         napi_set_named_property(env, result, "data", value);
         napi_create_string_utf8(env, sleScanResult.GetName().c_str(), NAPI_AUTO_LENGTH, &value);
         napi_set_named_property(env, result, "deviceName", value);
+        napi_create_int32(env, NapiToJsDeviceClass(static_cast<int>(sleScanResult.GetDeviceClass())), &value);
+        napi_set_named_property(env, result, "deviceClass", value);
         napi_get_boolean(env, sleScanResult.IsConnectable(), &value);
         napi_set_named_property(env, result, "isConnectable", value);
         napi_set_element(env, scanResultArray, count, result);

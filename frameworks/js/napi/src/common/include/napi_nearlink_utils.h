@@ -231,6 +231,8 @@ int NapiToJsPairState(int state);
 int NapiToJsAcbState(int state);
 int NapiToJsConnState(int state);
 int NapiToJsDeviceClass(int appearance);
+std::string NapiToJsPairReasonMsg(int reason);
+std::string NapiToJsConnReasonMsg(int reason);
 }  // namespace Nearlink
 }  // namespace OHOS
 #endif  // NAPI_NEARLINK_UTILS_H
