@@ -5431,7 +5431,7 @@ HWTEST_F(ASCServiceTest, ContrSubrateOneNumInMulConn_002, TestSize.Level1)
     asc->SetASCSubRateStatus(coDevice, NL_SLE_ASC_SETTED, NLSTK_SUBRATE_1);
     // 触发设备为vendor音频设备，应早退不切换任何设备
     SetMockVendorAudioDevice(deviceStr);
-    SetMockVendorAudioDevice(coDevice);
+    SetMockVendorAudioDevice(coDeviceStr);
     asc->ContrSubrateOneNumInMulConn(device, NLSTK_SUBRATE_1);
 
     EXPECT_EQ(asc->ascSubrateMap_[device.GetAddress()].subrateValue, NLSTK_SUBRATE_1);

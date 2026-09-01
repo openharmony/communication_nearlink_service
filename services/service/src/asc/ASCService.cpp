@@ -6874,7 +6874,7 @@ bool ASCService::IsVendorAudioDevice(const RawAddress &device)
 void ASCService::ContrSubrateOneNumInMulConn(const RawAddress &device, uint16_t subrate)
 {
     if (subrate != NLSTK_SUBRATE_1 || IsVendorAudioDevice(device)) {
-        HILOGD("[ASCService]%{public}s no need change subrate 1 to subrate 2",
+        HILOGD("[ASCService]%{public}s no need change subrate1 to subrate2",
             GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
