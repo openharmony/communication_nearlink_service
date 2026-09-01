@@ -252,6 +252,11 @@ bool ASCService::GetLocalVocieCallFrameFourAbility()
     return false;
 }
 
+bool ASCService::GetLocalVoiceCallAutorateAbility()
+{
+    return false;
+}
+
 bool ASCService::IsPlaying(const RawAddress &device)
 {
     return true;

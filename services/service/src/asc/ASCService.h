@@ -135,6 +135,7 @@ public:
     bool IsEqualCodec(const AscCodecIdKey &codecA, const AscCodecIdKey &codecB);
     void ProcessCodecFCVersion(AscCodecIdKey &codec);
     bool GetLocalVocieCallFrameFourAbility() override;
+    bool GetLocalVoiceCallAutorateAbility() override;
     bool GetLongRangeVoiceCallAbility(const RawAddress &device);
     uint8_t SelectCodecSampleRatePolicyInDualRec(AscCodecIdKey codec, uint16_t peerSampleRate);
     uint8_t SelectCodecBitDepthPolicyInDualRec(AscCodecIdKey codec, uint8_t inDepth);
@@ -758,6 +759,8 @@ private:
     int8_t dualRecCapState_ = UNKNOWN;
     std::mutex karaokeCapStateMutex_;
     int8_t karaokeCapState_ = UNKNOWN;
+    std::mutex voiceCallAutorateCapStateMutex_;
+    int8_t voiceCallAutorateCapState_ = UNKNOWN;
     // 上层管控subrate设置串行化
     std::map<std::string, ASCSubRateInfo> ascSubrateMap_;
 

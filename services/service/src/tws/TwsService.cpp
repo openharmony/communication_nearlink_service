@@ -233,7 +233,8 @@ void TwsService::UpdateVoiceCallFrameFourAndAutoRateAbility()
     NL_CHECK_RETURN(ascService, "ASCService is null.");
     int callAutoRateFeatureIndex = ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(
         MANU_ABILITY_VOICE_CALL_AUTORATE);
-    ManufacturerAbilityLoader::GetInstance().SetLocalAbility(callAutoRateFeatureIndex, true);
+    ManufacturerAbilityLoader::GetInstance().SetLocalAbility(callAutoRateFeatureIndex,
+        ascService->GetLocalVoiceCallAutorateAbility());
 
     int frameFourCallFeatureIndex = ManufacturerAbilityLoader::GetInstance().GetAbilityIndex(
         MANU_ABILITY_VOICE_CALL_FRAME_FOUR);

@@ -7053,6 +7053,15 @@ void ASCService::NotifyVoiceCallAutorateAblityToActm(const RawAddress& device, c
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "[ASCService]SendVoiceCallAutoRateMsg err, ret %{public}d", ret);
 }
 
+bool ASCService::GetLocalVoiceCallAutorateAbility()
+{
+    std::unique_lock<std::mutex> lock(voiceCallAutorateCapStateMutex_);
+    if (voiceCallAutorateCapState_ == UNKNOWN) {
+        voiceCallAutorateCapState_ = NearlinkSystemConfig::IsVoiceCallAutorateSupported() ? SUPPORTED : NOT_SUPPORTED;
+    }
+    return voiceCallAutorateCapState_ == SUPPORTED;
+}
+
 bool ASCService::GetLocalVocieCallFrameFourAbility()
 {
     bool isSupport = false;
@@ -7062,6 +7071,8 @@ bool ASCService::GetLocalVocieCallFrameFourAbility()
 
 bool ASCService::GetLongRangeVoiceCallAbility(const RawAddress &device)
 {
+    // 本端通话Autorate能力
+    bool isLocalAutorateSupport = GetLocalVoiceCallAutorateAbility();
     // 本端帧4通话能力，通过查询芯片feature获取
     bool isLocalFrameFourSupport = GetLocalVocieCallFrameFourAbility();
 
@@ -7076,7 +7087,7 @@ bool ASCService::GetLongRangeVoiceCallAbility(const RawAddress &device)
     bool isPeerFrameFourSupport = (callFrameFour >= 0) &&
         SleRemoteDeviceAdapter::GetInstance()->GetManufacturerAbility(device, static_cast<uint8_t>(callFrameFour));
 
-    return isLocalFrameFourSupport && isPeerAutorateSupport && isPeerFrameFourSupport;
+    return isLocalAutorateSupport && isLocalFrameFourSupport && isPeerAutorateSupport && isPeerFrameFourSupport;
 }
 
 ASCSubRateState ASCService::GetASCSubRateStatus(const RawAddress &device)

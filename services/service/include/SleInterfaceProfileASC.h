@@ -196,6 +196,9 @@ public:
 
     /* 查找本端设备是否支持帧4通话 */
     virtual bool GetLocalVocieCallFrameFourAbility() = 0;
+
+    /* 查找本端设备是否支持通话autorate */
+    virtual bool GetLocalVoiceCallAutorateAbility() = 0;
 };
 
 } // namespace Sle

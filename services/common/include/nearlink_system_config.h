@@ -50,6 +50,14 @@ public:
      * @return false 不支持双耳录音功能
      */
     static bool IsDualRecordSupported();
+
+    /**
+     * @brief 检查通话码率自适应是否支持
+     *
+     * @return true 支持通话码率自适应功能
+     * @return false 不支持通话码率自适应功能
+     */
+    static bool IsVoiceCallAutorateSupported();
 };
 
 } // namespace Nearlink
