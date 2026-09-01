@@ -7121,7 +7121,6 @@ void ASCService::SetSubrate(const RawAddress &device, const SleAcbSubrateParam &
         ASCMessage event(ASC_SUBRATE_CHANGED_EVT);
         event.dev_ = device.GetAddress();
         event.subrate_ = subrateParam.subrate;
-        event.result_ = NL_SLE_ASC_RESULT_FAIL;
         PostEvent(event);
     }
 }
