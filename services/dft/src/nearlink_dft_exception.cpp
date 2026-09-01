@@ -20,6 +20,7 @@
 #include "nearlink_dft_utils.h"
 #include "nearlink_dft_manager.h"
 #include <mutex>
+#include <chrono>
 #include "nearlink_safe_map.h"
 #include "nearlink_def.h"
 #include "log.h"
@@ -56,6 +57,8 @@ const std::string UNPAIR_TASK_NAME = "cancelpairing";
 const std::string NO_SECURITY_PAIR_TYPE = "NoneSecurityPair";
 const std::string SECURITY_PAIR_TYPE = "SecurityPair";
 const std::string DFT_UUID_ICCE = "060D";
+const std::string DFT_ADV_SOS = "com.huawei.hmos.emergencycommunication";
+const std::string DFT_SCAN_SOS = "emergency_service";
 constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
@@ -63,6 +66,8 @@ constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
 static NearlinkSafeMap<std::string, std::string> g_dftTaskMap;
+static NearlinkSafeMap<std::string, int64_t> g_sosReportTimeMap; // <addr, lastReportTime>
+static constexpr int64_t SOS_REPORT_EXPIRE_TIME_MS = 60000; // 1分钟过期时间（毫秒）
 static DftTaskName g_dftTaskName = DFT_DEFAULT;
 static NearlinkSafeMap<std::string, uint32_t> g_pairFirstTimeMap;
 static NearlinkSafeMap<std::string, uint32_t> g_pairConnPath;
@@ -72,6 +77,7 @@ static bool g_sceneFlag = false;
 static std::atomic<bool> g_pairFlag{false};
 static bool g_disconnFlag = false;
 static NearlinkSafeMap<std::string, std::string> g_dftUnpairTaskMap;
+static NearlinkSafeMap<uint32_t, std::string> g_scanPkgMap;     // <scannerId, pkgName>
 constexpr const uint16_t CDSM_AUDIO_DEVICE_NUM = 2;
 static uint16_t g_streamCountSuccess = 0;
 static bool g_airplaneModeFlag = false;
@@ -1439,6 +1445,70 @@ void DftSetAirplaneMode(bool isOn)
 {
     std::lock_guard<std::mutex> lock(g_modeMutex);
     g_airplaneModeFlag = isOn;
+}
+
+void DftReportAdvertiseStart(const std::string &pkgName)
+{
+    if (pkgName != DFT_ADV_SOS) {
+        return;
+    }
+    std::string time = GetMillTime(true);
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateUi8ParamC(DISCOVERY_TYPE, static_cast<uint8_t>(DISCOVERY_ADVERTISE)));
+    params.emplace_back(CreateStrParamC(DISCOVERY_START_TIME, time));
+    params.emplace_back(CreateStrParamC(DISCOVERY_PKG_NAME, pkgName));
+    DftManagerReport(DFT_DISCOVERY_EXCEP, params.data(), params.size());
+}
+
+void DftReportScanStart(uint32_t scannerId, const std::string &pkgName)
+{
+    if (pkgName != DFT_SCAN_SOS) {
+        return;
+    }
+    g_scanPkgMap.EnsureInsert(scannerId, pkgName);
+    std::string time = GetMillTime(true);
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateUi8ParamC(DISCOVERY_TYPE, static_cast<uint8_t>(DISCOVERY_SCAN)));
+    params.emplace_back(CreateStrParamC(DISCOVERY_START_TIME, time));
+    params.emplace_back(CreateStrParamC(DISCOVERY_PKG_NAME, pkgName));
+    DftManagerReport(DFT_DISCOVERY_EXCEP, params.data(), params.size());
+}
+
+void DftReportScanResult(const std::string &addr, uint32_t scannerId)
+{
+    std::string pkgName;
+    if (!g_scanPkgMap.GetValue(scannerId, pkgName) || pkgName != DFT_SCAN_SOS) {
+        return;
+    }
+    int64_t lastTime = 0;
+    int64_t currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if (g_sosReportTimeMap.GetValue(addr, lastTime) && currentTime - lastTime <= SOS_REPORT_EXPIRE_TIME_MS) {
+        return;
+    }
+    // 清理超时广播回调缓存
+    std::vector<std::string> expiredAddrs;
+    g_sosReportTimeMap.Iterate([&](const std::string& key, int64_t value) {
+        if (currentTime - value > SOS_REPORT_EXPIRE_TIME_MS) {
+            expiredAddrs.push_back(key);
+        }
+    });
+    for (const auto& expiredAddr : expiredAddrs) {
+        g_sosReportTimeMap.Erase(expiredAddr);
+    }
+    // 更新addr的lastTime并且report
+    g_sosReportTimeMap.EnsureInsert(addr, currentTime);
+    std::string time = GetMillTime(true);
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateUi8ParamC(DISCOVERY_TYPE, static_cast<uint8_t>(DISCOVERY_SCAN)));
+    params.emplace_back(CreateStrParamC(DISCOVERY_PKG_NAME, pkgName));
+    params.emplace_back(CreateStrParamC(DISCOVERY_RESULT_CALLBACK_TIME, time));
+    DftManagerReport(DFT_DISCOVERY_EXCEP, params.data(), params.size());
+}
+
+void DftEraseScanPkgMap(uint32_t scannerId)
+{
+    g_scanPkgMap.Erase(scannerId);
 }
 
 }  // namespace Nearlink

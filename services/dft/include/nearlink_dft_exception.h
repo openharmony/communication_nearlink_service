@@ -210,6 +210,11 @@ typedef enum DftDtfrType :int {
     DTFR_PROXY = 2,
 } DftDtfrType;
 
+typedef enum DftDiscoveryType :int {
+    DISCOVERY_ADVERTISE = 0,
+    DISCOVERY_SCAN,
+} DftDiscoveryType;
+
 typedef enum DftDtfrExcepPortSubScene :int {
     CREATE_PORT_FAIL = 1,
 } DftDtfrExcepPortSubScene;
@@ -440,6 +445,13 @@ void DftCacheStreamASC(DftAudioStreamInfo info);
 
 // Set Airplane Mode From ASC
 void DftSetAirplaneMode(bool isOn);
+
+// NEARLINK_DISCOVERY_EXCEPTION
+void DftReportAdvertiseStart(const std::string &pkgName);
+void DftReportScanStart(uint32_t scannerId, const std::string &pkgName);
+void DftReportScanResult(const std::string &addr, uint32_t scannerId);
+void DftEraseScanPkgMap(uint32_t scannerId);
+
 }  // namespace Nearlink
 }  // namespace OHOS
 

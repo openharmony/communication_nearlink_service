@@ -102,6 +102,8 @@ typedef enum DftEventEnum : int {
     DFT_QOSM_CHOPPY_EXCEP,
     DFT_QOSM_STATS,
     DFT_STACK_HADM_EXCEP,
+    DFT_FIND_EXCEP,
+    DFT_DISCOVERY_EXCEP,
     // add exception and ue event above this
     DFT_EXCEP_BUTT,
     // add sub event below this
@@ -599,6 +601,41 @@ typedef enum DftAudioStreamExcepParamEnum : int {
     // add normal param above this
     STREAM_PARAM_BUTT,
 } DftAudioStreamExcepParamEnum;
+
+// NEARLINK_FIND_EXCEPTION
+typedef enum DftFindExcepParamEnum : int {
+    FIND_EXCEP_INVALID = 0,
+    // add key param below this
+    // add key param above this
+    FIND_EXCEP_KEY_BUTT,
+    // add normal param below this
+    FIND_EXCEP_INIT_DISTANCE,
+    FIND_EXCEP_START_COUNT,
+    FIND_EXCEP_STOP_COUNT,
+    FIND_EXCEP_REMOTE_SCAN_START_COUNT,
+    FIND_EXCEP_REMOTE_SCAN_STOP_COUNT,
+    FIND_EXCEP_STATE_FLOW,
+    FIND_EXCEP_AUTH_FAIL_DISCONNECT,
+    FIND_EXCEP_ENABLE_TIME,
+    FIND_EXCEP_DISABLE_TIME,
+    // add normal param above this
+    FIND_EXCEP_PARAM_BUTT,
+} DftFindExcepParamEnum;
+
+// NEARLINK_DISCOVERY_EXCEPTION param enum
+typedef enum DftDiscoveryExcepParamEnum : int {
+    DISCOVERY_INVALID = 0,
+    // add key param below this
+    // add key param above this
+    DISCOVERY_KEY_BUTT,
+    // add normal param below this
+    DISCOVERY_TYPE,
+    DISCOVERY_START_TIME,
+    DISCOVERY_PKG_NAME,
+    DISCOVERY_RESULT_CALLBACK_TIME,
+    // add normal param above this
+    DISCOVERY_PARAM_BUTT,
+} DftDiscoveryExcepParamEnum;
 
  /*******************************************************************************
  *  Sub Event param index define below
