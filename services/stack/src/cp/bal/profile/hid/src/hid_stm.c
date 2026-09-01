@@ -291,7 +291,7 @@ static void HidReadDescAndIndexSingle(HidDevice_S *dev)
         uint16_t *handle = SDF_VectorElementAt(dev->service.indexHandle, i);
         ret = NLSTK_SsapClientReadProperty(dev->appId, *handle);
         if (ret != NLSTK_ERRCODE_SUCCESS) {
-            NLSTK_LOG_ERROR("[HID] read report index fail");
+            NLSTK_LOG_ERROR("[HID] read report info fail");
             HidStateChangeCbk(&dev->addr, HID_DISCONNECTED, HID_CONNECTING, ret);
             HidHandleExceptionAfterLinkConnected(dev);
             return;
