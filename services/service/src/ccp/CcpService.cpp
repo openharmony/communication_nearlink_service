@@ -300,7 +300,7 @@ void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &
         ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
     /* 拦截没有接入CallKit的voip */
     if (!bundleName.empty() && bundleName == info.voipCallInfo.voipBundleName) {
-        HILOGI("[CcpService]wechat voip call is intercepted");
+        HILOGD("[CcpService]wechat voip call is intercepted");
         return;
     }
     switch (info.callState) {
