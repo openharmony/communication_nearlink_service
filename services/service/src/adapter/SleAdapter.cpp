@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <condition_variable>
 #include <mutex>
 #include <future>
@@ -695,8 +696,10 @@ void SleAdapter::UpdateSleConnectableTimer()
         SetSleUnconnectable();
     };
     pimpl->sleConnectableTimer_ = std::make_shared<NearlinkTimer>(timeoutFunc);
-    int32_t time = pimpl->duration_ * SECONDS_TO_MILLISECONDS;
-    pimpl->sleConnectableTimer_->Start(time, false);
+    // duration 秒转毫秒可能超出 int32（约 24.8 天），钳制到定时器可表示上限，避免溢出为负导致定时器永不启动
+    int64_t time = static_cast<int64_t>(pimpl->duration_) * SECONDS_TO_MILLISECONDS;
+    time = time > INT_MAX ? INT_MAX : time;
+    pimpl->sleConnectableTimer_->Start(static_cast<int32_t>(time), false);
 }
 
 void SleAdapter::ClearSleConnectableTimer()
@@ -1813,7 +1816,7 @@ std::string CombineChannelAndNoise(const std::vector<uint8_t>& rssiIndex,
 
 void SleAdapter::RssiChangedCallback(void *param)
 {
-    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
+    NL_CHECK_RETURN(param != nullptr && g_sleAdapterImpl != nullptr, "param is null");
     NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(DisconChipInfo), "param error");
     DisconChipInfo info = *(reinterpret_cast<DisconChipInfo *>(chipInfo.data));

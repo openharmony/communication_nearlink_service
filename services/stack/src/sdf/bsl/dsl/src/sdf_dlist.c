@@ -30,6 +30,10 @@ void SDF_DListMove(SDF_DListHead_S *dst, SDF_DListHead_S *src)
     if (dst == NULL || src == NULL) {
         return;
     }
+    // src 为空时无需搬移（头文件注释允许 src 为空），避免 dst 悬挂指向 src 哨兵
+    if (SDF_DListIsEmpty(src)) {
+        return;
+    }
     dst->list.next = src->list.next;
     dst->list.prev  = src->list.prev;
     src->list.next->prev = &(dst->list);
@@ -81,7 +85,7 @@ void SDF_DListPosConcat(SDF_DListEntry_S *pos, SDF_DListHead_S *src)
     }
     SDF_DListConcat(pos, pos->next, src->list.prev, src->list.next);
     SDF_DListHeadInit(src);
-    src->size++;
+    // src 已重置为空，不能再 src->size++（否则空链表被记成非空，SDF_DListDestroy 释放节点数错乱）
 }
 
 void SDF_DListDestroy(SDF_DListHead_S *head, SDF_DListNodeFreeHook freeHook)

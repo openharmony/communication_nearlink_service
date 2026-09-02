@@ -332,9 +332,12 @@ void DTAP_FragmentFrame(SDF_Buff_S *buff, uint16_t mps, uint8_t frameType,
 uint32_t DTAP_SetFrameBit(DTAP_BasicHeader_S *frameHeader, uint8_t bits);
 uint32_t DTAP_ReCalculateCrcValue(uint16_t crcInit, DTAP_Frame_S *frame);
 
-static inline uint16_t DTAP_GetFragmentFramesNum(uint16_t len, uint16_t mps)
+static inline uint16_t DTAP_GetFragmentFramesNum(uint64_t len, uint16_t mps)
 {
-    return mps == 0 ? 1 : (len + mps - 1) / mps;
+    // 用 64 位中间运算避免 (len + mps - 1) 回绕；超过上限按 DTAP_MAX_FRAGMENT_NUM+1 返回，
+    // 保证调用方 cnt > DTAP_MAX_FRAGMENT_NUM 的拒绝检查必然命中
+    uint64_t num = mps == 0 ? 1 : (len + mps - 1) / mps;
+    return (num > DTAP_MAX_FRAGMENT_NUM) ? (uint16_t)(DTAP_MAX_FRAGMENT_NUM + 1) : (uint16_t)num;
 }
 
 static inline bool DTAP_CheckFrameBit(uint8_t bits, uint8_t bit)

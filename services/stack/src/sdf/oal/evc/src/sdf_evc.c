@@ -380,7 +380,11 @@ uint32_t SDF_EvcListenEvent(int handle, SDF_EvcEvent *event)
     SDF_MutexUnlock(g_evcLock);
     return SDF_OK;
 FAIL1:
+    // 注册失败时事件未生效：args 所有权未移交，不能经 dtor 的 freeFunc 释放（由调用方清理），
+    // 故置空 freeFunc 后再摘除节点（dtor 仅释放 evcEvent 自身），且不再落到 FAIL2 二次释放
+    evcEvent->freeFunc = NULL;
     SDF_VectorRemoveLast(evcDesc->eventVector);
+    goto FAIL3;
 FAIL2:
     SDF_MemFree(evcEvent);
 FAIL3:

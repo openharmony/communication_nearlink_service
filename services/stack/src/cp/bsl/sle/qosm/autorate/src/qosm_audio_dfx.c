@@ -194,10 +194,10 @@ static uint32_t QOSM_Base64Decode(const char *data, uint32_t inputLength, uint8_
     }
 
     for (size_t index = 0, outputIndex = 0; index < inputLength;) {
-        uint32_t sextetA = data[index] == '=' ? 0 & index++ : g_decodingTable[(int)data[index++]];
-        uint32_t sextetB = data[index] == '=' ? 0 & index++ : g_decodingTable[(int)data[index++]];
-        uint32_t sextetC = data[index] == '=' ? 0 & index++ : g_decodingTable[(int)data[index++]];
-        uint32_t sextetD = data[index] == '=' ? 0 & index++ : g_decodingTable[(int)data[index++]];
+        uint32_t sextetA = data[index] == '=' ? 0 & index++ : g_decodingTable[(unsigned char)data[index++]];
+        uint32_t sextetB = data[index] == '=' ? 0 & index++ : g_decodingTable[(unsigned char)data[index++]];
+        uint32_t sextetC = data[index] == '=' ? 0 & index++ : g_decodingTable[(unsigned char)data[index++]];
+        uint32_t sextetD = data[index] == '=' ? 0 & index++ : g_decodingTable[(unsigned char)data[index++]];
 
         uint32_t triple = (sextetA << 3 * 6)
                         + (sextetB << 2 * 6)
