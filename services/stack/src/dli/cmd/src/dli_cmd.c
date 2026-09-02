@@ -171,7 +171,8 @@ static bool DLI_NeedEraseCmd(uint16_t cmd)
 static uint32_t DLI_ExecuteCommand(uint16_t cmd, uint16_t event, void *inParam, uint16_t paramLen,
     DLI_ExecuteCmdCbk cbk, void *cbkContext, uint16_t cbkContextLen)
 {
-    DLI_LOGI("dli execute cmd: 0x%04X, event: 0x%04X, paramLen: %hu", cmd, event, paramLen);
+    DLI_LOGI("dli execute cmd: 0x%04X, event: 0x%04X, paramLen: %hu, cbkContextLen: %hu",
+        cmd, event, paramLen, cbkContextLen);
     if (cmd > DLI_TEST_END || cmd < DLI_SET_EVENT_MASK || (event == DLI_CMD_COMPLETE_EVT && cbk == NULL)) {
         DLI_LOGE("arg is invalid");
         return DLI_STACK_PARAMS_ERRNO;
@@ -845,8 +846,11 @@ uint32_t DLI_UpdateConnectionParam(uint8_t version, uint16_t localIndex, DLI_Con
 uint32_t DLI_SetPhy(DLI_SetPhyParam *param)
 {
     DLI_CHECK_RETURN_RET(param, DLI_STACK_PARAMS_ERRNO, "param is null");
+    DLI_ConnCbkContext cbkContext = {0};
+    cbkContext.connHandle = param->connHandle;
     uint32_t ret =
-        DLI_ExecuteCommand(DLI_SET_PHY, DLI_SET_PHY_COMPLETE_EVT, param, sizeof(DLI_SetPhyParam), NULL, NULL, 0);
+        DLI_ExecuteCommand(DLI_SET_PHY, DLI_SET_PHY_COMPLETE_EVT, param, sizeof(DLI_SetPhyParam),
+        DLI_GetCbk(DLI_CBK_SET_PHY), &cbkContext, sizeof(DLI_ConnCbkContext));
     DLI_LOGD("set phy ret = %u", ret);
     return ret;
 }
@@ -931,8 +935,12 @@ uint32_t DLI_RemoteConnectionParamReqReply(DLI_RemConParamReqReplyParam *param)
 uint32_t DLI_SetMcs(DLI_SetMcsParam *param)
 {
     DLI_CHECK_RETURN_RET(param, DLI_STACK_PARAMS_ERRNO, "param is null");
+    // 芯片没有回调返回lcid，此处通过上下文传递链路标识
+    DLI_ConnCbkContext cbkContext = {0};
+    cbkContext.connHandle = param->connHandle;
     uint32_t ret = DLI_ExecuteCommand(
-        DLI_SET_MCS, DLI_CMD_COMPLETE_EVT, param, sizeof(DLI_SetMcsParam), DLI_GetCbk(DLI_CBK_SET_MCS), NULL, 0);
+        DLI_SET_MCS, DLI_CMD_COMPLETE_EVT, param, sizeof(DLI_SetMcsParam), DLI_GetCbk(DLI_CBK_SET_MCS), &cbkContext,
+        sizeof(DLI_ConnCbkContext));
     DLI_LOGD("set mcs ret = %u", ret);
     return ret;
 }

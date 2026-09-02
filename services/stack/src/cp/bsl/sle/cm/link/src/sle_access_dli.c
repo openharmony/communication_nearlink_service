@@ -507,19 +507,29 @@ static void SleAccessSetRxDataFilterCbk(void *context, uint16_t status, DLI_Exec
 static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_LOGI("status:%hu", status);
-    CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
     uint32_t versionAndLocalIndex = (context != NULL) ? ((DLI_ConnCbkContext *)context)->versionAndLocalIndex : 0;
     uint8_t version = CM_UnPackVersion(versionAndLocalIndex);
     uint16_t localIndex = CM_UnPackLocalIndex(versionAndLocalIndex);
 
-    DLI_SetPhyEvt *evt = (DLI_SetPhyEvt *)cmdRes->eventParameter;
+    DLI_SetPhyEvt completeEvt = { 0 };
+    DLI_SetPhyEvt *evt = NULL;
+    if (status == DLI_SUCCESS) {
+        CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
+        evt = (DLI_SetPhyEvt *)cmdRes->eventParameter;
+    } else {
+        evt = (DLI_SetPhyEvt *)&completeEvt;
+        // 已出错其他值设为0即可
+        evt->connHandle = (context != NULL) ? ((DLI_ConnCbkContext *)context)->connHandle : CM_INVALID_LCID;
+        evt->status = status;
+    }
+
     CM_SetPhyRsp_S setPhyRsp = {0};
     setPhyRsp.status = (uint8_t)evt->status;
     setPhyRsp.lcid = evt->connHandle;
     setPhyRsp.txFormat = evt->txFormat;
     setPhyRsp.rxFormat = evt->rxFormat;
-    setPhyRsp.txPhy =  evt->txPhy;
+    setPhyRsp.txPhy = evt->txPhy;
     setPhyRsp.rxPhy = evt->rxPhy;
     setPhyRsp.txPilotDensity = evt->txPilotDensity;
     setPhyRsp.rxPilotDensity = evt->rxPilotDensity;
@@ -531,7 +541,6 @@ static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRet
 
 static void SleAccessSetMcsCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_SET_MCS);
     if (cbk == NULL) {

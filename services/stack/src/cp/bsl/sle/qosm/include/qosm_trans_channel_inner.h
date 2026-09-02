@@ -16,6 +16,10 @@
 #ifndef QOSM_TRANS_CHANNEL_INNER_H
 #define QOSM_TRANS_CHANNEL_INNER_H
 
+#include "sdf_dlist.h"
+#include "sdf_addr.h"
+#include "qosm_trans_channel.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

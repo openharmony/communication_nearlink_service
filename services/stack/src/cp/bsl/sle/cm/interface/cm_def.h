@@ -228,6 +228,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t  status; /* 芯片错误码，详见dli_errno.h */
+    uint16_t lcid;   /* 星闪逻辑链路handle */
 } CM_LogicLinkSetMcs_S;
 
 /**

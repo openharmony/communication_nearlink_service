@@ -197,10 +197,12 @@ static void CM_SleSetPhyProc(void *context, uint8_t result, const CM_ExecuteCmdP
 static void CM_SleSetMcsProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
 {
     (void)par;
-    CM_LOGI("sle set mcs proc enter, result = 0x%02x", result);
+    uint16_t lcid = (context != NULL) ? ((DLI_ConnCbkContext *)context)->connHandle : CM_INVALID_LCID;
+    CM_LOGI("sle set mcs proc enter, result = 0x%02x, lcid = 0x%04x", result, lcid);
 
     CM_LogicLinkSetMcs_S setMcsParam = { 0 };
     setMcsParam.status = result;
+    setMcsParam.lcid = lcid;
     CM_ExecLogicLinkSetMcsCbks(&setMcsParam);
 }
 

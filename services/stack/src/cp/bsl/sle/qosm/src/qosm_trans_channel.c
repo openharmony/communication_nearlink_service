@@ -74,7 +74,7 @@ static SDF_Map *g_transChannelMap = NULL;  // key: lcid, value: list of QOSM_Tra
 static QOSM_TransChannelCbks_S g_transChannelCbks = { 0 };
 
 static QOSM_LogicLink_S *QOSM_LogicLinkFind(uint16_t lcid);
-static uint32_t QOSM_TransChannelDel(uint16_t lcid, const QOSM_TransChannelRspParams_S *rsp);
+static uint32_t QOSM_TransChannelDel(uint16_t lcid, uint8_t tcid);
 
 static inline int QOSM_LogicLinkCompare(const void *lhs_, const void *rhs_)
 {
@@ -103,6 +103,10 @@ static void QOSM_LogicLinksDtor(void *args)
 static void QOSM_ChannelDoNothing(void *arg) {}
 static uint32_t QOSM_TransChannelMapInit(void)
 {
+    if (g_transChannelMap != NULL) {
+        SDF_MapDtor(g_transChannelMap);
+        g_transChannelMap = NULL;
+    }
     SDF_Traits keyTraits = {
         .dtor = QOSM_ChannelDoNothing,
         .cmptor = QOSM_LogicLinkCompare,
@@ -242,6 +246,7 @@ static void QOSM_LogicLinkCbk(CM_LogicLinkState_S *state)
     if (state->result == CM_LINK_STATE_CONNECTED) {
         QOSM_LogicLinkAdd(state);
     } else if (state->result == CM_LINK_STATE_DISCONNECTED) {
+        QOSM_TcTuningStopStm(state->lcid);
         QOSM_LogicLinkDel(state);
     }
 }
@@ -309,15 +314,14 @@ uint32_t QOSM_TransChannelCbksUnregister(void)
 
 static uint32_t QOSM_TransChannelUpdateConnParams(uint16_t lcid, QOSM_TransChannelRspParams_S *param)
 {
+    uint32_t ret = QOSM_SUCCESS;
     QOSM_TransChannelSlqi_E slqi = QOSM_TRANS_CHANNEL_SLQI_LOW;
     QOSM_TransChannel_S *channel = NULL;
     QOSM_LogicLink_S *logicLink = QOSM_LogicLinkFind(lcid);
     if (logicLink == NULL) {
         QOSM_LOGE("logic link does not exist");
-        (void)QOSM_TransChannelDel(param->lcid, param);
-        QOSM_DecreaseChannelSize(param->lcid);
-        param->status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
-        return QOSM_NOT_FOUND_ERR;
+        ret = QOSM_NOT_FOUND_ERR;
+        goto QOSM_TRANS_CHANNEL_UPDATE_CONN_PARAMS_FAIL;
     }
     SDF_DListHead_S *head = &logicLink->list;
 
@@ -336,20 +340,31 @@ static uint32_t QOSM_TransChannelUpdateConnParams(uint16_t lcid, QOSM_TransChann
     }
 
     QOSM_TcTuningCtx_S ctx = { 0 };
-    ctx.lcid = lcid;
-    ctx.slqi = slqi;
     (void)memcpy_s(&ctx.rspParams, sizeof(QOSM_TransChannelRspParams_S), param, sizeof(QOSM_TransChannelRspParams_S));
+    ctx.rspParams.lcid = lcid;
+    ctx.rspParams.slqi = slqi;
 
-    uint32_t ret = QOSM_TcTuningWithStm(&ctx);
+    ret = QOSM_TcTuningStartWithStm(&ctx);
     if (ret != QOSM_SUCCESS) {
-        QOSM_LOGE("QOSM_TcTuningWithStm failed, ret: %u", ret);
-        (void)QOSM_TransChannelDel(param->lcid, &ctx.rspParams);
+        QOSM_LOGE("QOSM_TcTuningStartWithStm failed, ret: %u", ret);
+        goto QOSM_TRANS_CHANNEL_UPDATE_CONN_PARAMS_FAIL;
+    }
+    return QOSM_SUCCESS;
+QOSM_TRANS_CHANNEL_UPDATE_CONN_PARAMS_FAIL:
+    if (ctx.rspParams.status == QOSM_TRANS_CHANNEL_ESTABLISHED) {
+        (void)QOSM_TransChannelDel(param->lcid, ctx.rspParams.tcid);
         QOSM_DecreaseChannelSize(param->lcid);
         param->status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
-        return ret;
+        CM_DynTransChannelReleaseParamReq_S req = {
+            .version = 0, .localIndex = 0, .srcTcid = param->tcid, .dstTcid = 0, };
+        (void)memcpy_s(&req.addr, sizeof(SLE_Addr_S), &param->addr, sizeof(SLE_Addr_S));
+        QOSM_LOGI("try start to destroy transport channel, addr: %s, src tcid: %hhu",
+            GET_ENC_ADDR(&req.addr), req.srcTcid);
+        (void)CM_DynTransChannelReleaseReq(&req);
+    } else if (ctx.rspParams.status == QOSM_TRANS_CHANNEL_RELEASED) {
+        param->status = QOSM_TRANS_CHANNEL_RELEASE_FAIL;
     }
-    logicLink->slqi = slqi;
-    return QOSM_SUCCESS;
+    return ret;
 }
 
 static uint32_t QOSM_TransChannelAdd(uint16_t lcid, const QOSM_TransChannelRspParams_S *rsp)
@@ -369,7 +384,7 @@ static uint32_t QOSM_TransChannelAdd(uint16_t lcid, const QOSM_TransChannelRspPa
     return QOSM_SUCCESS;
 }
 
-static uint32_t QOSM_TransChannelDel(uint16_t lcid, const QOSM_TransChannelRspParams_S *rsp)
+static uint32_t QOSM_TransChannelDel(uint16_t lcid, uint8_t tcid)
 {
     QOSM_LogicLink_S *logicLink = QOSM_LogicLinkFind(lcid);
     QOSM_CHECK_RETURN_RET(logicLink != NULL, QOSM_LOGIC_LINK_FOUND_ERR, "logic link does not exist");
@@ -377,7 +392,7 @@ static uint32_t QOSM_TransChannelDel(uint16_t lcid, const QOSM_TransChannelRspPa
     QOSM_TransChannel_S *channel = NULL;
     QOSM_TransChannel_S *tmp = NULL;
     SDF_DListElmSafeForeach(channel, tmp, &logicLink->list, entry) {
-        if (channel->tcid != rsp->tcid) {
+        if (channel->tcid != tcid) {
             continue;
         }
         SDF_DListElmDel(&logicLink->list, channel, entry);
@@ -551,11 +566,11 @@ uint32_t QOSM_TransChannelCreate(const QOSM_TransChannelParams_S *params)
 static void QOSM_TransChannelDestroyCbk(void *args)
 {
     QOSM_CHECK_RETURN(args != NULL, "args is NULL.");
+    QOSM_TransChannelReleaseParams_S *params = (QOSM_TransChannelReleaseParams_S *)args;
     if (QOSM_IsChannelEmpty()) {
         QOSM_LOGI("channel is empty.");
-        goto FAILED;
+        goto QOSM_FAILED;
     }
-    QOSM_TransChannelReleaseParams_S *params = (QOSM_TransChannelReleaseParams_S *)args;
     CM_DynTransChannelReleaseParamReq_S req = {
         .version = 0,
         .localIndex = 0,
@@ -574,7 +589,7 @@ static void QOSM_TransChannelDestroyCbk(void *args)
     }
     QOSM_LOGE("destroy tranport channel failed, ret: 0x%8x", ret);
 
-FAILED:
+QOSM_FAILED:
     if (g_transChannelCbks.statusCbk != NULL) {
         QOSM_TransChannelRspParams_S rsp = {
             .tcid = params->tcid,
@@ -658,7 +673,8 @@ static void QOSM_TransChannelReleaseRspCbk(const CM_DynTransChanReleaseParamRsp_
               "frameType: %hhu", GET_ENC_ADDR(&rsp.addr), param->lcid, rsp.tcid, rsp.srcPort, rsp.dstPort,
               rsp.status, rsp.frameType);
     if (rsp.status == QOSM_TRANS_CHANNEL_RELEASED) {
-        if (QOSM_TransChannelDel(param->lcid, &rsp) == QOSM_SUCCESS && rsp.frameType != QOSM_SLE_RADIO_FRAME_TYPE_4) {
+        if (QOSM_TransChannelDel(param->lcid, rsp.tcid) == QOSM_SUCCESS &&
+            rsp.frameType != QOSM_SLE_RADIO_FRAME_TYPE_4) {
             if (QOSM_TransChannelUpdateConnParams(param->lcid, &rsp) == QOSM_SUCCESS) {
                 return;
             }
@@ -699,7 +715,7 @@ static void QOSM_TransChannStatusIndicationCbk(const CM_DynTransChanStatusIndica
         (void)QOSM_TransChannelAdd(param->lcid, &rsp);
         QOSM_IncreaseChannelSize(param->lcid);
     } else {
-        (void)QOSM_TransChannelDel(param->lcid, &rsp);
+        (void)QOSM_TransChannelDel(param->lcid, rsp.tcid);
         QOSM_DecreaseChannelSize(param->lcid);
     }
 
@@ -715,6 +731,10 @@ static bool QOSM_TransChannEstablishedCheckCbk(const CM_DynTransChanEstablishedC
 {
     if (g_transChannelCbks.establishedCheck == NULL) {
         return true;
+    }
+    if (param == NULL) {
+        QOSM_LOGE("param is null");
+        return false;
     }
     return g_transChannelCbks.establishedCheck(param->srcPort);
 }
@@ -777,6 +797,7 @@ static void QOSM_FreeTransChannelNode(SDF_DListEntry_S *arg)
 
 void QOSM_TransChannelDeInit(void)
 {
+    QOSM_TcTuningCbksUnregister();
     QOSM_LogicLinkCbksUnreg();
     QOSM_DynTransChanCbksUnreg();
     QOSM_TransChannelMapDeInit();

@@ -33,9 +33,6 @@ typedef struct {
 } QOSM_TcTuningCbks_S;
 
 typedef struct {
-    SLE_Addr_S addr;
-    uint16_t lcid;
-    QOSM_TransChannelSlqi_E slqi;
     QOSM_TransChannelRspParams_S rspParams;
 } QOSM_TcTuningCtx_S;
 
@@ -49,7 +46,9 @@ void QOSM_TcTuningLogicLinkSetMcsCbk(CM_LogicLinkSetMcs_S *param);
 
 void QOSM_TcTuningLogicLinkConnUpdateParamCbk(CM_LogicLinkConnUpdateParam_S *param);
 
-uint32_t QOSM_TcTuningWithStm(const QOSM_TcTuningCtx_S *ctx);
+uint32_t QOSM_TcTuningStartWithStm(const QOSM_TcTuningCtx_S *ctx);
+
+void QOSM_TcTuningStopStm(uint16_t lcid);
 
 #ifdef __cplusplus
 }

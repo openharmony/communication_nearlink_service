@@ -15,7 +15,6 @@
 
 #include "qosm_trans_channel_tuning.h"
 #include "securec.h"
-#include "common_ext_func_wrapper.h"
 #include "cp_errno_base.h"
 #include "cp_worker.h"
 #include "sdf_addr.h"
@@ -44,7 +43,8 @@
 
 #define QOSM_TUNING_CONN_UPDATE_TIMEOUT_MSEC 11000U  // 11s (DLI层超时时延为10s)
 #define QOSM_TUNING_SET_PHY_TIMEOUT_MSEC 11000U      // 11s (DLI层超时时延为10s)
-#define QOSM_TUNING_SET_MCS_TIMEOUT_MSEC 3000U      // 3s (没有空中对端交互，命令下发成功即可)
+#define QOSM_TUNING_SET_MCS_TIMEOUT_MSEC 11000U      // 11s (DLI层超时时延为10s)
+                                                     // (set mcs 命令没有空中对端交互，命令下发成功即可, 一般3s内若不返回，则可能已经故障)
 #define QOSM_TUNING_TIMER_NO_USED_HANDLE (-1)
 
 enum {
@@ -157,7 +157,7 @@ static void QOSM_TransChannelUpdateTimeout(void *arg)
     if (tuningStm == NULL || tuningStm->stm.current_ == NULL) {
         return;
     }
-    if (!QOSM_FilterRspAndCheckActive(tuningStm->ctx.lcid, tuningStm->stm.current_->name_)) {
+    if (!QOSM_FilterRspAndCheckActive(tuningStm->ctx.rspParams.lcid, tuningStm->stm.current_->name_)) {
         return;
     }
     STM_MFUNC(&tuningStm->stm, ProcessMessage, (Message) {.what = QOSM_TC_TUNING_EVENT_TIMEOUT});
@@ -169,7 +169,7 @@ static void QOSM_ConnUpdateTimeout(void *arg)
     if (tuningStm == NULL) {
         return;
     }
-    QOSM_LOGE("[STM]tuning conn update timeout, lcid: %hu", tuningStm->ctx.lcid);
+    QOSM_LOGE("[STM]tuning conn update timeout, lcid: %hu", tuningStm->ctx.rspParams.lcid);
     QOSM_TransChannelUpdateTimeout(arg);
 }
 
@@ -179,7 +179,7 @@ static void QOSM_SetPhyTimeout(void *arg)
     if (tuningStm == NULL) {
         return;
     }
-    QOSM_LOGE("[STM]tuning set phy timeout, lcid: %hu", tuningStm->ctx.lcid);
+    QOSM_LOGE("[STM]tuning set phy timeout, lcid: %hu", tuningStm->ctx.rspParams.lcid);
     QOSM_TransChannelUpdateTimeout(arg);
 }
 
@@ -189,7 +189,7 @@ static void QOSM_SetMcsTimeout(void *arg)
     if (tuningStm == NULL) {
         return;
     }
-    QOSM_LOGE("[STM]tuning set mcs timeout, lcid: %hu", tuningStm->ctx.lcid);
+    QOSM_LOGE("[STM]tuning set mcs timeout, lcid: %hu", tuningStm->ctx.rspParams.lcid);
     QOSM_TransChannelUpdateTimeout(arg);
 }
 
@@ -210,8 +210,8 @@ static void QOSM_TcStopConnUpdateTimer(StateMachine *stm)
 {
     QOSM_TcTuningStm_S *tuningStm = (QOSM_TcTuningStm_S *)stm;
     if (tuningStm->connUpdateTimerHandle != QOSM_TUNING_TIMER_NO_USED_HANDLE) {
-        CP_TimerDel(tuningStm->connUpdateTimerHandle);
         QOSM_LOGI("[STM]stop conn update timer, timerId:%d", tuningStm->connUpdateTimerHandle);
+        CP_TimerDel(tuningStm->connUpdateTimerHandle);
         tuningStm->connUpdateTimerHandle = QOSM_TUNING_TIMER_NO_USED_HANDLE;
     }
 }
@@ -233,8 +233,8 @@ static void QOSM_TcStopSetPhyTimer(StateMachine *stm)
 {
     QOSM_TcTuningStm_S *tuningStm = (QOSM_TcTuningStm_S *)stm;
     if (tuningStm->setPhyTimerHandle != QOSM_TUNING_TIMER_NO_USED_HANDLE) {
-        CP_TimerDel(tuningStm->setPhyTimerHandle);
         QOSM_LOGI("[STM]stop set phy timer, timerId:%d", tuningStm->setPhyTimerHandle);
+        CP_TimerDel(tuningStm->setPhyTimerHandle);
         tuningStm->setPhyTimerHandle = QOSM_TUNING_TIMER_NO_USED_HANDLE;
     }
 }
@@ -256,8 +256,8 @@ static void QOSM_TcStopSetMcsTimer(StateMachine *stm)
 {
     QOSM_TcTuningStm_S *tuningStm = (QOSM_TcTuningStm_S *)stm;
     if (tuningStm->setMcsTimerHandle != QOSM_TUNING_TIMER_NO_USED_HANDLE) {
-        CP_TimerDel(tuningStm->setMcsTimerHandle);
         QOSM_LOGI("[STM]stop set mcs timer, timerId:%d", tuningStm->setMcsTimerHandle);
+        CP_TimerDel(tuningStm->setMcsTimerHandle);
         tuningStm->setMcsTimerHandle = QOSM_TUNING_TIMER_NO_USED_HANDLE;
     }
 }
@@ -311,23 +311,12 @@ static bool QOSM_TcTuningStmInit(QOSM_TcTuningStm_S *stm)
         return false;
     }
 
-    bool ret = true;
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, start);
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, waitConn);
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, waitPhy);
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, waitMcs);
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, complete);
-    ret = ret && STM_MFUNC(stm, EmplaceNewState, failed);
-    if (!ret) {
-        StateDtor(failed);
-        StateDtor(complete);
-        StateDtor(waitMcs);
-        StateDtor(waitPhy);
-        StateDtor(waitConn);
-        StateDtor(start);
-        StateMachineSoftBaseDtor((StateMachine *)stm);
-        return false;
-    }
+    (void)STM_MFUNC(stm, EmplaceNewState, start);
+    (void)STM_MFUNC(stm, EmplaceNewState, waitConn);
+    (void)STM_MFUNC(stm, EmplaceNewState, waitPhy);
+    (void)STM_MFUNC(stm, EmplaceNewState, waitMcs);
+    (void)STM_MFUNC(stm, EmplaceNewState, complete);
+    (void)STM_MFUNC(stm, EmplaceNewState, failed);
 
     STM_MFUNC(stm, Transition, g_tcTuningStateName[QOSM_TC_TUNING_STATE_START]);
     return true;
@@ -368,13 +357,10 @@ static void QOSM_TcTuningCompleteReport(QOSM_TcTuningStm_S *stm)
             .srcTcid = stm->ctx.rspParams.tcid,
             .dstTcid = 0,
         };
-        (void)memcpy_s(&releaseReq.addr, sizeof(SLE_Addr_S), &stm->ctx.addr, sizeof(SLE_Addr_S));
+        (void)memcpy_s(&releaseReq.addr, sizeof(SLE_Addr_S), &stm->ctx.rspParams.addr, sizeof(SLE_Addr_S));
         uint32_t ret = CM_DynTransChannelReleaseReq(&releaseReq);
         if (ret == CM_SUCCESS) {
-            SleLogicLink_S *link = SleLogicLinkGetByAddr(&stm->ctx.addr);
-            if (link != NULL) {
-                QOSM_TuningDecreaseChannelSize(link->lcid);
-            }
+            QOSM_TuningDecreaseChannelSize(stm->ctx.rspParams.lcid);
             QOSM_LOGI("[STM]release trans channel success, tcid: %hhu", stm->ctx.rspParams.tcid);
         } else {
             QOSM_LOGE("[STM]release trans channel failed, tcid: %hhu, ret: %08x", stm->ctx.rspParams.tcid, ret);
@@ -382,7 +368,7 @@ static void QOSM_TcTuningCompleteReport(QOSM_TcTuningStm_S *stm)
     }
     QOSM_TransChannelRspParams_S *rsp = &stm->ctx.rspParams;
     if (g_tcTuningCbks.statusCbk != NULL) {
-        QOSM_LOGI("[STM]tuning complete, call statusCbk, lcid: %hhu, tcid: %hhu, status: %hhu, slqi: %hhu",
+        QOSM_LOGI("[STM]tuning complete, call statusCbk, lcid: %hu, tcid: %hhu, status: %hhu, slqi: %hhu",
             rsp->lcid, rsp->tcid, rsp->status, rsp->slqi);
         g_tcTuningCbks.statusCbk(rsp);
     }
@@ -417,13 +403,18 @@ static void QOSM_TcTuningIdleDispatch(State *state, Message msg)
     switch (msg.what) {
         case QOSM_TC_TUNING_EVENT_START: {
             QOSM_TcTuningStm_S *stm = (QOSM_TcTuningStm_S *)state->stm_;
-            QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.lcid);
+            QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.rspParams.lcid);
             if (logicLink == NULL) {
-                QOSM_LOGE("[STM]logic link not found, lcid: %hu", stm->ctx.lcid);
+                QOSM_LOGE("[STM]logic link not found, lcid: %hu", stm->ctx.rspParams.lcid);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 break;
             }
-            QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.slqi];
+            if (stm->ctx.rspParams.slqi >= QOSM_TRANS_CHANNEL_SLQI_MAX) {
+                QOSM_LOGE("[STM]slqi out of range, slqi:%hhu", stm->ctx.rspParams.slqi);
+                state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
+                break;
+            }
+            QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.rspParams.slqi];
             CM_ConnectUpdateParamReq_S connUpdateReq = {
                 .version = 0,
                 .localIndex = 0,
@@ -440,7 +431,6 @@ static void QOSM_TcTuningIdleDispatch(State *state, Message msg)
             uint32_t ret = CM_ConnectUpdateParamReq(&connUpdateReq);
             if (ret != CM_SUCCESS) {
                 QOSM_LOGE("[STM]tuning conn update params req failed, ret: %08x", ret);
-                stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 break;
             }
@@ -488,13 +478,16 @@ static void QOSM_TcTuningWaitConnUpdateParamsRspDispatch(State *state, Message m
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 break;
             }
-            QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.lcid);
+            QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.rspParams.lcid);
             if (logicLink == NULL) {
-                QOSM_LOGE("[STM]logic link not found, lcid:%hu", stm->ctx.lcid);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 break;
             }
-            QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.slqi];
+            if (stm->ctx.rspParams.slqi >= QOSM_TRANS_CHANNEL_SLQI_MAX) {
+                state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
+                break;
+            }
+            QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.rspParams.slqi];
             CM_SetPhyReq_S setPhyReq = {
                 .lcid = logicLink->lcid,
                 .txFormat = linkParams->phyParams.format,
@@ -503,12 +496,10 @@ static void QOSM_TcTuningWaitConnUpdateParamsRspDispatch(State *state, Message m
                 .rxPhy = linkParams->phyParams.phy,
                 .txPilotDensity = linkParams->phyParams.pilotDensity,
                 .rxPilotDensity = linkParams->phyParams.pilotDensity,
-                .gFeedback = 0,
-                .tFeedback = 0,
+                .gFeedback = 0, .tFeedback = 0,
             };
             uint32_t ret = CM_SetPhy(&setPhyReq);
             if (ret != CM_SUCCESS) {
-                QOSM_LOGE("[STM]tuning set phy req failed, ret:%08x", ret);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 break;
             }
@@ -561,15 +552,21 @@ static void QOSM_TcTuningWaitSetPhyRspStateDispatch(State *state, Message msg)
                 QOSM_LOGE("[STM]tuning set phy rsp failed, status: %hhu", status);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
             } else {
-                QOSM_LOGI("[STM]tuning set phy rsp success, lcid: %hu, slqi: %hhu", stm->ctx.lcid, stm->ctx.slqi);
-                QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.slqi];
-                CM_SetMcsReq_S mcsReq = { .lcid = stm->ctx.lcid, .mcs = linkParams->mcsParams.mcs };
+                QOSM_LOGI("[STM]tuning set phy rsp success, lcid: %hu, slqi: %hhu",
+                    stm->ctx.rspParams.lcid, stm->ctx.rspParams.slqi);
+                if (stm->ctx.rspParams.slqi >= QOSM_TRANS_CHANNEL_SLQI_MAX) {
+                    QOSM_LOGE("[STM]slqi out of range, slqi:%hhu", stm->ctx.rspParams.slqi);
+                    state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
+                    break;
+                }
+                QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[stm->ctx.rspParams.slqi];
+                CM_SetMcsReq_S mcsReq = { .lcid = stm->ctx.rspParams.lcid, .mcs = linkParams->mcsParams.mcs };
                 uint32_t ret = CM_SetMcs(&mcsReq);
                 if (ret != CM_SUCCESS) {
                     QOSM_LOGE("[STM]tuning set mcs req failed, ret: %08x", ret);
                     state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
                 } else {
-                    QOSM_LOGI("[STM]tuning set mcs req success, lcid: %hu", stm->ctx.lcid);
+                    QOSM_LOGI("[STM]tuning set mcs req success, lcid: %hu", stm->ctx.rspParams.lcid);
                     state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_WAIT_SET_MCS_RSP]);
                 }
             }
@@ -620,8 +617,7 @@ static void QOSM_TcTuningWaitSetMcsRspStateDispatch(State *state, Message msg)
                 QOSM_LOGE("[STM]tuning set mcs failed, status: %hhu", status);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_FAILED]);
             } else {
-                QOSM_LOGI("[STM]tuning set mcs success, lcid: %hu", stm->ctx.lcid);
-                stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_ESTABLISHED;
+                QOSM_LOGI("[STM]tuning set mcs success, lcid: %hu", stm->ctx.rspParams.lcid);
                 state->Transition(state, g_tcTuningStateName[QOSM_TC_TUNING_STATE_COMPLETE]);
             }
             break;
@@ -653,11 +649,10 @@ static void QOSM_TcTuningCompleteEntry(State *state)
     QOSM_LOGI("[STM]tuning enter complete state");
     QOSM_TcTuningStm_S *stm = (QOSM_TcTuningStm_S *)state->stm_;
     QOSM_TcStopAllTimers(state->stm_);
-    stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_ESTABLISHED;
     // 执行成功后，需要将slqi值更新到链路信息里
-    QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.lcid);
+    QOSM_LogicLink_S *logicLink = QOSM_TuningLogicLinkFind(stm->ctx.rspParams.lcid);
     if (logicLink != NULL) {
-        logicLink->slqi = stm->ctx.slqi;
+        logicLink->slqi = stm->ctx.rspParams.slqi;
     }
     QOSM_TcTuningCompleteReport(stm);
     QOSM_TcTuningStmFree(stm);
@@ -692,8 +687,13 @@ static void QOSM_TcTuningFailedEntry(State *state)
     QOSM_LOGI("[STM]tuning enter failed state");
     QOSM_TcTuningStm_S *stm = (QOSM_TcTuningStm_S *)state->stm_;
     QOSM_TcStopAllTimers(state->stm_);
-    stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
-    if (stm->ctx.rspParams.tcid != CM_TRANS_INVALID_TCID) {
+    if (stm->ctx.rspParams.status == QOSM_TRANS_CHANNEL_ESTABLISHED) {
+        stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
+    } else if (stm->ctx.rspParams.status == QOSM_TRANS_CHANNEL_RELEASED) {
+        stm->ctx.rspParams.status = QOSM_TRANS_CHANNEL_RELEASE_FAIL;
+    }
+    if (stm->ctx.rspParams.tcid != CM_TRANS_INVALID_TCID &&
+        stm->ctx.rspParams.status == QOSM_TRANS_CHANNEL_ESTABLISH_FAIL) {
         stm->needReleaseChannel = true;
     }
     QOSM_TcTuningCompleteReport(stm);
@@ -761,12 +761,14 @@ void QOSM_TcTuningLogicLinkSetMcsCbk(CM_LogicLinkSetMcs_S *param)
     if (param == NULL) {
         return;
     }
-    // 由于set mcs cbk参数没有lcid，此处直接使用实际lcid校验通过即可
-    if (!QOSM_FilterRspAndCheckActive(g_tcTuningStm->ctx.lcid,
+    if (g_tcTuningStm == NULL) {
+        return;
+    }
+    if (!QOSM_FilterRspAndCheckActive(param->lcid,
         g_tcTuningStateName[QOSM_TC_TUNING_STATE_WAIT_SET_MCS_RSP])) {
         return;
     }
-    QOSM_LOGI("[STM]logic link set mcs cbk, lcid: %hu, status: %hhu", g_tcTuningStm->ctx.lcid, param->status);
+    QOSM_LOGI("[STM]logic link set mcs cbk, lcid: %hu, status: %hhu", g_tcTuningStm->ctx.rspParams.lcid, param->status);
     STM_MFUNC(g_tcTuningStm, ProcessMessage, (Message) {
         .what = QOSM_TC_TUNING_EVENT_SET_MCS_RSP,
         .extData = (void *)(uintptr_t)param->status
@@ -780,9 +782,9 @@ static bool QOSM_FilterRspAndCheckActive(uint16_t lcid, const char* stmStateName
         return false;
     }
 
-    if (g_tcTuningStm->ctx.lcid != lcid) {
+    if (g_tcTuningStm->ctx.rspParams.lcid != lcid) {
         QOSM_LOGD("[STM]%s filtered, lcid mismatch, expect:%hu, actual:%hu",
-            stmStateName, g_tcTuningStm->ctx.lcid, lcid);
+            stmStateName, g_tcTuningStm->ctx.rspParams.lcid, lcid);
         return false;
     }
     StateMachine *stm = (StateMachine *)&g_tcTuningStm->stm;
@@ -799,11 +801,11 @@ static bool QOSM_FilterRspAndCheckActive(uint16_t lcid, const char* stmStateName
     return true;
 }
 
-uint32_t QOSM_TcTuningWithStm(const QOSM_TcTuningCtx_S *ctx)
+uint32_t QOSM_TcTuningStartWithStm(const QOSM_TcTuningCtx_S *ctx)
 {
     QOSM_CHECK_RETURN_RET(ctx != NULL, QOSM_NULL_PTR_ERR, "[STM]ctx is null");
     QOSM_LOGI("[STM]start to tuning logic link params with stm, lcid:%hu, slqi:%hhu.",
-        ctx->lcid, ctx->slqi);
+        ctx->rspParams.lcid, ctx->rspParams.slqi);
     if (g_tcTuningStm != NULL) {
         QOSM_LOGE("[STM]tuning stm is already running");
         return QOSM_POST_TASK_ERR;
@@ -820,6 +822,20 @@ uint32_t QOSM_TcTuningWithStm(const QOSM_TcTuningCtx_S *ctx)
     return QOSM_SUCCESS;
 }
 
+void QOSM_TcTuningStopStm(uint16_t lcid)
+{
+    if (g_tcTuningStm == NULL) {
+        QOSM_LOGD("[STM]tuning stm is already stopped");
+        return;
+    }
+    QOSM_LOGI("[STM]stop to tuning logic link params with stm, lcid:%hu.", lcid);
+    if (lcid != g_tcTuningStm->ctx.rspParams.lcid) {
+        return;
+    }
+    QOSM_TcTuningStmDtor(g_tcTuningStm);
+    g_tcTuningStm = NULL;
+}
+
 void QOSM_TcTuningCbksRegister(const QOSM_TcTuningCbks_S *args)
 {
     QOSM_CHECK_RETURN(args != NULL && args->statusCbk && args->logicLinkFindCbk && args->decreaseChannelSizeCbk,
@@ -830,4 +846,8 @@ void QOSM_TcTuningCbksRegister(const QOSM_TcTuningCbks_S *args)
 void QOSM_TcTuningCbksUnregister(void)
 {
     (void)memset_s(&g_tcTuningCbks, sizeof(QOSM_TcTuningCbks_S), 0, sizeof(QOSM_TcTuningCbks_S));
+    if (g_tcTuningStm != NULL) {
+        QOSM_TcTuningStmDtor(g_tcTuningStm);
+        g_tcTuningStm = NULL;
+    }
 }

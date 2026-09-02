@@ -30,26 +30,6 @@ extern "C" {
 #endif
 
 /**
- * @brief  调制模式
- */
-typedef enum {
-    CM_MCS_00 = 0,                                     /* MCS0:  BPSK1/4 */
-    CM_MCS_01,                                         /* MCS1:  BPSK3/8 */
-    CM_MCS_02,                                         /* MCS2:  QPSK1/4 */
-    CM_MCS_03,                                         /* MCS3:  QPSK3/8 */
-    CM_MCS_04,                                         /* MCS4:  QPSK1/2 */
-    CM_MCS_05,                                         /* MCS5:  QPSK5/8 */
-    CM_MCS_06,                                         /* MCS6:  QPSK3/4 */
-    CM_MCS_07,                                         /* MCS7:  QPSK7/8 */
-    CM_MCS_08,                                         /* MCS8:  QPSK 1 */
-    CM_MCS_09,                                         /* MCS9:  8PSK5/8 */
-    CM_MCS_10,                                         /* MCS10: 8PSK3/4 */
-    CM_MCS_11,                                         /* MCS11: 8PSK7/8 */
-    CM_MCS_12,                                         /* MCS12：8PSK 1 */
-    CM_MCS_MAX,
-} CM_Mcs_E;
-
-/**
  * @brief 星闪逻辑链路创建和释放响应扩展参数结构体
  */
 typedef struct {
