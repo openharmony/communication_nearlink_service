@@ -420,19 +420,19 @@ int NapiToJsDeviceClass(int appearance)
 std::string NapiToJsPairReasonMsg(int reason)
 {
     switch (reason) {
-        case 0:  // PairingReason::PAIRING_SUCCESS
+        case static_cast<int>(PairingReason::PAIRING_SUCCESS):
             return "Pairing successful";
-        case 1:  // PairingReason::PAIRING_FAILURE
+        case static_cast<int>(PairingReason::PAIRING_FAILURE):
             return "Pairing failed";
-        case 2:  // PairingReason::PAIRING_ACB_CONNECTION_FAILED
+        case static_cast<int>(PairingReason::PAIRING_ACB_CONNECTION_FAILED):
             return "ACB connection failed";
-        case 3:  // PairingReason::PAIRING_EXCEED_ACB_MAX
+        case static_cast<int>(PairingReason::PAIRING_EXCEED_ACB_MAX):
             return "The number of ACB connections exceeded the maximum";
-        case 4:  // PairingReason::PAIRING_REMOTE_CANCELED
+        case static_cast<int>(PairingReason::PAIRING_REMOTE_CANCELED):
             return "Pairing canceled by the remote device";
-        case 5:  // PairingReason::PAIRING_LOCAL_CANCELED
+        case static_cast<int>(PairingReason::PAIRING_LOCAL_CANCELED):
             return "Pairing canceled locally";
-        case 6:  // PairingReason::PAIRING_AUTH_FAILED
+        case static_cast<int>(PairingReason::PAIRING_AUTH_FAILED):
             return "Pairing authentication failed";
         default:
             return "";
@@ -442,21 +442,21 @@ std::string NapiToJsPairReasonMsg(int reason)
 std::string NapiToJsConnReasonMsg(int reason)
 {
     switch (reason) {
-        case 0:  // ConnectionReason::CONNECTION_SUCCESS
+        case static_cast<int>(ConnectionReason::CONNECTION_SUCCESS):
             return "Connection successful";
-        case 1:  // ConnectionReason::CONNECTION_FAIL
+        case static_cast<int>(ConnectionReason::CONNECTION_FAIL):
             return "Connection failed";
-        case 2:  // ConnectionReason::CONNECTION_LOCAL_DISCONNECT
+        case static_cast<int>(ConnectionReason::CONNECTION_LOCAL_DISCONNECT):
             return "Disconnected locally";
-        case 3:  // ConnectionReason::CONNECTION_REMOTE_DISCONNECT
+        case static_cast<int>(ConnectionReason::CONNECTION_REMOTE_DISCONNECT):
             return "Disconnected by the remote device";
-        case 4:  // ConnectionReason::CONNECTION_FAIL_ACB_CONNECTION
+        case static_cast<int>(ConnectionReason::CONNECTION_FAIL_ACB_CONNECTION):
             return "Connection failed due to ACB connection failure";
-        case 5:  // ConnectionReason::CONNECTION_FAIL_SERVICE_DISCOVERY
+        case static_cast<int>(ConnectionReason::CONNECTION_FAIL_SERVICE_DISCOVERY):
             return "Connection failed due to service discovery failure";
-        case 6:  // ConnectionReason::CONNECTION_FAIL_NO_AVAILABLE_SERVICE
+        case static_cast<int>(ConnectionReason::CONNECTION_FAIL_NO_AVAILABLE_SERVICE):
             return "Connection failed because no available service";
-        case 7:  // ConnectionReason::CONNECTION_FAIL_CONNECTION_NUM_LIMITED
+        case static_cast<int>(ConnectionReason::CONNECTION_FAIL_CONNECTION_NUM_LIMITED):
             return "Connection failed due to the connection number limit";
         default:
             return "";
