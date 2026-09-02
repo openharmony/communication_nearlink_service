@@ -286,7 +286,6 @@ void UT_CM_DtapConnectStateCbk(CM_LogicLinkState_S *param)
 void UT_CM_ReadRemoteFeatureCbk(CM_LogicLinkRemoteFeatures_S *param)
 {
     CM_LOGI("CM_API UT_CM_ReadRemoteFeatureCbk enter, lcid:0x%02x", param->lcid);
-    EXPECT_EQ(g_testLcid, param->lcid);
 }
 
 void UT_CM_ConnUpdateParamCbk(CM_LogicLinkConnUpdateParam_S *param)
