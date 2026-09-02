@@ -503,6 +503,7 @@ NLSTK_Errcode_E NLSTK_InitStack(void)
     StackFuncInit();
     uint32_t ret = SdfInit();
     if (ret != NLSTK_OK) {
+        StackFuncDeinit();
         return NLSTK_ERRCODE_FAIL;
     }
     ret = ScheduleEnable();
@@ -531,6 +532,7 @@ FAIL_DP:
     ScheduleDisable();
 FAIL_SCHEDULE:
     SdfDeinit();
+    StackFuncDeinit();
     return NLSTK_ERRCODE_FAIL;
 }
 

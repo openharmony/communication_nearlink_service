@@ -853,16 +853,21 @@ static void CM_DoingConnDirectRemove(uint8_t moduleId, const SLE_Addr_S *addr)
     CM_StartRmvAllowListConnReq();
 }
 
-static void CM_DestroyConnectingDevMap(uint8_t addrArrCount, CM_BgConnAddrParam_S *addrArr)
+// 失败回滚：仅移除本次请求新增的节点内容（该 moduleId 的 bg 节点及因此清空的地址节点），
+// 保留其他模块/此前既有连接状态，避免误删其定时器等资源（L-20）
+static void CM_DestroyConnectingDevMap(uint8_t moduleId, uint8_t addrArrCount, CM_BgConnAddrParam_S *addrArr)
 {
     for (uint8_t i = 0; i < addrArrCount; i++) {
-        CM_BgConnAddrParam_S *bgAddr = &addrArr[i];
-        if (!SDF_MapErase(g_cmConnectingDevMap, (SLE_Addr_S *)&bgAddr->addr)) {
-            CM_LOGE("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(&bgAddr->addr));
+        CM_AppConnectingDev_S *devNode = CM_ConnectingDevFind(&addrArr[i].addr);
+        if (devNode == NULL) {
             continue;
         }
-        g_cmSizeConnectingDev--;
-        CM_LOGI("connecting dev map size:%zu", g_cmSizeConnectingDev);
+        CM_DoingBgConnNode_S *doingNode = CM_DoingConnBgFind(&devNode->doingBgConnSet, moduleId);
+        if (doingNode != NULL) {
+            SDF_DListElmDel(&devNode->doingBgConnSet.list, doingNode, entry);
+            SDF_MemFree(doingNode);
+        }
+        CM_TryDestroyConnectingDevEmptyNode(devNode, &addrArr[i].addr);
     }
 }
 
@@ -899,6 +904,12 @@ static uint32_t CM_BgConnectAddDoingConnBgList(uint8_t moduleId, uint8_t addrArr
             // 对于已添加的设备，若此时本端与对端设备建链已完成，则忽略通知该用户CONNECTED事件
             continue;
         }
+        // 逐项复核容量上限，防止单请求批量添加导致一次超限（L-19）
+        if (g_cmSizeConnectingDev >= CM_MAX_CONNECTING_DEV_NUM) {
+            CM_LOGW("connecting dev size:%zu has reached max num limit, ignore the addr:%s",
+                g_cmSizeConnectingDev, GET_ENC_ADDR(&bgAddr->addr));
+            continue;
+        }
         CM_AppConnectingDev_S *appConnectingDev = CM_CreateAppModuleConnectingDev(&bgAddr->addr);
         if (appConnectingDev == NULL) {
             CM_LOGE("generate a app module connecting device failed");
@@ -921,7 +932,7 @@ static void CM_BgConnectAddInner(void *arg)
         return;
     }
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
-    CM_CHECK_RETURN((g_cmSizeConnectingDev <= CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
+    CM_CHECK_RETURN((g_cmSizeConnectingDev < CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
         "num limit, ignored the req", g_cmSizeConnectingDev);
 
     CM_BgConnectAddReq_S *req = (CM_BgConnectAddReq_S *)arg;
@@ -953,7 +964,7 @@ static void CM_BgConnectAddInner(void *arg)
     SDF_MemFree(addrArr);
     return;
 CM_BG_CONNECT_ADD_INNER_FAILED:
-    CM_DestroyConnectingDevMap(addrArrCount, addrArr);
+    CM_DestroyConnectingDevMap(moduleId, addrArrCount, addrArr);
     SDF_MemFree(addrArr);
 }
 
@@ -1170,7 +1181,7 @@ static void CM_DirectConnectAddInner(void *arg)
         return;
     }
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
-    CM_CHECK_RETURN((g_cmSizeConnectingDev <= CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
+    CM_CHECK_RETURN((g_cmSizeConnectingDev < CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
         "num limit, ignored the req", g_cmSizeConnectingDev);
 
     CM_DirectConnectAddReq_S *req = (CM_DirectConnectAddReq_S *)arg;
@@ -1193,8 +1204,11 @@ static void CM_DirectConnectAddInner(void *arg)
     return;
 CM_DIRECT_CONNECT_ADD_INNER_FAILED:
     CM_NotifyDirectConnectFailed(req->moduleId, CM_INVALID_LCID, addr, discReason);
-    CM_BgConnAddrParam_S addrArr = { .addr = *addr, .isBypass = false };
-    CM_DestroyConnectingDevMap(1, &addrArr);
+    // 失败清理：仅移除本次请求可能新建的空节点，保留其他模块既有连接状态（L-20）
+    CM_AppConnectingDev_S *devNode = CM_ConnectingDevFind(addr);
+    if (devNode != NULL) {
+        CM_TryDestroyConnectingDevEmptyNode(devNode, addr);
+    }
 }
 
 uint32_t CM_DirectConnectAdd(uint8_t moduleId, const CM_DirectConnAddrParam_S *param)

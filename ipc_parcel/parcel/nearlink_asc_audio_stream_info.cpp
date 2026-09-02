@@ -68,6 +68,10 @@ bool NearlinkASCAudioStreamInfo::ReadFromParcel(Parcel &parcel)
         if (!parcel.ReadUint8(streamState)) {
             return false;
         }
+        // 校验枚举值域，防止不可信 parcel 注入非法流类型/状态（L-35e）
+        if (streamType > AUDIO_STREAM_SING || streamState > AUDIO_STREAM_STATE_NOT_AVAILABLE) {
+            return false;
+        }
         struct AudioStreamInfo data = {};
         data.streamType = static_cast<AudioStreamType>(streamType);
         data.streamState = static_cast<AudioStreamState>(streamState);

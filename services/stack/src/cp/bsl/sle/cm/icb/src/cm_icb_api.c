@@ -327,6 +327,7 @@ uint32_t CM_ListenFreqBandSwitchEvent(CM_FreqBandListener listener)
     uint32_t ret = CP_PostTask(CM_ListenFreqBandSwitchEventInner, (void *)param, SDF_MemFree);
     if (ret != NLSTK_OK) {
         CM_LOGE("CM_ListenFreqBandSwitchEventInner failed, ret:%8x", ret);
+        SDF_MemFree(param);
         return CM_FAIL;
     }
     return CM_SUCCESS;
@@ -349,6 +350,7 @@ uint32_t CM_UnlistenFreqBandSwitchEvent(CM_FreqBandListener listener)
     uint32_t ret = CP_PostTask(CM_UnlistenFreqBandSwitchEventInner, (void *)param, SDF_MemFree);
     if (ret != NLSTK_OK) {
         CM_LOGE("CM_UnlistenFreqBandSwitchEventInner failed, ret:%8x", ret);
+        SDF_MemFree(param);
         return CM_FAIL;
     }
     return CM_SUCCESS;

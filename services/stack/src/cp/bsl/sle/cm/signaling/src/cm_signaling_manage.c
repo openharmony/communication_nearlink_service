@@ -145,7 +145,7 @@ uint32_t CM_SignalingCacheInsert(uint16_t lcid, uint8_t id, uint8_t code, void *
     return CM_SUCCESS;
 }
 
-void CM_SignalingCacheRemove(uint8_t id, uint8_t code)
+void CM_SignalingCacheRemove(uint16_t lcid, uint8_t id, uint8_t code)
 {
     if (g_cachedSignalings == NULL) {
         return;
@@ -160,7 +160,11 @@ void CM_SignalingCacheRemove(uint8_t id, uint8_t code)
     if (cache == NULL) {
         return;
     }
-
+    // 校验响应帧 lcid 与缓存请求所属链路一致，防止对端伪造 identifier 清除其他链路的在途请求（L-21）
+    if (cache->lcid != lcid) {
+        CM_LOGW("cache lcid mismatch, cached:%04x, recv:%04x, id:%hhu", cache->lcid, lcid, id);
+        return;
+    }
     if (cache->code + 1 == code) {  // response code比request code大1
         SDF_MapErase(g_cachedSignalings, &id);
     }
