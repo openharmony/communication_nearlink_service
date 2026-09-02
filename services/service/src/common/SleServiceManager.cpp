@@ -45,7 +45,6 @@
 #include "SleHiviewUe.h"
 #include "ThreadUtil.h"
 #include "SleDliSnoop.h"
-#include "bundle_mgr_proxy.h"
 #include "parameters.h"
 #include "param_wrapper.h"
 #if (defined(DEVICE_MANAGER))

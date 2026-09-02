@@ -878,8 +878,8 @@ void DftReportDtfrStatisInfo(uint8_t state, const std::string &addr, const std::
         default:
             return;
     }
-    int32_t appearance;
-    std::string peerName;
+    int32_t appearance = DEFAULT_APPEARANCE;
+    std::string peerName = DEFAULT_DEVICE_NAME;
     std::string callName;
     std::vector<DftParamC> params;
     std::string time = GetMillTime();
@@ -901,8 +901,8 @@ void DftReportDtfrStatisInfo(uint8_t state, const std::string &addr, const std::
 
 void DftReportDtfrExcepInfo(const std::string &addr, const std::string &uuid, int32_t scene, int32_t errCode)
 {
-    int32_t appearance;
-    std::string name;
+    int32_t appearance = DEFAULT_APPEARANCE;
+    std::string name = DEFAULT_DEVICE_NAME;
     std::string callName;
     std::vector<DftParamC> params;
     std::string time = GetMillTime();

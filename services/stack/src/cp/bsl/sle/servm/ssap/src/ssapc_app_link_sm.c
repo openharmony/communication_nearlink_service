@@ -216,7 +216,7 @@ static void SsapAppClientLinkConnectedInIdleState(int32_t appId, uint8_t reason)
         // 2. appId处于空闲状态  --->仅场景一满足此条件
         // 上述场景中，无任何场景能同时满足上述两个条件，因此代码不会进入此分支，
         // 但是为了韧性考虑还是添加了此分支，清理缓存，并上报链路故障；
-        NLSTK_LOG_ERROR("appid(%s) link state exception", appId);
+        NLSTK_LOG_ERROR("appid(%d) link state exception", appId);
         SsapcClearLinkOper(appId);
         // 重新出发状态机，尝试下发缓存中的操作
         SsapcAppLinkStateNofity(appId, SSAP_CONNECT_STATE_DISCONNECTED, NLSTK_ERRCODE_SUCCESS, reason);
