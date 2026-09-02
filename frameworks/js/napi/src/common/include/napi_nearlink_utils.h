@@ -187,29 +187,6 @@ enum class DeviceClass {
     DEVICE_VEHICLE_LOCK  = 0x001004             // Vehicle lock.
 };
 
-enum class PairingReason {
-    PAIRING_SUCCESS = 0,
-    PAIRING_FAILURE = 1,
-    PAIRING_ACB_CONNECTION_FAILED = 2,
-    PAIRING_EXCEED_ACB_MAX = 3,
-    PAIRING_REMOTE_CANCELED = 4,
-    PAIRING_LOCAL_CANCELED = 5,
-    PAIRING_AUTH_FAILED = 6,
-    PAIRING_INVALID_REASON = 0xFF
-};
-
-enum class ConnectionReason {
-    CONNECTION_NONE = -1,
-    CONNECTION_SUCCESS = 0,
-    CONNECTION_FAIL,
-    CONNECTION_LOCAL_DISCONNECT,
-    CONNECTION_REMOTE_DISCONNECT,
-    CONNECTION_FAIL_ACB_CONNECTION,
-    CONNECTION_FAIL_SERVICE_DISCOVERY,
-    CONNECTION_FAIL_NO_AVAILABLE_SERVICE,
-    CONNECTION_FAIL_CONNECTION_NUM_LIMITED
-};
-
 enum class AcbState {
     DISCONNECTED = 0,   // the current acb is disconnected
     CONNECTED = 1,      // the current acb is connected

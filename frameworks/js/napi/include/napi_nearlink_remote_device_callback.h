@@ -127,10 +127,33 @@ private:
     int state_;
 };
 
+enum class PairingReason {
+    PAIRING_SUCCESS = 0,
+    PAIRING_FAILURE = 1,
+    PAIRING_ACB_CONNECTION_FAILED = 2,
+    PAIRING_EXCEED_ACB_MAX = 3,
+    PAIRING_REMOTE_CANCELED = 4,
+    PAIRING_LOCAL_CANCELED = 5,
+    PAIRING_AUTH_FAILED = 6,
+    PAIRING_INVALID_REASON = 0xFF
+};
+
 enum class PairingType {
     NO_PASSKEY_CONFIRMATION = 0,             // Without PASSKEY, the user needs to accept or reject the pairing request.
     PAIRING_TYPE_PASSCODE = 1,               // The user needs to enter the passcode displayed on the peer device.
     PAIRING_TYPE_NUMBER_COMPARE = 2          // The user needs to compare the number displayed on both devices.
+};
+
+enum class ConnectionReason {
+    CONNECTION_NONE = -1,
+    CONNECTION_SUCCESS = 0,
+    CONNECTION_FAIL,
+    CONNECTION_LOCAL_DISCONNECT,
+    CONNECTION_REMOTE_DISCONNECT,
+    CONNECTION_FAIL_ACB_CONNECTION,
+    CONNECTION_FAIL_SERVICE_DISCOVERY,
+    CONNECTION_FAIL_NO_AVAILABLE_SERVICE,
+    CONNECTION_FAIL_CONNECTION_NUM_LIMITED
 };
 
 enum class ConnectionMode {
