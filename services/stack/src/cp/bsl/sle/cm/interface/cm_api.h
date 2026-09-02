@@ -256,6 +256,14 @@ typedef struct {
                                      7：指示基于TB的反馈 */
 } CM_SetPhyRsp_S;
 
+/**
+ * @brief  星闪设置MCS
+ */
+typedef struct {
+    uint16_t lcid;         /* 连接链路的标识，取值范围[0x0000,0xFFFF] */
+    uint8_t mcs;           /* MCS值，参见CM_Mcs_E枚举定义 */
+} CM_SetMcsReq_S;
+
 typedef struct {
     uint16_t lcid;          /* 连接链路的标识，取值范围[0x0000,0xFFFF] */
     bool enable;            /* false: 不允许使用高功率，true: 允许使用高功率 */
@@ -440,6 +448,15 @@ void CM_ReadAcceptFilterListSize(void);
  * @return SUCCESS: 成功, OTHER: 失败
  */
 uint32_t CM_SetPhy(CM_SetPhyReq_S *param);
+
+/**
+ * @brief  设置MCS参数
+ * @param  [in] < param > MCS参数, 参见CM_SetMcsReq_S定义
+ * @return SUCCESS: 成功, OTHER: 失败
+ * @note 该接口当前仅在动态传输通道设置slqi流程里配合连接参数更新，设置Phy等步骤使用，
+         调用接口时，暂不需要考虑再次切换到协议栈主线程里
+ */
+uint32_t CM_SetMcs(CM_SetMcsReq_S *param);
 
 /**
  * @brief  Host侧给Controller侧指定偏好的信道分类

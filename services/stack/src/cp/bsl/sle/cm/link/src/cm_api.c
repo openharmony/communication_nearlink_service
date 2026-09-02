@@ -596,6 +596,11 @@ static void CM_NotifySetPhyReqReqCanceled(CM_SetPhyReq_S *param, uint8_t result)
     rsp.lcid = param->lcid;
     CM_LOGI("notify cancel set phy param req rsp, lcid:0x%04x, result:0x%02x", param->lcid, result);
     CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_SET_PHY, &rsp);
+
+    CM_LogicLinkSetPhy_S setPhyParam = { 0 };
+    setPhyParam.status = result;
+    setPhyParam.lcid = param->lcid;
+    CM_ExecLogicLinkSetPhyCbks(&setPhyParam);
 }
 
 static void CM_SetPhyInner(void *arg)
@@ -647,6 +652,33 @@ uint32_t CM_SetPhy(CM_SetPhyReq_S *param)
     uint32_t ret = CP_PostTask((SDF_WorkCb)CM_SetPhyInner, (void *)req, (SDF_FreeWorkArg)CM_FreeCommonReqParamData);
     if (ret != CP_OK) {
         CM_LOGE("CP_PostTask failed, ret:0x%08x", ret);
+        return CM_FAIL;
+    }
+    return CM_SUCCESS;
+}
+
+uint32_t CM_SetMcs(CM_SetMcsReq_S *param)
+{
+    CM_LOGI("enter");
+    CM_CHECK_RETURN_RET(g_cmIsInited, CM_NOT_INITED, "CM has not inited");
+    CM_CHECK_RETURN_RET(param != NULL, CM_INVALID_PARAM_ERR, "param is null");
+    CM_CHECK_RETURN_RET(param->mcs >= CM_MCS_00 && param->mcs < CM_MCS_MAX,
+                        CM_INVALID_PARAM_ERR, "mcs value is invalid");
+
+    SleLogicLink_S *sll = SleLogicLinkGetByLcid(param->lcid);
+    if (sll == NULL) {
+        CM_LOGE("SleLogicLinkGetByLcid failed, lcid:0x%04x", param->lcid);
+        return CM_INVALID_LCID;
+    }
+
+    DLI_SetMcsParam setParam = {0};
+    setParam.connHandle = param->lcid;
+    setParam.mcs = param->mcs;
+
+    CM_LOGI("connHandle:0x%04X, mcs:0x%02X", setParam.connHandle, setParam.mcs);
+    uint32_t ret = SleAccessSetMcs(&setParam);
+    if (ret != DLI_SUCCESS) {
+        CM_LOGE("SleAccessSetMcs failed, ret:0x%08x", ret);
         return CM_FAIL;
     }
     return CM_SUCCESS;

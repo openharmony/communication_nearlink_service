@@ -18,12 +18,10 @@
 #include "securec.h"
 
 #include "cm_api.h"
-#include "cm_def.h"
 #include "cm_errno.h"
 #include "cm_dyn_trans_channel_api.h"
 #include "cm_logic_link_api.h"
 #include "cm_signaling_internal.h"
-#include "common_ext_func_wrapper.h"
 #include "cp_errno_base.h"
 #include "cp_worker.h"
 #include "qosm_errno.h"
@@ -33,6 +31,8 @@
 #include "sdf_map.h"
 #include "sdf_mem.h"
 #include "sle_logic_link_mgr.h"
+#include "qosm_trans_channel_inner.h"
+#include "qosm_trans_channel_tuning.h"
 
 #define QOSM_TC_CRC16_INIT 0x5555      // 传输通道crc生成种子，规范默认0x5555
 #define QOSM_TC_TX_WINDOW 50          // 可靠模式传输通道默认发送队列的长度，单位PDU个数
@@ -43,48 +43,7 @@
 #define QOSM_FRAME_4_TC_MAX_TX_CNT 22  // 使用帧四时，可靠模式传输通道默认最大传输次数
 #define QOSM_TC_DEFAULT_MPS 1500       // 可靠模式传输通道默认mps
 
-#define QOSM_SLE_CONN_NORMAL_SPEED_INTERAL 0x64      // 链路调度最小间隔 100 * 0.125 = 12.5ms
-#define QOSM_SLE_CONN_HIGH_SPEED_INTERAL 0x24        // 链路调度最小间隔 36 * 0.125ms = 4.5 ms
-#define QOSM_SLE_CONN_HIGH_SPEED_INTERAL_EXT 0x27  // 链路调度最小间隔 39 * 0.125ms = 4.875 ms
-
-#define QOSM_SLE_CONN_EVENT_IFS 125             // 链路调度间隔, 125us
-#define QOSM_SLE_CONN_TIME_UNIT 4               // 系统调度时隙, 125us
-#define QOSM_SLE_CONN_SUPERVISION_TIMEOUT 1000  // 超时时间10s
-
 #define QOSM_CHANNEL_MAX_SIZE 20       // 最大传输通道数
-
-enum {
-    QOSM_SLE_PHY_TYPE_1M = 0x0,  // 1M PHY
-    QOSM_SLE_PHY_TYPE_4M = 0x2,  // 4M PHY
-};
-
-enum {
-    QOSM_SLE_PILOT_DENSITY_4_TO_1 = 0x0,   // 导频密度为4:1
-    QOSM_SLE_PILOT_DENSITY_16_TO_1 = 0x2,  // 导频密度为16:1
-};
-
-typedef struct {
-    uint16_t lcid;
-    uint8_t role;
-    SLE_Addr_S addr;
-    QOSM_TransChannelSlqi_E slqi;
-    SDF_DListHead_S list;
-} QOSM_LogicLink_S;
-
-typedef struct {
-    uint16_t interval;
-} QOSM_SleConnParams_S;
-
-typedef struct {
-    uint8_t format;
-    uint8_t phy;
-    uint8_t pilotDensity;
-} QOSM_SlePhyParams_S;
-
-typedef struct {
-    QOSM_SleConnParams_S connParams;
-    QOSM_SlePhyParams_S phyParams;
-} QOSM_SleLogicLinkParams_S;
 
 typedef struct {
     SDF_DListEntry_S entry;
@@ -114,16 +73,8 @@ static SDF_Map *g_transChannelMap = NULL;  // key: lcid, value: list of QOSM_Tra
 
 static QOSM_TransChannelCbks_S g_transChannelCbks = { 0 };
 
-static QOSM_SleLogicLinkParams_S g_sleLogicLinkParams[QOSM_TRANS_CHANNEL_SLQI_MAX] = {
-    {
-        { QOSM_SLE_CONN_NORMAL_SPEED_INTERAL },
-        { QOSM_SLE_RADIO_FRAME_TYPE_2, QOSM_SLE_PHY_TYPE_1M, QOSM_SLE_PILOT_DENSITY_16_TO_1 },
-    },
-    {
-        { QOSM_SLE_CONN_HIGH_SPEED_INTERAL },
-        { QOSM_SLE_RADIO_FRAME_TYPE_2, QOSM_SLE_PHY_TYPE_4M, QOSM_SLE_PILOT_DENSITY_4_TO_1 },
-    },
-};
+static QOSM_LogicLink_S *QOSM_LogicLinkFind(uint16_t lcid);
+static uint32_t QOSM_TransChannelDel(uint16_t lcid, const QOSM_TransChannelRspParams_S *rsp);
 
 static inline int QOSM_LogicLinkCompare(const void *lhs_, const void *rhs_)
 {
@@ -301,7 +252,9 @@ static uint32_t QOSM_LogicLinkCbksReg(void)
         .moduleId = CM_MODULE_QOSM,
         .logicLinkCbk = QOSM_LogicLinkCbk,
         .remoteFeaturesCbk = NULL,
-        .connUpdateParamCbk = NULL,
+        .connUpdateParamCbk = QOSM_TcTuningLogicLinkConnUpdateParamCbk,
+        .setPhyCbk = QOSM_TcTuningLogicLinkSetPhyCbk,
+        .setMcsCbk = QOSM_TcTuningLogicLinkSetMcsCbk,
     };
 
     return CM_RegLogicLinkListener(&cbks);
@@ -318,6 +271,11 @@ static void QOSM_TransChannelCbksRegisterProc(void *args)
 
     QOSM_TransChannelCbks_S *cbks = (QOSM_TransChannelCbks_S *)args;
     g_transChannelCbks = *cbks;
+    QOSM_TcTuningCbks_S tuningCbk = { 0 };
+    tuningCbk.statusCbk = cbks->statusCbk;
+    tuningCbk.logicLinkFindCbk = QOSM_LogicLinkFind;
+    tuningCbk.decreaseChannelSizeCbk = QOSM_DecreaseChannelSize;
+    QOSM_TcTuningCbksRegister(&tuningCbk);
 }
 
 uint32_t QOSM_TransChannelCbksRegister(const QOSM_TransChannelCbks_S *cbks)
@@ -339,6 +297,7 @@ static void QOSM_TransChannelCbksUnregisterProc(void *args)
 
     QOSM_TransChannelCbks_S cbks = { 0 };
     g_transChannelCbks = cbks;
+    QOSM_TcTuningCbksUnregister();
 }
 
 uint32_t QOSM_TransChannelCbksUnregister(void)
@@ -348,50 +307,18 @@ uint32_t QOSM_TransChannelCbksUnregister(void)
     return QOSM_SUCCESS;
 }
 
-static uint32_t QOSM_TransChannelUpdateConnParamsInner(QOSM_LogicLink_S *logicLink, QOSM_TransChannelSlqi_E slqi)
-{
-    QOSM_LOGI("start to update logic link params, lcid: %hu, slqi: %hhu.", logicLink->lcid, slqi);
-    QOSM_CHECK_RETURN_RET(slqi < QOSM_TRANS_CHANNEL_SLQI_MAX, QOSM_INVALID_SLQI_ERR, "invalid slqi.");
-    QOSM_SleLogicLinkParams_S *linkParams = &g_sleLogicLinkParams[slqi];
-
-    CM_ConnectUpdateParamReq_S connUpdateReq = {
-        .version = 0,
-        .localIndex = 0,
-        .intervalMin = linkParams->connParams.interval,
-        .intervalMax = linkParams->connParams.interval,
-        .txRxInterval = QOSM_SLE_CONN_EVENT_IFS,
-        .eventInterval = QOSM_SLE_CONN_EVENT_IFS,
-        .maxLatency = 0,
-        .supervisionTimeout = QOSM_SLE_CONN_SUPERVISION_TIMEOUT,
-        .systemTimeUnit = QOSM_SLE_CONN_TIME_UNIT,
-        .txRxFlag = 0,
-    };
-    (void)memcpy_s(&connUpdateReq.addr, sizeof(SLE_Addr_S), &logicLink->addr, sizeof(SLE_Addr_S));
-    uint32_t ret = CM_ConnectUpdateParamReq(&connUpdateReq);
-    QOSM_CHECK_RETURN_RET(ret == CM_SUCCESS, ret, "update conn params failed, ret: %08x.", ret);
-
-    CM_SetPhyReq_S setPhyReq = {
-        .lcid = logicLink->lcid,
-        .txFormat = linkParams->phyParams.format,
-        .rxFormat = linkParams->phyParams.format,
-        .txPhy = linkParams->phyParams.phy,
-        .rxPhy = linkParams->phyParams.phy,
-        .txPilotDensity = linkParams->phyParams.pilotDensity,
-        .rxPilotDensity = linkParams->phyParams.pilotDensity,
-        .gFeedback = 0,
-        .tFeedback = 0,
-    };
-    ret = CM_SetPhy(&setPhyReq);
-    QOSM_CHECK_RETURN_RET(ret == CM_SUCCESS, ret, "update phy failed, ret: %08x.", ret);
-    return QOSM_SUCCESS;
-}
-
-static void QOSM_TransChannelUpdateConnParams(uint16_t lcid)
+static uint32_t QOSM_TransChannelUpdateConnParams(uint16_t lcid, QOSM_TransChannelRspParams_S *param)
 {
     QOSM_TransChannelSlqi_E slqi = QOSM_TRANS_CHANNEL_SLQI_LOW;
     QOSM_TransChannel_S *channel = NULL;
     QOSM_LogicLink_S *logicLink = QOSM_LogicLinkFind(lcid);
-    QOSM_CHECK_RETURN(logicLink != NULL, "logic link does not exist");
+    if (logicLink == NULL) {
+        QOSM_LOGE("logic link does not exist");
+        (void)QOSM_TransChannelDel(param->lcid, param);
+        QOSM_DecreaseChannelSize(param->lcid);
+        param->status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
+        return QOSM_NOT_FOUND_ERR;
+    }
     SDF_DListHead_S *head = &logicLink->list;
 
     SDF_DListElmForeach(channel, head, entry) {
@@ -405,14 +332,24 @@ static void QOSM_TransChannelUpdateConnParams(uint16_t lcid)
     }
 
     if (logicLink->slqi == slqi) {
-        return;
+        return QOSM_TRANS_CHANNEL_SLQI_SAME_AS_LOGIC_LINK;
     }
 
-    if (QOSM_TransChannelUpdateConnParamsInner(logicLink, slqi) != CM_SUCCESS) {
-        return;
-    }
+    QOSM_TcTuningCtx_S ctx = { 0 };
+    ctx.lcid = lcid;
+    ctx.slqi = slqi;
+    (void)memcpy_s(&ctx.rspParams, sizeof(QOSM_TransChannelRspParams_S), param, sizeof(QOSM_TransChannelRspParams_S));
 
+    uint32_t ret = QOSM_TcTuningWithStm(&ctx);
+    if (ret != QOSM_SUCCESS) {
+        QOSM_LOGE("QOSM_TcTuningWithStm failed, ret: %u", ret);
+        (void)QOSM_TransChannelDel(param->lcid, &ctx.rspParams);
+        QOSM_DecreaseChannelSize(param->lcid);
+        param->status = QOSM_TRANS_CHANNEL_ESTABLISH_FAIL;
+        return ret;
+    }
     logicLink->slqi = slqi;
+    return QOSM_SUCCESS;
 }
 
 static uint32_t QOSM_TransChannelAdd(uint16_t lcid, const QOSM_TransChannelRspParams_S *rsp)
@@ -687,7 +624,9 @@ static void QOSM_TransChannelEstablishRspCbk(const CM_DynTransChanEstablishParam
               rsp.slqi, rsp.status, rsp.frameType);
     if (rsp.status == QOSM_TRANS_CHANNEL_ESTABLISHED) {
         if (QOSM_TransChannelAdd(param->lcid, &rsp) == QOSM_SUCCESS && rsp.frameType != QOSM_SLE_RADIO_FRAME_TYPE_4) {
-            QOSM_TransChannelUpdateConnParams(param->lcid);
+            if (QOSM_TransChannelUpdateConnParams(param->lcid, &rsp) == QOSM_SUCCESS) {
+                return;
+            }
         }
     }
     if (g_transChannelCbks.statusCbk != NULL) {
@@ -720,7 +659,9 @@ static void QOSM_TransChannelReleaseRspCbk(const CM_DynTransChanReleaseParamRsp_
               rsp.status, rsp.frameType);
     if (rsp.status == QOSM_TRANS_CHANNEL_RELEASED) {
         if (QOSM_TransChannelDel(param->lcid, &rsp) == QOSM_SUCCESS && rsp.frameType != QOSM_SLE_RADIO_FRAME_TYPE_4) {
-            QOSM_TransChannelUpdateConnParams(param->lcid);
+            if (QOSM_TransChannelUpdateConnParams(param->lcid, &rsp) == QOSM_SUCCESS) {
+                return;
+            }
         }
     }
     if (g_transChannelCbks.statusCbk != NULL) {
@@ -797,16 +738,6 @@ static void QOSM_DynTransChanCbksUnreg(void)
     CM_UnRegDynTransChannelCbks();
 }
 
-static void QOSM_UpdateSleLogicLinkParamsByChipType(void)
-{
-    bool isSupport = COMMON_IsSupportConnHighSpeed();
-    if (isSupport) {
-        g_sleLogicLinkParams[QOSM_TRANS_CHANNEL_SLQI_HIGH].connParams.interval = QOSM_SLE_CONN_HIGH_SPEED_INTERAL_EXT;
-        QOSM_LOGI("update g_sleLogicLinkParams conn interval to %hu.",
-            g_sleLogicLinkParams[QOSM_TRANS_CHANNEL_SLQI_HIGH].connParams.interval);
-    }
-}
-
 uint32_t QOSM_TransChannelInit(void)
 {
     uint32_t ret;
@@ -831,7 +762,6 @@ uint32_t QOSM_TransChannelInit(void)
 
     SDF_DListHeadInit(&g_transChannelNum.channelNumHead);
     g_transChannelNum.channelTotalNum = 0;
-    QOSM_UpdateSleLogicLinkParamsByChipType();
 
     return QOSM_SUCCESS;
 }

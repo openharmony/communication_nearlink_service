@@ -106,6 +106,28 @@ void CM_ExecLogicLinkConnUpdateParamCbks(CM_LogicLinkConnUpdateParam_S *param)
     }
 }
 
+void CM_ExecLogicLinkSetPhyCbks(CM_LogicLinkSetPhy_S *param)
+{
+    CM_LOGI("sle exec logic link set phy cbks start");
+    for (uint8_t i = 0; i < (uint8_t)(sizeof(g_logicLinkCbks) / sizeof(CM_LogicLinkCbks_S)); i++) {
+        if (g_logicLinkCbks[i].setPhyCbk != NULL) {
+            g_logicLinkCbks[i].setPhyCbk(param);
+            CM_LOGI("moduleId:%hhu, logic link set phy cbk end", g_logicLinkCbks[i].moduleId);
+        }
+    }
+}
+
+void CM_ExecLogicLinkSetMcsCbks(CM_LogicLinkSetMcs_S *param)
+{
+    CM_LOGI("sle exec logic link set mcs cbks start");
+    for (uint8_t i = 0; i < (uint8_t)(sizeof(g_logicLinkCbks) / sizeof(CM_LogicLinkCbks_S)); i++) {
+        if (g_logicLinkCbks[i].setMcsCbk != NULL) {
+            g_logicLinkCbks[i].setMcsCbk(param);
+            CM_LOGI("moduleId:%hhu, logic link set mcs cbk end", g_logicLinkCbks[i].moduleId);
+        }
+    }
+}
+
 uint32_t CM_UnRegLogicLinkCbks(uint16_t moduleId)
 {
     if (moduleId >= CM_MODULE_ID_MAX) {
@@ -116,5 +138,7 @@ uint32_t CM_UnRegLogicLinkCbks(uint16_t moduleId)
     g_logicLinkCbks[moduleId].logicLinkCbk = NULL;
     g_logicLinkCbks[moduleId].remoteFeaturesCbk = NULL;
     g_logicLinkCbks[moduleId].connUpdateParamCbk = NULL;
+    g_logicLinkCbks[moduleId].setPhyCbk = NULL;
+    g_logicLinkCbks[moduleId].setMcsCbk = NULL;
     return CM_SUCCESS;
 }

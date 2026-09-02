@@ -39,6 +39,16 @@ using namespace testing::ext;
 extern "C" {
 #endif
 
+extern "C" uint32_t CP_TimerAdd(int *handle, SDF_TimerParam *param)
+{
+    return 0;
+}
+
+extern "C" void CP_TimerDel(int handle)
+{
+    return;
+}
+
 static SleLogicLink_S g_link = {};
 static CM_DynTransChannelCbks_S g_dynTransCbk = {};
 static CM_LogicLinkCbks_S g_LogicLinkCbk = {};
@@ -140,6 +150,11 @@ uint32_t CM_ConnectUpdateParamReq(CM_ConnectUpdateParamReq_S *param)
 }
 
 uint32_t CM_SetPhy(CM_SetPhyReq_S *param)
+{
+    return CM_SUCCESS;
+}
+
+uint32_t CM_SetMcs(CM_SetMcsReq_S *param)
 {
     return CM_SUCCESS;
 }

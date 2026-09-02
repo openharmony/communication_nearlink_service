@@ -216,6 +216,21 @@ typedef struct {
 } CM_LogicLinkConnUpdateParam_S;
 
 /**
+ * @brief 星闪逻辑链路SetPhy响应结构体
+ */
+typedef struct {
+    uint8_t  status; /* 芯片错误码，详见dli_errno.h */
+    uint16_t lcid;   /* 星闪逻辑链路handle */
+} CM_LogicLinkSetPhy_S;
+
+/**
+ * @brief 星闪逻辑链路SetMcs响应结构体
+ */
+typedef struct {
+    uint8_t  status; /* 芯片错误码，详见dli_errno.h */
+} CM_LogicLinkSetMcs_S;
+
+/**
  * @brief  连接逻辑链路模块回调函数类型
  */
 typedef void (*CM_LogicLinkCbk)(CM_LogicLinkState_S *state);
@@ -231,6 +246,16 @@ typedef void (*CM_LogicLinkRemoteFeaturesCbk)(CM_LogicLinkRemoteFeatures_S *para
 typedef void (*CM_LogicLinkConnUpdateParamCbk)(CM_LogicLinkConnUpdateParam_S *param);
 
 /**
+ * @brief  连接逻辑链路模块设置Phy回调函数类型
+ */
+typedef void (*CM_LogicLinkSetPhyCbk)(CM_LogicLinkSetPhy_S *param);
+
+/**
+ * @brief  连接逻辑链路模块设置Mcs回调函数类型
+ */
+typedef void (*CM_LogicLinkSetMcsCbk)(CM_LogicLinkSetMcs_S *param);
+
+/**
  * @brief  逻辑链路变化相关监听回调函数
  */
 typedef struct CM_LogicLinkCbks {
@@ -238,6 +263,8 @@ typedef struct CM_LogicLinkCbks {
     CM_LogicLinkCbk logicLinkCbk;   /* 可空 */
     CM_LogicLinkRemoteFeaturesCbk remoteFeaturesCbk; /* 可空 */
     CM_LogicLinkConnUpdateParamCbk connUpdateParamCbk;   /* 可空 */
+    CM_LogicLinkSetPhyCbk setPhyCbk; /* 可空 */
+    CM_LogicLinkSetMcsCbk setMcsCbk; /* 可空 */
 } CM_LogicLinkCbks_S;
 
 /**

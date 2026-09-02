@@ -529,6 +529,18 @@ static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRet
         &setPhyRsp, sizeof(CM_SetPhyRsp_S), (uint8_t)status);
 }
 
+static void SleAccessSetMcsCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
+{
+    (void)context;
+    CM_LOGI("status:%hu", status);
+    CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_SET_MCS);
+    if (cbk == NULL) {
+        CM_LOGE("cbk is null");
+        return;
+    }
+    cbk(context, (uint8_t)status, NULL);
+}
+
 static void SleAccessDataLenChangeCbk(void *context, uint16_t statuss, DLI_ExecuteCmdRetParam *cmdRes)
 {
     uint8_t status = (uint8_t)statuss;
@@ -858,6 +870,7 @@ static const struct DLI_CbkLineStru g_sleCmCbk[] = {
     { DLI_CBK_READ_REMOTE_RSSI, (void *)SleAccessRemoteRssiRequestsReplyCbk },
     { DLI_CBK_SET_RX_DATA_FILTER, (void *)SleAccessSetRxDataFilterCbk },
     { DLI_CBK_SET_PHY, (void *)SleAccessSetPhyCbk },
+    { DLI_CBK_SET_MCS, (void *)SleAccessSetMcsCbk },
     { DLI_CBK_DATA_LEN_CHANGE, (void *)SleAccessDataLenChangeCbk },
     { DLI_CBK_ENABLE_CONN_HIGH_POWER, (void *)SleAccessEnableConnHighPowerCbk },
     { DLI_CBK_SET_PEER_DEV_TYPE, (void *)SleAccessSetPeerDevTypeCbk },
@@ -974,4 +987,11 @@ bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr
     paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
     cbk(context, DLI_SUCCESS, &paramCbk);
     return coexParam.coexInterval != 0;
+}
+
+uint32_t SleAccessSetMcs(DLI_SetMcsParam *param)
+{
+    uint32_t ret = DLI_SetMcs(param);
+    CM_CHECK_RETURN_RET((ret == DLI_SUCCESS), CM_FAIL, "DLI_SetMcs failed, ret:0x%08x", ret);
+    return CM_SUCCESS;
 }
