@@ -135,7 +135,6 @@ void SSAP_ProcessNormalTask(SSAP_Link_S *link, SSAP_ProcessTaskFunc func, void *
 int SSAP_Recv(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
 {
     CP_CHECK_LOG_RETURN(info != NULL && buff != NULL, SSAP_STACK_FAILED, "[SSAP] recv info or buff is null");
-    uint8_t *dataBuf = SDF_DataOffset(buff);
     CP_CHECK_LOG_RETURN(SDF_DataLenGet(buff) <= UINT32_MAX, SSAP_STACK_FAILED, "[SSAP] recv datalen is invalid");
     uint32_t dataSize = (uint32_t)SDF_DataLenGet(buff);
     CP_CHECK_LOG_RETURN(dataSize != 0, SSAP_STACK_FAILED, "[SSAP] recv datalen is zero");
@@ -143,7 +142,6 @@ int SSAP_Recv(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
     CP_CHECK_LOG_RETURN(link != NULL, SSAP_STACK_FAILED, "[SSAP] cant find link");
     uint8_t op = *(SDF_DataOffset(buff));
     CP_LOG_DEBUG("[SSAP] recv msg len: %d, opcode: 0x%x", dataSize, op);
-    PrintFormatHexWithSpaces(dataBuf, dataSize, false);
 
     uint8_t ret = SSAP_CheckOpcode(link, op);
     if (ret == SSAP_ERRCODE_UNSUPPORT_PDU) {
@@ -454,7 +452,6 @@ static bool SSAP_SendBuffToDTAP(uint16_t lcid, SDF_Buff_S *buff)
 {
     SDF_Buff_S *tmpBuff = SDF_BuffCopy(buff);
     CP_CHECK_LOG_RETURN(tmpBuff != NULL, false, "[SSAP] copy buf fail");
-    PrintFormatHexWithSpaces(SDF_DataOffset(tmpBuff), SDF_DataLenGet(tmpBuff), true);
     DTAP_Data_S data = {0};
     data.lcid = lcid;
     data.tcid = TCID_SLE_SMTC;

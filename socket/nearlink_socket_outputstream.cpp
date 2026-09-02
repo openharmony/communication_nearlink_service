@@ -69,18 +69,31 @@ SocketTransState OutputStream::Write(const uint8_t *buf, size_t length)
         }
     }
     int64_t beginTimestamp = GetNowTimestamp();
-    HILOGD("sendSocket socketFd : %{public}d", socketFd_);
-    auto res = send(socketFd_, buf, length, MSG_NOSIGNAL);
+    size_t totalSent = 0;
+    while (totalSent < length) {
+        HILOGD("sendSocket socketFd : %{public}d", socketFd_);
+        // 非阻塞 socket 单次 send 可能部分发送（返回 0 < res < length），循环发送直至全部发出；
+        // EINTR 重试；EAGAIN 等错误立即失败，避免剩余数据被静默丢弃却返回成功
+        auto res = send(socketFd_, buf + totalSent, length - totalSent, MSG_NOSIGNAL);
+        if (res < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            HILOGE("socket write exception! ret:%{public}zd errno:%{public}d", res, errno);
+            return SLE_TRANS_RESULT_INTERNAL_FAULT;
+        }
+        if (res == 0) {
+            HILOGE("socket write exception! ret:%{public}zd", res);
+            return SLE_TRANS_RESULT_INTERNAL_FAULT;
+        }
+        totalSent += static_cast<size_t>(res);
+    }
     int64_t endTimestamp = GetNowTimestamp();
     if (endTimestamp - beginTimestamp > SOCKET_SEND_TIME_THRESHOLD) {
         HILOGE("socket send time %{public}" PRId64, endTimestamp - beginTimestamp);
     }
 
-    HILOGD("socket write data len=%{public}zd", res);
-    if (res <= 0) {
-        HILOGE("socket write exception! ret:%{public}zd errno:%{public}d", res, errno);
-        return SLE_TRANS_RESULT_INTERNAL_FAULT;
-    }
+    HILOGD("socket write data len=%{public}zu", totalSent);
     return SLE_TRANS_RESULT_SUCCESS;
 }
 }  // namespace Nearlink

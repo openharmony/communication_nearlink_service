@@ -151,6 +151,7 @@ void SSAPC_CallMethodErrorHandle(SSAP_Link_S *link, uint8_t errCode)
 void SSAPC_ExchangeInfoRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("[SSAP] enter exchange rsp handle");
+    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
     uint64_t len = SDF_DataLenGet(sdfBuff);
     SSAP_ExchangeComplete_S complete = {0};
     if (len < SSAP_EXCHANGE_INFO_PKT_LEN) {

@@ -1898,16 +1898,22 @@ NlErrCode NearlinkHostServer::GetBatteryLevel(const std::string &address)
     NL_CHECK_RETURN_RET(basService, NL_ERR_INTERNAL_ERROR, "basService is nullptr.");
     SwitchCallerInfo caller = SleInterfaceManager::GetCallerInfo();
     bool isReqSent = false;
-    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isReqSent](sptr<INearlinkDeviceBatteryObserver> observer) {
+    bool isCallerRegistered = false;
+    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isReqSent, &isCallerRegistered](
+        sptr<INearlinkDeviceBatteryObserver> observer) {
         impl::NearlinkBasRemoteInfo info = pimpl->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
         if (info.isSendingReq == true) {
             isReqSent = true;
         }
         if (info.fullToken == caller.fullTokenId && info.uid == caller.callerUid) {
+            isCallerRegistered = true;
             pimpl->remoteBatteryContainer_->UpdateRemoteInfo(observer->AsObject(), true);
             return;
         }
     });
+    // 仅允许已注册电量观察者的调用者查询；未注册调用直接拒绝，避免被用于探测设备连接状态
+    NL_CHECK_RETURN_RET(isCallerRegistered, NL_ERR_PERMISSION_FAILED,
+        "caller is not registered as battery observer, drop request.");
     if (!isReqSent) {
         basService->GetDeviceBatteryLevel(addr);
     }
