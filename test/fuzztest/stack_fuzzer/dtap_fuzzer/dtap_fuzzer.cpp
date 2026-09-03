@@ -162,9 +162,9 @@ extern "C" void CM_SetSendSignalingDataCbk(uint32_t (*)(uint8_t pi, uint8_t tcid
     return;
 }
 
-extern "C" void CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
+extern "C" int CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
 {
-    return;
+    return CM_SUCCESS;
 }
 
 extern "C" uint32_t DLI_ReadLocalMeasureCaps(void)

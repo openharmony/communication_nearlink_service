@@ -488,11 +488,26 @@ uint32_t CM_SendReqSignalingCapability(uint16_t lcid, CM_CapabilityBitmap_S *cap
 {
     uint32_t capBitMap = 0;
     ENCODE4BYTE_LITTLE((uint8_t *)&capBitMap, *(uint32_t *)cap);
-    SDF_Buff_S *buf = CM_CreateSignalingBuff(CAPABILITY_REQ, CM_GetIdentifier(),
+    uint8_t id;
+    if (!CM_GetIdentifier(&id)) {
+        CM_LOGE("CM_SendReqSignalingCapability get identifier failed");
+        return CM_FAIL;
+    }
+    uint32_t ret = CM_SignalingCacheInsert(lcid, id, CAPABILITY_REQ, NULL, NULL);
+    if (ret != CM_SUCCESS) {
+        CM_LOGE("CM_SendReqSignalingCapability insert failed");
+        return ret;
+    }
+    SDF_Buff_S *buf = CM_CreateSignalingBuff(CAPABILITY_REQ, id,
         (uint8_t*)&capBitMap, sizeof(uint32_t));
-    CM_CHECK_RETURN_RET(buf != NULL, CM_MEM_ERR, "CM_SendReqSignalingCapability create buf failed");
-    uint32_t ret = CM_SendBuffToDtap(lcid, buf);
+    if (buf == NULL) {
+        CM_LOGE("CM_SendReqSignalingCapability create buf failed");
+        (void)CM_SignalingCacheRemove(lcid, id, CAPABILITY_REQ);
+        return CM_MEM_ERR;
+    }
+    ret = CM_SendBuffToDtap(lcid, buf);
     if (ret != 0) {
+        (void)CM_SignalingCacheRemove(lcid, id, CAPABILITY_REQ);
         SDF_BuffFree(buf);
     }
     return ret;

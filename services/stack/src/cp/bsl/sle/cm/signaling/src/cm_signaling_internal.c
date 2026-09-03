@@ -83,16 +83,23 @@ int CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
     uint8_t code = *(SDF_DataOffset(buff));
     CM_LOGI("CM_DataRecv code 0x%02x, lcid 0x%04x dataLen %llu",
         code, info->lcid, SDF_BuffLenGet(buff));
-    CM_SignalingHandle handle = CM_SignalingGetManagerHandler(code);
-    if (handle == NULL) {
+    const CM_Signaling_S *signaling = CM_SignalingGet(code);
+    if (signaling == NULL || signaling->handle == NULL) {
         return CM_FAIL;
     }
     CM_SignalingHead_S *head = CM_ParseSignalingBuff(buff);
     if (head == NULL) {
         return CM_FAIL;
     }
-    handle(info->lcid, head);
-    CM_SignalingCacheRemove(head->identifier, code);
+
+    // 收到响应信令需要校验是否为同一lcid发出的请求信令对应的响应信令
+    if (code != signaling->requestCode &&
+        !CM_SignalingCacheRemove(info->lcid, head->identifier, signaling->requestCode)) {
+        CM_LOGE("recv invalid signaling response");
+        return CM_FAIL;
+    }
+
+    signaling->handle(info->lcid, head);
     return CM_SUCCESS;
 }
 

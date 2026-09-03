@@ -31,6 +31,8 @@
 #define CM_SIGNALING_MAX_ID 255U
 #define CM_SIGNALING_DEFAULT_TIMEOUT_MS 21000  // 21s，大于帧1和帧4可能的丢包引起断链的超时时间supervisionTimeout
 
+#define CM_INVALID_TIMER_HANDLE (-1)
+
 typedef struct CM_CachedSignaling_S {
     uint16_t lcid;
     uint8_t id;
@@ -40,18 +42,13 @@ typedef struct CM_CachedSignaling_S {
     CM_SignalingTimeoutCbk cbk;
 } CM_CachedSignaling_S;
 
-typedef struct CM_Signaling_S {
-    uint8_t recvCode;
-    CM_SignalingHandle handle;
-} CM_Signaling_S;
-
 static CM_Signaling_S g_signalings[] = {
-    { CAPABILITY_REQ, CM_ProcessReqSignalingCapability },
-    { CAPABILITY_RSP, CM_ProcessRspSignalingCapability },
-    { TC_CONNECT_REQ, CM_SignalingTransChanEstablishReqProc },
-    { TC_CONNECT_RSP, CM_SignalingTransChanEstablishRspProc },
-    { TC_DISCONNECT_REQ, CM_SignalingTransChanReleaseReqProc },
-    { TC_DISCONNECT_RSP, CM_SignalingTransChanReleaseRspProc },
+    { CAPABILITY_REQ, CAPABILITY_REQ, CM_ProcessReqSignalingCapability },
+    { CAPABILITY_RSP, CAPABILITY_REQ, CM_ProcessRspSignalingCapability },
+    { TC_CONNECT_REQ, TC_CONNECT_REQ, CM_SignalingTransChanEstablishReqProc },
+    { TC_CONNECT_RSP, TC_CONNECT_REQ, CM_SignalingTransChanEstablishRspProc },
+    { TC_DISCONNECT_REQ, TC_DISCONNECT_REQ, CM_SignalingTransChanReleaseReqProc },
+    { TC_DISCONNECT_RSP, TC_DISCONNECT_REQ, CM_SignalingTransChanReleaseRspProc },
 };
 
 static CM_SendSignalingDataCbk g_sendFunc = NULL;
@@ -62,9 +59,25 @@ static SDF_Map *g_cachedSignalings = NULL;  // 缓存的请求信令map。key: l
 
 static uint8_t g_identifier = 0;
 
-uint8_t CM_GetIdentifier(void)
+// 获取信令id。跳过仍在缓存map中的id，避免回绕后与未决信令冲突导致插入失败。
+// 若256个id全部被信令占用（异常高负载），返回false由调用方处理。
+bool CM_GetIdentifier(uint8_t *id)
 {
-    return g_identifier++;
+    if (id == NULL || g_cachedSignalings == NULL) {
+        return false;
+    }
+
+    for (uint16_t i = 0; i <= CM_SIGNALING_MAX_ID; i++) {
+        uint8_t candidate = g_identifier++;
+        if (SDF_MapFind(g_cachedSignalings, &candidate) == NULL) {
+            *id = candidate;
+            return true;
+        }
+    }
+    // 遍历一圈全部占用，说明21s内挂起256条信令，属异常高负载。循环恰好自增256次，
+    // g_identifier经回绕回到进入时的值，等效于未消费任何id，后续调用可随缓存释放恢复正常。
+    CM_LOGE("no available signaling id, all ids are in use");
+    return false;
 }
 
 void CM_SignalingCacheClearByLcid(uint16_t lcid)
@@ -95,10 +108,15 @@ static void CM_SignalingTimeoutCbkInner(void *args)
         return;
     }
 
+    CM_LOGE("cm signaling timeout, lcid: 0x%04x, id: %hhu, code: 0x%02x", cache->lcid, cache->id, cache->code);
     if (cache->cbk != NULL) {
         cache->cbk(cache->args);
     }
 
+    // timer为oneshot类型，TimerProc在回调返回后会统一执行SDF_TimerDel收尾；
+    // 此处置为无效值，使CM_SignalingCacheDtor跳过删除，避免timer被提前close后
+    // TimerProc收尾时对已复用的fd执行误删。
+    cache->timer = CM_INVALID_TIMER_HANDLE;
     (void)SDF_MapErase(g_cachedSignalings, &cache->id);
 }
 
@@ -145,25 +163,34 @@ uint32_t CM_SignalingCacheInsert(uint16_t lcid, uint8_t id, uint8_t code, void *
     return CM_SUCCESS;
 }
 
-void CM_SignalingCacheRemove(uint8_t id, uint8_t code)
+bool CM_SignalingCacheRemove(uint16_t lcid, uint8_t id, uint8_t code)
 {
     if (g_cachedSignalings == NULL) {
-        return;
+        return false;
     }
 
     SDF_MapIter *iter = SDF_MapFind(g_cachedSignalings, &id);
     if (iter == NULL) {
-        return;
+        return false;
     }
 
     CM_CachedSignaling_S *cache = (CM_CachedSignaling_S *)iter->val;
     if (cache == NULL) {
-        return;
+        return false;
     }
 
-    if (cache->code + 1 == code) {  // response code比request code大1
-        SDF_MapErase(g_cachedSignalings, &id);
+    if (cache->lcid != lcid) {
+        CM_LOGE("cache lcid: 0x%04x mismatch req lcid:0x%04x, id: %u", cache->lcid, lcid, id);
+        return false;
     }
+
+    if (cache->code != code) {
+        CM_LOGE("cache code: 0x%02x mismatch req code:0x%02x, id: %u", cache->code, code, id);
+        return false;
+    }
+
+    SDF_MapErase(g_cachedSignalings, &id);
+    return true;
 }
 
 static void CM_SignalingDoNothing(void *arg) {}
@@ -184,7 +211,11 @@ static void CM_SignalingCacheDtor(void *args)
     if (cache->args != NULL) {
         SDF_MemFree(cache->args);
     }
-    CP_TimerDel(cache->timer);
+
+    if (cache->timer != CM_INVALID_TIMER_HANDLE) {
+        CP_TimerDel(cache->timer);
+    }
+
     SDF_MemFree(cache);
 }
 
@@ -218,12 +249,12 @@ void CM_SignalingCacheDeinit(void)
     g_cachedSignalings = NULL;
 }
 
-CM_SignalingHandle CM_SignalingGetManagerHandler(uint8_t code)
+const CM_Signaling_S *CM_SignalingGet(uint8_t code)
 {
     uint32_t idx;
     for (idx = 0; idx < CM_MANAGE_NUM; idx++) {
         if (g_signalings[idx].recvCode == code) {
-            return g_signalings[idx].handle;
+            return &g_signalings[idx];
         }
     }
     return NULL;
