@@ -86,6 +86,16 @@ public:
         return hadmId;
     }
 
+    bool TryAddRemoteInfo(const sptr<IRemoteObject> &remote, const HadmClientRemoteInfo &info)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        NL_CHECK_RETURN_RET(it == vec_.end(), false, "duplicate add remote");
+        remote->AddDeathRecipient(deathRecipient_);
+        vec_.push_back(std::make_pair(remote, info));
+        return true;
+    }
+
     bool CheckHadmId(uint32_t hadmId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
@@ -212,13 +222,37 @@ NlErrCode NearlinkHadmClientServer::RegisterNearlinkHadmClientCallback(uint32_t 
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
     NL_CHECK_RETURN_RET(pimpl->remoteObservers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "ranging observers exceeds the range");
+
+    // 幂等注册：同一 callback 重复注册时复用已有 hadmId，避免新 ID 无绑定导致测距业务失败
+    uint32_t registeredHadmId = pimpl->remoteContainer_->GetHadmId(callback->AsObject());
+    if (registeredHadmId != SLE_HADM_INVALID_ID) {
+        HILOGW("callback already registered, reuse hadmId: %{public}u", registeredHadmId);
+        hadmId = registeredHadmId;
+        return NL_NO_ERROR;
+    }
+
     hadmId = InterfaceHadmClientService::GetInstance().AllocHadmId();
     NL_CHECK_RETURN_RET(hadmId != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR, "alloc hadmId failed.");
     HILOGI("hadmId: %{public}u, pid: %{public}d, uid: %{public}d, tokenId: %{public}lu", hadmId, pid, uid, tokenId);
-    
-    pimpl->remoteObservers_.Register(callback);
+
     impl::HadmClientRemoteInfo info(pid, uid, tokenId, hadmId);
-    pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
+    if (!pimpl->remoteContainer_->TryAddRemoteInfo(callback->AsObject(), info)) {
+        // 并发窗口内已被注册：回滚本次分配的 hadmId，复用已有 ID
+        InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
+        uint32_t concurrentHadmId = pimpl->remoteContainer_->GetHadmId(callback->AsObject());
+        NL_CHECK_RETURN_RET(concurrentHadmId != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR,
+            "get registered hadmId failed.");
+        HILOGW("callback registered concurrently, reuse hadmId: %{public}u", concurrentHadmId);
+        hadmId = concurrentHadmId;
+        return NL_NO_ERROR;
+    }
+
+    if (!pimpl->remoteObservers_.Register(callback)) {
+        // 注册失败回滚，避免 hadmId 泄漏
+        pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
+        InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
+        return NL_ERR_INTERNAL_ERROR;
+    }
     return NL_NO_ERROR;
 }
 

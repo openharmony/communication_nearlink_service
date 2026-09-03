@@ -97,6 +97,17 @@ public:
      * 由于协议栈在星闪开关关闭时,协议栈会清除所有appid,上层无法感知此行为,
      * 需要增加替换逻辑清除上层残余过期appid.
      */
+    bool GetRegisteredAppId(const sptr<IRemoteObject> &remote, int32_t &appId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        if (it == vec_.end()) {
+            return false;
+        }
+        appId = it->second.appId;
+        return true;
+    }
+
     wptr<IRemoteObject> FindRemoteSsapServerAppId(int32_t appId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
@@ -491,6 +502,13 @@ NlErrCode NearlinkSsapServerServer::RegisterApplication(const sptr<INearlinkSsap
         if (remote != nullptr) {
             HILOGW("clear expired appId: %{public}d", appId);
             pimpl->remoteContainer_->DeleteRemoteInfo(remote);
+        }
+        // 星闪开关后协议栈会清除并重新分配 appId，同 callback 重新注册时旧条目绑定的 appId 可能已变化，
+        // 需按 remote 清理旧条目后再绑定新 appId，避免 AddRemoteInfo 因重复而失败导致新 appId 无绑定
+        int32_t staleAppId = -1;
+        if (pimpl->remoteContainer_->GetRegisteredAppId(callback->AsObject(), staleAppId)) {
+            HILOGW("replace stale registration, appId: %{public}d -> %{public}d", staleAppId, appId);
+            pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
         }
         int32_t pid = IPCSkeleton::GetCallingPid();
         int32_t uid = IPCSkeleton::GetCallingUid();
