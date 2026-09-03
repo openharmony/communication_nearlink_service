@@ -192,6 +192,7 @@ static void PskRecvGNodeCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
         NLSTK_LOG_ERROR("[SM][PSK] T node: dhkey generation failure.");
         (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
@@ -200,12 +201,14 @@ static void PskRecvGNodeCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     if (!SmGenLinkKey(slink)) {
         NLSTK_LOG_ERROR("[SM][PSK] T node: Link key generation failure.");
         (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
+        (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
     }
     /* 发送T节点确认码 */
     (void)memset_s(psk, SM_OCTETS_16, 0, SM_OCTETS_16);
+    (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
     PskSendTNodeCfm(slink);
 }
 

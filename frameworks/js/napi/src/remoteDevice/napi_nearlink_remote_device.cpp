@@ -379,11 +379,11 @@ napi_value NapiNearlinkRemoteDevice::GetPairingState(napi_env env, napi_callback
     std::shared_ptr<NearlinkRemoteDevice> device = remoteDevice->GetDevice();
     NAPI_NL_ASSERT_RETURN_FALSE(env, device != nullptr, NL_ERR_INTERNAL_ERROR);
 
-    int state;
+    int state = 0;
     NlErrCode err = device->GetPairState(state);
+    NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     int outstate = NapiToJsPairState(state);
     HILOGI("state: %{public}d", outstate);
-    NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     napi_value ret = nullptr;
     napi_create_int32(env, outstate, &ret);
     return ret;

@@ -16,9 +16,23 @@
 #include "SleRemoteDeviceAdapter.h"
 #include "IRemoteDeviceQuery.h"
 #include "log.h"
+#include <set>
 
 namespace OHOS {
 namespace Nearlink {
+namespace {
+    std::set<std::string> g_mockVendorAudioAddr;
+}
+
+void SetMockVendorAudioDevice(const std::string &addr)
+{
+    g_mockVendorAudioAddr.insert(addr);
+}
+
+void ClearMockVendorAudioDevice()
+{
+    g_mockVendorAudioAddr.clear();
+}
 
 SleRemoteDeviceAdapter::SleRemoteDeviceAdapter()
 {
@@ -123,13 +137,13 @@ std::vector<Uuid> SleRemoteDeviceAdapter::GetDeviceUuids(const RawAddress &devic
 bool SleRemoteDeviceAdapter::IsVendorDevice(const RawAddress &memberAddr)
 {
     HILOGI("[SleRemoteDeviceAdapter Mocker] IsVendorDevice addr:%{public}s", memberAddr.GetAddress().c_str());
-    return false;
+    return g_mockVendorAudioAddr.count(memberAddr.GetAddress()) > 0;
 }
 
 bool SleRemoteDeviceAdapter::IsAudioDevice(const std::string &address)
 {
     HILOGI("[SleRemoteDeviceAdapter Mocker] IsAudioDevice addr:%{public}s", address.c_str());
-    return false;
+    return g_mockVendorAudioAddr.count(address) > 0;
 }
 
 bool SleRemoteDeviceAdapter::IsBondedFromLocal(const RawAddress &device)

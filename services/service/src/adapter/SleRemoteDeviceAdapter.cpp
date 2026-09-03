@@ -49,6 +49,7 @@ namespace {
 constexpr const char* INVALID_NAME = "";
 constexpr const char* NEARLINK_RECONN_DEVICE_BT_ADDR = "persist.nearlink.reconn_device_bluetooth_address";
 constexpr uint32_t BG_CONN_MAX_NUMBER = 255;
+constexpr uint32_t DEVICE_ADAPTER_QUERY_TIMEOUT_MS = 3000;
 
 enum class DeviceTypeForService : uint32_t {
     DEVICE_TYPE_OTHER = 0,    // 其他设备设备
@@ -1042,15 +1043,15 @@ void SleRemoteDeviceAdapter::SleAddPeerList(const RawAddress &device)
 
 bool SleRemoteDeviceAdapter::IsVendorDevice(const RawAddress &memberAddr)
 {
-    std::promise<bool> promise;
-    std::future<bool> future = promise.get_future();
-    DoInDeviceAdapterThread([memberAddr, &promise]() -> void {
+    std::shared_ptr<std::promise<bool>> promise = std::make_shared<std::promise<bool>>();
+    std::future<bool> future = promise->get_future();
+    DoInDeviceAdapterThread([memberAddr, promise]() -> void {
         std::vector<NearlinkCdsmInfo> cdsmInfo = {};
         ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));
         if (cdsmService == nullptr || cdsmService->CdsmGetAllMemberInfo(memberAddr, cdsmInfo) != NL_NO_ERROR) {
             HILOGE("[SleRemoteDeviceAdapter]:get cdsm info error!");
-            promise.set_value(false);
+            promise->set_value(false);
             return;
         }
         bool isVendorDevice = false;
@@ -1060,8 +1061,13 @@ bool SleRemoteDeviceAdapter::IsVendorDevice(const RawAddress &memberAddr)
                 isVendorDevice = true;
             }
         }
-        promise.set_value(isVendorDevice);
+        promise->set_value(isVendorDevice);
     });
+    auto status = future.wait_for(std::chrono::milliseconds(DEVICE_ADAPTER_QUERY_TIMEOUT_MS));
+    if (status != std::future_status::ready) {
+        HILOGE("[SleRemoteDeviceAdapter]timeout, treat as non-vendor");
+        return false;
+    }
     return future.get();
 }
 
@@ -1239,12 +1245,17 @@ bool SleRemoteDeviceAdapter::SetCdsmAddrType(const RawAddress &device, int addrT
 
 bool SleRemoteDeviceAdapter::IsAudioDevice(const std::string &address)
 {
-    std::promise<bool> promise;
-    std::future<bool> future = promise.get_future();
-    DoInDeviceAdapterThread([address, &promise]() -> void {
+    std::shared_ptr<std::promise<bool>> promise = std::make_shared<std::promise<bool>>();
+    std::future<bool> future = promise->get_future();
+    DoInDeviceAdapterThread([address, promise]() -> void {
         bool ret = SleRemoteDeviceManager::GetInstance()->IsAudioDevice(address);
-        promise.set_value(ret);
+        promise->set_value(ret);
     });
+    auto status = future.wait_for(std::chrono::milliseconds(DEVICE_ADAPTER_QUERY_TIMEOUT_MS));
+    if (status != std::future_status::ready) {
+        HILOGE("[SleRemoteDeviceAdapter]timeout, treat as non-audio");
+        return false;
+    }
     return future.get();
 }
 

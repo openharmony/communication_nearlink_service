@@ -399,7 +399,7 @@ bool SleConfig::GetLinkKeyChar(const std::string &section, char* lk, uint8_t val
 int SleConfig::GetCryptoAlgo(const std::string &section) const
 {
     LOG_DEBUG("[SleConfig]");
-    int algo;
+    int algo = 0;
     bool ret = config_->GetValue(SECTION_SLE_PAIRED_LIST, section, PROPERTY_SLE_CRYPTO_ALGO, algo);
     if (!ret) {
         LOG_ERROR("[SleConfig]:Get sle local ltk failed");
@@ -410,7 +410,7 @@ int SleConfig::GetCryptoAlgo(const std::string &section) const
 int SleConfig::GetKeyDerivAlgo(const std::string &section) const
 {
     LOG_DEBUG("[SleConfig]");
-    int algo;
+    int algo = 0;
     bool ret = config_->GetValue(SECTION_SLE_PAIRED_LIST, section, PROPERTY_SLE_KEY_DERIV_ALGO, algo);
     if (!ret) {
         LOG_ERROR("[SleConfig]Get sle local ltk failed");
@@ -421,7 +421,7 @@ int SleConfig::GetKeyDerivAlgo(const std::string &section) const
 int SleConfig::GetIntegrChk(const std::string &section) const
 {
     LOG_DEBUG("[SleConfig]");
-    int check;
+    int check = 0;
     bool ret = config_->GetValue(SECTION_SLE_PAIRED_LIST, section, PROPERTY_SLE_INTEGR_CHK, check);
     if (!ret) {
         LOG_ERROR("[SleConfig]:Get sle local ltk failed");
@@ -1426,7 +1426,7 @@ int32_t SleConfig::GetCloudDeviceState(const std::string &address)
         return false;
     }
     LOG_DEBUG("[SleConfig]");
-    int32_t cloudPairState;
+    int32_t cloudPairState = 0;
     bool ret = config_->GetValue(SECTION_SLE_CLOUD_PAIRED_DEVICE_LIST,
         address, PROPERTY_CLOUD_PAIRED_DEVICE_STATE, cloudPairState);
     if (!ret) {
