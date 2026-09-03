@@ -195,6 +195,14 @@ public:
     void SetName(const std::string &name);
     std::string GetName(void);
 
+    /**
+     * @brief Get device class.
+     *
+     * @return Returns device class.
+     * @since 6
+     */
+    uint32_t GetDeviceClass() const;
+
 private:
     std::vector<UUID> serviceUuids_ {}; // uuid is big endian order.
     std::map<uint16_t, std::string> manufacturerSpecificData_ {};

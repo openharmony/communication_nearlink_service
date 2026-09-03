@@ -379,6 +379,11 @@ void SleScanResult::SetDeviceClass(uint32_t deviceClass)
     deviceClass_ = deviceClass;
 }
 
+uint32_t SleScanResult::GetDeviceClass() const
+{
+    return deviceClass_;
+}
+
 void SleScanResult::SetName(const std::string &name)
 {
     name_ = name;
