@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -900,6 +900,13 @@ void SleProfileConnectManager::SsapConnectionStateChangedTask(const RawAddress &
         DiscoverStart(device);
     } else if (newState == static_cast<int>(SleConnectState::DISCONNECTED) &&
         profConnInst->GetConnectedProfileNumInner() == 0) {
+        if(profConnInst->GetState() != SLE_ADAPTER_PROF_CONN_STATE_WAIT_DISCONNECTED &&
+            funcs.onAllProfileDisconnected) {
+            auto onAllProfileDisconnected = funcs_.onAllProfileDisconnected;
+            DoInAdapterThread([onAllProfileDisconnected, device]() -> void {
+                onAllProfileDisconnected(device);
+            });
+        }
         ClearProfileConnectInfo(device);
     }
 }

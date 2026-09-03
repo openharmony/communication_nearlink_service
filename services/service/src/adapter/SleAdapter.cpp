@@ -2085,26 +2085,8 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
         }
         int unpairedReason = HandleDisconnAndUnpairedReason(reason);
         LOG_INFO("[SleAdapter] sleDisconnReason_: %{public}d", pimpl->sleDisconnReason_.load());
-        if (pairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRING)) {
-            // 已配对应用重新发起配对的场景，需要把配对状态恢复成已配对
-            if (prePairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) {
-                adapterProperties_->SetPrePairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
-                adapterProperties_->SetPairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
-            } else {
-                CancelPairComplete(peerAddr, NLSTK_ERRCODE_SUCCESS, unpairedReason);
-            }
-        }
-        uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
-        if (profileConnectState != SLE_ADAPTER_PROF_CONN_STATE_UNUSED) {
-            SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
-            HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d",
-                profileConnectState);
-        } else {
-            if (isNeedBgConn) {
-                adapterProperties_->AddBgConnDevice(peerAddr.GetAddress());
-            }
-            pimpl->sleProfileConnectManager_.ClearProfileConnectInfo(peerAddr);
-        }
+        HandlePairStateOnDisconnect(peerAddr, pairState, prePairState, unpairedReason);
+        HandleProfileDisconnectState(peerAddr, acbConnState, pairState, reason, isNeedBgConn);
     }
     if (!InterfaceCloudPairService::GetInstance().IsPreparingRepair(peerAddr)) {
         pimpl->sleProfileConnectManager_.NotifyAcbDisconnected(peerAddr);
@@ -2115,6 +2097,49 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
     if (cdsmService != nullptr) {
         cdsmService->CdsmStopInviteAdv(peerAddr, true);
     }
+}
+
+void SleAdapter::HandlePairStateOnDisconnect(const RawAddress &peerAddr, int pairState,
+    int prePairState, int unpairedReason) const
+{
+    if(pairState != static_cast<int>(SlePairState::SLE_PAIR_PAIRING)){
+        return;
+    }
+    // 已配对应用重新发起配对的场景，需要把配对状态恢复成已配对
+    if (prePairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) {
+        adapterProperties_->SetPrePairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
+        adapterProperties_->SetPairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
+    } else {
+        CancelPairComplete(peerAddr, NLSTK_ERRCODE_SUCCESS, unpairedReason);
+    }
+}
+
+void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int acbConnState,
+    int pairState, int reason, bool isNeedBgConn) const
+{
+    uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
+    if (profileConnectState != SLE_ADAPTER_PROF_CONN_STATE_UNUSED) {
+        int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
+        if(saveReason == 0) {
+            SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
+        }
+        HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d, "
+        "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
+        return;
+    } 
+    if(!isNeedBgConn) {
+        int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
+        if(saveReason !=0 && saveReason != reason) {
+            isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
+            HILOGI("[SleAdapter] recheck bgConn saveReason:%{public}d, isNeedBgConn:%{public}d",
+            saveReason, isNeedBgConn);
+        }
+    }
+    if (isNeedBgConn) {
+        adapterProperties_->AddBgConnDevice(peerAddr.GetAddress());
+    }
+    SetAcbDisConnReasonTask(peerAddr.GetAddress(), 0);
+    pimpl->sleProfileConnectManager_.ClearProfileConnectInfo(peerAddr);
 }
 
 int SleAdapter::HandleDisconnAndUnpairedReason(int reason) const

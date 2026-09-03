@@ -294,6 +294,10 @@ private:
     bool PairRequestReplyTask(const RawAddress &device, bool accept) const;
     bool IsDisconnectedByUser(int acbConnState, int pairState, int reason) const;
     int HandleDisconnAndUnpairedReason(int reason) const;
+    void HandlePairStateOnDisconnect(const RawAddress &peerAddr, int pairState,
+        int prePairState, int unpairedReason) const;
+    void HandleProfileDisconnectState(const RawAddress &peerAddr, int acbConnState,
+        int pairState, int reason, bool isNeedBgConn) const;
     bool HandleCdsmServiceConnectionState(
         const RawAddress &device, RawAddress &reportAddr, const SleConnectionChangedParam &connChangedParam) const;
     int HandleConnectionStateReason(const SleConnectionChangedParam &connChangedParam) const;
