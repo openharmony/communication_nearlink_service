@@ -901,7 +901,7 @@ void SleProfileConnectManager::SsapConnectionStateChangedTask(const RawAddress &
     } else if (newState == static_cast<int>(SleConnectState::DISCONNECTED) &&
         profConnInst->GetConnectedProfileNumInner() == 0) {
         if(profConnInst->GetState() != SLE_ADAPTER_PROF_CONN_STATE_WAIT_DISCONNECTED &&
-            funcs.onAllProfileDisconnected) {
+            funcs_.onAllProfileDisconnected) {
             auto onAllProfileDisconnected = funcs_.onAllProfileDisconnected;
             DoInAdapterThread([onAllProfileDisconnected, device]() -> void {
                 onAllProfileDisconnected(device);
