@@ -388,7 +388,7 @@ NlErrCode NearlinkSleCentralManagerServer::RegisterSleCentralManagerCallback(uin
     NL_CHECK_RETURN_RET(pimpl->observers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "observers exceeds the range");
 
-    // 幂等注册：同一 callback 重复注册时复用已有 scannerId，避免新 ID 无绑定导致启停扫描失败
+    // 幂等注册：同 callback 重复注册时复用已有 scannerId
     uint32_t registeredScannerId = SLE_SCAN_INVALID_ID;
     if (pimpl->remoteContainer_->GetRegisteredScannerId(callback->AsObject(), registeredScannerId)) {
         HILOGW("callback already registered, reuse scannerId: %{public}u", registeredScannerId);
@@ -402,7 +402,7 @@ NlErrCode NearlinkSleCentralManagerServer::RegisterSleCentralManagerCallback(uin
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     impl::SleCentralManagerRemoteInfo info(pid, uid, tokenId, scannerId);
     if (!pimpl->remoteContainer_->TryAddRemoteInfo(callback->AsObject(), info)) {
-        // 并发窗口内已被注册：回滚本次分配的 scannerId，复用已有 ID
+        // 并发注册冲突：回滚本次分配并复用已有 scannerId
         InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
         NL_CHECK_RETURN_RET(pimpl->remoteContainer_->GetRegisteredScannerId(callback->AsObject(),
             registeredScannerId), NL_ERR_INTERNAL_ERROR, "get registered scannerId failed.");

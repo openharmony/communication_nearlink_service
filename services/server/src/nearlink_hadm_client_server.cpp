@@ -223,7 +223,7 @@ NlErrCode NearlinkHadmClientServer::RegisterNearlinkHadmClientCallback(uint32_t 
     NL_CHECK_RETURN_RET(pimpl->remoteObservers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "ranging observers exceeds the range");
 
-    // 幂等注册：同一 callback 重复注册时复用已有 hadmId，避免新 ID 无绑定导致测距业务失败
+    // 幂等注册：同 callback 重复注册时复用已有 hadmId
     uint32_t registeredHadmId = pimpl->remoteContainer_->GetHadmId(callback->AsObject());
     if (registeredHadmId != SLE_HADM_INVALID_ID) {
         HILOGW("callback already registered, reuse hadmId: %{public}u", registeredHadmId);
@@ -237,7 +237,7 @@ NlErrCode NearlinkHadmClientServer::RegisterNearlinkHadmClientCallback(uint32_t 
 
     impl::HadmClientRemoteInfo info(pid, uid, tokenId, hadmId);
     if (!pimpl->remoteContainer_->TryAddRemoteInfo(callback->AsObject(), info)) {
-        // 并发窗口内已被注册：回滚本次分配的 hadmId，复用已有 ID
+        // 并发注册冲突：回滚本次分配并复用已有 hadmId
         InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
         uint32_t concurrentHadmId = pimpl->remoteContainer_->GetHadmId(callback->AsObject());
         NL_CHECK_RETURN_RET(concurrentHadmId != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR,
