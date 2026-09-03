@@ -131,7 +131,6 @@ uint32_t HadmGetSoundingAddrInfo(SLE_Addr_S *addr, uint32_t maxNum)
         SDF_MemFree(soundingAddrInfo);
         return soundingAddrNum;  // if addr is NULL or maxNum is 0, just return the number of sounding address
     }
-    // 复制数量钳制到调用方容量与源数组容量，防止返回计数超容量时源越界读
     uint32_t copyNum = (soundingAddrNum < maxNum) ? soundingAddrNum : maxNum;
     if (copyNum > HADM_MAX_PARALLEL_SOUNDING_NUM) {
         copyNum = HADM_MAX_PARALLEL_SOUNDING_NUM;
