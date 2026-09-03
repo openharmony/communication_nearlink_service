@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <climits>
 #include <condition_variable>
 #include <mutex>
 #include <future>
@@ -696,10 +695,8 @@ void SleAdapter::UpdateSleConnectableTimer()
         SetSleUnconnectable();
     };
     pimpl->sleConnectableTimer_ = std::make_shared<NearlinkTimer>(timeoutFunc);
-    // duration 秒转毫秒可能超出 int32（约 24.8 天），钳制到定时器可表示上限，避免溢出为负导致定时器永不启动
-    int64_t time = static_cast<int64_t>(pimpl->duration_) * SECONDS_TO_MILLISECONDS;
-    time = time > INT_MAX ? INT_MAX : time;
-    pimpl->sleConnectableTimer_->Start(static_cast<int32_t>(time), false);
+    int32_t time = pimpl->duration_ * SECONDS_TO_MILLISECONDS;
+    pimpl->sleConnectableTimer_->Start(time, false);
 }
 
 void SleAdapter::ClearSleConnectableTimer()
