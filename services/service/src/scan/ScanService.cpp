@@ -353,7 +353,6 @@ void ScanService::ParseAdvResult(NLSTK_DevdAdvResult_S *devdResult, std::vector<
     }
     SlePeripheralDevice device;
     RawAddress advertisedAddress(RawAddress::ConvertToString(devdResult->addr.addr));
-    // 与下方 localName 判空一致：data 为 nullptr 时 SetPayload 内部 std::string(nullptr, nullptr) 属未定义行为
     if (devdResult->advData.data != nullptr && devdResult->advData.len != 0) {
         device.SetPayload(devdResult->advData.data, devdResult->advData.len);
     }
