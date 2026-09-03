@@ -196,6 +196,60 @@ TEST_F(UT_DTAP_TEST, DTAP_CopyFrameTest)
     DTAP_DestroyFrame(dstFrame);
 }
 
+// 深拷贝后指针必须重定向到副本buff内部, 不能残留指向源buff的悬垂指针(UAF回归)
+TEST_F(UT_DTAP_TEST, DTAP_CopyFrameDeepCopyTest)
+{
+    // 构造解析后的源帧: header/extension/payload均指向buff内部, 与DTAP_ParseEnhanceFrame解析行为一致
+    DTAP_Frame_S srcFrame;
+    (void)memset_s(&srcFrame, sizeof(DTAP_Frame_S), 0, sizeof(DTAP_Frame_S));
+    SDF_DListEntryInit(&srcFrame.entry);
+    srcFrame.headerLen = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN;
+    srcFrame.extensionLen = sizeof(DTAP_ExtensionHeader_S);
+    srcFrame.payloadLen = TEST_NUM;
+    uint16_t totalLen = srcFrame.headerLen + srcFrame.extensionLen + srcFrame.payloadLen;
+    srcFrame.buff = SDF_BuffNewWithReserve(totalLen);
+    EXPECT_NE(srcFrame.buff, nullptr);
+    EXPECT_NE(SDF_BuffAppend(srcFrame.buff, totalLen), nullptr);
+    srcFrame.header = SDF_DataOffset(srcFrame.buff);
+    srcFrame.extension = (uint8_t *)srcFrame.header + srcFrame.headerLen;
+    srcFrame.payload = (uint8_t *)srcFrame.header + srcFrame.headerLen + srcFrame.extensionLen;
+
+    DTAP_Frame_S *dstFrame = DTAP_CopyFrame(&srcFrame);
+    EXPECT_NE(dstFrame, nullptr);
+
+    // buff为独立深拷贝
+    EXPECT_NE(dstFrame->buff, srcFrame.buff);
+    EXPECT_EQ(SDF_DataLenGet(dstFrame->buff), SDF_DataLenGet(srcFrame.buff));
+    EXPECT_EQ(memcmp(SDF_DataOffset(dstFrame->buff), SDF_DataOffset(srcFrame.buff),
+        SDF_DataLenGet(srcFrame.buff)), 0);
+
+    // header/extension/payload均重定向到副本buff内部
+    EXPECT_EQ(dstFrame->header, SDF_DataOffset(dstFrame->buff));
+    EXPECT_EQ(dstFrame->extension, (uint8_t *)dstFrame->header + dstFrame->headerLen);
+    EXPECT_EQ(dstFrame->payload, (uint8_t *)dstFrame->header + dstFrame->headerLen + dstFrame->extensionLen);
+
+    // 指针落在副本buff数据区范围内
+    uint8_t *data = SDF_DataOffset(dstFrame->buff);
+    uint16_t dataLen = SDF_DataLenGet(dstFrame->buff);
+    EXPECT_GE((uint8_t *)dstFrame->payload, data);
+    EXPECT_LE((uint8_t *)dstFrame->payload + dstFrame->payloadLen, data + dataLen);
+
+    // 长度与源帧一致
+    EXPECT_EQ(dstFrame->headerLen, srcFrame.headerLen);
+    EXPECT_EQ(dstFrame->extensionLen, srcFrame.extensionLen);
+    EXPECT_EQ(dstFrame->payloadLen, srcFrame.payloadLen);
+
+    // 副本不继承源帧链表节点(源帧未入链表时entry应指向自身)
+    EXPECT_EQ(dstFrame->entry.next, &dstFrame->entry);
+    EXPECT_EQ(dstFrame->entry.prev, &dstFrame->entry);
+
+    // 释放源buff后副本仍可独立访问与释放, 即深拷贝语义(UAF回归)
+    uint8_t expectFirstByte = srcFrame.payload[0];
+    SDF_BuffFree(srcFrame.buff);
+    EXPECT_EQ(dstFrame->payload[0], expectFirstByte);
+    DTAP_DestroyFrame(dstFrame);
+}
+
 TEST_F(UT_DTAP_TEST, DTAP_ParseExtensionTest)
 {
     uint32_t ret = DTAP_ParseExtension(NULL);
