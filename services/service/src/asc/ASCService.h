@@ -335,6 +335,8 @@ private:
     void ProcSpatialIfNeed(const RawAddress& device, AudioStreamType streamType);
     void ProcAllMemberStartBuff(const RawAddress& device);
     void ProcBuff(const RawAddress& device, ASCState state);
+    void MergeStartStopBuff(const RawAddress& device);
+    std::vector<AudioStreamType> DrainBuffToVector(std::queue<AudioStreamType>& buff);
     void ProcStartBuff(const RawAddress& device, ASCState state, bool& isGoOn);
     void ProcStopBuff(const RawAddress& device, ASCState state);
     bool EnableStartPlayingTimer(const RawAddress& device);
