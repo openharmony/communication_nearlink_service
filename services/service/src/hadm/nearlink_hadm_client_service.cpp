@@ -16,9 +16,6 @@
 #include <cstdint>
 #include <array>
 #include <string>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include "SleFeature.h"
 #include "parameters.h"
 #include "ipc_skeleton.h"
@@ -448,16 +445,9 @@ void HadmClientService::SaveDutData(NearlinkHadmSoundingResult soundingResult)
     HILOGD("open file");
     NL_CHECK_RETURN(sprintf_s(path_dut, sizeof(path_dut), "%s/testINIT%u_0.txt", SAVE_IQ_PATH,
         soundingResult.GetTimeStampSn()) >= 0, "sprintf_s error");
-    // fopen 会跟随符号链接，若路径被替换为 symlink 可能覆盖任意文件；改用 open + O_NOFOLLOW 拒绝链接
-    int iqDutFd = open(path_dut, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
-    if (iqDutFd < 0) {
-        HILOGE("open file ' %{public}s ' error : %{public}s", path_dut, strerror(errno));
-        return;
-    }
-    iqSaveDutHandle = fdopen(iqDutFd, "w");
+    iqSaveDutHandle = fopen(path_dut, "w+");
     if (iqSaveDutHandle == nullptr) {
-        HILOGE("fdopen file ' %{public}s ' error : %{public}s", path_dut, strerror(errno));
-        close(iqDutFd);
+        HILOGE("open file ' %{public}s ' error : %{public}s", path_dut, strerror(errno));
         return;
     }
     std::vector<uint16_t> dutIData = soundingResult.GetDutIData();
@@ -478,16 +468,9 @@ void HadmClientService::SaveRtdData(NearlinkHadmSoundingResult soundingResult)
     HILOGD("open file");
     NL_CHECK_RETURN(sprintf_s(path_rtd, sizeof(path_rtd), "%s/testREFL%u_0.txt", SAVE_IQ_PATH,
         soundingResult.GetTimeStampSn()) >= 0, "sprintf_s error");
-    // fopen 会跟随符号链接，若路径被替换为 symlink 可能覆盖任意文件；改用 open + O_NOFOLLOW 拒绝链接
-    int iqRtdFd = open(path_rtd, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
-    if (iqRtdFd < 0) {
-        HILOGE("open file ' %{public}s ' error : %{public}s", path_rtd, strerror(errno));
-        return;
-    }
-    iqSaveRtdHandle = fdopen(iqRtdFd, "w");
+    iqSaveRtdHandle = fopen(path_rtd, "w+");
     if (iqSaveRtdHandle == nullptr) {
-        HILOGE("fdopen file ' %{public}s ' error : %{public}s", path_rtd, strerror(errno));
-        close(iqRtdFd);
+        HILOGE("open file ' %{public}s ' error : %{public}s", path_rtd, strerror(errno));
         return;
     }
     std::vector<uint16_t> rtdIData = soundingResult.GetRtdIData();
