@@ -111,10 +111,6 @@ bool SSAP_CheckUuidStd(NLSTK_SsapUuid_S *uuid)
 
 void SSAP_GetUuidFromPktBuf(NLSTK_SsapUuid_S *uuid, uint8_t *srcBuf, uint32_t srcBufLen)
 {
-    if (srcBufLen > SSAP_UUID128_LEN) {
-        // 防御超长 uuid 字段：按 128bit 截断，避免 offset 下溢导致越界写
-        srcBufLen = SSAP_UUID128_LEN;
-    }
     if (srcBufLen < SSAP_UUID128_LEN) {
         (void)memcpy_s(uuid->uuid, SSAP_UUID128_LEN, g_ssapStdBaseUuid, SSAP_UUID128_LEN);
     }
