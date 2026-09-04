@@ -106,8 +106,11 @@ napi_value PairingStateParam::ToNapiValue(napi_env env) const
     napi_set_named_property(env, object, "state", value);
     napi_create_int32(env, reason_, &value);
     napi_set_named_property(env, object, "reason", value);
-    napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
-    napi_set_named_property(env, object, "reasonMsg", value);
+    // reasonMsg 为可选字段，无原因描述时不输出（保持 undefined）
+    if (!reasonMsg_.empty()) {
+        napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, object, "reasonMsg", value);
+    }
     return object;
 }
 
@@ -124,8 +127,11 @@ napi_value ConnectionStateParam::ToNapiValue(napi_env env) const
     napi_set_named_property(env, object, "state", value);
     napi_create_int32(env, connectionReason_, &value);
     napi_set_named_property(env, object, "connectionReason", value);
-    napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
-    napi_set_named_property(env, object, "reasonMsg", value);
+    // reasonMsg 为可选字段，无原因描述时不输出（保持 undefined）
+    if (!reasonMsg_.empty()) {
+        napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, object, "reasonMsg", value);
+    }
     return object;
 }
 
