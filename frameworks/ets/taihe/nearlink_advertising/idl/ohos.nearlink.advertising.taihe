@@ -1,0 +1,70 @@
+/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+@!namespace("@ohos.nearlink.advertising", "advertising")
+@!sts_inject("""
+static { loadLibrary("nearlinkAdvertisingTaihe_native.z") }
+""")
+
+function StartAdvertising(advertisingParams: AdvertisingParams): @sts_type("Promise<int>") Opaque;
+@promise function StopAdvertising(advertisingId: i32): void;
+
+function OnAdvertisingStateChange(callback: (data: AdvertisingStateChangeInfo) => void): void;
+function OffAdvertisingStateChange(callback: Optional<(data: AdvertisingStateChangeInfo) => void>): void;
+
+struct AdvertisingParams {
+    advertisingSettings: AdvertisingSettings;
+    advertisingData: AdvertisingData;
+}
+
+struct AdvertisingSettings {
+    interval: Optional<i32>;
+    power: Optional<TxPowerMode>;
+    isConnectable: Optional<bool>;
+}
+
+struct AdvertisingData {
+    serviceUuids: Optional<Array<String>>;
+    manufacturerData: Optional<Array<ManufacturerData>>;
+    serviceData: Optional<Array<ServiceData>>;
+    includeDeviceName: Optional<bool>;
+}
+
+struct ManufacturerData {
+    manufacturerId: i32;
+    manufacturerData: @arraybuffer Array<u8>;
+}
+
+struct ServiceData {
+    serviceUuid: String;
+    serviceData: @arraybuffer Array<u8>;
+}
+
+enum TxPowerMode: i32 {
+    ADV_TX_POWER_LOW = 1,
+    ADV_TX_POWER_MEDIUM = 2,
+    ADV_TX_POWER_HIGH = 3
+}
+
+struct AdvertisingStateChangeInfo {
+    advertisingId: i32;
+    state: AdvertisingState;
+}
+
+enum AdvertisingState: i32 {
+    STARTED = 1,
+    STOPPED = 2
+}

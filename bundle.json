@@ -120,7 +120,11 @@
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_manager:nearlinkManager_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_constant:nearlinkConstant_taihe",
                     "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_cdsm:nearlinkCdsm_taihe",
-                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe"
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_remoteDevice:nearlinkRemoteDevice_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_scan:nearlinkScan_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_advertising:nearlinkAdvertising_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_dataTransfer:nearlinkDataTransfer_taihe",
+                    "//foundation/communication/nearlink_service/frameworks/ets/taihe/nearlink_ssap:nearlinkSsap_taihe"
                 ],
                 "service_group": [
                     "//foundation/communication/nearlink_service/sa_profile:communication_nearlink_sa_profile",

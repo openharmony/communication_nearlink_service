@@ -14,6 +14,7 @@
  */
 
 #include "ohos.nearlink.remoteDevice.ani.hpp"
+#include "ani_nearlink_remote_device_callback.h"
 
 ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
 {
@@ -28,5 +29,6 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
     if (result != nullptr) {
         *result = ANI_VERSION_1;
     }
+	OHOS::Nearlink::AniRemoteDeviceObserver::CallbackInit();
     return ANI_OK;
 }

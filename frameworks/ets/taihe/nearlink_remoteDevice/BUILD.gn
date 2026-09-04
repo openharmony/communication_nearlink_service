@@ -39,7 +39,7 @@ ohos_taihe("run_taihe") {
   ]
 }
 
-taihe_shared_library("nearlinkRemoteDevice_taihe_native") {
+taihe_shared_library("nearlinkRemoteDeviceTaihe_native") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_remoteDevice"
@@ -55,9 +55,15 @@ taihe_shared_library("nearlinkRemoteDevice_taihe_native") {
   ]
   sources += [
     "src/ani_constructor.cpp",
+    "src/ani_nearlink_remote_device_rssi_observer.cpp",
+    "src/ani_nearlink_remote_device_callback.cpp",
     "src/ohos.nearlink.remoteDevice.impl.cpp",
     "$SLE_PART_DIR/frameworks/ets/taihe/common/ani_nearlink_error.cpp",
     "$SLE_PART_DIR/frameworks/ets/taihe/common/ani_nearlink_utils.cpp",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_async_callback.cpp",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_async_work.cpp",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_native_object.cpp",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_timer.cpp"
   ]
   deps = [
     ":run_taihe",
@@ -65,6 +71,7 @@ taihe_shared_library("nearlinkRemoteDevice_taihe_native") {
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
   ]
   external_deps = [
+    "c_utils:utils",
     "hilog:libhilog",
   ]
   sanitize = {
@@ -94,25 +101,25 @@ taihe_shared_library("nearlinkRemoteDevice_taihe_native") {
   ]
 }
 
-generate_static_abc("nearlinkRemoteDevice_abc") {
+generate_static_abc("nearlinkRemoteDeviceTaihe_abc") {
   base_url = "$taihe_generated_file_path_remoteDevice"
   files = [ "$taihe_generated_file_path_remoteDevice/@ohos.nearlink.remoteDevice.ets" ]
   is_boot_abc = "True"
-  device_dst_file = "/system/framework/nearlinkRemoteDevice_abc.abc"
+  device_dst_file = "/system/framework/nearlinkRemoteDeviceTaihe_abc.abc"
   dependencies = [ ":run_taihe" ]
 }
 
 ohos_prebuilt_etc("nearlinkRemoteDevice_etc") {
-  source = "$target_out_dir/nearlinkRemoteDevice_abc.abc"
+  source = "$target_out_dir/nearlinkRemoteDeviceTaihe_abc.abc"
   module_install_dir = "framework"
   part_name = "$part_name"
   subsystem_name = "$subsystem_name"
-  deps = [ ":nearlinkRemoteDevice_abc" ]
+  deps = [ ":nearlinkRemoteDeviceTaihe_abc" ]
 }
 
 group("nearlinkRemoteDevice_taihe") {
   deps = [
     ":nearlinkRemoteDevice_etc",
-    ":nearlinkRemoteDevice_taihe_native",
+    ":nearlinkRemoteDeviceTaihe_native",
   ]
 }

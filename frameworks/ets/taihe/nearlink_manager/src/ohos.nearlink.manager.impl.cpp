@@ -21,6 +21,7 @@
 #include "nearlink_host.h"
 #include "log.h"
 #include "nearlink_errorcode.h"
+#include "ani_nearlink_error.h"
 
 using namespace taihe;
 using namespace OHOS::Nearlink;
@@ -30,46 +31,53 @@ void enable()
 {
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().EnableNl();
-    NL_CHECK_RETURN(err == NL_NO_ERROR, "enable failed");
+    ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
 void disable()
 {
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().DisableNl();
-    NL_CHECK_RETURN(err == NL_NO_ERROR, "disable failed");
+    ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
 ::ohos::nearlink::manager::NearlinkState getState()
 {
     HILOGI("enter");
+    int32_t invalidState = static_cast<int32_t>(SleStateID::STATE_TURN_OFF);
+    bool result = NearlinkHost::GetInstance().IsNearlinkSupport();
+    ANI_NL_ASSERT_RETURN(result, NL_ERR_API_NOT_SUPPORT,
+        ohos::nearlink::manager::NearlinkState::from_value(invalidState));
     int32_t state = (NearlinkHost::GetInstance().IsSleEnabled()) ?
         static_cast<int32_t>(SleStateID::STATE_TURN_ON) : static_cast<int32_t>(SleStateID::STATE_TURN_OFF);
-    return {static_cast<::ohos::nearlink::manager::NearlinkState::key_t>(state)};
+    ohos::nearlink::manager::NearlinkState stateValue =
+        ohos::nearlink::manager::NearlinkState::from_value(state);
+    return stateValue;
 }
 
-array<string> getPairedDevices()
+::taihe::array<::taihe::string> getPairedDevices()
 {
     HILOGI("enter");
+    ::taihe::array<::taihe::string> result {};
     std::vector<NearlinkRemoteDevice> pairedDevices;
     NlErrCode err = NearlinkHost::GetInstance().GetPairedDevices(SleTransport::ADAPTER_SLE, pairedDevices);
-    NL_CHECK_RETURN_RET(err == NL_NO_ERROR, {}, "getPairedDevices failed");
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
 
     std::vector<std::string> addrVector;
     for (auto &device : pairedDevices) {
         addrVector.push_back(device.GetDeviceAddr());
     }
-    array<string> result(taihe::copy_data_t{}, addrVector.data(), addrVector.size());
+    result = ::taihe::array<::taihe::string>(taihe::copy_data_t{}, addrVector.data(), addrVector.size());
     HILOGI("end");
     return result;
 }
 
-string getLocalAddress()
+::taihe::string getLocalAddress()
 {
     HILOGI("enter");
     std::string localAddress;
     NlErrCode err = NearlinkHost::GetInstance().GetLocalAddress(localAddress);
-    NL_CHECK_RETURN_RET(err == NL_NO_ERROR, "", "getLocalAddress failed");
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, "");
     return localAddress;
 }
 
@@ -78,28 +86,42 @@ string getLocalName()
     HILOGI("enter");
     std::string localName;
     NlErrCode err = NearlinkHost::GetInstance().GetLocalName(localName);
-    NL_CHECK_RETURN_RET(err == NL_NO_ERROR, "", "getLocalName failed");
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, "");
     return localName;
+}
+
+bool isNearLinkSupported()
+{
+    HILOGI("enter");
+    return NearlinkHost::GetInstance().IsNearlinkSupport();
 }
 
 void setConnectionMode(::ohos::nearlink::manager::ConnectionMode mode, int duration)
 {
     HILOGI("enter");
-    NlErrCode err = NearlinkHost::GetInstance().SetConnectionMode(mode, duration);
-    NL_CHECK_RETURN(err == NL_NO_ERROR, "setConnectionMode failed");
+    int32_t connectionMode = mode.get_value();
+    if (connectionMode < 0 || connectionMode > 1) {
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+    }
+    if (duration < 0) {
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+    }
+    NlErrCode err = NearlinkHost::GetInstance().SetConnectionMode(connectionMode, duration);
+    ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
  
 void factoryReset()
 {
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().NearlinkFactoryReset();
-    NL_CHECK_RETURN(err == NL_NO_ERROR, "factoryReset failed");
+    ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
-void onStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::NearlinkState data)> callback)
+void OnStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::NearlinkState data)> callback)
 {
     HILOGI("enter");
-    NL_CHECK_RETURN(g_stateChangedObserverVec.size() < MAX_CB_NUM, "cb Exceeding the maximum value!");
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
+    ANI_NL_ASSERT_RETURN_VOID(g_stateChangedObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>> stateChangeCb =
         ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>>{
@@ -112,12 +134,13 @@ void onStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::Nearli
     g_stateChangedObserverVec.emplace_back(stateChangeCb);
 }
 
-void offStateChange(
+void OffStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>> callback)
 {
     HILOGI("enter");
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     std::unique_lock<std::shared_mutex> guard(g_stateChangedMutex);
-    NL_CHECK_RETURN(!g_stateChangedObserverVec.empty(), "cb not registered!");
+    ANI_NL_ASSERT_RETURN_VOID(!g_stateChangedObserverVec.empty(), NL_ERR_INVALID_PARAM);
     if (callback.has_value()) {
         for (size_t i = 0; i < g_stateChangedObserverVec.size(); ++i) {
             if (g_stateChangedObserverVec[i] == callback) {
@@ -127,149 +150,6 @@ void offStateChange(
         }
     } else {
         g_stateChangedObserverVec.clear();
-    }
-}
-
-void onPairingRequest(::taihe::callback_view<void(::ohos::nearlink::manager::PairingRequestParam const&)> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_pairingRequestMutex);
-    NL_CHECK_RETURN(g_pairingRequestObserverVec.size() < MAX_CB_NUM, "cb Exceeding the maximum value!");
-
-    ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>> pairingRequestCb =
-        ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>>{
-            std::in_place_t{}, callback};
-
-    if (std::find(g_pairingRequestObserverVec.begin(), g_pairingRequestObserverVec.end(), pairingRequestCb) !=
-        g_pairingRequestObserverVec.end()) {
-        return;
-    }
-    g_pairingRequestObserverVec.emplace_back(pairingRequestCb);
-}
-
-void offPairingRequest(
-    ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_pairingRequestMutex);
-    NL_CHECK_RETURN(!g_pairingRequestObserverVec.empty(), "cb not registered!");
-    if (callback.has_value()) {
-        for (size_t i = 0; i < g_pairingRequestObserverVec.size(); ++i) {
-            if (g_pairingRequestObserverVec[i] == callback) {
-                g_pairingRequestObserverVec.erase(g_pairingRequestObserverVec.begin() + i);
-                return;
-            }
-        }
-    } else {
-        g_pairingRequestObserverVec.clear();
-    }
-}
-
-void onPairingStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::PairingStateParam const&)> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
-    NL_CHECK_RETURN(g_pairStatusChangedObserverVec.size() < MAX_CB_NUM, "cb Exceeding the maximum value!");
-
-    ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>>
-        pairingStateChangeCb =
-            ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>>{
-                std::in_place_t{}, callback};
-
-    if (std::find(g_pairStatusChangedObserverVec.begin(), g_pairStatusChangedObserverVec.end(), pairingStateChangeCb) !=
-        g_pairStatusChangedObserverVec.end()) {
-        return;
-    }
-    g_pairStatusChangedObserverVec.emplace_back(pairingStateChangeCb);
-}
-
-void offPairingStateChange(
-    ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
-    NL_CHECK_RETURN(!g_pairStatusChangedObserverVec.empty(), "cb not registered!");
-    if (callback.has_value()) {
-        for (size_t i = 0; i < g_pairStatusChangedObserverVec.size(); ++i) {
-            if (g_pairStatusChangedObserverVec[i] == callback) {
-                g_pairStatusChangedObserverVec.erase(g_pairStatusChangedObserverVec.begin() + i);
-                return;
-            }
-        }
-    } else {
-        g_pairStatusChangedObserverVec.clear();
-    }
-}
-
-void onConnectionStateChange(
-    ::taihe::callback_view<void(::ohos::nearlink::manager::ConnectionStateParam const&)> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
-    NL_CHECK_RETURN(g_connectionStateChangedObserverVec.size() < MAX_CB_NUM, "cb Exceeding the maximum value!");
-
-    ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>>
-        connectionStateChangeCb =
-            ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>>{
-                std::in_place_t{}, callback};
-
-    if (std::find(g_connectionStateChangedObserverVec.begin(), g_connectionStateChangedObserverVec.end(),
-        connectionStateChangeCb) != g_connectionStateChangedObserverVec.end()) {
-        return;
-    }
-    g_connectionStateChangedObserverVec.emplace_back(connectionStateChangeCb);
-}
-
-void offConnectionStateChange(
-    ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
-    NL_CHECK_RETURN(!g_connectionStateChangedObserverVec.empty(), "cb not registered!");
-    if (callback.has_value()) {
-        for (size_t i = 0; i < g_connectionStateChangedObserverVec.size(); ++i) {
-            if (g_connectionStateChangedObserverVec[i] == callback) {
-                g_connectionStateChangedObserverVec.erase(g_connectionStateChangedObserverVec.begin() + i);
-                return;
-            }
-        }
-    } else {
-        g_connectionStateChangedObserverVec.clear();
-    }
-}
-
-void onAcbStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::AcbStateParam const&)> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
-    NL_CHECK_RETURN(g_acbStateChangedObserverVec.size() < MAX_CB_NUM, "cb Exceeding the maximum value!");
-
-    ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>> acbStateChangeCb =
-        ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>>{
-            std::in_place_t{}, callback};
-
-    if (std::find(g_acbStateChangedObserverVec.begin(), g_acbStateChangedObserverVec.end(), acbStateChangeCb) !=
-        g_acbStateChangedObserverVec.end()) {
-        return;
-    }
-    g_acbStateChangedObserverVec.emplace_back(acbStateChangeCb);
-}
-
-void offAcbStateChange(
-    ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>> callback)
-{
-    HILOGI("enter");
-    std::unique_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
-    NL_CHECK_RETURN(!g_acbStateChangedObserverVec.empty(), "cb not registered!");
-    if (callback.has_value()) {
-        for (size_t i = 0; i < g_acbStateChangedObserverVec.size(); ++i) {
-            if (g_acbStateChangedObserverVec[i] == callback) {
-                g_acbStateChangedObserverVec.erase(g_acbStateChangedObserverVec.begin() + i);
-                return;
-            }
-        }
-    } else {
-        g_acbStateChangedObserverVec.clear();
     }
 }
 }  // namespace
@@ -282,16 +162,9 @@ TH_EXPORT_CPP_API_getState(getState);
 TH_EXPORT_CPP_API_getPairedDevices(getPairedDevices);
 TH_EXPORT_CPP_API_getLocalAddress(getLocalAddress);
 TH_EXPORT_CPP_API_getLocalName(getLocalName);
+TH_EXPORT_CPP_API_isNearLinkSupported(isNearLinkSupported);
 TH_EXPORT_CPP_API_setConnectionMode(setConnectionMode);
 TH_EXPORT_CPP_API_factoryReset(factoryReset);
-TH_EXPORT_CPP_API_onStateChange(onStateChange);
-TH_EXPORT_CPP_API_offStateChange(offStateChange);
-TH_EXPORT_CPP_API_onPairingRequest(onPairingRequest);
-TH_EXPORT_CPP_API_offPairingRequest(offPairingRequest);
-TH_EXPORT_CPP_API_onPairingStateChange(onPairingStateChange);
-TH_EXPORT_CPP_API_offPairingStateChange(offPairingStateChange);
-TH_EXPORT_CPP_API_onConnectionStateChange(onConnectionStateChange);
-TH_EXPORT_CPP_API_offConnectionStateChange(offConnectionStateChange);
-TH_EXPORT_CPP_API_onAcbStateChange(onAcbStateChange);
-TH_EXPORT_CPP_API_offAcbStateChange(offAcbStateChange);
+TH_EXPORT_CPP_API_OnStateChange(OnStateChange);
+TH_EXPORT_CPP_API_OffStateChange(OffStateChange);
 // NOLINTEND

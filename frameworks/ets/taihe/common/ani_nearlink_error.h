@@ -48,6 +48,7 @@ do {                                                      \
 #endif
 
 std::string GetAniErrMsg(const int32_t errCode);
+void ConvertAniError(int32_t &errCode, std::string &errMsg);
 void HandleSyncErr(int32_t errCode);
 
 } // namespace Nearlink

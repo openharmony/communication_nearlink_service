@@ -23,6 +23,7 @@
 #include "taihe/callback.hpp"
 #include "taihe/optional.hpp"
 #include "taihe/runtime.hpp"
+#include "log.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -32,6 +33,8 @@ public:
     void RegisterEvent(::taihe::callback_view<T> callback);
     void DeregisterEvent(::taihe::optional_view<::taihe::callback<T>> callback);
     std::vector<::taihe::optional<::taihe::callback<T>>> GetCallbacks();
+    template<typename Arg>
+    void PublishEvent(Arg&& args);
 private:
     std::vector<::taihe::optional<::taihe::callback<T>>> callbackVec_;
     std::shared_mutex lock_;
@@ -66,6 +69,18 @@ void EventModule<T>::DeregisterEvent(::taihe::optional_view<::taihe::callback<T>
             callbackVec_.end());
     } else {
         callbackVec_.clear();
+    }
+}
+
+template<typename T>
+template<typename Arg>
+void EventModule<T>::PublishEvent(Arg&& arg)
+{
+    std::shared_lock<std::shared_mutex> guard(lock_);
+    for (auto& cb : callbackVec_) {
+        if (cb.has_value()) {
+            cb.value()(std::forward<Arg>(arg));
+        }
     }
 }
 

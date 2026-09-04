@@ -15,7 +15,7 @@
 
 @!namespace("@ohos.nearlink.cdsm", "cdsm")
 @!sts_inject("""
-static { loadLibrary("nearlinkCdsm_taihe_native.z") }
+static { loadLibrary("nearlinkCdsmTaihe_native.z") }
 """)
 
 function CreateCdsmClient(address: String): CdsmClient;

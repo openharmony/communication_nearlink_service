@@ -33,7 +33,7 @@ void AniCdsmClientCallback::OnCdsInfoChanged(const NearlinkCdsInfo& cdsInfo)
     for (auto member : memberList) {
         ::ohos::nearlink::cdsm::CdsmMemberInfo cdsMember = {
             .address = static_cast<::taihe::string>(member.GetDeviceAddr()),
-            .state = static_cast<::ohos::nearlink::cdsm::CdsmConnectionState::key_t>(member.GetState())
+            .state = ohos::nearlink::cdsm::CdsmConnectionState::from_value(member.GetState())
         };
         cdsVec.emplace_back(cdsMember);
     }
