@@ -262,14 +262,14 @@ uint32_t CM_SignalingTransChanEstablishReqSend(uint16_t lcid, CM_SignalingTransC
     SDF_MemFree(reqData);
     if (buff == NULL) {
         CM_LOGE("create buff failed");
-        CM_SignalingCacheRemove(lcid, id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
+        CM_SignalingCacheRemove(id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
         return CM_MEM_ERR;
     }
 
     ret = CM_SendBuffToDtap(lcid, buff);
     if (ret != CM_SUCCESS) {
         CM_LOGE("send buff to dtap failed");
-        CM_SignalingCacheRemove(lcid, id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
+        CM_SignalingCacheRemove(id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
         SDF_BuffFree(buff);
         return ret;
     }
@@ -340,13 +340,13 @@ uint32_t CM_SignalingTransChanReleaseReqSend(uint16_t lcid, CM_SignalingTransCha
         CM_CreateSignalingBuff(TC_DISCONNECT_REQ, id, (uint8_t *)&reqPkt, sizeof(CM_TransChanReleaseReqPkt_S));
     if (buff == NULL) {
         CM_LOGE("create buff failed");
-        CM_SignalingCacheRemove(lcid, id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
+        CM_SignalingCacheRemove(id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
         return CM_MEM_ERR;
     }
 
     ret = CM_SendBuffToDtap(lcid, buff);
     if (ret != CM_SUCCESS) {
-        CM_SignalingCacheRemove(lcid, id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
+        CM_SignalingCacheRemove(id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
         SDF_BuffFree(buff);
         return ret;
     }

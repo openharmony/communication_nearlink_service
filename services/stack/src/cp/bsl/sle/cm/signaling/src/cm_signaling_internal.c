@@ -92,7 +92,7 @@ int CM_RecvSignalingData(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
         return CM_FAIL;
     }
     handle(info->lcid, head);
-    CM_SignalingCacheRemove(info->lcid, head->identifier, code);
+    CM_SignalingCacheRemove(head->identifier, code);
     return CM_SUCCESS;
 }
 

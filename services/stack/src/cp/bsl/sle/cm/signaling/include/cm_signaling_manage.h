@@ -42,7 +42,7 @@ uint8_t CM_GetIdentifier(void);
 // 插入信令缓存
 uint32_t CM_SignalingCacheInsert(uint16_t lcid, uint8_t id, uint8_t code, void *args, CM_SignalingTimeoutCbk cbk);
 // 移除信令缓存
-void CM_SignalingCacheRemove(uint16_t lcid, uint8_t id, uint8_t code);
+void CM_SignalingCacheRemove(uint8_t id, uint8_t code);
 // 移除lcid对应的所有信令缓存
 void CM_SignalingCacheClearByLcid(uint16_t lcid);
 // 初始化信令缓存
