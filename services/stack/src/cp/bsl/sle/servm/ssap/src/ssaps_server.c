@@ -1113,6 +1113,38 @@ static void SSAPS_MethodErrorProcess(SSAP_Link_S *link, uint8_t msgCode, uint8_t
     }
 }
 
+// 上述检查完成之后，可以开始处理方法调用
+static void SSAPS_MethodCallOpProcess(SSAP_Link_S *link, SSAP_Method_S *method,
+    SSAP_PduCallMethodReq_S *callMethodMsg, uint16_t paramLen)
+{
+    SSAP_BufferedOperation_S *operation =
+        (SSAP_BufferedOperation_S *)SDF_MemZalloc(sizeof(SSAP_BufferedOperation_S) + paramLen);
+    if (operation == NULL) {
+        // 如果内存申请失败，则返回错误，需要生成错误响应
+        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
+        return;
+    }
+    uint32_t ret = SsapGenerateMethodCallOp(operation, callMethodMsg, paramLen, &link->addr);
+    if (ret != NLSTK_ERRCODE_SUCCESS) {
+        SDF_MemFree(operation);
+        return;
+    }
+    operation->needAuth =
+        ((method->permission.permissionValue & (uint8_t)SSAP_PERMISSION_ENCRYPTION_NEED) != 0) ? true : false;
+    if (!SSAPS_PushOperationPenddingVector(operation)) {
+        CP_LOG_ERROR("[SSAP] push method operation failed, pending vector is full");
+        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
+        SDF_MemFree(operation);
+        operation = NULL;
+        return;
+    }
+    // 任务添加到队列中之后，还需要启动一个定时器，避免因为service的操作阻塞，导致协议栈一直等待，当前没有实现；
+    SsapServerAppCallMethodCallback(operation);
+
+    SDF_MemFree(operation);
+    operation = NULL;
+}
+
 static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     NLSTK_LOG_INFO("[SSAP] enter call method process");
@@ -1152,35 +1184,9 @@ static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         return;
     }
 
-    // 上述检查完成之后，可以开始处理方法调用
     // 在函数入口出判断了size的最大值不会超过UINT16_MAX，所以这里可以直接使用uint16_t,不会出现截断的情况；
     uint16_t paramLen = (uint16_t)(size - SSAP_METHOD_REQ_PDU_MIN_LEN);
-    SSAP_BufferedOperation_S *operation =
-        (SSAP_BufferedOperation_S *)SDF_MemZalloc(sizeof(SSAP_BufferedOperation_S) + paramLen);
-    if (operation == NULL) {
-        // 如果内存申请失败，则返回错误，需要生成错误响应
-        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
-        return;
-    }
-    uint32_t ret = SsapGenerateMethodCallOp(operation, callMethodMsg, paramLen, &link->addr);
-    if (ret != NLSTK_ERRCODE_SUCCESS) {
-        SDF_MemFree(operation);
-        return;
-    }
-    operation->needAuth =
-        ((method->permission.permissionValue & (uint8_t)SSAP_PERMISSION_ENCRYPTION_NEED) != 0) ? true : false;
-    if (!SSAPS_PushOperationPenddingVector(operation)) {
-        CP_LOG_ERROR("[SSAP] push method operation failed, pending vector is full");
-        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
-        SDF_MemFree(operation);
-        operation = NULL;
-        return;
-    }
-    // 任务添加到队列中之后，还需要启动一个定时器，避免因为service的操作阻塞，导致协议栈一直等待，当前没有实现；
-    SsapServerAppCallMethodCallback(operation);
-
-    SDF_MemFree(operation);
-    operation = NULL;
+    SSAPS_MethodCallOpProcess(link, method, callMethodMsg, paramLen);
 }
 
 /**
