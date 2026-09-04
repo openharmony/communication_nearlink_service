@@ -42,16 +42,6 @@ void SmEncpEnable(SmSLink_S *slink)
      * 若加密算法支持EA2且完整性算法支持IA2，则HCI命令中加密算法可使用EA2/IA2
      */
     uint8_t *algoCap = slink->negoParams.codeAlgoCap;
-    /* 校验协商算法能力值合法（1~4），防止为 0 时减 1 下溢为 0xFF */
-    if (algoCap[SM_ENC_ALGO_ABILITY] == 0 ||
-        algoCap[SM_ENC_ALGO_ABILITY] > SM_ENCRYPTION_ALGORITHM_ABILITY_EA2 ||
-        algoCap[SM_KEY_DERIV_ALGO_ABILITY] == 0) {
-        NLSTK_LOG_ERROR("[SM] Encrypt algo cap invalid: %u, %u.", algoCap[SM_ENC_ALGO_ABILITY],
-            algoCap[SM_KEY_DERIV_ALGO_ABILITY]);
-        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-        return;
-    }
     if (algoCap[SM_ENC_ALGO_ABILITY] == algoCap[SM_INTG_PROTECT_ALGO_ABILITY]) {
         params.cryptoAlgo = algoCap[SM_ENC_ALGO_ABILITY] - 1;
     } else {
@@ -97,15 +87,6 @@ void SmEncpParamReqReplyProcess(SmSLink_S *slink)
      * 若加密算法支持EA1且完整性算法支持IA1，则HCI命令中加密算法可使用EA1/IA1
      * 若加密算法支持EA2且完整性算法支持IA2，则HCI命令中加密算法可使用EA2/IA2
      */
-    /* 校验协商算法能力值合法，防止为 0 时减 1 下溢为 0xFF */
-    if (slink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] == 0 ||
-        slink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] > SM_ENCRYPTION_ALGORITHM_ABILITY_EA2 ||
-        slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] == 0) {
-        NLSTK_LOG_ERROR("[SM] Encrypt algo cap invalid.");
-        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
-            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
-        return;
-    }
     params.cryptoAlgo = slink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] - 1;
     params.keyDerivAlgo = slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] - 1;
     ret = DLI_EncryptionParamReqReply(&params);

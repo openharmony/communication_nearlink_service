@@ -343,21 +343,20 @@ static uint8_t GetAuthMethod(uint8_t gNodeIo, uint8_t tNodeIo)
     return map[tNodeIo][gNodeIo];
 }
 
-static uint32_t NegoEncAlgo(SmPairReqRspMsg_S *msg, SmSLink_S *slink)
+static void NegoEncAlgo(SmPairReqRspMsg_S *msg, SmSLink_S *slink)
 {
-    NLSTK_CHECK_RETURN(msg != NULL && slink != NULL, SM_ERR_INVALID_PARAMETERS,
-        "[SM] Negotiate encrypt params is invalid.");
+    NLSTK_CHECK_RETURN_VOID(msg != NULL && slink != NULL, "[SM] Negotiate encrypt params is invalid.");
 
     /* 如果对端密钥交互算法为0，默认置为ECDH-P256 */
     if (msg->codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY] == 0) {
         msg->codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY] = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2;
         NLSTK_LOG_INFO("[SM] Set logic link device type OLD.");
-        NLSTK_CHECK_RETURN(CM_SetLogicLinkDeviceType(slink->lcid, CM_DEVTYPE_OLD) == CM_SUCCESS,
-            SM_ERR_INVALID_PARAMETERS, "[SM] CM_SetLogicLinkDeviceType failed.");
+        NLSTK_CHECK_RETURN_VOID(CM_SetLogicLinkDeviceType(slink->lcid, CM_DEVTYPE_OLD) == CM_SUCCESS,
+            "[SM] CM_SetLogicLinkDeviceType failed.");
     }
 
     NLSTK_SmLocalParams_S *localParams = SmGetLocalParams();
-    NLSTK_CHECK_RETURN(localParams != NULL, SM_ERR_INVALID_PARAMETERS, "[SM] Local params null pointer");
+    NLSTK_CHECK_RETURN_VOID(localParams != NULL, "[SM] Local params null pointer");
 
     uint8_t *negoAlgo = slink->negoParams.codeAlgoCap;
     for (int8_t i = 0; i < SM_OCTETS_4; i++) {
@@ -383,20 +382,9 @@ static uint32_t NegoEncAlgo(SmPairReqRspMsg_S *msg, SmSLink_S *slink)
         }
     }
 
-    /* 无共同加密/完整性/密钥派生算法时中止配对，避免算法能力值为 0 导致后续 -1 下溢 */
-    if (negoAlgo[SM_ENC_ALGO_ABILITY] == 0 ||
-        negoAlgo[SM_ENC_ALGO_ABILITY] != negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY] ||
-        negoAlgo[SM_ENC_ALGO_ABILITY] != negoAlgo[SM_KEY_DERIV_ALGO_ABILITY]) {
-        NLSTK_LOG_ERROR("[SM] No common encryption algorithm, nego result: %u %u %u.",
-            negoAlgo[SM_ENC_ALGO_ABILITY], negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY],
-            negoAlgo[SM_KEY_DERIV_ALGO_ABILITY]);
-        return SM_ERR_INVALID_PARAMETERS;
-    }
-
     NLSTK_LOG_INFO("[SM] Algorithm Negotiate result: %u %u %u %u.",
                  negoAlgo[SM_ENC_ALGO_ABILITY], negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY],
                  negoAlgo[SM_KEY_DERIV_ALGO_ABILITY], negoAlgo[SM_KEY_NEGO_ALGO_ABILITY]);
-    return SM_OK;
 }
 
 static uint32_t PairingNego(SmPairReqRspMsg_S *msg, uint8_t gMitmDefend, uint8_t tMitmDefend, SmSLink_S *slink)
@@ -441,6 +429,8 @@ static uint32_t PairingNego(SmPairReqRspMsg_S *msg, uint8_t gMitmDefend, uint8_t
                  slink->negoParams.kpressNotif, slink->negoParams.secKeyMaxLen,
                  slink->negoParams.distIrkFlag, slink->negoParams.distAddrFlag);
     /* 协商加密算法 */
-    return NegoEncAlgo(msg, slink);
+    NegoEncAlgo(msg, slink);
+
+    return SM_OK;
 }
 //LCOV_EXCL_STOP
