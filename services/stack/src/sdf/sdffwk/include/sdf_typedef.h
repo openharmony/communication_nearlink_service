@@ -39,15 +39,8 @@ extern "C" {
 
 /**
  * @brief     将 src 向上圆整为 sz 的倍数, 例: 15 圆整 为 4 的倍数为 ((15 + 3) / 4 ) * 4 = 16
- * @note      sz 为 0 时返回 0，避免除零（L-14）
  */
-static inline size_t SDF_SizeRound(size_t src, size_t sz)
-{
-    if (sz == 0) {
-        return 0;
-    }
-    return ((src + sz - 1) / sz) * sz;
-}
+#define SDF_SizeRound(src, sz) ((((src) + (sz) - 1) / (sz)) * (sz))
 
 #ifdef __cplusplus
 }
