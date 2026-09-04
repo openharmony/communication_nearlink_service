@@ -853,21 +853,16 @@ static void CM_DoingConnDirectRemove(uint8_t moduleId, const SLE_Addr_S *addr)
     CM_StartRmvAllowListConnReq();
 }
 
-// 失败回滚：仅移除本次请求新增的节点内容（该 moduleId 的 bg 节点及因此清空的地址节点），
-// 保留其他模块/此前既有连接状态，避免误删其定时器等资源（L-20）
-static void CM_DestroyConnectingDevMap(uint8_t moduleId, uint8_t addrArrCount, CM_BgConnAddrParam_S *addrArr)
+static void CM_DestroyConnectingDevMap(uint8_t addrArrCount, CM_BgConnAddrParam_S *addrArr)
 {
     for (uint8_t i = 0; i < addrArrCount; i++) {
-        CM_AppConnectingDev_S *devNode = CM_ConnectingDevFind(&addrArr[i].addr);
-        if (devNode == NULL) {
+        CM_BgConnAddrParam_S *bgAddr = &addrArr[i];
+        if (!SDF_MapErase(g_cmConnectingDevMap, (SLE_Addr_S *)&bgAddr->addr)) {
+            CM_LOGE("dev:%s is not in connecting dev map exist", GET_ENC_ADDR(&bgAddr->addr));
             continue;
         }
-        CM_DoingBgConnNode_S *doingNode = CM_DoingConnBgFind(&devNode->doingBgConnSet, moduleId);
-        if (doingNode != NULL) {
-            SDF_DListElmDel(&devNode->doingBgConnSet.list, doingNode, entry);
-            SDF_MemFree(doingNode);
-        }
-        CM_TryDestroyConnectingDevEmptyNode(devNode, &addrArr[i].addr);
+        g_cmSizeConnectingDev--;
+        CM_LOGI("connecting dev map size:%zu", g_cmSizeConnectingDev);
     }
 }
 
@@ -964,7 +959,7 @@ static void CM_BgConnectAddInner(void *arg)
     SDF_MemFree(addrArr);
     return;
 CM_BG_CONNECT_ADD_INNER_FAILED:
-    CM_DestroyConnectingDevMap(moduleId, addrArrCount, addrArr);
+    CM_DestroyConnectingDevMap(addrArrCount, addrArr);
     SDF_MemFree(addrArr);
 }
 
@@ -1204,11 +1199,8 @@ static void CM_DirectConnectAddInner(void *arg)
     return;
 CM_DIRECT_CONNECT_ADD_INNER_FAILED:
     CM_NotifyDirectConnectFailed(req->moduleId, CM_INVALID_LCID, addr, discReason);
-    // 失败清理：仅移除本次请求可能新建的空节点，保留其他模块既有连接状态（L-20）
-    CM_AppConnectingDev_S *devNode = CM_ConnectingDevFind(addr);
-    if (devNode != NULL) {
-        CM_TryDestroyConnectingDevEmptyNode(devNode, addr);
-    }
+    CM_BgConnAddrParam_S addrArr = { .addr = *addr, .isBypass = false };
+    CM_DestroyConnectingDevMap(1, &addrArr);
 }
 
 uint32_t CM_DirectConnectAdd(uint8_t moduleId, const CM_DirectConnAddrParam_S *param)
