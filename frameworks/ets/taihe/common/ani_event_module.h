@@ -26,6 +26,7 @@
 
 namespace OHOS {
 namespace Nearlink {
+constexpr int MAX_CB_NUM = 100;
 template<typename T>
 class EventModule {
 public:
@@ -46,6 +47,9 @@ template<typename T>
 void EventModule<T>::RegisterEvent(::taihe::callback_view<T> callback)
 {
     std::unique_lock<std::shared_mutex> guard(lock_);
+    if (callbackVec_.size() >= MAX_CB_NUM) {
+        return;
+    }
     auto eventCb = ::taihe::optional<::taihe::callback<T>>{std::in_place_t{}, callback};
     if (std::find(callbackVec_.begin(), callbackVec_.end(), eventCb) != callbackVec_.end()) {
         return;

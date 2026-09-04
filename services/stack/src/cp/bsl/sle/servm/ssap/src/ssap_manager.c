@@ -304,6 +304,7 @@ static void SSAP_CMLogicLinkCbk(CM_LogicLinkState_S *param)
         SsapLinkHandleRecordLinkStateFromCm(&(param->addr),  SSAP_CONNECT_STATE_DISCONNECTED);
         SsapTriggerLinkStateMachineChange(&(param->addr), SSAP_LOGIC_LINK_DISCONNECTED, param->discReason);
         SsapcCacheDestroy(&(param->addr));
+        SSAPS_CleanPendingVectorByAddr(&(param->addr));
         SSAPS_CleanServiceCpcd(&(param->addr));
     }
     // 当启动星闪的链路关闭之后，每次都要检查是否需要清理所有的app资源，并上报状态

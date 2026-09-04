@@ -143,6 +143,8 @@ NlErrCode NearlinkTwsClientServer::RegisterApplication(const sptr<INearlinkTwsCl
         HILOGE("observer or remoteContainer is nullptr!");
         return NL_ERR_INVALID_PARAM;
     }
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->twsObservers_.Size() < MAX_OBSERVER_SIZE,
+        NL_ERR_INTERNAL_ERROR, "TWS observers exceeds the range");
     pimpl->remoteContainer_->twsObservers_.Insert(observer);
     impl::TwsClientRemoteInfo info(IPCSkeleton::GetCallingFullTokenID());
     pimpl->remoteContainer_->AddRemoteInfo(observer->AsObject(), info);

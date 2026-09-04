@@ -21,7 +21,7 @@
 static uint16_t HiboxDualRecParamComb(uint8_t *buffer, uint16_t bufferLen, HiboxParseMsgInd *arg)
 {
     uint16_t offset = 0;
-    NL_CHECK_RETURN_RET(arg->datalen <= sizeof(DeviceDualRecParmInfo), offset,
+    NL_CHECK_RETURN_RET(arg->datalen == sizeof(DeviceDualRecParmInfo), offset,
         "datalen: %{public}d is wrong", arg->datalen);
     DeviceDualRecParmInfo *audioData = (DeviceDualRecParmInfo *)(arg->data);
     SERVICE_HIBOX_ADD_TLV(buffer, bufferLen, offset, NEARLINK_DUAL_REC_RSP_CODEC_INFO_TYPE,
