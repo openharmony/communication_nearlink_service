@@ -652,7 +652,11 @@ static void SSAPS_WriteSingleItem(SSAP_Link_S *link, SSAP_BufferedOperation_S *o
 
     if ((permissions & (uint8_t)SSAP_PERMISSION_AUTHORIZATION_NEED) != 0) {
         operation->needAuth = true;
-        SSAPS_PushOperationPenddingVector(operation);
+        if (!SSAPS_PushOperationPenddingVector(operation)) {
+            CP_LOG_ERROR("[SSAP] push write operation failed, pending vector is full");
+            operation->errCode = SSAP_ERRCODE_NO_RESOURCE;
+            SSAPS_SendWriteReqRsp(link, SSAP_ERRCODE_NO_RESOURCE, operation);
+        }
         return;
     }
 
@@ -902,7 +906,10 @@ static void SSAPS_WriteSingleCmdHandle(SSAP_Link_S *link, SSAP_PduWriteCmd_S *wr
     } else if ((permissions & (uint8_t)SSAP_PERMISSION_AUTHORIZATION_NEED) != 0) {
         operation->needRsp = false;
         operation->needAuth = true;
-        SSAPS_PushOperationPenddingVector(operation);
+        if (!SSAPS_PushOperationPenddingVector(operation)) {
+            CP_LOG_ERROR("[SSAP] push write cmd operation failed, pending vector is full");
+            operation->errCode = SSAP_ERRCODE_NO_RESOURCE;
+        }
     } else {
         operation->needRsp = false;
         operation->needAuth = false;

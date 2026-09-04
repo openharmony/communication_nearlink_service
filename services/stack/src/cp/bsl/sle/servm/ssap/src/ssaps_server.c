@@ -46,6 +46,7 @@ extern "C" {
 #define SSAP_AUTH_ALLOW 1
 
 #define SSAP_METHOD_REQ_PDU_MIN_LEN 4
+#define SSAP_PENDING_VECTOR_MAX_SIZE 64
 
 static uint8_t g_zeroAddr[SLE_ADDR_LEN] = {0};
 
@@ -128,12 +129,16 @@ void SSAPS_ExchangeInfoReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 /**
  * @brief  需要授权的属性操作，需要加入pendding vector，等待用户授权
  */
-void SSAPS_PushOperationPenddingVector(SSAP_BufferedOperation_S *operation)
+bool SSAPS_PushOperationPenddingVector(SSAP_BufferedOperation_S *operation)
 {
     uint16_t len = operation->value.len;
+    if (g_ssapPendingVector != NULL && g_ssapPendingVector->size >= SSAP_PENDING_VECTOR_MAX_SIZE) {
+        CP_LOG_ERROR("[SSAP] push operation pending vector is full, size: %zu", g_ssapPendingVector->size);
+        return false;
+    }
     SSAP_BufferedOperation_S *pendOperation =
         (SSAP_BufferedOperation_S *)SDF_MemZalloc(sizeof(SSAP_BufferedOperation_S) + len);
-    CP_CHECK_LOG_RETURN_VOID(pendOperation != NULL, "[SSAP] push operation pendOperation new failed");
+    CP_CHECK_LOG_RETURN(pendOperation != NULL, false, "[SSAP] push operation pendOperation new failed");
 
     if (g_ssapPendingVector == NULL) {
         SDF_Traits propertyToAccessTraits = {.dtor = SDF_MemFree};
@@ -142,12 +147,31 @@ void SSAPS_PushOperationPenddingVector(SSAP_BufferedOperation_S *operation)
     if (!SDF_VectorEmplaceBack(g_ssapPendingVector, pendOperation)) {
         CP_LOG_ERROR("[SSAP] push operation emplace back failed");
         SDF_MemFree(pendOperation);
-        return;
+        return false;
     }
     operation->requestId = g_penddingRequestId;
     g_penddingRequestId++;
     (void)memcpy_s(pendOperation, sizeof(SSAP_BufferedOperation_S) + len,
         operation, sizeof(SSAP_BufferedOperation_S) + len);
+    return true;
+}
+
+/**
+ * @brief  链接断开时，清理pendding vector中该链接的待授权操作
+ */
+void SSAPS_CleanPendingVectorByAddr(SLE_Addr_S *addr)
+{
+    CP_CHECK_LOG_RETURN_VOID(addr != NULL, "[SSAP] clean pending vector addr is null");
+    CP_CHECK_LOG_RETURN_VOID(g_ssapPendingVector != NULL, "[SSAP] clean pending vector is null");
+    for (size_t i = 0; i < g_ssapPendingVector->size;) {
+        SSAP_BufferedOperation_S *operation = SDF_VectorElementAt(g_ssapPendingVector, i);
+        if (operation != NULL && memcmp(&operation->addr, addr, sizeof(SLE_Addr_S)) == 0) {
+            CP_LOG_INFO("[SSAP] clean pending operation by addr");
+            SDF_VectorRemove(g_ssapPendingVector, i);
+        } else {
+            i++;
+        }
+    }
 }
 
 /**
@@ -632,7 +656,11 @@ static void SSAPS_ReadSingleHandleReq(SSAP_Link_S *link, Ssap_PduReadReqItem_S *
 
     if ((permissions & (uint8_t)SSAP_PERMISSION_AUTHORIZATION_NEED) != 0) {
         operation->needAuth = true;
-        SSAPS_PushOperationPenddingVector(operation);
+        if (!SSAPS_PushOperationPenddingVector(operation)) {
+            CP_LOG_ERROR("[SSAP] push read operation failed, pending vector is full");
+            operation->errCode = SSAP_ERRCODE_NO_RESOURCE;
+            SSAPS_SendReadReqRsp(link, readReq->msgCode + 1, SSAP_ERRCODE_NO_RESOURCE, NULL);
+        }
     } else {
         SSAP_LengthValue_S *value = SSAPS_GetPropertyValue(link, property, readReqItem->type, &errorCode);
         SSAPS_SendReadReqRsp(link, readReq->msgCode + 1, errorCode, value);
@@ -1141,7 +1169,13 @@ static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     }
     operation->needAuth =
         ((method->permission.permissionValue & (uint8_t)SSAP_PERMISSION_ENCRYPTION_NEED) != 0) ? true : false;
-    SSAPS_PushOperationPenddingVector(operation);
+    if (!SSAPS_PushOperationPenddingVector(operation)) {
+        CP_LOG_ERROR("[SSAP] push method operation failed, pending vector is full");
+        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
+        SDF_MemFree(operation);
+        operation = NULL;
+        return;
+    }
     // 任务添加到队列中之后，还需要启动一个定时器，避免因为service的操作阻塞，导致协议栈一直等待，当前没有实现；
     SsapServerAppCallMethodCallback(operation);
 
