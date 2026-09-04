@@ -3900,8 +3900,8 @@ void ASCService::ProcBuff(const RawAddress& device, ASCState state)
     bool isGoOn = false;
     ProcStartBuff(device, state, isGoOn);
 
-    // 取出缓存的关闭流任务进行处理
-    ProcStopBuff(device, state);
+    // 取出缓存的关闭流任务进行处理 (ProcStartBuff可能触发重配改变了状态，需要重新获取ASC State)
+    ProcStopBuff(device, GetASCStatus(device));
 }
 
 void ASCService::MergeStartStopBuff(const RawAddress& device)
