@@ -223,7 +223,7 @@ NlErrCode NearlinkHadmClientServer::RegisterNearlinkHadmClientCallback(uint32_t 
     NL_CHECK_RETURN_RET(pimpl->remoteObservers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "ranging observers exceeds the range");
 
-    // 幂等注册：同 callback 重复注册时复用已有 hadmId
+    // 幂等注册：同一 remote（callback 的 AsObject）重复注册时复用已有 hadmId
     uint32_t registeredHadmId = pimpl->remoteContainer_->GetHadmId(callback->AsObject());
     if (registeredHadmId != SLE_HADM_INVALID_ID) {
         HILOGW("callback already registered, reuse hadmId: %{public}u", registeredHadmId);

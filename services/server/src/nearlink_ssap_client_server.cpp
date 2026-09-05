@@ -463,7 +463,7 @@ NlErrCode NearlinkSsapClientServer::RegisterApplication(const sptr<INearlinkSsap
             HILOGW("clear expired appId: %{public}d", appId);
             pimpl->remoteContainer_->DeleteRemoteInfo(remote);
         }
-        // 星闪开关后 appId 重分配，清理同 callback 旧条目后再绑定新 appId
+        // 星闪开关后 appId 重分配，清理同 remote 旧条目后再绑定新 appId
         int32_t staleAppId = -1;
         if (pimpl->remoteContainer_->GetRegisteredAppId(callback->AsObject(), staleAppId)) {
             HILOGW("replace stale registration, appId: %{public}d -> %{public}d", staleAppId, appId);

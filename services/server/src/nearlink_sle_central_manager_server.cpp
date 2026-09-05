@@ -388,7 +388,7 @@ NlErrCode NearlinkSleCentralManagerServer::RegisterSleCentralManagerCallback(uin
     NL_CHECK_RETURN_RET(pimpl->observers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "observers exceeds the range");
 
-    // 幂等注册：同 callback 重复注册时复用已有 scannerId
+    // 幂等注册：同一 remote（callback 的 AsObject）重复注册时复用已有 scannerId
     uint32_t registeredScannerId = SLE_SCAN_INVALID_ID;
     if (pimpl->remoteContainer_->GetRegisteredScannerId(callback->AsObject(), registeredScannerId)) {
         HILOGW("callback already registered, reuse scannerId: %{public}u", registeredScannerId);
