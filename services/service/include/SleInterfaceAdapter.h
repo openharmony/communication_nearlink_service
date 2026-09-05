@@ -387,7 +387,7 @@ public:
     virtual void UpdateDeviceModelInfo(const std::string &address, const DeviceModel &model,
         const std::string &newModelId) = 0;
     virtual void DisconnectAllProfileForSilentPort(const RawAddress &device) = 0;
-    virtual void ConnectAcb(const RawAddress &device) const = 0;
+    virtual void ConnectAcb(const RawAddress &device) = 0;
     virtual void RemoveNotPairedCloudDevice(const RawAddress &device) const = 0;
     virtual bool DisconnectAcb(const RawAddress &device, uint8_t discReason) const = 0;
     virtual void ClearBgConnDevice() const = 0;
