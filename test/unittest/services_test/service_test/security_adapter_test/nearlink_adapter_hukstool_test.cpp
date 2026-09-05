@@ -2676,68 +2676,6 @@ HWTEST_F(SleAdapterSecurityTest, SaveSlePairKey001, TestSize.Level1)
     HILOGI("SleAdapterSecurityTest: SaveSlePairKey001 end");
 }
 
-/**
- * @tc.name: CancelCmpAndRepair001
- * @tc.desc: reportAddr不在needRepairAfterCancelDevices_时返回false
- * @tc.type: FUNC
- */
-HWTEST_F(SleAdapterSecurityTest, CancelCmpAndRepair001, TestSize.Level1)
-{
-    HILOGI("SleAdapterSecurityTest: CancelCmpAndRepair001 start");
-    RawAddress reportAddr("AA:BB:CC:DD:EE:FF");
-    g_adapter->pimpl->needRepairAfterCancelDevices_.Erase(reportAddr.GetAddress());
-    bool result = g_adapter->CancelCmpAndRepair(reportAddr);
-    EXPECT_EQ(false, result);
-    HILOGI("SleAdapterSecurityTest: CancelCmpAndRepair001 end");
-}
-
-/**
- * @tc.name: CancelCmpAndRepair002
- * @tc.desc: 在needRepairAfterCancelDevices_中时，根据成员配对状态是否触发重新配对流程
- * @tc.type: FUNC
- */
-HWTEST_F(SleAdapterSecurityTest, CancelCmpAndRepair002, TestSize.Level1)
-{
-    HILOGI("SleAdapterSecurityTest: CancelCmpAndRepair002 start");
-    RawAddress reportAddr("AA:BB:CC:DD:EE:FF");
-    RawAddress memberAddr("11:22:33:44:55:66");
-    uint32_t testGroupId = 0x12345678;
-
-    auto verifyCrediblePair = [&](int memberPairStatus, bool expectRepaired) {
-        CdsmService *cdsmService = CdsmService::GetService();
-        auto cdsmInfo = std::make_shared<CdsmInfo>(testGroupId, reportAddr.GetAddress());
-        cdsmInfo->CdsmAddMemberInfo(reportAddr.GetAddress(), 1);
-        cdsmInfo->CdsmAddMemberInfo(memberAddr.GetAddress(), 1);
-        cdsmService->cdsmList_.EnsureInsert(testGroupId, cdsmInfo);
-
-        auto reportDev = std::make_shared<SlePeripheralDevice>();
-        reportDev->SetAddress(reportAddr);
-        reportDev->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_NONE));
-        auto memberDev = std::make_shared<SlePeripheralDevice>();
-        memberDev->SetAddress(memberAddr);
-        memberDev->SetPairedStatus(memberPairStatus);
-        SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(reportAddr.GetAddress(), reportDev);
-        SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(memberAddr.GetAddress(), memberDev);
-        g_adapter->pimpl->credibleDevice_.Erase(reportAddr.GetAddress());
-        g_adapter->pimpl->needRepairAfterCancelDevices_.Insert(reportAddr.GetAddress());
-        EXPECT_EQ(true, g_adapter->CancelCmpAndRepair(reportAddr));
-        EXPECT_EQ(expectRepaired, g_adapter->pimpl->credibleDevice_.Find([&reportAddr](std::string addr) -> bool {
-            return addr == reportAddr.GetAddress();
-        }));
-
-        SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(reportAddr.GetAddress());
-        SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(memberAddr.GetAddress());
-        g_adapter->pimpl->credibleDevice_.Erase(reportAddr.GetAddress());
-        g_adapter->pimpl->needRepairAfterCancelDevices_.Erase(reportAddr.GetAddress());
-        cdsmService->cdsmList_.Erase(testGroupId);
-    };
-
-    verifyCrediblePair(static_cast<int>(SlePairState::SLE_PAIR_NONE), true);
-    verifyCrediblePair(static_cast<int>(SlePairState::SLE_PAIR_PAIRED), false);
-
-    HILOGI("SleAdapterSecurityTest: CancelCmpAndRepair002 end");
-}
-
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

@@ -86,7 +86,7 @@ void SleAdapter::NotifyPairStatusChanged(const RawAddress &device, int preStatus
     });
 }
 
-void SleAdapter::ConnectAcb(const RawAddress &device) const
+void SleAdapter::ConnectAcb(const RawAddress &device)
 {
     HILOGI("[SleAdapter Mocker]:addr:%{public}s,call ConnectAcb", GetEncryptAddr(device.GetAddress()).c_str());
     OnAcbStateChanged(device, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED), ACB_CONNECT_SUCCESS);

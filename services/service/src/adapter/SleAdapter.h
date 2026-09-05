@@ -197,9 +197,6 @@ public:
 
     // pair
     bool StartPairTask(const RawAddress &device);
-    bool CancelCmpAndRepair(const RawAddress &reportAddr) const;
-    bool CheckDeviceGroupPairState(const RawAddress &device, int pairState) const;
-    void ReCrediblePairAfterCancel(const RawAddress &reportAddr) const;
     bool CancelPairingTask(const RawAddress &device) const;
     void PairStartChanged(const RawAddress &device) const;
     void PairComplete(const RawAddress &device, const int status) const;
@@ -239,7 +236,7 @@ public:
     void NotifyPairStatusChanged(const RawAddress &device, int preStatus, int status, int reason) const override;
     void NotifyConnectionStateChanged(
         const RawAddress &device, const SleConnectionChangedParam &connChangedParam) const override;
-    void ConnectAcb(const RawAddress &device) const override;
+    void ConnectAcb(const RawAddress &device) override;
     bool DisconnectAction(const RawAddress &device, uint8_t discReason) const override;
     bool DisconnectAcb(const RawAddress &device, uint8_t discReason) const override;
     void ClearBgConnDevice() const override;
