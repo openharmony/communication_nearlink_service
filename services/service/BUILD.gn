@@ -352,6 +352,7 @@ if (nearlink_deps_audio_exist) {
     "audio_framework:audio_policy_manager",
     "audio_framework:audio_engine_manager",
     "audio_framework:audio_foundation",
+    "audio_framework:audio_client",
   ]
 }
 
