@@ -28,6 +28,7 @@
 #include "nearlink_device_rssi_observer_stub.h"
 #include "nearlink_switch_module.h"
 #include "nearlink_utils.h"
+#include "ffrt_inner.h"
 #include "iservice_registry.h"
 #include "system_ability_definition.h"
 #include "parameters.h"
@@ -95,6 +96,8 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
 
     class NearlinkSwitchAction;
     std::shared_ptr<NearlinkSwitchModule> switchModule_ { nullptr };
+    // 异步开关操作执行队列，保证多次异步操作按调用顺序串行处理
+    ffrt::queue switchQueue_ { "nl_switch_async" };
 
     void SyncRandomAddrToService(void);
 #ifdef NEARLINK_HOST_AVOID_SLEEP
@@ -612,6 +615,29 @@ NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
     return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy);
 }
 
+NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
+{
+    HILOGD("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
+    NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
+    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    pimpl->switchQueue_.submit([hostImplWptr, autoConnPolicy]() -> void {
+        auto hostImplSptr = hostImplWptr.lock();
+        NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
+        NL_CHECK_RETURN(hostImplSptr->switchModule_, "switchModule is nullptr");
+#ifdef NEARLINK_HOST_AVOID_SLEEP
+        auto runningLock = hostImplSptr->AcquireWakeLock();
+#endif
+        NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
+            NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy);
+        if (ret != NL_NO_ERROR) {
+            HILOGE("enable nearlink asynchronously failed, error code: %{public}d", ret);
+        }
+    });
+    return NL_NO_ERROR;
+}
+
 NlErrCode NearlinkHost::DisableNl()
 {
     HILOGD("enter");
@@ -637,6 +663,29 @@ NlErrCode NearlinkHost::EnableNlToHalf()
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
     return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+}
+
+NlErrCode NearlinkHost::EnableNlToHalfAsync()
+{
+    HILOGD("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
+    NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
+    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    pimpl->switchQueue_.submit([hostImplWptr]() -> void {
+        auto hostImplSptr = hostImplWptr.lock();
+        NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
+        NL_CHECK_RETURN(hostImplSptr->switchModule_, "switchModule is nullptr");
+#ifdef NEARLINK_HOST_AVOID_SLEEP
+        auto runningLock = hostImplSptr->AcquireWakeLock();
+#endif
+        NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
+            NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+        if (ret != NL_NO_ERROR) {
+            HILOGE("enable nearlink to half asynchronously failed, error code: %{public}d", ret);
+        }
+    });
+    return NL_NO_ERROR;
 }
 
 SleStateID NearlinkHost::GetSleFullState()
