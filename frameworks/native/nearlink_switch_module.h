@@ -91,6 +91,8 @@ private:
 
     const uint64_t DEFAULT_TASK_TIMEOUT = 8000000;  // 8s
     uint64_t taskTimeout_ = DEFAULT_TASK_TIMEOUT;
+    const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;  // 连续超时达到该次数后清空缓存队列
+    uint32_t consecutiveTimeoutCnt_ = 0;  // 连续超时次数
     ffrt::task_handle taskTimeoutHandle_;
     ffrt::queue ffrtQueue_;
 

@@ -93,10 +93,29 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
 
 void NearlinkSwitchModule::OnTaskTimeout(void)
 {
-    HILOGW("[NearlinkSwitchModule] Nearlink switch action timeout, clear resources");
+    HILOGW("[NearlinkSwitchModule] Nearlink switch action timeout");
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
     isNlSwitchProcessing_ = false;
+    if (cachedEventVec_.empty()) {
+        // 缓存队列为空，本次开关流程结束，连续超时次数清零
+        consecutiveTimeoutCnt_ = 0;
+        return;
+    }
+    ++consecutiveTimeoutCnt_;
+    if (consecutiveTimeoutCnt_ >= MAX_CONSECUTIVE_TIMEOUT_CNT) {
+        // 连续超时达到上限，放弃恢复，清空缓存队列
+        HILOGW("[NearlinkSwitchModule] consecutive timeout %{public}u times, clear cached events",
+            consecutiveTimeoutCnt_);
+        consecutiveTimeoutCnt_ = 0;
+        cachedEventVec_.clear();
+        return;
+    }
+    // 下发最近一次开关操作（队尾），其余缓存操作清除
+    HILOGW("[NearlinkSwitchModule] timeout %{public}u time(s), process the last cached event",
+        consecutiveTimeoutCnt_);
+    NearlinkSwitchEvent lastCachedEvent = cachedEventVec_.back();
     cachedEventVec_.clear();
+    ProcessNearlinkSwitchCachedEvent(lastCachedEvent);
 }
 
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
@@ -125,6 +144,8 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
     NlErrCode ret = action();
     if (ret != NL_NO_ERROR) {
         isNlSwitchProcessing_ = false;
+        // 开关动作立即结束，连续超时计数清零
+        consecutiveTimeoutCnt_ = 0;
         ffrtQueue_.cancel(taskTimeoutHandle_);
     }
     // Invalid operaton is considered successful.
@@ -234,6 +255,8 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
     NearlinkSwitchEvent curSwitchActionEvent, std::vector<NearlinkSwitchEvent> expectedEventVec)
 {
     isNlSwitchProcessing_ = false;
+    // 一次开关动作正常完成，连续超时计数清零
+    consecutiveTimeoutCnt_ = 0;
     ffrtQueue_.cancel(taskTimeoutHandle_);
     DeduplicateCachedEvent(curSwitchActionEvent);
 
