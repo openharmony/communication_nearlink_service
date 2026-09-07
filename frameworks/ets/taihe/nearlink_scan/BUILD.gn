@@ -41,6 +41,7 @@ ohos_taihe("run_taihe") {
 
 taihe_shared_library("nearlinkScanTaihe_native") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_scan"
   part_name = "$part_name"
   subsystem_name = "$subsystem_name"
@@ -58,10 +59,6 @@ taihe_shared_library("nearlinkScanTaihe_native") {
     "src/ohos.nearlink.scan.impl.cpp",
     "$SLE_PART_DIR/frameworks/ets/taihe/common/ani_nearlink_error.cpp",
     "$SLE_PART_DIR/frameworks/ets/taihe/common/ani_nearlink_utils.cpp",
-    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_async_callback.cpp",
-    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_async_work.cpp",
-    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_native_object.cpp",
-    "$SLE_PART_DIR/frameworks/ets/taihe/common/taihe_timer.cpp"
   ]
   deps = [
     ":run_taihe",
