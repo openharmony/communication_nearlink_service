@@ -189,7 +189,6 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
     // 接口返回0-表示voip接入call kit生效, 1-表示不生效
     int32_t virtualCall = AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
     if (virtualCall == 0) {
-        // 记录callid
         allowedVoipCallIdSet_.insert(info.callId);
     } else if (allowedVoipCallIdSet_.find(info.callId) != allowedVoipCallIdSet_.end()) {
         // 未接入call kit的voip通话，拦截不处理
