@@ -85,6 +85,7 @@ ohos_shared_library("nearlink_dli_adapter") {
     "ipc:ipc_single",
     "bounds_checking_function:libsec_shared",
     "init:libbegetutil",
+    "init:libbeget_proxy",
   ]
 
   external_deps += [ "ffrt:libffrt" ]

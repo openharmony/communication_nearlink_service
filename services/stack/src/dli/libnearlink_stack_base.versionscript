@@ -85,6 +85,7 @@
       "*DLI_GetAcbDataLen*";
       "*DLI_IsSupportNewDisMeasure*";
       "*DLI_IsSupportConnBypassAdv*";
+      "*DLI_RegisterSnoopSensitiveOpcodes*";
   local:
     *;
 };

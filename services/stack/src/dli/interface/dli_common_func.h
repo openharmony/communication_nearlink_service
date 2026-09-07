@@ -31,12 +31,15 @@ typedef void (*DLI_CmdCbkDeregisterPtr)(const ModuleType module,
     const DLI_CbkLineStru *table, const uint32_t size);
 typedef uint32_t (*DLI_SetCmdPtr)(DLI_CmdParams *param);
 typedef DLI_ExecuteCmdCbk (*DLI_GetCbkPtr)(const uint16_t opcode);
+typedef uint32_t (*DLI_RegisterSnoopSensitiveOpcodesPtr)(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum);
 
 typedef struct {
     DLI_CmdCbkRegisterPtr cmdCbkReg;
     DLI_CmdCbkDeregisterPtr cmdCbkDereg;
     DLI_SetCmdPtr setCmd;
     DLI_GetCbkPtr getCbk;
+    DLI_RegisterSnoopSensitiveOpcodesPtr registerSnoopSensitiveOpcodes;
 } DLI_OpenFuncList;
 
 #ifdef __cplusplus

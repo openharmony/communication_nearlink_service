@@ -416,6 +416,17 @@ uint16_t DLI_GetAcbDataLen(void);
 uint32_t DLI_SetCmd(DLI_CmdParams *params);
 
 /**
+ * @brief  注册需匿名化的敏感指令
+ * @param  [in]  < cmdOpcodes > 敏感CMD opcode 数组
+ * @param  [in]  < cmdNum > 敏感CMD opcode 数组长度
+ * @param  [in]  < evtOpcodes > 敏感事件 opcode 数组
+ * @param  [in]  < evtNum > 敏感事件 opcode 数组长度
+ * @return DLI_SUCCESS: 成功, OTHER: 失败
+ */
+uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum);
+
+/**
  * @brief  是否支持标准版测距命令
  * @return true: 支持, false: 不支持
  */

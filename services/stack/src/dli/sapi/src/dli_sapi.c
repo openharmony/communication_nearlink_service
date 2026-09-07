@@ -109,6 +109,18 @@ int DLI_GetDliVersion(void)
     return GetDliVersion();
 }
 
+uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum)
+{
+    if ((cmdOpcodes == NULL && cmdNum > 0) || (evtOpcodes == NULL && evtNum > 0)) {
+        DLI_LOGE("invalid parameters, cmdNum:%u, evtNum:%u", cmdNum, evtNum);
+        return DLI_STACK_PARAMS_ERRNO;
+    }
+    SleDliSnoopRegisterSensitiveOpcodes(cmdOpcodes, cmdNum, evtOpcodes, evtNum);
+    DLI_LOGI("register snoop sensitive opcodes, cmdNum:%u, evtNum:%u", cmdNum, evtNum);
+    return DLI_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif
