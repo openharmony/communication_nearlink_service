@@ -192,10 +192,9 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
         allowedVoipCallIdSet_.insert(info.callId);
     } else if (allowedVoipCallIdSet_.find(info.callId) != allowedVoipCallIdSet_.end()) {
         // 未接入call kit的voip通话，拦截不处理
-        HILOGE("[CcpService]not support call kit type");
+        HILOGI("[CcpService]not support call kit type");
         return NL_NO_ERROR;
     }
-    // 通话结束事件：不拦截但需要清除缓存
     if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
         allowedVoipCallIdSet_.erase(info.callId);
     }

@@ -112,6 +112,9 @@ private:
         {
             return 0;
         }
+    private:
+        /* 缓存接入call kit生效(GetVirtualCall==0)放行过的通话id，用于后续通话中状态翻转成1时的处理 */
+        std::set<int32_t> allowedVoipCallIdSet_;
     };
 
     sptr<SystemAbilityStatusChange> statusChangeListener_{nullptr};
@@ -119,8 +122,6 @@ private:
     static constexpr int32_t TOTAL_SLOT_ID = -1;
     /* -1表示获取所有卡的通话信息 */
     int32_t slotId_ = TOTAL_SLOT_ID;
-    /* 缓存接入call kit生效(GetVirtualCall==0)放行过的通话id，用于后续通话中状态翻转成1时的处理 */
-    std::set<int32_t> allowedVoipCallIdSet_;
 };
 }  // namespace Nearlink
 }  // namespace OHOS
