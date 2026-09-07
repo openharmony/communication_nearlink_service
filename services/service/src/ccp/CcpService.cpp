@@ -29,6 +29,7 @@
 #include "CcpSystemInterface.h"
 #include "nearlink_dft_ue.h"
 #include "ServiceManagerPluginLoader.h"
+#include "audio_system_manager.h"
 
 namespace OHOS {
 namespace Nearlink {

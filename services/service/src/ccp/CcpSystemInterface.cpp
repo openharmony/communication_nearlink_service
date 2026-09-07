@@ -22,6 +22,7 @@
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileManager.h"
 #include "nearlink_dft_exception.h"
+#include "audio_system_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
