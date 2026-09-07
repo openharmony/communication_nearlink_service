@@ -515,6 +515,7 @@ void CcpService::HandleVoipStop(const RawAddress &device)
             pimpl->isInVoipCallKit = false;
             return;
         }
+        NL_CHECK_RETURN(pimpl->currentVoipCallId_ != INVALID_CCP_VOIP_ID, "can not assign callId.");
         Telephony::CallAttributeInfo info;
         info.callState = TelCallState::CALL_STATUS_DISCONNECTED;
         info.callId = pimpl->currentVoipCallId_;
