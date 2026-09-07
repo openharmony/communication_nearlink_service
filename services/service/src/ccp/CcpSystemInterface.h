@@ -16,6 +16,7 @@
 #define CCP_SYSTEM_INTERFACE_H
 
 #include <cstdint>
+#include <set>
 
 #include "pac_map.h"
 #include "system_ability_definition.h"
