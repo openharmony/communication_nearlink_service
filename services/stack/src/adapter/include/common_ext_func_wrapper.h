@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "sdf_addr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +33,8 @@ bool COMMON_IsSupportSetMaxInterval(void);
 bool COMMON_IsSupportConnFramePowerLevel(void);
 
 bool COMMON_IsSupportScanFilter(void);
+
+bool COMMON_IsSupportCustomInterval(const SLE_Addr_S *addr, uint16_t *customInterval);
 
 #ifdef __cplusplus
 }
