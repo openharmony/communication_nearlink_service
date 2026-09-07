@@ -383,8 +383,8 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     }
     uint16_t customInterval = evt->connIntervalMax;
     if (COMMON_IsSupportCustomInterval(&link->rmtAddr, &customInterval)) {
-        replyParam.connectionIntervalMin = customInterval;
-        replyParam.connectionIntervalMax = customInterval;
+        replyParam.connIntervalMin = customInterval;
+        replyParam.connIntervalMax = customInterval;
         CM_LOGI("updated connIntervalMin and connIntervalMax to 0x%04x", customInterval);
     }
     replyParam.txRxInterval  = evt->txRxInterval;
