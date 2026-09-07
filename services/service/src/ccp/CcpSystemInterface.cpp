@@ -185,6 +185,9 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
     HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
+    // 接口返回0-表示voip接入call kit生效, 1-表示不生效
+    NL_CHECK_RETURN_RET(!AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall(), NL_NO_ERROR,
+        "call kit not support voip type");
     DoInCcpThread([info]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");

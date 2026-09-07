@@ -492,6 +492,9 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
+        // 接口返回0-表示voip接入call kit生效, 1-表示不生效
+        NL_CHECK_RETURN_RET(AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall(), NL_NO_ERROR,
+            "call kit not support voip type");
         NL_CHECK_RETURN(!pimpl->isInVoipCallKit, "Now Is in VoIP Call Kit, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
