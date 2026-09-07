@@ -187,8 +187,19 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
 {
     HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
     // 接口返回0-表示voip接入call kit生效, 1-表示不生效
-    NL_CHECK_RETURN_RET(!AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall(), NL_NO_ERROR,
-        "call kit not support voip type");
+    int32_t virtualCall = AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
+    if (virtualCall == 0) {
+        // 记录callid
+        allowedVoipCallIdSet_.insert(info.callId);
+    } else if (allowedVoipCallIdSet_.find(info.callId) != allowedVoipCallIdSet_.end()) {
+        // 未接入call kit的voip通话，拦截不处理
+        HILOGE("[CcpService]not support call kit type");
+        return NL_NO_ERROR;
+    }
+    // 通话结束事件：不拦截但需要清除缓存
+    if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
+        allowedVoipCallIdSet_.erase(info.callId);
+    }
     DoInCcpThread([info]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
