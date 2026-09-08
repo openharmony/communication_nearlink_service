@@ -182,11 +182,11 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     return NL_NO_ERROR;
 }
 
-bool CcpSystemInterface::IsVirtualCall()
+bool CcpSystemInterface::IsVoipCallKit()
 {
-    // 接口返回0-表示voip接入call kit生效, 1-表示不生效
+    // 接口返回0-表示voip接入call kit生效, 1-表示未接入call kit
     HILOGD("[CcpService]enter");
-    return AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
+    return !AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
 }
 
 // 只回调某一路的回调信息
@@ -197,16 +197,18 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
         CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
-        if (!systemInterface.IsVirtualCall()) {
-            systemInterface.allowedVoipCallIdSet_.insert(info.callId);
-        } else if (info.callType == Telephony::CallType::TYPE_VOIP &&
-            systemInterface.allowedVoipCallIdSet_.find(info.callId) == systemInterface.allowedVoipCallIdSet_.end()) {
-            // 未接入call kit的voip通话，拦截不处理
-            HILOGD("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
-            return;
-        }
-        if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
-            systemInterface.allowedVoipCallIdSet_.erase(info.callId);
+        if (info.callType == Telephony::CallType::TYPE_VOIP) {
+            if (systemInterface.IsVoipCallKit()) {
+                systemInterface.allowedVoipCallIdSet_.insert(info.callId);
+            } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
+                systemInterface.allowedVoipCallIdSet_.end()) {
+                // 未接入call kit的voip通话，拦截不处理
+                HILOGD("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
+                return;
+            }
+            if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
+                systemInterface.allowedVoipCallIdSet_.erase(info.callId);
+            }
         }
         service->HandleCallDetailChange(info);
     });
