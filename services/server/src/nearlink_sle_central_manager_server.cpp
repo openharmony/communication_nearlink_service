@@ -93,18 +93,6 @@ public:
         InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
     }
 
-    void ClearRemoteInfos()
-    {
-        std::lock_guard<std::mutex> lk(vecMutex_);
-        for (auto &obj : vec_) {
-            sptr<IRemoteObject> remoteSptr = obj.first.promote();
-            if (remoteSptr != nullptr) {
-                remoteSptr->RemoveDeathRecipient(deathRecipient_);
-            }
-        }
-        vec_.clear();
-    }
-
     bool GetRegisteredScannerId(const sptr<IRemoteObject> &remote, uint32_t &scannerId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
@@ -259,9 +247,7 @@ public:
     {
         HILOGI("OnSystemStateChange %{public}d.", state);
         if (state == SleSystemState::ON) {
-            // 星闪重新打开：清空跨开关残留的扫描注册，避免后续注册复用已失效的栈内 scannerId
-            std::lock_guard<std::mutex> registerLock(pimpl_->registerMutex_);
-            pimpl_->remoteContainer_->ClearRemoteInfos();
+            // 星闪 OFF 时 SA 进程卸载、注册态随进程销毁，ON 重新加载后容器为空，无需清理
             InterfaceScanService::GetInstance().RegisterSleCentralManagerCallback(*pimpl_->observerImp_.get());
         }
     };
