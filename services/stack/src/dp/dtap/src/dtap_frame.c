@@ -100,6 +100,7 @@ void DTAP_DestroyFrame(DTAP_Frame_S *frame)
     SDF_MemFree(frame);
 }
 
+// 约束: 调用方必须确保srcFrame须为解析正确的有效帧，副本持有独立的buff深拷贝, 由调用方释放
 DTAP_Frame_S *DTAP_CopyFrame(const DTAP_Frame_S *srcFrame)
 {
     if (srcFrame == NULL) {
@@ -111,6 +112,10 @@ DTAP_Frame_S *DTAP_CopyFrame(const DTAP_Frame_S *srcFrame)
         return NULL;
     }
     (void)memcpy_s(dstFrame, sizeof(DTAP_Frame_S), srcFrame, sizeof(DTAP_Frame_S));
+    SDF_DListEntryInit(&dstFrame->entry);
+    dstFrame->header = NULL;
+    dstFrame->extension = NULL;
+    dstFrame->payload = NULL;
 
     if (srcFrame->buff == NULL) {
         return dstFrame;
@@ -122,6 +127,13 @@ DTAP_Frame_S *DTAP_CopyFrame(const DTAP_Frame_S *srcFrame)
         return NULL;
     }
     dstFrame->buff = buff;
+    dstFrame->header = srcFrame->header != NULL ? SDF_DataOffset(buff) : NULL;
+    if (dstFrame->header != NULL) {
+        dstFrame->extension = srcFrame->extension != NULL ?
+            ((uint8_t *)dstFrame->header + dstFrame->headerLen) : NULL;
+        dstFrame->payload = srcFrame->payload != NULL ?
+            ((uint8_t *)dstFrame->header + dstFrame->headerLen + dstFrame->extensionLen) : NULL;
+    }
     return dstFrame;
 }
 
