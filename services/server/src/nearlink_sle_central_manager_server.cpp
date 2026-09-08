@@ -247,7 +247,6 @@ public:
     {
         HILOGI("OnSystemStateChange %{public}d.", state);
         if (state == SleSystemState::ON) {
-            // 星闪 OFF 时 SA 进程卸载、注册态随进程销毁，ON 重新加载后容器为空，无需清理
             InterfaceScanService::GetInstance().RegisterSleCentralManagerCallback(*pimpl_->observerImp_.get());
         }
     };
