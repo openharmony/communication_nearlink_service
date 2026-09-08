@@ -182,7 +182,7 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     return NL_NO_ERROR;
 }
 
-bool CcpSystemInterface::IsVoipCallKit()
+bool CcpSystemInterface::IsInVoipCallKit()
 {
     // 接口返回0-表示voip接入call kit生效, 1-表示未接入call kit
     HILOGD("[CcpService]enter");
@@ -198,7 +198,7 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
         CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
         if (info.callType == Telephony::CallType::TYPE_VOIP) {
-            if (systemInterface.IsVoipCallKit()) {
+            if (systemInterface.IsInVoipCallKit()) {
                 systemInterface.allowedVoipCallIdSet_.insert(info.callId);
             } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
                 systemInterface.allowedVoipCallIdSet_.end()) {
