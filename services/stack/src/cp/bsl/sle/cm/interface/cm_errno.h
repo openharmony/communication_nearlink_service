@@ -24,6 +24,10 @@
 
 #include "cp_errno_base.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CM_SUCCESS              0x00
 
 #define CM_INVALID_MODULE_TYPE   CP_MAKE_NCP_CM_ERRNO(101)
@@ -35,7 +39,11 @@
 #define CM_NOT_FOUND             CP_MAKE_NCP_CM_ERRNO(107)
 #define CM_NULL_POINTER          CP_MAKE_NCP_CM_ERRNO(108)
 #define CM_MAP_INSERT_ERR        CP_MAKE_NCP_CM_ERRNO(109)
-#define CM_TCID_NOT_SUPPOPRT_ERR CP_MAKE_NCP_CM_ERRNO(110)
+#define CM_TCID_NOT_SUPPORT_ERR  CP_MAKE_NCP_CM_ERRNO(110)
 #define CM_REPEAT_CALLED         CP_MAKE_NCP_CM_ERRNO(111)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

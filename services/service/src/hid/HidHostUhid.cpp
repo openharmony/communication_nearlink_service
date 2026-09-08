@@ -352,14 +352,13 @@ void HidHostUhid::PollEventThreadSub()
 void HidHostUhid::SetUhidNonBlocking(int fd)
 {
     int opts = fcntl(fd, F_GETFL);
-    if (opts < 0 || opts > UINT8_MAX) {
+    if (opts < 0) {
         LOG_ERROR("[UHID]: Getting flags failed (%{public}s)", strerror(errno));
         return;
     }
 
     /* set fd O_NONBLOCK */
-    uint8_t opt = static_cast<uint8_t>(opts);
-    if (fcntl(fd, F_SETFL, opt | O_NONBLOCK) < 0) {
+    if (fcntl(fd, F_SETFL, opts | O_NONBLOCK) < 0) {
         LOG_ERROR("[UHID]: Setting non-blocking flag failed (%{public}s)", strerror(errno));
     }
 }

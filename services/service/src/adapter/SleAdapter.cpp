@@ -168,10 +168,10 @@ void PublishDeviceConnectionState(uint32_t acbCount, int connState)
     if (SleServiceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE) != STATE_TURN_ON) {
         return; // 仅星闪开启状态时上报
     }
-    if (acbCount == 0 && connState == CM_STATE_DISCONNECTED) {
+    if (acbCount == 0 && connState == CM_LINK_STATE_DISCONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::DISCONNECTED));
-    } else if (acbCount == 1 && connState == CM_STATE_CONNECTED) {
+    } else if (acbCount == 1 && connState == CM_LINK_STATE_CONNECTED) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishDeviceConnectionStateEvent(
             static_cast<int>(SleConnectState::CONNECTED));
     }
@@ -755,6 +755,7 @@ bool SleAdapter::ProcClearOldCdsmGroup(const RawAddress &reportAddr, const RawAd
         NotifyPairStatusChanged(oldReportAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+        NotifyCdsmPairStatusChanged(oldReportAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE));
         cdsmService->CdsmReplaceOldReportAddr(oldReportAddr, reportAddr);
         SleReconnectManager::GetInstance().OnDeviceStartPair(reportAddr);
         if (eraseDeviceIfNeed) {
@@ -776,6 +777,7 @@ void SleAdapter::ProcEarphoneLost(const RawAddress &existDev, const RawAddress &
         NotifyPairStatusChanged(lostReportAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED));
+        NotifyCdsmPairStatusChanged(lostReportAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE));
     }
     CancelPairingTask(lostDev);
     adapterProperties_->RemovePeripheralDevice(existDev.GetAddress());
@@ -805,6 +807,7 @@ bool SleAdapter::ProcClearCommonEarphoneOldCdsmGroup(const RawAddress &newReport
         NotifyPairStatusChanged(oldReportAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+        NotifyCdsmPairStatusChanged(oldReportAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE));
         cdsmService->CdsmReplaceOldReportAddr(oldReportAddr, newReportAddr);
         if (eraseDeviceIfNeed) {
             HILOGI("[SleAdapter][Common]Erase device reportAddr:%{public}s", GET_ENCRYPT_ADDR(newReportAddr));
@@ -829,6 +832,7 @@ void SleAdapter::ProcCreateCdsmGroupAndEraseDevice(const RawAddress &reportAddr,
     NotifyPairStatusChanged(reportAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE),
         static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
         static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+    NotifyCdsmPairStatusChanged(reportAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
     HILOGI("[SleAdapter]:Replace old cdsm, need report new device %{public}s online", GET_ENCRYPT_ADDR(reportAddr));
 }
 
@@ -928,6 +932,7 @@ bool SleAdapter::StartPairTask(const RawAddress &device)
         LOG_INFO("acb connected");
         bool ret = pimpl->sleSecurity_.StartPair(realAddr, peerAddrType);
         NL_CHECK_RETURN_RET(ret, false, "[SleAdapter]:failed");
+        adapterProperties_->SetConnDirect(realAddr, static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE));
         PairingStatus(realAddr);
         return true;
     }
@@ -1054,6 +1059,7 @@ void SleAdapter::RemoveNotPairedCloudDevice(const RawAddress &device) const
         NotifyPairStatusChanged(device, static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRED),
             static_cast<int32_t>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED));
+        NotifyCdsmPairStatusChanged(device, static_cast<int32_t>(SlePairState::SLE_PAIR_NONE));
     }
 }
 
@@ -1887,11 +1893,11 @@ void SleAdapter::ConnectionStateTask(const CM_LogicLinkState_S &connResult)
     uint8_t result = connResult.result;
     uint16_t lcid = connResult.lcid;
     uint8_t role = connResult.role;
-    if (result == CM_STATE_CONNECTED) {
+    if (result == CM_LINK_STATE_CONNECTED) {
         ConnectionCompleteTask(connResult.addr, lcid, role, connResult.connCompleteType);
         NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
         pimpl->sleCoexist_->ConnectionStatusChanged(lcid, connResult.addr);
-    } else if (result == CM_STATE_DISCONNECTED) {
+    } else if (result == CM_LINK_STATE_DISCONNECTED) {
         DisconnectionCompleteTask(lcid, peerAddr, connResult.discReason);
         SleCoexistManager::GetInstance()->OnConnectionRemoved(lcid);
     }
@@ -2066,26 +2072,8 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
         }
         int unpairedReason = HandleDisconnAndUnpairedReason(reason);
         LOG_INFO("[SleAdapter] sleDisconnReason_: %{public}d", pimpl->sleDisconnReason_.load());
-        if (pairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRING)) {
-            // 已配对应用重新发起配对的场景，需要把配对状态恢复成已配对
-            if (prePairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) {
-                adapterProperties_->SetPrePairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
-                adapterProperties_->SetPairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
-            } else {
-                CancelPairComplete(peerAddr, NLSTK_ERRCODE_SUCCESS, unpairedReason);
-            }
-        }
-        uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
-        if (profileConnectState != SLE_ADAPTER_PROF_CONN_STATE_UNUSED) {
-            SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
-            HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d",
-                profileConnectState);
-        } else {
-            if (isNeedBgConn) {
-                adapterProperties_->AddBgConnDevice(peerAddr.GetAddress());
-            }
-            pimpl->sleProfileConnectManager_.ClearProfileConnectInfo(peerAddr);
-        }
+        HandlePairStateOnDisconnect(peerAddr, pairState, prePairState, unpairedReason);
+        HandleProfileDisconnectState(peerAddr, acbConnState, pairState, reason, isNeedBgConn);
     }
     if (!InterfaceCloudPairService::GetInstance().IsPreparingRepair(peerAddr)) {
         pimpl->sleProfileConnectManager_.NotifyAcbDisconnected(peerAddr);
@@ -2096,6 +2084,49 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
     if (cdsmService != nullptr) {
         cdsmService->CdsmStopInviteAdv(peerAddr, true);
     }
+}
+
+void SleAdapter::HandlePairStateOnDisconnect(const RawAddress &peerAddr, int pairState,
+    int prePairState, int unpairedReason) const
+{
+    if(pairState != static_cast<int>(SlePairState::SLE_PAIR_PAIRING)){
+        return;
+    }
+    // 已配对应用重新发起配对的场景，需要把配对状态恢复成已配对
+    if (prePairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) {
+        adapterProperties_->SetPrePairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
+        adapterProperties_->SetPairStatus(peerAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
+    } else {
+        CancelPairComplete(peerAddr, NLSTK_ERRCODE_SUCCESS, unpairedReason);
+    }
+}
+
+void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int acbConnState,
+    int pairState, int reason, bool isNeedBgConn) const
+{
+    uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
+    if (profileConnectState != SLE_ADAPTER_PROF_CONN_STATE_UNUSED) {
+        int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
+        if(saveReason == 0) {
+            SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
+        }
+        HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d, "
+        "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
+        return;
+    } 
+    if(!isNeedBgConn) {
+        int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
+        if(saveReason !=0 && saveReason != reason) {
+            isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
+            HILOGI("[SleAdapter] recheck bgConn saveReason:%{public}d, isNeedBgConn:%{public}d",
+            saveReason, isNeedBgConn);
+        }
+    }
+    if (isNeedBgConn) {
+        adapterProperties_->AddBgConnDevice(peerAddr.GetAddress());
+    }
+    SetAcbDisConnReasonTask(peerAddr.GetAddress(), 0);
+    pimpl->sleProfileConnectManager_.ClearProfileConnectInfo(peerAddr);
 }
 
 int SleAdapter::HandleDisconnAndUnpairedReason(int reason) const
@@ -2138,7 +2169,7 @@ void SleAdapter::ConnectionUpdateTask(const CM_ConnectUpdateParamRsp_S &param) c
     });
 
     NL_CHECK_RETURN(pimpl->sleCoexist_, "sleCoexist_ is null");
-    NL_CHECK_RETURN(param.result == CM_STATE_CONNECTED, "not connected");
+    NL_CHECK_RETURN(param.result == CM_LINK_STATE_CONNECTED, "not connected");
     pimpl->sleCoexist_->ConnectionParamChanged(param);
 }
 
@@ -2184,7 +2215,7 @@ bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint1
     (void)memset_s(&tmpAddr, sizeof(tmpAddr), 0x0, sizeof(tmpAddr));
     tmpAddr.type = peerAddrType;
     addr.ConvertToUint8(tmpAddr.addr, SLE_ADDR_LEN);
- 
+
     // 直接调用 Manager
     bool ret = SleCoexistManager::GetInstance()->GetConnectionParam(tmpAddr, timeout, maxLatency, interval);
     NL_CHECK_RETURN_RET(ret, false, "GetConnectionParam fail");
@@ -2204,11 +2235,8 @@ void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, 
     std::shared_ptr<const SlePeripheralDevice> remoteDevice = adapterProperties_->GetRemoteDevice(device);
     NL_CHECK_RETURN(remoteDevice, "addr %{public}s is not start.", GetEncryptAddr(device.GetAddress()).c_str());
     int preState = remoteDevice->GetPairedStatus();
-    int acbState = remoteDevice->GetAcbConnectState();
     adapterProperties_->SetPrePairStatus(device, preState);
     adapterProperties_->SetPairStatus(device, static_cast<int>(SlePairState::SLE_PAIR_NONE));
-
-    bool isCdsmAcbConnected = IsAcbConnectedTask(device);
     /* 可信设备列表存取使用reportAddr */
     RawAddress reportAddr(device);
     RawAddress otherAddr(device);
@@ -2217,6 +2245,7 @@ void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, 
         cdsmService->CdsmGetReportAddr(device, reportAddr);
         cdsmService->CdsmGetOtherAddr(device, otherAddr);
     }
+
     CancelPairCompleteInner(device);
     int reason = unpairedReason == static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON) ?
         static_cast<int>(PairingStateChangeReason::PAIRING_FAILURE) : unpairedReason;
@@ -2228,12 +2257,12 @@ void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, 
     }
     pimpl->credibleDevice_.Erase(reportAddr.GetAddress());
     /* 耳机恢复出厂后下云，删配对记录后不上报，上层应用不感知配对记录变化 */
-    if (InterfaceCloudPairService::GetInstance().CancelCloudPairComplete(device, preState, reason,
-            isCdsmAcbConnected, acbState)) {
+    if (InterfaceCloudPairService::GetInstance().CancelCloudPairComplete(device, preState, reason)) {
         return;
     }
     /* 报取消配对 */
     NotifyPairStatusChanged(device, preState, static_cast<int>(SlePairState::SLE_PAIR_NONE), reason);
+    NotifyCdsmPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_NONE));
     DisconnectAction(device, static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR));
     DftDeviceManager::GetInstance().DelDevice(device);
 }
@@ -2286,6 +2315,7 @@ void SleAdapter::PairCmpSuccess(const RawAddress &device, int pairState, int con
     NotifyPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
         static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+    NotifyCdsmPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
     // 对端key missing，本端重新发起鉴权配对方向和上次保持一致
     if (pairDirect == static_cast<int>(SlePairDirect::SLE_PAIR_DEFAULT)) {
         adapterProperties_->SavePairDirect(connDirect, device);
@@ -2314,6 +2344,7 @@ void SleAdapter::PairCmpFail(const RawAddress &device, int pairState) const
         NotifyPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
             static_cast<int>(SlePairState::SLE_PAIR_NONE),
             static_cast<uint8_t>(PairingStateChangeReason::PAIRING_REMOTE_CANCELED));
+        NotifyCdsmPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_NONE));
     }
     DftCacheDisconnInfoMsg(device.GetAddress(), DFT_DISCONN_PAIRFAIL);
     DisconnectAction(device, static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_REMOTE_USER_TERMINATED));
@@ -2351,6 +2382,7 @@ void SleAdapter::PairingStatus(const RawAddress &device) const
     NotifyPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_NONE),
         static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
         static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+    NotifyCdsmPairStatusChanged(device, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
 }
 
 /*************** 配对请求 start ***************/
@@ -2482,8 +2514,9 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnConnectionStateC
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, this, state]() -> void {
-        sleAdapterImpl->OnSsapConnectionStateChangedTask(device_, state);
+    auto self = shared_from_this();
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, state]() -> void {
+        sleAdapterImpl->OnSsapConnectionStateChangedTask(self->device_, state);
     });
 }
 
@@ -2507,8 +2540,9 @@ void SleAdapter::ServiceSsapConnectInst::ServiceSsapCallback::OnReadPropertiesBy
 {
     HILOGI("Enter");
     NL_CHECK_RETURN(g_sleAdapterImpl, "g_sleAdapterImpl is null");
-    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, this, list, ret]() -> void {
-        sleAdapterImpl->OnSsapReadPropertiesByUuidTask(device_, list, ret);
+    auto self = shared_from_this();
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, self, list, ret]() -> void {
+        sleAdapterImpl->OnSsapReadPropertiesByUuidTask(self->device_, list, ret);
     });
 }
 
@@ -2602,10 +2636,10 @@ void SleAdapter::UpdateKeyMissingCdsmGroup(const RawAddress &device) const
     NL_CHECK_RETURN(cdsmService->CdsmGetOtherAddr(realAddr, otherAddr), "get other addr fail before remove pair");
 
     RawAddress scanReportAddr = InterfaceScanService::GetInstance().GetReportAddrByCurrentAddress(realAddr);
-    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+    NL_CHECK_RETURN(IsValidAddress(scanReportAddr.GetAddress()) && scanReportAddr.GetAddress() != INVALID_MAC_ADDRESS,
         "invalid scanReportAddr");
     RawAddress scanCollaAddr = InterfaceScanService::GetInstance().GetCollaborateAddress(scanReportAddr);
-    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS, 
+    NL_CHECK_RETURN(IsValidAddress(scanCollaAddr.GetAddress()) && scanCollaAddr.GetAddress() != INVALID_MAC_ADDRESS,
         "invalid scanCollaAddr");
     if (otherAddr == scanReportAddr || otherAddr == scanCollaAddr) {
         // 扫描结果的副耳与合作集中的副耳一致，非耳机丢失场景，不处理
@@ -2751,7 +2785,7 @@ bool SleAdapter::IsProfileStateReport(const RawAddress &device, RawAddress &repo
 
     switch (newConnState) {
         case static_cast<int>(SleConnectState::CONNECTED): /* 已连接，已连接数是1时上报(只报report) */
-            if (connectedCnt == 1) {
+            if (connectedCnt >= 1) {
                 isNeedReport = true;
             }
             break;
@@ -2953,7 +2987,7 @@ bool SleAdapter::IsPairStateReport(const RawAddress &device, RawAddress &reportA
 
     switch (pairStatus) {
         case static_cast<int>(SlePairState::SLE_PAIR_PAIRED): /* 3: 已配对 */
-            if (pairedNum == 1) {
+            if (pairedNum >= 1) {
                 isNeedReport = true;
             }
             break;
@@ -2992,6 +3026,16 @@ bool SleAdapter::IsPairStateReport(const RawAddress &device, RawAddress &reportA
     return isNeedReport;
 }
 
+void SleAdapter::NotifyCdsmPairStatusChanged(const RawAddress &device, int status) const
+{
+    CdsmService *cdsmService = CdsmService::GetService();
+    if (cdsmService != nullptr && cdsmService->CdsmCheckIsCooperationDevice(device)) {
+        pimpl->slePeripheralCallback_.ForEach([device, status](ISlePeripheralCallback &observer) {
+            observer.OnCsdmPairStateChanged(device, status);
+        });
+    }
+}
+
 void SleAdapter::NotifyPairStatusChanged(const RawAddress &device, int preStatus, int status, int reason) const
 {
     LOG_INFO("[sle adapter]:pair state change,status:%{public}d->%{public}d,reason:%{public}u,addr:%{public}s",
@@ -3000,10 +3044,6 @@ void SleAdapter::NotifyPairStatusChanged(const RawAddress &device, int preStatus
     RawAddress reportAddr(device);
     CdsmService *cdsmService = CdsmService::GetService();
     if (cdsmService != nullptr && cdsmService->CdsmCheckIsCooperationDevice(device)) {
-        pimpl->slePeripheralCallback_.ForEach([reportAddr, status](ISlePeripheralCallback &observer) {
-            observer.OnCsdmPairStateChanged(reportAddr, status);
-        });
-
         bool replaceOldReportAddr = InterfaceCloudPairService::GetInstance().IsInReplacing(device);
         if (!replaceOldReportAddr && !IsPairStateReport(device, reportAddr, cdsmService, status)) {
             return;
@@ -3136,13 +3176,9 @@ void SleAdapter::AddDevicePairRecord(const RawAddress &device, int bussinessType
             HILOGI("[cdsm adapter]:add cdsm pair record, dev:%{public}s, other addr:%{public}s",
                 GET_ENCRYPT_ADDR(device), GET_ENCRYPT_ADDR(otherAddr));
             adapterProperties_->CdsmAddOtherRecord(device, otherAddr);
-            // 既然这里直接设置成配对状态：已配对，那么模拟配对状态通知
-            NotifyPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_NONE),
-                static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-                static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
-            NotifyPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-                static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
-                static_cast<uint8_t>(PairingStateChangeReason::PAIRING_SUCCESS));
+            // 副耳配对状态仅上报server，不上报上层应用
+            NotifyCdsmPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
+            NotifyCdsmPairStatusChanged(otherAddr, static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
         }
     }
 }

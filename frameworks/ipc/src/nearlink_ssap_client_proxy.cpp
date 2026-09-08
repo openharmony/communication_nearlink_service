@@ -25,6 +25,7 @@ NlErrCode NearlinkSsapClientProxy::RegisterApplication(const sptr<INearlinkSsapC
     uint8_t secureReq, const NearlinkRawAddress &addr, int32_t transport, int &appId)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapClientProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");
@@ -53,6 +54,7 @@ NlErrCode NearlinkSsapClientProxy::RegisterApplication(const sptr<INearlinkSsapC
     const NearlinkRawAddress &addr, int32_t transport, int32_t &appId)
 {
     HILOGI("start");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapClientProxy::GetDescriptor()),
         NL_ERR_INTERNAL_ERROR, "Write Token error");
@@ -322,9 +324,9 @@ NlErrCode NearlinkSsapClientProxy::GetServices(int32_t appId, std::vector<Nearli
     if (exception != NL_NO_ERROR) {
         return exception;
     }
-    int ssapServiceNumber = reply.ReadInt32();
-    NL_CHECK_RETURN_RET(ssapServiceNumber <= SSAP_CLIENT_READ_DATA_SIZE_MAX_LEN, NL_ERR_INVALID_STATE,
-        "read Parcelable size failed.");
+    int32_t ssapServiceNumber = reply.ReadInt32();
+    NL_CHECK_RETURN_RET(ssapServiceNumber >= 0 && ssapServiceNumber <= SSAP_CLIENT_READ_DATA_SIZE_MAX_LEN,
+        NL_ERR_INVALID_STATE, "read Parcelable size failed.");
     for (int i = ssapServiceNumber; i > 0; i--) {
         std::shared_ptr<NearlinkSsapServiceParcel> dev(reply.ReadParcelable<NearlinkSsapServiceParcel>());
         NL_CHECK_RETURN_RET(dev, NL_ERR_INTERNAL_ERROR, "read Parcelable dev failed.");
@@ -355,9 +357,14 @@ NlErrCode NearlinkSsapClientProxy::GetServicesByUuid(int32_t appId, const Uuid &
     if (exception != NL_NO_ERROR) {
         return exception;
     }
-    const std::shared_ptr<NearlinkSsapServiceParcel> dev(reply.ReadParcelable<NearlinkSsapServiceParcel>());
-    NL_CHECK_RETURN_RET(dev, NL_ERR_INTERNAL_ERROR, "read Parcelable dev failed.");
-    service.push_back(*dev);
+    int32_t ssapServiceNumber = reply.ReadInt32();
+    NL_CHECK_RETURN_RET(ssapServiceNumber >= 0 && ssapServiceNumber <= SSAP_CLIENT_READ_DATA_SIZE_MAX_LEN,
+        NL_ERR_INVALID_STATE, "read Parcelable size failed.");
+    for (int i = ssapServiceNumber; i > 0; i--) {
+        std::shared_ptr<NearlinkSsapServiceParcel> dev(reply.ReadParcelable<NearlinkSsapServiceParcel>());
+        NL_CHECK_RETURN_RET(dev, NL_ERR_INTERNAL_ERROR, "read Parcelable dev failed.");
+        service.push_back(*dev);
+    }
     return exception;
 }
 

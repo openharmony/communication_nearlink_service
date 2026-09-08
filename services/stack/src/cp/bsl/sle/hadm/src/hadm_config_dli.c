@@ -57,6 +57,7 @@ void HadmDeInitDliCmdVec(void)
 static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
 {
     NLSTK_LOG_INFO("[hadm]HadmPushDliCmd lcid:%u expectRspTyp:%u", lcid, expectRspTyp);
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_ERRCODE_SYS_ERROR, "[HADM] g_hadmDliCmdVec is null");
     HadmDliCmd_S *dliCmd = (HadmDliCmd_S *)SDF_MemZalloc(sizeof(HadmDliCmd_S));
     if (dliCmd == NULL) {
         NLSTK_LOG_ERROR("[hadm] alloc dli cmd fail");
@@ -74,6 +75,7 @@ static uint32_t HadmPushDliCmd(uint16_t lcid, uint16_t expectRspTyp)
 
 uint16_t HadmPopLastDliCmd(uint16_t *expectRspType)
 {
+    NLSTK_CHECK_RETURN(g_hadmDliCmdVec != NULL, NLSTK_INVALID_LCID, "[HADM] g_hadmDliCmdVec is null");
     if (g_hadmDliCmdVec->size == 0) {
         NLSTK_LOG_ERROR("[HADM] DliCmdVec is empty.");
         return NLSTK_INVALID_LCID;

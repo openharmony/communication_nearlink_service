@@ -40,10 +40,6 @@ public:
         int action) {}
     void OnAddSleVirtualAudioDevice(const NearlinkRawAddress &device, AudioStreamType streamType) {}
     void OnDeleteSleVirtualAudioDevice(const NearlinkRawAddress &device) {}
-    uid_t GetUid()
-    {
-        return 0;
-    }
 };
 
 namespace {
@@ -212,6 +208,24 @@ void GetDualRecordAbilityFuzzTest(const uint8_t *fuzzData, size_t size)
     }
 }
 
+void GetKaraokeAbilityFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    MessageParcel data;
+    MessageParcel reply;
+
+    data.WriteInterfaceToken(NearlinkASCStub::GetDescriptor());
+    std::string addrStr = BuildAddressString(provider);
+    NearlinkRawAddress addr = NearlinkRawAddress(addrStr);
+    data.WriteParcelable(&addr);
+
+    int32_t ret = ASCOnRemoteRequest(
+        NearlinkASCInterfaceCode::NL_ASC_GET_KARAOKE_ABILITY, data, reply);
+    if (ret != NO_ERROR) {
+        HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+}
+
 void ASCFuzzTest(const uint8_t* fuzzData, size_t size)
 {
     FuzzedDataProvider provider(fuzzData, size);
@@ -271,6 +285,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::GetAudioDeviceCodecInfoFuzzTest(data, size);
     OHOS::SetActiveSinkFuzzTest(data, size);
     OHOS::GetDualRecordAbilityFuzzTest(data, size);
+    OHOS::GetKaraokeAbilityFuzzTest(data, size);
     OHOS::ASCFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest();
     OHOS::g_threadUtil.ClearThreadStateMap();

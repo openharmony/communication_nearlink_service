@@ -37,7 +37,7 @@ NlErrCode NearlinkSsapServerProxy::AddService(int32_t appId, NearlinkSsapService
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::ClearServices(int appId)
+NlErrCode NearlinkSsapServerProxy::ClearServices(int32_t appId)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
@@ -54,7 +54,7 @@ NlErrCode NearlinkSsapServerProxy::ClearServices(int appId)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::CancelConnection(int appId, const NearlinkSsapDevice &device)
+NlErrCode NearlinkSsapServerProxy::CancelConnection(int32_t appId, const NearlinkSsapDevice &device)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
@@ -74,6 +74,7 @@ NlErrCode NearlinkSsapServerProxy::CancelConnection(int appId, const NearlinkSsa
 NlErrCode NearlinkSsapServerProxy::RegisterApplication(const sptr<INearlinkSsapServerCallback> &callback,
     int32_t &appId)
 {
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
@@ -93,7 +94,7 @@ NlErrCode NearlinkSsapServerProxy::RegisterApplication(const sptr<INearlinkSsapS
     return exception;
 }
 
-NlErrCode NearlinkSsapServerProxy::DeregisterApplication(int appId)
+NlErrCode NearlinkSsapServerProxy::DeregisterApplication(int32_t appId)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
@@ -110,7 +111,7 @@ NlErrCode NearlinkSsapServerProxy::DeregisterApplication(int appId)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::NotifyClient(int appId,
+NlErrCode NearlinkSsapServerProxy::NotifyClient(int32_t appId,
     NearlinkSsapPropertyParcel *property, const NearlinkSsapDevice &device, bool needConfirm)
 {
     MessageParcel data;
@@ -131,8 +132,8 @@ NlErrCode NearlinkSsapServerProxy::NotifyClient(int appId,
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::NotifyEvent(int appId, NearlinkSsapEventParcel *event, std::vector<uint8_t> &value,
-    const NearlinkSsapDevice &device, bool needConfirm)
+NlErrCode NearlinkSsapServerProxy::NotifyEvent(int32_t appId, NearlinkSsapEventParcel *event,
+    std::vector<uint8_t> &value, const NearlinkSsapDevice &device, bool needConfirm)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
@@ -228,7 +229,7 @@ NlErrCode NearlinkSsapServerProxy::RemoveService(int32_t appId, const NearlinkSs
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapServerProxy::AuthorizeResponse(int appId, uint16_t requestId, bool allow)
+NlErrCode NearlinkSsapServerProxy::AuthorizeResponse(int32_t appId, uint16_t requestId, bool allow)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapServerProxy::GetDescriptor()),
@@ -242,7 +243,8 @@ NlErrCode NearlinkSsapServerProxy::AuthorizeResponse(int appId, uint16_t request
         MessageOption::TF_SYNC
     };
 
-    ErrCode error = InnerTransact(NearlinkSsapServerInterfaceCode::SSAP_SERVER_AUTHORIZE_RESPONSE, option, data, reply);
+    ErrCode error = InnerTransact(NearlinkSsapServerInterfaceCode::SSAP_SERVER_AUTHORIZE_RESPONSE,
+        option, data, reply);
     NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", error);
     return static_cast<NlErrCode>(reply.ReadInt32());
 }

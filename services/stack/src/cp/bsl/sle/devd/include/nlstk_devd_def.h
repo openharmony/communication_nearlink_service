@@ -304,14 +304,6 @@ typedef struct {
 } NLSTK_DevdSetAdvEnable_S;
 
 /**
- * @brief 发送功率参数
- */
-typedef struct {
-    int8_t bleMaxPower; /* BLE发送功率值  */
-    int8_t sleMaxPower; /* SLE发送功率值  */
-} NLSTK_DevdSetTxPower_S;
-
-/**
  * @brief  扫描过滤策略
  */
 typedef enum {

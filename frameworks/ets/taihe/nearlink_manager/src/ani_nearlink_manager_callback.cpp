@@ -45,15 +45,19 @@ std::shared_mutex g_acbStateChangedMutex;
 void AniNearlinkManagerObserver::OnStateChanged(const int transport, const int status)
 {
     HILOGI("transport is %{public}d, status is %{public}d", transport, status);
-    if (status < static_cast<int>(SleStateID::STATE_TURN_OFF) ||
-        status > static_cast<int>(SleStateID::STATE_TURN_ON)) {
+    if (status < static_cast<int>(SleStateID::STATE_TURNING_ON) ||
+        status > static_cast<int>(SleStateID::STATE_TURN_HALF)) {
             HILOGE("Invalid status value: %{public}d", status);
             return;
     }
     ::ohos::nearlink::manager::NearlinkState result =
         static_cast<::ohos::nearlink::manager::NearlinkState::key_t>(status);
-    std::shared_lock<std::shared_mutex> guard(g_stateChangedMutex);
-    for (auto callback : g_stateChangedObserverVec) {
+    decltype(g_stateChangedObserverVec) callbacks;
+    {
+        std::shared_lock<std::shared_mutex> guard(g_stateChangedMutex);
+        callbacks = g_stateChangedObserverVec;
+    }
+    for (auto callback : callbacks) {
         if(callback.has_value()) {
             (*callback)(result);
         }
@@ -68,8 +72,12 @@ void AniRemoteDeviceObserver::OnPairingRequest(const NearlinkRemoteDevice &devic
         .passkey = static_cast<::taihe::string>(passkey),
         .pairingType = static_cast<::ohos::nearlink::manager::PairingType::key_t>(type)
     };
-    std::shared_lock<std::shared_mutex> guard(g_pairingRequestMutex);
-    for (auto callback : g_pairingRequestObserverVec) {
+    decltype(g_pairingRequestObserverVec) callbacks;
+    {
+        std::shared_lock<std::shared_mutex> guard(g_pairingRequestMutex);
+        callbacks = g_pairingRequestObserverVec;
+    }
+    for (auto callback : callbacks) {
         if(callback.has_value()) {
             (*callback)(result);
         }
@@ -87,8 +95,12 @@ void AniRemoteDeviceObserver::OnPairStatusChanged(const NearlinkRemoteDevice &de
         .state = static_cast<::ohos::nearlink::constant::PairingState::key_t>(state),
         .reason = static_cast<::ohos::nearlink::manager::PairingReason::key_t>(reason)
     };
-    std::shared_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
-    for (auto callback : g_pairStatusChangedObserverVec) {
+    decltype(g_pairStatusChangedObserverVec) callbacks;
+    {
+        std::shared_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
+        callbacks = g_pairStatusChangedObserverVec;
+    }
+    for (auto callback : callbacks) {
         if(callback.has_value()) {
             (*callback)(result);
         }
@@ -106,8 +118,12 @@ void AniRemoteDeviceObserver::OnConnectionStateChanged(const NearlinkRemoteDevic
         .state = static_cast<::ohos::nearlink::constant::ConnectionState::key_t>(state),
         .connectionReason = static_cast<::ohos::nearlink::manager::ConnectionReason::key_t>(reason)
     };
-    std::shared_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
-    for (auto callback : g_connectionStateChangedObserverVec) {
+    decltype(g_connectionStateChangedObserverVec) callbacks;
+    {
+        std::shared_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
+        callbacks = g_connectionStateChangedObserverVec;
+    }
+    for (auto callback : callbacks) {
         if(callback.has_value()) {
             (*callback)(result);
         }
@@ -122,8 +138,12 @@ void AniRemoteDeviceObserver::OnAcbStateChanged(const NearlinkRemoteDevice &devi
         .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
         .state = static_cast<::ohos::nearlink::constant::AcbState::key_t>(state)
     };
-    std::shared_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
-    for (auto callback : g_acbStateChangedObserverVec) {
+    decltype(g_acbStateChangedObserverVec) callbacks;
+    {
+        std::shared_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
+        callbacks = g_acbStateChangedObserverVec;
+    }
+    for (auto callback : callbacks) {
         if(callback.has_value()) {
             (*callback)(result);
         }

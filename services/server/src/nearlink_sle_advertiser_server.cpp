@@ -15,7 +15,6 @@
 
 #include "nearlink_sle_advertiser_server.h"
 
-#include <set>
 #include "nearlink_errorcode.h"
 #include "SleInterfaceAdapterSub.h"
 #include "interface_advertiser_service.h"
@@ -24,6 +23,7 @@
 #include "ipc_skeleton.h"
 #include "remote_observer_list.h"
 #include "nearlink_remote_container.h"
+#include "nearlink_def.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -195,6 +195,9 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        if (result == static_cast<int>(ADV_RESULT_FAILED_CHECK_PARA_FAIL)) {
+            impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
+        }
         observers_->ForEach([this, result, advHandle, opcode, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -214,6 +217,7 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
         observers_->ForEach([this, result, advHandle, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -222,7 +226,6 @@ public:
             }
             observer->OnStopResultEvent(result, advHandle);
         });
-        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnEnableResultEvent(int result, uint8_t advHandle) override
@@ -272,6 +275,7 @@ public:
         int32_t ownerUid = 0;
         NL_CHECK_RETURN(impl->remoteContainer_->GetAdvHandleOwner(advHandle, ownerPid, ownerUid),
             "no owner of advHandle, drop event");
+        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
         observers_->ForEach([this, advHandle, ownerPid, ownerUid, &impl](
             INearlinkSleAdvertiseCallback *observer) {
             SleAdvertiserRemoteInfo info = impl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -280,7 +284,6 @@ public:
             }
             observer->OnAutoStopAdvEvent(advHandle);
         });
-        impl->remoteContainer_->RemoveAdvHandle(static_cast<int32_t>(advHandle));
     }
 
     void OnSetAdvDataEvent(int result, uint8_t advHandle) override
@@ -415,6 +418,15 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
     HILOGI("enter");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INTERNAL_ERROR,
         "advHandle is invalid.");
+    if (settings.GetPrimaryFrameType() ==
+        static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4)) {
+        SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
+            (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
+        NL_CHECK_RETURN_RET(
+            sleService->IsFeatureSupported(static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)),
+            NL_ERR_API_NOT_SUPPORT, "frame4 advertising is not supported.");
+    }
     SleAdvertiserSettingsImpl settingsImpl;
     settingsImpl.SetConnectable(settings.IsConnectable());
     settingsImpl.SetInterval(settings.GetInterval());

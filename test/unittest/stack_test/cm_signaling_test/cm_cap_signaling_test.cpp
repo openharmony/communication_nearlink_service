@@ -208,11 +208,15 @@ TEST_F(UT_CAP_SIGNALING, CapSignalingVersion)
 
 TEST_F(UT_CAP_SIGNALING, CapSignalinManage)
 {
-    EXPECT_EQ(0, CM_SignalingCacheInsert(0, 0, 0, NULL, NULL));
-    EXPECT_EQ(0, CM_SignalingCacheInsert(1, 1, 0, NULL, NULL));
-    EXPECT_EQ(0, CM_SignalingCacheInsert(1, 2, 0, NULL, NULL));
-    CM_SignalingCacheRemove(0, 0);
-    CM_SignalingCacheRemove(0, 1);
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInsert(0, 0, 0, NULL, NULL));
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInsert(1, 1, 0, NULL, NULL));
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInsert(1, 2, 0, NULL, NULL));
+    // 命中缓存：lcid/id/code 全部匹配，返回 true
+    EXPECT_EQ(true, CM_SignalingCacheRemove(0, 0, 0));
+    EXPECT_EQ(true, CM_SignalingCacheRemove(1, 1, 0));
+    EXPECT_EQ(true, CM_SignalingCacheRemove(1, 2, 0));
+    // 不命中：已移除，再移除返回 false
+    EXPECT_EQ(false, CM_SignalingCacheRemove(1, 2, 0));
     CM_SignalingCacheClearByLcid(0);
     CM_SignalingCacheClearByLcid(1);
 }
@@ -227,7 +231,7 @@ TEST_F(UT_CAP_SIGNALING, CM_SignalingInitAndCallbackAndDeinit)
     g_logicLinkCbk.logicLinkCbk(&state);
     state.result = CM_LINK_STATE_CONNECTED;
     g_logicLinkCbk.logicLinkCbk(&state);
-    state.result = CM_LINK_STATE_DISCONNECTTING;
+    state.result = CM_LINK_STATE_DISCONNECTING;
     g_logicLinkCbk.logicLinkCbk(&state);
     state.result = CM_LINK_STATE_DISCONNECTED;
     g_logicLinkCbk.logicLinkCbk(&state);
@@ -238,6 +242,103 @@ TEST_F(UT_CAP_SIGNALING, CapSignalinManageOthers)
 {
     CM_SignalingCacheDeinit();
     CM_SignalingCacheClearByLcid(0);
-    CM_SignalingCacheRemove(0, 1);
+    CM_SignalingCacheRemove(0, 0, 1);
     EXPECT_NE(0, CM_SignalingCacheInsert(0, 0, 0, NULL, NULL));
+}
+
+// CM_SignalingGet 对请求/响应信令返回正确的 recvCode、requestCode 映射与 handle
+TEST_F(UT_CAP_SIGNALING, CM_SignalingGet_RequestCodeMapping)
+{
+    // 未知信令码返回 NULL
+    EXPECT_EQ(nullptr, CM_SignalingGet(0xFE));
+
+    // 请求信令：requestCode 等于自身，handle 非空
+    const CM_Signaling_S *capReq = CM_SignalingGet(CAPABILITY_REQ);
+    ASSERT_NE(capReq, nullptr);
+    EXPECT_EQ(capReq->recvCode, CAPABILITY_REQ);
+    EXPECT_EQ(capReq->requestCode, CAPABILITY_REQ);
+    EXPECT_NE(capReq->handle, nullptr);
+
+    // 响应信令：requestCode 指向对应请求信令
+    const CM_Signaling_S *capRsp = CM_SignalingGet(CAPABILITY_RSP);
+    ASSERT_NE(capRsp, nullptr);
+    EXPECT_EQ(capRsp->recvCode, CAPABILITY_RSP);
+    EXPECT_EQ(capRsp->requestCode, CAPABILITY_REQ);
+    EXPECT_NE(capRsp->handle, nullptr);
+
+    // 传输通道释放请求/响应映射
+    const CM_Signaling_S *discReq = CM_SignalingGet(TC_DISCONNECT_REQ);
+    ASSERT_NE(discReq, nullptr);
+    EXPECT_EQ(discReq->requestCode, TC_DISCONNECT_REQ);
+    const CM_Signaling_S *discRsp = CM_SignalingGet(TC_DISCONNECT_RSP);
+    ASSERT_NE(discRsp, nullptr);
+    EXPECT_EQ(discRsp->requestCode, TC_DISCONNECT_REQ);
+}
+
+// CM_GetIdentifier 正常分配返回 true 且 id 递增；NULL 入参返回 false
+TEST_F(UT_CAP_SIGNALING, CM_GetIdentifier_NormalAndNull)
+{
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInit());
+
+    uint8_t id1 = 0xFF;
+    uint8_t id2 = 0xFF;
+    EXPECT_EQ(true, CM_GetIdentifier(&id1));
+    EXPECT_EQ(true, CM_GetIdentifier(&id2));
+    EXPECT_NE(id1, id2);  // 连续分配应不同
+    EXPECT_EQ(false, CM_GetIdentifier(nullptr));  // NULL 入参返回 false
+
+    CM_SignalingCacheDeinit();
+}
+
+// CM_SignalingCacheRemove 的 lcid 与 code 双重校验
+TEST_F(UT_CAP_SIGNALING, CM_SignalingCacheRemove_Validate)
+{
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInit());
+
+    // 插入：lcid=0, id=10, code=CAPABILITY_REQ
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInsert(0, 10, CAPABILITY_REQ, NULL, NULL));
+
+    // lcid 不匹配：用 lcid=1 去移除，返回 false，缓存仍在
+    EXPECT_EQ(false, CM_SignalingCacheRemove(1, 10, CAPABILITY_REQ));
+    // code 不匹配：用 CAPABILITY_RSP 去移除，返回 false
+    EXPECT_EQ(false, CM_SignalingCacheRemove(0, 10, CAPABILITY_RSP));
+    // 全匹配：返回 true
+    EXPECT_EQ(true, CM_SignalingCacheRemove(0, 10, CAPABILITY_REQ));
+    // 已移除：再移除返回 false
+    EXPECT_EQ(false, CM_SignalingCacheRemove(0, 10, CAPABILITY_REQ));
+
+    // 收尾：释放缓存，避免影响后续用例
+    CM_SignalingCacheDeinit();
+}
+
+// 收到响应信令但缓存无对应未决请求，返回 CM_FAIL
+TEST_F(UT_CAP_SIGNALING, CM_RecvSignalingData_RspWithoutPendingReq)
+{
+    EXPECT_EQ(CM_SUCCESS, CM_SignalingCacheInit());
+    // lcid=0 上无任何未决请求缓存
+    // 不向缓存插入任何 CAPABILITY_REQ 请求，直接收 CAPABILITY_RSP 应失败
+    uint8_t data[] = {CAPABILITY_RSP, 0x00, 0x00, 0x00};
+    SDF_Buff_S *buff = SDF_BuffNewWithReserve(DLI_TEST_LEN);
+    ASSERT_TRUE(buff != nullptr);
+    uint8_t *tmp = SDF_BuffAppend(buff, sizeof(data));
+    (void)memcpy_s(tmp, sizeof(data), data, sizeof(data));
+    DTAP_Data_Info_S info = {0};
+    info.lcid = 0;
+    EXPECT_EQ(CM_FAIL, CM_RecvSignalingData(&info, buff));
+    SDF_BuffFree(buff);
+    CM_SignalingCacheDeinit();
+}
+
+// 收到未注册的未知信令码，返回 CM_FAIL
+TEST_F(UT_CAP_SIGNALING, CM_RecvSignalingData_UnknownCode)
+{
+    uint8_t data[] = {0xFE, 0x00, 0x00, 0x00};  // 0xFE 未注册
+    SDF_Buff_S *buff = SDF_BuffNewWithReserve(DLI_TEST_LEN);
+    ASSERT_TRUE(buff != nullptr);
+    uint8_t *tmp = SDF_BuffAppend(buff, sizeof(data));
+    (void)memcpy_s(tmp, sizeof(data), data, sizeof(data));
+    DTAP_Data_Info_S info = {0};
+    info.lcid = 0;
+    EXPECT_EQ(CM_FAIL, CM_RecvSignalingData(&info, buff));
+    SDF_BuffFree(buff);
 }

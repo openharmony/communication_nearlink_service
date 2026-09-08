@@ -653,26 +653,28 @@ static void HidOnReadPropertyInConnectedState(HidDevice_S *dev, HidStmParam_S ms
         NLSTK_CHECK_RETURN_VOID(SDF_VectorFindFirst(dev->report, HidCompHandle, &readMsg->property->handle, &index),
             "[HID] report handle not found");
         HidReport_S *report = SDF_VectorElementAt(dev->report, index);
-        SDF_MemFree(report->reportInfoValue.data);
         NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len != 0 && readMsg->property->value.data != NULL,
             "[HID] readMsg property value error");
+        SDF_MemFree(report->reportInfoValue.data);
+        report->reportInfoValue.data = NULL;
+        report->reportInfoValue.len = 0;
         report->reportInfoValue.len = readMsg->property->value.len;
         report->reportInfoValue.data = (uint8_t *)SDF_MemZalloc(report->reportInfoValue.len);
         NLSTK_CHECK_RETURN_VOID(report->reportInfoValue.data != NULL, "[HID] report value malloc fail");
         (void)memcpy_s(report->reportInfoValue.data, report->reportInfoValue.len,
             readMsg->property->value.data, readMsg->property->value.len);
-        HidReportInfo_S value = {
-            .reportIdAndType = { .reportId = report->reportId, .reportType = report->reportType },
-            .reportInfoValue = report->reportInfoValue
-        };
+        HidReportInfo_S value = { .reportIdAndType = { .reportId = report->reportId,
+            .reportType = report->reportType }, .reportInfoValue = report->reportInfoValue };
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_TYPE_AND_FORMAT_DESC) {
+        NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len > 0, "[HID] type and format desc len is 0");
         HidTypeAndFormatDesc_S value = {0};
         value.type = readMsg->property->value.data[0];
         value.descLen = readMsg->property->value.len - 1;
         (void)memcpy_s(value.desc, value.descLen, readMsg->property->value.data + 1, value.descLen);
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_WORK_STATUS_INDICATION) {
+        NLSTK_CHECK_RETURN_VOID(readMsg->property->value.len > 0, "[HID] work status len is 0");
         uint8_t value = readMsg->property->value.data[0];
         HidReadCbk(&dev->addr, type, &value, NLSTK_ERRCODE_SUCCESS);
     } else if (type == HID_REPORT_INDEX_INFO) {

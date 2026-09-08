@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "sdf_addr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +29,7 @@ typedef bool (*COMMON_IsSupportQueryQosInfoPtr)(void);
 typedef bool (*COMMON_IsSupportSetMaxIntervalPtr)(void);
 typedef bool (*COMMON_IsSupportConnFramePowerLevelPtr)(void);
 typedef bool (*COMMON_IsSupportScanFilterPtr)(void);
+typedef bool (*COMMON_IsSupportCustomIntervalPtr)(const SLE_Addr_S *addr, uint16_t *customInterval);
 
 typedef struct {
     COMMON_IsSupportConnHighSpeedPtr isSupportConnHighSpeed;
@@ -35,6 +37,7 @@ typedef struct {
     COMMON_IsSupportSetMaxIntervalPtr isSupportSetMaxInterval;
     COMMON_IsSupportConnFramePowerLevelPtr isSupportConnFramePowerLevel;
     COMMON_IsSupportScanFilterPtr isSupportScanFilter;
+    COMMON_IsSupportCustomIntervalPtr isSupportCustomInterval;
 } COMMON_ExtFuncList;
 
 void COMMON_RegisterExtFunc(void *soHandle);

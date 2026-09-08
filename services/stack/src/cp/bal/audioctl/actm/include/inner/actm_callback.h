@@ -35,6 +35,8 @@ void ActmStreamTypeCbk(SLE_Addr_S *addr, uint32_t availableStreamType);
 
 void ActmCallBitUpDownCbk(NLSTK_ActmAutoRateSendMsg_S *upDownParam);
 
+void ActmSetDirectionCbk(SLE_Addr_S *addr, uint8_t result);
+
 #ifdef __cplusplus
 }
 #endif

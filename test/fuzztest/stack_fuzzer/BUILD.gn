@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -65,5 +65,17 @@ group("stackfuzz") {
     "hidstack_fuzzer:HidStackFuzzTest",
     "stackapi_fuzzer:StackApiFuzzTest",
     "multiscan_fuzzer:MultiScanFuzzTest",
+
+    "actm_fuzzer:ActmFuzzTest",
+    "qosmautorate_fuzzer:QosmAutorateFuzzTest",
+    "mcp_fuzzer:McpFuzzTest",
+    "cmicb_fuzzer:CmIcbFuzzTest",
+    "cdsmstack_fuzzer:CdsmStackFuzzTest",
+    "ccp_fuzzer:CcpFuzzTest",
+    "bas_fuzzer:BasFuzzTest",
+    "smimg_fuzzer:SmImgFuzzTest",
+    "micp_fuzzer:MicpFuzzTest",
+    "cfgdb_fuzzer:CfgdbFuzzTest",
+    "disclient_fuzzer:DisClientFuzzTest",
   ]
 }

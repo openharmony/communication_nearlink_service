@@ -33,6 +33,15 @@ const uint32_t SLE_ADV_PER_FIELD_OVERHEAD_LENGTH = 2;
 const uint32_t SLE_ADV_MANUFACTURER_ID_LENGTH = 2;
 const uint32_t SLE_ADV_FLAGS_FIELD_LENGTH = 3;
 
+struct SleAdvertiserStartParams {
+    SleAdvertiserStartParams(const NearlinkSleAdvertiserSettings &s, const NearlinkSleAdvertiserData &d,
+        const NearlinkSleAdvertiserData &r) : setting(s), advData(d), scanResponse(r)
+    {}
+    NearlinkSleAdvertiserSettings setting;
+    NearlinkSleAdvertiserData advData;
+    NearlinkSleAdvertiserData scanResponse;
+};
+
 struct SleAdvertiser::impl : public std::enable_shared_from_this<impl> {
     impl();
     ~impl();
@@ -43,6 +52,8 @@ struct SleAdvertiser::impl : public std::enable_shared_from_this<impl> {
     const NearlinkSleAdvertiserData &advData, const NearlinkSleAdvertiserData &scanResponse);
     int32_t GetAdvHandleImp(std::shared_ptr<SleAdvertiseCallback> callback);
     std::shared_ptr<SleAdvertiseCallback> GetAdvObserverImp(int32_t handle);
+    NlErrCode StartAdvertisingImp(const SleAdvertiserStartParams &params, int32_t advHandle,
+        std::shared_ptr<SleAdvertiseCallback> callback, bool isNewHandle);
 
     class NearlinkSleAdvertiserCallbackImp;
     sptr<NearlinkSleAdvertiserCallbackImp> callbackImp_ = nullptr;
@@ -65,12 +76,12 @@ public:
         NL_CHECK_RETURN(sleAdvertiserSptr, "sleAdvertiserSptr is nullptr.");
 
         std::shared_ptr<SleAdvertiseCallback> callbackSptr = GetAdvCallback(advHandle, sleAdvertiserSptr);
-        if (callbackSptr) {
-            callbackSptr->OnStartResultEvent(result, advHandle);
-        }
         if (result == ADV_RESULT_FAILED_CHECK_PARA_FAIL) {
             HILOGE("start adv failed, result(%{public}d), advHandle(%{public}d)", result, advHandle);
             sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
+        }
+        if (callbackSptr) {
+            callbackSptr->OnStartResultEvent(result, advHandle);
         }
     }
 
@@ -81,10 +92,10 @@ public:
         NL_CHECK_RETURN(sleAdvertiserSptr, "sleAdvertiserSptr is nullptr.");
 
         std::shared_ptr<SleAdvertiseCallback> callbackSptr = GetAdvCallback(advHandle, sleAdvertiserSptr);
+        sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
         if (callbackSptr) {
             callbackSptr->OnStopResultEvent(result, advHandle);
         }
-        sleAdvertiserSptr->pimpl->callbacks_.Erase(advHandle);
     }
 
     void OnEnableResultEvent(int32_t result, int32_t advHandle) override
@@ -305,6 +316,35 @@ int32_t SleAdvertiser::impl::GetAdvHandleImp(std::shared_ptr<SleAdvertiseCallbac
     return advHandle;
 }
 
+NlErrCode SleAdvertiser::impl::StartAdvertisingImp(const SleAdvertiserStartParams &params, int32_t advHandle,
+    std::shared_ptr<SleAdvertiseCallback> callback, bool isNewHandle)
+{
+    sptr<INearlinkSleAdvertiser> proxy = GetProxy<INearlinkSleAdvertiser>(SLE_ADVERTISER_SERVER);
+    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
+    NlErrCode ret = NL_NO_ERROR;
+    if (isNewHandle) {
+        ret = proxy->GetAdvertiserHandle(advHandle);
+        if (ret != NL_NO_ERROR ||
+            advHandle == static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE)) {
+            HILOGE("Invalid advertising handle");
+            callback->OnStartResultEvent(NL_ERR_INTERNAL_ERROR,
+                                         static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
+            return ret;
+        }
+        callbacks_.EnsureInsert(advHandle, callback);
+    }
+    ret = proxy->StartAdvertising(params.setting, params.advData, params.scanResponse, advHandle);
+    if (ret != NL_NO_ERROR) {
+        HILOGE("StartAdvertising failed, ret = %{public}d", ret);
+        if (isNewHandle) {
+            callbacks_.Erase(advHandle);
+        }
+        return ret;
+    }
+    callback->OnGetAdvHandleEvent(0, advHandle);
+    return ret;
+}
+
 NlErrCode SleAdvertiser::StartAdvertising(const SleAdvertiserSettings &settings, const SleAdvertiserData &advData,
     const SleAdvertiserData &scanResponse, uint16_t duration, std::shared_ptr<SleAdvertiseCallback> callback)
 {
@@ -312,9 +352,6 @@ NlErrCode SleAdvertiser::StartAdvertising(const SleAdvertiserSettings &settings,
         "nearlink is not support.");
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is nullptr");
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-
-    sptr<INearlinkSleAdvertiser> proxy = GetProxy<INearlinkSleAdvertiser>(SLE_ADVERTISER_SERVER);
-    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
 
     NearlinkSleAdvertiserSettings setting;
     setting.SetConnectable(settings.IsConnectable());
@@ -335,11 +372,11 @@ NlErrCode SleAdvertiser::StartAdvertising(const SleAdvertiserSettings &settings,
     NlErrCode ret = pimpl->CheckAdvertiserData(setting, sleAdvertiserData, sleScanResponse);
     NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, ret, "CheckAdvertiserData failed.");
 
+    SleAdvertiserStartParams params(setting, sleAdvertiserData, sleScanResponse);
     int32_t advHandle = pimpl->GetAdvHandleImp(callback);
     if (advHandle != static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE)) {
         HILOGI("callback is exist.");
-        callback->OnGetAdvHandleEvent(0, advHandle);
-        return proxy->StartAdvertising(setting, sleAdvertiserData, sleScanResponse, advHandle);
+        return pimpl->StartAdvertisingImp(params, advHandle, callback, false);
     }
 
     std::map<UUID, std::string> serviceData1 = advData.GetServiceData();
@@ -351,16 +388,7 @@ NlErrCode SleAdvertiser::StartAdvertising(const SleAdvertiserSettings &settings,
     HILOGI("manufacturerData size of scanResponse is %{public}lu", manufacturerData1.size());
     std::map<uint16_t, std::string> manufacturerData2 = sleScanResponse.GetManufacturerData();
     HILOGI("manufacturerData size of sleScanResponse is %{public}lu", manufacturerData2.size());
-    ret = proxy->GetAdvertiserHandle(advHandle);
-    if (ret != NL_NO_ERROR || advHandle == static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE)) {
-        HILOGE("Invalid advertising handle");
-        callback->OnStartResultEvent(NL_ERR_INTERNAL_ERROR,
-                                     static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
-        return ret;
-    }
-    callback->OnGetAdvHandleEvent(0, advHandle);
-    pimpl->callbacks_.EnsureInsert(advHandle, callback);
-    return proxy->StartAdvertising(setting, sleAdvertiserData, sleScanResponse, advHandle);
+    return pimpl->StartAdvertisingImp(params, advHandle, callback, true);
 }
 
 NlErrCode SleAdvertiser::SetAdvertisingData(const SleAdvertiserData &advData, const SleAdvertiserData &scanResponse,

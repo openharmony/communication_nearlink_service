@@ -15,6 +15,8 @@
 
 #include "nearlink_sle_datatransfer_server.h"
 
+#include <vector>
+
 #include "nearlink_errorcode.h"
 #include "SleInterfaceDataTransfer.h"
 #include "SleInterfaceManager.h"
@@ -329,7 +331,23 @@ NlErrCode NearlinkSleDataTransferServer::RegisterSleDataTransferCallback(
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     HILOGI("DT pid: %{public}d, uid: %{public}d, tokenId: %{public}lu", pid, uid, tokenId);
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "cb is null.");
-    pimpl->observers_.Register(callback);
+    // 同一应用重新注册（如进程重启后旧回调条目残留未清理）时，先移除旧条目，
+    // 避免连接成功回调同时分发给新旧两个 remote，导致同一 fd 在 proxy 侧被重复 close。
+    // 注：残留条目仅可能来自已消亡进程（跨进程 proxy 死亡监听未触发或通知在途），
+    // 其 IPC 调用必然失败，不会实际收到连接事件，不存在竞态分发风险。
+    std::vector<sptr<INearlinkSleDataTransferCallback>> staleCallbacks;
+    pimpl->observers_.ForEach(
+        [this, pid, uid, tokenId, &staleCallbacks](sptr<INearlinkSleDataTransferCallback> observer) {
+            impl::SleDataTransferRemoteInfo info = pimpl->remoteContainer_->RetrieveRemoteInfo(observer->AsObject());
+            if (info.pid == pid && info.uid == uid && info.tokenId == tokenId) {
+                staleCallbacks.push_back(observer);
+            }
+        });
+    for (const auto &stale : staleCallbacks) {
+        pimpl->observers_.Deregister(stale);
+        pimpl->remoteContainer_->DeleteRemoteInfo(stale->AsObject());
+    }
+    NL_CHECK_RETURN_RET(pimpl->observers_.Register(callback), NL_ERR_INTERNAL_ERROR, "register DT callback failed.");
     impl::SleDataTransferRemoteInfo info(pid, uid, tokenId);
     pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
     return NL_NO_ERROR;
@@ -340,10 +358,16 @@ NlErrCode NearlinkSleDataTransferServer::DeregisterSleDataTransferCallback(
 {
     HILOGI("enter");
     NL_CHECK_RETURN_RET(callback, NL_ERR_IMPL_ERROR, "cb is null.");
-    pimpl->observers_.Deregister(callback);
+    int32_t callingPid = IPCSkeleton::GetCallingPid();
+    int32_t callingUid = IPCSkeleton::GetCallingUid();
+    uint64_t callingTokenId = IPCSkeleton::GetCallingFullTokenID();
+    impl::SleDataTransferRemoteInfo info = pimpl->remoteContainer_->RetrieveRemoteInfo(callback->AsObject());
+    NL_CHECK_RETURN_RET(info.pid == callingPid && info.uid == callingUid && info.tokenId == callingTokenId,
+        NL_ERR_INVALID_PARAM, "callback not registered by this process.");
+    NL_CHECK_RETURN_RET(pimpl->observers_.Deregister(callback), NL_ERR_INTERNAL_ERROR,
+        "deregister DT callback failed.");
     pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
-    uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
-    SleInterfaceDataTransfer::GetInstance().ClearCacheByTokenId(tokenId);
+    SleInterfaceDataTransfer::GetInstance().ClearCacheByTokenId(info.tokenId);
     return NL_NO_ERROR;
 }
 

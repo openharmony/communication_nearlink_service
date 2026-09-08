@@ -72,16 +72,6 @@ void DownCloudPairDevice::InitConnectedState()
     }
 }
 
-bool DownCloudPairDevice::IsAllMembersDisconnected()
-{
-    for (auto &it : connectedMaps_) {
-        if (it.second) {
-            return false;
-        }
-    }
-    return true;
-}
-
 void DownCloudPairDevice::SetConnectedState(std::string addr, bool isConnected)
 {
     NL_CHECK_RETURN(connectedMaps_.find(addr) != connectedMaps_.end(),
@@ -468,16 +458,68 @@ void SleCloudPairService::HandleDeviceNameChanged(NearlinkCloudPairDevice &devIn
     NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, CLOUD_PAIR, UPDATE_NAME);
 }
 
-bool SleCloudPairService::UpdateCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos)
+void SleCloudPairService::FilterDownCloudDevice(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos,
+    std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos,
+    std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos)
 {
-    NL_CHECK_RETURN_RET(IsValidDownCloudDeviceList(cloudDeviceInfos), false, "Invalid down cloud device list");
-    HILOGI("[CLOUD PAIR] downcloud list size : %{public}d, cur local cache size : %{public}d",
-        static_cast<int>(cloudDeviceInfos.size()), cloudDevicesMap_.Size());
-
-    auto sleAdapter = (SleInterfaceAdapter *)(SleInterfaceManager::GetInstance()->GetAdapter(ADAPTER_SLE));
-    NL_CHECK_RETURN_RET(sleAdapter, false, "sleAdapter is null");
-
     for (auto &devInfo : cloudDeviceInfos) {
+        std::vector<std::string> downMembers = devInfo.GetMembersAddr();
+        if (CheckMemberIsSameCdsmGroup(downMembers)) {
+            coupleCloudDeviceInfos.push_back(devInfo);
+        } else{
+            detachCloudDeviceInfos.push_back(devInfo);
+        }
+    }
+}
+
+bool SleCloudPairService::CheckMemberIsSameCdsmGroup(std::vector<std::string> &downMembers) const
+{
+    CdsmService *cdsmService = CdsmService::GetService();
+    NL_CHECK_RETURN_RET(cdsmService, false, "cdsmService is nullptr.");
+
+    // 逐个比较downMembers的groupId，不一致则下云双耳不在同一个cdsm合作集，为游离态耳机
+    uint32_t preGroupId = CDSM_SERVICE_INVALID_GROUP_ID;
+    for (size_t i = 0; i < downMembers.size(); i++) {
+        uint32_t curGroupId = CDSM_SERVICE_INVALID_GROUP_ID;
+        cdsmService->CdsmGetGroupId(curGroupId, downMembers[i]);
+        if (i > 0 && curGroupId != preGroupId) {
+            return false;
+        }
+        preGroupId = curGroupId;
+    }
+    return true;
+}
+
+void SleCloudPairService::UpdateDetachCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos)
+{
+    for (auto &devInfo : detachCloudDeviceInfos) {
+        std::vector<std::string> downMembers = devInfo.GetMembersAddr();
+        for (auto &member : downMembers) {
+            if (!IsCloudDevice(RawAddress(member))) {
+                continue;
+            }
+            // 游离态耳机组合与本地缓存组合有冲突，删除本地未实体配对的组合
+            RawAddress cachedReportAddr = GetReportAddr(RawAddress(member));
+            int32_t cachedCloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;
+            GetCloudPairState(cachedReportAddr.GetAddress(), cachedCloudPairState);
+            if (cachedCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_NONE) {
+                auto sleAdapter = (SleInterfaceAdapter *)(SleInterfaceManager::GetInstance()->GetAdapter(ADAPTER_SLE));
+                NL_CHECK_RETURN(sleAdapter, "sleAdapter is null");
+                RmvSpecificCloudDevice(cachedReportAddr);
+                sleAdapter->RemoveNotPairedCloudDevice(cachedReportAddr);
+                HILOGI("[CLOUD PAIR] Delete local cache device %{public}s", GET_ENCRYPT_ADDR(cachedReportAddr));
+            }
+        }
+        // 若游离态耳机组合与本地缓存组合无冲突，刷新本地缓存
+        if (CheckMemberIsSameCdsmGroup(downMembers)) {
+            AddCloudDevice(devInfo);
+        }
+    }
+}
+
+void SleCloudPairService::UpdateCoupleCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos)
+{
+    for (auto &devInfo : coupleCloudDeviceInfos) {
         RawAddress downAddr(devInfo.GetReportAddr());
         if (IsCloudDevice(downAddr)) {
             ReplaceOldCloudDevice(devInfo);
@@ -486,7 +528,24 @@ bool SleCloudPairService::UpdateCloudDeviceInfoList(std::vector<NearlinkCloudPai
             AddCloudDevice(devInfo);
         }
     }
-    DelCloudDevFromMap(cloudDeviceInfos);
+    DelCloudDevFromMap(coupleCloudDeviceInfos);
+}
+
+bool SleCloudPairService::UpdateCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos)
+{
+    NL_CHECK_RETURN_RET(IsValidDownCloudDeviceList(cloudDeviceInfos), false, "Invalid down cloud device list");
+    
+    std::vector<NearlinkCloudPairDevice> detachCloudDeviceInfos;
+    std::vector<NearlinkCloudPairDevice> coupleCloudDeviceInfos;
+    // 1. 下云设备根据是否为游离态耳机进行分类
+    FilterDownCloudDevice(cloudDeviceInfos, detachCloudDeviceInfos, coupleCloudDeviceInfos);
+    HILOGI("[CLOUD PAIR] downcloud couple list size : %{public}d, detach list size : %{public}d"
+        "cur local cache size : %{public}d", static_cast<int>(coupleCloudDeviceInfos.size()), 
+        static_cast<int>(detachCloudDeviceInfos.size()), cloudDevicesMap_.Size());
+    // 2. 非游离态耳机下云处理: 刷新本地缓存
+    UpdateCoupleCloudDeviceInfoList(coupleCloudDeviceInfos);
+    // 3. 游离态耳机下云处理: 删除本地对应未配对的冲突设备, 删除后若游离态耳机与本地缓存不再冲突, 游离态耳机添加至本地缓存
+    UpdateDetachCloudDeviceInfoList(detachCloudDeviceInfos);
     return true;
 }
 
@@ -669,13 +728,13 @@ bool SleCloudPairService::SetConnectedState(const RawAddress &device, bool isCon
 
 bool SleCloudPairService::IsAllMembersDisconnected(const RawAddress &device)
 {
-    bool ret = true;
     RawAddress reportAddr = GetReportAddr(device);
-    cloudDevicesMap_.GetValueAndOpt(reportAddr.GetAddress(), [&ret](
-        std::string key, std::shared_ptr<DownCloudPairDevice> value) -> void {
-        ret = value->IsAllMembersDisconnected();
-    });
-    return ret;
+    int reportAcbState = SleRemoteDeviceAdapter::GetInstance()->GetAcbState(reportAddr.GetAddress());
+    std::string collabAddr = GetCollabAddrByReportAddr(reportAddr);
+    int collabAcbState = SleRemoteDeviceAdapter::GetInstance()->GetAcbState(collabAddr);
+
+    return reportAcbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED) &&
+           collabAcbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED);
 }
 
 void SleCloudPairService::GetAllNotPairedCloudDeviceList(std::vector<std::string> &cloudDeviceAddrList)
@@ -824,8 +883,7 @@ bool SleCloudPairService::CancelCloudPairing(const RawAddress &device)
     return false;
 }
 
-bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason,
-    bool isCdsmAcbConnected, int acbState)
+bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason)
 {
     RawAddress reportAddr = GetReportAddr(device);
     int32_t curCloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;
@@ -844,10 +902,8 @@ bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int 
     }
     // 场景3 : 耳机恢厂点连接，遇到keyMissing
     if (curCloudPairState == NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING) {
-        bool isNeedRepair = (preStatus == static_cast<int>(SlePairState::SLE_PAIR_PAIRING) ||
-                             preStatus == static_cast<int>(SlePairState::SLE_PAIR_PAIRED)) &&
-                             reason != static_cast<uint8_t>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED) &&
-                             isCdsmAcbConnected;
+        bool isNeedRepair = preStatus == static_cast<int>(SlePairState::SLE_PAIR_NONE) &&
+                            reason == static_cast<int>(PairingStateChangeReason::PAIRING_AUTH_FAILED);
         if (isNeedRepair) {
             needRepairDevices_.Insert(reportAddr.GetAddress());
         }
@@ -855,9 +911,6 @@ bool SleCloudPairService::CancelCloudPairComplete(const RawAddress &device, int 
         if (IsPreparingRepair(device)) {
             HILOGI("[CLOUD PAIR] device : %{public}s need repair", GET_ENCRYPT_ADDR(reportAddr));
             ClearToken(reportAddr);
-            if (acbState == static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED)) {
-                SetConnectedState(device, true);
-            }
             return true;
         // 场景3.2 : 耳机在配对模式，发起重配对请求，用户取消或无响应，同步删除云配记录
         } else {

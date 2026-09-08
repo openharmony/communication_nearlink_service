@@ -229,6 +229,8 @@ napi_status CheckEmptyParam(napi_env env, napi_callback_info info);
 napi_status NapiCheckObjectPropertiesName(napi_env env, napi_value object, const std::vector<std::string> &names);
 int NapiToJsPairState(int state);
 int NapiToJsAcbState(int state);
+int NapiToJsConnState(int state);
+int NapiToJsDeviceClass(int appearance);
 }  // namespace Nearlink
 }  // namespace OHOS
 #endif  // NAPI_NEARLINK_UTILS_H

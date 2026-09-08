@@ -72,7 +72,8 @@ ohos_unittest("dtap_scheduler_test") {
         s != "$STACK_DIR/src/dli/layer/src/dli_layer.c" &&
         s != "$STACK_DIR/src/dli/layer/src/dli_layer_callback.c" &&
         s != "$STACK_DIR/src/adapter/src/collab_ext_func_wrapper.c" &&
-        s != "$STACK_DIR/src/cp/bsl/sle/cm/common/src/cm_dli_adapter.c") {
+        s != "$STACK_DIR/src/cp/bsl/sle/cm/common/src/cm_dli_adapter.c" &&
+        s != "$STACK_DIR/src/utils/src/time_utils.c") {
       sources += [ s ]
     }
   }

@@ -159,7 +159,10 @@ void SleDataTransfer::impl::Init()
         sptr<INearlinkSleDataTransfer> proxy = iface_cast<INearlinkSleDataTransfer>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr.");
         NL_CHECK_RETURN(implSptr->callbackImp_, "callbackImp_ is nullptr");
-        proxy->RegisterSleDataTransferCallback(implSptr->callbackImp_);
+        NlErrCode regRet = proxy->RegisterSleDataTransferCallback(implSptr->callbackImp_);
+        if (regRet != NL_NO_ERROR) {
+            HILOGE("register DT callback failed, ret: %{public}d", regRet);
+        }
     };
 
     info->stateOffFunc_ = [wp](sptr<IRemoteObject> remote) -> void {

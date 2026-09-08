@@ -69,7 +69,7 @@ napi_value NapiNearlinkManager::Enable(napi_env env, napi_callback_info info)
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().EnableNl();
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::Disable(napi_env env, napi_callback_info info)
@@ -77,7 +77,7 @@ napi_value NapiNearlinkManager::Disable(napi_env env, napi_callback_info info)
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().DisableNl();
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    return NapiGetBooleanTrue(env);
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::GetState(napi_env env, napi_callback_info info)
@@ -142,16 +142,17 @@ napi_value NapiNearlinkManager::SetLocalName(napi_env env, napi_callback_info in
     size_t argc = ARGS_SIZE_ONE;
     napi_value argv[ARGS_SIZE_ONE] = {nullptr};
     napi_value thisVar = nullptr;
-    napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr);
+    if (napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr) != napi_ok) {
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+        return NapiGetUndefinedRet(env);
+    }
 
     std::string localName {};
     NAPI_NL_ASSERT_RETURN_FALSE(env, ParseString(env, localName, argv[0]), NL_ERR_INVALID_PARAM);
 
     NlErrCode err = NearlinkHost::GetInstance().SetLocalName(localName);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    napi_value res = nullptr;
-    napi_get_boolean((env), true, &res);
-    return res;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkManager::GetPairedDevices(napi_env env, napi_callback_info info)
@@ -179,7 +180,10 @@ napi_value NapiNearlinkManager::SetConnectionMode(napi_env env, napi_callback_in
     size_t argc = ARGS_SIZE_TWO;
     napi_value argv[ARGS_SIZE_TWO] = {nullptr};
     napi_value thisVar = nullptr;
-    napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr);
+    if (napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr) != napi_ok) {
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+        return NapiGetUndefinedRet(env);
+    }
 
     int32_t connectionMode = 0;
     NAPI_NL_ASSERT_RETURN_FALSE(env, ParseInt32(env, connectionMode, argv[PARAM0]), NL_ERR_INVALID_PARAM);

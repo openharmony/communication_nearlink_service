@@ -299,8 +299,13 @@ bool NearlinkDataShareHelper::GetValue(Uri &uri, const std::string &key, std::st
     }
 
     rows->GoToFirstRow();
-    int32_t columnIndex;
-    rows->GetColumnIndex(DATA_COLUMN_VALUE, columnIndex);
+    int32_t columnIndex = -1;
+    if (rows->GetColumnIndex(DATA_COLUMN_VALUE, columnIndex) != DataShare::E_OK || columnIndex < 0) {
+        HILOGE("GetColumnIndex failed");
+        rows->Close();
+        dataShareHelper->Release();
+        return false;
+    }
     int32_t ret = rows->GetString(columnIndex, value);
     if (ret != DataShare::E_OK) {
         HILOGE("GetInt failed with ret=%{public}d", ret);

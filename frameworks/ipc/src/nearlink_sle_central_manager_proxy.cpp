@@ -30,6 +30,7 @@ NlErrCode NearlinkSleCentralManagerProxy::RegisterSleCentralManagerCallback(uint
     bool enableRandomAddrMode, const sptr<INearlinkSleCentralManagerCallback> &callback)
 {
     MessageParcel data;
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleCentralManagerProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(callback->AsObject()), NL_ERR_IPC_TRANS_FAILED,
@@ -55,6 +56,7 @@ NlErrCode NearlinkSleCentralManagerProxy::DeregisterSleCentralManagerCallback(ui
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleCentralManagerProxy::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
+    NL_CHECK_RETURN_RET(callback != nullptr, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(data.WriteUint32(scannerId), NL_ERR_IPC_TRANS_FAILED, "Write scannerId error");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(callback->AsObject()), NL_ERR_IPC_TRANS_FAILED,
         "Write remoteObject error");

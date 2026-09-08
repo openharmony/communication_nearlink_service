@@ -416,10 +416,15 @@ uint16_t DLI_GetAcbDataLen(void);
 uint32_t DLI_SetCmd(DLI_CmdParams *params);
 
 /**
- * @brief  是否支持bypass自动回连特性
- * @return true: 支持, false: 不支持
+ * @brief  注册需匿名化的敏感指令
+ * @param  [in]  < cmdOpcodes > 敏感CMD opcode 数组
+ * @param  [in]  < cmdNum > 敏感CMD opcode 数组长度
+ * @param  [in]  < evtOpcodes > 敏感事件 opcode 数组
+ * @param  [in]  < evtNum > 敏感事件 opcode 数组长度
+ * @return DLI_SUCCESS: 成功, OTHER: 失败
  */
-bool DLI_IsSupportConnBypassAdv(void);
+uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum);
 
 uint8_t DLI_GetPhyCountByFrameType(uint8_t frameType);
 #ifdef __cplusplus

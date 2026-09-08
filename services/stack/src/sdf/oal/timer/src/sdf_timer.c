@@ -47,7 +47,9 @@ static void TimerProc(int handle, void *args)
     bool period = timerDesc->timerParam.period;
     int tempHandle = timerDesc->eventHandle;
     SDF_LOG_INFO("[TIMER] timer trigerred! handle = %d, period = %d", tempHandle, period);
-    timerDesc->timerParam.callback(timerDesc->timerParam.args);
+    if (timerDesc->timerParam.callback != NULL) {
+        timerDesc->timerParam.callback(timerDesc->timerParam.args);
+    }
     if (!period) {
         SDF_TimerDel(tempHandle);
     }

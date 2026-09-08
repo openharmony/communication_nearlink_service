@@ -524,9 +524,7 @@ bool SleDataTransferService::ReceivedData(std::shared_ptr<InputStream> inputStre
         (void)memset_s(buf, sizeof(buf), 0, sizeof(buf));
         int ret = inputStream->Read(buf, sizeof(buf));
         NL_CHECK_RETURN_RET(ret != 0, false, "fd disconnected err");
-        if (ret != packageLen) {
-            break;
-        }
+        NL_CHECK_RETURN_RET(ret == packageLen, false, "data len err");
         size_t pLen = *reinterpret_cast<const size_t*>(buf);
         pLen -= packageLen;
         HILOGD("data size : %{public}zu", pLen);
@@ -534,10 +532,11 @@ bool SleDataTransferService::ReceivedData(std::shared_ptr<InputStream> inputStre
         uint8_t pBuf[pLen];
         (void)memset_s(pBuf, sizeof(pBuf), 0, sizeof(pBuf));
         int res = inputStream->Read(pBuf, sizeof(pBuf));
-        NL_CHECK_RETURN_RET(ret != 0, false, "fd disconnected err");
-        NL_CHECK_RETURN_RET(ret == packageLen, false, "data len err");
+        NL_CHECK_RETURN_RET(res != 0, false, "fd disconnected err");
+        NL_CHECK_RETURN_RET(res == pLen, false, "data len err");
         std::shared_ptr<DataTransferDataParams> result = std::make_shared<DataTransferDataParams>();
         NearlinkDataTransferDataParams::DeserializeData(pBuf, pLen, *result);
+        NL_CHECK_RETURN_RET(result->port_ == portId, false, "port not match");
         result->address_ = address;
         std::promise<int> promise;
         DoInDataTransferThread([this, result, &promise]() {
@@ -891,6 +890,7 @@ void SleDataTransferService::ConnectPeerPortInner(const DataTransferConnectionPa
         temp.state_ == static_cast<int32_t>(SleConnectState::CONNECTING))) { // 已执行过 connectAction
         HILOGI("portId: %{public}d, addr: %{public}s, connectParam state: %{public}d",
             params.GetPort(), GET_ENCRYPT_ADDR(device), temp.state_);
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(temp, INVALID_FD);
     } else { // 若ACB和PORT PROFILE已连接 直接创建PORT CHANNEL
         GetRemotePortCreateChannel(params);
@@ -1200,6 +1200,7 @@ int SleDataTransferService::ReceiveDataCallback(const TRANS_Addr_S *addr, uint8_
 void SleDataTransferService::SendDataStateCallback(const SLE_Addr_S *devAddr, uint8_t tcid, uint16_t portId,
     uint8_t result)
 {
+    NL_CHECK_RETURN(devAddr != nullptr, "SendDataStateCallback devAddr is null");
     RawAddress rawAddress(RawAddress::ConvertToString(devAddr->addr));
     std::string address = rawAddress.GetAddress();
 
@@ -1305,6 +1306,7 @@ void SleDataTransferService::HandleConnectEvent(int32_t stat, uint16_t srcPort, 
         if (temp.state == static_cast<int32_t>(SleConnectState::DISCONNECTED)) {
             NotifyDisconnect(connectionParams.address_);
         }
+        NL_CHECK_RETURN(pimpl->callback_, "callback_ null");
         pimpl->callback_->OnConnectionStateChanged(connectionParams, fd);
     });
     DftReportDtfrStatisInfo(stat, temp.address, uuid);

@@ -28,6 +28,7 @@ void MicpRegCallback(void *arg)
 
 void MicpConnectCbk(MicpDevice_S *device, NLSTK_MicpConnectState_E newState, uint8_t errorCode)
 {
+    NLSTK_CHECK_RETURN_VOID(device != NULL, "[MICP] device is null");
     if (g_cbk.eventCbk != NULL) {
         g_cbk.eventCbk(&device->addr, newState, device->state, errorCode);
     }
@@ -36,6 +37,7 @@ void MicpConnectCbk(MicpDevice_S *device, NLSTK_MicpConnectState_E newState, uin
 
 void MicpMicStateCbk(MicpDevice_S *device)
 {
+    NLSTK_CHECK_RETURN_VOID(device != NULL, "[MICP] device is null");
     if (g_cbk.micStateCbk != NULL) {
         g_cbk.micStateCbk(&device->addr, device->micState);
     }

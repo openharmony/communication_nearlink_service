@@ -232,6 +232,7 @@ static void UpdateMcpVolumeClient(McpVolumeDevice_S *dev, NLSTK_Errcode_E ret,
 static void McpParseStreamVolumeData(McpVolumeDevice_S *dev, uint8_t *data, uint16_t dataLen,
     NLSTK_McpStreamVolumeStatus_S *streamVolume)
 {
+    NLSTK_CHECK_RETURN_VOID(dataLen >= 1, "[MCP] stream volume data len error");
     uint8_t num = 0;
     PARSE_TO_UINT8(num, data);
     NLSTK_CHECK_RETURN_VOID(dataLen == num * MCP_STREAM_VOLUME_EXTRA_LEN + MCP_STREAM_VOLUME_BASE_LEN,

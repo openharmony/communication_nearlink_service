@@ -36,12 +36,11 @@ constexpr int SOCKET_BUFFER_SIZE = 50 * 1024;
 // 设置文件描述符为非阻塞模式
 void SetNonblock(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1 || flags > UINT8_MAX) {
+    if (flags == -1) {
         HILOGE("Failed to get flags for fd = %{public}d errno:%{public}d", fd, errno);
         return;
     }
-    uint8_t flag = static_cast<uint8_t>(flags);
-    if (fcntl(fd, F_SETFL, flag | O_NONBLOCK) == -1) {
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
         HILOGE("Failed to set flags nonblock for fd = %{public}d errno:%{public}d", fd, errno);
     };
 }

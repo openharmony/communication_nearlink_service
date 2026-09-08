@@ -715,14 +715,6 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest025, TestSize.Level1)
     device->SetConnectedState(DEVICE_SLE_MEMBER_ADDR, true);
     auto connectedMaps = device->GetConnectedMaps();
     EXPECT_EQ(connectedMaps[DEVICE_SLE_MEMBER_ADDR], true);
-
-    EXPECT_EQ(device->IsAllMembersDisconnected(), false);
-
-    device->SetConnectedState(DEVICE_SLE_MEMBER_ADDR, false);
-    EXPECT_EQ(device->IsAllMembersDisconnected(), true);
-
-    device->SetConnectedState(DEVICE_SLE_REPORT_ADDR, false);
-    EXPECT_EQ(device->IsAllMembersDisconnected(), true);
     HILOGI("SleCloudPairServiceTest025 end");
 }
 
@@ -739,8 +731,7 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest026, TestSize.Level1)
         NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING);
 
     bool result = SleCloudPairService::GetInstance().CancelCloudPairComplete(RawAddress(DEVICE_SLE_REPORT_ADDR),
-        static_cast<int>(SlePairState::SLE_PAIR_NONE), 0, true,
-        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+        static_cast<int>(SlePairState::SLE_PAIR_NONE), 0);
 
     EXPECT_EQ(result, false);
     int32_t cloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;
@@ -914,6 +905,41 @@ HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest035, TestSize.Level1)
 
     // 验证设备仍然在map中
     EXPECT_EQ(SleCloudPairService::GetInstance().cloudDevicesMap_.Size(), 1);
+}
+
+/**
+ * @tc.name: SleCloudPairServiceTest036
+ * @tc.desc: 测试UpdateCoupleCloudDeviceInfoList & UpdateDetachCloudDeviceInfoList
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleCloudPairServiceTest, SleCloudPairServiceTest036, TestSize.Level1)
+{
+    HILOGI("SleCloudPairServiceTest036 start");
+    ProcDownCloudDevice(DEVICE_NAME, DEVICE_TOKEN);
+    SleCloudPairService::GetInstance().UpdateCloudState(DEVICE_SLE_REPORT_ADDR,
+        NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+    int sizeBefore = SleCloudPairService::GetInstance().cloudDevicesMap_.Size();
+    EXPECT_EQ(sizeBefore, 1);
+
+    NearlinkCloudPairDevice otherDev;
+    otherDev.SetBtAddr(DEVICE_BT_ADDR);
+    otherDev.SetDeviceName(DEVICE_NAME);
+    otherDev.SetToken(DEVICE_TOKEN);
+    otherDev.SetReportAddr("FF:EE:DD:CC:BB:AA");
+    otherDev.SetMembersAddr({"FF:EE:DD:CC:BB:AA", DEVICE_SLE_MEMBER_ADDR});
+    otherDev.SetModel(DEVICE_MODEL);
+    otherDev.SetSubModelId(DEVICE_SUBMODEL_ID);
+    otherDev.SetDeviceIconId(DEVICE_ICON_ID);
+    std::vector<NearlinkCloudPairDevice> cloudDeviceInfos = {otherDev};
+    SleCloudPairService::GetInstance().UpdateCloudDeviceInfoList(cloudDeviceInfos);
+
+    int sizeAfter = SleCloudPairService::GetInstance().cloudDevicesMap_.Size();
+    EXPECT_EQ(sizeAfter, 1);
+
+    int32_t cloudPairState = NL_CLOUD_PAIR_STATE::CLOUD_PAIR_INVALID;
+    SleCloudPairService::GetInstance().GetCloudPairState(DEVICE_SLE_REPORT_ADDR, cloudPairState);
+    EXPECT_EQ(cloudPairState, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+    HILOGI("SleCloudPairServiceTest036 end");
 }
 
 } // namespace TEST

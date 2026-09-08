@@ -249,6 +249,37 @@ TEST_F(UT_TRANS_CHAN_SIGNALING, CM_SignalingTransChanEstablishReqProc_Success)
     EXPECT_EQ(ret, CM_SUCCESS);
 }
 
+// portConfig 为空时发送仍成功（扩展字段可选）
+TEST_F(UT_TRANS_CHAN_SIGNALING, CM_SignalingTransChanEstablishReqSend_WithoutPortConfig)
+{
+    CM_SignalingTransChanEstablishReq_S req = {0};
+    req.slqiList.slqiNum = 1;
+    // 不设置 req.extension.portConfig，保持 NULL
+    uint32_t ret = CM_SignalingTransChanEstablishReqSend(0, &req);
+    EXPECT_EQ(ret, CM_SUCCESS);
+}
+
+// 收到 optionOffset=0（无扩展字段）的建立请求也能正确解析
+TEST_F(UT_TRANS_CHAN_SIGNALING, CM_SignalingTransChanEstablishReqProc_WithoutExtension)
+{
+    // 不含扩展字段：长度去掉 Ext + PortConfig，optionOffset 保持 0
+    // head->length 语义为负载长度（不含 head），与 CM_ParseSignalingBuff 的校验保持一致
+    uint16_t length = sizeof(CM_TransChanEstablishReqPkt_S) +
+        sizeof(CM_TransModeCommonConfig_S) + sizeof(CM_PreferredSlqiList_S) + sizeof(uint8_t);
+    CM_SignalingHead_S *pkt = (CM_SignalingHead_S *)SDF_MemZalloc(sizeof(CM_SignalingHead_S) + length);
+    EXPECT_NE(pkt, nullptr);
+    pkt->length = length;
+    CM_TransChanEstablishReqPkt_S *req = (CM_TransChanEstablishReqPkt_S *)(pkt + 1);
+    // optionOffset 保持 0，表示无扩展
+    CM_PreferredSlqiList_S *slqiList = (CM_PreferredSlqiList_S *)((uint8_t *)req  +
+        sizeof(CM_TransChanEstablishReqPkt_S) + sizeof(CM_TransModeCommonConfig_S));
+    slqiList->slqiNum = 1;
+
+    uint32_t ret = CM_SignalingTransChanEstablishReqProc(0, pkt);
+    SDF_MemFree(pkt);
+    EXPECT_EQ(ret, CM_SUCCESS);
+}
+
 TEST_F(UT_TRANS_CHAN_SIGNALING, CM_SignalingTransChanEstablishReqProc_Success_1)
 {
     uint16_t length = sizeof(CM_SignalingHead_S) + sizeof(CM_TransChanEstablishReqPkt_S) +

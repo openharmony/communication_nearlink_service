@@ -37,6 +37,7 @@ void COMMON_RegisterExtFunc(void *soHandle)
     g_funcList.isSupportConnFramePowerLevel =
         (COMMON_IsSupportConnFramePowerLevelPtr)dlsym(soHandle, "IsSupportConnFramePowerLevel");
     g_funcList.isSupportScanFilter = (COMMON_IsSupportScanFilterPtr)dlsym(soHandle, "IsSupportScanFilter");
+    g_funcList.isSupportCustomInterval = (COMMON_IsSupportCustomIntervalPtr)dlsym(soHandle, "IsSupportCustomInterval");
 
     ADAPTER_LOGI("common register ext func finished\n");
 }

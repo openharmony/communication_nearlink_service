@@ -32,7 +32,6 @@
       "*COLLAB_DeInit*";
       "*COLLAB_RecvOnMsg";
 
-      "*NLSTK_DevdSetTxPower*";
       "*NLSTK_SmRecoverKey*";
       "*NLSTK_CfgdbGetPublicAddress*";
       "*NLSTK_SmRegExternalCbks*";

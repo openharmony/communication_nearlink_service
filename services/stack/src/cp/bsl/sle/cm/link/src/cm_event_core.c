@@ -51,7 +51,7 @@ static void CM_ConnectionProcInterruptReq(SleLogicLink_S *link, uint8_t version,
 {
     // 基础连接完成后，若流程异常，则发起释放连接请求
     CM_AccessParamReq_S accessParam = { 0 };
-    link->status = CM_LINK_STATE_DISCONNECTTING;
+    link->status = CM_LINK_STATE_DISCONNECTING;
     accessParam.lcid = link->lcid;
     accessParam.version = version;
     accessParam.localIndex = localIndex;
@@ -147,7 +147,7 @@ static void CM_SleDisconnectProc(void *context, uint8_t result, const CM_Execute
     (void)memcpy_s(&connectRsp->addr, sizeof(SLE_Addr_S), &link->rmtAddr, sizeof(SLE_Addr_S));
     CM_LOGI("sle connect disconnect proc, link status:%d", link->status);
     if (link->status != CM_LINK_STATE_DISCONNECTED) {
-        if (link->status == CM_LINK_STATE_CONNECTED || link->status == CM_LINK_STATE_DISCONNECTTING) {
+        if (link->status == CM_LINK_STATE_CONNECTED || link->status == CM_LINK_STATE_DISCONNECTING) {
             CM_ReleaseFixedTransChannel(connectRsp->lcid);
         }
         SleLogicLinkRemove(link);

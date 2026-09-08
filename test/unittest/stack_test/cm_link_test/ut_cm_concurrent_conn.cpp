@@ -1074,7 +1074,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, UT_CM_DirectConnTimerCbkInner_Timeout_02)
 
     SleLogicLink_S *logicLink = SleLogicLinkGetByStatus(CM_LINK_STATE_CONNECTING);
     EXPECT_TRUE(logicLink != NULL);
-    
+
     // 2）加入一个其他设备背景连接
     uint16_t otherHandle = handle + 1;
     UT_CM_ApiTestBgConnect(otherHandle);
@@ -1184,7 +1184,7 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_SupportLinkCollab_02)
     UT_CM_RegTransChannelListener();
 
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
-    
+
     // 1）支持连接协同
     CM_LinkCollabFunc_S funcs = {
         .isNeedLinkCollabReq = MockIsNeedLinkCollabReq,
@@ -1206,4 +1206,38 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_SupportLinkCollab_02)
     EXPECT_TRUE(logicLink == NULL);
     EXPECT_EQ(UT_CM_GetTestConnectListSize(), 0);
     CM_DeInit();
+}
+
+/**
+ * @brief 接口入参全0地址非法性检测
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, CM_API_PARAM_INVALID_01)
+{
+    SLE_Addr_S emptyAddr = { 0 }; // 全0地址
+
+    EXPECT_EQ(CM_BackgroundConnectRemove(CM_MODULE_ADPT, &emptyAddr), CM_INVALID_PARAM_ERR);
+
+    CM_DirectConnAddrParam_S directParam = {};
+    directParam.frameType = CM_CONN_PARAM_FRAME_TYPE_1;
+    EXPECT_EQ(CM_DirectConnectAdd(CM_MODULE_ADPT, &directParam), CM_INVALID_PARAM_ERR);
+
+    directParam.frameType = CM_CONN_PARAM_FRAME_TYPE_4;
+    EXPECT_EQ(CM_DirectConnectAdd(CM_MODULE_ADPT, &directParam), CM_INVALID_PARAM_ERR);
+    CM_BackgroundConnectClear(CM_MODULE_ADPT);
+}
+
+/**
+ * @brief 接口入参全0地址非法跳过性告警处理
+ */
+TEST_F(UT_CM_CONCURRENT_CONN_API, CM_API_PARAM_INVALID_02)
+{
+    SLE_Addr_S emptyAddr = { 0 }; // 全0地址
+    CM_BgConnAddrParam_S addrArr[2] = {};
+    addrArr[0].addr = emptyAddr;
+    SLE_Addr_S validAddr = { 0 };
+    uint16_t handle = 1;
+    UT_CM_GenDifferentAddress(&validAddr, handle);
+    addrArr[1].addr = validAddr;
+    EXPECT_EQ(CM_BackgroundConnectAdd(CM_MODULE_ADPT, 2, addrArr), CM_SUCCESS);
+    CM_BackgroundConnectClear(CM_MODULE_ADPT);
 }

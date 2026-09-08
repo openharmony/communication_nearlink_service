@@ -291,9 +291,14 @@ private:
     bool PairRequestReplyTask(const RawAddress &device, bool accept) const;
     bool IsDisconnectedByUser(int acbConnState, int pairState, int reason) const;
     int HandleDisconnAndUnpairedReason(int reason) const;
+    void HandlePairStateOnDisconnect(const RawAddress &peerAddr, int pairState,
+        int prePairState, int unpairedReason) const;
+    void HandleProfileDisconnectState(const RawAddress &peerAddr, int acbConnState,
+        int pairState, int reason, bool isNeedBgConn) const;
     bool HandleCdsmServiceConnectionState(
         const RawAddress &device, RawAddress &reportAddr, const SleConnectionChangedParam &connChangedParam) const;
     int HandleConnectionStateReason(const SleConnectionChangedParam &connChangedParam) const;
+    void NotifyCdsmPairStatusChanged(const RawAddress &device, int status) const;
 
     // CM ACB Change status callback.
     static void ConnectionUpdateCallback(CM_ConnectUpdateParamRsp_S *param);
@@ -368,7 +373,8 @@ private:
 // 配对请求 start
     class ServiceSsapConnectInst {
     public:
-        class ServiceSsapCallback : public InterfaceSsapClientCallback {
+        class ServiceSsapCallback : public InterfaceSsapClientCallback,
+            public std::enable_shared_from_this<ServiceSsapCallback> {
         public:
             explicit ServiceSsapCallback(const RawAddress &addr) : device_(addr)
             {}

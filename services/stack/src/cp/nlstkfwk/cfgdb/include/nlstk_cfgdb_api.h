@@ -108,14 +108,6 @@ NLSTK_Errcode_E NLSTK_CfgdbRegisterCbks(NLSTK_CfgdbCbk_S *cbkIn);
 uint32_t NLSTK_CfgdbGetPublicAddress(SLE_Addr_S *addr);
 
 /**
- * @brief 抓取芯片日志
- * @return uint32_t
- * - NLSTK_OK: 成功
- * - NLSTK_ERR: 失败
- */
-uint32_t NLSTK_CfgdbGetChipLog(void);
-
-/**
  * @brief 设置设备厂商自定义能力
  * @return uint32_t
  * - NLSTK_OK: 成功

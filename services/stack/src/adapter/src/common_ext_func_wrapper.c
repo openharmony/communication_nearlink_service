@@ -73,3 +73,14 @@ bool COMMON_IsSupportScanFilter(void)
 
     return funcList->isSupportScanFilter();
 }
+
+bool COMMON_IsSupportCustomInterval(const SLE_Addr_S *addr, uint16_t *customInterval)
+{
+    COMMON_ExtFuncList *funcList = COMMON_GetExtFuncList();
+    if (funcList == NULL || funcList->isSupportCustomInterval == NULL) {
+        ADAPTER_LOGW("get func isSupportCustomInterval failed");
+        return false;
+    }
+
+    return funcList->isSupportCustomInterval(addr, customInterval);
+}

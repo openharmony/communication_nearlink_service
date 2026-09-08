@@ -84,6 +84,7 @@
       "*DLI_AddDeviceToAcceptFilterList*";
       "*DLI_GetAcbDataLen*";
       "*DLI_IsSupportConnBypassAdv*";
+      "*DLI_RegisterSnoopSensitiveOpcodes*";
   local:
     *;
 };

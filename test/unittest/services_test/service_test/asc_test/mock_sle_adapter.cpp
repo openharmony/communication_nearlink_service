@@ -123,8 +123,7 @@ bool SleAdapter::CancelPairing(const RawAddress &device)
     InterfaceCloudPairService::GetInstance().CancelCloudPairing(device);
     InterfaceCloudPairService::GetInstance().CancelCloudPairComplete(device,
         static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
-        static_cast<uint8_t>(PairingStateChangeReason::PAIRING_FAILURE),
-        true, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+        static_cast<uint8_t>(PairingStateChangeReason::PAIRING_FAILURE));
     return true;
 }
 

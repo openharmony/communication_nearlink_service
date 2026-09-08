@@ -47,7 +47,6 @@ public:
     void SetRole(std::string addr);
 
     void InitConnectedState();
-    bool IsAllMembersDisconnected();
     void SetConnectedState(std::string addr, bool isConnected);
 
     std::string GetPrimary();
@@ -80,8 +79,7 @@ public:
     bool CancelCloudPairing(const RawAddress &device) override;
     bool ChkCloudDeviceAndPermission(const RawAddress &device) override;
     bool CloudDeviceConnectionComplete(const RawAddress &device) override;
-    bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason, bool isCdsmAcbConnected,
-        int acbState) override;
+    bool CancelCloudPairComplete(const RawAddress &device, int preStatus, int reason) override;
     void SetKeyMissingPairState(const RawAddress &device) override;
     bool ConnectCloudDeviceAllProfile(const RawAddress &device) override;
 
@@ -118,6 +116,12 @@ private:
     void GetAllNotPairedCloudDeviceList(std::vector<std::string> &cloudDeviceAddrList);
     void UpdateCloudDev(NearlinkCloudPairDevice &dev, std::shared_ptr<DownCloudPairDevice> downDevice);
     void DelCloudDevFromMap(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos);
+    bool CheckMemberIsSameCdsmGroup(std::vector<std::string> &downMembers) const;
+    void FilterDownCloudDevice(std::vector<NearlinkCloudPairDevice> &cloudDeviceInfos,
+        std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos,
+        std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos);
+    void UpdateDetachCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &detachCloudDeviceInfos);
+    void UpdateCoupleCloudDeviceInfoList(std::vector<NearlinkCloudPairDevice> &coupleCloudDeviceInfos);
     void EnableVirtualAutoSwitch(const RawAddress &reportAddr);
     void ProcCreateCloudDeviceCdsmGroup(const RawAddress &reportAddr);
     void RemovePairedDeviceFromConf(const RawAddress &reportAddr);

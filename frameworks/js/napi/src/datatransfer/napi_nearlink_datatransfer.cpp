@@ -82,8 +82,6 @@ napi_value NapiNearlinkDataTransfer::CreatePort(napi_env env, napi_callback_info
     auto getCbRes = napi_get_cb_info(env, info, &argc, argv, &thisVar, NULL);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, getCbRes == napi_ok, NL_ERR_INVALID_PARAM);
 
-    napi_value res = nullptr;
-    napi_get_undefined((env), &res);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, argc == ARGS_SIZE_ONE, NL_ERR_INVALID_PARAM);
     std::string uuid{};
     NAPI_NL_ASSERT_RETURN_UNDEF(env, ParseString(env, uuid, argv[PARAM0]), NL_ERR_INVALID_PARAM);
@@ -93,8 +91,7 @@ napi_value NapiNearlinkDataTransfer::CreatePort(napi_env env, napi_callback_info
     NAPI_NL_ASSERT_RETURN_UNDEF(env, sleDataTransfer != nullptr, NL_ERR_INTERNAL_ERROR);
     NlErrCode err = sleDataTransfer->CreatePort(uuid, NapiNearlinkDataTransferCallback::GetInstance());
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    napi_get_boolean((env), true, &res);
-    return res;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkDataTransfer::DestroyPort(napi_env env, napi_callback_info info)
@@ -106,8 +103,6 @@ napi_value NapiNearlinkDataTransfer::DestroyPort(napi_env env, napi_callback_inf
     auto getCbRes = napi_get_cb_info(env, info, &argc, argv, &thisVar, NULL);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, getCbRes == napi_ok, NL_ERR_INVALID_PARAM);
 
-    napi_value res = nullptr;
-    napi_get_undefined((env), &res);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, argc == ARGS_SIZE_ONE, NL_ERR_INTERNAL_ERROR);
     std::string uuid{};
     NAPI_NL_ASSERT_RETURN_UNDEF(env, ParseString(env, uuid, argv[PARAM0]), NL_ERR_INVALID_PARAM);
@@ -117,8 +112,7 @@ napi_value NapiNearlinkDataTransfer::DestroyPort(napi_env env, napi_callback_inf
     NAPI_NL_ASSERT_RETURN_UNDEF(env, sleDataTransfer != nullptr, NL_ERR_INTERNAL_ERROR);
     NlErrCode err = sleDataTransfer->DestroyPort(uuid);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    napi_get_boolean((env), true, &res);
-    return res;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_status CheckDataTransferConnectionParamWith(napi_env env, napi_value object, ConnectionParams &params)
@@ -270,7 +264,7 @@ napi_value NapiNearlinkDataTransfer::GetConnectionState(napi_env env, napi_callb
     int32_t connState;
     NlErrCode err = sleDataTransfer->GetConnectionState(params, connState);
     NAPI_NL_ASSERT_RETURN_UNDEF(env, err == NL_NO_ERROR, err);
-    napi_create_int32(env, connState, &res);
+    napi_create_int32(env, NapiToJsConnState(connState), &res);
     return res;
 }
 

@@ -66,10 +66,6 @@ uint32_t DLI_SapiInit(DLI_SapiPacketReceived cb)
         code = halInitRet != 0 ? DLI_STACK_HAL_INIT_ERRNO : DLI_STACK_INIT_TIMEOUT_ERRNO;
         DLI_LOGE("semaphore g_sem timeout halInitRet %d, waitRet = %u", halInitRet, waitRet);
         SleReset();
-#if defined(PC_STANDARD) || defined(TABLET_STANDARD) || defined(PHONE_STANDARD)
-        DLI_LOGE("SleHalClose enter");
-        DLI_SapiDeinit();
-#endif
     }
     SDF_SemDeinit(g_sem);
     SDF_MemFree(g_sem);
@@ -106,6 +102,18 @@ int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase)
     SDF_MemFree(packet->data);
     SDF_MemFree(packet);
     return ret;
+}
+
+uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum)
+{
+    if ((cmdOpcodes == NULL && cmdNum > 0) || (evtOpcodes == NULL && evtNum > 0)) {
+        DLI_LOGE("invalid parameters, cmdNum:%u, evtNum:%u", cmdNum, evtNum);
+        return DLI_STACK_PARAMS_ERRNO;
+    }
+    SleDliSnoopRegisterSensitiveOpcodes(cmdOpcodes, cmdNum, evtOpcodes, evtNum);
+    DLI_LOGI("register snoop sensitive opcodes, cmdNum:%u, evtNum:%u", cmdNum, evtNum);
+    return DLI_SUCCESS;
 }
 
 #ifdef __cplusplus

@@ -32,15 +32,15 @@ struct NapiDataTransferParam {
 struct NapiSsapDescriptor {
     UUID serviceUuid_;
     UUID propertyUuid_;
-    int32_t descriptorType_;
+    int32_t descriptorType_ = 0;
     std::vector<uint8_t> descriptorValue_;
-    bool writeable_;
+    bool writeable_ = false;
 };
 
 struct NapiSsapEvent {
     UUID serviceUuid_;
     UUID uuid_;
-    uint16_t handle_;
+    uint16_t handle_ = 0;
 };
 
 struct NapiSsapMethod {
@@ -55,7 +55,7 @@ struct NapiSsapProperty {
     UUID propertyUuid_;
     std::vector<uint8_t> value_;
     std::vector<NapiSsapDescriptor> descriptors_;
-    uint32_t operation_;
+    uint32_t operation_ = 0;
 };
 
 struct NapiSsapService {

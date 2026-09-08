@@ -535,6 +535,7 @@ static void SSAPS_ReadMultiHandleItem(SSAP_Link_S *link, Ssap_PduReadReqItem_S *
     if (errorCode != SSAP_ERRCODE_SUCCESS) {
         SDF_SsapTrace(link->addr.addr, EXCEP_SSAP_READ_REQ_RECV, errorCode);
         operation->errCode = errorCode;
+        result->errorCode = operation->errCode;
         return;
     }
 

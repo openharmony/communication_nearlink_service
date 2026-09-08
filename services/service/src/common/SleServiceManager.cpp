@@ -45,7 +45,6 @@
 #include "SleHiviewUe.h"
 #include "ThreadUtil.h"
 #include "SleDliSnoop.h"
-#include "bundle_mgr_proxy.h"
 #include "parameters.h"
 #include "param_wrapper.h"
 #if (defined(DEVICE_MANAGER))
@@ -1125,6 +1124,7 @@ bool SleServiceManager::IsDisabling() const
 void SleServiceManager::OnChipResetNotify() const
 {
     HILOGW("chip is reset");
+    NL_CHECK_RETURN(pimpl->stateMachine_, "stateMachine is null");
     SleStateID targetState = pimpl->stateMachine_->GetNextTargetState();
     if (targetState != SleStateID::STATE_TURN_OFF) {
         NearlinkHelper::NearlinkCommonEventHelper::PublishChipResetEvent(static_cast<int>(targetState));

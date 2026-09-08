@@ -144,9 +144,9 @@ void ServiceManagerPluginLoader::HidDataStatisticsProc(const std::string &addres
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(HidDataStatisticsProc, address);
 }
 
-void ServiceManagerPluginLoader::IsNeedCustomParam(bool &isNeed)
+void ServiceManagerPluginLoader::IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval)
 {
-    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(IsNeedCustomParam, isNeed);
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(IsNeedCustomParam, isNeedCustomParam, appearance, interval);
 }
 
 void ServiceManagerPluginLoader::UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance)
@@ -213,6 +213,11 @@ void ServiceManagerPluginLoader::SetConnFrameType4Subrate(const RawAddress &devi
 void ServiceManagerPluginLoader::RejectSetSubrate(const RawAddress &device)
 {
     CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(RejectSetSubrate, device);
+}
+
+void ServiceManagerPluginLoader::ControlAntennaFix(bool enable, AntennaFixScene scene)
+{
+    CALL_FUNC_IF_SERVICE_MANAGER_PLUGIN_LIB_LOADED(ControlAntennaFix, enable, scene);
 }
 
 // chiputil模块函数 end

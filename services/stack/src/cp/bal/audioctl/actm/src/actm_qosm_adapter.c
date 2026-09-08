@@ -43,6 +43,7 @@ static void ClearLinkInfo(ActmQosmLink_S *link)
     link->used = false;
     link->direction = NLSTK_ACTM_DIRECTION_UNCONFIG;
     link->bitrate = 0;
+    link->needReportDataPath = false;
 }
 
 ActmQosmGroup_S *ActmFindQosmGroupById(uint16_t icgId)
@@ -537,14 +538,21 @@ static void SetDownDataPath(ActmRemoteDevice_S *device, ActmQosmLink_S *link)
     ActmQosmGroup_S *group = ActmFindQosmGroupById(device->groupId);
     NLSTK_CHECK_RETURN_VOID(group != NULL, "[ACTM] not find group");
     if (!group->isImg) {
+        // 单播使用同步链路handle设置下行datapath
         AddDataPath(device, link->connHandle, NLSTK_ACTM_DIRECTION_DOWN);
         return;
     }
     if ((group->direction & NLSTK_ACTM_DIRECTION_DOWN) != 0) {
+        // 组播下行datapath已设置，直接回调成功
         link->direction |= NLSTK_ACTM_DIRECTION_DOWN;
+        if (link->needReportDataPath) {
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
+            link->needReportDataPath = false;
+        }
         return;
     }
     group->direction |= NLSTK_ACTM_DIRECTION_DOWN;
+    // 组播使用组handle设置下行datapath
     AddDataPath(device, group->gHandle, NLSTK_ACTM_DIRECTION_DOWN);
 }
 
@@ -590,6 +598,7 @@ void ActmSetDataPath(ActmRemoteDevice_S *device, uint8_t direction)
         AddDataPath(device, link->connHandle, NLSTK_ACTM_DIRECTION_UP);
     }
     if ((addDirection & NLSTK_ACTM_DIRECTION_DOWN) != 0) {
+        link->needReportDataPath = true;
         SetDownDataPath(device, link);
     }
 }
@@ -866,6 +875,10 @@ static void IcgDataPathChanged(const QOSM_DataPathParamCb *param)
         }
         if (param->state == QOSM_DATAPATH_ADDED) {
             link->direction |= direction;
+            if (link->needReportDataPath) {
+                ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
+                link->needReportDataPath = false;
+            }
         } else if (param->state == QOSM_DATAPATH_DELETED) {
             link->direction &= ~direction;
         }
@@ -883,12 +896,24 @@ static void QosmDataPathChangedCbk(const QOSM_DataPathParamCb *param)
     }
     uint8_t direction = GetDirectionByQosm(param->direction);
     NLSTK_CHECK_RETURN_VOID(direction != 0, "[ACTM] param direction error");
+    if (param->result != QOSM_SUCCESS) {
+        NLSTK_LOG_ERROR("[ACTM] add datapath failed, direction: %d, handle: 0x%x", direction, param->connHandle);
+        if (param->state == QOSM_DATAPATH_ADDED && direction == NLSTK_ACTM_DIRECTION_DOWN) {
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_QOSM_ERROR);
+            link->needReportDataPath = false;
+        }
+        return;
+    }
     if (param->state == QOSM_DATAPATH_DELETED) {
         NLSTK_CHECK_RETURN_VOID((link->direction & direction) != 0, "[ACTM] no direction: %d", direction);
         link->direction &= ~direction;
     } else if (param->state == QOSM_DATAPATH_ADDED) {
         NLSTK_CHECK_RETURN_VOID((link->direction & direction) == 0, "[ACTM] exist direction: %d", direction);
         link->direction |= direction;
+        if (direction == NLSTK_ACTM_DIRECTION_DOWN) {
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
+            link->needReportDataPath = false;
+        }
     }
     NLSTK_LOG_INFO("[ACTM] link datapath changed, direction: %d, handle: 0x%x", link->direction, link->connHandle);
 }

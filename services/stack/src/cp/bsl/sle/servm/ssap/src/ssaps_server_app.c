@@ -468,7 +468,7 @@ static void SsapServerAppWriteDescriptorCallback(SSAP_BufferedOperation_S *opera
     }
     if (operation->needAuth) {
         // 需要授权
-        if (serverApp->cb.onWritePropertyAuthorizeRequest != NULL) {
+        if (serverApp->cb.onWriteDescriptorAuthorizeRequest != NULL) {
             serverApp->cb.onWriteDescriptorAuthorizeRequest(serverApp->appId, operation->requestId, writeInfo);
         }
     } else {
@@ -575,8 +575,13 @@ void SsapServerAppCallMethodCallback(SSAP_BufferedOperation_S *methodCall)
     method.param.data = SDF_MemZalloc(method.param.len);
     NLSTK_CHECK_RETURN_VOID(method.param.data != NULL, "memery alloc fail, no resouce");
     (void)memcpy_s(method.param.data, method.param.len, methodCall->value.value, method.param.len);
-    serverApp->cb.onCallMethod(serverApp->appId, methodCall->requestId, &method, methodCall->needRsp,
-                               methodCall->needAuth);
+    NLSTK_SsapServerCallMethod hook = serverApp->cb.onCallMethod;
+    if (hook == NULL) {
+        SDF_MemFree(method.param.data);
+        NLSTK_LOG_ERROR("[SSAPS_APP] onCallMethod callback func is null");
+        return;
+    }
+    hook(serverApp->appId, methodCall->requestId, &method, methodCall->needRsp, methodCall->needAuth);
     SDF_MemFree(method.param.data);
     return;
 }

@@ -108,8 +108,13 @@ public:
     void CbkReleaseStream(const RawAddress& device, uint8_t result, uint16_t connHandle);
     void CbkDisconnect(const RawAddress& device, uint8_t result);
     void ClearWhenDisconnect(const RawAddress& device);
+    void CbkAddDataPath(const RawAddress& device, uint8_t result);
 
-    bool CheckStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetStartStreamCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsMeetAddDataPathCondition(const RawAddress& device, uint8_t result, AudioStreamType streamType);
+    bool IsSupportStartPlayMerged(const RawAddress& device);
+    bool IsStartStreamStateCorrected(ASCState state);
+    bool IsVendorStartStreamStateCorrected(ASCState state);
     bool IsStreamExists(const RawAddress& device, AudioStreamType streamType);
     const NearlinkRawAddress GetActiveSinkDevice() const override;
     void SleAudioDeviceActionChanged(const NearlinkRawAddress &device, int action) override;
@@ -393,6 +398,7 @@ private:
     void OpenVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void CloseVoiceAssistant(const RawAddress &device, AudioStreamType streamType);
     void StopPlayingExcute(const RawAddress& device, AudioStreamType streamType);
+    void StopPlayingExcuteExt(const RawAddress& device, AudioStreamType streamType);
     void JudgeQosWhenStopPlaying(const RawAddress& device, AudioStreamType streamType, bool& isDelayStop,
         bool& isStopStream, bool& isNeedReconfig);
 
@@ -480,6 +486,11 @@ private:
     inline bool IsStarted(ASCState state) const
     {
         return (state == NL_SLE_ASC_STARTED);
+    }
+
+    inline bool IsAddDataPathState(ASCState state) const
+    {
+        return (state == NL_SLE_ASC_ADD_DATA_PATH);
     }
 
     bool IsInStopProcess(ASCState state) const;
@@ -661,8 +672,11 @@ private:
     bool IsASCNeedStartStreamChangeSubrate(const RawAddress &device);
     ASCSubRateState GetASCSubRateStatus(const RawAddress &device);
     void SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bool val);
-    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state);
+    void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate);
     void SetSubratePreConfigStream(const RawAddress &device);
+    void SetOnlySubrate(const RawAddress &device, uint16_t subrate);
+    bool IsVendorAudioDevice(const RawAddress &device);
+    void ContrSubrateOneNumInMulConn(const RawAddress &device, uint16_t subrate);
     void ClearASCSubrateInfo(const RawAddress &device);
     void SerialManagerSubrate(bool &needConfigStream, const RawAddress &device, uint16_t subrate);
     bool IsAllowSubrateChangeReq(const RawAddress &device, const SleAcbSubrateParam &eventParam);
@@ -670,6 +684,7 @@ private:
     void RejectSetSubrate(const RawAddress &device);
     void UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo);
     std::string ASCToDSPInfoToString(const ASCToDSPInfo& ascToDspInfo);
+    uint16_t GetASCToDspEncodeBps(const RawAddress& device, uint16_t bps);
 
     // 移动全景音
     void ProcessColAudioSwitchChangeEvent(const ASCMessage &event);

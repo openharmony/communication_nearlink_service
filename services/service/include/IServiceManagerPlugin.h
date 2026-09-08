@@ -94,7 +94,14 @@ enum class RegisterCallbackModule {
 enum class BundleNameType {
     BUNDLE_NAME_SETTINGS = 0,
     BUNDLE_NAME_AIBASE = 1,
+    BUNDLE_NAME_WECHAT = 2,
     BUNDLE_NAME_TYPE_MAX,
+};
+
+enum class AntennaFixScene {
+    ANTENNA_FIX_SCENE_FRAME4_ADV = 0,
+    ANTENNA_FIX_SCENE_FRAME4_SCAN = 1,
+    ANTENNA_FIX_SCENE_TYPE_MAX,
 };
 
 // 函数调用枚举结束
@@ -134,7 +141,7 @@ public:
     virtual void SleTvMgrProc(const std::string &address) = 0;
     virtual void HidDataStatisticsProc(const std::string &address) = 0;
     virtual void UpdateSleFreqBandAbility(const std::string &address) = 0;
-    virtual void IsNeedCustomParam(bool &isNeed) = 0;
+    virtual void IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval) = 0;
     virtual void UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance) = 0;
     virtual void CollaborationProc(CollaborationProcType type) = 0;
     virtual void SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args, int32_t &svcResult,
@@ -151,6 +158,7 @@ public:
     virtual void SetAcbSubrate(bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam) = 0;
     virtual void SetConnFrameType4Subrate(const RawAddress &device) = 0;
     virtual void RejectSetSubrate(const RawAddress &device) = 0;
+    virtual void ControlAntennaFix(bool enable, AntennaFixScene scene) = 0;
     // chiputil模块 end
 
     virtual std::string GetBundleName(BundleNameType type) = 0;

@@ -2675,6 +2675,7 @@ HWTEST_F(SleAdapterSecurityTest, SaveSlePairKey001, TestSize.Level1)
     EXPECT_EQ(false, sleSecurity_.SaveSlePairKey(device, param));
     HILOGI("SleAdapterSecurityTest: SaveSlePairKey001 end");
 }
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

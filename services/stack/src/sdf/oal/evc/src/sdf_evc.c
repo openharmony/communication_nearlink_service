@@ -304,6 +304,7 @@ uint32_t SDF_EvcInstanceCreate(int *handle, const char *name)
     return SDF_OK;
 Fail1:
     SDF_VectorRemoveLast(g_evcDescVector);
+    goto Fail3;
 Fail2:
     DectoryEvcDesc(evcDesc);
 Fail3:

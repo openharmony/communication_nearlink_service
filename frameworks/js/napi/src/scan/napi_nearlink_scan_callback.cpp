@@ -36,9 +36,13 @@ void ConvertScanResult(const std::vector<SleScanResult> &results, const napi_env
         napi_set_named_property(env, result, "rssi", value);
         uint8_t *native = nullptr;
         napi_value buffer = nullptr;
-        napi_create_arraybuffer(env, sleScanResult.GetPayload().size(), reinterpret_cast<void **>(&native), &buffer);
-        if (memcpy_s(native, sleScanResult.GetPayload().size(), sleScanResult.GetPayload().data(),
-            sleScanResult.GetPayload().size()) != EOK) {
+        size_t payloadSize = sleScanResult.GetPayload().size();
+        if (napi_create_arraybuffer(env, payloadSize, reinterpret_cast<void **>(&native), &buffer) != napi_ok ||
+            native == nullptr) {
+            HILOGE("ConvertScanResult napi_create_arraybuffer fail");
+            return;
+        }
+        if (payloadSize > 0 && memcpy_s(native, payloadSize, sleScanResult.GetPayload().data(), payloadSize) != EOK) {
             HILOGE("ConvertScanResult memcpy_s fail");
             return;
         }

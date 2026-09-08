@@ -218,9 +218,9 @@ namespace OHOS {
         CM_SetSendSignalingDataCbk(NULL);
         CM_SendBuffToDtap(0, NULL);
         CM_SetSendSignalingDataCbk(CM_SendSignalingDataCbkStub);
-        CM_SignalingGetManagerHandler(OHOS::TEST_CAP_REQ);
-        CM_SignalingGetManagerHandler(OHOS::TEST_CAP_RSP);
-        CM_SignalingGetManagerHandler(code);
+        CM_SignalingGet(OHOS::TEST_CAP_REQ);
+        CM_SignalingGet(OHOS::TEST_CAP_RSP);
+        CM_SignalingGet(code);
     }
 
     void FuzzCMSignalingTransChanCbksRegister()

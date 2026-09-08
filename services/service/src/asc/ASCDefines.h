@@ -124,6 +124,8 @@ constexpr uint8_t ASC_STACK_CBK_DISCONNECT        = 6;
 constexpr uint8_t ASC_STACK_CBK_BITRATE_CHANGED   = 7;
 // 断连事件
 constexpr uint8_t ASC_STACK_CBK_CREATE_STREAM     = 8;
+// add data path事件
+constexpr uint8_t ASC_STACK_CBK_ADD_DATA_PATH     = 9;
 
 // 合作集设备最大数目
 constexpr uint8_t COSET_MAX_NUM         = 2;
@@ -165,6 +167,9 @@ constexpr uint8_t ASC_REJECT_REASON_ONCE         = 0xC;
 
 // 无效lable id
 constexpr uint8_t ASC_INVALID_LABLE_ID          = 255;
+
+// 允许设置最大的subrate1数量
+constexpr uint8_t ASC_SUBRATE1_MAX_NUM          = 1;
 
 // 耳机侧对该值有长度校验(为12), 不允许扩展新增类型
 constexpr AudioStreamType ASC_AUDIO_STREAM_TYPE_LIST[] = {
@@ -209,7 +214,8 @@ enum ASCState {
     NL_SLE_ASC_CREATING                 = 23,
     NL_SLE_ASC_CONFIG_SUBRATE_CHANGED   = 24,
     NL_SLE_ASC_RECONFIG_SUBRATE_CHANGED = 25,
-    NL_SLE_ASC_BUTT                     = 26,
+    NL_SLE_ASC_ADD_DATA_PATH            = 26,
+    NL_SLE_ASC_BUTT                     = 27,
 };
 
 // ASCService内部错误码(1~100:下层协议栈 100以上:service)
@@ -396,6 +402,7 @@ typedef struct {
 typedef struct {
     ASCSubRateState      subrateState;               // subrate当前设置值的状态
     bool                 isStartStrChangeSubrate;    // 起流设置subrate当前状态NL_SLE_ASC_SETTING,需要待上一次完成后执行
+    uint16_t             subrateValue;
 } ASCSubRateInfo;
 // ASC模块通知DSP编解码信息
 typedef struct {

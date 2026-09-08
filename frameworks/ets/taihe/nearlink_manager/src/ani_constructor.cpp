@@ -26,7 +26,9 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
         std::cerr << "Error from ohos::nearlink::manager::ANIRegister" << std::endl;
         return ANI_ERROR;
     }
-    *result = ANI_VERSION_1;
+    if (result != nullptr) {
+        *result = ANI_VERSION_1;
+    }
     OHOS::Nearlink::AniNearlinkManager::CallbackInit();
     return ANI_OK;
 }

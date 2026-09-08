@@ -68,7 +68,7 @@ SsapEvent &SsapEvent::operator=(const SsapEvent &src)
         handle_ = src.handle_;
         eventType_ = src.eventType_;
         uuid_ = src.uuid_;
-        length_ = src.length_,
+        length_ = src.length_;
         serviceUuid_ = src.serviceUuid_;
 
         if (nullptr != src.parameter_ && 0 != length_) {

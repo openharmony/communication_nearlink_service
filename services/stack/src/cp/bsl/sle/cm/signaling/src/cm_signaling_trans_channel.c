@@ -155,19 +155,20 @@ static uint32_t CM_SignalingPreferredSlqiListPack(CM_SignalingPreferredSlqiList_
 static uint32_t CM_SignalingExtensionPack(CM_SignalingTransChanEstablishExtension_S *extension, uint8_t *data,
                                           uint8_t *offset)
 {
-    // 当前仅支持portConfig
-    CM_CHECK_RETURN_RET(extension->portConfig != NULL, CM_NULL_POINTER, "portConfig is null");
+    // 当前仅支持portConfig（可选字段）
+    if (extension->portConfig != NULL) {
+        CM_TransChanEstablishReqExt_S *ext = (CM_TransChanEstablishReqExt_S *)data;
+        ext->pc = 1;  // enable port config
+        ext->lc = 0;
+        ext->mc = 0;
 
-    CM_TransChanEstablishReqExt_S *ext = (CM_TransChanEstablishReqExt_S *)data;
-    ext->pc = 1;  // enable port config
-    ext->lc = 0;
-    ext->mc = 0;
+        CM_PortConfig_S *config = (CM_PortConfig_S *)(data + sizeof(CM_TransChanEstablishReqExt_S));
+        ENCODE2BYTE_LITTLE(&config->srcPort, extension->portConfig->srcPort);
+        ENCODE2BYTE_LITTLE(&config->dstPort, extension->portConfig->dstPort);
+        ENCODE2BYTE_LITTLE(&config->aid, extension->portConfig->aid);
+        *offset = (uint8_t)(sizeof(CM_TransChanEstablishReqExt_S) + sizeof(CM_PortConfig_S));
+    }
 
-    CM_PortConfig_S *config = (CM_PortConfig_S *)(data + sizeof(CM_TransChanEstablishReqExt_S));
-    ENCODE2BYTE_LITTLE(&config->srcPort, extension->portConfig->srcPort);
-    ENCODE2BYTE_LITTLE(&config->dstPort, extension->portConfig->dstPort);
-    ENCODE2BYTE_LITTLE(&config->aid, extension->portConfig->aid);
-    *offset = (uint8_t)(sizeof(CM_TransChanEstablishReqExt_S) + sizeof(CM_PortConfig_S));
     return CM_SUCCESS;
 }
 
@@ -232,7 +233,10 @@ static uint8_t *CM_SignalingTransChanEstablishReqPack(CM_SignalingTransChanEstab
         SDF_MemFree(data);
         return NULL;
     }
-    pkt->optionOffset = totalOff;
+    // optionOffset为0表示无扩展字段；仅在存在portConfig时写入偏移量，否则保持0
+    if (req->extension.portConfig != NULL) {
+        pkt->optionOffset = totalOff;
+    }
     *reqLen = dataLen;
     return data;
 }
@@ -250,7 +254,13 @@ uint32_t CM_SignalingTransChanEstablishReqSend(uint16_t lcid, CM_SignalingTransC
         return CM_MEM_ERR;
     }
 
-    uint8_t id = CM_GetIdentifier();
+    uint8_t id;
+    if (!CM_GetIdentifier(&id)) {
+        CM_LOGE("get identifier failed");
+        SDF_MemFree(reqData);
+        SDF_MemFree(args);
+        return CM_FAIL;
+    }
     uint32_t ret = CM_SignalingCacheInsert(lcid, id, TC_CONNECT_REQ, args, CM_SignalingTransChanEstablishReqTimeout);
     if (ret != CM_SUCCESS) {
         SDF_MemFree(reqData);
@@ -262,14 +272,14 @@ uint32_t CM_SignalingTransChanEstablishReqSend(uint16_t lcid, CM_SignalingTransC
     SDF_MemFree(reqData);
     if (buff == NULL) {
         CM_LOGE("create buff failed");
-        CM_SignalingCacheRemove(id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
+        (void)CM_SignalingCacheRemove(lcid, id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
         return CM_MEM_ERR;
     }
 
     ret = CM_SendBuffToDtap(lcid, buff);
     if (ret != CM_SUCCESS) {
         CM_LOGE("send buff to dtap failed");
-        CM_SignalingCacheRemove(id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
+        (void)CM_SignalingCacheRemove(lcid, id, TC_CONNECT_REQ);  // 移除map中的元素也会释放args
         SDF_BuffFree(buff);
         return ret;
     }
@@ -329,7 +339,12 @@ uint32_t CM_SignalingTransChanReleaseReqSend(uint16_t lcid, CM_SignalingTransCha
     CM_SignalingTransChanTimoutArgs_S *args = CM_SignalingTransChanTimoutArgsNew(lcid, req->srcTcid, req->dstTcid);
     CM_CHECK_RETURN_RET(args != NULL, CM_MEM_ERR, "new timeout args failed");
 
-    uint8_t id = CM_GetIdentifier();
+    uint8_t id;
+    if (!CM_GetIdentifier(&id)) {
+        CM_LOGE("get identifier failed");
+        SDF_MemFree(args);
+        return CM_FAIL;
+    }
     uint32_t ret = CM_SignalingCacheInsert(lcid, id, TC_DISCONNECT_REQ, args, CM_SignalingTransChanReleaseReqTimeout);
     if (ret != CM_SUCCESS) {
         SDF_MemFree(args);
@@ -340,13 +355,13 @@ uint32_t CM_SignalingTransChanReleaseReqSend(uint16_t lcid, CM_SignalingTransCha
         CM_CreateSignalingBuff(TC_DISCONNECT_REQ, id, (uint8_t *)&reqPkt, sizeof(CM_TransChanReleaseReqPkt_S));
     if (buff == NULL) {
         CM_LOGE("create buff failed");
-        CM_SignalingCacheRemove(id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
+        (void)CM_SignalingCacheRemove(lcid, id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
         return CM_MEM_ERR;
     }
 
     ret = CM_SendBuffToDtap(lcid, buff);
     if (ret != CM_SUCCESS) {
-        CM_SignalingCacheRemove(id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
+        (void)CM_SignalingCacheRemove(lcid, id, TC_DISCONNECT_REQ);  // 移除map中的元素也会释放args
         SDF_BuffFree(buff);
         return ret;
     }

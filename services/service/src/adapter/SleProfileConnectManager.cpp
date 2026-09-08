@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -772,7 +772,7 @@ void SleProfileConnectManager::SleConnectAllProfile(const RawAddress &device) co
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
         LOG_INFO("add new SleProfileConnectInst, device:%{public}s",
             GetEncryptAddr(device.GetAddress()).c_str());
-        std::shared_ptr<SleProfileConnectInst> profConnInst = std::make_shared<SleProfileConnectInst>(device);
+        profConnInst = std::make_shared<SleProfileConnectInst>(device);
         int appId = ssapClientService->RegisterApplication(profConnInst->GetSsapClientCallback(),
             device, SleTransport::ADAPTER_SLE, 0);
         LOG_INFO("appId_ %{public}d", appId);
@@ -821,7 +821,7 @@ void SleProfileConnectManager::NotifyConnectAcb(const RawAddress &device)
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
         InterfaceProfileSsapClient *ssapClientService = GetSsapClientService();
         NL_CHECK_RETURN(ssapClientService, "ssapClientService is null.");
-        std::shared_ptr<SleProfileConnectInst> profConnInst = std::make_shared<SleProfileConnectInst>(device);
+        profConnInst = std::make_shared<SleProfileConnectInst>(device);
         int appId = ssapClientService->RegisterApplication(profConnInst->GetSsapClientCallback(),
             device, SleTransport::ADAPTER_SLE, 0);
         LOG_INFO("appId_ %{public}d", appId);
@@ -900,6 +900,13 @@ void SleProfileConnectManager::SsapConnectionStateChangedTask(const RawAddress &
         DiscoverStart(device);
     } else if (newState == static_cast<int>(SleConnectState::DISCONNECTED) &&
         profConnInst->GetConnectedProfileNumInner() == 0) {
+        if(profConnInst->GetState() != SLE_ADAPTER_PROF_CONN_STATE_WAIT_DISCONNECTED &&
+            funcs_.onAllProfileDisconnected) {
+            auto onAllProfileDisconnected = funcs_.onAllProfileDisconnected;
+            DoInAdapterThread([onAllProfileDisconnected, device]() -> void {
+                onAllProfileDisconnected(device);
+            });
+        }
         ClearProfileConnectInfo(device);
     }
 }

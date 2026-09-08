@@ -42,8 +42,12 @@ bool NearlinkUuidParcel::Marshalling(Parcel &parcel) const
 
 NearlinkUuidParcel *NearlinkUuidParcel::Unmarshalling(Parcel &parcel)
 {
-    uint64_t mostSigBits = parcel.ReadUint64();
-    uint64_t leastSigBits = parcel.ReadUint64();
+    uint64_t mostSigBits = 0;
+    uint64_t leastSigBits = 0;
+    if (!parcel.ReadUint64(mostSigBits) || !parcel.ReadUint64(leastSigBits)) {
+        HILOGE("read uuid from parcel error");
+        return nullptr;
+    }
     NearlinkUuidParcel *uuid = new (std::nothrow)
         NearlinkUuidParcel(Uuid::ConvertFromMostAndLeastBit(mostSigBits, leastSigBits));
     if (uuid == nullptr) {

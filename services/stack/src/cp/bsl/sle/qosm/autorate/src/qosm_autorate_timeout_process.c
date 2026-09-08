@@ -186,6 +186,9 @@ static void QOSM_LevelUpingContinueProcess(QOSM_ICGInfo *icgInfo)
         }
         QOSM_NotifyReportedBitrateChangedCb(icgInfo, icgInfo->reportedDirection,
             icgInfo->reportedLabelId, icgInfo->reportedQosParam);
+        // 升码率成功，更新当前码率
+        QOSM_LOGI("notify bitrate upgraded done");
+        icgInfo->qosParam = icgInfo->reportedQosParam;
     } else {
         // 通话码率回滚触发的升码率：不需要通知双端dsp切码率，通知asc清理缓存，并重置reportedQosParam
         if (QOSM_GetICBTypeByIndex(icgInfo->qosIndex) == CM_IMB && icgInfo->isSupportFrame4) {
@@ -196,9 +199,6 @@ static void QOSM_LevelUpingContinueProcess(QOSM_ICGInfo *icgInfo)
         }
     }
 
-    // 升码率成功，更新当前码率
-    QOSM_LOGI("notify bitrate upgraded done");
-    icgInfo->qosParam = icgInfo->reportedQosParam;
     // 媒体：通知dsp升码率后重置reportedQosParam；通话：感知到对端dsp升码率成功后再重置reportedQosParam
     if (QOSM_GetICBTypeByIndex(icgInfo->qosIndex) != CM_IMB) {
         QOSM_LOGI("reset report param");

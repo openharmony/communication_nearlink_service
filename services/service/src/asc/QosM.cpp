@@ -24,13 +24,13 @@ QosDefineStru g_qosDefineTable[NL_SLE_QOS_BUTT] = {
     {NL_SLE_QOS_NONE,    0,                false,      false,      false},
     {NL_SLE_QOS_1,       1,                false,      false,      true},
     {NL_SLE_QOS_2,       3,                false,      false,      true},
-    {NL_SLE_QOS_3,       5,                false,      true,       true},
+    {NL_SLE_QOS_3,       6,                false,      true,       true},
     {NL_SLE_QOS_4,       2,                false,      false,      true},
-    {NL_SLE_QOS_5,       4,                true,       true,       false},
-    {NL_SLE_QOS_6,       5,                true,       true,       true},
+    {NL_SLE_QOS_5,       5,                true,       true,       false},
+    {NL_SLE_QOS_6,       6,                true,       true,       true},
     {NL_SLE_QOS_7,       1,                false,      false,      true},
     {NL_SLE_QOS_8,       2,                false,      false,      true},
-    {NL_SLE_QOS_9,       3,                false,      true,       true},
+    {NL_SLE_QOS_9,       4,                true,       true,       true},
     {NL_SLE_QOS_10,      3,                false,      false,      true},
 };
 
@@ -294,6 +294,7 @@ bool QosM::JudgeQosPriority(const RawAddress &device, DevQosmStru& qosm, Qos nos
     if ((qosm.cos == NL_SLE_QOS_4 && nos == NL_SLE_QOS_8) || (qosm.cos == NL_SLE_QOS_8 && nos == NL_SLE_QOS_4)) {
         HILOGI("JudgeQosPriority %{public}s COS %{public}d equals NOS %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), qosm.cos, nos);
+        qosm.cos = nos;
         return true;
     }
     return false;

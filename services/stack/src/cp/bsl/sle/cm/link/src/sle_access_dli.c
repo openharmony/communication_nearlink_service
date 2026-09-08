@@ -33,10 +33,10 @@
 #include "sdf_mem.h"
 #include "sle_connect_param.h"
 
+const uint16_t CM_CONN_TEMP_INTERVAL = 0x18;
 
 static void SleDliReadAcceptFilterListSizeCallback(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "cmd res or event param is null");
 
@@ -350,7 +350,6 @@ static void SleAccessLinkRemoteParamUpdateReq(uint32_t versionAndLocalIndex, DLI
 
 static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    const uint16_t CM_CONN_TEMP_INTERVAL = 0x18;
     // 收到此事件需要回复0x1808命令，调用方发送
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "cmd res or event param is null");
@@ -381,6 +380,12 @@ static void SleAccessConnectUpdateRequestCbk(void *context, uint16_t status, DLI
     if (SleAccessHidCoexModeInterval(&coexInterval, &link->rmtAddr, replyParam.connIntervalMin)) {
         replyParam.connIntervalMin = coexInterval;
         replyParam.connIntervalMax = coexInterval;
+    }
+    uint16_t customInterval = evt->connIntervalMax;
+    if (COMMON_IsSupportCustomInterval(&link->rmtAddr, &customInterval)) {
+        replyParam.connIntervalMin = customInterval;
+        replyParam.connIntervalMax = customInterval;
+        CM_LOGI("updated connIntervalMin and connIntervalMax to 0x%04x", customInterval);
     }
     replyParam.txRxInterval  = evt->txRxInterval;
     replyParam.eventInterval = evt->eventInterval;
@@ -501,7 +506,6 @@ static void SleAccessSetRxDataFilterCbk(void *context, uint16_t status, DLI_Exec
 
 static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -551,7 +555,6 @@ static void SleAccessDataLenChangeCbk(void *context, uint16_t statuss, DLI_Execu
 
 static void SleAccessSetDataLenCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
@@ -730,7 +733,6 @@ static void SleAccessEnableConnHighPowerCbk(void *context, uint16_t dliStatus, D
 
 static void SleAccessSetPeerDevTypeCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
-    (void)context;
     CM_LOGI("status:%hu", status);
     CM_CHECK_RETURN((context != NULL), "context is null");
 

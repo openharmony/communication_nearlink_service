@@ -265,11 +265,13 @@ napi_value NapiNearlinkRemoteDevice::RemoteDeviceConstructor(napi_env env, napi_
     std::string deviceId;
     if (!ParseString(env, deviceId, argv[PARAM0])) {
         HILOGE("RemoteDeviceConstructor ParseString failed, deviceId is invalid");
+        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_PARAM);
         return nullptr;
     }
     NapiNearlinkRemoteDevice *remoteDevice = new (std::nothrow) NapiNearlinkRemoteDevice(deviceId);
     if (remoteDevice == nullptr) {
         HILOGE("remoteDevice is nullptr");
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
         return nullptr;
     }
 
@@ -286,6 +288,7 @@ napi_value NapiNearlinkRemoteDevice::RemoteDeviceConstructor(napi_env env, napi_
         HILOGE("napi_wrap failed");
         delete remoteDevice;
         remoteDevice = nullptr;
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
         return nullptr;
     }
     HILOGI("Constructor remoteDevice success.");
@@ -376,13 +379,13 @@ napi_value NapiNearlinkRemoteDevice::GetPairingState(napi_env env, napi_callback
     std::shared_ptr<NearlinkRemoteDevice> device = remoteDevice->GetDevice();
     NAPI_NL_ASSERT_RETURN_FALSE(env, device != nullptr, NL_ERR_INTERNAL_ERROR);
 
-    int state;
+    int state = 0;
     NlErrCode err = device->GetPairState(state);
+    NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     int outstate = NapiToJsPairState(state);
     HILOGI("state: %{public}d", outstate);
-    NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     napi_value ret = nullptr;
-    napi_create_int32(env, state, &ret);
+    napi_create_int32(env, outstate, &ret);
     return ret;
 }
 
@@ -482,10 +485,7 @@ napi_value NapiNearlinkRemoteDevice::SetPairingConfirmation(napi_env env, napi_c
     NAPI_NL_ASSERT_RETURN_FALSE(env, ParseBool(env, cfm, argv[0]), NL_ERR_INVALID_PARAM);
     NlErrCode ret = device->SetPairingConfirmation(cfm);
     NAPI_NL_ASSERT_RETURN_FALSE(env, ret == NL_NO_ERROR, ret);
-
-    napi_value value = nullptr;
-    napi_create_int32(env, ret, &value);
-    return value;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkRemoteDevice::Connect(napi_env env, napi_callback_info info)
@@ -598,10 +598,7 @@ napi_value NapiNearlinkRemoteDevice::SetDeviceAlias(napi_env env, napi_callback_
     NlErrCode ret = device->SetDeviceAlias(deviceName);
     NAPI_NL_ASSERT_RETURN_FALSE(env, ret == NL_NO_ERROR, ret);
     HILOGI("ret: %{public}d", static_cast<int>(ret));
-
-    napi_value value = nullptr;
-    napi_create_int32(env, ret, &value);
-    return value;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkRemoteDevice::GetDeviceClass(napi_env env, napi_callback_info info)
@@ -616,10 +613,11 @@ napi_value NapiNearlinkRemoteDevice::GetDeviceClass(napi_env env, napi_callback_
     int deviceAppearance;
     NlErrCode err = device->GetDeviceAppearance(deviceAppearance);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
-    HILOGI("deviceAppearance: %{public}d", deviceAppearance);
+    int outAppearance = NapiToJsDeviceClass(deviceAppearance);
+    HILOGI("deviceAppearance: %{public}d", outAppearance);
 
     napi_value value = nullptr;
-    napi_create_int32(env, deviceAppearance, &value);
+    napi_create_int32(env, outAppearance, &value);
     return value;
 }
 
@@ -636,8 +634,10 @@ napi_value NapiNearlinkRemoteDevice::GetConnectionState(napi_env env, napi_callb
     NlErrCode err = NearlinkHost::GetInstance().GetProfileConnState(device->GetDeviceAddr(), connState);
     HILOGI("errCode: %{public}d", err);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
+    int outConnState = NapiToJsConnState(connState);
+    HILOGI("connState: %{public}d", outConnState);
     napi_value value = nullptr;
-    napi_create_int32(env, connState, &value);
+    napi_create_int32(env, outConnState, &value);
     return value;
 }
 
@@ -722,9 +722,7 @@ napi_value NapiNearlinkRemoteDevice::SetConnectionInterval(napi_env env, napi_ca
     NlErrCode err = device->UpdateConnectInterval(static_cast<ConnectionInterval>(intervalType));
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     NapiHaManager::GetInstance().ReportEvent("SetConnectionInterval", beginTime, NL_NO_ERROR);
-    napi_value value = nullptr;
-    napi_create_int32(env, err, &value);
-    return value;
+    return NapiGetUndefinedRet(env);
 }
 
 napi_value NapiNearlinkRemoteDevice::GetRssiValue(napi_env env, napi_callback_info info)

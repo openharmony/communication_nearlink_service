@@ -97,6 +97,7 @@ enum {
     QOSM_AUDIO_DFX_CODEC_STATUS_START,
     QOSM_AUDIO_DFX_CODEC_STATUS_TX_READY,
     QOSM_AUDIO_DFX_CODEC_STATUS_RX_FIRST_PKT,
+    QOSM_AUDIO_DFX_CODEC_STATUS_ALIGN_EXCEPT,
     QOSM_AUDIO_DFX_CODEC_STATUS_MAX,
 };
 
@@ -610,7 +611,7 @@ static void QOSM_AudioDfxParseCodecStartStatus(const uint8_t *buf, uint32_t len)
     }
 
     const char *str[QOSM_AUDIO_DFX_CODEC_STATUS_MAX] = {
-        "stopped", "started", "tx ready", "rx first pkt"
+        "stopped", "started", "tx ready", "rx first pkt", "align except"
     };
     QOSM_LOGI("dsp %s status %s(%hhu), sn: %u", codecType == QOSM_AUDIO_DFX_CODEC_ENCODER ? "encoder" : "decoder",
         str[status], status, sn);
@@ -695,6 +696,9 @@ static void QOSM_AudioDfxParseBitrateChangeDecision(const uint8_t *buf, uint32_t
     STREAM_TO_UINT16(qosIndex, p);
     STREAM_TO_UINT16(reportedDirection, p);
     STREAM_TO_UINT16(reportedQosLevel, p);
+    if (g_qosmAudioDfx.dspStarted == false) {
+        QOSM_AudioDfxNotifyDspStarted();
+    }
     QOSM_ExecuteBitrateChangeDecision(connHandle, qosIndex, reportedDirection, reportedQosLevel);
 }
 

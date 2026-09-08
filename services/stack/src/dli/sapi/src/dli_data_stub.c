@@ -120,6 +120,15 @@ void SleReset()
     return;
 }
 
+void SleDliSnoopRegisterSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
+    const uint16_t *evtOpcodes, uint32_t evtNum)
+{
+    (void)cmdOpcodes;
+    (void)cmdNum;
+    (void)evtOpcodes;
+    (void)evtNum;
+}
+
 void SleHalClose(void)
 {
     free(g_dliCb);

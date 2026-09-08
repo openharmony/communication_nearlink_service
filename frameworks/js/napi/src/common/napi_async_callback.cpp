@@ -42,8 +42,10 @@ void NapiAsyncCallback::CallFunction(int errCode, const std::shared_ptr<NapiNati
             napi_create_error(env_, eCode, message, &result);
             napi_reject_deferred(env_, deferred_, result);
         }
+        // settle 后置空 deferred，使重复调用退化为 no-op，防止 promise 双重 settle 导致 crash
+        deferred_ = nullptr;
     } else {
-        HILOGE("promise or deferred is nullptr");
+        HILOGE("promise or deferred is nullptr, maybe already settled");
         return;
     }
 }
@@ -109,7 +111,12 @@ void NapiCallback::CallFunction(const std::shared_ptr<NapiNativeObject> &object)
         napi_close_handle_scope(env_, scope);
         return;
     }
-    napi_get_reference_value(env_, callbackRef_, &callbackFunc);
+    napi_status status = napi_get_reference_value(env_, callbackRef_, &callbackFunc);
+    if (status != napi_ok || callbackFunc == nullptr) {
+        HILOGE("napi_get_reference_value failed");
+        napi_close_handle_scope(env_, scope);
+        return;
+    }
     napi_value callResult = nullptr;
     napi_value val = object->ToNapiValue(env_);
     napi_call_function(env_, nullptr, callbackFunc, ARGS_SIZE_ONE, &val, &callResult);
@@ -138,7 +145,12 @@ bool NapiCallback::Equal(napi_env env, napi_value &callback) const
         return false;
     }
     napi_value storedCallback = nullptr;
-    napi_get_reference_value(env_, callbackRef_, &storedCallback);
+    napi_status status = napi_get_reference_value(env_, callbackRef_, &storedCallback);
+    if (status != napi_ok || storedCallback == nullptr) {
+        HILOGE("napi_get_reference_value failed");
+        napi_close_handle_scope(env_, scope);
+        return false;
+    }
 
     bool isEqual = false;
     napi_strict_equals(env_, storedCallback, callback, &isEqual);
