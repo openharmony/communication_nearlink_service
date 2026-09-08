@@ -3892,7 +3892,7 @@ bool ASCService::IsStreamExists(const RawAddress& device, AudioStreamType stream
 
 void ASCService::ProcBuff(const RawAddress& device, ASCState state)
 {
-    HILOGI("[ASCService]enter %{public}s, state %{public}d ", GetEncryptAddr(device.GetAddress()).c_str(), state);
+    HILOGI("[ASCService]enter %{public}s, state %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), state);
     // 成对流去重
     MergeStartStopBuff(device);
 
@@ -3943,6 +3943,7 @@ void ASCService::MergeStartStopBuff(const RawAddress& device)
         int& remain = remainCountMap[stream];
         if (remain < 0) {
             stopBuff.push(stream);
+            
             remain++;
         }
     }
