@@ -46,7 +46,6 @@ public:
     NlErrCode HangUpCall();
     NlErrCode RejectCall();
     std::vector<Telephony::CallAttributeInfo> GetCurrentCallList();
-    bool IsInVoipCallKit();
 
 private:
     CcpSystemInterface() = default;

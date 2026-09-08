@@ -19,10 +19,10 @@
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
 #include "ThreadUtil.h"
+#include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileManager.h"
 #include "nearlink_dft_exception.h"
-#include "audio_system_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -182,13 +182,6 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     return NL_NO_ERROR;
 }
 
-bool CcpSystemInterface::IsInVoipCallKit()
-{
-    // 接口返回0-表示voip接入call kit生效, 1-表示未接入call kit
-    HILOGD("[CcpService]enter");
-    return !AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
-}
-
 // 只回调某一路的回调信息
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
@@ -198,7 +191,7 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
         CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
         if (info.callType == Telephony::CallType::TYPE_VOIP) {
-            if (systemInterface.IsInVoipCallKit()) {
+            if (SleAudioFrameworkAdapter::GetInstance().IsInVoipCallKit()) {
                 systemInterface.allowedVoipCallIdSet_.insert(info.callId);
             } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
                 systemInterface.allowedVoipCallIdSet_.end()) {

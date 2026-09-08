@@ -485,7 +485,7 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        NL_CHECK_RETURN(!CcpSystemInterface::GetInstance().IsInVoipCallKit(),
+        NL_CHECK_RETURN(!SleAudioFrameworkAdapter::GetInstance().IsInVoipCallKit(),
             "Call kit voip type, no need to create new call state");
         NL_CHECK_RETURN(!pimpl->isInVoipCallKit, "Now Is in VoIP Call Kit, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
