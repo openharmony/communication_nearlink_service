@@ -414,7 +414,7 @@ int NapiToJsDeviceClass(int appearance)
         DEVICE_CLASS_VALUES.end()) {
         return appearance;
     }
-    HILOGE("Device class is outside of expectations.");
+    HILOGD("Device class is outside of expectations.");
     return static_cast<int>(DeviceClass::DEVICE_INVALID_CLASS);
 }
 
@@ -456,7 +456,7 @@ std::string NapiToJsConnReasonMsg(int reason)
         case static_cast<int>(SleConnectReason::CONNECT_FAIL_SERVICE_DISCOVERY):
             return "Connection failed due to service discovery failure";
         case static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE):
-            return "Connection failed because no available service";
+            return "Connection failed due to no available service";
         case static_cast<int>(SleConnectReason::CONNECT_FAIL_CONNECTION_NUM_LIMITED):
             return "Connection failed due to the connection number limit";
         default:
