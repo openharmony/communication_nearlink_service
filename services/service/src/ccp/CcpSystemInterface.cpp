@@ -182,6 +182,13 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     return NL_NO_ERROR;
 }
 
+bool CcpSystemInterface::IsVirtualCall()
+{
+    // 接口返回0-表示voip接入call kit生效, 1-表示不生效
+    HILOGD("[CcpService]enter");
+    return AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall();
+}
+
 // 只回调某一路的回调信息
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
@@ -189,15 +196,13 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
     DoInCcpThread([info]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-
-        // 接口返回0-表示voip接入call kit生效, 1-表示不生效；非VOIP通话不拦截
         CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
-        if (!AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall()) {
+        if (!systemInterface.IsVirtualCall()) {
             systemInterface.allowedVoipCallIdSet_.insert(info.callId);
         } else if (info.callType == Telephony::CallType::TYPE_VOIP &&
             systemInterface.allowedVoipCallIdSet_.find(info.callId) == systemInterface.allowedVoipCallIdSet_.end()) {
             // 未接入call kit的voip通话，拦截不处理
-            HILOGI("[CcpService]not support call kit for voip type");
+            HILOGD("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
             return;
         }
         if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {

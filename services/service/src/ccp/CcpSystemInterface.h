@@ -46,6 +46,7 @@ public:
     NlErrCode HangUpCall();
     NlErrCode RejectCall();
     std::vector<Telephony::CallAttributeInfo> GetCurrentCallList();
+    bool IsVirtualCall();
 
 private:
     CcpSystemInterface() = default;

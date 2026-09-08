@@ -29,7 +29,6 @@
 #include "CcpSystemInterface.h"
 #include "nearlink_dft_ue.h"
 #include "ServiceManagerPluginLoader.h"
-#include "audio_system_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -487,7 +486,7 @@ void CcpService::HandleVoipStart(const RawAddress &device)
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
         // 接口返回0-表示voip接入call kit生效, 1-表示不生效
-        NL_CHECK_RETURN(AudioStandard::AudioSystemManager::GetInstance()->GetVirtualCall(),
+        NL_CHECK_RETURN(CcpSystemInterface::GetInstance().IsVirtualCall(),
             "Call kit voip type, no need to create new call state");
         NL_CHECK_RETURN(!pimpl->isInVoipCallKit, "Now Is in VoIP Call Kit, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
