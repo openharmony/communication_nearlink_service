@@ -71,7 +71,7 @@ private:
     bool IsExtSensitiveOpcode(uint16_t opcode, bool isCmd);
     void RegisterSensitiveOpcodesTask(const std::vector<uint16_t> &cmdOpcodes,
         const std::vector<uint16_t> &evtOpcodes); // 队列内执行体：扩展黑名单全量替换
-    bool IsSnoopAnonymizationEnabled();
+    bool IsSnoopCustomizationEnabled();
     void WatchRemoteLogChange();
     void UnWatchRemoteLogChange();
     static void OnRemoteLogChange(const char *key, const char *value, void *context);
@@ -92,8 +92,7 @@ private:
     std::string fileNameEnableTimeStr_ = ""; // 文件名中携带的星闪adapter enable时间
     std::string snoopLogfilePath_ = "";
     bool isModuleStarted_ = false;
-    std::atomic_bool isLogging_ = false; // snoop落盘总开关，跟随模块启停（捕获线程读/snoop线程写）
-    std::atomic_bool isAnonymized_ = true; // snoop数据匿名化开关
+    std::atomic_bool isLogging_ = false; // snoop落盘总开关（非商用随模块启停；商用仅定制开启时置位；捕获线程读/snoop线程写）
     std::atomic_bool isRemoteLogWatched_ = false; // 远程诊断开关监听是否已注册
     int logFileFd_ = -1; // -1表示INVALID_FD
     std::vector<SnoopFileInfo> files_;
