@@ -100,8 +100,8 @@ uint32_t CM_ICBMgrUnregisterCb(void);
 uint32_t CM_ICBMgrSetParam(DLI_ICGParam *param);
 
 /**
- * @brief  设置同步链路test参数
- * @param  [in]  < param > 同步链路test参数
+ * @brief  设置同步链路Autorate参数
+ * @param  [in]  < param > 同步链路Autorate参数
  * @return CM_SUCCESS: 成功, OTHER: 失败
  */
 uint32_t CM_ICBMgrSetAutorateParam(DLI_ICGAutorateParam *param, bool mcast, bool supportAutorate);

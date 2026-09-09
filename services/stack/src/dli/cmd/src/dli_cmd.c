@@ -1184,7 +1184,7 @@ uint32_t DLI_SetICGAutorateParam(DLI_ICGAutorateParam *param, DLI_ICGCbkParam *c
         cbkParam,
         sizeof(DLI_ICGCbkParam));
     SDF_MemFree(cmd);
-    DLI_LOGD("set icg test param ret = %u", ret);
+    DLI_LOGD("set icg autorate param ret = %u", ret);
     return ret;
 }
 

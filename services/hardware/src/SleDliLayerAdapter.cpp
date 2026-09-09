@@ -18,7 +18,6 @@
 #include <sys/types.h>
 #include <cstdlib>
 #include <v1_0/isle_hci_interface.h>
-#include <v1_1/isle_hci_interface.h>
 #include "log.h"
 #include "SleDliCallbacks.h"
 #include "SleDliLayerAdapter.h"
@@ -160,19 +159,4 @@ void SleHalClose(void)
         g_iSleDli->Close();
         g_iSleDli = nullptr;
     }
-}
-
-int GetDliVersion(void)
-{
-    if (g_iSleDli == nullptr) {
-        HILOGI("g_iSleDli == nullptr");
-        return DLI_VERSION_1_0;
-    }
-    auto iSleHci_1_1 = OHOS::HDI::Nearlink::Hci::V1_1::ISleHciInterface::CastFrom(g_iSleDli);
-    if (iSleHci_1_1 != nullptr) {
-        HILOGI("dliVersion is DLI_VERSION_1_1");
-        return DLI_VERSION_1_1;
-    }
-    HILOGI("dliVersion is DLI_VERSION_1_0");
-    return DLI_VERSION_1_0;
 }

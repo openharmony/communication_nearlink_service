@@ -19,10 +19,8 @@
 #include "dli_errno.h"
 #include "dli_cmd.h"
 #include "dli_def.h"
-#include "dli_reg_ext_func.h"
 #include "hadm_config_dli.h"
 #include "hadm_ext_func_wrapper.h"
-#include "dli_reg_ext_func.h"
 
 typedef struct {
     uint16_t lcid;

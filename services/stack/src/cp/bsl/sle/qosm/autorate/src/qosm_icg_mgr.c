@@ -303,9 +303,9 @@ static void QOSM_ConfigICG(CM_ICBConnection *connection)
         return;
     }
 
-    QOSM_LOGI("type: %u, id: %u, test param cbk cnt: %u, level cnt: %u",
+    QOSM_LOGI("type: %u, id: %u, autorate param cbk cnt: %u, level cnt: %u",
         icgInfo->icbType, icgInfo->icgId, icgInfo->autorateParamCbkCnt, icgInfo->levelCnt);
-    // set test param会回调多次，中途不会失败，收到最后一次回调才进入处理流程，若其中有一次失败则整体失败
+    // set autorate param会回调多次，中途不会失败，收到最后一次回调才进入处理流程，若其中有一次失败则整体失败
     if (icgInfo->isAutorate) {
         if (connection->errorCode != CM_ICB_SUCCESS) {
             icgInfo->setAutorateParamFailed = true;

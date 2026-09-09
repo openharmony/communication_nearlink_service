@@ -94,7 +94,7 @@ void FuzzQosmSetParam(const uint8_t *fuzzData, size_t size)
         param.lcid[i] = fdp.ConsumeIntegral<uint8_t>();
     }
     (void)QOSM_AutoRateSetParam(&param);
-    (void)QOSM_AutoRateSetTestParam(&param);
+    (void)QOSM_AutoRateSetAutorateParam(&param);
 }
 
 void FuzzQosmRemoveParam(const uint8_t *fuzzData, size_t size)

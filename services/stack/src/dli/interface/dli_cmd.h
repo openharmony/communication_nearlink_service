@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -343,8 +343,8 @@ uint32_t DLI_SetMeasureEnable(DLI_SetMeasureEnableParam *param);
 uint32_t DLI_SetICGParam(DLI_ICGParam *param, DLI_ICGCbkParam *cbkParam);
 
 /**
- * @brief  设置同步链路test参数
- * @param  [in]  < param > 同步链路test参数
+ * @brief  设置同步链路Autorate参数
+ * @param  [in]  < param > 同步链路Autorate参数
  * @param  [in]  < cbkParam > 回调参数
  * @return DLI_SUCCESS: 成功, OTHER: 失败
  */
@@ -425,6 +425,12 @@ uint32_t DLI_SetCmd(DLI_CmdParams *params);
  */
 uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
     const uint16_t *evtOpcodes, uint32_t evtNum);
+
+/**
+ * @brief  是否支持bypass自动回连特性
+ * @return true: 支持, false: 不支持
+ */
+bool DLI_IsSupportConnBypassAdv(void);
 
 uint8_t DLI_GetPhyCountByFrameType(uint8_t frameType);
 #ifdef __cplusplus
