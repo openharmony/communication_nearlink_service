@@ -19,7 +19,6 @@
 #include "ani_nearlink_utils.h"
 #include "ani_nearlink_error.h"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_cdsm_client.h"
@@ -30,7 +29,7 @@ namespace Nearlink {
 
 class CdsmClientImpl {
 public:
-    explicit CdsmClientImpl(std::string& deviceId)
+    explicit CdsmClientImpl(const std::string& deviceId)
     {
         HILOGI("enter");
         device_ = std::make_shared<NearlinkRemoteDevice>(deviceId, ADAPTER_SLE);

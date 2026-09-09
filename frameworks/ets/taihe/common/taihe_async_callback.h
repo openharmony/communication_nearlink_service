@@ -24,8 +24,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-class TaiheCallback;
-class TaihePromise;
 class TaiheNativeObject;
 
 struct TaiheAsyncCallback {
@@ -34,45 +32,9 @@ struct TaiheAsyncCallback {
     void CallFunction(int errCode, const std::shared_ptr<TaiheNativeObject> &object);
 
     ani_object GetPromiseRet(void);
-    ani_vm *vm_;
-    ani_resolver bindDeferred_;
-    ani_object promise_;
-    bool isAttach_ = false;
-};
-
-class TaiheCallback {
-public:
-    TaiheCallback(ani_vm *vm, ani_object callback);
-    ~TaiheCallback();
-
-    void CallFunction(int errCode, const std::shared_ptr<TaiheNativeObject> &object);
-
-private:
-    TaiheCallback(const TaiheCallback &) = delete;
-    TaiheCallback &operator=(const TaiheCallback &) = delete;
-    TaiheCallback(TaiheCallback &&) = delete;
-    TaiheCallback &operator=(TaiheCallback &&) noexcept = delete;
-
-    ani_vm *vm_;
-    ani_ref callbackRef_;
-    bool isAttach_ = false;
-};
-
-class TaihePromise {
-public:
-    explicit TaihePromise(ani_vm *vm);
-    ~TaihePromise();
-
-    void ResolveOrReject(int errCode, const std::shared_ptr<TaiheNativeObject> &object);
-    void Resolve(ani_env *env, ani_ref resolution);
-    void Reject(ani_env *env, ani_ref rejection);
-    ani_object GetPromise(void) const;
-
-private:
-    ani_vm *vm_;
-    ani_object promise_;
-    ani_resolver bindDeferred_;
-    bool isResolvedOrRejected_ = false;
+    ani_vm *vm_ = nullptr;
+    ani_resolver bindDeferred_ = nullptr;
+    ani_object promise_ = nullptr;
     bool isAttach_ = false;
 };
 

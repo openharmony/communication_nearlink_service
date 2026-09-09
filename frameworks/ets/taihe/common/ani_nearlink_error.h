@@ -23,7 +23,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-using namespace Nearlink;
 
 #ifndef ANI_NL_ASSERT_RETURN
 #define ANI_NL_ASSERT_RETURN(cond, errCode, retObj)     \

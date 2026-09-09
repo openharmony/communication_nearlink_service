@@ -28,6 +28,7 @@
 
 namespace OHOS {
 namespace Nearlink {
+const std::string BASE_UUID = "37BEA880-FC70-11EA-B720-00000000";
 bool CheckBaseUuid(const std::string &uuid)
 {
     std::string uuidStr = uuid;
@@ -104,18 +105,14 @@ void CheckDescriptorWriteOp(const AniSsapDescriptor &descriptor, uint32_t &opera
     size_t parameterSize = 0;
     auto& pVec = method.GetParameter(&parameterSize);
     auto parameter = ConvertValueArray(pVec, parameterSize);
-    ::taihe::array<uint8_t> parameterVec =
-        ::taihe::array<uint8_t>(::taihe::copy_data_t{}, parameter.data(), parameter.size());
     size_t resultSize = 0;
     auto& rVec = method.GetResult(&resultSize);
     auto result = ConvertValueArray(rVec, resultSize);
-    ::taihe::array<uint8_t> resultVec =
-        ::taihe::array<uint8_t>(::taihe::copy_data_t{}, result.data(), result.size());
     ::ohos::nearlink::ssap::Method res = {
         .serviceUuid = static_cast<::taihe::string>(method.GetServiceUuid().ToString()),
         .methodUuid = static_cast<::taihe::string>(method.GetUuid().ToString()),
-        .parameter = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, parameterVec),
-        .result = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, resultVec)
+        .parameter = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, parameter),
+        .result = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, result)
     };
     return res;
 }
@@ -125,12 +122,10 @@ void CheckDescriptorWriteOp(const AniSsapDescriptor &descriptor, uint32_t &opera
     size_t parameterSize = 0;
     auto& vec = event.GetParameter(&parameterSize);
     auto parameter = ConvertValueArray(vec, parameterSize);
-    ::taihe::array<uint8_t> parameterVec =
-        ::taihe::array<uint8_t>(::taihe::copy_data_t{}, parameter.data(), parameter.size());
     ::ohos::nearlink::ssap::Event result = {
         .serviceUuid = static_cast<::taihe::string>(event.GetServiceUuid().ToString()),
         .eventUuid = static_cast<::taihe::string>(event.GetUuid().ToString()),
-        .parameter = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, parameterVec)
+        .parameter = taihe::optional<::taihe::array<uint8_t>>(std::in_place_t{}, parameter)
     };
     return result;
 }
@@ -287,6 +282,9 @@ int32_t ConvertEventToNative(const ::ohos::nearlink::ssap::Event &event, AniSsap
     aniEvent.handle_ = 0;
     if (event.parameter.has_value()) {
         auto& param = event.parameter.value();
+        if (param.size() <= 0) {
+            return NL_ERR_INVALID_PARAM;
+        }
         aniEvent.handle_ = static_cast<uint16_t>(param[0]);
     }
 

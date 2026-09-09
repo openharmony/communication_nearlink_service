@@ -19,7 +19,6 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "stdexcept"
 #include "taihe/callback.hpp"
 #include "taihe/optional.hpp"
 #include "taihe/runtime.hpp"
@@ -77,7 +76,12 @@ template<typename Arg>
 void EventModule<T>::PublishEvent(Arg&& arg)
 {
     std::shared_lock<std::shared_mutex> guard(lock_);
-    for (auto& cb : callbackVec_) {
+    std::vector<::taihe::optional<::taihe::callback<T>>> callbacks;
+    {
+        std::unique_lock<std::shared_mutex> guard(lock_);
+        callbacks = callbackVec_;
+    }
+    for (auto& cb : callbacks) {
         if (cb.has_value()) {
             cb.value()(std::forward<Arg>(arg));
         }

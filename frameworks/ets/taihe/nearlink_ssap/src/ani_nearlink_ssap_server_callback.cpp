@@ -25,46 +25,26 @@ void AniSsapServerCallback::OnConnectionStateUpdate(const NearlinkRemoteDevice &
     HILOGI("enter, state: %{public}d, remote device address: %{public}s reason: 0x%{public}x",
         state, GET_ENCRYPT_DEVICE_ADDR(device), reason);
     auto result = ConvertChangeStateToTaihe(device, state);
-    auto connectionState = connectionStateEvent_.GetCallbacks();
-    for (const auto &callback : connectionState) {
-        if (callback.has_value()) {
-            (*callback)(result);
-        }
-    }
+    connectionStateEvent_.PublishEvent(result);
 }
 
 void AniSsapServerCallback::OnPropertyReadRequest(
     const NearlinkRemoteDevice &device, const SsapProperty &property, int requestId)
 {
     auto result = ConvertReadRequestToTaihe(device, property, requestId);
-    auto propertyReadEvent = propertyReadEvent_.GetCallbacks();
-    for (const auto &callback : propertyReadEvent) {
-        if (callback.has_value()) {
-            (*callback)(result);
-        }
-    }
+    propertyReadEvent_.PublishEvent(result);
 }
 
 void AniSsapServerCallback::OnPropertyWriteRequest(
     const NearlinkRemoteDevice &device, const SsapProperty &property, int requestId)
 {
     auto result = ConvertWriteRequestToTaihe(device, property, requestId);
-    auto propertyWriteEvent = propertyWriteEvent_.GetCallbacks();
-    for (const auto &callback : propertyWriteEvent) {
-        if (callback.has_value()) {
-            (*callback)(result);
-        }
-    }
+    propertyWriteEvent_.PublishEvent(result);
 }
 
 void AniSsapServerCallback::OnMtuUpdate(const NearlinkRemoteDevice &device, int mtu)
 {
-    auto mtuEvent = mtuChangeEvent_.GetCallbacks();
-    for (const auto &callback : mtuEvent) {
-        if (callback.has_value()) {
-            (*callback)(mtu);
-        }
-    }
+    mtuChangeEvent_.PublishEvent(mtu);
 }
 }  // namespace Nearlink
 }  // namespace OHOS

@@ -22,7 +22,6 @@
 #include "ani_nearlink_remote_device_callback.h"
 #include "ani_nearlink_remote_device_rssi_observer.h"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_host.h"
@@ -30,7 +29,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-using namespace Nearlink;
 const size_t DEVICE_NAME_MAX_LENGTH = 64;
 const size_t PASS_CODE_LEN = 6;
 
@@ -261,7 +259,7 @@ int ConvertDeviceClass(int appearance)
 
 class RemoteDeviceImpl {
 public:
-    explicit RemoteDeviceImpl(std::string& address)
+    explicit RemoteDeviceImpl(const std::string& address)
     {
         HILOGI("enter");
         device_ = std::make_shared<NearlinkRemoteDevice>(address, ADAPTER_SLE);
@@ -508,7 +506,7 @@ void OnPairingRequest(
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     std::unique_lock<std::shared_mutex> guard(g_pairingRequestMutex);
-    ANI_NL_ASSERT_RETURN_VOID(g_pairingRequestObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
+    ANI_NL_ASSERT_RETURN_VOID(g_pairingRequestObserverVec.size() < MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::remoteDevice::PairingRequestParam const&)>>
         pairingRequestCb =
@@ -548,7 +546,7 @@ void OnPairingStateChange(
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     std::unique_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
-    ANI_NL_ASSERT_RETURN_VOID(g_pairStatusChangedObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
+    ANI_NL_ASSERT_RETURN_VOID(g_pairStatusChangedObserverVec.size() < MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::remoteDevice::PairingStateParam const&)>>
         pairingStateChangeCb =
@@ -588,7 +586,7 @@ void OnConnectionStateChange(
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     std::unique_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
-    ANI_NL_ASSERT_RETURN_VOID(g_connectionStateChangedObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
+    ANI_NL_ASSERT_RETURN_VOID(g_connectionStateChangedObserverVec.size() < MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::remoteDevice::ConnectionStateParam const&)>>
         connectionStateChangeCb =
@@ -627,7 +625,7 @@ void OnAcbStateChange(::taihe::callback_view<void(::ohos::nearlink::remoteDevice
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     std::unique_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
-    ANI_NL_ASSERT_RETURN_VOID(g_acbStateChangedObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
+    ANI_NL_ASSERT_RETURN_VOID(g_acbStateChangedObserverVec.size() < MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::remoteDevice::AcbStateParam const&)>> acbStateChangeCb =
         ::taihe::optional<::taihe::callback<void(::ohos::nearlink::remoteDevice::AcbStateParam const&)>>{

@@ -74,8 +74,8 @@ enum TaiheStatus {
         }                                                   \
     } while (0)
 
-bool IsValidAddr(std::string addr);
-bool CheckDeviceIdParam(std::string &addr);
+bool IsValidAddr(const std::string &addr);
+bool CheckDeviceIdParam(const std::string &addr);
 
 } // namespace Nearlink
 } // namespace OHOS

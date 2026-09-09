@@ -31,6 +31,8 @@ public:
     AniNearlinkScanCallback();
     ~AniNearlinkScanCallback() override = default;
 
+    static std::shared_ptr<AniNearlinkScanCallback> GetInstance();
+
     void OnScanCallback(const SleScanResult &result) override;
     void OnSleBatchScanResultsEvent(const std::vector<SleScanResult> &results) override;
     void OnStartOrStopScanEvent(int resultCode, bool isStartScan) override;

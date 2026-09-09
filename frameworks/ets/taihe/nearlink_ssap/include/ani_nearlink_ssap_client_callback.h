@@ -24,7 +24,6 @@
 #include "nearlink_ssap_descriptor.h"
 #include "ohos.nearlink.ssap.proj.hpp"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "taihe_async_work.h"
 
 namespace OHOS {
@@ -57,11 +56,13 @@ public:
 
     void SetClient(SsapClientImpl *client)
     {
+        std::unique_lock<std::shared_mutex> lock(clientMutex_);
         client_ = client;
     }
     TaiheAsyncWorkMap asyncPromiseMap_ {};
     AniEventSubscribeModule eventSubscribe_;
 private:
+    mutable std::shared_mutex clientMutex_ {};
     SsapClientImpl *client_ = nullptr;
 };
 

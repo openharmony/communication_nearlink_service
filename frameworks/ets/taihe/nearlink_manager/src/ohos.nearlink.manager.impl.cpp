@@ -17,7 +17,6 @@
 #include "ohos.nearlink.manager.impl.hpp"
 #include "ani_nearlink_manager_callback.h"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "nearlink_host.h"
 #include "log.h"
 #include "nearlink_errorcode.h"
@@ -121,12 +120,12 @@ void OnStateChange(::taihe::callback_view<void(::ohos::nearlink::manager::Nearli
 {
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
-    ANI_NL_ASSERT_RETURN_VOID(g_stateChangedObserverVec.size() <= MAX_CB_NUM, NL_ERR_INVALID_PARAM);
+    std::unique_lock<std::shared_mutex> guard(g_stateChangedMutex);
+    ANI_NL_ASSERT_RETURN_VOID(g_stateChangedObserverVec.size() < MAX_CB_NUM, NL_ERR_INVALID_PARAM);
 
     ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>> stateChangeCb =
         ::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>>{
             std::in_place_t{}, callback};
-    std::unique_lock<std::shared_mutex> guard(g_stateChangedMutex);
     if (std::find(g_stateChangedObserverVec.begin(), g_stateChangedObserverVec.end(), stateChangeCb) !=
         g_stateChangedObserverVec.end()) {
         return;

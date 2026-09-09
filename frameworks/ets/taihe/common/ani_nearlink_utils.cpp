@@ -115,13 +115,13 @@ ani_ref GetCallbackErrorValue(ani_env *env, int errCode)
     return result;
 }
 
-bool IsValidAddr(std::string addr)
+bool IsValidAddr(const std::string &addr)
 {
     const std::regex deviceIdRegex("^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$");
     return regex_match(addr, deviceIdRegex);
 }
 
-bool CheckDeviceIdParam(std::string &addr)
+bool CheckDeviceIdParam(const std::string &addr)
 {
     TAIHE_NEARLINK_RETURN_IF(!IsValidAddr(addr), "Invalid addr", false);
     return true;

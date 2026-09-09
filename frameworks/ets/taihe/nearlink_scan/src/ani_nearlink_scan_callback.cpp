@@ -19,7 +19,15 @@
 namespace OHOS {
 namespace Nearlink {
 
-AniNearlinkScanCallback::AniNearlinkScanCallback() = default;
+AniNearlinkScanCallback::AniNearlinkScanCallback()
+{}
+
+std::shared_ptr<AniNearlinkScanCallback> AniNearlinkScanCallback::GetInstance()
+{
+    static std::shared_ptr<AniNearlinkScanCallback> instance =
+        std::make_shared<AniNearlinkScanCallback>();
+    return instance;
+}
 
 ::ohos::nearlink::scan::ScanResults ConvertToScanResult(const SleScanResult &result)
 {
@@ -43,36 +51,17 @@ void AniNearlinkScanCallback::OnScanCallback(const SleScanResult &result)
     ::taihe::array<::ohos::nearlink::scan::ScanResults> scanArray(
         ::taihe::copy_data_t{}, scanResultVec.data(), scanResultVec.size());
 
-    auto scanResultEvent = eventSubscribe_.GetCallbacks();
-    for (auto callback : scanResultEvent) {
-        if (callback.has_value()) {
-            (*callback)(scanArray);
-        }
-    }
+    eventSubscribe_.PublishEvent(scanArray);
 }
 
 void AniNearlinkScanCallback::OnSleBatchScanResultsEvent(const std::vector<SleScanResult> &results)
 {
-    HILOGI("enter");
-    std::vector<::ohos::nearlink::scan::ScanResults> scanResultVec;
-    scanResultVec.reserve(results.size());
-    for (auto &result : results) {
-        scanResultVec.emplace_back(ConvertToScanResult(result));
-    }
-    ::taihe::array<::ohos::nearlink::scan::ScanResults> scanArray(
-        ::taihe::copy_data_t{}, scanResultVec.data(), scanResultVec.size());
-
-    auto sleScanResult = eventSubscribe_.GetCallbacks();
-    for (auto callback : sleScanResult) {
-        if (callback.has_value()) {
-            (*callback)(scanArray);
-        }
-    }
+    HILOGE("not implement");
 }
 
 void AniNearlinkScanCallback::OnStartOrStopScanEvent(int resultCode, bool isStartScan)
 {
-    HILOGI("resultCode: %{public}d, isStartScan: %{public}d", resultCode, isStartScan);
+    HILOGE("not implement");
 }
 
 } // namespace Nearlink

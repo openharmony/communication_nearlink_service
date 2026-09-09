@@ -43,18 +43,11 @@ enum class ScanDuty {
     SCAN_MODE_LOW_LATENCY = 2  // Scan using highest duty cycle
 };
 
-std::shared_ptr<SleCentralManager> g_sleCentralManager = nullptr;
-std::shared_ptr<AniNearlinkScanCallback> g_scanCallback = nullptr;
-std::mutex g_scanManagerMutex;
-
-std::shared_ptr<SleCentralManager> GetSleCentralManager()
+std::shared_ptr<SleCentralManager> SleCentralManagerGetInstance(void)
 {
-    std::lock_guard<std::mutex> lock(g_scanManagerMutex);
-    if (g_sleCentralManager == nullptr) {
-        g_scanCallback = std::make_shared<AniNearlinkScanCallback>();
-        g_sleCentralManager = SleCentralManager::CreateSleCentralManager(g_scanCallback);
-    }
-    return g_sleCentralManager;
+    static std::shared_ptr<SleCentralManager> instance =
+        SleCentralManager::CreateSleCentralManager(AniNearlinkScanCallback::GetInstance());
+    return instance;
 }
 
 static bool isFilterEmpty(const SleScanFilter &filter)
@@ -242,8 +235,7 @@ void StartScan(
     ANI_NL_ASSERT_RETURN_VOID(checkResult == NL_NO_ERROR, checkResult);
     ANI_NL_ASSERT_RETURN_VOID(isGranted, NL_ERR_PERMISSION_FAILED);
 
-    auto manager = GetSleCentralManager();
-    NlErrCode err = manager->StartScanWithFilter(nativeSettings, scanFilters);
+    NlErrCode err = SleCentralManagerGetInstance()->StartScanWithFilter(nativeSettings, scanFilters);
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
@@ -256,8 +248,7 @@ void StopScan()
     ANI_NL_ASSERT_RETURN_VOID(checkResult == NL_NO_ERROR, checkResult);
     ANI_NL_ASSERT_RETURN_VOID(isGranted, NL_ERR_PERMISSION_FAILED);
 
-    auto manager = GetSleCentralManager();
-    NlErrCode err = manager->StopScan();
+    NlErrCode err = SleCentralManagerGetInstance()->StopScan();
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
@@ -265,8 +256,7 @@ void OnDeviceFound(::taihe::callback_view<void(::taihe::array_view<::ohos::nearl
 {
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
-    auto manager = GetSleCentralManager();
-    g_scanCallback->eventSubscribe_.RegisterEvent(callback);
+    AniNearlinkScanCallback::GetInstance()->eventSubscribe_.RegisterEvent(callback);
 }
 
 void OffDeviceFound(
@@ -274,8 +264,7 @@ void OffDeviceFound(
 {
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
-    auto manager = GetSleCentralManager();
-    g_scanCallback->eventSubscribe_.DeregisterEvent(callback);
+    AniNearlinkScanCallback::GetInstance()->eventSubscribe_.DeregisterEvent(callback);
 }
 } // namespace Nearlink
 } // namespace OHOS

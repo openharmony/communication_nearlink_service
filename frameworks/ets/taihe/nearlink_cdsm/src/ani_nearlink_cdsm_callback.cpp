@@ -26,8 +26,8 @@ AniCdsmClientCallback::AniCdsmClientCallback()
 
 void AniCdsmClientCallback::OnCdsInfoChanged(const NearlinkCdsInfo& cdsInfo)
 {
-    HILOGI("enter");
-
+    HILOGI("cdsm member size=%{public}zu", cdsInfo.GetCdsMemberList().size());
+    NL_CHECK_RETURN(cdsInfo.GetCdsMemberList().size() != 0, "cds member invalid");
     std::vector<::ohos::nearlink::cdsm::CdsmMemberInfo> cdsVec;
     std::vector<Nearlink::NearlinkCdsMemberInfo> memberList = cdsInfo.GetCdsMemberList();
     for (auto member : memberList) {
@@ -42,12 +42,7 @@ void AniCdsmClientCallback::OnCdsInfoChanged(const NearlinkCdsInfo& cdsInfo)
             taihe::copy_data_t{}, cdsVec.data(), cdsVec.size())
     };
 
-    auto snapshot = eventSubscribe_.GetCallbacks();
-    for (auto& callback : snapshot) {
-        if (callback.has_value()) {
-            (*callback)(taiheResult);
-        }
-    }
+    eventSubscribe_.PublishEvent(taiheResult);
 }
 }  // namespace Nearlink
 }  // namespace OHOS

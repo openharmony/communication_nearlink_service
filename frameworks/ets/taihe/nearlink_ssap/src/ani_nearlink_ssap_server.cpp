@@ -89,6 +89,7 @@ void SsapServerImpl::SendResponse(const ::ohos::nearlink::ssap::ServerResponse &
 void SsapServerImpl::OnConnectionStateChange(
     ::taihe::callback_view<void(::ohos::nearlink::ssap::ConnectionChangeState const& data)> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->connectionStateEvent_.RegisterEvent(callback);
     }
@@ -97,6 +98,7 @@ void SsapServerImpl::OnConnectionStateChange(
 void SsapServerImpl::OffConnectionStateChange(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::ssap::ConnectionChangeState const& data)>> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->connectionStateEvent_.DeregisterEvent(callback);
     }
@@ -105,6 +107,7 @@ void SsapServerImpl::OffConnectionStateChange(
 void SsapServerImpl::OnPropertyRead(
     ::taihe::callback_view<void(::ohos::nearlink::ssap::PropertyReadRequest const& data)> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->propertyReadEvent_.RegisterEvent(callback);
     }
@@ -113,6 +116,7 @@ void SsapServerImpl::OnPropertyRead(
 void SsapServerImpl::OffPropertyRead(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::ssap::PropertyReadRequest const& data)>> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->propertyReadEvent_.DeregisterEvent(callback);
     }
@@ -121,6 +125,7 @@ void SsapServerImpl::OffPropertyRead(
 void SsapServerImpl::OnPropertyWrite(
     ::taihe::callback_view<void(::ohos::nearlink::ssap::PropertyWriteRequest const& data)> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->propertyWriteEvent_.RegisterEvent(callback);
     }
@@ -129,6 +134,7 @@ void SsapServerImpl::OnPropertyWrite(
 void SsapServerImpl::OffPropertyWrite(
     ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::ssap::PropertyWriteRequest const& data)>> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->propertyWriteEvent_.DeregisterEvent(callback);
     }
@@ -136,6 +142,7 @@ void SsapServerImpl::OffPropertyWrite(
 
 void SsapServerImpl::OnMtuChange(::taihe::callback_view<void(int32_t data)> callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->mtuChangeEvent_.RegisterEvent(callback);
     }
@@ -143,6 +150,7 @@ void SsapServerImpl::OnMtuChange(::taihe::callback_view<void(int32_t data)> call
 
 void SsapServerImpl::OffMtuChange(::taihe::optional_view<::taihe::callback<void(int32_t data)>>callback)
 {
+    ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
     if (callback_) {
         callback_->mtuChangeEvent_.DeregisterEvent(callback);
     }

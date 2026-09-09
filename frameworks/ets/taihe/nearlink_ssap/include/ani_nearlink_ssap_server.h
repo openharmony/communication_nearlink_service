@@ -22,7 +22,6 @@
 #include "ohos.nearlink.ssap.impl.hpp"
 #include "ani_nearlink_ssap_server_callback.h"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "ani_nearlink_ssap_utils.h"
 namespace OHOS {
 namespace Nearlink {
@@ -52,7 +51,8 @@ public:
     SsapServerImpl()
     {
         callback_ = std::make_shared<AniSsapServerCallback>();
-        server_ = SsapServer::CreateSsapServer(callback_);
+        std::shared_ptr<SsapServerCallback> tmp = std::static_pointer_cast<SsapServerCallback>(callback_);
+        server_ = SsapServer::CreateSsapServer(tmp);
     }
 
 private:

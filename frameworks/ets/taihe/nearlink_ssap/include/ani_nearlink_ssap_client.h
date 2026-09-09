@@ -57,7 +57,7 @@ public:
         callback);
     void OnMtuChange(::taihe::callback_view<void(int32_t data)> callback);
     void OffMtuChange(::taihe::optional_view<::taihe::callback<void(int32_t data)>> callback);
-    explicit SsapClientImpl(std::string &address)
+    explicit SsapClientImpl(const std::string &address)
     {
         HILOGI("enter");
         device_ = std::make_shared<NearlinkRemoteDevice>(address, ADAPTER_SLE);

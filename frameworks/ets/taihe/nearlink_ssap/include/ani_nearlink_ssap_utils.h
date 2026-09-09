@@ -20,7 +20,6 @@
 #include "ohos.nearlink.ssap.proj.hpp"
 #include "ohos.nearlink.ssap.impl.hpp"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "nearlink_ssap_client.h"
 #include "nearlink_ssap_server.h"
 #include "nearlink_ssap_service.h"
@@ -36,10 +35,9 @@ constexpr size_t UUID_128_BIT_LENGTH = 36;
 constexpr size_t BASE_UUID_LENGTH = 32;
 constexpr uint32_t OPERATION_READ = 1;
 constexpr uint32_t OPERATION_WRITE_NO_RESPONSE = 2;
-static const int32_t MIN_MTU_SIZE = 22;
-static const int32_t MAX_MTU_SIZE = 1024;
+constexpr int32_t MIN_MTU_SIZE = 22;
+constexpr int32_t MAX_MTU_SIZE = 1024;
 constexpr uint32_t OPERATION_WRITE_CLIENT_CONFIG_MASK = 0x200;
-const std::string BASE_UUID = "37BEA880-FC70-11EA-B720-00000000";
 
 struct AniSsapDescriptor {
     UUID serviceUuid_;

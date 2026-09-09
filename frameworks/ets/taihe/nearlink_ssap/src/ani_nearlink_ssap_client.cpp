@@ -238,10 +238,10 @@ void SsapClientImpl::RequestMtuSize(int mtu)
     HILOGI("enter");
     ANI_NL_ASSERT_RETURN_VOID(client_ != nullptr, NL_ERR_INTERNAL_ERROR);
     if (mtu < MIN_MTU_SIZE) {
-        HILOGI("covert requested MTU %{public}d to %{public}d", mtu, MIN_MTU_SIZE);
+        HILOGI("convert requested MTU %{public}d to %{public}d", mtu, MIN_MTU_SIZE);
         mtu = MIN_MTU_SIZE;
     } else if (mtu > MAX_MTU_SIZE) {
-        HILOGI("covert requested MTU %{public}d to %{public}d", mtu, MAX_MTU_SIZE);
+        HILOGI("convert requested MTU %{public}d to %{public}d", mtu, MAX_MTU_SIZE);
         mtu = MAX_MTU_SIZE;
     }
     NlErrCode err = client_->RequestSleMtuSize(mtu);

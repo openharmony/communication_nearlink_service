@@ -18,7 +18,6 @@
 #include "ani_nearlink_advertising_callback.h"
 #include "ani_nearlink_error.h"
 #include "ani_nearlink_utils.h"
-#include "ani_nearlink_advertising_callback.h"
 #include "nearlink_sle_advertiser.h"
 #include "nearlink_host.h"
 #include "log.h"
@@ -44,13 +43,13 @@ uint8_t ConvertPowerMode(int32_t powerParam)
 {
     uint8_t txPowerMode = static_cast<uint8_t>(SleAdvertiserTxPowerLevel::SLE_ADV_TX_POWER_LOW);
     switch (powerParam) {
-        case static_cast<int32_t>(AdevertiseMode::ADV_TX_POWER_LOW):
+        case static_cast<int32_t>(AdvertiseMode::ADV_TX_POWER_LOW):
             txPowerMode = static_cast<uint8_t>(SleAdvertiserTxPowerLevel::SLE_ADV_TX_POWER_LOW);
             break;
-        case static_cast<int32_t>(AdevertiseMode::ADV_TX_POWER_MEDIUM):
+        case static_cast<int32_t>(AdvertiseMode::ADV_TX_POWER_MEDIUM):
             txPowerMode = static_cast<uint8_t>(SleAdvertiserTxPowerLevel::SLE_ADV_TX_POWER_MEDIUM);
             break;
-        case static_cast<int32_t>(AdevertiseMode::ADV_TX_POWER_HIGH):
+        case static_cast<int32_t>(AdvertiseMode::ADV_TX_POWER_HIGH):
             txPowerMode = static_cast<uint8_t>(SleAdvertiserTxPowerLevel::SLE_ADV_TX_POWER_HIGH);
             break;
         default:
@@ -78,8 +77,8 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
     if (input.power.has_value()) {
         power = static_cast<int32_t>(input.power.value());
         HILOGI("power: %{public}d", power);
-        if (power < static_cast<int32_t>(AdevertiseMode::ADV_TX_POWER_LOW) ||
-            power > static_cast<int32_t>(AdevertiseMode::ADV_TX_POWER_HIGH)) {
+        if (power < static_cast<int32_t>(AdvertiseMode::ADV_TX_POWER_LOW) ||
+            power > static_cast<int32_t>(AdvertiseMode::ADV_TX_POWER_HIGH)) {
             HILOGE("Invalid power: %{public}d", power);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
@@ -224,8 +223,10 @@ uintptr_t StartAdvertising(const ::ohos::nearlink::advertising::AdvertisingParam
 void StopAdvertising(int32_t advertisingId)
 {
     HILOGI("enter");
-    uint8_t advHandle;
-    SleAdvertiserGetInstance()->GetAdvHandle(AniNearlinkAdvertisingCallback::GetInstance(), advHandle);
+    auto sleAdvertiser = SleAdvertiserGetInstance();
+    ANI_NL_ASSERT_RETURN_VOID(sleAdvertiser != nullptr, NL_ERR_INTERNAL_ERROR);
+    uint8_t advHandle = -1;
+    sleAdvertiser->GetAdvHandle(AniNearlinkAdvertisingCallback::GetInstance(), advHandle);
     ANI_NL_ASSERT_RETURN_VOID(advertisingId == advHandle, NL_ERR_INVALID_ADV_ID);
 
     // 提前校验ACCESS权限
@@ -234,8 +235,6 @@ void StopAdvertising(int32_t advertisingId)
     ANI_NL_ASSERT_RETURN_VOID(checkResult == NL_NO_ERROR, checkResult);
     ANI_NL_ASSERT_RETURN_VOID(isGranted, NL_ERR_PERMISSION_FAILED);
 
-    auto sleAdvertiser = SleAdvertiserGetInstance();
-    ANI_NL_ASSERT_RETURN_VOID(sleAdvertiser != nullptr, NL_ERR_INTERNAL_ERROR);
     int ret = sleAdvertiser->StopAdvertising(AniNearlinkAdvertisingCallback::GetInstance());
     ANI_NL_ASSERT_RETURN_VOID(ret == NL_NO_ERROR, ret);
 }

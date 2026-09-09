@@ -40,10 +40,15 @@ std::shared_ptr<AniSsapClientCallback> AniSsapClientCallback::GetInstance()
 void AniSsapClientCallback::OnConnectionStateChanged(int connectionState, int ret)
 {
     HILOGI("connectionState:%{public}d, ret:%{public}d", connectionState, ret);
-    ANI_NL_ASSERT_RETURN_VOID(client_ != nullptr, NL_ERR_INTERNAL_ERROR);
-    ANI_NL_ASSERT_RETURN_VOID(client_->GetDevice(), NL_ERR_INTERNAL_ERROR);
+    std::string deviceId = "";
+    {
+        NL_CHECK_RETURN(client_, "client is nullptr");
+        NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
+        deviceId = client_->GetDevice()->GetDeviceAddr();
+    }
+
     ::ohos::nearlink::ssap::ConnectionChangeState result {
-        .address = client_->GetDevice()->GetDeviceAddr(),
+        .address = deviceId,
         .state = ohos::nearlink::constant::ConnectionState::from_value(connectionState)
     };
     auto &module = eventSubscribe_.GetModule<void(::ohos::nearlink::ssap::ConnectionChangeState const&)

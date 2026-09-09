@@ -28,7 +28,7 @@
 namespace OHOS {
 namespace Nearlink {
 
-enum AdevertiseMode {
+enum AdvertiseMode {
     ADV_TX_POWER_LOW = 1,  //  low-power mode
     ADV_TX_POWER_MEDIUM = 2,       // medium-power mode
     ADV_TX_POWER_HIGH = 3       // high-power mode

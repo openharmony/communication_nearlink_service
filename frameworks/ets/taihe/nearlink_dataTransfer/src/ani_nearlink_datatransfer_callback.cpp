@@ -29,31 +29,6 @@ std::shared_ptr<AniNearlinkDataTransferCallback> AniNearlinkDataTransferCallback
     return instance;
 }
 
-void AniNearlinkDataTransferCallback::RegisterConnectionStateChanged(
-    ::taihe::callback_view<void(::ohos::nearlink::dataTransfer::ConnectionResult const& data)> callback)
-{
-    connectionStateChangedEvent_.RegisterEvent(callback);
-}
-
-void AniNearlinkDataTransferCallback::DeregisterConnectionStateChanged(
-    ::taihe::optional_view<
-        ::taihe::callback<void(::ohos::nearlink::dataTransfer::ConnectionResult const& data)>> callback)
-{
-    connectionStateChangedEvent_.DeregisterEvent(callback);
-}
-
-void AniNearlinkDataTransferCallback::RegisterReadData(
-    ::taihe::callback_view<void(::ohos::nearlink::dataTransfer::DataParams const& data)> callback)
-{
-    readDataEvent_.RegisterEvent(callback);
-}
-
-void AniNearlinkDataTransferCallback::DeregisterReadData(
-    ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::dataTransfer::DataParams const& data)>> callback)
-{
-    readDataEvent_.DeregisterEvent(callback);
-}
-
 void AniNearlinkDataTransferCallback::OnConnectionStateChanged(const ConnectionParams &result)
 {
     ::ohos::nearlink::dataTransfer::ConnectionResult taiheResult = {
@@ -63,12 +38,7 @@ void AniNearlinkDataTransferCallback::OnConnectionStateChanged(const ConnectionP
         .state = ohos::nearlink::constant::ConnectionState::from_value(result.GetState())
     };
 
-    auto connectionState = connectionStateChangedEvent_.GetCallbacks();
-    for (auto callback : connectionState) {
-        if (callback.has_value()) {
-            (*callback)(taiheResult);
-        }
-    }
+    connectionStateChangedEvent_.PublishEvent(taiheResult);
 }
 
 void AniNearlinkDataTransferCallback::OnReceiveData(const DataParams &result)
@@ -82,12 +52,7 @@ void AniNearlinkDataTransferCallback::OnReceiveData(const DataParams &result)
         .data = std::move(taiheData)
     };
 
-    auto receiveData = readDataEvent_.GetCallbacks();
-    for (auto callback : receiveData) {
-        if (callback.has_value()) {
-            (*callback)(taiheResult);
-        }
-    }
+    readDataEvent_.PublishEvent(taiheResult);
 }
 
 }  // namespace Nearlink

@@ -14,7 +14,6 @@
  */
 
 #include "ani_nearlink_manager_callback.h"
-#include "ohos.nearlink.constant.proj.hpp"
 #include "log_util.h"
 
 namespace OHOS {
@@ -43,7 +42,7 @@ void AniNearlinkManagerObserver::OnStateChanged(const int transport, const int s
         callbacks = g_stateChangedObserverVec;
     }
     for (auto callback : callbacks) {
-        if(callback.has_value()) {
+        if (callback.has_value()) {
             (*callback)(result);
         }
     }

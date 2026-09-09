@@ -18,7 +18,6 @@
 
 #include <mutex>
 #include <shared_mutex>
-#include "stdexcept"
 
 #include "ohos.nearlink.dataTransfer.proj.hpp"
 #include "ohos.nearlink.dataTransfer.impl.hpp"
@@ -36,15 +35,6 @@ public:
 
     static std::shared_ptr<AniNearlinkDataTransferCallback> GetInstance();
 
-    void RegisterConnectionStateChanged(
-        ::taihe::callback_view<void(::ohos::nearlink::dataTransfer::ConnectionResult const&)> callback);
-    void DeregisterConnectionStateChanged(
-        ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::dataTransfer::ConnectionResult const&)>>
-        callback);
-    void RegisterReadData(
-        ::taihe::callback_view<void(::ohos::nearlink::dataTransfer::DataParams const&)> callback);
-    void DeregisterReadData(
-        ::taihe::optional_view<::taihe::callback<void(::ohos::nearlink::dataTransfer::DataParams const&)>> callback);
     void OnConnectionStateChanged(const ConnectionParams &result) override;
     void OnReceiveData(const DataParams &result) override;
 

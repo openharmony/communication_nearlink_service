@@ -24,7 +24,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-using namespace Nearlink;
 
 constexpr int MAX_CB_NUM = 100;
 extern std::vector<
