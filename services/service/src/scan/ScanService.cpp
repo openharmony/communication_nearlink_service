@@ -511,17 +511,19 @@ void ScanService::ParseManufacturerDataHid(SlePeripheralDevice &device, std::str
     uint8_t extendType = 0;
     while (msgIndex < privateData.size()) {
         if (msgIndex + SLE_ADV_MANUFACTURER_DATA_EXTEND_TYPE_LEN > privateData.size()) {
-            HILOGE("parse hid manufactrue,msg type length invalid:%{public}u", privateData.size());
+            HILOGE("parse hid manufacturer,msg type length invalid:%{public}u", privateData.size());
             return;
         }
         extendType = privateData[msgIndex++];
         if (extendType == HID_MANUFACTURER_ABILITY) {
             if (!ParseAdvDeviceManufacturerAbility(device, msgIndex, privateData)) {
-                HILOGE("parse hid manufactrue, manufacturer ability len invalid:%{public}u", privateData.size());
+                HILOGE("parse hid manufacturer, manufacturer ability len invalid:%{public}u", privateData.size());
                 return;
             }
             break;
         }
+        HILOGW("parse hid manufacturer,msg type not support:%{public}u", extendType);
+        return;
     }
 }
 
