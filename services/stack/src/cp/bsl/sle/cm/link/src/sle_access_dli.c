@@ -690,6 +690,7 @@ static void SleAccessReadRemoteVersionCbk(void *context, uint16_t statuss, DLI_E
             uint32_t ret = SleAccessReadRemoteFeatures(link->lcid);
             if (ret != DLI_SUCCESS) {
                 CM_LOGE("sle access read remote features failed");
+                SleAccessReportConnectException(evt->connHandle, (uint8_t)ret);
                 goto SLE_READ_REMOTE_VERSION_CBK_FAILED;
             }
         }
