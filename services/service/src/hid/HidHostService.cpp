@@ -23,7 +23,6 @@
 #include "HidHostStackAdapter.h"
 #include "SleInterfaceAdapter.h"
 #include "SleInterfaceManager.h"
-#include "nlstk_cfgdb_api.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -476,21 +475,6 @@ int HidHostService::ReceiveControlData(const HidReportInfo &reportInfo)
         }
     });
     return HID_HOST_SUCCESS;
-}
-
-void HidHostService::SetDeviceManufacturerAbility(const RawAddress &device,
-    const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manufacturerAbility) const
-{
-    SLE_Addr_S stackAddr = {};
-    device.ConvertToUint8(stackAddr.addr);
-    NLSTK_ManufacturerAbility_S mAbility = {0};
-    for (int i = 0; i < SLE_MANU_ABILITY_LEN; ++i) {
-        mAbility.ability[i] = manufacturerAbility[i];
-    }
-    HILOGI("[HidHostService] SetDeviceManufacturerAbility dev=%{public}s, ability=0x%{public}02x",
-        GET_ENCRYPT_ADDR(device), mAbility.ability[0]);
-    uint32_t ret = NLSTK_CfgdbSetManufacturerAbility(&stackAddr, &mAbility);
-    NL_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS, "ret=%{public}d", ret);
 }
 
 REGISTER_CLASS_CREATOR(HidHostService);
