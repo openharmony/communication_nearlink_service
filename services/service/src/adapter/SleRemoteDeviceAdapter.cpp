@@ -21,7 +21,6 @@
 #include "SleServiceManager.h"
 #include "SleInterfaceProfileCdsm.h"
 #include "SleInterfaceProfileTws.h"
-#include "SleInterfaceProfileHidHost.h"
 #include "SleInterfaceProfile.h"
 #include "SleInterfaceProfileManager.h"
 #include "interface_cloud_pair_service.h"
@@ -39,6 +38,7 @@
 #include "TwsDefines.h"
 #include "CdsmDefines.h"
 #include "nlstk_sm_api.h"
+#include "nlstk_cfgdb_api.h"
 #include <future>
 #include <ThreadUtil.h>
 #include "ServiceManagerPluginLoader.h"
@@ -1416,17 +1416,16 @@ void SleRemoteDeviceAdapter::SaveDeviceManufacturerAbilityInner(const RawAddress
         SleRemoteDeviceManager::GetInstance()->GetManufacturerAbility(rawAddr);
     ManufacturerAbilityLoader::GetInstance().FilterAbility(manufacturerAbility);
 
-    ProfileTws *twsService = static_cast<ProfileTws *>(
-        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
-    if (twsService != nullptr) {
-        twsService->SetDeviceManufacturerAbility(rawAddr, manufacturerAbility);
+    SLE_Addr_S stackAddr = {};
+    rawAddr.ConvertToUint8(stackAddr.addr);
+    NLSTK_ManufacturerAbility_S mAbility = {0};
+    for (int i = 0; i < SLE_MANU_ABILITY_LEN; ++i) {
+        mAbility.ability[i] = manufacturerAbility[i];
     }
-
-    ProfileHidHost *hidService = static_cast<ProfileHidHost *>(
-        SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_HID_HOST));
-    if (hidService != nullptr) {
-        hidService->SetDeviceManufacturerAbility(rawAddr, manufacturerAbility);
-    }
+    HILOGI("[SleRemoteDeviceAdapter] SaveDeviceManufacturerAbility dev=%{public}s, ability=0x%{public}02x",
+        GET_ENCRYPT_ADDR(rawAddr), mAbility.ability[0]);
+    uint32_t ret = NLSTK_CfgdbSetManufacturerAbility(&stackAddr, &mAbility);
+    NL_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS, "ret=%{public}d", ret);
 }
 
 void SleRemoteDeviceAdapter::SavePairDirect(int connDirect, const RawAddress &device)
