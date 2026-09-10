@@ -35,6 +35,7 @@ static uint8_t g_testNodeRole = CM_T_NODE;
 static uint8_t g_testadvHandle = UT_CM_CONN_ADV_HANDLE;
 static uint8_t g_testDiscReason = 0;
 static uint16_t g_testLcid = 0;
+static uint16_t g_testExpectRemoteFeatureLcid = CM_INVALID_LCID;
 static uint16_t g_testDtapLcid = 0;
 static std::vector<std::pair<CM_LogicLinkKeyObject_S, CM_LogicLinkState_S>> g_testConnectionRspParamList;
 static std::vector<CM_LogicLinkState_S> g_testDtapLogicLRspParamList;
@@ -130,6 +131,7 @@ void UT_CM_SleConnectCompleteEvt(uint16_t handle, uint8_t status, uint8_t connCo
         .eventParameter = &connCompleteEvt,
     };
     g_testConnectState = CM_LINK_STATE_CONNECTED;
+    g_testExpectRemoteFeatureLcid = handle;
     CM_LOGI("UT_CM_SleConnectCompleteEvt:0x%04x, connCompleteType:%d, advHandle:0x%02x",
         handle, connCompleteEvt.connCompleteType, connCompleteEvt.advHandle);
     UT_CM_MockDliCmdExecuteCbk(&cmdParam, DLI_SUCCESS);
@@ -286,6 +288,7 @@ void UT_CM_DtapConnectStateCbk(CM_LogicLinkState_S *param)
 void UT_CM_ReadRemoteFeatureCbk(CM_LogicLinkRemoteFeatures_S *param)
 {
     CM_LOGI("CM_API UT_CM_ReadRemoteFeatureCbk enter, lcid:0x%02x", param->lcid);
+    EXPECT_EQ(g_testExpectRemoteFeatureLcid, param->lcid);
 }
 
 void UT_CM_ConnUpdateParamCbk(CM_LogicLinkConnUpdateParam_S *param)
