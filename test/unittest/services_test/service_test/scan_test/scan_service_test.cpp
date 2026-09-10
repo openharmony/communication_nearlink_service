@@ -1394,10 +1394,9 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_Hid_Truncated_002, T
     int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(addr);
     EXPECT_EQ(businessType, SLE_PRIVATE_HID_BUSINESS_TYPE);
 
-    /* 验证能力位图按广播内容写入 */
+    /* 验证能力位图校验失败未写入，保持全零 */
     std::array<uint8_t, SLE_MANU_ABILITY_LEN> ability =
         InterfaceScanService::GetInstance().GetDeviceManufacturerAbility(addr);
-    EXPECT_EQ(ability[0], 0x02);
     for (uint8_t byte : ability) {
         EXPECT_EQ(byte, 0x00);
     }
