@@ -225,7 +225,7 @@ void StopAdvertising(int32_t advertisingId)
     HILOGI("enter");
     auto sleAdvertiser = SleAdvertiserGetInstance();
     ANI_NL_ASSERT_RETURN_VOID(sleAdvertiser != nullptr, NL_ERR_INTERNAL_ERROR);
-    uint8_t advHandle = -1;
+    uint8_t advHandle = 0;
     sleAdvertiser->GetAdvHandle(AniNearlinkAdvertisingCallback::GetInstance(), advHandle);
     ANI_NL_ASSERT_RETURN_VOID(advertisingId == advHandle, NL_ERR_INVALID_ADV_ID);
 
