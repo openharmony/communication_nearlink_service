@@ -75,7 +75,6 @@ template<typename T>
 template<typename Arg>
 void EventModule<T>::PublishEvent(Arg&& arg)
 {
-    std::shared_lock<std::shared_mutex> guard(lock_);
     std::vector<::taihe::optional<::taihe::callback<T>>> callbacks;
     {
         std::unique_lock<std::shared_mutex> guard(lock_);
