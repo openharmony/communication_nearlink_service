@@ -3893,12 +3893,72 @@ bool ASCService::IsStreamExists(const RawAddress& device, AudioStreamType stream
 void ASCService::ProcBuff(const RawAddress& device, ASCState state)
 {
     HILOGI("[ASCService]enter %{public}s, state %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), state);
+    // 成对流去重
+    MergeStartStopBuff(device);
+
     // 取出缓存的打开流任务进行重配置判决
     bool isGoOn = false;
     ProcStartBuff(device, state, isGoOn);
 
     // 取出缓存的关闭流任务进行处理 (ProcStartBuff可能触发重配改变了状态，需要重新获取ASC State)
     ProcStopBuff(device, GetASCStatus(device));
+}
+
+void ASCService::MergeStartStopBuff(const RawAddress& device)
+{
+    std::queue<AudioStreamType>& startBuff = GetStartBuff(device);
+    std::queue<AudioStreamType>& stopBuff = GetStopBuff(device);
+    if (startBuff.empty() || stopBuff.empty()) {
+        return;
+    }
+
+    // 取出两个队列中的所有流类型
+    std::vector<AudioStreamType> startList = DrainBuffToVector(startBuff);
+    std::vector<AudioStreamType> stopList = DrainBuffToVector(stopBuff);
+
+    // 统计每个流类型在两个队列中出现的次数
+    std::map<AudioStreamType, int> startCountMap;
+    std::map<AudioStreamType, int> stopCountMap;
+    for (const auto& stream : startList) { startCountMap[stream]++; }
+    for (const auto& stream : stopList) { stopCountMap[stream]++; }
+
+    // 净计数:正数 = start 侧应保留条数;负数 = stop 侧应保留条数;0 = 完全成对抵消
+    std::map<AudioStreamType, int> remainCountMap;
+    for (const auto& item : startCountMap) {
+        remainCountMap[item.first] += item.second;
+    }
+    for (const auto& item : stopCountMap) {
+        remainCountMap[item.first] -= item.second;
+    }
+
+    // 按原始入队顺序重建:有保留配额才回填并扣减,配额为 0 的条目(已配对)丢弃
+    for (const auto& stream : startList) {
+        int& remain = remainCountMap[stream];
+        if (remain > 0) {
+            startBuff.push(stream);
+            remain--;
+        }
+    }
+    for (const auto& stream : stopList) {
+        int& remain = remainCountMap[stream];
+        if (remain < 0) {
+            stopBuff.push(stream);
+            
+            remain++;
+        }
+    }
+    HILOGI("[ASCService]MergeStartStopBuff %{public}s startBuff size %{public}d stopBuff size %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), startBuff.size(), stopBuff.size());
+}
+
+std::vector<AudioStreamType> ASCService::DrainBuffToVector(std::queue<AudioStreamType>& buff)
+{
+    std::vector<AudioStreamType> streamList;
+    while (!buff.empty()) {
+        streamList.push_back(buff.front());
+        buff.pop();
+    }
+    return streamList;
 }
 
 void ASCService::CbkStartStream(const RawAddress& device, uint8_t result, const AscQosmInfo& qosmInfo)
