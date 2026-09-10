@@ -312,6 +312,28 @@ NLSTK_DevdAdvResult_S CreateMockAudioAdvResultWithExceptionData(const std::strin
     return result;
 }
 
+/* 测试工具函数：创建带自定义厂商数据的 Mock 广播结果（HID设备） */
+NLSTK_DevdAdvResult_S CreateMockHidAdvResultWithManuData(const std::string& address,
+                                                         const std::string& name,
+                                                         const std::vector<uint8_t>& manuData,
+                                                         int8_t rssi = -50)
+{
+    NLSTK_DevdAdvResult_S result = CreateMockAdvResult(address, name, 0x01, rssi);
+
+    /* 添加自定义厂商数据 */
+    if (result.manufacturerDataList != NULL && !manuData.empty()) {
+        size_t totalSize = sizeof(NLSTK_DevdAdvManufacturerData_S) + manuData.size();
+        NLSTK_DevdAdvManufacturerData_S *manuEntry =
+            (NLSTK_DevdAdvManufacturerData_S *)new uint8_t[totalSize];
+        manuEntry->manufacturerId = 0x0009;
+        manuEntry->len = static_cast<uint16_t>(manuData.size());
+        (void)memcpy_s(manuEntry->data, manuData.size(), manuData.data(), manuData.size());
+        SDF_VectorEmplaceBack(result.manufacturerDataList, manuEntry);
+    }
+
+    return result;
+}
+
 /* 测试工具函数：创建 Mock 笔设备广播结果 */
 NLSTK_DevdAdvResult_S CreateMockPencilAdvResult(const std::string& address,
                                                  const std::string& name,
@@ -1306,6 +1328,121 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_Audio_Full_002, Test
 
     HILOGI("ScanService_ParseManufacturerData_Audio_Full_002 end");
 }
+
+/* ==================== ScanService HID设备厂商数据解析测试用例 ==================== */
+
+/**
+ * @tc.name: ScanService_ParseManufacturerData_Hid_001
+ * @tc.desc: 测试解析Hid设备厂商数据（正常能力位图）
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_Hid_001, TestSize.Level1)
+{
+    HILOGI("ScanService_ParseManufacturerData_Hid_001 start");
+
+    std::string addr = "00:11:22:33:44:90";
+    /* 厂商数据：业务类型HID(0x02) + 拓展类型能力位图(0x01) + 16字节能力位图 */
+    std::vector<uint8_t> manuData = {
+        0x02,
+        0x01,
+        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    NLSTK_DevdAdvResult_S mockResult = CreateMockHidAdvResultWithManuData(addr, "HidDevice", manuData);
+    MockTriggerScanResult(&mockResult);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    CleanupMockAdvResult(mockResult);
+
+    /* 验证厂商业务类型为HID */
+    int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(addr);
+    EXPECT_EQ(businessType, SLE_PRIVATE_HID_BUSINESS_TYPE);
+
+    /* 验证能力位图按广播内容写入 */
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> ability =
+        InterfaceScanService::GetInstance().GetDeviceManufacturerAbility(addr);
+    EXPECT_EQ(ability[0], 0x02);
+    for (size_t i = 1; i < ability.size(); i++) {
+        EXPECT_EQ(ability[i], 0x00);
+    }
+    
+    HILOGI("ScanService_ParseManufacturerData_Hid_001 end");
+}
+
+/**
+ * @tc.name: ScanService_ParseManufacturerData_Hid_Truncated_002
+ * @tc.desc: 测试解析Hid设备厂商数据（能力位图截断15字节，校验失败不写入）
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_Hid_Truncated_002, TestSize.Level1)
+{
+    HILOGI("ScanService_ParseManufacturerData_Hid_Truncated_002 start");
+
+    std::string addr = "00:11:22:33:44:91";
+    /* 厂商数据：业务类型HID(0x02) + 拓展类型能力位图(0x01) + 仅15字节能力位图（总长17字节） */
+    std::vector<uint8_t> manuData = {
+        0x02,
+        0x01,
+        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    NLSTK_DevdAdvResult_S mockResult = CreateMockHidAdvResultWithManuData(addr, "HidTruncated", manuData);
+    MockTriggerScanResult(&mockResult);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    CleanupMockAdvResult(mockResult);
+
+    /* 验证厂商业务类型为HID */
+    int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(addr);
+    EXPECT_EQ(businessType, SLE_PRIVATE_HID_BUSINESS_TYPE);
+
+    /* 验证能力位图按广播内容写入 */
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> ability =
+        InterfaceScanService::GetInstance().GetDeviceManufacturerAbility(addr);
+    EXPECT_EQ(ability[0], 0x02);
+    for (uint8_t byte : ability) {
+        EXPECT_EQ(byte, 0x00);
+    }
+
+    HILOGI("ScanService_ParseManufacturerData_Hid_Truncated_002 end");
+}
+
+/**
+ * @tc.name: ScanService_ParseManufacturerData_Hid_UnknownEntry_003
+ * @tc.desc: 测试解析Hid设备厂商数据（未知拓展类型前置，终止解析防御错位扫描）
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_Hid_UnknownEntry_003, TestSize.Level1)
+{
+    HILOGI("ScanService_ParseManufacturerData_Hid_UnknownEntry_003 start");
+
+    std::string addr = "00:11:22:33:44:92";
+    /* 厂商数据：业务类型HID(0x02) + 拓展类型能力位图(0x01) + 16字节能力位图 */
+    std::vector<uint8_t> manuData = {
+        0x02,
+        0x99,
+        0x01,
+        0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+        0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA
+    };
+    NLSTK_DevdAdvResult_S mockResult = CreateMockHidAdvResultWithManuData(addr, "HidUnknownEntry", manuData);
+    MockTriggerScanResult(&mockResult);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    CleanupMockAdvResult(mockResult);
+
+    /* 验证厂商业务类型为HID */
+    int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(addr);
+    EXPECT_EQ(businessType, SLE_PRIVATE_HID_BUSINESS_TYPE);
+
+    /* 验证能力位图按广播内容写入 */
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> ability =
+        InterfaceScanService::GetInstance().GetDeviceManufacturerAbility(addr);
+    for (uint8_t byte : ability) {
+        EXPECT_EQ(byte, 0x00);
+    }
+
+    HILOGI("ScanService_ParseManufacturerData_Hid_UnknownEntry_003 end");
+}
+
+
 
 /* ==================== ScanService 广播数据解析测试用例 ==================== */
 
