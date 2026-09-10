@@ -87,7 +87,11 @@ static void BasReadPropertyCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S
 static void BasReadPropertiesCbk(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
     NLSTK_Errcode_E ret)
 {
-    NLSTK_CHECK_RETURN_VOID(properties != NULL, "[BAS] properties is null");
+    if (properties == NULL || num == 0 || ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[BAS] read properties fail, ret=%d", ret);
+        BasReadPropertyCbk(appId, NULL, ret);
+        return;
+    }
     for (uint8_t i = 0; i < num; i++) {
         BasReadPropertyCbk(appId, &properties[i], ret);
     }
