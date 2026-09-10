@@ -81,7 +81,11 @@ static void HidReadPropertyCb(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S 
 static void HidReadPropertiesCb(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
     NLSTK_Errcode_E ret)
 {
-    NLSTK_CHECK_RETURN_VOID(properties != NULL, "[HID] properties is null");
+    if (properties == NULL || num == 0 || ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[HID] read properties fail, ret=%d", ret);
+        HidReadPropertyCb(appId, NULL, ret);
+        return;
+    }
     for (uint8_t i = 0; i < num; i++) {
         HidReadPropertyCb(appId, &properties[i], ret);
     }
