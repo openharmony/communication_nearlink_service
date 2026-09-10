@@ -32,10 +32,10 @@ public:
     INearlinkSwitchAction() = default;
     virtual ~INearlinkSwitchAction() = default;
 
-    virtual NlErrCode EnableNearlink(SleAutoConnectPolicy) = 0;
+    virtual NlErrCode EnableNearlink(SleAutoConnectPolicy, int32_t loadSaTimeoutMs) = 0;
     virtual NlErrCode DisableNearlink() = 0;
     virtual NlErrCode DisableNearlinkToOff() = 0;
-    virtual NlErrCode EnableNearlinkToHalf() = 0;
+    virtual NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs) = 0;
 };
 
 enum class NearlinkSwitchEvent : int {
@@ -66,13 +66,14 @@ public:
     ~NearlinkSwitchModule() = default;
 
     NlErrCode ProcessNearlinkSwitchEvent(NearlinkSwitchEvent event,
-        const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL);
+        const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL,
+        int32_t loadSaTimeoutMs = 0);  // loadSaTimeoutMs: SA 加载超时(ms)，<=0 时由开关动作使用默认超时
     void SetNoAutoConnect(bool noAutoConnect);
 
 private:
-    NlErrCode ProcessEnableNearlinkEvent(
-        const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL);
-    NlErrCode ProcessEnableNearlinkToHalfEvent(void);
+    NlErrCode ProcessEnableNearlinkEvent(const SleAutoConnectPolicy autoConnPolicy,
+        int32_t loadSaTimeoutMs);
+    NlErrCode ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs);
     NlErrCode ProcessDisableNearlinkEvent(void);
     NlErrCode ProcessDisableNearlinkToOffEvent(void);
     NlErrCode ProcessNearlinkOnEvent(void);

@@ -43,7 +43,8 @@
 namespace OHOS {
 namespace Nearlink {
 namespace {
-constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 20000;
+constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 30000;       // 默认加载超时时间，异步接口与缓存事件重放使用 30s
+constexpr int32_t LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS = 5000;   // 同步接口加载超时时间，避免长时间阻塞调用线程
 
 #ifdef NEARLINK_HOST_AVOID_SLEEP
     const uint16_t WAKE_TIME = 3000; //3s
@@ -63,7 +64,7 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
     ~impl();
 
     void Init();
-    bool LoadNearlinkHostService(void);
+    bool LoadNearlinkHostService(int32_t loadSaTimeoutMs);
     void LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void LoadSystemAbilityFail();
 
@@ -367,9 +368,9 @@ public:
     NearlinkSwitchAction() = default;
     ~NearlinkSwitchAction() override = default;
 
-    NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy) override
+    NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(),
+        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -390,9 +391,9 @@ public:
         return proxy->DisableSleToOff();
     }
 
-    NlErrCode EnableNearlinkToHalf() override
+    NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(),
+        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -482,8 +483,9 @@ void NearlinkHost::impl::Init()
     }
 }
 
-bool NearlinkHost::impl::LoadNearlinkHostService()
+bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
 {
+    int32_t timeoutMs = loadSaTimeoutMs > 0 ? loadSaTimeoutMs : LOAD_NEARLINK_SA_TIMEOUT_MS;
     std::unique_lock<std::mutex> lock(loadServiceMutex_);
     auto samgrProxy = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN_RET(samgrProxy, false, "samgrProxy is nullptr");
@@ -503,17 +505,17 @@ bool NearlinkHost::impl::LoadNearlinkHostService()
         HILOGE("Failed to load nearlink systemAbility");
         return false;
     }
-    // 等待 SA 加载完成。唤醒源有三类：
+    // 等待 SA 加载完成，超时时长由调用方指定（同步接口短超时、异步接口长超时）。唤醒源有三类：
     // 1. OnLoadSystemAbilitySuccess：SA 在加载窗口内启动完成；
     // 2. OnLoadSystemAbilityFail：加载请求超时，但 SA 仍可能在后台继续启动，此处仅唤醒重查；
     // 3. 服务启动事件（serviceStartedFunc_）：SA 真实启动成功，解除等待避免空等超时。
     auto waitStatus = proxyConVar_.wait_for(
-        lock, std::chrono::milliseconds(LOAD_NEARLINK_SA_TIMEOUT_MS), []() -> bool {
+        lock, std::chrono::milliseconds(timeoutMs), []() -> bool {
             sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
             return proxy != nullptr;
         });
     if (!waitStatus) {
-        HILOGE("load nearlink systemAbility timeout");
+        HILOGE("load nearlink systemAbility timeout(%{public}d ms)", timeoutMs);
         return false;
     }
     return true;
@@ -608,7 +610,7 @@ NlErrCode NearlinkHost::LoadNearlinkSa()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
-    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(), NL_ERR_INTERNAL_ERROR,
+    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_TIMEOUT_MS), NL_ERR_INTERNAL_ERROR,
         "load nearlink service failed.");
     return NL_NO_ERROR;
 }
@@ -622,12 +624,15 @@ NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
 #ifdef NEARLINK_HOST_AVOID_SLEEP
     auto runningLock = pimpl->AcquireWakeLock();
 #endif
-    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy);
+    // 同步接口短超时，避免长时间阻塞调用线程
+    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
+        autoConnPolicy, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
 }
 
 NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
 {
-    HILOGD("enter");
+    // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
+    HILOGI("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
@@ -639,8 +644,9 @@ NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
 #ifdef NEARLINK_HOST_AVOID_SLEEP
         auto runningLock = hostImplSptr->AcquireWakeLock();
 #endif
+        // 异步接口在 ffrt 队列线程执行，使用长超时等待 SA 加载，提高慢启动场景一次成功率
         NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
-            NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy);
+            NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy, LOAD_NEARLINK_SA_TIMEOUT_MS);
         if (ret != NL_NO_ERROR) {
             HILOGE("enable nearlink asynchronously failed, error code: %{public}d", ret);
         }
@@ -672,12 +678,14 @@ NlErrCode NearlinkHost::EnableNlToHalf()
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
-    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF,
+        SleAutoConnectPolicy::AUTO_CONN_GENERAL, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
 }
 
 NlErrCode NearlinkHost::EnableNlToHalfAsync()
 {
-    HILOGD("enter");
+    // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
+    HILOGI("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
@@ -690,7 +698,8 @@ NlErrCode NearlinkHost::EnableNlToHalfAsync()
         auto runningLock = hostImplSptr->AcquireWakeLock();
 #endif
         NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
-            NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+            NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF, SleAutoConnectPolicy::AUTO_CONN_GENERAL,
+            LOAD_NEARLINK_SA_TIMEOUT_MS);
         if (ret != NL_NO_ERROR) {
             HILOGE("enable nearlink to half asynchronously failed, error code: %{public}d", ret);
         }
@@ -992,8 +1001,8 @@ NlErrCode NearlinkHost::NearlinkFactoryReset()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     if (!IS_SLE_ENABLED() && !IsSleHalfDisabled()) {
-        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(), NL_ERR_INTERNAL_ERROR,
-            "pimpl is null or load nearlink service failed.");
+        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_TIMEOUT_MS),
+            NL_ERR_INTERNAL_ERROR, "pimpl is null or load nearlink service failed.");
     }
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");

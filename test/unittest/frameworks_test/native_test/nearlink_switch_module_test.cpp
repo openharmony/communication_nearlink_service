@@ -30,10 +30,10 @@ namespace Nearlink {
 
 class MockNearlinkSwitchAction : public INearlinkSwitchAction {
 public:
-    MOCK_METHOD(NlErrCode, EnableNearlink, (SleAutoConnectPolicy), (override));
+    MOCK_METHOD(NlErrCode, EnableNearlink, (SleAutoConnectPolicy, int32_t), (override));
     MOCK_METHOD(NlErrCode, DisableNearlink, (), (override));
     MOCK_METHOD(NlErrCode, DisableNearlinkToOff, (), (override));
-    MOCK_METHOD(NlErrCode, EnableNearlinkToHalf, (), (override));
+    MOCK_METHOD(NlErrCode, EnableNearlinkToHalf, (int32_t), (override));
 };
 
 class NearlinkSwitchModuleTest : public testing::Test {
@@ -67,7 +67,7 @@ public:
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_001, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_001 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
 
@@ -84,7 +84,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_001, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_002, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_002 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK),
         NL_ERR_INTERNAL_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -99,7 +99,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_002, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_003, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_003 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK),
         NL_NO_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -232,7 +232,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_010, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_011, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_011 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_NO_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_NO_ERROR);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
@@ -250,7 +250,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_011, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_012, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_012 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_ERR_INTERNAL_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -265,7 +265,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_012, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_013, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_013 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_NO_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -282,7 +282,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_014, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_014 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
 
@@ -318,7 +318,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_015, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_015 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
 
@@ -359,7 +359,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_016, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_016 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -389,7 +389,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_017, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_017 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -451,7 +451,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_019, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_019 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
@@ -513,7 +513,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_021, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_021 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -540,7 +540,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_022, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_022 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
@@ -595,7 +595,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_024 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
         // 超时后队尾事件 DISABLE_NEARLINK 被下发处理
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
@@ -629,9 +629,9 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_026, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_026 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
         // 超时后仅队尾事件 ENABLE_NEARLINK 被下发，DISABLE_NEARLINK 与 ENABLE_NEARLINK_TO_HALF 被清除
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -670,9 +670,9 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_027 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
         // 第一次超时后下发队尾 ENABLE_NEARLINK_TO_HALF
-        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_)).WillOnce(Return(NL_NO_ERROR));
         // 第二次超时后下发队尾 DISABLE_NEARLINK
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }

@@ -60,7 +60,7 @@ void NearlinkSwitchModule::LogNearlinkSwitchEvent(NearlinkSwitchEvent event)
 }
 
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
-    NearlinkSwitchEvent event, const SleAutoConnectPolicy autoConnPolicy)
+    NearlinkSwitchEvent event, const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
     NL_CHECK_RETURN_RET(switchAction_, NL_ERR_INTERNAL_ERROR, "switchAction is nullptr");
 
@@ -68,13 +68,13 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
     LogNearlinkSwitchEvent(event);
     switch (event) {
         case NearlinkSwitchEvent::ENABLE_NEARLINK:
-            return ProcessEnableNearlinkEvent(autoConnPolicy);
+            return ProcessEnableNearlinkEvent(autoConnPolicy, loadSaTimeoutMs);
         case NearlinkSwitchEvent::DISABLE_NEARLINK:
             return ProcessDisableNearlinkEvent();
         case NearlinkSwitchEvent::DISABLE_NEARLINK_TO_OFF:
             return ProcessDisableNearlinkToOffEvent();
         case NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF:
-            return ProcessEnableNearlinkToHalfEvent();
+            return ProcessEnableNearlinkToHalfEvent(loadSaTimeoutMs);
         case NearlinkSwitchEvent::NEARLINK_ON:
             return ProcessNearlinkOnEvent();
         case NearlinkSwitchEvent::NEARLINK_OFF:
@@ -160,12 +160,14 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
     return ret;
 }
 
-NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkEvent(const SleAutoConnectPolicy autoConnPolicy)
+NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkEvent(
+    const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
-    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), autoConnPolicy]() -> NlErrCode {
+    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), autoConnPolicy,
+        loadSaTimeoutMs]() -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy);
+            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy, loadSaTimeoutMs);
         }, NearlinkSwitchEvent::ENABLE_NEARLINK);
 }
 
@@ -178,12 +180,12 @@ NlErrCode NearlinkSwitchModule::ProcessDisableNearlinkEvent()
         }, NearlinkSwitchEvent::DISABLE_NEARLINK);
 }
 
-NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkToHalfEvent()
+NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs)
 {
-    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this()]() -> NlErrCode {
+    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), loadSaTimeoutMs]() -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlinkToHalf();
+            return switchSptr->switchAction_->EnableNearlinkToHalf(loadSaTimeoutMs);
         }, NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
 }
 
@@ -283,6 +285,7 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
 
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchCachedEvent(NearlinkSwitchEvent event)
 {
+    // 缓存事件重放不带 SA 加载超时参数，由开关动作使用默认超时
     HILOGI("[NearlinkSwitchModule] Process cached %{public}s event", ToEventString(event));
     ffrtQueue_.submit([switchWptr = weak_from_this(), event]() -> void {
         auto switchSptr = switchWptr.lock();
