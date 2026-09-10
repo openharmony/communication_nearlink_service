@@ -97,13 +97,6 @@ public:
      *
      */
     virtual int GetHidDeviceInfo(const RawAddress &device, int infoType) = 0;
-
-    /**
-     * @brief Hid Host Set Device Manufacturer Ability.
-     *
-     */
-    virtual void SetDeviceManufacturerAbility(
-        const RawAddress &device, const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &manuAbility) const = 0;
 };
 
 } // namespace Sle
