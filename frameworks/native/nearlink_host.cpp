@@ -438,6 +438,10 @@ void NearlinkHost::impl::Init()
     info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
         auto implSptr = wp.lock();
         NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
+        // SA 已真实启动，唤醒等待加载完成的调用方：
+        // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
+        // 需由服务启动事件解除等待，避免空等到 LoadSystemAbility 超时。
+        implSptr->proxyConVar_.notify_all();
         sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
         NL_CHECK_RETURN(proxy, "proxy is nullptr");
         NL_CHECK_RETURN(implSptr->hostObserverImp_, "hostObserverImp_ is nullptr");
@@ -499,6 +503,10 @@ bool NearlinkHost::impl::LoadNearlinkHostService()
         HILOGE("Failed to load nearlink systemAbility");
         return false;
     }
+    // 等待 SA 加载完成。唤醒源有三类：
+    // 1. OnLoadSystemAbilitySuccess：SA 在加载窗口内启动完成；
+    // 2. OnLoadSystemAbilityFail：加载请求超时，但 SA 仍可能在后台继续启动，此处仅唤醒重查；
+    // 3. 服务启动事件（serviceStartedFunc_）：SA 真实启动成功，解除等待避免空等超时。
     auto waitStatus = proxyConVar_.wait_for(
         lock, std::chrono::milliseconds(LOAD_NEARLINK_SA_TIMEOUT_MS), []() -> bool {
             sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
@@ -526,6 +534,8 @@ void NearlinkHost::impl::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &rem
 
 void NearlinkHost::impl::LoadSystemAbilityFail()
 {
+    // 加载请求超时仅代表未在加载窗口内收到成功回调，SA 仍可能启动成功，
+    // 此时继续等待服务启动事件（serviceStartedFunc_）唤醒。
     HILOGI("LoadSystemAbilityFail FinishStart SA");
     proxyConVar_.notify_one();
 }
