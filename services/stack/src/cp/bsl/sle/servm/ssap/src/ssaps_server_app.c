@@ -112,6 +112,17 @@ void SsapServerRegAppAsyn(void *param)
     }
 }
 
+void SsapServerReplayLinkStateTask(void *param)
+{
+    int32_t *appIdParam = (int32_t *)param;
+    NLSTK_CHECK_RETURN_VOID(appIdParam != NULL, "[SSAP] replay link state param is null");
+    int32_t appId = *appIdParam;
+    NLSTK_CHECK_RETURN_VOID(appId >= 0 && appId < NLSTK_SSAP_SERVER_APP_MAX_NUM, "[SSAP] replay appId invalid");
+    SsapServerApp_S *serverApp = &g_ssapServerApp[appId];
+    NLSTK_CHECK_RETURN_VOID(serverApp->usedFlag == SSAP_SERVER_APP_USED, "[SSAP] replay server app unused");
+    SsapLinkStateReplayToServerApp(serverApp->appId, &(serverApp->cb));
+}
+
 void SsapServerDeregisterApplication(void *param)
 {
     NLSTK_CHECK_RETURN_VOID(param != NULL, "param is null when de-register App");

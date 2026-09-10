@@ -372,6 +372,15 @@ NLSTK_Errcode_E NLSTK_SsapServerRegApp(NLSTK_SsapAppServerCb_S *cb, int32_t *app
 NLSTK_Errcode_E NLSTK_SsapServerRegAppAsyn(NLSTK_SsapAppServerCb_S *cb);
 
 /**
+ * @brief 补发服务端应用已连接链路的连接状态，异步接口
+ * @details 服务端应用注册完成后，将当前已建立的链路状态补发给该应用。
+ *          复用已建链路的场景中，对端不会再发送任何建链信令，
+ *          后注册的服务端应用需要依赖该接口获知存量连接。
+ * @param [in] appId 已注册的应用ID
+ */
+void NLSTK_SsapServerReplayConnectedLink(int32_t appId);
+
+/**
  * @brief 注销应用，同步接口
  * @details 该函数用于注销一个已注册的应用，释放相关资源并停止与该应用相关的服务。
  * @param [in] appId 应用的唯一标识符
