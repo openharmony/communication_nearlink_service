@@ -283,7 +283,7 @@ uint32_t DLI_ReadRemotePrivateFeatures(DLI_ConnHandleStru *param)
     return 0;
 }
 
-uint32_t DLI_SetICGTestParamExt(DLI_ICGTestParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
+uint32_t DLI_SetICGAutorateParamExt(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
 {
     return 0;
 }

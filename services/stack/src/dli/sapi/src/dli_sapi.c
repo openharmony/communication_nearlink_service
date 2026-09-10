@@ -104,11 +104,6 @@ int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase)
     return ret;
 }
 
-int DLI_GetDliVersion(void)
-{
-    return GetDliVersion();
-}
-
 uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
     const uint16_t *evtOpcodes, uint32_t evtNum)
 {

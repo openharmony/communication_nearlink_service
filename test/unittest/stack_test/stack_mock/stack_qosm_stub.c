@@ -41,7 +41,7 @@ uint32_t TEST_QOSM_AutoRateUnregisterCallback(void)
     return 0;
 }
 
-uint32_t TEST_QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param)
+uint32_t AUTORATE_QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param)
 {
     return 0;
 }

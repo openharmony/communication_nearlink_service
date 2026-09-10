@@ -72,7 +72,7 @@ static uint8_t g_labelId = 0;
 static uint32_t g_registerCbkRet = CM_SUCCESS;
 static uint32_t g_listenFreqBandRet = CM_SUCCESS;
 static uint32_t g_setParamRet = CM_SUCCESS;
-static uint32_t g_setTestParamRet = CM_SUCCESS;
+static uint32_t g_setAutorateParamRet = CM_SUCCESS;
 static uint32_t g_setLabelRet = CM_SUCCESS;
 static uint32_t g_cmSetDataPathRet = CM_SUCCESS;
 static uint32_t g_cmRemoveDataPathRet = CM_SUCCESS;
@@ -90,7 +90,7 @@ static uint16_t g_updateChannel[2] = {};
 static CM_ICBConnectionParam g_disconnectParam = {};
 static CM_ICBChannel g_disconnectChannel[2] = {};
 static CM_ICGParam g_settedParam = {};
-static CM_ICGTestParam g_settedTestParam = {};
+static CM_ICGAutorateParam g_settedAutorateParam = {};
 static CM_ICGRemovedParam g_removedParam = {};
 
 static QOSM_ParamCb g_paramCbk[2] = {}; // 0: set param, 1: remove param
@@ -154,15 +154,15 @@ uint32_t CM_ICGSetParam(CM_ICGParam *icgParam)
     return g_setParamRet;
 }
 
-uint32_t CM_ICGSetTestParam(CM_ICGTestParam *icgParam, bool supportAutorate)
+uint32_t CM_ICGSetAutorateParam(CM_ICGAutorateParam *icgParam, bool supportAutorate)
 {
-    if (g_setTestParamRet != CM_SUCCESS) {
-        return g_setTestParamRet;
+    if (g_setAutorateParamRet != CM_SUCCESS) {
+        return g_setAutorateParamRet;
     }
-    if (memcpy_s(&g_settedTestParam, sizeof(g_settedTestParam), icgParam, sizeof(g_settedTestParam)) != EOK) {
+    if (memcpy_s(&g_settedAutorateParam, sizeof(g_settedAutorateParam), icgParam, sizeof(g_settedAutorateParam)) != EOK) {
         return CM_FAIL;
     }
-    return g_setTestParamRet;
+    return g_setAutorateParamRet;
 }
 
 uint32_t CM_ICGSetLabel(CM_ICGLabelParam *icgLabel, bool supportSubrate, bool supportAutorate)
@@ -468,7 +468,7 @@ protected:
         g_registerCbkRet = CM_SUCCESS;
         g_listenFreqBandRet = CM_SUCCESS;
         g_setParamRet = CM_SUCCESS;
-        g_setTestParamRet = CM_SUCCESS;
+        g_setAutorateParamRet = CM_SUCCESS;
         g_setLabelRet = CM_SUCCESS;
         g_cmSetDataPathRet = CM_SUCCESS;
         g_cmRemoveDataPathRet = CM_SUCCESS;
@@ -490,7 +490,7 @@ protected:
         (void)memset_s(&g_disconnectChannel, sizeof(g_disconnectChannel), 0, sizeof(g_disconnectChannel));
 
         (void)memset_s(&g_settedParam, sizeof(g_settedParam), 0, sizeof(g_settedParam));
-        (void)memset_s(&g_settedTestParam, sizeof(g_settedTestParam), 0, sizeof(g_settedTestParam));
+        (void)memset_s(&g_settedAutorateParam, sizeof(g_settedAutorateParam), 0, sizeof(g_settedAutorateParam));
         (void)memset_s(&g_removedParam, sizeof(g_removedParam), 0, sizeof(g_removedParam));
 
         (void)memset_s(&g_dataPath, sizeof(g_dataPath), 0, sizeof(g_dataPath));
@@ -530,7 +530,7 @@ protected:
     }
 };
 
-static void QOSM_ICGMgrSetAudioTestParam(uint8_t qosId, uint8_t levelCnt)
+static void QOSM_ICGMgrSetAudioAutorateParam(uint8_t qosId, uint8_t levelCnt)
 {
     g_levelCnt = levelCnt;
     uint8_t linkCnt = 2;
@@ -553,10 +553,10 @@ static void QOSM_ICGMgrSetAudioTestParam(uint8_t qosId, uint8_t levelCnt)
     param.startParam.startBand = QOS_BAND_2D4;
     param.startParam.startDutyCycle = QOS_DUTY_CYCLE_100P;
     param.startParam.levelCnt = g_levelCnt;
-    QOSM_ICGMgrSetTestParam(&param);
+    QOSM_ICGMgrSetAutorateParam(&param);
 }
 
-static void QOSM_ICGMgrSetOtherParam(uint8_t qosId, QOSM_QosIndex qosIndex, uint8_t levelCnt, bool isTest)
+static void QOSM_ICGMgrSetOtherParam(uint8_t qosId, QOSM_QosIndex qosIndex, uint8_t levelCnt, bool isAutorate)
 {
     g_levelCnt = levelCnt;
     uint8_t linkCnt = 2;
@@ -579,8 +579,8 @@ static void QOSM_ICGMgrSetOtherParam(uint8_t qosId, QOSM_QosIndex qosIndex, uint
     param.startParam.startBand = QOS_BAND_2D4;
     param.startParam.startDutyCycle = QOS_DUTY_CYCLE_100P;
     param.startParam.levelCnt = g_levelCnt;
-    if (isTest) {
-        QOSM_ICGMgrSetTestParam(&param);
+    if (isAutorate) {
+        QOSM_ICGMgrSetAutorateParam(&param);
     } else {
         QOSM_ICGMgrSetParam(&param);
     }
@@ -825,7 +825,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetParamAndRemoveParam)
     EXPECT_EQ(g_paramCbk[1].result, 0);
 }
 
-TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetTestParam)
+TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetAutorateParam)
 {
     // QOSM_CreateQosICGInfo failed
     QOSM_HookLog();
@@ -836,16 +836,16 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetTestParam)
     QOSM_UnhookLog();
 
     // set param return fail
-    g_setTestParamRet = CM_FAIL;
+    g_setAutorateParamRet = CM_FAIL;
     QOSM_ICGMgrSetOtherParam(g_qosId, QOSM_QOSINDEX_OTHERS, OTHER_QOS_LEVEL_CNT, true);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
     EXPECT_NE(g_paramCbk[0].result, 0);
 
     // set param success
-    g_setTestParamRet = CM_SUCCESS;
+    g_setAutorateParamRet = CM_SUCCESS;
     QOSM_ICGMgrSetOtherParam(g_qosId, QOSM_QOSINDEX_OTHERS, OTHER_QOS_LEVEL_CNT, true);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
@@ -858,7 +858,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetTestParam)
     EXPECT_EQ(g_paramCbk[1].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[1].state, QOSM_PARAM_REMOVED);
     EXPECT_EQ(g_paramCbk[1].result, 0);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
@@ -929,7 +929,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetLabelFail)
     EXPECT_EQ(g_paramCbk[1].result, 0);
 
     QOSM_ICGMgrSetOtherParam(g_qosId, QOSM_QOSINDEX_OTHERS, OTHER_QOS_LEVEL_CNT, true);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
@@ -984,7 +984,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetLabelFail)
 TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetLabelOneFailAnotherSuccess)
 {
     QOSM_ICGMgrSetOtherParam(g_qosId, QOSM_QOSINDEX_OTHERS, OTHER_QOS_LEVEL_CNT, true);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
@@ -1263,14 +1263,14 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetParamAfterConnected)
     EXPECT_EQ(g_paramCbk[1].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[1].state, QOSM_PARAM_REMOVED);
     EXPECT_EQ(g_paramCbk[1].result, 0);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
     EXPECT_EQ(g_paramCbk[0].result, 0);
 
     // set different param, will disconnect and remove param and then delay set param
-    QOSM_ICGMgrSetAudioTestParam(g_qosId, AUDIO_QOS_LEVEL_CNT);
+    QOSM_ICGMgrSetAudioAutorateParam(g_qosId, AUDIO_QOS_LEVEL_CNT);
     EXPECT_EQ(g_disconnectParam.id, g_qosId);
     EXPECT_EQ(g_disconnectParam.channelCnt, 1);
     EXPECT_EQ(g_disconnectChannel[0].connHandle, g_connHandle2);
@@ -1288,7 +1288,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseSetParamAfterConnected)
     EXPECT_EQ(g_paramCbk[1].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[1].state, QOSM_PARAM_REMOVED);
     EXPECT_EQ(g_paramCbk[1].result, 0);
-    EXPECT_EQ(g_settedTestParam.id, g_qosId);
+    EXPECT_EQ(g_settedAutorateParam.id, g_qosId);
     ICB_AddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED);
     EXPECT_EQ(g_paramCbk[0].qosId, g_qosId);
     EXPECT_EQ(g_paramCbk[0].state, QOSM_PARAM_SETTED);
@@ -1705,7 +1705,7 @@ TEST_F(UT_QOSM_ICG_MGR_TEST, TestCaseNotifyEarphoneFeedback)
     ICB_UpdateParamCbk(g_qosId, g_lcid1, g_connHandle1, g_bitrateParam[0].labelId);
     ICB_UpdateParamCbk(g_qosId, g_lcid2, g_connHandle2, g_bitrateParam[0].labelId);
 
-    // 当前处于100%占空比192kbps，耳机反馈仅96kbps可用，由于setTestParam时96kbps不可用，所以为非法bitrate
+    // 当前处于100%占空比192kbps，耳机反馈仅96kbps可用，由于setAutorateParam时96kbps不可用，所以为非法bitrate
     QOSM_HookLog();
     notifyParam.supportedBitrateCnt = 1;
     notifyParam.supportedBitrate[0] = 48;

@@ -70,7 +70,7 @@ void QOSM_ICGMgrSetParam(void *param);
  * @param  [in]  < param > 创建参数，类型为QOSM_ICGMgrParam
  * @return void
  */
-void QOSM_ICGMgrSetTestParam(void *param);
+void QOSM_ICGMgrSetAutorateParam(void *param);
 
 /**
  * @brief  删除同步链路参数

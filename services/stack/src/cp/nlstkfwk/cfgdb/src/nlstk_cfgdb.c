@@ -155,14 +155,7 @@ static void ReadLocalVersionCbk(void *context, uint16_t status, DLI_ExecuteCmdRe
 
 uint32_t ReadLocalMeasureCaps(void)
 {
-    if (DLI_IsSupportNewDisMeasure()) {
-        return DLI_ReadLocalMeasureCaps();
-    } else {
-        if (DLI_GetExtFuncList()->readLocalMeasureCapsExt != NULL) {
-            return DLI_GetExtFuncList()->readLocalMeasureCapsExt();
-        }
-    }
-    return NLSTK_ERR;
+    return DLI_ReadLocalMeasureCaps();
 }
 
 static void ReadLocalFeaturesCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
@@ -183,15 +176,8 @@ static void ReadLocalFeaturesCbk(void *context, uint16_t status, DLI_ExecuteCmdR
 
     // 读取CS特性，需要在local feature读完后读取
     if ((g_localFeatures.feats[NEARLINK_FEATURE_INDEX] & NEARLINK_FEATURE_COMPETENCE) == NEARLINK_FEATURE_COMPETENCE) {
-        if (DLI_IsSupportNewDisMeasure()) {
-            NLSTK_LOG_INFO("[HADM] Start to read local measure caps.");
-            DLI_ReadLocalMeasureCaps();
-        } else {
-            if (DLI_GetExtFuncList()->readLocalMeasureCapsExt != NULL) {
-                NLSTK_LOG_INFO("[HADM] Start to read local measure caps ext.");
-                DLI_GetExtFuncList()->readLocalMeasureCapsExt();
-            }
-        }
+        NLSTK_LOG_INFO("[HADM] Start to read local measure caps.");
+        DLI_ReadLocalMeasureCaps();
     } else {
         // 如果不支持CS，POST信号量通知主线程读取完成
         SDF_SemPost(g_readCmdSem);

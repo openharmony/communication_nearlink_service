@@ -100,14 +100,14 @@ uint32_t DLI_ReadLocalPrivateFeatures(void)
     return funcList->getLocalPrivateFeatures();
 }
 
-uint32_t DLI_SetICGTestParamExt(DLI_ICGTestParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
+uint32_t DLI_SetICGAutorateParamExt(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
 {
     DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->setICGTestParamExt == NULL) {
-        ADAPTER_LOGW("get func setICGTestParamExt failed");
+    if (funcList == NULL || funcList->setICGAutorateParamExt == NULL) {
+        ADAPTER_LOGW("get func setICGAutorateParamExt failed");
         return 0;
     }
-    return funcList->setICGTestParamExt(param, mcast, cbkParam);
+    return funcList->setICGAutorateParamExt(param, mcast, cbkParam);
 }
 
 uint32_t DLI_SetICGLabelExt(DLI_ICGLabelParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
@@ -138,49 +138,4 @@ uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCb
         return 0;
     }
     return funcList->updateICGParam(param, mcast, cbkParam);
-}
-
-
-uint32_t DLI_ReadLocalMeasureCapsExt(void)
-{
-    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->readLocalMeasureCapsExt == NULL) {
-        ADAPTER_LOGW("get func readLocalMeasureCapsExt failed");
-        return 0;
-    }
-
-    return funcList->readLocalMeasureCapsExt();
-}
-
-uint32_t DLI_ReadRemoteMeasureCapsExt(DLI_ReadRemoteMeasureCapsParam *param)
-{
-    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->readRemoteMeasureCapsExt == NULL) {
-        ADAPTER_LOGW("get func readRemoteMeasureCapsExt failed");
-        return 0;
-    }
-
-    return funcList->readRemoteMeasureCapsExt(param);
-}
-
-uint32_t DLI_SetMeasureParamExt(DLI_MeasureConfigExtParam *param)
-{
-    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->setMeasureParamExt == NULL) {
-        ADAPTER_LOGW("get func setMeasureParamExt failed");
-        return 0;
-    }
-
-    return funcList->setMeasureParamExt(param);
-}
-
-uint32_t DLI_SetMeasureEnableExt(DLI_SetMeasureEnableParam *param)
-{
-    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->setMeasureEnableExt == NULL) {
-        ADAPTER_LOGW("get func setMeasureEnableExt failed");
-        return 0;
-    }
-
-    return funcList->setMeasureEnableExt(param);
 }

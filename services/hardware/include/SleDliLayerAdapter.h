@@ -67,7 +67,6 @@ int SleHalInit(SleDliCallbackFunc *callbacks);
 void SleReset();
 int SleSendDliPacket(const SlePacket *packet);
 void SleHalClose(void);
-int GetDliVersion(void); // DliVersion
 // 注册商用版本DLI日志匿名化的敏感指令黑名单
 void SleDliSnoopRegisterSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
     const uint16_t *evtOpcodes, uint32_t evtNum);

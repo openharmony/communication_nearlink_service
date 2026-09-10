@@ -129,11 +129,6 @@ extern "C" uint32_t DLI_SetMeasureEnable(DLI_SetMeasureEnableParam *param)
     return 0;
 }
 
-extern "C" bool DLI_IsSupportNewDisMeasure(void)
-{
-    return true;
-}
-
 extern "C" void DLI_CmdCbkUnReg(const ModuleType module, const DLI_InnerCbkLineStru *innerTable, const uint32_t innerSize,
     const DLI_CbkLineStru *table, const uint32_t size)
 {

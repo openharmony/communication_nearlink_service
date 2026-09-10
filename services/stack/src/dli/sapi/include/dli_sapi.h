@@ -53,12 +53,6 @@ void DLI_SapiDeinit(void);
  */
 int DLI_SapiSend(const uint8_t *data, uint32_t len, bool needErase);
 
-/**
- * @brief  获取芯片版本
- * @return 芯片版本
- */
-int DLI_GetDliVersion(void);
-
 #ifdef __cplusplus
 }
 #endif

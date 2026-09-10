@@ -50,11 +50,11 @@ uint32_t QOSM_AutoRateUnregisterCallback(void);
 uint32_t QOSM_AutoRateSetParam(const QOSM_AutoRateParam *param);
 
 /**
- * @brief  设置Test参数
+ * @brief  设置Autorate参数
  * @param  [in]  < param > 参数
  * @return QOSM_SUCCESS: 成功, OTHER: 失败
  */
-uint32_t QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param);
+uint32_t QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param);
 
 /**
  * @brief  删除参数

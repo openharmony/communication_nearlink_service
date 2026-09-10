@@ -99,10 +99,10 @@ void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
     (void)CM_ICGSetParam(&icgParam);
 }
 
-void FuzzIcgSetTestParam(const uint8_t *fuzzData, size_t size)
+void FuzzIcgSetAutorateParam(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    CM_ICBTestParam icbParam[FUZZ_ICB_MAX_CNT];
+    CM_ICBAutorateParam icbParam[FUZZ_ICB_MAX_CNT];
     (void)memset_s(icbParam, sizeof(icbParam), 0, sizeof(icbParam));
     uint8_t icbCnt = fdp.ConsumeIntegral<uint8_t>() % FUZZ_ICB_MAX_CNT;
     for (uint8_t i = 0; i < icbCnt; i++) {
@@ -123,7 +123,7 @@ void FuzzIcgSetTestParam(const uint8_t *fuzzData, size_t size)
         icbParam[i].bnG2T = fdp.ConsumeIntegral<uint8_t>();
         icbParam[i].bnT2G = fdp.ConsumeIntegral<uint8_t>();
     }
-    CM_ICGTestParam icgParam = {};
+    CM_ICGAutorateParam icgParam = {};
     icgParam.type = ConsumeIcbType(fdp);
     icgParam.id = fdp.ConsumeIntegral<uint8_t>();
     icgParam.labelId = fdp.ConsumeIntegral<uint8_t>();
@@ -138,7 +138,7 @@ void FuzzIcgSetTestParam(const uint8_t *fuzzData, size_t size)
     icgParam.icbCnt = icbCnt;
     icgParam.icbParam = icbParam;
     bool supportAutorate = fdp.ConsumeBool();
-    (void)CM_ICGSetTestParam(&icgParam, supportAutorate);
+    (void)CM_ICGSetAutorateParam(&icgParam, supportAutorate);
 }
 
 void FuzzIcgRemoveParam(const uint8_t *fuzzData, size_t size)
@@ -280,7 +280,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
     (void)memcpy_s(fuzzData, size, data, size);
     OHOS::FuzzIcgSetParam(fuzzData, size);
-    OHOS::FuzzIcgSetTestParam(fuzzData, size);
+    OHOS::FuzzIcgSetAutorateParam(fuzzData, size);
     OHOS::FuzzIcgRemoveParam(fuzzData, size);
     OHOS::FuzzIcgSetLabel(fuzzData, size);
     OHOS::FuzzIcbConnection(fuzzData, size);

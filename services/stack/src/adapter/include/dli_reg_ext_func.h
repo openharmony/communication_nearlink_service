@@ -32,12 +32,8 @@ typedef uint32_t (*DLI_SetLocalPrivateFeaturesPtr)(DLI_LocalPrivateFeatures *fea
 typedef uint32_t (*DLI_ACBSetSubratePtr)(DLI_ACBSubrateParam *param);
 typedef uint32_t (*DLI_SetConnFramePowerLevelPtr)(DLI_SetConnFramePowerLevelParam *param);
 typedef uint32_t (*DLI_ReadLocalPrivateFeaturesPtr)(void);
-typedef uint32_t (*DLI_ReadLocalMeasureCapsExtPtr)(void);
-typedef uint32_t (*DLI_ReadRemoteMeasureCapsExtPtr)(DLI_ReadRemoteMeasureCapsParam *param);
-typedef uint32_t (*DLI_SetMeasureParamExtPtr)(DLI_MeasureConfigExtParam *param);
-typedef uint32_t (*DLI_SetMeasureEnableExtPtr)(DLI_SetMeasureEnableParam *param);
 
-typedef uint32_t (*DLI_SetICGTestParamExtPtr)(DLI_ICGTestParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
+typedef uint32_t (*DLI_SetICGAutorateParamExtPtr)(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 typedef uint32_t (*DLI_SetICGLabelPtr)(DLI_ICGLabelParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 typedef uint32_t (*DLI_CreateICBExtPtr)(DLI_ICBConnectionParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 typedef uint32_t (*DLI_UpdateICGParamPtr)(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
@@ -51,11 +47,7 @@ typedef struct {
     DLI_SetConnFramePowerLevelPtr setConnFramePowerLevel;
     DLI_ReadLocalPrivateFeaturesPtr getLocalPrivateFeatures;
     DLI_GetExtRegOpcodePtr getExtRegOpcode;
-    DLI_ReadLocalMeasureCapsExtPtr readLocalMeasureCapsExt;
-    DLI_ReadRemoteMeasureCapsExtPtr readRemoteMeasureCapsExt;
-    DLI_SetMeasureParamExtPtr setMeasureParamExt;
-    DLI_SetMeasureEnableExtPtr setMeasureEnableExt;
-    DLI_SetICGTestParamExtPtr setICGTestParamExt;
+    DLI_SetICGAutorateParamExtPtr setICGAutorateParamExt;
     DLI_SetICGLabelPtr setICGLabel;
     DLI_CreateICBExtPtr createICBExt;
     DLI_UpdateICGParamPtr updateICGParam;

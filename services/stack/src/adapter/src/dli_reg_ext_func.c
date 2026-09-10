@@ -42,13 +42,8 @@ void DLI_RegisterExtFunc(void *soHandle)
     g_dliFuncList.getLocalPrivateFeatures =
         (DLI_ReadLocalPrivateFeaturesPtr)dlsym(soHandle, "DLI_ReadLocalPrivateFeatures");
     g_dliFuncList.getExtRegOpcode = (DLI_GetExtRegOpcodePtr)dlsym(soHandle, "DLI_GetExtRegOpcode");
-    g_dliFuncList.readLocalMeasureCapsExt =
-        (DLI_ReadLocalMeasureCapsExtPtr)dlsym(soHandle, "DLI_ReadLocalMeasureCapsExt");
-    g_dliFuncList.readRemoteMeasureCapsExt =
-        (DLI_ReadRemoteMeasureCapsExtPtr)dlsym(soHandle, "DLI_ReadRemoteMeasureCapsExt");
-    g_dliFuncList.setMeasureParamExt = (DLI_SetMeasureParamExtPtr)dlsym(soHandle, "DLI_SetMeasureParamExt");
-    g_dliFuncList.setMeasureEnableExt = (DLI_SetMeasureEnableExtPtr)dlsym(soHandle, "DLI_SetMeasureEnableExt");
-    g_dliFuncList.setICGTestParamExt = (DLI_SetICGTestParamExtPtr)dlsym(soHandle, "DLI_SetICGTestParam");
+    g_dliFuncList.setICGAutorateParamExt =
+        (DLI_SetICGAutorateParamExtPtr)dlsym(soHandle, "DLI_SetICGAutorateParam");
     g_dliFuncList.setICGLabel = (DLI_SetICGLabelPtr)dlsym(soHandle, "DLI_SetICGLabel");
     g_dliFuncList.createICBExt = (DLI_CreateICBExtPtr)dlsym(soHandle, "DLI_CreateICB");
     g_dliFuncList.updateICGParam = (DLI_UpdateICGParamPtr)dlsym(soHandle, "DLI_UpdateICGParam");

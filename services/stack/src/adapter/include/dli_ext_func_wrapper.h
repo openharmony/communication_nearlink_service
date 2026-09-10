@@ -38,21 +38,13 @@ uint32_t DLI_SetConnFramePowerLevel(DLI_SetConnFramePowerLevelParam *param);
 
 uint32_t DLI_ReadLocalPrivateFeatures(void);
 
-uint32_t DLI_SetICGTestParamExt(DLI_ICGTestParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
+uint32_t DLI_SetICGAutorateParamExt(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 
 uint32_t DLI_SetICGLabelExt(DLI_ICGLabelParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 
 uint32_t DLI_CreateICBExt(DLI_ICBConnectionParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 
 uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
-
-uint32_t DLI_ReadLocalMeasureCapsExt(void);
-
-uint32_t DLI_ReadRemoteMeasureCapsExt(DLI_ReadRemoteMeasureCapsParam *param);
-
-uint32_t DLI_SetMeasureParamExt(DLI_MeasureConfigExtParam *param);
-
-uint32_t DLI_SetMeasureEnableExt(DLI_SetMeasureEnableParam *param);
 
 #ifdef __cplusplus
 }

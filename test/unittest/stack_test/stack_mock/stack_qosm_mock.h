@@ -27,7 +27,7 @@ public:
     virtual ~QosmMockInterface() {};
     virtual uint32_t QOSM_AutoRateRegisterCallback(const QOSM_AutoRateCallback *callback) = 0;
     virtual uint32_t QOSM_AutoRateUnregisterCallback(void) = 0;
-    virtual uint32_t QOSM_AutoRateSetTestParam(const QOSM_AutoRateParam *param) = 0;
+    virtual uint32_t QOSM_AutoRateSetAutorateParam(const QOSM_AutoRateParam *param) = 0;
     virtual uint32_t QOSM_AutoRateAddConnection(const QOSM_AutoRateConnParam *callback) = 0;
     virtual uint32_t QOSM_AutoRateAddDataPath(const QOSM_AutoRateDataPath *callback) = 0;
     virtual uint32_t QOSM_AutoRateDeleteDataPath(const QOSM_AutoRateDeletedDataPath *callback) = 0;
@@ -41,7 +41,7 @@ public:
     ~QosmMock() override;
     MOCK_METHOD(uint32_t, QOSM_AutoRateRegisterCallback, (const QOSM_AutoRateCallback *callback), (override));
     MOCK_METHOD(uint32_t, QOSM_AutoRateUnregisterCallback, (), (override));
-    MOCK_METHOD(uint32_t, QOSM_AutoRateSetTestParam, (const QOSM_AutoRateParam *param), (override));
+    MOCK_METHOD(uint32_t, QOSM_AutoRateSetAutorateParam, (const QOSM_AutoRateParam *param), (override));
     MOCK_METHOD(uint32_t, QOSM_AutoRateAddConnection, (const QOSM_AutoRateConnParam *callback), (override));
     MOCK_METHOD(uint32_t, QOSM_AutoRateAddDataPath, (const QOSM_AutoRateDataPath *callback), (override));
     MOCK_METHOD(uint32_t, QOSM_AutoRateDeleteDataPath, (const QOSM_AutoRateDeletedDataPath *callback), (override));

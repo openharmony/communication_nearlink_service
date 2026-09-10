@@ -50,12 +50,12 @@ uint32_t CM_ICBUnregisterCbk(void);
 uint32_t CM_ICGSetParam(CM_ICGParam *icgParam);
 
 /**
- * @brief  设置同步链路Test参数
- * @param  [in]  < icgParam > 同步链路Test参数
+ * @brief  设置同步链路Autorate参数
+ * @param  [in]  < icgParam > 同步链路Autorate参数
  * @param  [in]  < supportAutorate > true表示支持码率自适应
  * @return CM_SUCCESS: 成功, OTHER: 失败
  */
-uint32_t CM_ICGSetTestParam(CM_ICGTestParam *icgParam, bool supportAutorate);
+uint32_t CM_ICGSetAutorateParam(CM_ICGAutorateParam *icgParam, bool supportAutorate);
 
 /**
  * @brief  删除同步链路参数

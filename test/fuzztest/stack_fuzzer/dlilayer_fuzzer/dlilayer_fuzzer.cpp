@@ -64,11 +64,6 @@ extern "C" void SleHalClose(void)
 {
 }
 
-extern "C" int GetDliVersion(void)
-{
-    return 0;
-}
-
 namespace OHOS {
     const uint16_t MIN_ACB_LEN = 3;
     const uint16_t TEST_DEFAULT_NUM = 10;

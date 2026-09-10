@@ -19,10 +19,8 @@
 #include "dli_errno.h"
 #include "dli_cmd.h"
 #include "dli_def.h"
-#include "dli_reg_ext_func.h"
 #include "hadm_config_dli.h"
 #include "hadm_ext_func_wrapper.h"
-#include "dli_reg_ext_func.h"
 
 typedef struct {
     uint16_t lcid;
@@ -133,18 +131,8 @@ uint32_t HadmSetMeasureParam(uint16_t lcid, HadmSoundingParam_S *args)
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         return ret;
     }
-    if (DLI_IsSupportNewDisMeasure()) {
-        NLSTK_LOG_INFO("[HADM] Start to set measure params, conn id: %u.", params.connHandle);
-        ret = DLI_SetMeasureParam(&params);
-    } else {
-        if (DLI_GetExtFuncList()->setMeasureParamExt != NULL) {
-            NLSTK_LOG_INFO("[HADM] Start to set measure params ext, conn id: %u.", params.connHandle);
-            DLI_MeasureConfigExtParam cmd = {0};
-            cmd.connHandle = lcid;
-            (void)memcpy_s(&cmd.configId, sizeof(HadmSoundingParam_S), args, sizeof(HadmSoundingParam_S));
-            ret = DLI_GetExtFuncList()->setMeasureParamExt(&cmd);
-        }
-    }
+    NLSTK_LOG_INFO("[HADM] Start to set measure params, conn id: %u.", params.connHandle);
+    ret = DLI_SetMeasureParam(&params);
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure params post dli task fail. %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);
@@ -153,17 +141,9 @@ uint32_t HadmSetMeasureParam(uint16_t lcid, HadmSoundingParam_S *args)
     return NLSTK_ERRCODE_SUCCESS;
 }
 
-
 uint32_t SetMeasureEnable(DLI_SetMeasureEnableParam *param)
 {
-    if (DLI_IsSupportNewDisMeasure()) {
-        return DLI_SetMeasureEnable(param);
-    } else {
-        if (DLI_GetExtFuncList()->setMeasureEnableExt != NULL) {
-            return DLI_GetExtFuncList()->setMeasureEnableExt(param);
-        }
-    }
-    return NLSTK_ERRCODE_FAIL;
+    return DLI_SetMeasureEnable(param);
 }
 
 uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
@@ -176,18 +156,9 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
     DLI_SetMeasureEnableParam params = { 0 };
     params.connHandle = lcid;
     params.enable = csEnable;
-    if (DLI_IsSupportNewDisMeasure()) {
-        NLSTK_LOG_INFO(
-            "[HADM] Start to set measure enable, conn id: %u, enable: %u.", params.connHandle, params.enable);
-        ret = SetMeasureEnable(&params);
-    } else {
-        if (DLI_GetExtFuncList()->setMeasureEnableExt != NULL) {
-            NLSTK_LOG_INFO("[HADM] Start to set measure enable ext, conn id: %u, enable: %u.",
-                params.connHandle,
-                params.enable);
-            ret = DLI_GetExtFuncList()->setMeasureEnableExt(&params);
-        }
-    }
+    NLSTK_LOG_INFO(
+        "[HADM] Start to set measure enable, conn id: %u, enable: %u.", params.connHandle, params.enable);
+    ret = SetMeasureEnable(&params);
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Set measure enable post dli task fail. ret: %u", ret);
         SDF_VectorRemoveLast(g_hadmDliCmdVec);  // pop_back
@@ -198,14 +169,7 @@ uint32_t HadmSetMeasureEnable(uint16_t lcid, uint8_t csEnable)
 
 static uint32_t ReadRemoteMeasureCaps(DLI_ReadRemoteMeasureCapsParam *param)
 {
-    if (DLI_IsSupportNewDisMeasure()) {
-        return DLI_ReadRemoteMeasureCaps(param);
-    } else {
-        if (DLI_GetExtFuncList()->readRemoteMeasureCapsExt != NULL) {
-            return DLI_GetExtFuncList()->readRemoteMeasureCapsExt(param);
-        }
-    }
-    return NLSTK_ERRCODE_FAIL;
+    return DLI_ReadRemoteMeasureCaps(param);
 }
 
 uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
@@ -213,15 +177,8 @@ uint32_t HadmReadRemoteMeasureCaps(uint16_t lcid)
     DLI_ReadRemoteMeasureCapsParam params = { 0 };
     params.connHandle = lcid;
     uint32_t ret = DLI_SUCCESS;
-    if (DLI_IsSupportNewDisMeasure()) {
-        NLSTK_LOG_INFO("[HADM] Start to read remote measure caps, conn id: %u.", params.connHandle);
-        ret = ReadRemoteMeasureCaps(&params);
-    } else {
-        if (DLI_GetExtFuncList()->readRemoteMeasureCapsExt != NULL) {
-            NLSTK_LOG_INFO("[HADM] Start to read remote measure caps ext, conn id: %u.", params.connHandle);
-            ret = DLI_GetExtFuncList()->readRemoteMeasureCapsExt(&params);
-        }
-    }
+    NLSTK_LOG_INFO("[HADM] Start to read remote measure caps, conn id: %u.", params.connHandle);
+    ret = ReadRemoteMeasureCaps(&params);
     if (ret != DLI_SUCCESS) {
         NLSTK_LOG_ERROR("[HADM] Read remote measure caps post dli task fail, ret: %u", ret);
         return NLSTK_ERRCODE_TASK_FAIL;

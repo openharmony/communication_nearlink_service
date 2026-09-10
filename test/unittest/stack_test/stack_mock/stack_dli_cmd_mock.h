@@ -31,7 +31,6 @@ public:
     virtual uint32_t DLI_ReadMaximumAdvDataLen(void) = 0;
     virtual uint32_t DLI_ReadAdvSetsNum(void) = 0;
     virtual uint32_t DLI_ReadSupportCryptoAlgo(void) = 0;
-    virtual bool DLI_IsSupportNewDisMeasure(void) = 0;
 };
 
 class DliCmdMock : public DliCmdMockInterface {
@@ -44,7 +43,6 @@ public:
     MOCK_METHOD(uint32_t, DLI_ReadMaximumAdvDataLen, (), (override));
     MOCK_METHOD(uint32_t, DLI_ReadAdvSetsNum, (), (override));
     MOCK_METHOD(uint32_t, DLI_ReadSupportCryptoAlgo, (), (override));
-    MOCK_METHOD(bool, DLI_IsSupportNewDisMeasure, (), (override));
     static DliCmdMock& GetMock();
 private:
     static DliCmdMock *gMock;

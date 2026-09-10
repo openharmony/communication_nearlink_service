@@ -142,8 +142,8 @@ struct QosLevelLabel {
     bool isAvailable;                 /* true表示当前level可用，起播和耳机支持的码率交集 */
     bool isSupported;                 /* true表示当前level可用，起播码率集 */
     QOSM_LinkParam *qosParam;         /* 码率自适应参数，包含同步链路参数 */
-    uint8_t testLabelId;              /* TestParam的labelId，由调用方生成 */
-    uint8_t labelId;                  /* 非TestParam的labelId，由芯片生成 */
+    uint8_t autorateLabelId;           /* AutorateParam的labelId，由调用方生成 */
+    uint8_t labelId;                  /* 非AutorateParam的labelId，由芯片生成 */
 };
 
 typedef struct {
@@ -153,13 +153,13 @@ typedef struct {
     CM_ICBType icbType;                   /* CM_IOB：单播，CM_IMB：组播 */
     QOSM_QosIndex qosIndex;               /* 同步链路对应的QOS索引 */
     uint16_t gHandle;                     /* 组播G端Handle，组播时有效，由IMB建链事件上报 */
-    bool isTest;                          /* true表示icg是通过SetTestParam设置参数的 */
+    bool isAutorate;                     /* true表示icg是通过SetAutorateParam设置参数的 */
     bool supportSubrate;                  /* true表示对端设备支持subrate */
     bool supportAutorate;                 /* true表示对端设备支持autorate */
     bool is5G;                            /* true表示当前连接的频段是5G */
 
-    uint8_t testParamCbkCnt;              /* SetTestParam的回调次数统计 */
-    bool setTestParamFailed;              /* true表示SetTestParam有一个及以上失败 */
+    uint8_t autorateParamCbkCnt;         /* SetAutorateParam的回调次数统计 */
+    bool setAutorateParamFailed;         /* true表示SetAutorateParam有一个及以上失败 */
     bool isResetParam;                    /* true表示icg在reset param，此时remove param事件里不做任何处理 */
     bool isRemovingParam;                 /* true表示icg正在remove param */
 

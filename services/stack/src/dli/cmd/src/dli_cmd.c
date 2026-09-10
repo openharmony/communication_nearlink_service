@@ -162,15 +162,6 @@ void ContextFree(void *context)
     SDF_MemFree(managerContext);
 }
 
-bool DLI_IsSupportNewDisMeasure(void)
-{
-    int version = DLI_GetDliVersion();
-    if (version == DLI_VERSION_1_1) {
-        return true;
-    }
-    return false;
-}
-
 static bool DLI_NeedEraseCmd(uint16_t cmd)
 {
     return cmd == DLI_ENABLE_ENCRYPTION || cmd == DLI_ENCRYPT ||
@@ -1147,12 +1138,12 @@ uint32_t DLI_SetICGParam(DLI_ICGParam *param, DLI_ICGCbkParam *cbkParam)
     return ret;
 }
 
-uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam)
+uint32_t DLI_SetICGAutorateParam(DLI_ICGAutorateParam *param, DLI_ICGCbkParam *cbkParam)
 {
     DLI_CHECK_RETURN_RET(param != NULL && cbkParam != NULL, DLI_STACK_PARAMS_ERRNO, "param is null");
 
-    size_t icgParamSize = sizeof(DLI_SetICGTestParameter) + param->paramCnt * (sizeof(DLI_ICBTestParam));
-    DLI_SetICGTestParameter *cmd = (DLI_SetICGTestParameter *)SDF_MemZalloc(icgParamSize);
+    size_t icgParamSize = sizeof(DLI_SetICGAutorateParameter) + param->paramCnt * (sizeof(DLI_ICBAutorateParam));
+    DLI_SetICGAutorateParameter *cmd = (DLI_SetICGAutorateParameter *)SDF_MemZalloc(icgParamSize);
     DLI_CHECK_RETURN_RET(cmd != NULL, DLI_STACK_MEM_ERRNO, "malloc cmd failed");
 
     cmd->id = param->id;
@@ -1166,7 +1157,7 @@ uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam)
     cmd->framing = param->framing;
     cmd->paramCnt = param->paramCnt;
     for (uint8_t i = 0; i < param->paramCnt; i++) {
-        DLI_ICBTestParam *icb = (DLI_ICBTestParam *)(cmd->param + i * sizeof(DLI_ICBTestParam));
+        DLI_ICBAutorateParam *icb = (DLI_ICBAutorateParam *)(cmd->param + i * sizeof(DLI_ICBAutorateParam));
         icb->id = param->icbParam[i].id;
         icb->nse = param->icbParam[i].nse;
         DLI_ENCODE2BYTE_LITTLE(&icb->maxSduG2T, param->icbParam[i].maxSduG2T);
@@ -1189,11 +1180,11 @@ uint32_t DLI_SetICGTestParam(DLI_ICGTestParam *param, DLI_ICGCbkParam *cbkParam)
         DLI_CMD_COMPLETE_EVT,
         cmd,
         (uint16_t)icgParamSize,
-        DLI_GetCbk(param->opCode == DLI_SET_IMG_PARAM_TEST ? DLI_CBK_SET_IMG_PARAM : DLI_CBK_SET_IOG_PARAM),
+        DLI_GetCbk(param->opCode == DLI_SET_IMG_PARAM_AUTORATE ? DLI_CBK_SET_IMG_PARAM : DLI_CBK_SET_IOG_PARAM),
         cbkParam,
         sizeof(DLI_ICGCbkParam));
     SDF_MemFree(cmd);
-    DLI_LOGD("set icg test param ret = %u", ret);
+    DLI_LOGD("set icg autorate param ret = %u", ret);
     return ret;
 }
 

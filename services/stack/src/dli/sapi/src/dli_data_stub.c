@@ -120,11 +120,6 @@ void SleReset()
     return;
 }
 
-int GetDliVersion(void)
-{
-    return 1;
-}
-
 void SleDliSnoopRegisterSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
     const uint16_t *evtOpcodes, uint32_t evtNum)
 {
