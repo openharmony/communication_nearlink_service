@@ -64,6 +64,11 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
     ~impl();
 
     void Init();
+    void InitObservers();
+    void InitSwitchModule();
+    void RegisterSaManagerFunc();
+    void OnServiceStarted(const sptr<IRemoteObject> &remote);
+    void OnServiceStopped();
     bool LoadNearlinkHostService(int32_t loadSaTimeoutMs);
     void LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void LoadSystemAbilityFail();
@@ -426,61 +431,84 @@ void NearlinkHost::impl::Init()
 {
     HILOGI("starts");
     slefHostImplWeak_ = shared_from_this();
+    InitObservers();
+    InitSwitchModule();
+    RegisterSaManagerFunc();
+}
+
+void NearlinkHost::impl::InitObservers()
+{
     hostObserverImp_ = new (std::nothrow) NearlinkHostObserverImp(slefHostImplWeak_);
     remoteObserverImp_ = new (std::nothrow) NearlinkSlePeripheralCallbackImp(slefHostImplWeak_);
     deviceBatteryObserverImp_ = new (std::nothrow) NearlinkDeviceBatteryObserverImp(slefHostImplWeak_);
     deviceRssiObserverImp_ = new (std::nothrow) NearlinkDeviceRssiObserverImp(slefHostImplWeak_);
+}
 
+void NearlinkHost::impl::InitSwitchModule()
+{
     auto switchActionPtr = std::make_unique<NearlinkSwitchAction>();
     switchModule_ = std::make_shared<NearlinkSwitchModule>(std::move(switchActionPtr));
+}
 
+void NearlinkHost::impl::RegisterSaManagerFunc()
+{
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_HOST);
     std::weak_ptr<impl> wp = shared_from_this();
     info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
         auto implSptr = wp.lock();
         NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
-        // SA 已真实启动，唤醒等待加载完成的调用方：
-        // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
-        // 需由服务启动事件解除等待，避免空等到 LoadSystemAbility 超时。
-        implSptr->proxyConVar_.notify_all();
-        sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
-        NL_CHECK_RETURN(proxy, "proxy is nullptr");
-        NL_CHECK_RETURN(implSptr->hostObserverImp_, "hostObserverImp_ is nullptr");
-        proxy->RegisterSleAdapterObserver(implSptr->hostObserverImp_);
-        NL_CHECK_RETURN(implSptr->remoteObserverImp_, "remoteObserverImp_ is nullptr");
-        proxy->RegisterSlePeripheralCallback(implSptr->remoteObserverImp_);
-        NL_CHECK_RETURN(implSptr->deviceBatteryObserverImp_, "deviceBatteryObserverImp_ is nullptr");
-        proxy->RegisterDeviceBatteryObserver(implSptr->deviceBatteryObserverImp_);
-        NL_CHECK_RETURN(implSptr->deviceRssiObserverImp_, "deviceRssiObserverImp_ is nullptr");
-        proxy->RegisterDeviceRssiObserver(implSptr->deviceRssiObserverImp_);
-        bool isSleEnabled = false;
-        NlErrCode ret = proxy->IsSleEnabled(isSleEnabled);
-        NL_CHECK_RETURN(ret == NL_NO_ERROR, "IsSleEnabled failed, error code: %{public}d", ret);
-        if (isSleEnabled) {
-            HILOGW("execute serviceStartedFunc_, sle is enabled, maybe app is freezed before.");
-            implSptr->hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-                observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
-                observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
-            });
-        }
+        implSptr->OnServiceStarted(remote);
     };
 
     info->serviceStoppedFunc_ = [wp]() -> void {
         auto implSptr = wp.lock();
         NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
-        implSptr->hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-            observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
-            observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
-        });
-
-        NL_CHECK_RETURN(implSptr->switchModule_ != nullptr, "switchModule is nullptr");
-        implSptr->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_OFF);
+        implSptr->OnServiceStopped();
     };
 
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
         HILOGE("profileRegisterId_ is invalid");
     }
+}
+
+void NearlinkHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
+{
+    // SA 已真实启动，唤醒等待加载完成的调用方：
+    // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
+    // 需由服务启动事件解除等待，避免空等到 LoadSystemAbility 超时。
+    proxyConVar_.notify_all();
+    sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
+    NL_CHECK_RETURN(proxy, "proxy is nullptr");
+    NL_CHECK_RETURN(hostObserverImp_, "hostObserverImp_ is nullptr");
+    proxy->RegisterSleAdapterObserver(hostObserverImp_);
+    NL_CHECK_RETURN(remoteObserverImp_, "remoteObserverImp_ is nullptr");
+    proxy->RegisterSlePeripheralCallback(remoteObserverImp_);
+    NL_CHECK_RETURN(deviceBatteryObserverImp_, "deviceBatteryObserverImp_ is nullptr");
+    proxy->RegisterDeviceBatteryObserver(deviceBatteryObserverImp_);
+    NL_CHECK_RETURN(deviceRssiObserverImp_, "deviceRssiObserverImp_ is nullptr");
+    proxy->RegisterDeviceRssiObserver(deviceRssiObserverImp_);
+    bool isSleEnabled = false;
+    NlErrCode ret = proxy->IsSleEnabled(isSleEnabled);
+    NL_CHECK_RETURN(ret == NL_NO_ERROR, "IsSleEnabled failed, error code: %{public}d", ret);
+    if (isSleEnabled) {
+        HILOGW("execute OnServiceStarted, sle is enabled, maybe app is freezed before.");
+        hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+            observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+            observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+        });
+    }
+}
+
+void NearlinkHost::impl::OnServiceStopped()
+{
+    hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+        observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+        observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+    });
+
+    NL_CHECK_RETURN(switchModule_ != nullptr, "switchModule is nullptr");
+    switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_OFF);
 }
 
 bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
