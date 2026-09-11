@@ -28,10 +28,13 @@ TaiheAsyncCallback::TaiheAsyncCallback(ani_vm *vm) : vm_(vm)
         HILOGE("taihe get current env is nullptr");
         return;
     }
-    auto status = env->Promise_New(&bindDeferred_, &promise_);
+    ani_resolver deferred = nullptr;
+    auto status = env->Promise_New(&deferred, &promise_);
     if (status != ANI_OK) {
         HILOGE("Promise_New failed, status: %{public}d", status);
+        return;
     }
+    bindDeferred_.store(deferred);
 }
 
 TaiheAsyncCallback::~TaiheAsyncCallback()
@@ -51,26 +54,32 @@ void TaiheAsyncCallback::CallFunction(int errCode, const std::shared_ptr<TaiheNa
         HILOGE("vm is nullptr");
         return;
     }
-    auto curEnv = GetCurrentEnv(vm_, isAttach_);
+    // 本函数运行在竞争线程（业务回调/超时/Complete 工作线程），attach 只在当前线程记账，
+    // 结算后立即 detach，避免污染成员 isAttach_、导致析构在错误线程 DetachCurrentThread（卡死）。
+    bool isAttach = false;
+    ani_env *curEnv = GetCurrentEnv(vm_, isAttach);
     if (curEnv == nullptr) {
         HILOGE("taihe get current env is nullptr");
         return;
     }
     TaiheCreateLocalScope(curEnv);
-    if (bindDeferred_) {
+    // 原子取走 deferred（exchange 为 nullptr），保证并发下同一 resolver 至多被一个线程 settle
+    ani_resolver deferred = bindDeferred_.exchange(nullptr);
+    if (deferred) {
         if (errCode == NL_NO_ERROR) {
             ani_ref val = object->ToTaiheValue(curEnv);
-            curEnv->PromiseResolver_Resolve(bindDeferred_, val);
+            curEnv->PromiseResolver_Resolve(deferred, val);
         } else {
             ani_ref code = GetCallbackErrorValue(curEnv, errCode);
-            curEnv->PromiseResolver_Reject(bindDeferred_, reinterpret_cast<ani_error>(code));
+            curEnv->PromiseResolver_Reject(deferred, reinterpret_cast<ani_error>(code));
         }
-        // settle 后置空 deferred，使重复调用退化为 no-op，防止 promise 双重 settle 导致 crash
-        bindDeferred_ = nullptr;
     } else {
         HILOGE("promise or deferred is nullptr, maybe already settled");
     }
     TaiheDestroyLocalScope(curEnv);
+    if (isAttach) {
+        vm_->DetachCurrentThread();
+    }
     return;
 }
 

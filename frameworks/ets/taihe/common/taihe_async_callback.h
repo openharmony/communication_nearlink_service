@@ -16,6 +16,7 @@
 #ifndef TAIHE_ASYNC_CALLBACK_H
 #define TAIHE_ASYNC_CALLBACK_H
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -33,8 +34,12 @@ struct TaiheAsyncCallback {
 
     ani_object GetPromiseRet(void);
     ani_vm *vm_ = nullptr;
-    ani_resolver bindDeferred_ = nullptr;
+    // 原子取走 deferred，保证并发（业务回调/超时/Complete 多通道）下同一 resolver 至多被一个线程 settle
+    std::atomic<ani_resolver> bindDeferred_ { nullptr };
     ani_object promise_ = nullptr;
+    // isAttach_ 仅由构造函数记账：当前所有构造点均在已 attach 的 JS/ANI 调用线程，GetEnv 成功、恒为 false。
+    // 析构里的 DetachCurrentThread 只在「构造线程 == 析构线程」时正确，属防御性逻辑。
+    // CallFunction 的 attach 使用局部变量并在结算后立即 detach，不写 isAttach_，避免析构在错误线程 detach。
     bool isAttach_ = false;
 };
 

@@ -50,11 +50,13 @@ std::shared_ptr<TaiheAsyncWork> TaiheAsyncWorkFactory::CreateAsyncWork(ani_env *
     }
     std::shared_ptr<TaiheAsyncWork> taiheAsyncWork(
         new TaiheAsyncWork(env, asyncWork, asyncCallback),
-        [env](TaiheAsyncWork *ptr) {
+        [](TaiheAsyncWork *ptr) {
+            // 同步析构，不派发 detached 线程：避免进程退出期与静态析构（如 TaiheTimer::Shutdown）
+            // 竞态，并保证析构与最后一个引用释放线程之间具有 happens-before 语义。
             if (ptr == nullptr) {
                 return;
             }
-            std::thread([ptr]() { delete ptr; }).detach();
+            delete ptr;
         });
     return taiheAsyncWork;
 }

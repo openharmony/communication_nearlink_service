@@ -27,7 +27,7 @@ AniSsapClientCallback::AniSsapClientCallback()
         SLE_SSAP_CLIENT_CALLBACK_PROPERTY_CHANGE,
         SLE_SSAP_CLIENT_CALLBACK_MTU_CHANGE,
         SLE_SSAP_CLIENT_CALLBACK_EVENT_NOTIFY},
-        "nearlinkAdvertising_taihe")
+        "nearlinkSsap_taihe")
 {}
 
 std::shared_ptr<AniSsapClientCallback> AniSsapClientCallback::GetInstance()
@@ -42,6 +42,7 @@ void AniSsapClientCallback::OnConnectionStateChanged(int connectionState, int re
     HILOGI("connectionState:%{public}d, ret:%{public}d", connectionState, ret);
     std::string deviceId = "";
     {
+        std::shared_lock<std::shared_mutex> lock(clientMutex_);
         NL_CHECK_RETURN(client_, "client is nullptr");
         NL_CHECK_RETURN(client_->GetDevice(), "device is nullptr");
         deviceId = client_->GetDevice()->GetDeviceAddr();

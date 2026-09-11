@@ -282,7 +282,7 @@ int32_t ConvertEventToNative(const ::ohos::nearlink::ssap::Event &event, AniSsap
     aniEvent.handle_ = 0;
     if (event.parameter.has_value()) {
         auto& param = event.parameter.value();
-        if (param.size() <= 0) {
+        if (param.size() == 0) {
             return NL_ERR_INVALID_PARAM;
         }
         aniEvent.handle_ = static_cast<uint16_t>(param[0]);
