@@ -1520,26 +1520,45 @@ void SleAdapter::ReadRemoteRssiCallback(CM_ReadRemoteRssiRsp_S *param)
 {
     NL_CHECK_RETURN(param, "[SleAdapter] param is null");
     NL_CHECK_RETURN(g_sleAdapterImpl, "[SleAdapter] g_sleAdapterImpl is null");
+    CM_ReadRemoteRssiRsp_S paramCopy = {};
+    NL_CHECK_RETURN(memcpy_s(&paramCopy, sizeof(CM_ReadRemoteRssiRsp_S), param,
+        sizeof(CM_ReadRemoteRssiRsp_S)) == EOK, "[SleAdapter] memcpy_s err");
 
-    std::string addr = GetAddressByConnHandle(param->lcid);
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, paramCopy]() -> void {
+        sleAdapterImpl->ReadRemoteRssiTask(paramCopy);
+    });
+}
+
+void SleAdapter::ReadRemoteRssiTask(const CM_ReadRemoteRssiRsp_S &param)
+{
+    std::string addr = GetAddressByConnHandle(param.lcid);
     RawAddress device(addr);
-    int rssi = param->rssi;
-    int status = param->status;
+    int rssi = param.rssi;
+    int status = param.status;
     LOG_INFO("ReadRemote rssi=%{public}d", rssi);
-    g_sleAdapterImpl->pimpl->sleDeviceRssiCallback_.ForEach([&device, rssi, status](ISleDeviceRssiCallback &observer) {
+    pimpl->sleDeviceRssiCallback_.ForEach([&device, rssi, status](ISleDeviceRssiCallback &observer) {
         observer.OnReadRemoteRssiEvent(device, rssi, status);
     });
 }
 
 void SleAdapter::ReadFeatureVersionCallback(CM_ReadRemoteFeatureVersionRsp_S *param)
 {
-    if (param == nullptr) {
-        return;
-    }
+    NL_CHECK_RETURN(param, "[SleAdapter] param is null");
     NL_CHECK_RETURN(g_sleAdapterImpl, "[SleAdapter] g_sleAdapterImpl is null");
-    RawAddress peerAddr = RawAddress::ConvertToString(param->addr.addr);
+    CM_ReadRemoteFeatureVersionRsp_S paramCopy = {};
+    NL_CHECK_RETURN(memcpy_s(&paramCopy, sizeof(CM_ReadRemoteFeatureVersionRsp_S), param,
+        sizeof(CM_ReadRemoteFeatureVersionRsp_S)) == EOK, "[SleAdapter] memcpy_s err");
+
+    DoInAdapterThread([sleAdapterImpl = g_sleAdapterImpl, paramCopy]() -> void {
+        sleAdapterImpl->ReadFeatureVersionTask(paramCopy);
+    });
+}
+
+void SleAdapter::ReadFeatureVersionTask(const CM_ReadRemoteFeatureVersionRsp_S &param)
+{
+    RawAddress peerAddr = RawAddress::ConvertToString(param.addr.addr);
     uint8_t frameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1);
-    g_sleAdapterImpl->pimpl->addrAndFrameTypeMap_.GetValue(peerAddr.GetAddress(), frameType);
+    pimpl->addrAndFrameTypeMap_.GetValue(peerAddr.GetAddress(), frameType);
 
     if (frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
         LOG_DEBUG("[SleAdapter] frame 4");
@@ -1547,13 +1566,12 @@ void SleAdapter::ReadFeatureVersionCallback(CM_ReadRemoteFeatureVersionRsp_S *pa
     }
     LOG_DEBUG("[SleAdapter] frame 1");
     uint8_t phyType = CM_PHY_TYPE_1M;
-    if (g_sleAdapterImpl->adapterProperties_->IsAudioDevice(peerAddr.GetAddress())) {
+    if (adapterProperties_->IsAudioDevice(peerAddr.GetAddress())) {
         frameType = CM_RADIO_FRAME_TYPE_1;
     } else {
         frameType = CM_RADIO_FRAME_TYPE_2;
     }
-    g_sleAdapterImpl->SetPhy(peerAddr, frameType, phyType);
-    return;
+    SetPhy(peerAddr, frameType, phyType);
 }
 
 void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
