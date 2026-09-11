@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include "sdf_addr.h"
 #include "nlstk_ssap_app_link.h"
+#include "nlstk_ssap_app_server.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +59,17 @@ NLSTK_SsapConnectLinkState_E SsapLinkHandleUserDisconnect(SLE_Addr_S *addr);
  * @note addr参数不能为空，否则直接返回
  */
 void SsapLinkHandleRecordLinkStateFromCm(SLE_Addr_S *addr, NLSTK_SsapConnectLinkState_E state);
+
+/**
+ * @brief 服务端应用注册后补发已连接链路状态
+ * @details 复用已建链路的场景中，对端客户端不会再发送任何建链信令，
+ *          后注册的服务端应用只能通过重放链路状态表获知存量连接。
+ *          对 actualLinkState 为 CONNECTED 的链路逐条回调 onConnectionStateChanged。
+ * @param [in] appId 服务端应用ID
+ * @param [in] cb 服务端应用回调，不能为空
+ */
+void SsapLinkStateReplayToServerApp(int32_t appId, const NLSTK_SsapAppServerCb_S *cb);
+
 bool SsapGetClientCleanUp(void);
 bool SsapGetServerCleanUp(void);
 void SsapResetServerCleanUp(void);

@@ -61,6 +61,13 @@ void SsapServerRegApp(void *param);
 void SsapServerRegAppAsyn(void *param);
 
 /**
+ * @brief 服务端应用注册完成后，补发当前已连接链路的连接状态
+ *
+ * @param param 待补发状态的应用ID（int32_t *）
+ */
+void SsapServerReplayLinkStateTask(void *param);
+
+/**
  * @brief 释放一个注册的Ssap服务端的App，该函数属于内部调用，外部不可调用
  *
  * @param param 待释放的App的ID

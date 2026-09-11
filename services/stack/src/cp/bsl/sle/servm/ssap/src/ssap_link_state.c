@@ -192,6 +192,26 @@ void SsapLinkHandleRecordLinkStateFromCm(SLE_Addr_S *addr, NLSTK_SsapConnectLink
     }
 }
 
+void SsapLinkStateReplayToServerApp(int32_t appId, const NLSTK_SsapAppServerCb_S *cb)
+{
+    NLSTK_CHECK_RETURN_VOID(cb != NULL, "cb is null in SsapLinkStateReplayToServerApp");
+    if (cb->onConnectionStateChanged == NULL) {
+        return;
+    }
+    for (int32_t i = 0; i < NLSTK_SSAP_MAX_NUM_OF_LINK; i++) {
+        if (g_linkState[i].usedFlag == false) {
+            continue;
+        }
+        if (g_linkState[i].actualLinkState != SSAP_CONNECT_STATE_CONNECTED) {
+            continue;
+        }
+        // 复用已建链路的场景中，对端不会再发送任何建链信令，
+        // 后注册的 server app 只能通过重放链路状态表获知存量连接
+        cb->onConnectionStateChanged(appId, &(g_linkState[i].addr), SSAP_CONNECT_STATE_CONNECTED,
+            NLSTK_ERRCODE_SUCCESS, 0);
+    }
+}
+
 NLSTK_SsapConnectLinkState_E SsapLinkHandleUserConnect(SLE_Addr_S *addr, const NLSTK_ConnParam_S *connParam)
 {
     NLSTK_CHECK_RETURN(addr != NULL, SSAP_CONNECT_STATE_DISCONNECTED, "addr is null when try connect");
