@@ -13,9 +13,7 @@
  * limitations under the License.
  */
 
-#include <condition_variable>
 #include <memory>
-#include <set>
 #include "nearlink_host.h"
 #include "nearlink_sa_manager.h"
 #include "log_util.h"
@@ -33,74 +31,16 @@
 namespace OHOS {
 namespace Nearlink {
 
-struct RequestInformation {
-    uint8_t type;
-    SsapDevice device;
-    union {
-        SsapProperty *property_;
-        SsapMethod *method_;
-        SsapEvent *event_;
-        SsapDescriptor *descriptor_;
-    } context_;
-
-    RequestInformation(uint8_t type, const SsapDevice &device, SsapProperty *property)
-        : type(type), device(device), context_ {
-            .property_ = property
-        }
-    {}
-
-    RequestInformation(uint8_t type, const SsapDevice &device, SsapMethod *method)
-        : type(type), device(device), context_ {
-            .method_ = method
-        }
-    {}
-
-    RequestInformation(uint8_t type, const SsapDevice &device, SsapEvent *event)
-        : type(type), device(device), context_ {
-            .event_ = event
-        }
-    {}
-
-    RequestInformation(uint8_t type, const SsapDevice &device, SsapDescriptor *descriptor)
-        : type(type), device(device), context_ {
-            .descriptor_ = descriptor
-        }
-    {}
-
-    RequestInformation(uint8_t type, const SsapDevice &device) : type(type), device(device)
-    {}
-
-    bool operator==(const RequestInformation &rhs) const
-    {
-        return (device == rhs.device && type == rhs.type);
-    };
-
-    bool operator<(const RequestInformation &rhs) const
-    {
-        if (device < rhs.device) {
-            return true;
-        }
-        if (rhs.device < device) {
-            return false;
-        }
-        return type < rhs.type;
-    };
-};
-
 struct SsapServer::impl : public std::enable_shared_from_this<impl> {
     class NearlinkSsapServerCallbackStubImpl;
     bool isRegisterSucceeded_;
-    std::mutex requestListMutex_;
     NearlinkSafeMap<uint16_t, std::shared_ptr<SsapService>> ssapServices;
     sptr<NearlinkSsapServerCallbackStubImpl> serviceCallback_;
-    std::set<RequestInformation> requests_;
-    NearlinkSafeList<std::shared_ptr<SsapDevice>> connectedDevices;
+    NearlinkSafeList<SsapDevice> connectedDevices;
     std::shared_ptr<SsapServerCallback> callback_;
     int applicationId_ = 0;
-    std::shared_ptr<SsapService> GetIncludeService(uint16_t handle);
     std::shared_ptr<SsapDevice> FindConnectedDevice(const NearlinkRemoteDevice &device);
     std::shared_ptr<SsapService> BuildService(const NearlinkSsapServiceParcel &service);
-    void BuildIncludeService(SsapService &svc, const std::vector<Service> &iSvcs);
     impl(std::shared_ptr<SsapServerCallback> callback);
     ~impl();
     void Init(std::weak_ptr<SsapServer>);
@@ -140,7 +80,7 @@ public:
         auto serverSptr = GetServerSptr();
         NL_CHECK_RETURN(serverSptr && serverSptr->pimpl && serverSptr->pimpl->callback_,
             "serverSptr pimpl or callback_ is nullptr");
-        std::shared_ptr<SsapDevice> dev = std::make_shared<SsapDevice>(device.addr_, device.transport_);
+        SsapDevice dev(device.addr_, device.transport_);
         if (state == static_cast<int>(SleConnectState::CONNECTED)) {
             serverSptr->pimpl->connectedDevices.Insert(dev);
         } else if (state == static_cast<int>(SleConnectState::DISCONNECTED)) {
@@ -323,28 +263,6 @@ std::shared_ptr<SsapService> SsapServer::impl::BuildService(const NearlinkSsapSe
     return ssapService;
 }
 
-void SsapServer::impl::BuildIncludeService(SsapService &svc, const std::vector<Service> &iSvcs)
-{
-    for (auto &iSvc : iSvcs) {
-        std::shared_ptr<SsapService> pSvc = GetIncludeService(iSvc.startHandle_);
-        if (!pSvc) {
-            HILOGE("Can not find include service entity in service ");
-            continue;
-        }
-        svc.AddService(pSvc);
-    }
-}
-
-std::shared_ptr<SsapService> SsapServer::impl::GetIncludeService(uint16_t handle)
-{
-    std::shared_ptr<SsapService> svc = nullptr;
-    if (!ssapServices.GetValue(handle, svc)) {
-        HILOGE("Can not find the service handle(0x%{public}04X)", handle);
-        return nullptr;
-    }
-    return svc;
-}
-
 SsapServer::impl::impl(std::shared_ptr<SsapServerCallback> callback)
     : isRegisterSucceeded_(false), callback_(callback), applicationId_(0)
 {
@@ -422,10 +340,10 @@ std::shared_ptr<SsapServer> SsapServer::CreateSsapServer(std::shared_ptr<SsapSer
 std::shared_ptr<SsapDevice> SsapServer::impl::FindConnectedDevice(const NearlinkRemoteDevice &device)
 {
     std::shared_ptr<SsapDevice> dev = nullptr;
-    bool ret = connectedDevices.Find([&dev, &device](const std::shared_ptr<SsapDevice> ssapDevice) -> bool {
-        if (device.GetDeviceAddr().compare(ssapDevice->addr_.GetAddress()) == 0 &&
-            (device.GetTransportType() == ssapDevice->transport_)) {
-            dev = ssapDevice;
+    bool ret = connectedDevices.Find([&dev, &device](const SsapDevice &ssapDevice) -> bool {
+        if (device.GetDeviceAddr().compare(ssapDevice.addr_.GetAddress()) == 0 &&
+            (device.GetTransportType() == ssapDevice.transport_)) {
+            dev = std::make_shared<SsapDevice>(ssapDevice);
             return true;
         }
         return false;
