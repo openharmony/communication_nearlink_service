@@ -18,6 +18,7 @@
 #include <functional>
 #include <optional>
 #include <vector>
+#include "nearlink_def.h"
 #include "nearlink_errorcode.h"
 #include "log_util.h"
 #include "napi/native_api.h"
@@ -413,8 +414,54 @@ int NapiToJsDeviceClass(int appearance)
         DEVICE_CLASS_VALUES.end()) {
         return appearance;
     }
-    HILOGE("Device class is outside of expectations.");
+    HILOGD("Device class is outside of expectations.");
     return static_cast<int>(DeviceClass::DEVICE_INVALID_CLASS);
+}
+
+std::string NapiToJsPairReasonMsg(int reason)
+{
+    switch (reason) {
+        case static_cast<int>(PairingStateChangeReason::PAIRING_SUCCESS):
+            return "Pairing successful";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_FAILURE):
+            return "Pairing failed";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_ACB_CONNECTION_FAILED):
+            return "ACB connection failed";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_EXCEED_ACB_MAX):
+            return "The number of ACB connections exceeded the maximum";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_REMOTE_CANCELED):
+            return "Pairing canceled by the remote device";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED):
+            return "Pairing canceled locally";
+        case static_cast<int>(PairingStateChangeReason::PAIRING_AUTH_FAILED):
+            return "Pairing authentication failed";
+        default:
+            return "";
+    }
+}
+
+std::string NapiToJsConnReasonMsg(int reason)
+{
+    switch (reason) {
+        case static_cast<int>(SleConnectReason::CONNECT_SUCCESS):
+            return "Connection successful";
+        case static_cast<int>(SleConnectReason::CONNECT_FAIL):
+            return "Connection failed";
+        case static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT):
+            return "Disconnected locally";
+        case static_cast<int>(SleConnectReason::CONNECT_REMOTE_DISCONNECT):
+            return "Disconnected by the remote device";
+        case static_cast<int>(SleConnectReason::CONNECT_FAIL_ACB_CONNECTION):
+            return "Connection failed due to ACB connection failure";
+        case static_cast<int>(SleConnectReason::CONNECT_FAIL_SERVICE_DISCOVERY):
+            return "Connection failed due to service discovery failure";
+        case static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE):
+            return "Connection failed due to no available service";
+        case static_cast<int>(SleConnectReason::CONNECT_FAIL_CONNECTION_NUM_LIMITED):
+            return "Connection failed due to the connection number limit";
+        default:
+            return "";
+    }
 }
 }  // namespace Nearlink
 }  // namespace OHOS

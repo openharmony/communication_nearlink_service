@@ -58,6 +58,8 @@ struct NearlinkSleCentralManagerServer::impl {
     class SleCentralManagerCallback;
     // weak for underlayer to store observer
     std::shared_ptr<SleCentralManagerCallback> observerImp_ = std::make_shared<SleCentralManagerCallback>(this);
+    // 串行化注册/注销（低频操作），避免注册与注销/并发注册交错产生失效应答
+    std::mutex registerMutex_;
     bool isAudioSupported = false;
 };
 
@@ -89,6 +91,29 @@ public:
         }
         InterfaceScanService::GetInstance().StopScan(scannerId);
         InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
+    }
+
+    bool GetRegisteredScannerId(const sptr<IRemoteObject> &remote, uint32_t &scannerId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        if (it == vec_.end()) {
+            return false;
+        }
+        scannerId = it->second.scannerId;
+        return true;
+    }
+
+    // 锁序约定：vecMutex_ -> 远端对象内部锁，单向获取；锁内 AddDeathRecipient 同时关闭
+    // 登记-死亡竞态（登记后、入容器前远端死亡会残留死条目），勿移出锁外
+    bool TryAddRemoteInfo(const sptr<IRemoteObject> &remote, const SleCentralManagerRemoteInfo &info)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        NL_CHECK_RETURN_RET(it == vec_.end(), false, "duplicate add remote");
+        remote->AddDeathRecipient(deathRecipient_);
+        vec_.push_back(std::make_pair(remote, info));
+        return true;
     }
 
     bool IsRemoteScannerId(uint32_t scannerId)
@@ -364,16 +389,42 @@ NlErrCode NearlinkSleCentralManagerServer::RegisterSleCentralManagerCallback(uin
     HILOGI("pid: %{public}d, uid: %{public}d", pid, uid);
 
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
+    // 注册/注销互斥：串行化同 remote 的注册与注销，消除并发交错窗口
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
+
+    // 幂等注册：同一 remote（callback 的 AsObject）重复注册时复用已有 scannerId
+    // （置于容量门禁之前：复用不占新名额，满员时已注册方仍可取回 id）
+    uint32_t registeredScannerId = SLE_SCAN_INVALID_ID;
+    if (pimpl->remoteContainer_->GetRegisteredScannerId(callback->AsObject(), registeredScannerId)) {
+        HILOGW("callback already registered, reuse scannerId: %{public}u", registeredScannerId);
+        scannerId = registeredScannerId;
+        return NL_NO_ERROR;
+    }
+
     NL_CHECK_RETURN_RET(pimpl->observers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "observers exceeds the range");
 
     scannerId = InterfaceScanService::GetInstance().AllocScannerId();
     NL_CHECK_RETURN_RET(scannerId != SLE_SCAN_INVALID_ID, NL_ERR_INTERNAL_ERROR, "alloc scannerId failed.");
 
-    pimpl->observers_.Register(callback);
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     impl::SleCentralManagerRemoteInfo info(pid, uid, tokenId, scannerId);
-    pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
+    if (!pimpl->remoteContainer_->TryAddRemoteInfo(callback->AsObject(), info)) {
+        // 并发注册冲突：回滚本次分配并复用已有 scannerId（注册互斥下不可达，防御保留）
+        InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
+        NL_CHECK_RETURN_RET(pimpl->remoteContainer_->GetRegisteredScannerId(callback->AsObject(),
+            registeredScannerId), NL_ERR_INTERNAL_ERROR, "get registered scannerId failed.");
+        HILOGW("callback registered concurrently, reuse scannerId: %{public}u", registeredScannerId);
+        scannerId = registeredScannerId;
+        return NL_NO_ERROR;
+    }
+
+    if (!pimpl->observers_.Register(callback)) {
+        // 注册失败回滚，避免 scannerId 泄漏
+        pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
+        InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
+        return NL_ERR_INTERNAL_ERROR;
+    }
     return NL_NO_ERROR;
 }
 
@@ -382,11 +433,13 @@ NlErrCode NearlinkSleCentralManagerServer::DeregisterSleCentralManagerCallback(u
 {
     HILOGI("scannerId: %{public}u", scannerId);
     NL_CHECK_RETURN_RET(callback, NL_ERR_INTERNAL_ERROR, "callback is null");
+    // 注册/注销互斥：注销与注册不交错；先删容器条目再摘回调，注册侧幂等查询不可再命中
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
 
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteScannerId(scannerId), NL_ERR_INVALID_PARAM,
         "scannerId is invalid.");
-    pimpl->observers_.Deregister(callback);
     pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
+    pimpl->observers_.Deregister(callback);
     InterfaceScanService::GetInstance().RemoveScannerId(scannerId);
     return NL_NO_ERROR;
 }

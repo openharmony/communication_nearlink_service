@@ -105,7 +105,7 @@ NearlinkHostStub::NearlinkHostStub()
         {STUB_FUNC(NL_GET_LINK_ROLE, GetLinkRoleInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},
         {STUB_FUNC(NL_GET_DEVICE_UUIDS, GetDeviceUuidsInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},
         {STUB_FUNC(NL_PAIR_REQUEST_PEPLY, PairRequestReplyInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},
-        {STUB_FUNC(NL_READ_REMOTE_RSSI_VALUE, ReadRemoteRssiValueInner, CHECK_PERM(true, {MANAGE_NEARLINK}))},
+        {STUB_FUNC(NL_READ_REMOTE_RSSI_VALUE, ReadRemoteRssiValueInner, CHECK_PERM(true, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_GET_DEVICE_APPEARANCE, GetDeviceAppearanceInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_CONNECT_ALLOWED_PROFILES, ConnectAllowedProfilesInner,
             CHECK_PERM(true, MULTI_PERM(ACCESS_NEARLINK, MANAGE_NEARLINK)))},

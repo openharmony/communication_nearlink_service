@@ -47,6 +47,8 @@ struct NearlinkHadmClientServer::impl {
     // weak for deathReipient of container
     std::shared_ptr<HadmClientRemoteContainer> remoteContainer_ =
         std::make_shared<HadmClientRemoteContainer>();
+    // 串行化注册/注销（低频操作），避免注册与注销/并发注册交错产生失效应答
+    std::mutex registerMutex_;
 };
 
 struct NearlinkHadmClientServer::impl::HadmClientRemoteInfo {
@@ -84,6 +86,30 @@ public:
             HILOGI("sle hadm remote die id:%{public}u", hadmId);
         }
         return hadmId;
+    }
+
+    // 无日志查询，供注册路径幂等复用（GetHadmId 带死亡语义日志，仅 OnRemoteDied 使用）
+    bool GetRegisteredHadmId(const sptr<IRemoteObject> &remote, uint32_t &hadmId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        if (it == vec_.end()) {
+            return false;
+        }
+        hadmId = it->second.hadmId_;
+        return true;
+    }
+
+    // 锁序约定：vecMutex_ -> 远端对象内部锁，单向获取；锁内 AddDeathRecipient 同时关闭
+    // 登记-死亡竞态（登记后、入容器前远端死亡会残留死条目），勿移出锁外
+    bool TryAddRemoteInfo(const sptr<IRemoteObject> &remote, const HadmClientRemoteInfo &info)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        NL_CHECK_RETURN_RET(it == vec_.end(), false, "duplicate add remote");
+        remote->AddDeathRecipient(deathRecipient_);
+        vec_.push_back(std::make_pair(remote, info));
+        return true;
     }
 
     bool CheckHadmId(uint32_t hadmId)
@@ -210,15 +236,43 @@ NlErrCode NearlinkHadmClientServer::RegisterNearlinkHadmClientCallback(uint32_t 
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
+    // 注册/注销互斥：串行化同 remote 的注册与注销，消除并发交错窗口
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
+
+    // 幂等注册：同一 remote（callback 的 AsObject）重复注册时复用已有 hadmId
+    // （置于容量门禁之前：复用不占新名额，满员时已注册方仍可取回 id）
+    uint32_t registeredHadmId = SLE_HADM_INVALID_ID;
+    if (pimpl->remoteContainer_->GetRegisteredHadmId(callback->AsObject(), registeredHadmId)) {
+        HILOGW("callback already registered, reuse hadmId: %{public}u", registeredHadmId);
+        hadmId = registeredHadmId;
+        return NL_NO_ERROR;
+    }
+
     NL_CHECK_RETURN_RET(pimpl->remoteObservers_.Size() < MAX_OBSERVER_SIZE,
         NL_ERR_INTERNAL_ERROR, "ranging observers exceeds the range");
+
     hadmId = InterfaceHadmClientService::GetInstance().AllocHadmId();
     NL_CHECK_RETURN_RET(hadmId != SLE_HADM_INVALID_ID, NL_ERR_INTERNAL_ERROR, "alloc hadmId failed.");
     HILOGI("hadmId: %{public}u, pid: %{public}d, uid: %{public}d, tokenId: %{public}lu", hadmId, pid, uid, tokenId);
-    
-    pimpl->remoteObservers_.Register(callback);
+
     impl::HadmClientRemoteInfo info(pid, uid, tokenId, hadmId);
-    pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);
+    if (!pimpl->remoteContainer_->TryAddRemoteInfo(callback->AsObject(), info)) {
+        // 并发注册冲突：回滚本次分配并复用已有 hadmId（注册互斥下不可达，防御保留）
+        InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
+        uint32_t concurrentHadmId = SLE_HADM_INVALID_ID;
+        NL_CHECK_RETURN_RET(pimpl->remoteContainer_->GetRegisteredHadmId(callback->AsObject(), concurrentHadmId),
+            NL_ERR_INTERNAL_ERROR, "get registered hadmId failed.");
+        HILOGW("callback registered concurrently, reuse hadmId: %{public}u", concurrentHadmId);
+        hadmId = concurrentHadmId;
+        return NL_NO_ERROR;
+    }
+
+    if (!pimpl->remoteObservers_.Register(callback)) {
+        // 注册失败回滚，避免 hadmId 泄漏
+        pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
+        InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
+        return NL_ERR_INTERNAL_ERROR;
+    }
     return NL_NO_ERROR;
 }
 
@@ -228,10 +282,12 @@ NlErrCode NearlinkHadmClientServer::DeregisterNearlinkHadmClientCallback(uint32_
     HILOGI("enter");
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
+    // 注册/注销互斥：注销与注册不交错；先删容器条目再摘回调，注册侧幂等查询不可再命中
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmId(hadmId), NL_ERR_INVALID_PARAM,
         "hadmId is invalid.");
-    pimpl->remoteObservers_.Deregister(callback);
     pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
+    pimpl->remoteObservers_.Deregister(callback);
     InterfaceHadmClientService::GetInstance().RemoveHadmId(hadmId);
     return NL_NO_ERROR;
 }

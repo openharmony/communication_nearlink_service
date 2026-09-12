@@ -88,7 +88,8 @@ void NapiNearlinkDataTransferCallback::OnConnectionStateChanged(const Connection
 {
     HILOGI("enter, state: %{public}d", result.GetState());
     std::lock_guard<std::mutex> lock(callbackMutex_);
-    auto napiNative = std::make_shared<ConnectionResult>(result.GetAddress(), result.GetUuid(), 0, result.GetState());
+    auto napiNative = std::make_shared<ConnectionResult>(result.GetAddress(), result.GetUuid(), result.GetMtu(),
+        result.GetState());
     eventSubscribe.PublishEvent(SLE_DATATRANSFER_CALLBACK_CONNECTION_STATE_CHANGE, napiNative);
 }
 

@@ -45,7 +45,8 @@ void NapiRemoteDeviceCallback::OnPairStatusChanged(const NearlinkRemoteDevice &d
     HILOGI("start");
     int outPreState = NapiToJsPairState(preState);
     int outState = NapiToJsPairState(state);
-    auto napiNative = std::make_shared<PairingStateParam>(device.GetDeviceAddr(), outPreState, outState, reason);
+    auto napiNative = std::make_shared<PairingStateParam>(device.GetDeviceAddr(), outPreState, outState, reason,
+        NapiToJsPairReasonMsg(reason));
     eventSubscribe.PublishEvent(SLE_REMOTE_DEVICE_CALLBACK_PAIRING_STATE_CHANGE, napiNative);
 
     HILOGI("end");
@@ -55,7 +56,8 @@ void NapiRemoteDeviceCallback::OnConnectionStateChanged(const NearlinkRemoteDevi
     int preState, int state, int reason)
 {
     HILOGI("start");
-    auto napiNative = std::make_shared<ConnectionStateParam>(device.GetDeviceAddr(), preState, state, reason);
+    auto napiNative = std::make_shared<ConnectionStateParam>(device.GetDeviceAddr(), preState, state, reason,
+        NapiToJsConnReasonMsg(reason));
     eventSubscribe.PublishEvent(SLE_REMOTE_DEVICE_CALLBACK_CONNECTION_STATE_CHANGE, napiNative);
 
     HILOGI("end");
@@ -104,6 +106,11 @@ napi_value PairingStateParam::ToNapiValue(napi_env env) const
     napi_set_named_property(env, object, "state", value);
     napi_create_int32(env, reason_, &value);
     napi_set_named_property(env, object, "reason", value);
+    // reasonMsg 为可选字段，无原因描述时不输出（保持 undefined）
+    if (!reasonMsg_.empty()) {
+        napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, object, "reasonMsg", value);
+    }
     return object;
 }
 
@@ -120,6 +127,11 @@ napi_value ConnectionStateParam::ToNapiValue(napi_env env) const
     napi_set_named_property(env, object, "state", value);
     napi_create_int32(env, connectionReason_, &value);
     napi_set_named_property(env, object, "connectionReason", value);
+    // reasonMsg 为可选字段，无原因描述时不输出（保持 undefined）
+    if (!reasonMsg_.empty()) {
+        napi_create_string_utf8(env, reasonMsg_.c_str(), NAPI_AUTO_LENGTH, &value);
+        napi_set_named_property(env, object, "reasonMsg", value);
+    }
     return object;
 }
 
@@ -131,7 +143,7 @@ napi_value PairingRequestParam::ToNapiValue(napi_env env) const
     napi_create_string_utf8(env, address_.c_str(), NAPI_AUTO_LENGTH, &value);
     napi_set_named_property(env, object, "address", value);
     napi_create_string_utf8(env, passKey_.c_str(), NAPI_AUTO_LENGTH, &value);
-    napi_set_named_property(env, object, "passKey", value);
+    napi_set_named_property(env, object, "passkey", value);
     napi_create_int32(env, pairingType_, &value);
     napi_set_named_property(env, object, "pairingType", value);
     return object;

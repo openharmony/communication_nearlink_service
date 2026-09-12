@@ -85,6 +85,7 @@ public:
         NL_CHECK_RETURN(sleDataTransferImplSptr, "sleDataTransferImplSptr is nullptr.");
 
         ConnectionParams result(connectionParams.address_, connectionParams.uuid_, connectionParams.state_);
+        result.SetMtu(connectionParams.mtu_);
         HILOGD("Receive stack srcPort = %{public}u", connectionParams.port_);
         
         std::shared_ptr<SleDataTransferCallback> callbackSptr =

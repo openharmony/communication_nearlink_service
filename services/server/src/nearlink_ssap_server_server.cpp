@@ -42,6 +42,8 @@ struct NearlinkSsapServerServer::impl {
 
     std::unique_ptr<SystemStateObserver> systemStateObserver_;
     std::list<std::shared_ptr<SsapServerCallbackImpl>> callbacks_;
+    // 串行化注册/注销（低频操作），消除 stale 清理与并发注册/注销的交错
+    std::mutex registerMutex_;
 
     impl();
     ~impl();
@@ -92,11 +94,18 @@ public:
         }
     }
 
-    /*
-     * 容器里保存appid是否被使用.
-     * 由于协议栈在星闪开关关闭时,协议栈会清除所有appid,上层无法感知此行为,
-     * 需要增加替换逻辑清除上层残余过期appid.
-     */
+    // 按 remote 查询已注册 appId，供注册路径清除星闪开关后残留的过期注册
+    bool GetRegisteredAppId(const sptr<IRemoteObject> &remote, int32_t &appId)
+    {
+        std::lock_guard<std::mutex> lk(vecMutex_);
+        auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
+        if (it == vec_.end()) {
+            return false;
+        }
+        appId = it->second.appId;
+        return true;
+    }
+
     wptr<IRemoteObject> FindRemoteSsapServerAppId(int32_t appId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
@@ -483,6 +492,8 @@ NlErrCode NearlinkSsapServerServer::RegisterApplication(const sptr<INearlinkSsap
 {
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    // 注册/注销互斥：串行化同 remote 的注册与注销，消除并发注册的交错窗口
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
     auto callbackImpl = std::make_shared<impl::SsapServerCallbackImpl>(callback);
     int ret = serverService->RegisterApplication(callbackImpl);
     if (ret >= 0) {
@@ -491,6 +502,17 @@ NlErrCode NearlinkSsapServerServer::RegisterApplication(const sptr<INearlinkSsap
         if (remote != nullptr) {
             HILOGW("clear expired appId: %{public}d", appId);
             pimpl->remoteContainer_->DeleteRemoteInfo(remote);
+        }
+        // 星闪开关后 appId 重分配：清理同 remote 的旧注册（协议栈注册 + 容器条目），
+        // stale appId 已被协议栈清空时反注册失败仅记日志
+        int32_t staleAppId = -1;
+        if (pimpl->remoteContainer_->GetRegisteredAppId(callback->AsObject(), staleAppId)) {
+            HILOGW("replace stale registration, appId: %{public}d -> %{public}d", staleAppId, appId);
+            int staleRet = serverService->DeregisterApplication(staleAppId);
+            if (staleRet != SsapStatus::SSAP_SUCCESS) {
+                HILOGW("deregister stale appId: %{public}d result: %{public}d", staleAppId, staleRet);
+            }
+            pimpl->remoteContainer_->DeleteRemoteInfo(callback->AsObject());
         }
         int32_t pid = IPCSkeleton::GetCallingPid();
         int32_t uid = IPCSkeleton::GetCallingUid();
@@ -508,6 +530,8 @@ NlErrCode NearlinkSsapServerServer::DeregisterApplication(int32_t appId)
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapServer *serverService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(serverService, NL_ERR_INTERNAL_ERROR, "serverService invalid.");
+    // 注册/注销互斥：避免与并发注册交错（注销进行中不响应新注册的 stale 清理）
+    std::lock_guard<std::mutex> registerLock(pimpl->registerMutex_);
     int ret = SsapStatus::SSAP_SUCCESS;
     if (pimpl->remoteContainer_->CheckSsapServerApp(appId)) {
         ret = serverService->DeregisterApplication(appId);
