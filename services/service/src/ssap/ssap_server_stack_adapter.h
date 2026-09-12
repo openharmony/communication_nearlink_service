@@ -55,7 +55,6 @@ public:
     ~SsapServerStackAdapter();
 
     int RegisterApplication(int &appId);
-    void ReplayConnectedLink(int appId);
     void DeregisterApplication(int appId);
     void SetMtu(uint16_t mtu);
     void AddService(int appId, Service &service);

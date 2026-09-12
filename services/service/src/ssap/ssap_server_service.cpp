@@ -367,9 +367,6 @@ int SsapServerService::RegisterApplicationTask(
         std::shared_ptr<impl::ServerApplication> app = std::make_shared<impl::ServerApplication>(callback, pid, uid);
         pimpl->appSafeMap_.EnsureInsert(appId, app);
         pimpl->stackAdapter_.SetMtu(SSAP_MTU_MAX);
-        // 复用已建链路的场景中，对端不会再发送建链信令；
-        // 注册落表后异步补发当前已连接链路状态，使新注册的 app 感知存量连接
-        pimpl->stackAdapter_.ReplayConnectedLink(appId);
     }
     return appId;
 }
