@@ -42,5 +42,12 @@ bool __attribute__((weak)) NearlinkSystemConfig::IsDualRecordSupported()
     return isSupported;
 }
 
+bool __attribute__((weak)) NearlinkSystemConfig::IsVoiceCallAutorateSupported()
+{
+    bool isSupported = OHOS::system::GetBoolParameter("const.nearlink.audio.voicecall_autorate", false);
+    HILOGI("[VOICE_CALL_AUTORATE_CONFIG] Check voice call autorate support: %{public}d", isSupported);
+    return isSupported;
+}
+
 } // namespace Nearlink
 } // namespace OHOS
