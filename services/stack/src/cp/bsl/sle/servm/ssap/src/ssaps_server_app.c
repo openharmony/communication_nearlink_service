@@ -75,6 +75,10 @@ void SsapServerRegApp(void *param)
         serverApp->usedFlag = SSAP_SERVER_APP_USED;
         input->appId = index;
         NLSTK_LOG_INFO("serverApp->appId=%d", serverApp->appId);
+        // 复用已建链路的场景中，对端不会再发送任何建链信令，后注册的 server app
+        // 只能通过重放链路状态表获知存量连接；在注册任务内同步补发，与后续链路级
+        // 广播处于同一串行域，避免「注册完成~补发任务执行」窗口内的重复通知
+        SsapLinkStateReplayToServerApp(index, &(serverApp->cb));
         return;
     }
 }
@@ -110,17 +114,6 @@ void SsapServerRegAppAsyn(void *param)
         }
         break;
     }
-}
-
-void SsapServerReplayLinkStateTask(void *param)
-{
-    int32_t *appIdParam = (int32_t *)param;
-    NLSTK_CHECK_RETURN_VOID(appIdParam != NULL, "[SSAP] replay link state param is null");
-    int32_t appId = *appIdParam;
-    NLSTK_CHECK_RETURN_VOID(appId >= 0 && appId < NLSTK_SSAP_SERVER_APP_MAX_NUM, "[SSAP] replay appId invalid");
-    SsapServerApp_S *serverApp = &g_ssapServerApp[appId];
-    NLSTK_CHECK_RETURN_VOID(serverApp->usedFlag == SSAP_SERVER_APP_USED, "[SSAP] replay server app unused");
-    SsapLinkStateReplayToServerApp(serverApp->appId, &(serverApp->cb));
 }
 
 void SsapServerDeregisterApplication(void *param)

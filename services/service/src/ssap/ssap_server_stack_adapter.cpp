@@ -403,12 +403,6 @@ int SsapServerStackAdapter::RegisterApplication(int &appId)
     return SsapStatus::SSAP_SUCCESS;
 }
 
-void SsapServerStackAdapter::ReplayConnectedLink(int appId)
-{
-    SSAP_LOGI("appId=%{public}d", appId);
-    NLSTK_SsapServerReplayConnectedLink(appId);
-}
-
 void SsapServerStackAdapter::DeregisterApplication(int appId)
 {
     SSAP_LOGI("appId=%{public}d", appId);

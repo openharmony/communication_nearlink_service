@@ -70,17 +70,6 @@ NLSTK_Errcode_E NLSTK_SsapServerRegAppAsyn(NLSTK_SsapAppServerCb_S *cb)
     return NLSTK_ERRCODE_SUCCESS;
 }
 
-void NLSTK_SsapServerReplayConnectedLink(int32_t appId)
-{
-    NLSTK_CHECK_RETURN_VOID(appId >= 0 && appId < NLSTK_SSAP_SERVER_APP_MAX_NUM, "appId(%d) is invalid", appId);
-    int32_t *param = (int32_t *)SDF_MemZalloc(sizeof(int32_t));
-    NLSTK_CHECK_RETURN_VOID(param != NULL, "memory alloc error");
-    *param = appId;
-    uint32_t ret = SchedulePostTask(SsapServerReplayLinkStateTask, (void *)param, SDF_MemFree);
-    NLSTK_CHECK_RETURN_VOID(ret == NLSTK_OK,
-        "[NLSTK_SSAPS] post task fail in NLSTK_SsapServerReplayConnectedLink");
-}
-
 void NLSTK_SsapServerDeregisterApplicationAsync(int32_t appId)
 {
     NLSTK_CHECK_RETURN_VOID(appId >= 0 && appId < NLSTK_SSAP_SERVER_APP_MAX_NUM, "appId(%d) is invalid", appId);
