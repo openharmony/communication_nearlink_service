@@ -227,9 +227,14 @@ HWTEST_F(NearlinkSsapServerTest, NearlinkSsapServerTest007_OnConnectionStateChan
     NearlinkSsapDevice device;
     uint8_t state = 1; // SleConnectState::CONNECTED
     int reason = 0;
+    // 值语义白盒断言：重复 CONNECTED 去重、DISCONNECTED 按值删除（检视 S3）
     serverCallbackImpl_->OnConnectionStateChanged(device, state, reason);
+    EXPECT_EQ(static_cast<size_t>(1), ssapServer_->pimpl->connectedDevices.Size());
+    serverCallbackImpl_->OnConnectionStateChanged(device, state, reason);
+    EXPECT_EQ(static_cast<size_t>(1), ssapServer_->pimpl->connectedDevices.Size());
     state = 3; // SleConnectState::DISCONNECTED
     serverCallbackImpl_->OnConnectionStateChanged(device, state, reason);
+    EXPECT_EQ(static_cast<size_t>(0), ssapServer_->pimpl->connectedDevices.Size());
     NearlinkSsapPropertyParcel property;
     serverCallbackImpl_->OnPropertyReadRequest(device, property, 0);
     serverCallbackImpl_->OnPropertyWriteRequest(device, property, 0);
