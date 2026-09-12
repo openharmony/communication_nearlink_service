@@ -873,12 +873,10 @@ static void IcgDataPathChanged(const QOSM_DataPathParamCb *param)
         if (link->state != ACTM_QOSM_CONNECTED) {
             continue;
         }
-        if (param->state == QOSM_DATAPATH_ADDED) {
+        if (param->state == QOSM_DATAPATH_ADDED && link->needReportDataPath) {
             link->direction |= direction;
-            if (link->needReportDataPath) {
-                ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
-                link->needReportDataPath = false;
-            }
+            ActmSetDirectionCbk(&link->addr, NLSTK_ACTM_SUCCESS);
+            link->needReportDataPath = false;
         } else if (param->state == QOSM_DATAPATH_DELETED) {
             link->direction &= ~direction;
         }
