@@ -64,7 +64,9 @@ void SsapLinkHandleRecordLinkStateFromCm(SLE_Addr_S *addr, NLSTK_SsapConnectLink
  * @brief 服务端应用注册后补发已连接链路状态
  * @details 复用已建链路的场景中，对端客户端不会再发送任何建链信令，
  *          后注册的服务端应用只能通过重放链路状态表获知存量连接。
- *          对 actualLinkState 为 CONNECTED 的链路逐条回调 onConnectionStateChanged。
+ *          对 actualLinkState 为 CONNECTED 的链路逐条回调 onConnectionStateChanged，
+ *          并通过 onMtuChanged 补发该链路已协商的 MTU
+ *          （查不到 link 实体时仅补发连接状态）。
  * @param [in] appId 服务端应用ID
  * @param [in] cb 服务端应用回调，不能为空
  */

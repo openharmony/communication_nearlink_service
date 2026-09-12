@@ -20,6 +20,7 @@
 #include "cm_errno.h"
 #include "cm_logic_link_api.h"
 #include "ssap_link_state.h"
+#include "ssap_link.h"
 
 #define NLSTK_SSAP_MAX_NUM_OF_LINK  128       // 最大链路数量，目前最大支持128个星闪对端
 
@@ -209,6 +210,15 @@ void SsapLinkStateReplayToServerApp(int32_t appId, const NLSTK_SsapAppServerCb_S
         // 后注册的 server app 只能通过重放链路状态表获知存量连接
         cb->onConnectionStateChanged(appId, &(g_linkState[i].addr), SSAP_CONNECT_STATE_CONNECTED,
             NLSTK_ERRCODE_SUCCESS, 0);
+        // 补发该链路已协商的 MTU：存量链路的 MTU 交换发生在应用注册之前，
+        // 后注册应用无法通过实时广播感知；查不到 link 实体时跳过 MTU 补发
+        SSAP_Link_S *link = SSAP_FindSsapLinkByAddr(&(g_linkState[i].addr));
+        if (link == NULL) {
+            continue;
+        }
+        if (cb->onMtuChanged != NULL) {
+            cb->onMtuChanged(appId, &(g_linkState[i].addr), link->mtu);
+        }
     }
 }
 
