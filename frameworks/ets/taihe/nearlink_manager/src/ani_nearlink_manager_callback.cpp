@@ -14,7 +14,6 @@
  */
 
 #include "ani_nearlink_manager_callback.h"
-#include "ohos.nearlink.constant.proj.hpp"
 #include "log_util.h"
 
 namespace OHOS {
@@ -22,25 +21,11 @@ namespace Nearlink {
 namespace {
 std::shared_ptr<AniNearlinkManagerObserver> g_aniNearlinkManagerObserver =
     std::make_shared<AniNearlinkManagerObserver>();
-std::shared_ptr<AniRemoteDeviceObserver> g_aniNearlinkRemoteDeviceObserver =
-    std::make_shared<AniRemoteDeviceObserver>();
 }
 
 std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::NearlinkState data)>>>
     g_stateChangedObserverVec {};
 std::shared_mutex g_stateChangedMutex;
-std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingRequestParam const&)>>>
-    g_pairingRequestObserverVec {};
-std::shared_mutex g_pairingRequestMutex;
-std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::PairingStateParam const&)>>>
-    g_pairStatusChangedObserverVec {};
-std::shared_mutex g_pairStatusChangedMutex;
-std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::ConnectionStateParam const&)>>>
-    g_connectionStateChangedObserverVec {};
-std::shared_mutex g_connectionStateChangedMutex;
-std::vector<::taihe::optional<::taihe::callback<void(::ohos::nearlink::manager::AcbStateParam const&)>>>
-    g_acbStateChangedObserverVec {};
-std::shared_mutex g_acbStateChangedMutex;
 
 void AniNearlinkManagerObserver::OnStateChanged(const int transport, const int status)
 {
@@ -50,101 +35,14 @@ void AniNearlinkManagerObserver::OnStateChanged(const int transport, const int s
             HILOGE("Invalid status value: %{public}d", status);
             return;
     }
-    ::ohos::nearlink::manager::NearlinkState result =
-        static_cast<::ohos::nearlink::manager::NearlinkState::key_t>(status);
+    ::ohos::nearlink::manager::NearlinkState result = ohos::nearlink::manager::NearlinkState::from_value(status);
     decltype(g_stateChangedObserverVec) callbacks;
     {
         std::shared_lock<std::shared_mutex> guard(g_stateChangedMutex);
         callbacks = g_stateChangedObserverVec;
     }
     for (auto callback : callbacks) {
-        if(callback.has_value()) {
-            (*callback)(result);
-        }
-    }
-}
-
-void AniRemoteDeviceObserver::OnPairingRequest(const NearlinkRemoteDevice &device, const std::string &passkey, int type)
-{
-    HILOGI("device is %{public}s, type is %{public}d", GET_ENCRYPT_DEVICE_ADDR(device), type);
-    ::ohos::nearlink::manager::PairingRequestParam result = {
-        .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
-        .passkey = static_cast<::taihe::string>(passkey),
-        .pairingType = static_cast<::ohos::nearlink::manager::PairingType::key_t>(type)
-    };
-    decltype(g_pairingRequestObserverVec) callbacks;
-    {
-        std::shared_lock<std::shared_mutex> guard(g_pairingRequestMutex);
-        callbacks = g_pairingRequestObserverVec;
-    }
-    for (auto callback : callbacks) {
-        if(callback.has_value()) {
-            (*callback)(result);
-        }
-    }
-}
-
-void AniRemoteDeviceObserver::OnPairStatusChanged(const NearlinkRemoteDevice &device,
-    int preState, int state, int reason)
-{
-    HILOGI("device is %{public}s, preState is %{public}d, state is %{public}d, reason is %{public}d",
-           GET_ENCRYPT_DEVICE_ADDR(device), preState, state, reason);
-    ::ohos::nearlink::manager::PairingStateParam result = {
-        .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
-        .preState = static_cast<::ohos::nearlink::constant::PairingState::key_t>(preState),
-        .state = static_cast<::ohos::nearlink::constant::PairingState::key_t>(state),
-        .reason = static_cast<::ohos::nearlink::manager::PairingReason::key_t>(reason)
-    };
-    decltype(g_pairStatusChangedObserverVec) callbacks;
-    {
-        std::shared_lock<std::shared_mutex> guard(g_pairStatusChangedMutex);
-        callbacks = g_pairStatusChangedObserverVec;
-    }
-    for (auto callback : callbacks) {
-        if(callback.has_value()) {
-            (*callback)(result);
-        }
-    }
-}
-
-void AniRemoteDeviceObserver::OnConnectionStateChanged(const NearlinkRemoteDevice &device,
-    int preState, int state, int reason)
-{
-    HILOGI("device is %{public}s, preState is %{public}d, state is %{public}d, reason is %{public}d",
-        GET_ENCRYPT_DEVICE_ADDR(device), preState, state, reason);
-    ::ohos::nearlink::manager::ConnectionStateParam result = {
-        .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
-        .preState = static_cast<::ohos::nearlink::constant::ConnectionState::key_t>(preState),
-        .state = static_cast<::ohos::nearlink::constant::ConnectionState::key_t>(state),
-        .connectionReason = static_cast<::ohos::nearlink::manager::ConnectionReason::key_t>(reason)
-    };
-    decltype(g_connectionStateChangedObserverVec) callbacks;
-    {
-        std::shared_lock<std::shared_mutex> guard(g_connectionStateChangedMutex);
-        callbacks = g_connectionStateChangedObserverVec;
-    }
-    for (auto callback : callbacks) {
-        if(callback.has_value()) {
-            (*callback)(result);
-        }
-    }
-}
-
-void AniRemoteDeviceObserver::OnAcbStateChanged(const NearlinkRemoteDevice &device, int state, int reason)
-{
-    HILOGI("device is %{public}s, state is %{public}d, reason is %{public}d",
-        GET_ENCRYPT_DEVICE_ADDR(device), state, reason);
-    ::ohos::nearlink::manager::AcbStateParam result = {
-        .address = static_cast<::taihe::string>(device.GetDeviceAddr()),
-        .state = static_cast<::ohos::nearlink::constant::AcbState::key_t>(state)
-    };
-    decltype(g_acbStateChangedObserverVec) callbacks;
-    {
-        std::shared_lock<std::shared_mutex> guard(g_acbStateChangedMutex);
-        callbacks = g_acbStateChangedObserverVec;
-    }
-    for (auto callback : callbacks) {
-        if(callback.has_value()) {
+        if (callback.has_value()) {
             (*callback)(result);
         }
     }
@@ -154,7 +52,6 @@ void AniNearlinkManager::CallbackInit()
 {
     HILOGI("enter");
     NearlinkHost::GetInstance().RegisterObserver(g_aniNearlinkManagerObserver);
-    NearlinkHost::GetInstance().RegisterRemoteDeviceObserver(g_aniNearlinkRemoteDeviceObserver);
 }
 }
 }

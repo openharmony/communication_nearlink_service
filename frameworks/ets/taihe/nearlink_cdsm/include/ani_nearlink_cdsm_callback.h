@@ -17,7 +17,6 @@
 #define ANI_NEARLINK_CDSM_CALLBACK_H_
 
 #include <shared_mutex>
-#include "stdexcept"
 
 #include "ohos.nearlink.cdsm.proj.hpp"
 #include "ohos.nearlink.cdsm.impl.hpp"
@@ -27,7 +26,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-using namespace Nearlink;
 
 class AniCdsmClientCallback : public NearlinkCdsmClientCallback {
 public:

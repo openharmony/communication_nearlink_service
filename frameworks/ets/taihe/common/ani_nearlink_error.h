@@ -23,7 +23,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-using namespace Nearlink;
 
 #ifndef ANI_NL_ASSERT_RETURN
 #define ANI_NL_ASSERT_RETURN(cond, errCode, retObj)     \
@@ -48,6 +47,7 @@ do {                                                      \
 #endif
 
 std::string GetAniErrMsg(const int32_t errCode);
+void ConvertAniError(int32_t &errCode, std::string &errMsg);
 void HandleSyncErr(int32_t errCode);
 
 } // namespace Nearlink

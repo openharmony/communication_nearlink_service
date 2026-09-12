@@ -15,16 +15,117 @@
 
 @!namespace("@ohos.nearlink.remoteDevice", "remoteDevice")
 @!sts_inject("""
-static { loadLibrary("nearlinkRemoteDevice_taihe_native.z") }
+static { loadLibrary("nearlinkRemoteDeviceTaihe_native.z") }
 """)
+
+from ohos.nearlink.constant use PairingState;
+from ohos.nearlink.constant use ConnectionState;
+from ohos.nearlink.constant use DeviceClass;
+from ohos.nearlink.constant use AcbState;
+from ohos.nearlink.constant use ConnectionInterval;
 
 function CreateRemoteDevice(address: String): RemoteDevice;
 
 interface RemoteDevice {
     GetDeviceInformation(): DeviceInformation;
+
+    @promise StartPairing(): void;
+
+    GetPairingState(): PairingState;
+    GetDeviceName(): String;
+    GetDeviceClass(): DeviceClass;
+    GetConnectionState(): ConnectionState;
+    GetAcbState(): AcbState;
+
+    @promise StartCrediblePairing(): void;
+
+    @promise RemovePairedDevice(): void;
+
+    @promise CancelDevicePairing(): void;
+
+    @promise SetPairingPasscode(passcode: String): void;
+
+    @promise SetPairingConfirmation(accept: bool): void;
+
+    @promise Connect(): void;
+
+    @promise Disconnect(): void;
+
+    @promise SetDeviceAlias(alias: String): void;
+
+    GetDeviceAlias(): String;
+    GetDeviceModel(): DeviceModel;
+
+    @rename("getRssiValue")
+    GetRssiValue(): @sts_type("Promise<int>") Opaque;
+
+    SetConnectionInterval(interval: ConnectionInterval): void;
 }
 
-struct DeviceInformation  {
+struct DeviceInformation {
     manufacturerData: String;
     modelData: String;
 }
+
+struct DeviceModel {
+    modelId: String;
+    subModelId: String;
+    iconId: String;
+}
+
+enum PairingType: i32 {
+    NO_PASSKEY_CONFIRMATION = 0,
+    PAIRING_TYPE_PASSCODE = 1,
+    PAIRING_TYPE_NUMBER_COMPARE = 2
+}
+
+enum PairingReason: i32 {
+    PAIRING_REASON_SUCCESS = 0,
+    PAIRING_REASON_FAILURE = 1,
+    PAIRING_REASON_PROFILE_UNSUPPORTED = 2,
+    PAIRING_REASON_EXCEED_ACB_MAX = 3,
+    PAIRING_REASON_REMOTE_CANCELED = 4,
+    PAIRING_REASON_LOCAL_CANCELED = 5
+}
+
+enum ConnectionReason: i32 {
+    CONNECTION_SUCCESS = 0,
+    CONNECTION_FAILURE = 1
+}
+
+struct PairingRequestParam {
+    address: String;
+    passkey: String;
+    pairingType: PairingType;
+}
+
+struct PairingStateParam {
+    address: String;
+    preState: PairingState;
+    state: PairingState;
+    reason: PairingReason;
+}
+
+struct ConnectionStateParam {
+    address: String;
+    preState: ConnectionState;
+    state: ConnectionState;
+    connectionReason: ConnectionReason;
+}
+
+struct AcbStateParam {
+    address: String;
+    state: AcbState;
+}
+
+function OnPairingRequest(callback: (data: PairingRequestParam) => void): void;
+function OffPairingRequest(callback: Optional<(data: PairingRequestParam) => void>): void;
+
+function OnPairingStateChange(callback: (data: PairingStateParam) => void): void;
+function OffPairingStateChange(callback: Optional<(data: PairingStateParam) => void>): void;
+
+function OnConnectionStateChange(callback: (data: ConnectionStateParam) => void): void;
+function OffConnectionStateChange(callback: Optional<(data: ConnectionStateParam) => void>): void;
+
+function OnAcbStateChange(callback: (data: AcbStateParam) => void): void;
+function OffAcbStateChange(callback: Optional<(data: AcbStateParam) => void>): void;

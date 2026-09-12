@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+from ohos.nearlink.constant use DeviceClass;
+
+@!namespace("@ohos.nearlink.scan", "scan")
+@!sts_inject("""
+static { loadLibrary("nearlinkScanTaihe_native.z") }
+""")
+
+@promise function StartScan(filters: Filters, options: Optional<ScanOptions>): void;
+@promise function StopScan(): void;
+
+function OnDeviceFound(callback: (data: Array<ScanResults>) => void): void;
+function OffDeviceFound(callback: Optional<(data: Array<ScanResults>) => void>): void;
+
+union Filters {
+    @null type_null;
+    type_Filters: Array<ScanFilters>;
+}
+
+struct ScanResults {
+    address: String;
+    rssi: i32;
+    data: @arraybuffer Array<u8>;
+    deviceName: String;
+    isConnectable: bool;
+    deviceClass: Optional<DeviceClass>;
+}
+
+struct ScanFilters {
+    address: Optional<String>;
+    deviceName: Optional<String>;
+    manufacturerId: Optional<i32>;
+    manufacturerData: Optional<@arraybuffer Array<u8>>;
+    manufacturerDataMask: Optional<@arraybuffer Array<u8>>;
+    rssi: Optional<i32>;
+}
+
+struct ScanOptions {
+    scanMode: Optional<ScanMode>;
+    duration: Optional<i32>;
+}
+
+enum ScanMode: i32 {
+    SCAN_MODE_LOW_POWER = 0,
+    SCAN_MODE_BALANCED = 1,
+    SCAN_MODE_LOW_LATENCY = 2
+}

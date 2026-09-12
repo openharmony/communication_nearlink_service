@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+from ohos.nearlink.constant use ConnectionState;
+
+@!namespace("@ohos.nearlink.dataTransfer", "dataTransfer")
+@!sts_inject("""
+static { loadLibrary("nearlinkDataTransferTaihe_native.z") }
+""")
+
+function CreatePort(uuid: String): void;
+function DestroyPort(uuid: String): void;
+
+@promise function Connect(params: ConnectionParams): void;
+@promise function Disconnect(params: ConnectionParams): void;
+@promise function WriteData(params: DataParams): void;
+
+function OnConnectionStateChanged(callback: (data: ConnectionResult) => void): void;
+function OffConnectionStateChanged(callback: Optional<(data: ConnectionResult) => void>): void;
+function OnReadData(callback: (data: DataParams) => void): void;
+function OffReadData(callback: Optional<(data: DataParams) => void>): void;
+function GetConnectionState(params: ConnectionStateParams): ConnectionState;
+
+struct ConnectionParams {
+    address: String;
+    uuid: String;
+    transferMode: Optional<TransferMode>;
+}
+
+struct DataParams {
+    address: String;
+    uuid: String;
+    data: @arraybuffer Array<u8>;
+}
+
+struct ConnectionResult {
+    address: String;
+    uuid: String;
+    mtu: i32;
+    state: ConnectionState;
+}
+
+struct ConnectionStateParams {
+    address: String;
+    uuid: String;
+}
+
+enum TransferMode: i32 {
+    BASIC = 0,
+    RELIABLE = 1
+}

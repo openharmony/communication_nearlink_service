@@ -21,9 +21,6 @@ copy_taihe_idl("nearlink_manager_taihe") {
   sources = [
     "idl/ohos.nearlink.manager.taihe"
   ]
-  deps = [
-    "$SLE_PART_DIR/frameworks/ets/taihe/nearlink_constant:nearlink_constant_taihe"
-  ]
 }
 
 subsystem_name = "communication"
@@ -39,7 +36,7 @@ ohos_taihe("run_taihe") {
   ]
 }
 
-taihe_shared_library("nearlinkManager_taihe_native") {
+taihe_shared_library("nearlinkManagerTaihe_native") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_manager"
@@ -49,11 +46,13 @@ taihe_shared_library("nearlinkManager_taihe_native") {
   include_dirs = [
     "include",
     "src",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common",
   ]
   sources += [
     "src/ani_constructor.cpp",
     "src/ohos.nearlink.manager.impl.cpp",
     "src/ani_nearlink_manager_callback.cpp",
+    "$SLE_PART_DIR/frameworks/ets/taihe/common/ani_nearlink_error.cpp"
   ]
   deps = [
     ":run_taihe",
@@ -61,6 +60,7 @@ taihe_shared_library("nearlinkManager_taihe_native") {
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
   ]
   external_deps = [
+    "c_utils:utils",
     "hilog:libhilog",
   ]
   sanitize = {
@@ -90,25 +90,25 @@ taihe_shared_library("nearlinkManager_taihe_native") {
   ]
 }
 
-generate_static_abc("nearlinkManager_abc") {
+generate_static_abc("nearlinkManagerTaihe_abc") {
   base_url = "$taihe_generated_file_path_manager"
   files = [ "$taihe_generated_file_path_manager/@ohos.nearlink.manager.ets" ]
   is_boot_abc = "True"
-  device_dst_file = "/system/framework/nearlinkManager_abc.abc"
+  device_dst_file = "/system/framework/nearlinkManagerTaihe_abc.abc"
   dependencies = [ ":run_taihe" ]
 }
 ohos_prebuilt_etc("nearlinkManager_etc") {
-  source = "$target_out_dir/nearlinkManager_abc.abc"
+  source = "$target_out_dir/nearlinkManagerTaihe_abc.abc"
   module_install_dir = "framework"
   part_name = "$part_name"
   subsystem_name = "$subsystem_name"
-  deps = [ ":nearlinkManager_abc" ]
+  deps = [ ":nearlinkManagerTaihe_abc" ]
 }
 
 group("nearlinkManager_taihe") {
   deps = [
     ":nearlinkManager_etc",
-    ":nearlinkManager_taihe_native",
+    ":nearlinkManagerTaihe_native",
   ]
   # deps = [":run_taihe"]
 }

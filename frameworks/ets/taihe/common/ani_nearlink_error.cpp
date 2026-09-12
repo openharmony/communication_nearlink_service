@@ -19,10 +19,13 @@
 
 #include <map>
 #include "ani_nearlink_error.h"
+#include "log.h"
 #include "taihe/runtime.hpp"
 
 namespace OHOS {
 namespace Nearlink {
+constexpr int32_t NL_ERR_SYSCAP_BASE_CODE = 36100000;
+constexpr int32_t NL_ERR_CODE_MAX = 99999;
 static std::map<int32_t, std::string> aniErrCommonMsgMap {
     { NlErrCode::NL_ERR_PERMISSION_FAILED, "Permission denied." },
     { NlErrCode::NL_ERR_SYSTEM_PERMISSION_FAILED, "Non-system applications are not allowed to use system APIs."},
@@ -45,6 +48,7 @@ static std::map<int32_t, std::string> aniErrCommonMsgMap {
     { NlErrCode::NL_ERR_PEER_NOT_SUPPORT_BATTERY_SERVICE, "The remote device does not support battery service." },
     { NlErrCode::NL_ERR_INTERNAL_ERROR, "Operation failed." },
     { NlErrCode::NL_ERR_CDSM_NOT_SUPPORT, "Coordinated Devices Set Management not supported."},
+    { NlErrCode::NL_ERR_INVALID_ADV_ID, "Invalid advertising ID."},
 };
 
 std::string GetAniErrMsg(const int32_t errCode)
@@ -56,16 +60,38 @@ std::string GetAniErrMsg(const int32_t errCode)
     return "";
 }
 
+void ConvertAniError(int32_t &errCode, std::string &errMsg)
+{
+    errMsg = GetAniErrMsg(errCode);
+    // 如果错误信息无效，表示未识别的错误码，判定为内部错误
+    if (errMsg == "") {
+        HILOGW("unknown errCode: %{public}d, covert to internal error", errCode);
+        errCode = NlErrCode::NL_ERR_INTERNAL_ERROR;
+        errMsg = "Operation failed.";
+    }
+
+    // 内部错误码转换为标准错误码抛出，错误信息差异化
+    if (errCode == NlErrCode::NL_ERR_INVALID_ADV_ID) {
+        errCode = NlErrCode::NL_ERR_INVALID_INTERGER;
+    } else if (errCode == NlErrCode::NL_ERR_PROFILE_PROHIBITED_BY_EDM) {
+        errCode = NlErrCode::NL_ERR_INTERNAL_ERROR;
+    }
+
+    // 将错误码转换到正确范围
+    if (errCode >= static_cast<int32_t>(NlErrCode::NL_ERR_BASE_SYSCAP) &&
+        errCode <= static_cast<int32_t>(NlErrCode::NL_ERR_BASE_SYSCAP) + NL_ERR_CODE_MAX) {
+        // 业务错误码10097XXXXX，转换为361XXXXX
+        errCode = errCode - static_cast<int32_t>(NlErrCode::NL_ERR_BASE_SYSCAP) + NL_ERR_SYSCAP_BASE_CODE;
+    }
+}
+
 void HandleSyncErr(int32_t errCode)
 {
     if (errCode == NlErrCode::NL_NO_ERROR) {
         return;
     }
-    std::string errMsg = GetAniErrMsg(errCode);
-    if (errMsg == "") {
-        errCode = NlErrCode::NL_ERR_INTERNAL_ERROR;
-        errMsg = GetAniErrMsg(NlErrCode::NL_ERR_INTERNAL_ERROR);
-    }
+    std::string errMsg = "";
+    ConvertAniError(errCode, errMsg);
     taihe::set_business_error(errCode, errMsg.c_str());
 }
 } // namespace Nearlink

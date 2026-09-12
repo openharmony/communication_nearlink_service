@@ -17,9 +17,15 @@
 #define ANI_NEARLINK_UTILS_H_
 
 #include "log_util.h"
+#include "taihe/runtime.hpp"
 
 namespace OHOS {
 namespace Nearlink {
+constexpr size_t ARGS_SIZE_TWO = 2;
+
+ani_ref TaiheGetNull(ani_env *env);
+ani_ref TaiheGetUndefined(ani_env *env);
+ani_ref GetCallbackErrorValue(ani_env *env, int errCode);
 
 enum TaiheStatus {
     TAIHE_OK = 0,
@@ -68,8 +74,8 @@ enum TaiheStatus {
         }                                                   \
     } while (0)
 
-bool IsValidAddress(std::string addr);
-bool CheckDeviceIdParam(std::string &addr);
+bool IsValidAddr(const std::string &addr);
+bool CheckDeviceIdParam(const std::string &addr);
 
 } // namespace Nearlink
 } // namespace OHOS

@@ -39,7 +39,7 @@ ohos_taihe("run_taihe") {
   ]
 }
 
-taihe_shared_library("nearlinkCdsm_taihe_native") {
+taihe_shared_library("nearlinkCdsmTaihe_native") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_cdsm"
@@ -66,6 +66,7 @@ taihe_shared_library("nearlinkCdsm_taihe_native") {
     "$SLE_PART_DIR/frameworks/native:nearlink_framework",
   ]
   external_deps = [
+    "c_utils:utils",
     "hilog:libhilog",
   ]
   sanitize = {
@@ -95,24 +96,24 @@ taihe_shared_library("nearlinkCdsm_taihe_native") {
   ]
 }
 
-generate_static_abc("nearlinkCdsm_abc") {
+generate_static_abc("nearlinkCdsmTaihe_abc") {
   base_url = "$taihe_generated_file_path_cdsm"
   files = [ "$taihe_generated_file_path_cdsm/@ohos.nearlink.cdsm.ets" ]
   is_boot_abc = "True"
-  device_dst_file = "/system/framework/nearlinkCdsm_abc.abc"
+  device_dst_file = "/system/framework/nearlinkCdsmTaihe_abc.abc"
   dependencies = [ ":run_taihe" ]
 }
 ohos_prebuilt_etc("nearlinkCdsm_etc") {
-  source = "$target_out_dir/nearlinkCdsm_abc.abc"
+  source = "$target_out_dir/nearlinkCdsmTaihe_abc.abc"
   module_install_dir = "framework"
   part_name = "$part_name"
   subsystem_name = "$subsystem_name"
-  deps = [ ":nearlinkCdsm_abc" ]
+  deps = [ ":nearlinkCdsmTaihe_abc" ]
 }
 
 group("nearlinkCdsm_taihe") {
   deps = [
     ":nearlinkCdsm_etc",
-    ":nearlinkCdsm_taihe_native",
+    ":nearlinkCdsmTaihe_native",
   ]
 }

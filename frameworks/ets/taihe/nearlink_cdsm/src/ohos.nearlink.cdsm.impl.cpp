@@ -19,7 +19,6 @@
 #include "ani_nearlink_utils.h"
 #include "ani_nearlink_error.h"
 #include "taihe/runtime.hpp"
-#include "stdexcept"
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_cdsm_client.h"
@@ -30,14 +29,12 @@ namespace Nearlink {
 
 class CdsmClientImpl {
 public:
-    explicit CdsmClientImpl(taihe::string_view deviceId)
+    explicit CdsmClientImpl(const std::string& deviceId)
     {
         HILOGI("enter");
-
-        std::string remoteAddr = std::string(deviceId);
-        device_ = std::make_shared<NearlinkRemoteDevice>(remoteAddr, ADAPTER_SLE);
+        device_ = std::make_shared<NearlinkRemoteDevice>(deviceId, ADAPTER_SLE);
         callback_ = std::make_shared<AniCdsmClientCallback>();
-        callback_->SetDeviceAddr(remoteAddr);
+        callback_->SetDeviceAddr(deviceId);
 
         auto callback = std::dynamic_pointer_cast<OHOS::Nearlink::NearlinkCdsmClientCallback>(callback_);
         cdsmClient_ = NearlinkCdsmClient::CreateNearlinkCdsmClient(*device_, callback);
@@ -58,7 +55,7 @@ public:
         for (auto member : memberList) {
             ::ohos::nearlink::cdsm::CdsmMemberInfo cdsMember = {
                 .address = static_cast<::taihe::string>(member.GetDeviceAddr()),
-                .state = static_cast<::ohos::nearlink::cdsm::CdsmConnectionState::key_t>(member.GetState())
+                .state = ohos::nearlink::cdsm::CdsmConnectionState::from_value(member.GetState())
             };
             cdsVec.emplace_back(cdsMember);
         }
@@ -69,6 +66,8 @@ public:
 
     void OnCdsmInfoChange(::taihe::callback_view<void(::ohos::nearlink::cdsm::CdsmInfo const& data)> callback)
     {
+        HILOGI("enter");
+        ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
         if (callback_) {
             callback_->eventSubscribe_.RegisterEvent(callback);
         }
@@ -77,6 +76,8 @@ public:
     void OffCdsmInfoChange(::taihe::optional_view<::taihe::callback<void(
         ::ohos::nearlink::cdsm::CdsmInfo const& data)>> callback)
     {
+        HILOGI("enter");
+        ANI_NL_ASSERT_RETURN_VOID(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT);
         if (callback_) {
             callback_->eventSubscribe_.DeregisterEvent(callback);
         }
@@ -93,20 +94,21 @@ private:
 {
     HILOGI("enter");
     std::string remoteAddr = std::string(deviceId);
+    std::string invalidAddr = "";
     bool checkRet = CheckDeviceIdParam(remoteAddr);
-    ANI_NL_ASSERT_RETURN(checkRet, NL_ERR_INVALID_PARAM,
-        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(nullptr)));
+    ANI_NL_ASSERT_RETURN(checkRet, NL_ERR_INVALID_ADDRESS,
+        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(invalidAddr)));
 
     // 提前校验ACCESS权限
     bool isGranted = false;
     NlErrCode checkResult = NearlinkHost::GetInstance().CheckPermissionForNapi(ACCESS_NEARLINK_PERMISSION, isGranted);
     ANI_NL_ASSERT_RETURN(checkResult == NL_NO_ERROR, checkResult,
-        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(nullptr)));
+        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(invalidAddr)));
     bool checkCdsmSupport = NearlinkHost::GetInstance().IsNearlinkAudioSupport();
     ANI_NL_ASSERT_RETURN(checkCdsmSupport, NL_ERR_CDSM_NOT_SUPPORT,
-        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(nullptr)));
+        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(invalidAddr)));
     ANI_NL_ASSERT_RETURN(isGranted, NL_ERR_PERMISSION_FAILED,
-        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(nullptr)));
+        (taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(invalidAddr)));
 
     return taihe::make_holder<CdsmClientImpl, ::ohos::nearlink::cdsm::CdsmClient>(remoteAddr);
 }
