@@ -233,9 +233,9 @@ static void CM_SleSetDataLenProc(void *context, uint8_t result, const CM_Execute
 {
     CM_LOGI("sle set data len proc enter, result = 0x%02x", result);
     CM_CHECK_RETURN((par != NULL && par->eventParameter != NULL), "sle set data len param invalid");
+    CM_ConnectParamRsp_S *connectRsp = (CM_ConnectParamRsp_S *)par->eventParameter;
     if (result != CM_SUCCESS) {
         // SetDataLen 属于整个连接流程中的一个内部流程，连接异常时，需要断开连接
-        CM_ConnectParamRsp_S *connectRsp = (CM_ConnectParamRsp_S *)par->eventParameter;
         if (connectRsp->lcid == CM_INVALID_LCID) {
             // 对于无效的lcid，下发给芯片不起作用，需要提前拦截
             CM_LOGE("lcid is not valid, ignore the release link req");
@@ -249,6 +249,21 @@ static void CM_SleSetDataLenProc(void *context, uint8_t result, const CM_Execute
         CM_ConnectionProcInterruptReq(link, connectRsp->version, connectRsp->localIndex);
         return;
     }
+    // SetDataLen 成功完成，datalen已生效，通知各模块连接已建立
+    SleLogicLink_S *link = SleLogicLinkGetByLcid(connectRsp->lcid);
+    if (link == NULL) {
+        CM_LOGE("set data len proc success, link is not exists");
+        return;
+    }
+    CM_LogicLinkState_S rsp = { 0 };
+    rsp.lcid = connectRsp->lcid;
+    rsp.role = link->role;
+    rsp.result = CM_LINK_STATE_CONNECTED;
+    rsp.discReason = 0;
+    (void)memcpy_s(&rsp.addr, sizeof(SLE_Addr_S), &link->rmtAddr, sizeof(SLE_Addr_S));
+    rsp.connCompleteType = link->connCompleteType;
+    rsp.advHandle = link->advHandle;
+    CM_NotifyLogicLinkCbks(&rsp);
 }
 
 static void CM_SleReadRemoteFeatureAndVersionProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)

@@ -44,6 +44,7 @@ using SLE_ADV_MANUFACTURER_DATA_EXTEND_TYPE = enum {
     EARPHONE_DISPLAY_CONTROL = 3,         /*!< 是否为可发现广播 */
     MANUFACTURER_ABILITY = 4,             /*!< 能力位图 */
 };
+constexpr uint8_t HID_MANUFACTURER_ABILITY = 1;  /*!< HID设备能力位图 */
 }
 struct ScanService::impl {
     impl(ScanService &ScanService);
@@ -441,9 +442,10 @@ void ScanService::ParseManufacturerData(SlePeripheralDevice &device)
     uint8_t business = privateData[0];
     device.SetManufacturerBusiness(business);
 
-    /* Audio 相关 */
     if (business == Nearlink::SLE_PRIVATE_AUDIO_BUSINESS_TYPE) {
         ParseManufacturerDataAudio(device, privateData);
+    } else if (business == Nearlink::SLE_PRIVATE_HID_BUSINESS_TYPE) {
+        ParseManufacturerDataHid(device, privateData);
     }
 }
 
@@ -507,6 +509,28 @@ bool ScanService::ParseAdvEarphoneDisplayControl(SlePeripheralDevice &device, si
     device.SetIsDeviceDisplay(privateData[msgIndex] != SLE_NOT_DISPLAY);
     msgIndex += SLE_DISPLAY_BYTE_LEN;
     return true;
+}
+
+void ScanService::ParseManufacturerDataHid(SlePeripheralDevice &device, std::string &privateData)
+{
+    size_t msgIndex = 1;
+    uint8_t extendType = 0;
+    while (msgIndex < privateData.size()) {
+        if (msgIndex + SLE_ADV_MANUFACTURER_DATA_EXTEND_TYPE_LEN > privateData.size()) {
+            HILOGE("parse hid manufacturer,msg type length invalid:%{public}u", privateData.size());
+            return;
+        }
+        extendType = privateData[msgIndex++];
+        if (extendType == HID_MANUFACTURER_ABILITY) {
+            if (!ParseAdvDeviceManufacturerAbility(device, msgIndex, privateData)) {
+                HILOGE("parse hid manufacturer, manufacturer ability len invalid:%{public}u", privateData.size());
+                return;
+            }
+            break;
+        }
+        HILOGW("parse hid manufacturer,msg type not support:%{public}u", extendType);
+        return;
+    }
 }
 
 bool ScanService::ParseAdvDeviceManufacturerAbility(SlePeripheralDevice &device, size_t &msgIndex,

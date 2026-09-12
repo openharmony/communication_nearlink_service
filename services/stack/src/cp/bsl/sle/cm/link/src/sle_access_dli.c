@@ -691,16 +691,19 @@ static void SleAccessReadRemoteVersionCbk(void *context, uint16_t statuss, DLI_E
         SleAccessReadRemoteFeatureAndVersionRsp(versionAndLocalIndex, status, link);
         goto SLE_READ_REMOTE_VERSION_CBK_FAILED;
     }
-    SleAccessReadRemoteVersionRsp(versionAndLocalIndex, status, link);
     if (link->role == CM_G_NODE) {
         if (!DLI_ReadRemoteExtFeatures(link->companyId, link->subversion, link->lcid)) {
             uint32_t ret = SleAccessReadRemoteFeatures(link->lcid);
             if (ret != DLI_SUCCESS) {
                 CM_LOGE("sle access read remote features failed");
+                SleAccessReportConnectException(evt->connHandle, (uint8_t)ret);
                 goto SLE_READ_REMOTE_VERSION_CBK_FAILED;
             }
         }
+    } else {
+        SleAccessReadRemoteVersionRsp(versionAndLocalIndex, status, link);
     }
+    return;
 SLE_READ_REMOTE_VERSION_CBK_FAILED:
     if (status != DLI_SUCCESS) {
         SleAccessReportConnectException(evt->connHandle, status);

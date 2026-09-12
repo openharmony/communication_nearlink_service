@@ -25,6 +25,8 @@ static void BasConnectStateChangeCbk(int32_t appId, uint8_t state, NLSTK_Errcode
 static void BasGetServicesCbk(int32_t appId, NLSTK_SsapUuid_S *uuid,
     NLSTK_SsapServ_S *service, uint16_t serviceNum, NLSTK_SsapClientFreeFunc func);
 static void BasReadPropertyCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property, NLSTK_Errcode_E ret);
+static void BasReadPropertiesCbk(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
+    NLSTK_Errcode_E ret);
 static void BasPropertyChangedCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property);
 static void BasSetPropertyNtfCbk(int32_t appId, NLSTK_SsapUuid_S *uuid, uint16_t handle, bool enable,
     NLSTK_Errcode_E ret);
@@ -36,6 +38,7 @@ NLSTK_SsapAppClientCb_S BasGetSsapCbk(void)
         .onConnectionStateChanged = BasConnectStateChangeCbk,  // NLSTK_SsapClientConnect cbk
         .onGetServices = BasGetServicesCbk,                    // NLSTK_SsapClientGetServicesAsyn cbk
         .onReadProperty = BasReadPropertyCbk,                  // NLSTK_SsapClientReadProperty cbk
+        .onReadProperties = BasReadPropertiesCbk,              // NLSTK_SsapClientReadProperties cbk
         .onPropertyChanged = BasPropertyChangedCbk,            // 对端主动上报property变化回调
         .onSetPropertyNtf = BasSetPropertyNtfCbk,              // NLSTK_SsapClientSetPropertyNtf cbk
     };
@@ -79,6 +82,19 @@ static void BasReadPropertyCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S
     BasReadPropertyMsg_S readMsg = {.property = property, .ret = ret};
     BasStmParam_S msg = {.what = BAS_ON_READ_PROPERTY, .extData = (void *)&readMsg};
     BasClientStmCall(devInfo, msg);
+}
+
+static void BasReadPropertiesCbk(int32_t appId, uint8_t num, NLSTK_SsapClientReadPropertyInfo_S *properties,
+    NLSTK_Errcode_E ret)
+{
+    if (properties == NULL || num == 0 || ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[BAS] read properties fail, ret=%d", ret);
+        BasReadPropertyCbk(appId, NULL, ret);
+        return;
+    }
+    for (uint8_t i = 0; i < num; i++) {
+        BasReadPropertyCbk(appId, &properties[i], ret);
+    }
 }
 
 static void BasPropertyChangedCbk(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *property)

@@ -38,6 +38,7 @@
 #include "TwsDefines.h"
 #include "CdsmDefines.h"
 #include "nlstk_sm_api.h"
+#include "nlstk_cfgdb_api.h"
 #include <future>
 #include <ThreadUtil.h>
 #include "ServiceManagerPluginLoader.h"
@@ -1422,13 +1423,20 @@ void SleRemoteDeviceAdapter::SaveDeviceManufacturerAbility(const RawAddress &raw
 
 void SleRemoteDeviceAdapter::SaveDeviceManufacturerAbilityInner(const RawAddress &rawAddr)
 {
-    std::array<uint8_t, SLE_MANU_ABILITY_LEN> manfacturerAbility =
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> manufacturerAbility =
         SleRemoteDeviceManager::GetInstance()->GetManufacturerAbility(rawAddr);
-    ProfileTws *twsService = static_cast<ProfileTws *>(
-            SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_TWS));
-    NL_CHECK_RETURN(twsService != nullptr, "[SleRemoteDeviceAdapter]tws service instance invalid");
-    ManufacturerAbilityLoader::GetInstance().FilterAbility(manfacturerAbility);
-    twsService->SetDeviceManufacturerAbility(rawAddr, manfacturerAbility);
+    ManufacturerAbilityLoader::GetInstance().FilterAbility(manufacturerAbility);
+
+    SLE_Addr_S stackAddr = {};
+    rawAddr.ConvertToUint8(stackAddr.addr);
+    NLSTK_ManufacturerAbility_S mAbility = {0};
+    for (int i = 0; i < SLE_MANU_ABILITY_LEN; ++i) {
+        mAbility.ability[i] = manufacturerAbility[i];
+    }
+    HILOGI("[SleRemoteDeviceAdapter] SaveDeviceManufacturerAbility dev=%{public}s, ability=0x%{public}02x",
+        GET_ENCRYPT_ADDR(rawAddr), mAbility.ability[0]);
+    uint32_t ret = NLSTK_CfgdbSetManufacturerAbility(&stackAddr, &mAbility);
+    NL_CHECK_RETURN(ret == NLSTK_ERRCODE_SUCCESS, "ret=%{public}d", ret);
 }
 
 void SleRemoteDeviceAdapter::SavePairDirect(int connDirect, const RawAddress &device)

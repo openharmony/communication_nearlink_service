@@ -21,6 +21,7 @@
 #include "nlstk_log.h"
 #include "nlstk_ssap_app_link.h"
 #include "nlstk_ssap_app_client.h"
+#include "nlstk_cfgdb.h"
 #include "sdf_mem.h"
 #include "ssap_type.h"
 
@@ -247,6 +248,36 @@ static void BasServiceFoundStateDispatch(BasDeviceInfo_S *devInfo, BasStmParam_S
 
 static void BasOnUserConnectingInReadPropertyState(BasDeviceInfo_S *devInfo, BasStmParam_S msg)
 {
+    bool supportMultiRead = CfgdbGetManufacturerSupport(&devInfo->addr, CFGDB_READ_MULTI_HANDLES);
+    if (supportMultiRead && devInfo->indexHandle->size > 1 &&
+        devInfo->indexHandle->size <= BAS_MAX_PROPERTY_SIZE) {
+        uint16_t handles[BAS_MAX_PROPERTY_SIZE] = {0};
+        uint8_t num = 0;
+        for (size_t i = 0; i < devInfo->indexHandle->size; i++) {
+            uint16_t *handle = SDF_VectorElementAt(devInfo->indexHandle, i);
+            if (handle == NULL) {
+                NLSTK_LOG_ERROR("[BAS] get handle from vector fail at index %zu", i);
+                continue;
+            }
+            handles[num] = *handle;
+            num++;
+        }
+        if (num > 1) {
+            devInfo->lastReadHandle = handles[num - 1];
+            int ret = NLSTK_SsapClientReadProperties(devInfo->appId, handles, num);
+            if (ret != NLSTK_ERRCODE_SUCCESS) {
+                NLSTK_LOG_ERROR("[BAS] merged read properties fail, ret = %d", ret);
+                BAS_DEVICE_STATE_CHANGE(devInfo, BAS_DEVICE_DISCONNECTED);
+                BasStateChangeCbk(&devInfo->addr, BAS_DISCONNECTED, BAS_CONNECTING, ret);
+                BasRemoveDeviceInfo(&devInfo->addr);
+            }
+            return;
+        }
+    }
+    if (supportMultiRead && devInfo->indexHandle->size > BAS_MAX_PROPERTY_SIZE) {
+        NLSTK_LOG_WARN("[BAS] indexHandle size %zu exceeds limit %d, fallback to single read",
+            devInfo->indexHandle->size, BAS_MAX_PROPERTY_SIZE);
+    }
     for (size_t i = 0; i < devInfo->indexHandle->size; i++) {
         uint16_t *handle = SDF_VectorElementAt(devInfo->indexHandle, i);
         int ret = NLSTK_SsapClientReadProperty(devInfo->appId, *handle);

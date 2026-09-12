@@ -93,7 +93,7 @@ public:
     virtual int HidHostGetReport(std::string device, uint8_t id, uint16_t size, const uint8_t type) = 0;
 
     /**
-     * @brief Hid Host Get Divece Info.
+     * @brief Hid Host Get Device Info.
      *
      */
     virtual int GetHidDeviceInfo(const RawAddress &device, int infoType) = 0;

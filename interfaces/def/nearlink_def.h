@@ -518,6 +518,7 @@ enum ConnectionInterval : int {
 };
 
 constexpr int SLE_PRIVATE_AUDIO_BUSINESS_TYPE = 0x01;
+constexpr int SLE_PRIVATE_HID_BUSINESS_TYPE = 0x02;
 
 #ifdef NEARLINK_EXPORT
 #define NEARLINK_API __attribute__((visibility("default")))

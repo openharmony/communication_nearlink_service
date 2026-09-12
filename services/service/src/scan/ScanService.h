@@ -60,6 +60,7 @@ private:
     void ParseAdvData(NLSTK_DevdAdvResult_S *result, SlePeripheralDevice &device);
     void ParseManufacturerData(SlePeripheralDevice &device);
     void ParseManufacturerDataAudio(SlePeripheralDevice &device, std::string &privateData);
+    void ParseManufacturerDataHid(SlePeripheralDevice &device, std::string &privateData);
     bool ParseAdvEarphoneDisplayControl(SlePeripheralDevice &device, size_t &msgIndex, const std::string &privateData);
     bool ParseAdvDeviceManufacturerAbility(SlePeripheralDevice &device, size_t &msgIndex,
         const std::string &privateData);
