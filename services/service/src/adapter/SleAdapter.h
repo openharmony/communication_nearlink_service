@@ -305,7 +305,9 @@ private:
     static void ConnectionUpdateRequestCallback(CM_ConnectRemoteUpdateParamReq_S *param);
     static void ConnectionCancelCallback(uint8_t *param);
     static void ReadRemoteRssiCallback(CM_ReadRemoteRssiRsp_S *param);
+    void ReadRemoteRssiTask(const CM_ReadRemoteRssiRsp_S &param);
     static void ReadFeatureVersionCallback(CM_ReadRemoteFeatureVersionRsp_S *param);
+    void ReadFeatureVersionTask(const CM_ReadRemoteFeatureVersionRsp_S &param);
     static void SetPhyCallback(CM_SetPhyRsp_S *param);
     void PhyChangedTask(const CM_SetPhyRsp_S &param);
     static void AcbConnectionStateCallback(CM_LogicLinkState_S *param);
