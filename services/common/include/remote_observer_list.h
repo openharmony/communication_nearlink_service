@@ -19,6 +19,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <vector>
 #include "log.h"
 
 #include "refbase.h"
@@ -125,11 +126,18 @@ bool RemoteObserverList<T>::Deregister(const sptr<T> &observer)
 template <typename T>
 void RemoteObserverList<T>::ForEach(const std::function<void(sptr<T>)> &observer)
 {
-    std::lock_guard<std::mutex> lock(lock_);
-    for (const auto &it : observers_) {
-        if (it.first != nullptr) {
-            observer(it.first);
+    std::vector<sptr<T>> observersTemp;
+    {
+        std::lock_guard<std::mutex> lock(lock_);
+        observersTemp.reserve(observers_.size());
+        for (const auto &it : observers_) {
+            if (it.first != nullptr) {
+                observersTemp.push_back(it.first);
+            }
         }
+    }
+    for (const auto &obs : observersTemp) {
+        observer(obs);
     }
 }
 
