@@ -75,7 +75,7 @@ NearlinkHostStub::NearlinkHostStub()
         {STUB_FUNC(NL_DEREGISTER_SLE_ADAPTER_OBSERVER, DeregisterSleAdapterObserverInner,
             CHECK_PERM(false, {}))},
         {STUB_FUNC(NL_REGISTER_DEVICE_BATTERY_OBSERVER, RegisterDeviceBatteryObserverInner,
-            CHECK_PERM(false, {}))},
+            CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_DEREGISTER_DEVICE_BATTERY_OBSERVER, DeregisterDeviceBatteryObserverInner,
             CHECK_PERM(false, {}))},
         {STUB_FUNC(NL_REGISTER_DEVICE_RSSI_OBSERVER, RegisterDeviceRssiObserverInner,
