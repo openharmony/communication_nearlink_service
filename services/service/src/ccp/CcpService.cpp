@@ -296,13 +296,6 @@ void CcpService::HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState
 
 void CcpService::HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
-    std::string bundleName =
-        ServiceManagerPluginInterface::GetInstance()->GetBundleName(BundleNameType::BUNDLE_NAME_WECHAT);
-    /* 拦截没有接入CallKit的voip */
-    if (!bundleName.empty() && bundleName == info.voipCallInfo.voipBundleName) {
-        HILOGD("[CcpService]wechat voip call is intercepted");
-        return;
-    }
     switch (info.callState) {
         case TelCallState::CALL_STATUS_DIALING:
         case TelCallState::CALL_STATUS_INCOMING:
@@ -492,6 +485,8 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
+        NL_CHECK_RETURN(!SleAudioFrameworkAdapter::GetInstance().IsInVoipCallKit(),
+            "Call kit voip type, no need to create new call state");
         NL_CHECK_RETURN(!pimpl->isInVoipCallKit, "Now Is in VoIP Call Kit, not need to create new call state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
@@ -518,6 +513,7 @@ void CcpService::HandleVoipStop(const RawAddress &device)
             pimpl->isInVoipCallKit = false;
             return;
         }
+        NL_CHECK_RETURN(pimpl->currentVoipCallId_ != INVALID_CCP_VOIP_ID, "invalid callId.");
         Telephony::CallAttributeInfo info;
         info.callState = TelCallState::CALL_STATUS_DISCONNECTED;
         info.callId = pimpl->currentVoipCallId_;

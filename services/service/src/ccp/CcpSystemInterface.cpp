@@ -19,6 +19,7 @@
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
 #include "ThreadUtil.h"
+#include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileManager.h"
 #include "nearlink_dft_exception.h"
@@ -188,6 +189,20 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
     DoInCcpThread([info]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
+        CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
+        if (info.callType == Telephony::CallType::TYPE_VOIP) {
+            if (SleAudioFrameworkAdapter::GetInstance().IsInVoipCallKit()) {
+                systemInterface.allowedVoipCallIdSet_.insert(info.callId);
+            } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
+                systemInterface.allowedVoipCallIdSet_.end()) {
+                // 未接入call kit的voip通话，拦截不处理
+                HILOGD("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
+                return;
+            }
+            if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
+                systemInterface.allowedVoipCallIdSet_.erase(info.callId);
+            }
+        }
         service->HandleCallDetailChange(info);
     });
     return NL_NO_ERROR;

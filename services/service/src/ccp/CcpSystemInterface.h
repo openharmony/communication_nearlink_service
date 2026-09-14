@@ -16,6 +16,7 @@
 #define CCP_SYSTEM_INTERFACE_H
 
 #include <cstdint>
+#include <set>
 
 #include "pac_map.h"
 #include "system_ability_definition.h"
@@ -115,6 +116,9 @@ private:
     };
 
     sptr<SystemAbilityStatusChange> statusChangeListener_{nullptr};
+
+    /* 缓存接入call kit生效(GetVirtualCall==0)放行过的通话id，用于后续通话状态翻转为1时的处理 */
+    std::set<int32_t> allowedVoipCallIdSet_;
 
     static constexpr int32_t TOTAL_SLOT_ID = -1;
     /* -1表示获取所有卡的通话信息 */
