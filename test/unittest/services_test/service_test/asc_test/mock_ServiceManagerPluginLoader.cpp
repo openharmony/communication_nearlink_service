@@ -21,11 +21,11 @@
 // 原因：libnearlink_service_impl(.so) 内部代码会动态解析 ServiceManagerPluginLoader::GetInstance
 // 等符号，若被解析到 mock 版本，.so 启动链会拿到 mock 实例而崩溃（已验证）
 // 白盒（同一可执行文件）对 hidden 符号的引用不受影响，仍走 mock 实例
-#pragma GCC visibility push(hidden)
 
 namespace OHOS {
 namespace Nearlink {
 
+__attribute__((visibility("hidden")))
 ServiceManagerPluginLoader::ServiceManagerPluginLoader()
     : loader_(DEFAULT_LIB_NAME, DEFAULT_LIB_CREATE_FUNC_NAME, DEFAULT_LIB_DESTROY_FUNC_NAME),
       sleAdapterWrapper_(std::make_unique<SleAdapterWrapper>())
@@ -33,11 +33,13 @@ ServiceManagerPluginLoader::ServiceManagerPluginLoader()
     HILOGI("[ServiceManagerPluginLoader Mocker] Constructor");
 }
 
+__attribute__((visibility("hidden")))
 ServiceManagerPluginLoader::~ServiceManagerPluginLoader()
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] Destructor");
 }
 
+__attribute__((visibility("hidden")))
 ServiceManagerPluginLoader* ServiceManagerPluginLoader::GetInstance(void)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] GetInstance");
@@ -45,47 +47,56 @@ ServiceManagerPluginLoader* ServiceManagerPluginLoader::GetInstance(void)
     return &instance;
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::Init()
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] Init");
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::DeInit()
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] DeInit");
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::LoadPluginInterfaceLib()
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] LoadPluginInterfaceLib");
 }
 
+__attribute__((visibility("hidden")))
 bool ServiceManagerPluginLoader::IsLibraryLoaded(void)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] IsLibraryLoaded, return true");
     return true;
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::HighPowerProc(uint16_t lcid)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] HighPowerProc, lcid=%{public}u", lcid);
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::SleTvMgrProc(const std::string &address)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] SleTvMgrProc, address=%{public}s", address.c_str());
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::UpdateSleFreqBandAbility(const std::string &address)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] UpdateSleFreqBandAbility, address=%{public}s", address.c_str());
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::CollaborationProc(CollaborationProcType type)
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] CollaborationProc, type=%{public}d", static_cast<int>(type));
 }
 
+__attribute__((visibility("hidden")))
 void ServiceManagerPluginLoader::SetAcbSubrate(
     bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam)
 {
@@ -96,5 +107,3 @@ void ServiceManagerPluginLoader::SetAcbSubrate(
 
 }  // namespace Nearlink
 }  // namespace OHOS
-
-#pragma GCC visibility pop
