@@ -17,6 +17,12 @@
 #include "SleAdapterWrapper.h"
 #include "log.h"
 
+// 符号隔离：本文件定义的 mock 符号全部 hidden（不进动态符号表）
+// 原因：libnearlink_service_impl(.so) 内部代码会动态解析 ServiceManagerPluginLoader::GetInstance
+// 等符号，若被解析到 mock 版本，.so 启动链会拿到 mock 实例而崩溃（已验证）
+// 白盒（同一可执行文件）对 hidden 符号的引用不受影响，仍走 mock 实例
+#pragma GCC visibility push(hidden)
+
 namespace OHOS {
 namespace Nearlink {
 
@@ -25,6 +31,11 @@ ServiceManagerPluginLoader::ServiceManagerPluginLoader()
       sleAdapterWrapper_(std::make_unique<SleAdapterWrapper>())
 {
     HILOGI("[ServiceManagerPluginLoader Mocker] Constructor");
+}
+
+ServiceManagerPluginLoader::~ServiceManagerPluginLoader()
+{
+    HILOGI("[ServiceManagerPluginLoader Mocker] Destructor");
 }
 
 ServiceManagerPluginLoader* ServiceManagerPluginLoader::GetInstance(void)
@@ -75,5 +86,15 @@ void ServiceManagerPluginLoader::CollaborationProc(CollaborationProcType type)
     HILOGI("[ServiceManagerPluginLoader Mocker] CollaborationProc, type=%{public}d", static_cast<int>(type));
 }
 
+void ServiceManagerPluginLoader::SetAcbSubrate(
+    bool &ret, const RawAddress &device, const SleAcbSubrateParam &subrateParam)
+{
+    HILOGI("[ServiceManagerPluginLoader Mocker] SetAcbSubrate, address=%{public}s, onlySubrate=%{public}d, "
+        "subrate=%{public}d", device.GetAddress().c_str(), subrateParam.onlySubrate, subrateParam.subrate);
+    ret = true;
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS
+
+#pragma GCC visibility pop
