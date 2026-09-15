@@ -92,7 +92,9 @@ public:
                 GetDataTransferCallback(connectionParams.port_, sleDataTransferImplSptr);
 
         if (!callbackSptr) {
-            close(fd);
+            if (fd != -1) {
+                close(fd);
+            }
             return;
         }
 
