@@ -24,9 +24,11 @@
 #include "i_nearlink_sle_datatransfer.h"
 #include "nearlink_safe_map.h"
 #include "sle_uuid.h"
+#include "nearlink_fdsan_tag.h"
 #include <memory>
 #include <thread>
 #include <sys/socket.h>
+#include <fdsan.h>
 #include <vector>
 #include "nearlink_socket_inputstream.h"
 #include "nearlink_socket_outputstream.h"
@@ -93,7 +95,7 @@ public:
 
         if (!callbackSptr) {
             if (fd != -1) {
-                close(fd);
+                fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
             }
             return;
         }

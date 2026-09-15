@@ -23,6 +23,8 @@
 #include "log.h"
 #include <thread>
 #include "qosm_trans_channel.h"
+#include <fdsan.h>
+#include "nearlink_fdsan_tag.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -93,7 +95,7 @@ void NearlinkDataTransferTest::TearDown()
 {
     HILOGI("TearDown start");
     if (g_fd > 0) {
-        close(g_fd);
+        fdsan_close_with_tag(g_fd, NEARLINK_FDSAN_TAG_SOCKET);
     }
     g_fd = -1;
 }

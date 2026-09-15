@@ -23,6 +23,8 @@
 #include "nearlink_host_server.h"
 #include "qosm_trans_channel.h"
 #include "log.h"
+#include <fdsan.h>
+#include "nearlink_fdsan_tag.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -185,7 +187,7 @@ void HandleConnectEventFuzzTest001(const uint8_t *data, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
     instance.DestroyPort(uuid, portId);
     if (g_fd > 0) {
-        close(g_fd);
+        fdsan_close_with_tag(g_fd, NEARLINK_FDSAN_TAG_SOCKET);
         g_fd = -1;
     }
 }
@@ -233,7 +235,7 @@ void HandleConnectEventFuzzTest002(const uint8_t *data, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
     instance.DestroyPort(uuid, portId);
     if (g_fd > 0) {
-        close(g_fd);
+        fdsan_close_with_tag(g_fd, NEARLINK_FDSAN_TAG_SOCKET);
         g_fd = -1;
     }
 }

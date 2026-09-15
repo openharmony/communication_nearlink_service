@@ -24,7 +24,9 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
+#include <fdsan.h>
 #include "securec.h"
+#include "nearlink_fdsan_tag.h"
 #include "log.h"
 #include <cinttypes>
 #include "qos.h"
@@ -86,21 +88,21 @@ TimerManager::~TimerManager()
     }
 
     if (epollFd_ != -1) {
-        close(epollFd_);
+        fdsan_close_with_tag(epollFd_, NEARLINK_FDSAN_TAG_TIMER);
     }
     if (stopFd_ != -1) {
-        close(stopFd_);
+        fdsan_close_with_tag(stopFd_, NEARLINK_FDSAN_TAG_TIMER);
     }
 }
 
 void TimerManager::CloseEpollAndStopFD(int &epollFd, int &stopFd)
 {
     if (epollFd != -1) {
-        close(epollFd);
+        fdsan_close_with_tag(epollFd, NEARLINK_FDSAN_TAG_TIMER);
         epollFd = -1;
     }
     if (stopFd != -1) {
-        close(stopFd);
+        fdsan_close_with_tag(stopFd, NEARLINK_FDSAN_TAG_TIMER);
         stopFd = -1;
     }
 }
@@ -109,7 +111,13 @@ void TimerManager::CloseEpollAndStopFD(int &epollFd, int &stopFd)
 void TimerManager::Initialize(std::promise<int> startPromise)
 {
     epollFd_ = epoll_create1(EPOLL_CLOEXEC);
+    if (epollFd_ != -1) {
+        fdsan_exchange_owner_tag(epollFd_, 0, NEARLINK_FDSAN_TAG_TIMER);
+    }
     stopFd_ = eventfd(0, 0);
+    if (stopFd_ != -1) {
+        fdsan_exchange_owner_tag(stopFd_, 0, NEARLINK_FDSAN_TAG_TIMER);
+    }
     if ((epollFd_ == -1) || (stopFd_ == -1)) {
         LOG_ERROR("TimerManager: Create epoll failed!!");
         CloseEpollAndStopFD(epollFd_, stopFd_);
@@ -284,13 +292,15 @@ NearlinkTimer::TimerInfo::TimerInfo()
     fd_ = timerfd_create(CLOCK_BOOTTIME_ALARM, 0);
     if (fd_ == -1) {
         LOG_ERROR("timerfd_create ERROR");
+    } else {
+        fdsan_exchange_owner_tag(fd_, 0, NEARLINK_FDSAN_TAG_TIMER);
     }
 }
 
 NearlinkTimer::TimerInfo::~TimerInfo()
 {
     NL_CHECK_RETURN(fd_ != -1, "invalid fd: %{public}d", fd_);
-    if (close(fd_) == -1) {
+    if (fdsan_close_with_tag(fd_, NEARLINK_FDSAN_TAG_TIMER) == -1) {
         LOG_ERROR("NlTimer close timer fd: %{public}d failed", fd_);
     }
 }

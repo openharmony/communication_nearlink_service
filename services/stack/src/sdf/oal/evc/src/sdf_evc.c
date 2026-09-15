@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <fdsan.h>
 #include "securec.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"
@@ -24,6 +25,9 @@
 #include "sdf_mutex.h"
 #include "sdf_log.h"
 #include "sdf_evc.h"
+
+/* fdsan owner tag for sdf evc instance fds (nearlink 0xD00015x family) */
+#define SDF_EVC_FDSAN_OWNER_TAG 0xD000158
 
 typedef struct {
     int handle;
@@ -42,10 +46,10 @@ void DectoryEvcDesc(void *data)
     }
     SDF_EvcDesc *evcDesc = (SDF_EvcDesc *)data;
     if (evcDesc->handle >= 0) {
-        close(evcDesc->handle);
+        fdsan_close_with_tag(evcDesc->handle, SDF_EVC_FDSAN_OWNER_TAG);
     }
     if (evcDesc->closeEventHandle >= 0) {
-        close(evcDesc->closeEventHandle);
+        fdsan_close_with_tag(evcDesc->closeEventHandle, SDF_EVC_FDSAN_OWNER_TAG);
     }
     SDF_DestroyVector(evcDesc->eventVector);
     SDF_MemFree(evcDesc);
@@ -250,6 +254,7 @@ static bool SDF_EvcInstanceAddCloseEvent(SDF_EvcDesc *evcDesc, uint32_t *ret)
         *ret = SDF_EVC_ERROR_FD_CREATE_FAILED;
         return false;
     }
+    fdsan_exchange_owner_tag(evcDesc->closeEventHandle, 0, SDF_EVC_FDSAN_OWNER_TAG);
     struct epoll_event epEvent = {
         .events = EPOLLIN,
         .data.fd = evcDesc->closeEventHandle,
@@ -286,6 +291,7 @@ uint32_t SDF_EvcInstanceCreate(int *handle, const char *name)
         ret = SDF_EVC_ERROR_EPOLL_CREATE_FAILED;
         goto Fail2;
     }
+    fdsan_exchange_owner_tag(evcDesc->handle, 0, SDF_EVC_FDSAN_OWNER_TAG);
     if (!SDF_VectorEmplaceBack(g_evcDescVector, evcDesc)) {
         ret = SDF_EVC_ERROR_VECTOR_FAIL;
         goto Fail2;

@@ -15,10 +15,14 @@
 
 #include <sys/timerfd.h>
 #include <unistd.h>
+#include <fdsan.h>
 #include "securec.h"
 #include "sdf_log.h"
 #include "sdf_mem.h"
 #include "sdf_timer.h"
+
+/* fdsan owner tag for sdf timer fds (nearlink 0xD00015x family) */
+#define SDF_TIMER_FDSAN_OWNER_TAG 0xD000156
 
 typedef struct {
     int eventHandle;
@@ -61,7 +65,7 @@ static void CleanTimerDesc(void *args)
     if (timerDesc == NULL) {
         return;
     }
-    close(timerDesc->eventHandle);
+    fdsan_close_with_tag(timerDesc->eventHandle, SDF_TIMER_FDSAN_OWNER_TAG);
     SDF_MemFree(timerDesc);
 }
 
@@ -77,6 +81,7 @@ uint32_t SDF_TimerAdd(int *handle, SDF_TimerParam *param)
         SDF_MemFree(timerDesc);
         return SDF_TIMER_ERROR_TIMER_CREATE_FAILED;
     }
+    fdsan_exchange_owner_tag(tFd, 0, SDF_TIMER_FDSAN_OWNER_TAG);
     struct itimerspec spec = {0};
     SetTimerSpec(&spec, param->expires, param->period);
 
@@ -100,7 +105,7 @@ uint32_t SDF_TimerAdd(int *handle, SDF_TimerParam *param)
     return SDF_OK;
 FAIL:
     SDF_MemFree(timerDesc);
-    close(tFd);
+    fdsan_close_with_tag(tFd, SDF_TIMER_FDSAN_OWNER_TAG);
     return ret;
 }
 

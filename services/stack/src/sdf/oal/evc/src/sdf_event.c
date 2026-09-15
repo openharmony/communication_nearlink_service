@@ -15,9 +15,13 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <fdsan.h>
 #include "securec.h"
 #include "sdf_event.h"
 #include "sdf_mem.h"
+
+/* fdsan owner tag for sdf event fds (nearlink 0xD00015x family) */
+#define SDF_EVENT_FDSAN_OWNER_TAG 0xD000157
 
 typedef struct {
     int eventHandle;
@@ -41,7 +45,7 @@ static void CleanEventDesc(void *args)
     if (eventDesc == NULL) {
         return;
     }
-    close(eventDesc->eventHandle);
+    fdsan_close_with_tag(eventDesc->eventHandle, SDF_EVENT_FDSAN_OWNER_TAG);
     SDF_MemFree(eventDesc);
 }
 
@@ -56,13 +60,14 @@ uint32_t SDF_EventAdd(int *handle, SDF_EventParam *param)
         SDF_MemFree(eventDesc);
         return SDF_EVENT_ERROR_CREATE_FD_FAILED;
     }
+    fdsan_exchange_owner_tag(eFd, 0, SDF_EVENT_FDSAN_OWNER_TAG);
 
     eventDesc->eventHandle = eFd;
     (void)memcpy_s(&eventDesc->eventParam, sizeof(SDF_EventParam), param, sizeof(SDF_EventParam));
     SDF_EvcEvent event = {SDF_EVC_EVENT, eFd, EventProc, (void *)eventDesc, CleanEventDesc};
     if (SDF_EvcListenEvent(param->handle, &event) != SDF_OK) {
         SDF_MemFree(eventDesc);
-        close(eFd);
+        fdsan_close_with_tag(eFd, SDF_EVENT_FDSAN_OWNER_TAG);
         return SDF_EVENT_ERROR_EVC_FAILED;
     }
     *handle = eFd;
