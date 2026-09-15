@@ -347,8 +347,9 @@ NlErrCode NearlinkSleDataTransferServer::RegisterSleDataTransferCallback(
         pimpl->observers_.Deregister(stale);
         pimpl->remoteContainer_->DeleteRemoteInfo(stale->AsObject());
     }
+    // 上限为软性防御：Size() 与 Register() 分两步（各自加锁），并发注册时允许瞬时越过上限数条
     NL_CHECK_RETURN_RET(pimpl->observers_.Size() < MAX_OBSERVER_SIZE, NL_ERR_INTERNAL_ERROR,
-        "DT observers exceeds the range");
+        "DT observers exceeds the range, current size: %{public}d", pimpl->observers_.Size());
     NL_CHECK_RETURN_RET(pimpl->observers_.Register(callback), NL_ERR_INTERNAL_ERROR, "register DT callback failed.");
     impl::SleDataTransferRemoteInfo info(pid, uid, tokenId);
     pimpl->remoteContainer_->AddRemoteInfo(callback->AsObject(), info);

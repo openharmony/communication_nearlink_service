@@ -1134,6 +1134,8 @@ static void SSAPS_MethodCallOpProcess(SSAP_Link_S *link, SSAP_Method_S *method,
     if (!SSAPS_PushOperationPenddingVector(operation)) {
         CP_LOG_ERROR("[SSAP] push method operation failed, pending vector is full");
         SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_NO_RESOURCE, callMethodMsg->handle);
+        // 入队失败说明本次授权流程未建立，不回调应用，避免应用误入授权等待；
+        // 与读写路径一致（读写失败由 SSAP 回复异常响应，应用侧同样不上报）
         SDF_MemFree(operation);
         operation = NULL;
         return;

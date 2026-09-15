@@ -47,6 +47,8 @@ template<typename T>
 void EventModule<T>::RegisterEvent(::taihe::callback_view<T> callback)
 {
     std::unique_lock<std::shared_mutex> guard(lock_);
+    // 达到上限（MAX_CB_NUM）后直接拒绝注册：模板层无日志设施且接口无返回值，无法向调用方表达失败，
+    // 属设计语义（当前唯一实例化为 cdsm 模块，正常业务回调数远低于上限）
     if (callbackVec_.size() >= MAX_CB_NUM) {
         return;
     }
