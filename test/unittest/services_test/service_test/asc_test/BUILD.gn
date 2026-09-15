@@ -96,6 +96,7 @@ config("nl_asc_service_unit_test_config") {
 
 unit_test_deps = [
   "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  "$NEARLINK_ROOT/socket:nearlink_socket",
   "$NEARLINK_ROOT/utils:nearlink_utils",
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
@@ -146,6 +147,7 @@ ohos_unittest("nl_asc_service_test") {
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_sle_adapter.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_tws_service.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_audio_spatialization_manager.cpp",
+    "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_ServiceManagerPluginLoader.cpp",
   ]
   sources += [
     "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_host_server.cpp",
