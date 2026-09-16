@@ -24,7 +24,6 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
-#include <fdsan.h>
 #include "securec.h"
 #include "nearlink_fdsan_tag.h"
 #include "log.h"

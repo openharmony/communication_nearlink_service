@@ -16,6 +16,30 @@
 #ifndef NEARLINK_FDSAN_TAG_H
 #define NEARLINK_FDSAN_TAG_H
 
+#include <stdint.h>
+
+/* Use the platform fdsan header when the sysroot ships one; otherwise declare
+ * the OHOS musl exports directly (same symbols HidHostUhid.cpp links against). */
+#if defined(__has_include)
+#if __has_include(<fdsan.h>)
+#include <fdsan.h>
+#define NEARLINK_FDSAN_HEADER_FOUND 1
+#elif __has_include(<sys/fdsan.h>)
+#include <sys/fdsan.h>
+#define NEARLINK_FDSAN_HEADER_FOUND 1
+#endif
+#endif
+#ifndef NEARLINK_FDSAN_HEADER_FOUND
+#ifdef __cplusplus
+extern "C" {
+#endif
+uint64_t fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
+int fdsan_close_with_tag(int fd, uint64_t tag);
+#ifdef __cplusplus
+}
+#endif
+#endif
+
 /* fdsan owner tags: one stable value per owning module, allocated from the
  * nearlink LOG_DOMAIN family (utils/include/log.h, 0xD000150). The tag shows up
  * in fdsan reports and names the module owning the fd at that moment. */

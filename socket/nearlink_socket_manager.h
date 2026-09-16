@@ -22,7 +22,6 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <fdsan.h>
 #include <memory>
 #include <nearlink_types.h>
 #include "nearlink_socket_inputstream.h"

@@ -14,7 +14,6 @@
  */
 
 #include "nearlink_sle_datatransfer_callback_proxy.h"
-#include <fdsan.h>
 #include "log.h"
 #include "nearlink_fdsan_tag.h"
 

@@ -20,7 +20,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <fdsan.h>
 #include <charconv>
 #include <iostream>
 #include <chrono>

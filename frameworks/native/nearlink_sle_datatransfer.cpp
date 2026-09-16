@@ -28,7 +28,6 @@
 #include <memory>
 #include <thread>
 #include <sys/socket.h>
-#include <fdsan.h>
 #include <vector>
 #include "nearlink_socket_inputstream.h"
 #include "nearlink_socket_outputstream.h"

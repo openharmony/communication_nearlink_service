@@ -17,7 +17,16 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
+/* fdsan: use the platform header when the sysroot ships one, else declare
+ * the OHOS musl exports directly (same symbols HidHostUhid.cpp links against). */
+#if defined(__has_include) && __has_include(<fdsan.h>)
 #include <fdsan.h>
+#elif defined(__has_include) && __has_include(<sys/fdsan.h>)
+#include <sys/fdsan.h>
+#else
+uint64_t fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
+int fdsan_close_with_tag(int fd, uint64_t tag);
+#endif
 #include "securec.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"

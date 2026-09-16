@@ -23,7 +23,6 @@
 #include "log.h"
 #include <thread>
 #include "qosm_trans_channel.h"
-#include <fdsan.h>
 #include "nearlink_fdsan_tag.h"
 
 namespace OHOS {

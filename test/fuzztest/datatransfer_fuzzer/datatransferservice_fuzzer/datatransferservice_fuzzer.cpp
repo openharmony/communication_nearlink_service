@@ -23,7 +23,6 @@
 #include "nearlink_host_server.h"
 #include "qosm_trans_channel.h"
 #include "log.h"
-#include <fdsan.h>
 #include "nearlink_fdsan_tag.h"
 
 using namespace std;

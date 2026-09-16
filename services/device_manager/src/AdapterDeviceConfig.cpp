@@ -17,7 +17,6 @@
 #include <fstream>
 #include <unistd.h>
 #include <fcntl.h>
-#include <fdsan.h>
 #include "log.h"
 #include "nearlink_fdsan_tag.h"
 #include "xml_parse.h"
