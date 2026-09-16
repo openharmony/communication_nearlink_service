@@ -99,13 +99,17 @@ void SleDliSnoopTest::TearDown()
 
 /**
  * @tc.name: Dli_Snoop_test_001
- * @tc.desc: SnoopStartUp test
+ * @tc.desc: non-commercial version, SnoopStartUp enables full logging chain
  * @tc.type: FUNC
  */
 HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_001, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_001 enter");
     g_dliSnoopPtr->SnoopStartUp();
+    sleep(1); // 等待启动任务完成
+    // UT环境版本参数缺省按商用评估，此处显式切非商用后重新评估（完整落盘链路）
+    g_dliSnoopPtr->isCommercialVersion_.store(false);
+    g_dliSnoopPtr->UpdateLogging();
     g_dliSnoopPtr->CreateSnoopFile(true);
     sleep(1); // sleep 1s
 
@@ -298,7 +302,7 @@ HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_010, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_010 enter");
     g_dliSnoopPtr->isCommercialVersion_.store(true);
-    g_dliSnoopPtr->isAnonymized_.store(true); // 强制启用匿名化
+    g_dliSnoopPtr->isLogging_.store(true); // 落盘使能态（直调任务绕过捕获入口）
     g_dliSnoopPtr->CreateSnoopFileTask(true);
     EXPECT_NE(INVALID_FD, g_dliSnoopPtr->logFileFd_);
 
@@ -325,7 +329,7 @@ HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_011, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_011 enter");
     g_dliSnoopPtr->isCommercialVersion_.store(false);
-    g_dliSnoopPtr->isAnonymized_.store(true); // 强制启用匿名化
+    g_dliSnoopPtr->isLogging_.store(true); // 落盘使能态（直调任务绕过捕获入口）
     g_dliSnoopPtr->CreateSnoopFileTask(true);
     EXPECT_NE(INVALID_FD, g_dliSnoopPtr->logFileFd_);
 
@@ -345,119 +349,162 @@ HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_011, TestSize.Level1)
 
 /**
  * @tc.name: Dli_Snoop_test_012
- * @tc.desc: snoop anonymization decision by commercial version and exception switches
+ * @tc.desc: customization decision: remote on forces customization, remote off follows dev/fans
  * @tc.type: FUNC
  */
 HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_012, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_012 enter");
-    // 非商用版本，禁用匿名化
-    g_dliSnoopPtr->isCommercialVersion_.store(false);
-    EXPECT_FALSE(g_dliSnoopPtr->IsSnoopAnonymizationEnabled());
-
-    // 商用版本+远程诊断开（例外场景）：不进行匿名化
-    g_dliSnoopPtr->isCommercialVersion_.store(true);
-    (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "true");
-    EXPECT_FALSE(g_dliSnoopPtr->IsSnoopAnonymizationEnabled());
-
-    // 商用版本+远程诊断关：仅取决于开发者选项/花粉版本
-    (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
+    // 匿名化判定即版本标志（商用恒匿名化/非商用完整落盘），已由010/011的落盘内容断言直接覆盖，此处不重复
+    g_dliSnoopPtr->isCommercialVersion_.store(true); // 后续定制化判定基于商用上下文
+    // 定制化判定：remote关时取决于dev/fans环境参数（只读不可置位），remote开时必为定制化
     bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
         OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
-    EXPECT_EQ(!devOrFans, g_dliSnoopPtr->IsSnoopAnonymizationEnabled());
+    (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
+    EXPECT_EQ(devOrFans, g_dliSnoopPtr->IsSnoopCustomizationEnabled());
+    (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "true");
+    EXPECT_TRUE(g_dliSnoopPtr->IsSnoopCustomizationEnabled()); // remote开，定制化必开
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
     HILOGI("Dli_Snoop_test_012 end");
 }
 
 /**
  * @tc.name: Dli_Snoop_test_013
- * @tc.desc: remote log parameter watch dynamically updates anonymization mode and cleans files
+ * @tc.desc: commercial disabled by default; customization enabled logs anonymized data, revoke stops and cleans
  * @tc.type: FUNC
  */
 HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_013, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_013 enter");
+    bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
+        OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
     g_dliSnoopPtr->isCommercialVersion_.store(true);
     g_dliSnoopPtr->isModuleStarted_ = true;
+    // 商用版本+无定制化：默认不落盘（dev/fans环境参数开启时定制化本就存在，跳过该段断言）
+    if (!devOrFans) {
+        (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
+        g_dliSnoopPtr->UpdateLogging();
+        EXPECT_FALSE(g_dliSnoopPtr->isLogging_.load()); // 商用默认不落盘
+        EXPECT_TRUE(g_dliSnoopPtr->files_.empty());
+        EXPECT_EQ(INVALID_FD, g_dliSnoopPtr->logFileFd_);
+    }
+
+    // 商用版本+定制化开启（远程诊断）：匿名化落盘
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "true");
     g_dliSnoopPtr->UpdateLogging();
-    EXPECT_TRUE(g_dliSnoopPtr->isLogging_.load()); // 落盘跟随模块使能，与例外场景无关
-    EXPECT_FALSE(g_dliSnoopPtr->isAnonymized_.load()); // 远程诊断开，完整落盘
+    EXPECT_TRUE(g_dliSnoopPtr->isLogging_.load()); // remote开，定制化必开；匿名化由版本保证，文件内容断言见下
 
     g_dliSnoopPtr->WatchRemoteLogChange();
     EXPECT_TRUE(g_dliSnoopPtr->isRemoteLogWatched_.load());
 
-    // 写入一条完整敏感数据，制造已落盘文件
+    // 写入一条敏感数据：定制化场景文件内容为匿名化数据（不含对端地址）
     g_dliSnoopPtr->CreateSnoopFileTask(true);
     EXPECT_NE(INVALID_FD, g_dliSnoopPtr->logFileFd_);
-    std::vector<uint8_t> buffer = ConstructCmdBuffer(SENSITIVE_CMD_OPCODE, {0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
+    std::vector<uint8_t> params = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06}; // 对端地址
+    std::vector<uint8_t> buffer = ConstructCmdBuffer(SENSITIVE_CMD_OPCODE, params);
     g_dliSnoopPtr->DliSnoopCaptureTask(buffer, true);
     EXPECT_FALSE(g_dliSnoopPtr->files_.empty());
+    std::ifstream inFile(g_dliSnoopPtr->snoopLogfilePath_);
+    std::string line;
+    std::getline(inFile, line);
+    inFile.close();
+    line.erase(std::remove(line.begin(), line.end(), ' '), line.end());
+    EXPECT_EQ((SNOOP_HEADER_LEN + 1 + sizeof(uint16_t)) * 2, line.length()); // 匿名化：仅保留opcode
+    EXPECT_EQ(std::string::npos, line.find("010203040506")); // 定制化场景不含完整敏感数据
 
-    // 远程诊断关，watch回调在snoop线程重估：切回匿名化并删除已有文件
+    // 远程诊断关：watch回调在snoop线程重估，停止落盘并删除已落盘文件
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
     sleep(1); // 等待watch回调触发重估
-    bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
-        OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
-    if (!devOrFans) {
-        EXPECT_TRUE(g_dliSnoopPtr->isAnonymized_.load());
+    if (devOrFans) {
+        EXPECT_TRUE(g_dliSnoopPtr->isLogging_.load()); // dev/fans维持定制化，remote关不停止落盘
+        HILOGI("dev/fans enabled in environment, customization remains on after remote off");
+    } else {
+        EXPECT_FALSE(g_dliSnoopPtr->isLogging_.load());
         EXPECT_TRUE(g_dliSnoopPtr->files_.empty()); // 文件已删除
+        EXPECT_EQ(INVALID_FD, g_dliSnoopPtr->logFileFd_);
     }
 
-    // 重新打开远程诊断开关，动态恢复完整落盘（isLogging_全程保持使能）
+    // 重新打开远程诊断开关：动态恢复匿名化落盘（文件由写路径懒建）
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "true");
     sleep(1);
-    EXPECT_FALSE(g_dliSnoopPtr->isAnonymized_.load());
     EXPECT_TRUE(g_dliSnoopPtr->isLogging_.load());
     HILOGI("Dli_Snoop_test_013 end");
 }
 
 /**
  * @tc.name: Dli_Snoop_test_014
- * @tc.desc: remote log parameter watch dynamically updates anonymization mode and cleans files
+ * @tc.desc: restart simulation: customization-period anonymized files cleaned at next no-customization evaluation
  * @tc.type: FUNC
  */
 HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_014, TestSize.Level1)
 {
     HILOGI("Dli_Snoop_test_014 enter");
-    // 上一会话：商用版本+远程诊断开（例外场景）：完整落盘
+    bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
+        OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
+    // 上一会话：商用版本+定制化开启（远程诊断）：匿名化落盘
     g_dliSnoopPtr->isCommercialVersion_.store(true);
     g_dliSnoopPtr->isModuleStarted_ = true;
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "true");
     g_dliSnoopPtr->UpdateLogging();
-    EXPECT_FALSE(g_dliSnoopPtr->isAnonymized_.load()); // 远程诊断开，完整落盘
+    EXPECT_TRUE(g_dliSnoopPtr->isLogging_.load());
 
     g_dliSnoopPtr->CreateSnoopFileTask(true);
     EXPECT_NE(INVALID_FD, g_dliSnoopPtr->logFileFd_);
     std::string previousFilePath = g_dliSnoopPtr->snoopLogfilePath_;
-    std::vector<uint8_t> fullBuffer = ConstructCmdBuffer(SENSITIVE_CMD_OPCODE, {0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
+    std::vector<uint8_t> fullBuffer = ConstructCmdBuffer(SENSITIVE_CMD_OPCODE,
+        {0x01, 0x02, 0x03, 0x04, 0x05, 0x06});
     g_dliSnoopPtr->DliSnoopCaptureTask(fullBuffer, true);
     std::ifstream previousInFile(previousFilePath);
     std::string previousLine;
     std::getline(previousInFile, previousLine);
     previousInFile.close();
     previousLine.erase(std::remove(previousLine.begin(), previousLine.end(), ' '), previousLine.end());
-    EXPECT_NE(std::string::npos, previousLine.find("010203040506")); // 上一会话完整敏感数据已落盘
+    EXPECT_EQ((SNOOP_HEADER_LEN + 1 + sizeof(uint16_t)) * 2, previousLine.length()); // 匿名化落盘
+    EXPECT_EQ(std::string::npos, previousLine.find("010203040506")); // 上一会话文件不含完整敏感数据
 
-    // 模拟重启：旧实例关闭后重建新实例（初态：isAnonymized_为true, files为空）
+    // 模拟重启：旧实例关闭后重建新实例（初态：isLogging_为false, files为空）
     g_dliSnoopPtr->SnoopShutDown();
     sleep(1);
     g_dliSnoopPtr = std::make_unique<SleDliSnoop>();
 
-    // 新会话：商用版本+例外开关关：启动评估匿名化时应清空上会话遗留文件
+    // 新会话：商用版本+定制化开关关：启动评估停止落盘并清理上会话遗留文件
     g_dliSnoopPtr->isCommercialVersion_.store(true);
     g_dliSnoopPtr->isModuleStarted_ = true;
     (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
-    bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
-        OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
     g_dliSnoopPtr->UpdateLogging();
     if (!devOrFans) {
-        EXPECT_TRUE(g_dliSnoopPtr->isAnonymized_.load());
+        EXPECT_FALSE(g_dliSnoopPtr->isLogging_.load()); // 无定制化不落盘
         std::ifstream removeInFile(previousFilePath);
-        EXPECT_FALSE(removeInFile.is_open()); // 含完整数据的遗留文件已删除
+        EXPECT_FALSE(removeInFile.is_open()); // 遗留的匿名化文件已删除
         EXPECT_TRUE(g_dliSnoopPtr->files_.empty());
     }
     HILOGI("Dli_Snoop_test_014 end");
+}
+
+/**
+ * @tc.name: Dli_Snoop_test_015
+ * @tc.desc: commercial no-customization: disabled by default, public CreateSnoopFile skipped
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleDliSnoopTest, Dli_Snoop_test_015, TestSize.Level1)
+{
+    HILOGI("Dli_Snoop_test_015 enter");
+    bool devOrFans = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false) ||
+        OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
+    g_dliSnoopPtr->isCommercialVersion_.store(true);
+    g_dliSnoopPtr->isModuleStarted_ = true;
+    (void)OHOS::system::SetParameter(REMOTE_LOG_KEY, "false");
+    if (devOrFans) {
+        HILOGI("dev/fans enabled in environment, skip customization-off assertions");
+    } else {
+        g_dliSnoopPtr->UpdateLogging();
+        EXPECT_FALSE(g_dliSnoopPtr->isLogging_.load()); // 商用默认不落盘
+        g_dliSnoopPtr->CreateSnoopFile(true);
+        // 建文件判定在snoop队列内复查（空任务异步执行不影响files_），无需等待
+        EXPECT_TRUE(g_dliSnoopPtr->files_.empty()); // 未创建空文件
+        EXPECT_EQ(INVALID_FD, g_dliSnoopPtr->logFileFd_);
+    }
+    HILOGI("Dli_Snoop_test_015 end");
 }
 }  // namespace TEST
 }  // namespace Nearlink
