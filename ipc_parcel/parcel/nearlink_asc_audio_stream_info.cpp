@@ -68,6 +68,7 @@ bool NearlinkASCAudioStreamInfo::ReadFromParcel(Parcel &parcel)
         if (!parcel.ReadUint8(streamState)) {
             return false;
         }
+        // 仅做位标志域上界防御，不构成枚举成员合法性校验
         if (streamType > AUDIO_STREAM_SING || streamState > AUDIO_STREAM_STATE_NOT_AVAILABLE) {
             return false;
         }

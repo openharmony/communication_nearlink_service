@@ -899,7 +899,7 @@ static uint32_t CM_BgConnectAddDoingConnBgList(uint8_t moduleId, uint8_t addrArr
             // 对于已添加的设备，若此时本端与对端设备建链已完成，则忽略通知该用户CONNECTED事件
             continue;
         }
-        if (g_cmSizeConnectingDev >= CM_MAX_CONNECTING_DEV_NUM) {
+        if (node == NULL && g_cmSizeConnectingDev >= CM_MAX_CONNECTING_DEV_NUM) {
             CM_LOGW("connecting dev size:%zu has reached max num limit, ignore the addr:%s",
                 g_cmSizeConnectingDev, GET_ENC_ADDR(&bgAddr->addr));
             continue;

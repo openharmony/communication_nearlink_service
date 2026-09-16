@@ -463,6 +463,7 @@ static void StackExtFuncDeinit(void)
     QOSM_DeregisterExtFunc();
     Devd_DeregisterExtFunc();
     BNL_DeregisterExtFunc();
+    HADM_DeregisterExtFunc();
 }
 
 static void StackFuncDeinit(void)

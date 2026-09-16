@@ -523,7 +523,7 @@ static void ChangeAudioStreamInner(void *arg)
 uint32_t NLSTK_ActmChangeAudioStream(SLE_Addr_S *addr, NLSTK_ActmChangeParam_S *param)
 {
     NLSTK_CHECK_RETURN(addr != NULL && param != NULL, NLSTK_ERRCODE_PARAM_ERR, "[ACTM] param is null");
-    /* op 仅允许 STOP/TRANS，非法值会被 GetOpCode 默认映射为 CONFIG 导致对端状态错乱 */
+    /* op 仅允许 STOP/TRANS，非法值会被 GetOpCode 默认映射为未定义操作码 0 */
     NLSTK_CHECK_RETURN(param->op == NLSTK_ACTM_STREAM_STOP || param->op == NLSTK_ACTM_STREAM_TRANS,
         NLSTK_ERRCODE_PARAM_ERR, "[ACTM] change stream op error");
     ChangeStream_S *changeIn = (ChangeStream_S *)SDF_MemZalloc(sizeof(ChangeStream_S));

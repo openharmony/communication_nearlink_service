@@ -174,7 +174,7 @@ static void QOSM_UeventRead(int sockFd, void *arg)
         return;
     }
     struct ucred *cred = (struct ucred *)CMSG_DATA(hdr);
-    if (cred == NULL || cred->uid != 0) {
+    if (cred->uid != 0) {
         QOSM_LOGW("Uevent from non-root sender, ignored");
         return;
     }
