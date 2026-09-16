@@ -333,16 +333,15 @@ bool HiboxRecvCfmMsg(uint8_t *echoRsp, uint16_t len, uint8_t *args)
         free(tlvData);
         return false;
     }
-    (void)memset_s(result, parseResultLen, HIBOX_INVALID_DATA, parseResultLen);
+    (void)memset_s(result, sizeof(HiboxParseMsgInd) + parseResultLen, HIBOX_INVALID_DATA,
+        sizeof(HiboxParseMsgInd) + parseResultLen);
     bool parseResult = HiboxParseRspMsg(serviceId, commandId, tlvLen, tlvData, result);
-    HiboxParseMsgInd *parseData = (HiboxParseMsgInd *)result;
-    if (!parseResult || parseData->datalen == 0) {
+    if (!parseResult || ((HiboxParseMsgInd *)result)->datalen == 0) {
         free(tlvData);
         free(result);
         return false;
     }
-    uint8_t echoType = HIBOX_RSP;
-    g_hiboxParseCfmFunc(echoType, result, sizeof(HiboxParseMsgInd) + parseResultLen, args);
+    g_hiboxParseCfmFunc(HIBOX_RSP, result, sizeof(HiboxParseMsgInd) + parseResultLen, args);
     free(tlvData);
     free(result);
     return true;
