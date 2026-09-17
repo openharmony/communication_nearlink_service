@@ -120,7 +120,7 @@ ani_object ConvertPropertyToAni(ani_env *env, SsapProperty &property)
 
     ani_ref operation = {};
     ani_object operationObject = {};
-    int32_t operationValue = static_cast<unsigned int>(property.GetOperationIndication() & 0xFF);
+    int32_t operationValue = static_cast<int32_t>(property.GetOperationIndication() & 0xFF);
     ani_int handle = static_cast<ani_int>(operationValue);
     env->Object_New(TH_ANI_FIND_CLASS(env, "std.core.Int"),
         TH_ANI_FIND_CLASS_METHOD(env, "std.core.Int", "<ctor>", "i:"),
