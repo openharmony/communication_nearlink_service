@@ -343,6 +343,7 @@ static SDF_Buff_S* BuildMixPrimaryServicePayloadV10(uint32_t mtu, SDF_Vector_S *
 {
     uint32_t stdCount = 0;
     uint32_t cusCount = 0;
+    NLSTK_CHECK_RETURN(mtu >= SSAP_PDU_BASE_LEN + SSAP_FIND_INFO_INDICATION_LEN * 2, NULL, "[SSAP] mtu is invalid");
     uint32_t leftSize = mtu - SSAP_PDU_BASE_LEN - SSAP_FIND_INFO_INDICATION_LEN * 2;
     for (size_t i = 0; i < findServices->size; i++) {
         SSAP_FindServiceInfo_S *info = SDF_VectorElementAt(findServices, i);
