@@ -63,27 +63,9 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
     NearlinkSwitchEvent event, const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
     NL_CHECK_RETURN_RET(switchAction_, NL_ERR_INTERNAL_ERROR, "switchAction is nullptr");
-
-    switch (event) {
-        case NearlinkSwitchEvent::ENABLE_NEARLINK:
-        case NearlinkSwitchEvent::DISABLE_NEARLINK:
-        case NearlinkSwitchEvent::DISABLE_NEARLINK_TO_OFF:
-        case NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF:
-            // 开关操作事件的耗时动作在锁外执行（见 ProcessNearlinkSwitchAction 三段式）
-            return ProcessSwitchOperationEvent(event, autoConnPolicy, loadSaTimeoutMs);
-        default:
-            break;
-    }
-    // 状态事件处理快，保持锁内执行
-    std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
-    return ProcessStateEvent(event);
-}
-
-NlErrCode NearlinkSwitchModule::ProcessSwitchOperationEvent(
-    NearlinkSwitchEvent event, const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
-{
     LogNearlinkSwitchEvent(event);
     switch (event) {
+        // 开关操作事件：耗时动作在锁外执行（见 ProcessNearlinkSwitchAction 三段式），不能持锁
         case NearlinkSwitchEvent::ENABLE_NEARLINK:
             return ProcessEnableNearlinkEvent(autoConnPolicy, loadSaTimeoutMs);
         case NearlinkSwitchEvent::DISABLE_NEARLINK:
@@ -95,13 +77,8 @@ NlErrCode NearlinkSwitchModule::ProcessSwitchOperationEvent(
         default:
             break;
     }
-    HILOGE("[NearlinkSwitchModule] Invalid operation event: %{public}s", ToEventString(event));
-    return NL_ERR_INTERNAL_ERROR;
-}
-
-NlErrCode NearlinkSwitchModule::ProcessStateEvent(NearlinkSwitchEvent event)
-{
-    LogNearlinkSwitchEvent(event);
+    // 状态事件处理快，保持锁内执行
+    std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
     switch (event) {
         case NearlinkSwitchEvent::NEARLINK_ON:
             return ProcessNearlinkOnEvent();

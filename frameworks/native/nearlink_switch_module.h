@@ -71,9 +71,6 @@ public:
     void SetNoAutoConnect(bool noAutoConnect);
 
 private:
-    NlErrCode ProcessSwitchOperationEvent(NearlinkSwitchEvent event,
-        const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs);
-    NlErrCode ProcessStateEvent(NearlinkSwitchEvent event);
     NlErrCode ProcessEnableNearlinkEvent(const SleAutoConnectPolicy autoConnPolicy,
         int32_t loadSaTimeoutMs);
     NlErrCode ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs);
