@@ -131,8 +131,12 @@ uint32_t HadmGetSoundingAddrInfo(SLE_Addr_S *addr, uint32_t maxNum)
         SDF_MemFree(soundingAddrInfo);
         return soundingAddrNum;  // if addr is NULL or maxNum is 0, just return the number of sounding address
     }
-    if (memcpy_s(addr, maxNum * sizeof(SLE_Addr_S), soundingAddrInfo->addr,
-                 soundingAddrInfo->soundingAddrNum * sizeof(SLE_Addr_S)) != EOK) {
+    uint32_t copyNum = (soundingAddrNum < maxNum) ? soundingAddrNum : maxNum;
+    if (copyNum > HADM_MAX_PARALLEL_SOUNDING_NUM) {
+        copyNum = HADM_MAX_PARALLEL_SOUNDING_NUM;
+    }
+    if (memcpy_s(addr, copyNum * sizeof(SLE_Addr_S), soundingAddrInfo->addr,
+                 copyNum * sizeof(SLE_Addr_S)) != EOK) {
         NLSTK_LOG_ERROR("[Hadm] HadmGetSoundingAddrInfo memcpy fail");
     }
     SDF_MemFree(soundingAddrInfo);

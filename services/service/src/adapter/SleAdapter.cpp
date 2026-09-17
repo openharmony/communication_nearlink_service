@@ -1818,7 +1818,7 @@ std::string CombineChannelAndNoise(const std::vector<uint8_t>& rssiIndex,
 
 void SleAdapter::RssiChangedCallback(void *param)
 {
-    NL_CHECK_RETURN(g_sleAdapterImpl != nullptr, "param is null");
+    NL_CHECK_RETURN(param != nullptr && g_sleAdapterImpl != nullptr, "param is null");
     NbcCallbackParam chipInfo = *(reinterpret_cast<NbcCallbackParam *>(param));
     NL_CHECK_RETURN(chipInfo.data != nullptr && chipInfo.dataLen >= sizeof(DisconChipInfo), "param error");
     DisconChipInfo info = *(reinterpret_cast<DisconChipInfo *>(chipInfo.data));
