@@ -335,7 +335,8 @@ public:
      *        time-consuming process such as loading the nearlink system ability.
      *
      * @param autoConnPolicy Enum of auto-connecting policy when nearlink is enabled.
-     * @return Returns the status code for this function called.
+     * @return Returns the status code for the request acceptance; the actual enable
+     *         result is notified asynchronously through NearlinkHostObserver.
      */
     NlErrCode EnableNlAsync(
         const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL);
@@ -365,7 +366,8 @@ public:
      * @brief Enable nearlink to STATE_TURN_HALF asynchronously. The caller is not blocked
      *        during the time-consuming process such as loading the nearlink system ability.
      *
-     * @return Returns the status code for this function called.
+     * @return Returns the status code for the request acceptance; the actual enable
+     *         result is notified asynchronously through NearlinkHostObserver.
      */
     NlErrCode EnableNlToHalfAsync();
 

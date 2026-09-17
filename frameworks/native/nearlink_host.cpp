@@ -477,6 +477,8 @@ void NearlinkHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
     // SA 已真实启动，唤醒等待加载完成的调用方：
     // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
     // 需由服务启动事件解除等待，避免空等到 LoadSystemAbility 超时。
+    // 唤醒先于下方观察者注册执行：等待方仅以代理可用为完成条件，注册前的状态变化由
+    // 函数末尾的 isSleEnabled 补发兜底；若移至注册之后，注册失败路径（提前 return）会丢失本次唤醒。
     proxyConVar_.notify_all();
     sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
     NL_CHECK_RETURN(proxy, "proxy is nullptr");
@@ -638,7 +640,7 @@ NlErrCode NearlinkHost::LoadNearlinkSa()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
-    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_TIMEOUT_MS), NL_ERR_INTERNAL_ERROR,
+    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS), NL_ERR_INTERNAL_ERROR,
         "load nearlink service failed.");
     return NL_NO_ERROR;
 }
@@ -1029,7 +1031,7 @@ NlErrCode NearlinkHost::NearlinkFactoryReset()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     if (!IS_SLE_ENABLED() && !IsSleHalfDisabled()) {
-        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_TIMEOUT_MS),
+        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS),
             NL_ERR_INTERNAL_ERROR, "pimpl is null or load nearlink service failed.");
     }
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);

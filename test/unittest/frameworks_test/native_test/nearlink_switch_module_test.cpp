@@ -15,6 +15,9 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
 #include <thread>
 #include "nearlink_switch_module.h"
 #include "log.h"
@@ -643,7 +646,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_026, TestSize.Level1
 
     // 取消真实定时任务后手动触发一次超时
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout();
+    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
@@ -685,7 +688,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第一次超时：下发队尾 ENABLE_NEARLINK_TO_HALF
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout();
+    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
     WAIT_CACHED_EVENT_COMPLETE;
@@ -698,7 +701,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第二次超时：下发队尾 DISABLE_NEARLINK
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout();
+    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 2);
     WAIT_CACHED_EVENT_COMPLETE;
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
@@ -709,7 +712,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第三次超时：达到连续超时上限，清空缓存队列，不再下发
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout();
+    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
@@ -736,6 +739,101 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_025, TestSize.Level1
     EXPECT_EQ(switchModule_->cachedEventVec_.back(), NearlinkSwitchEvent::DISABLE_NEARLINK);
 
     HILOGI("NearlinkSwitchModuleTest_025 start");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_028
+ * @tc.desc: 耗时动作在锁外执行：不阻塞其它事件与超时补救；被超时判死的旧动作返回
+ *           不再覆盖重放新动作的状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_028, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_028 start");
+    switchModule_->taskTimeout_ = 5000000;  // 5s，避免自动超时干扰
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool actionStarted = false;
+    std::promise<void> releaseAction;
+    std::shared_future<void> releaseFut = releaseAction.get_future().share();
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Invoke([&](SleAutoConnectPolicy, int32_t) {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            actionStarted = true;
+        }
+        cv.notify_all();
+        releaseFut.wait();      // 模拟耗时动作（如 SA 慢加载）长时间未返回
+        return NL_ERR_INTERNAL_ERROR;   // 旧动作最终失败返回
+    }));
+    EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
+
+    // 动作在独立线程执行，阻塞在耗时动作内（不持开关锁）
+    std::thread actionThread([this]() {
+        switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK);
+    });
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&actionStarted] { return actionStarted; });
+    }
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+
+    // 耗时动作不持锁：其它开关事件可正常进入并缓存
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 1);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 超时任务不被耗时动作阻塞，可立即执行补救：下发队尾事件
+    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);  // 队尾 DISABLE 动作已启动
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    // 旧动作失败返回（已被代次作废）：不得覆盖新动作状态、不得清零计数
+    uint32_t genBeforeRelease = switchModule_->actionGeneration_;
+    releaseAction.set_value();
+    actionThread.join();
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_EQ(switchModule_->actionGeneration_, genBeforeRelease);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    HILOGI("NearlinkSwitchModuleTest_028 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_029
+ * @tc.desc: 动作终结后到达的陈旧超时任务被跳过，无副作用
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_029, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_029 start");
+    {
+        InSequence seq;
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _)).WillOnce(Return(NL_NO_ERROR));
+    }
+
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    uint32_t genAtStart = switchModule_->actionGeneration_;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 动作正常完成（动作终结时递增代次）
+    switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_ON);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+    EXPECT_EQ(switchModule_->actionGeneration_, genAtStart + 1);
+
+    // 携带旧代次的陈旧超时任务：直接跳过，无副作用
+    switchModule_->OnTaskTimeout(genAtStart);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    HILOGI("NearlinkSwitchModuleTest_029 end");
 }
 } // Nearlink
 } // OHOS

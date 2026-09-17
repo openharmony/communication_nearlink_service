@@ -64,7 +64,24 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
 {
     NL_CHECK_RETURN_RET(switchAction_, NL_ERR_INTERNAL_ERROR, "switchAction is nullptr");
 
+    switch (event) {
+        case NearlinkSwitchEvent::ENABLE_NEARLINK:
+        case NearlinkSwitchEvent::DISABLE_NEARLINK:
+        case NearlinkSwitchEvent::DISABLE_NEARLINK_TO_OFF:
+        case NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF:
+            // 开关操作事件的耗时动作在锁外执行（见 ProcessNearlinkSwitchAction 三段式）
+            return ProcessSwitchOperationEvent(event, autoConnPolicy, loadSaTimeoutMs);
+        default:
+            break;
+    }
+    // 状态事件处理快，保持锁内执行
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+    return ProcessStateEvent(event);
+}
+
+NlErrCode NearlinkSwitchModule::ProcessSwitchOperationEvent(
+    NearlinkSwitchEvent event, const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
+{
     LogNearlinkSwitchEvent(event);
     switch (event) {
         case NearlinkSwitchEvent::ENABLE_NEARLINK:
@@ -75,6 +92,17 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
             return ProcessDisableNearlinkToOffEvent();
         case NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF:
             return ProcessEnableNearlinkToHalfEvent(loadSaTimeoutMs);
+        default:
+            break;
+    }
+    HILOGE("[NearlinkSwitchModule] Invalid operation event: %{public}s", ToEventString(event));
+    return NL_ERR_INTERNAL_ERROR;
+}
+
+NlErrCode NearlinkSwitchModule::ProcessStateEvent(NearlinkSwitchEvent event)
+{
+    LogNearlinkSwitchEvent(event);
+    switch (event) {
         case NearlinkSwitchEvent::NEARLINK_ON:
             return ProcessNearlinkOnEvent();
         case NearlinkSwitchEvent::NEARLINK_OFF:
@@ -85,16 +113,24 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
             return ProcessDisableResponseHalfEvent();
         case NearlinkSwitchEvent::DISABLE_TO_OFF_RESPONSE:
             return ProcessDisableResponseOffEvent();
-        default: break;
+        default:
+            break;
     }
     HILOGE("[NearlinkSwitchModule] Invalid event: %{public}s", ToEventString(event));
     return NL_ERR_INTERNAL_ERROR;
 }
 
-void NearlinkSwitchModule::OnTaskTimeout(void)
+void NearlinkSwitchModule::OnTaskTimeout(uint32_t actionGen)
 {
     HILOGW("[NearlinkSwitchModule] Nearlink switch action timeout");
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+    if (actionGen != actionGeneration_ || !isNlSwitchProcessing_.load()) {
+        // 超时任务对应的动作已结束或被取代，不再补救
+        HILOGW("[NearlinkSwitchModule] timeout of action(gen=%{public}u) is stale, skip", actionGen);
+        return;
+    }
+    // 判死当前动作：递增代次作废其返回路径的状态写入
+    ++actionGeneration_;
     isNlSwitchProcessing_ = false;
     if (cachedEventVec_.empty()) {
         // 缓存队列为空，本次开关流程结束，连续超时次数清零
@@ -121,30 +157,51 @@ void NearlinkSwitchModule::OnTaskTimeout(void)
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
     std::function<NlErrCode(void)> action, NearlinkSwitchEvent switchEvent)
 {
-    currentSwitchEvent_ = switchEvent;
-    if (isNlSwitchProcessing_.load()) {
-        cachedEventVec_.push_back(switchEvent);
-        HILOGW("[NearlinkSwitchModule] NlSwich action is processing, cache the %{public}s event",
-            ToEventString(switchEvent));
-        return NL_NO_ERROR;
+    uint32_t actionGen = 0;
+    {
+        // 临界区仅覆盖状态置位与缓存判定，耗时动作在锁外执行，避免阻塞超时补救与其它调用方
+        std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+        currentSwitchEvent_ = switchEvent;
+        if (isNlSwitchProcessing_.load()) {
+            cachedEventVec_.push_back(switchEvent);
+            HILOGW("[NearlinkSwitchModule] NlSwich action is processing, cache the %{public}s event",
+                ToEventString(switchEvent));
+            return NL_NO_ERROR;
+        }
+
+        actionGen = ++actionGeneration_;
+        ffrt::task_attr taskAttr;
+        taskAttr.name("nl_switch").delay(taskTimeout_);
+        taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this(), actionGen]() -> void {
+            auto switchSptr = switchWptr.lock();
+            if (switchSptr == nullptr) {
+                HILOGE("switchSptr is nullptr");
+                return;
+            }
+            switchSptr->OnTaskTimeout(actionGen);
+        }, taskAttr);
+
+        isNlSwitchProcessing_ = true;
     }
 
-    ffrt::task_attr taskAttr;
-    taskAttr.name("nl_switch").delay(taskTimeout_);
-    taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this()]() -> void {
-        auto switchSptr = switchWptr.lock();
-        if (switchSptr == nullptr) {
-            HILOGE("switchSptr is nullptr");
-            return;
-        }
-        switchSptr->OnTaskTimeout();
-    }, taskAttr);
-
-    isNlSwitchProcessing_ = true;
     NlErrCode ret = action();
+
+    std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+    return FinishSwitchAction(switchEvent, actionGen, ret);
+}
+
+NlErrCode NearlinkSwitchModule::FinishSwitchAction(
+    NearlinkSwitchEvent switchEvent, uint32_t actionGen, NlErrCode ret)
+{
+    // 调用方须持有 nearlinkSwitchEventMutex_ 锁
+    if (actionGen != actionGeneration_) {
+        // 该动作已被超时判定失效或被后续动作取代，返回不再改写共享状态
+        HILOGW("[NearlinkSwitchModule] action(gen=%{public}u) has been superseded, skip finish", actionGen);
+        return ret == NL_ERR_INVALID_SWITCH_OPERATION ? NL_NO_ERROR : ret;
+    }
     if (ret != NL_NO_ERROR) {
         isNlSwitchProcessing_ = false;
-        // 开关动作立即结束，连续超时计数清零
+        // 开关动作立即失败结束（非超时），超时链中断，计数清零
         consecutiveTimeoutCnt_ = 0;
         ffrtQueue_.cancel(taskTimeoutHandle_);
     }
@@ -256,8 +313,10 @@ NlErrCode NearlinkSwitchModule::ProcessDisableResponseOffEvent()
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
     NearlinkSwitchEvent curSwitchActionEvent, std::vector<NearlinkSwitchEvent> expectedEventVec)
 {
+    // 调用方须持有 nearlinkSwitchEventMutex_ 锁
+    ++actionGeneration_;  // 动作终结：作废在途动作返回路径的状态写入
     isNlSwitchProcessing_ = false;
-    // 一次开关动作正常完成，连续超时计数清零
+    // 一次开关动作正常完成（含超时后重放完成），系统已恢复，计数清零
     consecutiveTimeoutCnt_ = 0;
     ffrtQueue_.cancel(taskTimeoutHandle_);
     DeduplicateCachedEvent(curSwitchActionEvent);

@@ -71,6 +71,9 @@ public:
     void SetNoAutoConnect(bool noAutoConnect);
 
 private:
+    NlErrCode ProcessSwitchOperationEvent(NearlinkSwitchEvent event,
+        const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs);
+    NlErrCode ProcessStateEvent(NearlinkSwitchEvent event);
     NlErrCode ProcessEnableNearlinkEvent(const SleAutoConnectPolicy autoConnPolicy,
         int32_t loadSaTimeoutMs);
     NlErrCode ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs);
@@ -82,20 +85,25 @@ private:
     NlErrCode ProcessDisableResponseHalfEvent(void);
     NlErrCode ProcessDisableResponseOffEvent(void);
     NlErrCode ProcessNearlinkSwitchAction(std::function<NlErrCode(void)> action, NearlinkSwitchEvent cachedEvent);
+    NlErrCode FinishSwitchAction(NearlinkSwitchEvent switchEvent, uint32_t actionGen, NlErrCode ret);
     NlErrCode ProcessNearlinkSwitchCachedEvent(NearlinkSwitchEvent event);
     NlErrCode ProcessNearlinkSwitchActionFinished(
         NearlinkSwitchEvent curSwitchActionEvent, std::vector<NearlinkSwitchEvent> expectedEventVec);
     void DeduplicateCachedEvent(NearlinkSwitchEvent curEvent);
     void RemoveIgnoredCachedEvent(size_t ignoredCnt);
     void LogNearlinkSwitchEvent(NearlinkSwitchEvent event);
-    void OnTaskTimeout(void);
+    void OnTaskTimeout(uint32_t actionGen);
 
     const uint64_t DEFAULT_TASK_TIMEOUT = 8000000;  // 8s
     uint64_t taskTimeout_ = DEFAULT_TASK_TIMEOUT;
     const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;  // 连续超时达到该次数后清空缓存队列
-    uint32_t consecutiveTimeoutCnt_ = 0;  // 连续超时次数
+    // 连续超时次数：动作正常完成、动作立即失败、超时且无缓存事件三处清零；
+    // 上限仅在“每次超时都命中非空缓存且期间无动作正常完成”时可达
+    uint32_t consecutiveTimeoutCnt_ = 0;
     ffrt::task_handle taskTimeoutHandle_;
     ffrt::queue ffrtQueue_;
+    // 在途动作代次：动作启动与终结时递增，用于作废旧动作返回与陈旧超时任务的状态写入
+    uint32_t actionGeneration_ = 0;
 
     std::unique_ptr<INearlinkSwitchAction> switchAction_ { nullptr };
     NearlinkSwitchEvent currentSwitchEvent_ = NearlinkSwitchEvent::NONE_EVENT;
