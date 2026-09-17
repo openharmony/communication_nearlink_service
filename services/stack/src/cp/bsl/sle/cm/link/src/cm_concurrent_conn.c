@@ -899,6 +899,11 @@ static uint32_t CM_BgConnectAddDoingConnBgList(uint8_t moduleId, uint8_t addrArr
             // 对于已添加的设备，若此时本端与对端设备建链已完成，则忽略通知该用户CONNECTED事件
             continue;
         }
+        if (node == NULL && g_cmSizeConnectingDev >= CM_MAX_CONNECTING_DEV_NUM) {
+            CM_LOGW("connecting dev size:%zu has reached max num limit, ignore the addr:%s",
+                g_cmSizeConnectingDev, GET_ENC_ADDR(&bgAddr->addr));
+            continue;
+        }
         CM_AppConnectingDev_S *appConnectingDev = CM_CreateAppModuleConnectingDev(&bgAddr->addr);
         if (appConnectingDev == NULL) {
             CM_LOGE("generate a app module connecting device failed");
@@ -921,7 +926,7 @@ static void CM_BgConnectAddInner(void *arg)
         return;
     }
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
-    CM_CHECK_RETURN((g_cmSizeConnectingDev <= CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
+    CM_CHECK_RETURN((g_cmSizeConnectingDev < CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
         "num limit, ignored the req", g_cmSizeConnectingDev);
 
     CM_BgConnectAddReq_S *req = (CM_BgConnectAddReq_S *)arg;
@@ -1170,7 +1175,7 @@ static void CM_DirectConnectAddInner(void *arg)
         return;
     }
     CM_CHECK_RETURN(g_cmConnectingDevMap != NULL, "CM has not inited, connecting dev map is null.");
-    CM_CHECK_RETURN((g_cmSizeConnectingDev <= CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
+    CM_CHECK_RETURN((g_cmSizeConnectingDev < CM_MAX_CONNECTING_DEV_NUM), "connecting dev size:%zu has reached max "
         "num limit, ignored the req", g_cmSizeConnectingDev);
 
     CM_DirectConnectAddReq_S *req = (CM_DirectConnectAddReq_S *)arg;

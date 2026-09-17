@@ -68,6 +68,9 @@ bool NearlinkASCAudioStreamInfo::ReadFromParcel(Parcel &parcel)
         if (!parcel.ReadUint8(streamState)) {
             return false;
         }
+        if (streamType > AUDIO_STREAM_SING || streamState > AUDIO_STREAM_STATE_NOT_AVAILABLE) {
+            return false;
+        }
         struct AudioStreamInfo data = {};
         data.streamType = static_cast<AudioStreamType>(streamType);
         data.streamState = static_cast<AudioStreamState>(streamState);

@@ -168,8 +168,14 @@ static void QOSM_UeventRead(int sockFd, void *arg)
     buffer[len] = '\0';
 
     struct cmsghdr *hdr = CMSG_FIRSTHDR(&msghdr);
-    if (hdr == NULL || hdr->cmsg_type != SCM_CREDENTIALS) {
+    if (hdr == NULL || hdr->cmsg_type != SCM_CREDENTIALS ||
+        hdr->cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
         QOSM_LOGW("Unexpected control message, ignored");
+        return;
+    }
+    struct ucred *cred = (struct ucred *)CMSG_DATA(hdr);
+    if (cred->uid != 0) {
+        QOSM_LOGW("Uevent from non-root sender, ignored");
         return;
     }
 
