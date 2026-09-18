@@ -280,5 +280,11 @@ int CdsmService::GetConnectState()
     return 0;
 }
 
+
+void CdsmService::GetRealConnectAddress(const RawAddress &addr, RawAddress &realConnectAddr)
+{
+    realConnectAddr = addr;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

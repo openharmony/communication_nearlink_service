@@ -74,11 +74,21 @@ void SleAdapterSecurityTest::TearDownTestCase()
 void SleAdapterSecurityTest::SetUp()
 {
     SleConfig::GetInstance().RemoveAllPairedDevices();
+    SleRemoteDeviceManager::GetInstance()->RemovePeripheralDevice(std::string("00:11:22:33:44:55"));
+    g_adapter->SetIoCapability(SLE_DEFAULT_IO);
     HILOGI("SetUp SleSecurityTest.");
 }
 
 void SleAdapterSecurityTest::TearDown()
 {
+    // 全量兜底清理：用例间共享进程级单例与 g_adapter 内部状态，
+    // 尾部自清存在遗漏与异步续体晚到写入，在此统一吸收（详见用例隔离分析）
+    SleConfig::GetInstance().RemoveAllPairedDevices();
+    CdsmService::GetService()->cdsmList_.Clear();
+    g_adapter->pimpl->needReconnectDevices_.Clear();
+    g_adapter->pimpl->credibleDevice_.Clear();
+    SleRemoteDeviceAdapter::GetInstance()->RemoveAllPeripheralDevices();
+    g_adapter->SetIoCapability(SLE_DEFAULT_IO);
     HILOGI("TearDown SleSecurityTest.");
 }
 
@@ -109,6 +119,10 @@ HWTEST_F(SleAdapterSecurityTest, Sle_Encryption_Test001, TestSize.Level1)
 HWTEST_F(SleAdapterSecurityTest, Sle_Encryption_Test002, TestSize.Level1)
 {
     HILOGI("SleHuksToolEncryption_Test002 start");
+    LinkKey ensureKey = {0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x20, 0x21,
+                         0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29};
+    EncryptedLinkKey ensureEncrypted;
+    (void)SleHksTool::GetInstance().SleLinkKeyEncrypt(ensureKey, ensureEncrypted);
     EXPECT_EQ(HKS_SUCCESS, SleHksTool::GetInstance().SleDeleteHksKey());
     EXPECT_EQ(HKS_ERROR_NOT_EXIST, SleHksTool::GetInstance().SleDeleteHksKey());
     HILOGI("SleHuksToolEncryption_Test002 end");
@@ -265,6 +279,7 @@ TEST_F(SleAdapterSecurityTest, Disconnect001)
     g_adapter->pimpl->needReconnectDevices_.Emplace(device.GetAddress());
     bool ret = g_adapter->Disconnect(device);
     EXPECT_EQ(true, ret);
+    g_adapter->pimpl->needReconnectDevices_.Erase(device.GetAddress());
     HILOGI("SleAdapterSecurityTest: Disconnect001 end");
 }
 
@@ -503,7 +518,14 @@ TEST_F(SleAdapterSecurityTest, GetPairedDevices001)
     peerDevice->SetAddress(memberAddr);
     peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
     SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(memberAddr.GetAddress(), peerDevice);
-    std::vector<RawAddress> result = g_adapter->GetPairedDevices();
+    std::vector<RawAddress> result = SleRemoteDeviceAdapter::GetInstance()->GetPairedDevices();
+
+    EXPECT_EQ(1, result.size());
+    bool isCooperation = cdsmService->CdsmCheckIsCooperationDevice(memberAddr);
+    EXPECT_TRUE(isCooperation);
+    RawAddress gotReportAddr;
+    EXPECT_TRUE(cdsmService->CdsmGetReportAddr(memberAddr, gotReportAddr));
+    EXPECT_EQ(reportAddr, gotReportAddr);
     bool foundReport = (std::find(result.begin(), result.end(), reportAddr) != result.end());
     bool foundMember = (std::find(result.begin(), result.end(), memberAddr) != result.end());
     EXPECT_TRUE(foundReport);
@@ -611,13 +633,21 @@ TEST_F(SleAdapterSecurityTest, GetConnectedDevices001)
     std::shared_ptr<SlePeripheralDevice> peerDevice2 = std::make_shared<SlePeripheralDevice>();
     peerDevice2->SetAddress(memberAddr2);
     SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(memberAddr2.GetAddress(), peerDevice2);
-    std::vector<RawAddress> result = g_adapter->GetConnectedDevices();
+    std::vector<RawAddress> result = SleRemoteDeviceAdapter::GetInstance()->GetConnectedDevices();
 
     EXPECT_EQ(1, result.size());
     EXPECT_EQ(reportAddr, result[0]);
     EXPECT_FALSE(std::find(result.begin(), result.end(), memberAddr1) != result.end());
     EXPECT_FALSE(std::find(result.begin(), result.end(), memberAddr2) != result.end());
-
+    bool isCooperation1 = cdsmService->CdsmCheckIsCooperationDevice(memberAddr1);
+    bool isCooperation2 = cdsmService->CdsmCheckIsCooperationDevice(memberAddr2);
+    
+    EXPECT_TRUE(isCooperation1);
+    EXPECT_TRUE(isCooperation2);
+    RawAddress gotReportAddr;
+    EXPECT_TRUE(cdsmService->CdsmGetReportAddr(memberAddr1, gotReportAddr));
+    EXPECT_EQ(reportAddr, gotReportAddr);
+    
     SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(memberAddr1.GetAddress());
     SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(memberAddr2.GetAddress());
     cdsmService->cdsmList_.Erase(testGroupId);
@@ -1054,6 +1084,7 @@ TEST_F(SleAdapterSecurityTest, UpdateDeviceModelInfo001)
     model.SetIconId(iconId);
     model.SetDevType(devType);
     g_adapter->UpdateDeviceModelInfo(address, model, newModelId);
+    cdsmService->cdsmList_.Erase(testGroupId);
     HILOGI("SleAdapterSecurityTest: UpdateDeviceModelInfo001 end");
 }
 
@@ -1155,6 +1186,7 @@ TEST_F(SleAdapterSecurityTest, DisconnectAllProfileInner001)
     g_adapter->pimpl->needReconnectDevices_.Emplace(device.GetAddress());
     bool res = true;
     g_adapter->DisconnectAllProfileInner(device, res, 1);
+    g_adapter->pimpl->needReconnectDevices_.Erase(device.GetAddress());
     SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
     HILOGI("SleAdapterSecurityTest: DisconnectAllProfileInner001 end");
 }

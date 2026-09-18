@@ -166,5 +166,31 @@ RawAddress TwsService::GetReportAddr(const RawAddress &device)
     return device;
 }
 
+
+// Supplement mocks for methods referenced by other impl archive members,
+// so the real TwsService.o is never pulled in at static link time.
+void TwsService::NotifyStateChanged(const RawAddress &device, TwsClientState preState, TwsClientState toState)
+{}
+
+void TwsService::PostEvent(const TwsMessage &event)
+{}
+
+void TwsService::ResetVirtualAutoSwitch(const RawAddress &devAddr)
+{}
+
+void TwsService::RecoverDataFromConf(const RawAddress &devAddr)
+{}
+
+RawAddress TwsService::GetPrimaryAddr(const RawAddress &device)
+{
+    return device;
+}
+
+void TwsService::TwsServiceSendReqInner(const TwsMessage &event)
+{}
+
+void TwsService::ProcessEvent(const TwsMessage &event)
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

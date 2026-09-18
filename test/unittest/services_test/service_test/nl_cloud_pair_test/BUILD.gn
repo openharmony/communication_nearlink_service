@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 
 config("nl_cloud_pair_service_unit_test_config") {
@@ -118,18 +119,28 @@ ohos_unittest("nl_cloud_pair_test") {
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_cloud_pair_test/sle_cloud_pair_service_test.cpp",
     "$NEARLINK_ROOT/test/unittest/mock/mock_sle_remote_device_adapter.cpp",
 
-    "$NEARLINK_ROOT/services/service/src/cloudpair/SleCloudPairService.cpp",
     "$NEARLINK_ROOT/services/common/src/nearlink_common_event_helper.cpp",
-    "$NEARLINK_ROOT/services/service/src/common/ClassCreator.cpp",
   ]
 
   configs = [ ":nl_cloud_pair_service_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/tws/TwsService.cpp",
+    "$NEARLINK_ROOT/services/service/src/cdsm/CdsmService.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/SleServiceManager.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
+  ]
 
   deps = unit_test_deps
 
   external_deps = unit_test_external_deps
   external_deps += [ "ffrt:libffrt" ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

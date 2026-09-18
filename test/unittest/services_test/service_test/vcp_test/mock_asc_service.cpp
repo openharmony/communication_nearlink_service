@@ -13,11 +13,14 @@
  * limitations under the License.
  */
 #include "ASCService.h"
+#include "ClassCreator.h"
 
 namespace OHOS {
 namespace Nearlink {
 ASCService::ASCService() : utility::Context(PROFILE_NAME_ASC, "1.0.0")
 {
+    std::string addr = "00:11:22:33:44:55";
+    activeSinkDevice_ = RawAddress(addr);
 }
 
 ASCService::~ASCService()
@@ -31,7 +34,8 @@ utility::Context *ASCService::GetContext()
 
 ASCService *ASCService::GetService()
 {
-    return static_cast<ASCService *>(SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_ASC));
+    static ASCService ascService;
+    return &ascService;
 }
 
 void ASCService::Init()
@@ -306,6 +310,26 @@ bool ASCService::GetIsCallingFlag()
     HILOGI("[AscService Mocker] GetIsCallingFlag enter");
     return isCalling_;
 }
+
+void ASCService::PhyChanged(RawAddress device, uint8_t frameType, uint8_t phyType, uint8_t status)
+{
+}
+
+void ASCService::AscMicStateObserver::OnMicStateChanged(const RawAddress &device, uint8_t micState)
+{
+}
+
+bool ASCService::GetDualRecordAbility(const RawAddress &device)
+{
+    return false;
+}
+
+bool ASCService::GetKaraokeAbility(const RawAddress &device)
+{
+    return false;
+}
+
+REGISTER_CLASS_CREATOR(ASCService);
 
 }  // namespace Nearlink
 }  // namespace OHOS

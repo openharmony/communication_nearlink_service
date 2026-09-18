@@ -1,0 +1,288 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Service 层 TDD 共享定义（与 services/service/BUILD.gn 的
+# nearlink_service_sources/nearlink_service_deps/nearlink_service_external_deps/
+# nearlink_service_defines 保持一致，修改产品侧清单时同步维护本文件）。
+#
+# 测试目标用法：
+#   sources += shared_service_source
+#   sources -= [ ...本目标需要排除的源文件（自编译/mock 替换）... ]
+#   deps += shared_service_deps
+#   external_deps += shared_service_external_deps
+#   configs += ["${nearlink_test_utils_path}:service_tdd_config"]  # include_dirs + defines
+#
+# 排除规则（自检）：
+#   1) 测试文件 #include "xxx.cpp" 且 xxx.cpp 属于 shared_service_source → 必须排除；
+#   2) mock 文件完整实现某个业务类 → 对应业务 .cpp 必须排除（避免 duplicate symbol）。
+
+import("../../nearlink_config.gni")
+
+SERVICE_TDD_DIR = "$NEARLINK_ROOT/services/service"
+
+shared_service_include_dirs = [
+  "$SERVICE_TDD_DIR/include",
+  "$SERVICE_TDD_DIR/common",
+  "$SERVICE_TDD_DIR/src/common",
+  "$SERVICE_TDD_DIR/src/util",
+  "$SERVICE_TDD_DIR/src/base",
+  "$SERVICE_TDD_DIR/src/powermgr",
+  "$SERVICE_TDD_DIR/src/adapter",
+  "$SERVICE_TDD_DIR/src/advertiser",
+  "$SERVICE_TDD_DIR/src/adapter/sle_scan_filter/include",
+  "$SERVICE_TDD_DIR/src/hadm",
+  "$SERVICE_TDD_DIR/src/hid",
+  "$SERVICE_TDD_DIR/src/ssap",
+  "$SERVICE_TDD_DIR/src/controllerManager",
+  "$SERVICE_TDD_DIR/src/datatransfer",
+  "$SERVICE_TDD_DIR/src/dis",
+  "$SERVICE_TDD_DIR/src/lis",
+  "$SERVICE_TDD_DIR/src/icce",
+  "$SERVICE_TDD_DIR/src/datashare",
+  "$SERVICE_TDD_DIR/src/scan",
+  "$SERVICE_TDD_DIR/src/dialog",
+  "$SERVICE_TDD_DIR/src/port",
+  "$SERVICE_TDD_DIR/src/cdsm",
+  "$SERVICE_TDD_DIR/src/mcp",
+  "$SERVICE_TDD_DIR/src/sl_host",
+  "$SERVICE_TDD_DIR/src/tws",
+  "$SERVICE_TDD_DIR/src/vcp",
+  "$SERVICE_TDD_DIR/src/asc",
+  "$SERVICE_TDD_DIR/src/bas",
+  "$SERVICE_TDD_DIR/src/ccp",
+  "$SERVICE_TDD_DIR/src/vas",
+  "$SERVICE_TDD_DIR/src/cloudpair",
+  "$SERVICE_TDD_DIR/src/mic",
+  "$SERVICE_TDD_DIR/src/audio",
+  "$SERVICE_TDD_DIR/src/ServiceManagerPluginLoader",
+  "$SERVICE_TDD_DIR/src/controller",
+]
+
+shared_service_source = [
+  "$SERVICE_TDD_DIR/src/common/AdapterStateMachine.cpp",
+  "$SERVICE_TDD_DIR/src/common/ClassCreator.cpp",
+  "$SERVICE_TDD_DIR/src/common/Compat.cpp",
+  "$SERVICE_TDD_DIR/src/common/ProfileInfo.cpp",
+  "$SERVICE_TDD_DIR/src/common/ProfileServiceManager.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleServiceManager.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleCollaborationManager.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleHiviewUe.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleCommonEventSubscriber.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleSwitchDependency.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleDataShareCheckUtils.cpp",
+  "$SERVICE_TDD_DIR/src/common/SysStateMachine.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleMultiScanData.cpp",
+  "$SERVICE_TDD_DIR/src/common/SleFrame4AntennaMgr.cpp",
+  "$SERVICE_TDD_DIR/src/common/DeviceBatteryManager.cpp",
+  "$SERVICE_TDD_DIR/src/common/UnloadSa.cpp",
+
+  "$SERVICE_TDD_DIR/src/adapter/SleAdapterWrapper.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleRemoteDeviceAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleCoexist.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleProperties.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleSecurity.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleProfileConnectManager.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleFeature.cpp",
+  "$SERVICE_TDD_DIR/src/adapter/SleReconnectManager.cpp",
+
+  "$SERVICE_TDD_DIR/src/advertiser/SleAdvertiserAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/advertiser/SleAdvertiserImpl.cpp",
+
+  "$SERVICE_TDD_DIR/src/scan/ScanService.cpp",
+  "$SERVICE_TDD_DIR/src/scan/ScanStackAdapter.cpp",
+
+  "$SERVICE_TDD_DIR/src/ssap/ssap_client_service.cpp",
+  "$SERVICE_TDD_DIR/src/ssap/ssap_client_stack_adapter.cpp",
+  "$SERVICE_TDD_DIR/src/ssap/ssap_server_service.cpp",
+  "$SERVICE_TDD_DIR/src/ssap/ssap_server_stack_adapter.cpp",
+  "$SERVICE_TDD_DIR/src/ssap/ssap_utils.cpp",
+  "$SERVICE_TDD_DIR/src/ssap/ssap_based_services_manager.cpp",
+
+  "$SERVICE_TDD_DIR/src/hid/HidHostService.cpp",
+  "$SERVICE_TDD_DIR/src/hid/HidHostStackAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/hid/HidHostUhid.cpp",
+
+  "$SERVICE_TDD_DIR/src/hadm/nearlink_hadm_stack_adapter.cpp",
+  "$SERVICE_TDD_DIR/src/hadm/nearlink_hadm_client_service.cpp",
+
+  "$SERVICE_TDD_DIR/src/dis/DisService.cpp",
+  "$SERVICE_TDD_DIR/src/dis/DisClientStackAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/dis/DisServerStackAdapter.cpp",
+
+  "$SERVICE_TDD_DIR/src/bas/BasService.cpp",
+  "$SERVICE_TDD_DIR/src/bas/BasClientStackAdapter.cpp",
+
+  "$SERVICE_TDD_DIR/src/lis/LisService.cpp",
+  "$SERVICE_TDD_DIR/src/lis/LisServer.cpp",
+
+  "$SERVICE_TDD_DIR/src/icce/IcceService.cpp",
+  "$SERVICE_TDD_DIR/src/icce/IcceClientStackAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/icce/IcceServerStackAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/icce/icce_utils.cpp",
+
+  "$SERVICE_TDD_DIR/src/datashare/nearlink_datashare_helper.cpp",
+  "$SERVICE_TDD_DIR/src/datashare/SleNameChangeManager.cpp",
+
+  "$SERVICE_TDD_DIR/src/datatransfer/nearlink_sle_datatransfer_cache.cpp",
+  "$SERVICE_TDD_DIR/src/datatransfer/nearlink_sle_datatransfer_service.cpp",
+
+  "$SERVICE_TDD_DIR/src/port/PortService.cpp",
+  "$SERVICE_TDD_DIR/src/port/PortClientStackAdapter.cpp",
+  "$SERVICE_TDD_DIR/src/port/PortServerStackAdapter.cpp",
+
+  "$SERVICE_TDD_DIR/src/dialog/DialogGenerate.cpp",
+  "$SERVICE_TDD_DIR/src/dialog/DialogPairing.cpp",
+  "$SERVICE_TDD_DIR/src/dialog/DialogUtils.cpp",
+
+  "$SERVICE_TDD_DIR/src/cdsm/CdsmService.cpp",
+  "$SERVICE_TDD_DIR/src/cdsm/CdsmClient.cpp",
+
+  "$SERVICE_TDD_DIR/src/tws/TwsClient.cpp",
+  "$SERVICE_TDD_DIR/src/tws/TwsService.cpp",
+  "$SERVICE_TDD_DIR/src/tws/TwsHiBoxParser.cpp",
+  "$SERVICE_TDD_DIR/src/tws/TwsSharedLibApi.cpp",
+
+  "$SERVICE_TDD_DIR/src/cloudpair/SleCloudPairService.cpp",
+
+  "$SERVICE_TDD_DIR/src/mcp/McpServerServiceManagerLoader.cpp",
+
+  "$SERVICE_TDD_DIR/src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
+
+  "$SERVICE_TDD_DIR/src/controller/SleControllerService.cpp",
+]
+
+shared_service_deps = [
+  "$NEARLINK_ROOT/services/stack:nearlink_stack",
+  "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
+  "$NEARLINK_ROOT/utils:nearlink_utils",
+  "$NEARLINK_ROOT/socket:nearlink_socket",
+  "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  "$NEARLINK_ROOT/services/common:nearlink_service_common",
+  "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
+  "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
+  "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
+]
+
+shared_service_external_deps = [
+  "ability_base:want",
+  "ability_base:zuri",
+  "ability_runtime:extension_manager",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtokenid_sdk",
+  "access_token:libprivacy_sdk",
+  "c_utils:utils",
+  "cJSON:cjson",
+  "ffrt:libffrt",
+  "hilog:libhilog",
+  "huks:libhukssdk",
+  "init:libbegetutil",
+  "init:libbeget_proxy",
+  "ipc:ipc_core",
+  "samgr:samgr_proxy",
+  "data_share:datashare_common",
+  "data_share:datashare_consumer",
+  "ability_runtime:wantagent_innerkits",
+  "ability_runtime:ability_connect_callback_stub",
+  "time_service:time_client",
+  "os_account:os_account_innerkits",
+  "qos_manager:qos",
+  "openssl:libcrypto_shared",
+  "os_account:libaccountkits",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+]
+
+shared_service_defines = []
+
+# ==================== 条件编译（与 services/service/BUILD.gn 保持一致） ====================
+
+if (nearlink_service_kia_enable) {
+  shared_service_external_deps += [ "security_guard:libsg_collect_sdk" ]
+  shared_service_defines += [ "NEARLINK_KIA_ENABLE" ]
+}
+
+if (nearlink_service_edm_enable) {
+  shared_service_source += [
+    "$SERVICE_TDD_DIR/src/common/SleEdmManager.cpp",
+  ]
+  shared_service_defines += [ "NEARLINK_EDM_ENABLE" ]
+}
+
+if (nearlink_service_host_dynamic_running) {
+  shared_service_external_deps += [ "hdf_core:libhdi" ]
+  shared_service_defines += [ "NEARLINK_HOST_DYNAMIC_RUNING" ]
+}
+
+if (nearlink_service_no_pairing_dialog) {
+  shared_service_defines += [ "NO_PAIRING_DIALOG" ]
+}
+
+if (nearlink_service_sync_ap_to_mcu) {
+  shared_service_defines += [ "NEARLINK_SYNC_AP_TO_MCU" ]
+}
+
+if (nearlink_service_min_conn_interval != 0) {
+  shared_service_defines += [ "MIN_CONN_INTERVAL=${nearlink_service_min_conn_interval}" ]
+}
+
+if (nearlink_deps_audio_exist) {
+  shared_service_source += [
+    "$SERVICE_TDD_DIR/src/mcp/McpServerService.cpp",
+    "$SERVICE_TDD_DIR/src/asc/ASCService.cpp",
+    "$SERVICE_TDD_DIR/src/asc/QosM.cpp",
+    "$SERVICE_TDD_DIR/src/asc/ASCUtils.cpp",
+    "$SERVICE_TDD_DIR/src/adapter/SleASC.cpp",
+    "$SERVICE_TDD_DIR/src/vcp/VcpService.cpp",
+    "$SERVICE_TDD_DIR/src/vcp/VcpStackAdapter.cpp",
+    "$SERVICE_TDD_DIR/src/mic/MicService.cpp",
+    "$SERVICE_TDD_DIR/src/mic/MicClientStackAdapter.cpp",
+    "$SERVICE_TDD_DIR/src/audio/SleAudioFrameworkAdapter.cpp",
+  ]
+  shared_service_external_deps += [
+    "audio_framework:audio_policy_manager",
+    "audio_framework:audio_engine_manager",
+    "audio_framework:audio_foundation",
+  ]
+}
+
+if (nearlink_deps_telephony_exist) {
+  shared_service_source += [
+    "$SERVICE_TDD_DIR/src/ccp/CcpService.cpp",
+    "$SERVICE_TDD_DIR/src/ccp/CcpStackAdapter.cpp",
+    "$SERVICE_TDD_DIR/src/ccp/CcpSystemInterface.cpp",
+    "$SERVICE_TDD_DIR/src/vas/VasService.cpp",
+    "$SERVICE_TDD_DIR/src/vas/VasStackAdapter.cpp",
+  ]
+  shared_service_external_deps += [
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
+  ]
+}
+
+if (nearlink_deps_device_manager_exist) {
+  shared_service_external_deps += [ "device_manager:devicemanagersdk" ]
+  shared_service_defines += [ "DEVICE_MANAGER" ]
+}
+
+if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
+  shared_service_external_deps += [ "resource_schedule_service:ressched_client" ]
+  shared_service_defines += [ "RES_SCHED_SUPPORT" ]
+}
+
+if (factory == true) {
+  shared_service_defines += [ "CONFIG_FACTORY_VERSION" ]
+}
+
+shared_service_defines += product_defines
