@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 
 config("nl_datatransfer_service_unit_test_config") {
@@ -52,7 +53,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "$NEARLINK_ROOT/services/stack:nearlink_stack",
   "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
   "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
@@ -95,14 +95,20 @@ ohos_unittest("nl_datatransfer_test") {
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/mock_nlstk_port_server.cpp",
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/mock_profile_service_manager.cpp",
 
-      "$NEARLINK_ROOT/services/service/src/port/PortService.cpp",
-      "$NEARLINK_ROOT/services/service/src/port/PortClientStackAdapter.cpp",
-      "$NEARLINK_ROOT/services/service/src/port/PortServerStackAdapter.cpp",
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/nearlink_port_service_test.cpp",
     ]
 
   configs = [ ":nl_datatransfer_service_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/datatransfer/nearlink_sle_datatransfer_service.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/SleServiceManager.cpp",
+    "$NEARLINK_ROOT/services/service/src/icce/IcceService.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
+  ]
 
   deps = unit_test_deps
 
@@ -112,6 +118,9 @@ ohos_unittest("nl_datatransfer_test") {
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
   ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

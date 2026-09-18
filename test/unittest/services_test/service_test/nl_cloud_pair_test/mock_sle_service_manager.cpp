@@ -149,5 +149,12 @@ SleInterfaceAdapter *SleServiceManager::GetAdapter(const SleTransport transport)
 
     return pimpl->instance_.get();
 }
+
+void SleServiceManager::OnProfileServicesEnableComplete(const SleTransport transport, const bool ret) const
+{}
+
+void SleServiceManager::OnProfileServicesDisableComplete(const SleTransport transport, const bool ret) const
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

@@ -22,10 +22,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-constexpr const char *SETTINGS_DATASHARE_URI =
-    "datashare:///com.ohos.settingsdata/entry/settingsdata/SETTINGSDATA?Proxy=true";
-constexpr const char *SETTINGS_DATASHARE_EXTENSION_URI = "datashare://com.ohos.settingsdata.DataAbility";
-
 SleSwitchDependency::SleSwitchDependency(DependencyCallback callback)
 {
     dependencyCallback_ = [this, callback]() {
@@ -151,27 +147,6 @@ void SleSwitchDependency::OnDataShareReadyEvent()
     CheckAllDependencySatisfied();
 }
 
-static std::pair<int, std::shared_ptr<DataShare::DataShareHelper>> CreateDataShareHelper()
-{
-    HILOGI("enter");
-    sptr<ISystemAbilityManager> saManager = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-    if (saManager == nullptr) {
-        HILOGE("GetSystemAbilityManager failed.");
-        return std::make_pair(DataShare::E_DATA_SHARE_NOT_READY, nullptr);
-    }
-    sptr<IRemoteObject> remoteObj = saManager->GetSystemAbility(COMM_NET_CONN_MANAGER_SYS_ABILITY_ID);
-    if (remoteObj == nullptr) {
-        HILOGE("GetSystemAbility Service Failed.");
-        return std::make_pair(DataShare::E_DATA_SHARE_NOT_READY, nullptr);
-    }
-    std::pair<int, std::shared_ptr<DataShare::DataShareHelper>> helperPair =
-        DataShare::DataShareHelper::Create(remoteObj, SETTINGS_DATASHARE_URI, SETTINGS_DATASHARE_EXTENSION_URI);
-    if (helperPair.first != DataShare::E_OK) {
-        HILOGE("DataShareHelper create failed, ret: %{public}d", helperPair.first);
-    }
-    return helperPair;
-}
-
 void SleSwitchDependency::OnAddSystemAbility(int32_t systemAbilityId)
 {
     HILOGI("SleSwitchDependency OnAddSystemAbility = %{public}d", systemAbilityId);
@@ -195,12 +170,6 @@ void SleSwitchDependency::OnAddSystemAbility(int32_t systemAbilityId)
         it->second = true;
     }
     CheckAllDependencySatisfied();
-}
-
-bool SleDataShareCheckUtils::IsDataShareReady()
-{
-    auto [ret, _] = CreateDataShareHelper();
-    return ret != DataShare::E_DATA_SHARE_NOT_READY;
 }
 
 SystemAbilityStatusListener::SystemAbilityStatusListener(std::weak_ptr<SleSwitchDependency> ptr) : ptr_(ptr)

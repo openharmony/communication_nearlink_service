@@ -14,6 +14,7 @@
 import("//build/ohos.gni")
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 NL_UNIT_TEST_DIR = "$NEARLINK_ROOT/test/unittest/services_test"
 
@@ -105,7 +106,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
   "${nearlink_test_utils_path}:test_utils_static",
   "$NEARLINK_ROOT/services/hardware:nearlink_dli_adapter",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
 ]
 
 unit_test_external_deps = [
@@ -158,6 +158,17 @@ ohos_unittest("nl_asc_service_test") {
 
   configs = [ ":nl_asc_service_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
+    "$NEARLINK_ROOT/services/service/src/asc/ASCService.cpp",
+    "$NEARLINK_ROOT/services/service/src/tws/TwsService.cpp",
+    "$NEARLINK_ROOT/services/service/src/cdsm/CdsmService.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/audio/SleAudioFrameworkAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
+  ]
 
   deps = unit_test_deps
 
@@ -170,6 +181,9 @@ ohos_unittest("nl_asc_service_test") {
     "core_service:tel_core_service_api",
     "state_registry:tel_state_registry_api",
   ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

@@ -26,22 +26,7 @@ namespace Nearlink {
 #ifdef RES_SCHED_SUPPORT
 
 class NearlinkFreezeUtil {
-struct AppInfo;
 public:
-    NearlinkFreezeUtil() = default;
-    ~NearlinkFreezeUtil();
-    static NearlinkFreezeUtil *GetInstance(void);
-    void InitQueueTask();
-    void CheckPeriodical();
-    void SetFreezeState();
-    void RequestActive(const int32_t pid, const int32_t uid, const std::string dataType, const std::string &reason);
-    bool IsNeedReport(AppInfo appInfo);
-    void ReportNlDataToRss(const int32_t pid, const int32_t uid, const bool &isTransfer,
-                           const std::string &type, const std::string &reason);
-    void ReportNlConnectStateToRss(const int32_t pid, const int32_t uid,
-                                   const std::string &action, const std::string &type, const std::string &reason);
-private:
-    void SubscribeRssSystemAbility();
     struct AppInfo {
         int32_t pid;
         int32_t uid;
@@ -63,6 +48,21 @@ private:
         return type < appInfo.type;
     }
     };
+
+    NearlinkFreezeUtil() = default;
+    ~NearlinkFreezeUtil();
+    static NearlinkFreezeUtil *GetInstance(void);
+    void InitQueueTask();
+    void CheckPeriodical();
+    void SetFreezeState();
+    void RequestActive(const int32_t pid, const int32_t uid, const std::string dataType, const std::string &reason);
+    bool IsNeedReport(AppInfo appInfo);
+    void ReportNlDataToRss(const int32_t pid, const int32_t uid, const bool &isTransfer,
+                           const std::string &type, const std::string &reason);
+    void ReportNlConnectStateToRss(const int32_t pid, const int32_t uid,
+                                   const std::string &action, const std::string &type, const std::string &reason);
+private:
+    void SubscribeRssSystemAbility();
     NearlinkSafeMap<AppInfo, bool> hasDataReport_{};
     NearlinkSafeMap<AppInfo, int> ssapConnectState_{};
     std::shared_ptr<ffrt::queue> ffrtQueue_ = nullptr;

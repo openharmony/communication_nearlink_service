@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 
 config("nl_adapter_state_machine_unit_test_config") {
@@ -94,11 +95,17 @@ ohos_unittest("nl_adapter_state_machine_test") {
   sources = [
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/state_machine_test/adapter_state_machine_test.cpp",
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/state_machine_test/mock_sle_service_manager.cpp",
-    "$NEARLINK_ROOT/services/service/src/common/AdapterStateMachine.cpp",
   ]
 
   configs = [ ":nl_adapter_state_machine_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/common/SleServiceManager.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
+  ]
 
   deps = unit_test_deps
 
@@ -108,6 +115,9 @@ ohos_unittest("nl_adapter_state_machine_test") {
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
   ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

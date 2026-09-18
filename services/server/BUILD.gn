@@ -234,7 +234,7 @@ ohos_static_library("nearlink_server_static_tdd") {
     "$NEARLINK_ROOT/services/etc/init:etc",
     "$NEARLINK_ROOT/services/etc/param:etc",
     "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
-    "$NEARLINK_ROOT/services/service:nearlink_service_impl",
+    # impl 符号由消费方单测直接编译 service 源码提供（见 test/utils/service_tdd.gni）
     "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
     "$NEARLINK_ROOT/utils:nearlink_utils",
     "$NEARLINK_ROOT/socket:nearlink_socket",

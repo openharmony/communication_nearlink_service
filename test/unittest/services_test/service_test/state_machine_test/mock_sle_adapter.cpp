@@ -405,5 +405,23 @@ bool SleAdapter::IsScanConnTypeAndFrameType4(OHOS::Nearlink::RawAddress const&, 
 void SleAdapter::RemoveBgConnDevice(const std::string &delAddr) const
 {}
 
+
+void SleAdapter::RemoveNotPairedCloudDevice(const RawAddress &device) const
+{}
+
+void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
+{}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency) const
+{
+    return false;
+}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    return false;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

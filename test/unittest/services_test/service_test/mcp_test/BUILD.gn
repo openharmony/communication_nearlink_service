@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 NL_UNIT_TEST_DIR = "$NEARLINK_ROOT/test/unittest/services_test"
 
@@ -70,7 +71,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
   "${nearlink_test_utils_path}:test_utils_static",
 ]
@@ -94,11 +94,13 @@ ohos_unittest("nl_mcp_service_test") {
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   sanitize = {
     cfi = true                             # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
     boundary_sanitize = true               # Enable boundary san detection
     cfi_cross_dso = true                   # Cross-SO CFI Checks
     integer_overflow = true                # Enable integer overflow detection
     ubsan = true                           # Enable some Ubsan options
-    debug = true
+    debug = false
+    blocklist = "$NEARLINK_ROOT/services/service/libsleservice_blocklist.txt"
   }
 
   sources = []
@@ -120,6 +122,13 @@ ohos_unittest("nl_mcp_service_test") {
 
   configs = [ ":nl_mcp_service_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/mcp/McpServerService.cpp",
+    "$NEARLINK_ROOT/services/service/src/tws/TwsService.cpp",
+    "$NEARLINK_ROOT/services/service/src/asc/ASCService.cpp",
+  ]
 
   deps = unit_test_deps
 
@@ -141,6 +150,9 @@ ohos_unittest("nl_mcp_service_test") {
       "googletest:gmock",
     ]
   }
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

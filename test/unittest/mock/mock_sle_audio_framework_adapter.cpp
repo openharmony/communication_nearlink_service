@@ -57,5 +57,35 @@ bool SleAudioFrameworkAdapter::IsBtOut()
     return g_mockBtOut;
 }
 
+
+void SleAudioFrameworkAdapter::RegisterAudioFrameworkAdapterListener()
+{}
+
+void SleAudioFrameworkAdapter::UnregisterAudioFrameworkAdapterListener()
+{}
+
+void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfos()
+{}
+
+bool SleAudioFrameworkAdapter::IsMusicActive()
+{
+    return false;
+}
+
+bool SleAudioFrameworkAdapter::IsNearlinkOut()
+{
+    return false;
+}
+
+void SleAudioFrameworkAdapter::RegisterCollaborativeAudioListener()
+{}
+
+
+
+bool SleAudioFrameworkAdapter::IsInVoipCallKit()
+{
+    return false;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

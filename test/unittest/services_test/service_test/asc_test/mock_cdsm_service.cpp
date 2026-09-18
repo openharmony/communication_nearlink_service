@@ -269,5 +269,16 @@ int CdsmService::GetConnectState()
     return 0;
 }
 
+
+bool CdsmService::CdsmReplaceOldReportAddr(const RawAddress &oldReportAddr, const RawAddress &newReportAddr)
+{
+    return true;
+}
+
+void CdsmService::GetRealConnectAddress(const RawAddress &addr, RawAddress &realConnectAddr)
+{
+    realConnectAddr = addr;
+}
+
 } // namespace Nearlink
 } // namespace OHOS
