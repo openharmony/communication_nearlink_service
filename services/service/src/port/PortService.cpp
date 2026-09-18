@@ -199,7 +199,6 @@ uint16_t PortService::GetRemotePortByUuid(const RawAddress &device, const Uuid::
     NL_CHECK_RETURN_RET((uuid.size() == static_cast<std::size_t>(Uuid::UUID128_BYTES_TYPE)),
         static_cast<int>(ReturnValue::RET_BAD_PARAM), "get remote port by uuid but uuid is err!");
 
-    // ponytail: [this] 未 weak_ptr 化——PortService 为进程级服务；改为可销毁对象时须 enable_shared_from_this
     auto promise = std::make_shared<std::promise<uint16_t>>();
     DoInPortThread([this, device, uuid, promise]() -> void {
         uint16_t result = pimpl->clientStackAdapter_.GetRemotePortByUuid(device, uuid);

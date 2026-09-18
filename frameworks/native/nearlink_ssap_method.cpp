@@ -19,7 +19,6 @@
 namespace OHOS {
 namespace Nearlink {
 
-/* 与 NearlinkSsapMethodParcel::ReadFromParcel 的 0x1000 封顶保持一致 */
 static constexpr size_t SSAP_METHOD_MAX_DATA_LEN = 0x1000;
 
 SsapMethod::SsapMethod(int type, const UUID uuid, int permissions)
