@@ -19,6 +19,9 @@
 namespace OHOS {
 namespace Nearlink {
 
+/* 与 NearlinkSsapMethodParcel::ReadFromParcel 的 0x1000 封顶保持一致 */
+static constexpr size_t SSAP_METHOD_MAX_DATA_LEN = 0x1000;
+
 SsapMethod::SsapMethod(int type, const UUID uuid, int permissions)
     : handle_(0),
       methodType_(type),
@@ -140,8 +143,8 @@ const std::unique_ptr<uint8_t[]> &SsapMethod::GetResult(size_t *size) const
 
 void SsapMethod::SetParameter(const uint8_t *values, const size_t length)
 {
-    if (values == nullptr || length == 0) {
-        HILOGE("Parameter values is nullptr, or length is 0");
+    if (values == nullptr || length == 0 || length > SSAP_METHOD_MAX_DATA_LEN) {
+        HILOGE("Parameter values is nullptr, or length is 0, or length over max");
         return;
     }
     parameter_ = std::make_unique<uint8_t[]>(length);
@@ -151,8 +154,8 @@ void SsapMethod::SetParameter(const uint8_t *values, const size_t length)
 
 void SsapMethod::SetResult(const uint8_t *values, const size_t length)
 {
-    if (values == nullptr || length == 0) {
-        HILOGE("values is nullptr, or length is 0");
+    if (values == nullptr || length == 0 || length > SSAP_METHOD_MAX_DATA_LEN) {
+        HILOGE("values is nullptr, or length is 0, or length over max");
         return;
     }
     result_ = std::make_unique<uint8_t[]>(length);
