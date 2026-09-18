@@ -380,7 +380,9 @@ uint32_t SDF_EvcListenEvent(int handle, SDF_EvcEvent *event)
     SDF_MutexUnlock(g_evcLock);
     return SDF_OK;
 FAIL1:
+    evcEvent->freeFunc = NULL;
     SDF_VectorRemoveLast(evcDesc->eventVector);
+    goto FAIL3;
 FAIL2:
     SDF_MemFree(evcEvent);
 FAIL3:

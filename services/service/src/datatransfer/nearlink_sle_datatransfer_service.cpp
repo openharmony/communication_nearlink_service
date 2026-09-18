@@ -480,6 +480,9 @@ uint16_t SleDataTransferService::CreatePortInner(
         }
     }
 
+    // 端口池耗尽时 srcPort 仍为 0，直接返回，禁止以 0 端口入映射缓存
+    NL_CHECK_RETURN_RET(srcPort != 0, srcPort, "port pool exhausted");
+
     if (uuid != STANDARD_UUID_ICCE) {
         PortService *portService = PortService::GetPortService();
         NL_CHECK_RETURN_RET(portService, srcPort, "PortService empty");

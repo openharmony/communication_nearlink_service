@@ -227,7 +227,8 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
     }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL) {
+    if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
+        cmdRes->size < sizeof(DLI_SetIOGParamEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
@@ -235,7 +236,8 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
 
     DLI_SetIOGParamEvt *param = (DLI_SetIOGParamEvt *)cmdRes->eventParameter;
     CM_LOGI("param id: %u, param count: %u, expected id: %u", param->id, param->paramCnt, cbkParam->id);
-    if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT) {
+    if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT ||
+        cmdRes->size < sizeof(DLI_SetIOGParamEvt) + param->paramCnt * sizeof(uint16_t)) {
         CM_LOGE("illegal param, id=%u, param count=%u", cbkParam->id, param->paramCnt);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
@@ -277,7 +279,8 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
     }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL) {
+    if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
+        cmdRes->size < sizeof(DLI_SetIMGParamEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
@@ -285,7 +288,8 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
 
     DLI_SetIMGParamEvt *param = (DLI_SetIMGParamEvt *)cmdRes->eventParameter;
     CM_LOGI("param id: %u, param count: %u, expected id: %u", param->id, param->paramCnt, cbkParam->id);
-    if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT) {
+    if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT ||
+        cmdRes->size < sizeof(DLI_SetIMGParamEvt) + param->paramCnt * sizeof(uint16_t)) {
         CM_LOGE("illegal param, id=%u, param count=%u", cbkParam->id, param->paramCnt);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
@@ -451,7 +455,8 @@ static void CM_LabelReportCbkProc(ICGConnectionNode *channelNode, DLI_ICGLabelRe
 static void CM_LabelReportCbk(uint8_t type, void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_CHECK_RETURN(CM_ICBIsInited(), "icb mgr is not inited");
-    CM_CHECK_RETURN(cmdRes != NULL && cmdRes->eventParameter != NULL, "param is null");
+    CM_CHECK_RETURN(cmdRes != NULL && cmdRes->eventParameter != NULL &&
+        cmdRes->size >= sizeof(DLI_ICGLabelReportEvt), "param is null");
 
     if (status != DLI_SUCCESS && context != NULL) {
         CM_CHECK_RETURN(g_icbCallback.labelReportCbk != NULL, "callback is null");
@@ -485,7 +490,8 @@ static void CM_LabelReportCbk(uint8_t type, void *context, uint16_t status, DLI_
                 NotifyLabelReportFailedCbk(type, channelNode->id, connHandle);
                 return;
             }
-            if (channelNode->id != param->icgId || param->labelCnt == 0 || param->labelCnt > CM_MAX_LABEL_COUNT) {
+            if (channelNode->id != param->icgId || param->labelCnt == 0 || param->labelCnt > CM_MAX_LABEL_COUNT ||
+                cmdRes->size < sizeof(DLI_ICGLabelReportEvt) + param->labelCnt * sizeof(DLI_ICGLabel)) {
                 CM_LOGE("illegal param, id=%u, label count=%u", channelNode->id, param->labelCnt);
                 NotifyLabelReportFailedCbk(type, channelNode->id, connHandle);
                 return;
@@ -528,6 +534,7 @@ static void CM_NotifyICBConnectionCbk(uint16_t connHandle, ICBConnectionType typ
 static void CM_EstablishedCbk(uint8_t type, void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_CHECK_RETURN(CM_ICBIsInited(), "icb mgr is not inited");
+    // 该路径长度由上游 DLI 层负责，此处不重复校验
     CM_CHECK_RETURN(cmdRes != NULL && cmdRes->eventParameter != NULL, "param is null, type=%u", type);
 
     DLI_ICBEstablishedEvt *param = (DLI_ICBEstablishedEvt *)cmdRes->eventParameter;
@@ -729,7 +736,8 @@ static void CM_IMBConnectReqCbk(void *context, uint16_t status, DLI_ExecuteCmdRe
 static void CM_RejectReqCbk(CM_ICBType type, void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_CHECK_RETURN(CM_ICBIsInited(), "icb mgr is not inited");
-    CM_CHECK_RETURN(context != NULL && cmdRes != NULL && cmdRes->eventParameter != NULL,
+    CM_CHECK_RETURN(context != NULL && cmdRes != NULL && cmdRes->eventParameter != NULL &&
+        cmdRes->size >= sizeof(DLI_ICBRejectReqEvt),
         "param reject req cbk param is null");
     DLI_ICBRejectReqEvt  *param = (DLI_ICBRejectReqEvt  *)cmdRes->eventParameter;
     CM_LOGI("status=%u, connHandle=%u", status, param->connHandle);
@@ -809,7 +817,7 @@ static void CM_ICBSetDataPathCbk(void *context, uint16_t status, DLI_ExecuteCmdR
         NotifyDataPathFailedCbk(CM_ICB_STATE_ICB_DATA_PATH_SETUP, cbkParam);
         return;
     }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL) {
+    if (cmdRes == NULL || cmdRes->eventParameter == NULL || cmdRes->size < sizeof(DLI_ICBDataPathEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
         NotifyDataPathFailedCbk(CM_ICB_STATE_ICB_DATA_PATH_SETUP, cbkParam);
         return;
@@ -872,7 +880,7 @@ static void CM_ICBRemoveDataPathCbk(void *context, uint16_t status, DLI_ExecuteC
         NotifyDataPathFailedCbk(CM_ICB_STATE_ICB_DATA_PATH_REMOVED, cbkParam);
         return;
     }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL) {
+    if (cmdRes == NULL || cmdRes->eventParameter == NULL || cmdRes->size < sizeof(DLI_ICBDataPathEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
         NotifyDataPathFailedCbk(CM_ICB_STATE_ICB_DATA_PATH_REMOVED, cbkParam);
         return;

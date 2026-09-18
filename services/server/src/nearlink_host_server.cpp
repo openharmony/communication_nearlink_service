@@ -359,12 +359,14 @@ public:
     void OnGetBatteryLevelEvent(const RawAddress &device, int8_t batteryLevel) override
     {
         HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
-        NearlinkRawAddress nearlinkRawAddress(device);
         impl_->deviceBatteryObservers_.ForEach(
-            [this, nearlinkRawAddress, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
+            [this, device, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
                 NearlinkBasRemoteInfo info = impl_->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
                 if (info.isSendingReq) {
-                    observer->OnGetBatteryLevelEvent(nearlinkRawAddress, batteryLevel);
+                    NearlinkRawAddress randomAddr;
+                    NearlinkDeviceManager::GetInstance()->ConvertToRandomAddress(info.isRealMac, device, randomAddr,
+                        false);
+                    observer->OnGetBatteryLevelEvent(randomAddr, batteryLevel);
                     impl_->remoteBatteryContainer_->UpdateRemoteInfo(observer->AsObject(), false);
                 }
             });
@@ -373,11 +375,13 @@ public:
     void OnBatteryLevelChanged(const RawAddress &device, int8_t batteryLevel) override
     {
         HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
-        NearlinkRawAddress nearlinkRawAddress(device);
-
         impl_->deviceBatteryObservers_.ForEach(
-            [this, nearlinkRawAddress, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
-                observer->OnBatteryLevelChanged(nearlinkRawAddress, batteryLevel);
+            [this, device, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
+                NearlinkBasRemoteInfo info = impl_->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
+
+                NearlinkRawAddress randomAddr;
+                NearlinkDeviceManager::GetInstance()->ConvertToRandomAddress(info.isRealMac, device, randomAddr, false);
+                observer->OnBatteryLevelChanged(randomAddr, batteryLevel);
             });
     }
 

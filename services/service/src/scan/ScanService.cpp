@@ -354,7 +354,7 @@ void ScanService::ParseAdvResult(NLSTK_DevdAdvResult_S *devdResult, std::vector<
     }
     SlePeripheralDevice device;
     RawAddress advertisedAddress(RawAddress::ConvertToString(devdResult->addr.addr));
-    if (devdResult->advData.len != 0 && devdResult->advData.data != nullptr) {
+    if (devdResult->advData.data != nullptr && devdResult->advData.len != 0) {
         device.SetPayload(devdResult->advData.data, devdResult->advData.len);
     }
     device.SetAddress(advertisedAddress);
