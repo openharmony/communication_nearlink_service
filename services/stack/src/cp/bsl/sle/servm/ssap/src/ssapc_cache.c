@@ -747,7 +747,6 @@ NLSTK_Errcode_E SsapcCacheGetServices(SLE_Addr_S *addr, int32_t appId, NLSTK_Ssa
         }
         if (ConvertCacheServ(appId, &servInstance[resNum], cache) != NLSTK_ERRCODE_SUCCESS) {
             CP_LOG_ERROR("[SSAPC_CACHE] convert serv fail");
-            /* resNum+1：连同转换到一半的服务一起回收（Zalloc 零基，半成品成员为空可安全遍历） */
             SsapcCacheFreeServices(servInstance, resNum + 1);
             return NLSTK_ERRCODE_FAIL;
         }
