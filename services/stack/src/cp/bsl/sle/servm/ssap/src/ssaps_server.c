@@ -74,6 +74,7 @@ static void SSAPS_SendExchangeInfoRsp(SSAP_Link_S *link, uint16_t mtu, uint16_t 
     /* 消息控制码 */
     exchangePkt->ctrl.mtu = 1;
     exchangePkt->ctrl.version = 1;
+    exchangePkt->ctrl.fragment = 1;         // 本端支持SSAP分包
     exchangePkt->ctrl.multiProcessing = 1;
     /* MTU */
     exchangePkt->msgMtu = mtu;
@@ -112,7 +113,7 @@ void SSAPS_ExchangeInfoReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         version = exchangePkt->msgVersion;
         link->version = (version < link->version) ? version : link->version;
         if (link->version >= SSAP_VERSION_1_3) {
-            link->fragment = exchangePkt->ctrl.fragment;
+            link->fragCtx.fragment = exchangePkt->ctrl.fragment;
             link->multiProcessing = exchangePkt->ctrl.multiProcessing;
         }
     }
@@ -332,8 +333,14 @@ SSAP_LengthValue_S *SSAPS_GetPropertyValue(SSAP_Link_S *link, SSAP_Property_S *p
         *errorCode = SSAP_ERRCODE_DATA_TYPE;
         return NULL;
     }
-    if (getVal->len > (link->mtu - SSAP_PDU_BASE_LEN)) {
+    // 对端不支持分包时保持原有超限报错逻辑；对端支持分包时放行，由发送侧分包
+    if (getVal->len > (link->mtu - SSAP_PDU_BASE_LEN) && !link->fragCtx.fragment) {
         *errorCode = SSAP_ERRCODE_SERVER_FRAG;
+        return NULL;
+    }
+    // 读响应条目length字段为15bit，超限写入会截断导致报文自相矛盾，明确报长度错误
+    if (getVal->len > SSAP_READ_RSP_ITEM_LEN_MAX) {
+        *errorCode = SSAP_ERRCODE_DATA_LENGTH;
         return NULL;
     }
     return getVal;
@@ -413,6 +420,7 @@ static void SSAPS_SendReadReqRsp(SSAP_Link_S *link, uint8_t msgCode, uint8_t err
         readRsp->ctrl.error = SSAP_READ_RSP_CONTROL_SUCCESS;
         (void)memcpy_s(readRsp->items, value->len, value->value, value->len);
     }
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, msgCode);
 }
 
@@ -497,6 +505,29 @@ static bool SSAPS_SerializeMultiReadItem(uint8_t **curBuf, size_t *leftSize, SSA
     return true;
 }
 
+// 对端不支持分包且多值读响应超MTU：不做部分返回，READ_RSP内携带单个不支持分包错误项（SERVER_FRAG）
+static void SSAPS_SendMultiReadNoFragErrorRsp(SSAP_Link_S *link, uint8_t msgCode)
+{
+    uint32_t realSize = sizeof(SSAP_PduReadRsp_S) + sizeof(SSAP_PduReadRspItem_S);
+    SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(realSize);
+    CP_CHECK_LOG_RETURN_VOID(sdfBuff != NULL, "[SSAP] multi read no frag error rsp malloc fail");
+    uint8_t *buf = SDF_BuffAppend(sdfBuff, realSize);
+    if (buf == NULL) {
+        SDF_BuffFree(sdfBuff);
+        CP_LOG_ERROR("[SSAP] multi read no frag error rsp create buf fail");
+        return;
+    }
+    SSAP_PduReadRsp_S *readRsp = (SSAP_PduReadRsp_S *)buf;
+    readRsp->msgCode = msgCode;
+    readRsp->ctrl.fragment = SSAP_CTRL_NO_FRAG;
+    readRsp->ctrl.multi = SSAP_CTRL_MULTI_MULTI;
+    readRsp->ctrl.error = SSAP_READ_RSP_CONTROL_ERROR;
+    SSAP_PduReadRspItem_S *errItem = (SSAP_PduReadRspItem_S *)(readRsp->items);
+    errItem->length = SSAP_ERRCODE_SERVER_FRAG;
+    errItem->success = SSAP_READ_RSP_ITEMREAD_FAILED;
+    link->sendFunc(link, sdfBuff, msgCode);
+}
+
 static void SSAPS_SendMultiReadReqRsp(SSAP_Link_S *link, uint8_t msgCode,
     SSAP_ReadResultItem_S *results, uint16_t resultCount, Ssap_PduReadReqItem_S *readReqItems)
 {
@@ -504,6 +535,12 @@ static void SSAPS_SendMultiReadReqRsp(SSAP_Link_S *link, uint8_t msgCode,
 
     uint32_t totalItemsSize = SSAPS_CalcMultiReadTotalSize(results, resultCount);
     uint32_t realSize = sizeof(SSAP_PduReadRsp_S) + totalItemsSize;
+    // 对端不支持分包且总包超MTU：READ_RSP携带单个SERVER_FRAG错误项，不做部分返回
+    if (realSize > link->mtu && !link->fragCtx.fragment) {
+        CP_LOG_ERROR("[SSAP] multi read rsp over mtu, send SERVER_FRAG");
+        SSAPS_SendMultiReadNoFragErrorRsp(link, msgCode);
+        return;
+    }
     SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(realSize);
     uint8_t *buf = SDF_BuffAppend(sdfBuff, realSize);
     if (sdfBuff == NULL || buf == NULL) {
@@ -534,6 +571,7 @@ static void SSAPS_SendMultiReadReqRsp(SSAP_Link_S *link, uint8_t msgCode,
     if (hasError) {
         readRsp->ctrl.error = SSAP_READ_RSP_CONTROL_ERROR;
     }
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, msgCode);
 }
 
@@ -706,7 +744,12 @@ static bool SSAPS_ReadReqHandlePreCheck(SSAP_Link_S *link, SDF_Buff_S *sdfBuff, 
 void SSAPS_ReadReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("[SSAP] enter read req handle");
-    if (SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX) {
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPS_ReadReqHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    if (!link->fragCtx.reassemComplete && SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX) {
         CP_LOG_ERROR("[SSAP] read req handle len error");
         SSAP_PduErrorRsp(link, SSAP_READ_REQ, 0, SSAP_ERRCODE_INVALID_PDU);
         return;
@@ -716,7 +759,7 @@ void SSAPS_ReadReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         return;
     }
     SSAP_PduReadReq_S *readReq = (SSAP_PduReadReq_S *)SDF_DataOffset(sdfBuff);
-    if ((readReq->ctrl.fragment & SSAP_CTRL_NO_FRAG) != SSAP_CTRL_NO_FRAG) { /* 暂不支持分包组包 */
+    if ((readReq->ctrl.fragment & SSAP_CTRL_NO_FRAG) != SSAP_CTRL_NO_FRAG) { /* 分片已在上游组包还原，仅作异常防御 */
         SDF_SsapTrace(link->addr.addr, EXCEP_SSAP_READ_REQ_RECV, EXCEP_SSAP_SERVER_FRAG);
         SSAPS_SendReadReqRsp(link, readReq->msgCode + 1, SSAP_ERRCODE_SERVER_FRAG, NULL);
         return;
@@ -785,7 +828,8 @@ static void SSAPS_SendReadByUuidReqErrorRsp(SSAP_Link_S *link, uint8_t errorCode
 static void SSAPS_SendReadByUuidReqRsp(SSAP_Link_S *link, uint8_t *data, uint16_t realRspDataLen,
     uint8_t multiFlag, uint8_t errorFlag)
 {
-    if (realRspDataLen > (link->mtu - SSAP_PDU_BASE_LEN)) {
+    // 对端不支持分包且响应超MTU：不做部分返回，直接携带单个不支持分包错误项（SERVER_FRAG）
+    if (realRspDataLen > (link->mtu - SSAP_PDU_BASE_LEN) && !link->fragCtx.fragment) {
         SSAPS_SendReadByUuidReqErrorRsp(link, SSAP_ERRCODE_SERVER_FRAG, 0);
         return;
     }
@@ -804,6 +848,7 @@ static void SSAPS_SendReadByUuidReqRsp(SSAP_Link_S *link, uint8_t *data, uint16_
     readByUuidRsp->ctrl.multi = multiFlag;
     readByUuidRsp->ctrl.error = errorFlag;
     (void)memcpy_s(readByUuidRsp->items, realRspDataLen, data, realRspDataLen);
+    // 分包判断收敛到发送入口SSAP_Send：超MTU且对端支持分包时分包发送（原判断缺少fragment检查，统一后修正）
     link->sendFunc(link, sdfBuff, SSAP_READ_BY_UUID_RSP);
 }
 
@@ -990,6 +1035,7 @@ static SSAP_BufferedOperation_S *SSAPS_ReadByUuidComposeOperation(SSAP_Link_S *l
 static SSAP_PduReadByUuidReq_S *SSAPS_ReadByUuidReqPreHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("[SSAP] enter read by uuid req handle");
+    // 报文长度防护：READ_BY_UUID_REQ不支持分包，按MTU上限校验（对端可能任意发送）
     CP_CHECK_LOG_RETURN(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, NULL,
         "[SSAP] exchange info req handle len error");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
@@ -1019,6 +1065,7 @@ void SSAPS_ReadByUuidReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     CP_LOG_DEBUG("[SSAP] enter read by uuid req handle");
     SSAP_PduReadByUuidReq_S *readByUuidReq = SSAPS_ReadByUuidReqPreHandle(link, sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(readByUuidReq != NULL, "[SSAP] read by uuid req handle pre fail");
+    // 报文长度防护：READ_BY_UUID_REQ不支持分包，按MTU上限校验（对端可能任意发送）
     CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
         "[SSAP] exchange info req handle len error");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
@@ -1069,9 +1116,13 @@ void SSAPS_ReadByUuidReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 void SSAPS_ValueAckHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_INFO("[SSAP] enter value ack handle");
-    // 加宏判断是否在uint16_t内，不在就报错
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
-        "[SSAP] exchange info req handle len error");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPS_ValueAckHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] value ack handle len error");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len >= SSAP_VALUE_ACK_PDU_MIN_LEN, "[SSAP] value ack handle data len error");
     SSAP_PduValueAck_S *valueAck = (SSAP_PduValueAck_S *)SDF_DataOffset(sdfBuff);
@@ -1088,8 +1139,8 @@ void SSAPS_ValueAckHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     SDF_MemFree(valuePkt);
 }
 
-static uint32_t SsapGenerateMethodCallOp(SSAP_BufferedOperation_S *operation, SSAP_PduCallMethodReq_S *callMethodMsg,
-                                         uint16_t paramLen, SLE_Addr_S *addr)
+static uint32_t SsapGenerateMethodCallOp(SSAP_BufferedOperation_S *operation,
+    const SSAP_PduCallMethodReq_S *callMethodMsg, uint16_t paramLen, SLE_Addr_S *addr)
 {
     operation->msgCode = callMethodMsg->msgCode;
     operation->propertyHandle = callMethodMsg->handle;
@@ -1115,7 +1166,7 @@ static void SSAPS_MethodErrorProcess(SSAP_Link_S *link, uint8_t msgCode, uint8_t
 
 // 上述检查完成之后，可以开始处理方法调用
 static void SSAPS_MethodCallOpProcess(SSAP_Link_S *link, SSAP_Method_S *method,
-    SSAP_PduCallMethodReq_S *callMethodMsg, uint16_t paramLen)
+    const SSAP_PduCallMethodReq_S *callMethodMsg, uint16_t paramLen)
 {
     SSAP_BufferedOperation_S *operation =
         (SSAP_BufferedOperation_S *)SDF_MemZalloc(sizeof(SSAP_BufferedOperation_S) + paramLen);
@@ -1147,25 +1198,11 @@ static void SSAPS_MethodCallOpProcess(SSAP_Link_S *link, SSAP_Method_S *method,
     operation = NULL;
 }
 
-static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+/**
+ * @brief  方法查找、权限校验与调用入队
+ */
+static void SSAPS_MethodExecute(SSAP_Link_S *link, const SSAP_PduCallMethodReq_S *callMethodMsg, uint16_t size)
 {
-    NLSTK_LOG_INFO("[SSAP] enter call method process");
-    uint8_t *buf = SDF_DataOffset(sdfBuff);
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] method handle len error");
-    uint16_t size = (uint16_t)SDF_DataLenGet(sdfBuff);
-    if (size < SSAP_METHOD_REQ_PDU_MIN_LEN) {
-        NLSTK_LOG_ERROR("[SSAP] method handle len error, len: %d", size);
-        SSAPS_MethodErrorProcess(link, buf[0], SSAP_ERRCODE_INVALID_PDU, 0);
-        return;
-    }
-    SSAP_PduCallMethodReq_S *callMethodMsg = (SSAP_PduCallMethodReq_S *)buf;
-    if (callMethodMsg->ctrl.fragment != 0x03) {  // 判断消息是否是一个完整的数据包
-        // 目前仅支持单个完整的数据包，不支持分片的处理;
-        NLSTK_LOG_ERROR("[SSAP] ssap server can only handle single package, can not process fragmentation");
-        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_SERVER_FRAG, callMethodMsg->handle);
-        return;
-    }
-
     SSAP_Method_S *method = SSAPS_GetMethodByHandle(callMethodMsg->handle);
     if (method == NULL) {
         // 如果没有找到对应的方法，则返回错误，需要生成错误响应
@@ -1178,17 +1215,49 @@ static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         }
         return;
     }
-
     uint8_t errorCode = SSAPS_MethodCallCheck(method->permission.permissionValue, link);
     if (errorCode != SSAP_ERRCODE_SUCCESS) {
         // 如果权限检查失败，则返回错误，需要生成错误响应
         SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, errorCode, callMethodMsg->handle);
         return;
     }
-
-    // 在函数入口出判断了size的最大值不会超过UINT16_MAX，所以这里可以直接使用uint16_t,不会出现截断的情况；
+    // 入口已按单包上限和组包上限校验，size不会超过UINT16_MAX，转uint16_t不会截断
     uint16_t paramLen = (uint16_t)(size - SSAP_METHOD_REQ_PDU_MIN_LEN);
     SSAPS_MethodCallOpProcess(link, method, callMethodMsg, paramLen);
+}
+
+/**
+ * @brief  方法调用报文处理：长度与完整性校验后执行方法调用
+ */
+static void SSAPS_MethodProcess(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+{
+    uint8_t *buf = SDF_DataOffset(sdfBuff);
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] method handle len error");
+    uint16_t size = (uint16_t)SDF_DataLenGet(sdfBuff);
+    if (size < SSAP_METHOD_REQ_PDU_MIN_LEN) {
+        NLSTK_LOG_ERROR("[SSAP] method handle len error, len: %d", size);
+        SSAPS_MethodErrorProcess(link, buf[0], SSAP_ERRCODE_INVALID_PDU, 0);
+        return;
+    }
+    SSAP_PduCallMethodReq_S *callMethodMsg = (SSAP_PduCallMethodReq_S *)buf;
+    if (callMethodMsg->ctrl.fragment != SSAP_CTRL_NO_FRAG) {  // 分片已在上游组包还原，仅作异常防御
+        NLSTK_LOG_ERROR("[SSAP] ssap server can only handle single package, can not process fragmentation");
+        SSAPS_MethodErrorProcess(link, callMethodMsg->msgCode, SSAP_ERRCODE_SERVER_FRAG, callMethodMsg->handle);
+        return;
+    }
+    SSAPS_MethodExecute(link, callMethodMsg, size);
+}
+
+static void SSAPS_MethodHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+{
+    NLSTK_LOG_INFO("[SSAP] enter call method process");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPS_MethodHandle, NULL)) {
+        return;
+    }
+    SSAPS_MethodProcess(link, sdfBuff);
 }
 
 /**
@@ -1234,7 +1303,8 @@ void SSAPS_ValueNtf(SSAP_Link_S *link, void *arg)
     valueNtfItem->handle = valueNtfInfo->handle;
     valueNtfItem->length = valueNtfInfo->value.len;
     (void)memcpy_s(valueNtfItem->value, valueNtfInfo->value.len, valueNtfInfo->value.value, valueNtfInfo->value.len);
-    if (valueNtfInfo->value.len > (link->mtu - SSAP_PDU_BASE_LEN - SSAP_HANDLE_LEN - SSAP_VALUE_ITEM_LEN)) {
+    // 对端不支持分包且超MTU时丢弃（通知无响应机制，超限单包对端无法处理）；分包判断收敛到SSAP_Send
+    if (realSize > link->mtu && !link->fragCtx.fragment) {
         SDF_BuffFree(sdfBuff);
         CP_LOG_ERROR("[SSAP] value ntf len over mtu");
         return;
@@ -1267,7 +1337,8 @@ void SSAPS_ValueInd(SSAP_Link_S *link, void *arg)
     valueIndItem->handle = valueIndInfo->handle;
     valueIndItem->length = valueIndInfo->value.len;
     (void)memcpy_s(valueIndItem->value, valueIndInfo->value.len, valueIndInfo->value.value, valueIndInfo->value.len);
-    if (valueIndInfo->value.len > (link->mtu - SSAP_PDU_BASE_LEN - SSAP_HANDLE_LEN - SSAP_VALUE_ITEM_LEN)) {
+    // 对端不支持分包且超MTU时丢弃（指示无响应机制，超限单包对端无法处理）；分包判断收敛到SSAP_Send
+    if (realSize > link->mtu && !link->fragCtx.fragment) {
         SDF_BuffFree(sdfBuff);
         CP_LOG_ERROR("[SSAP] value ind len over mtu");
         return;
@@ -1514,6 +1585,7 @@ static void SSAPS_SendMethodCallRsp(SSAP_Link_S *link, SSAP_MethodCallResValue_S
     callRsp->msgCode = SSAP_CALL_METHOD_RSP;
     callRsp->ctrl.fragment = SSAP_CTRL_NO_FRAG;
     (void)memcpy_s(callRsp->result, param->len, param->data, param->len);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_CALL_METHOD_RSP);
 }
 /**
@@ -1534,10 +1606,19 @@ void SSAPS_SendMethodCallRes(void *arg)
         return;
     }
     uint8_t opCode = operation->msgCode;
+    // 方法调用响应整包尺寸（含result载荷），用于超MTU预检
+    uint32_t realSize = sizeof(SSAP_PduCallMethodRsp_S) + param->len;
     switch (opCode) {
         case SSAP_CALL_METHOD_CMD:
             break;
         case SSAP_CALL_METHOD_REQ:
+            // 对端不支持分包且方法返回值超MTU：报SERVER_FRAG（与READ_RSP预检一致）
+            if (realSize > link->mtu && !link->fragCtx.fragment) {
+                CP_LOG_ERROR("[SSAP] method call rsp over mtu");
+                SSAPS_MethodErrorProcess(link, SSAP_CALL_METHOD_REQ, SSAP_ERRCODE_SERVER_FRAG,
+                    operation->propertyHandle);
+                break;
+            }
             SSAPS_SendMethodCallRsp(link, param);
             break;
         default:

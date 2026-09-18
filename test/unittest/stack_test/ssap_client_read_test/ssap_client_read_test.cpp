@@ -20,10 +20,12 @@
 #include "ssap_common.h"
 #include "sdf_addr.h"
 #include "sdf_mem.h"
+#include "sdf_vector.h"
 #include "ssap_utils.h"
 
 #include "nlstk_cfgdb_api.h"
 #include "nlstk_cfgdb.h"
+#include "cpfwk_log.h"
 
 #define TEST_MAX_BUF_CACHE 1024
 static NLSTK_SsapUuid_S g_uuid1 = {.uuid = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA,
@@ -50,6 +52,8 @@ static uint8_t rspPkt5[] = {0x0b, 0x07, 0xEE, 0x00, 0x01, 0x80, 0x01, 0xFF, 0x00
 static uint8_t rspPkt6[] = {0x0b, 0x0F, 0xEE, 0x00, 0x01, 0x80, 0x01, 0xFF, 0x00, 0x06, 0x00};
 static uint8_t rspPkt7[] = {0x0b, 0x0F, 0xFF, 0x00, 0x06, 0x00, 0xEE, 0x00, 0x01, 0x80, 0x01};
 static uint8_t rspPkt8[] = {0x09, 0x07, 0x81, 0x01, 0x81, 0x02};
+// 服务端多值读响应超MTU且对端不支持分包时的整体错误响应：头2B + 单个SERVER_FRAG错误项
+static uint8_t rspPkt9[] = {0x09, 0x0F, SSAP_ERRCODE_SERVER_FRAG, 0x00};
 
 class UT_SSAP_CLIENT_READ : public testing::Test {
 protected:
@@ -301,4 +305,51 @@ TEST_F(UT_SSAP_CLIENT_READ, MULTI_ITEMS_READ_RSP_SUCCESSPKT)
 
     EXPECT_EQ(link->status, SSAP_LINK_IDLE);
     DeleteLink();
+}
+
+// 多值读完成回调捕获：断言服务端整体错误响应（单SERVER_FRAG错误项）被按请求handle数补齐逐项上报
+static void CaptureMultiReadComplete(int32_t appId, void *arg)
+{
+    (void)appId;
+    SSAP_ReadByHandleComplete_S *complete = (SSAP_ReadByHandleComplete_S *)arg;
+    ASSERT_NE(complete, nullptr);
+    EXPECT_EQ(complete->errCode, SSAP_ERRCODE_SUCCESS);
+    ASSERT_NE(complete->readVals, nullptr);
+    ASSERT_EQ(complete->readVals->size, 2u);
+    if (complete->readVals->size == 2) {
+        SSAP_ValuePkt_S *item0 = (SSAP_ValuePkt_S *)SDF_VectorElementAt(complete->readVals, 0);
+        SSAP_ValuePkt_S *item1 = (SSAP_ValuePkt_S *)SDF_VectorElementAt(complete->readVals, 1);
+        EXPECT_EQ(item0->handle, 0x0001);
+        EXPECT_EQ(item0->errorCode, SSAP_ERRCODE_SERVER_FRAG);
+        EXPECT_EQ(item1->handle, 0x00FF);
+        EXPECT_EQ(item1->errorCode, SSAP_ERRCODE_SERVER_FRAG);
+    }
+}
+
+// 服务端超限整体错误响应只带单个错误项：客户端按请求handle数补齐后逐项携带原因值上报，不误判UNKNOWN
+TEST_F(UT_SSAP_CLIENT_READ, MULTI_ITEMS_READ_RSP_SERVER_FRAG_PKT)
+{
+    CP_LOG_INFO("[UT_SSAP_CLIENT_READ] begin: MULTI_ITEMS_READ_RSP_SERVER_FRAG_PKT");
+    SSAP_Link_S *link = CreateLink();
+    // 设置设备支持服务结构发现能力位图，CFGDB_READ_MULTI_HANDLES
+    NLSTK_ManufacturerAbility_S ablility = {.ability[0] = 2};
+    uint32_t ret2 = NLSTK_CfgdbSetManufacturerAbility(&g_addr, &ablility);
+    SDF_Buff_S *reqBuf = SDF_BuffNewWithReserve(sizeof(reqPkt4));
+    uint8_t *tmpReqBuf = SDF_BuffAppend(reqBuf, sizeof(reqPkt4));
+    (void)memcpy_s(tmpReqBuf, sizeof(reqPkt4), reqPkt4, sizeof(reqPkt4));
+    link->curTask.buff = reqBuf;
+    // 挂任务回调捕获解码结果（DeleteLink时由任务清理释放）
+    SSAP_TaskParam_S *taskParam = (SSAP_TaskParam_S *)SDF_MemZalloc(sizeof(SSAP_TaskParam_S));
+    ASSERT_NE(taskParam, nullptr);
+    taskParam->appCallback = CaptureMultiReadComplete;
+    link->curTask.param = taskParam;
+    SDF_Buff_S *tmp = SDF_BuffNewWithReserve(sizeof(rspPkt9));
+    uint8_t *tmpBuf = SDF_BuffAppend(tmp, sizeof(rspPkt9));
+    (void)memcpy_s(tmpBuf, sizeof(rspPkt9), rspPkt9, sizeof(rspPkt9));
+    SSAPC_ReadRspHandle(link, tmp);
+    SDF_BuffFree(tmp);
+
+    EXPECT_EQ(link->status, SSAP_LINK_IDLE);
+    DeleteLink();
+    CP_LOG_INFO("[UT_SSAP_CLIENT_READ] end: MULTI_ITEMS_READ_RSP_SERVER_FRAG_PKT");
 }

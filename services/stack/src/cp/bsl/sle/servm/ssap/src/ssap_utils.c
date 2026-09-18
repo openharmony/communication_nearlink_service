@@ -183,11 +183,10 @@ void PrintFormatHexWithSpaces(const uint8_t *dataBuf, size_t dataSize, bool isTx
 {
     char dataStr[SSAP_STACK_MTU_MAX + SSAP_STACK_MTU_MAX + 1] = { 0 };
     int count = 0;
-    for (uint32_t i = 0; i < dataSize; i++) {
-        (void)sprintf_s(&dataStr[2 * count], (SSAP_STACK_MTU_MAX - count) * 2, "%02x", dataBuf[i]); // 2 hex char
-        if (++count >= SSAP_STACK_MTU_MAX - 1) {
-            break;
-        }
+    for (uint32_t i = 0; i < dataSize && count < SSAP_STACK_MTU_MAX; i++) {
+        // 每字节2个hex字符，容量传实际剩余（含结尾\0），保证末字节也能写入
+        (void)sprintf_s(&dataStr[2 * count], sizeof(dataStr) - 2 * count, "%02x", dataBuf[i]);
+        count++;
     }
 
     size_t dataStrLen = strlen(dataStr);

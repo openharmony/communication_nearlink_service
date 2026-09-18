@@ -171,19 +171,19 @@ void SSAPC_ExchangeInfoRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         mtu = exchangePkt->msgMtu;
         if (mtu < SSAP_STACK_MTU_DEFAULT) {
             CP_LOG_ERROR("[SSAP] mtu is less than default, mtu: %d", mtu);
-            link->mtu = SSAP_STACK_MTU_DEFAULT;
+            mtu = SSAP_STACK_MTU_DEFAULT;
         } else if (mtu > SSAP_STACK_MTU_MAX) {
             CP_LOG_ERROR("[SSAP] mtu is greater than default, mtu: %d", mtu);
-            link->mtu = SSAP_STACK_MTU_MAX;
-        } else {
-            link->mtu = mtu;
+            mtu = SSAP_STACK_MTU_MAX;
         }
+        // 取小收敛：协商结果不超本端能力上限（与SSAPS_ExchangeInfoReqHandle一致）
+        link->mtu = mtu < link->mtu ? mtu : link->mtu;
     }
     if (exchangePkt->ctrl.version != 0) {
         version = exchangePkt->msgVersion;
         link->version = (version < link->version) ? version : link->version;
         if (link->version >= SSAP_VERSION_1_3) {
-            link->fragment = exchangePkt->ctrl.fragment;
+            link->fragCtx.fragment = exchangePkt->ctrl.fragment;
             link->multiProcessing = exchangePkt->ctrl.multiProcessing;
         }
     }
@@ -755,11 +755,15 @@ static bool SSAP_CheckReqSizeAndTrace(SSAP_Link_S *link, int sceneCode, int subS
     }
 }
 
-void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+/**
+ * @brief  FIND_RSP非分片报文解码处理：长度校验、请求匹配与结果解码回调
+ */
+static void SSAPC_FindRspDecode(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
-    CP_LOG_DEBUG("[SSAP] enter find rsp handle");
     uint8_t *buf = SDF_DataOffset(sdfBuff);
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint32_t size = (uint32_t)SDF_DataLenGet(sdfBuff);
     SSAP_PduFindStructRsp_S *rsp = (SSAP_PduFindStructRsp_S *)buf;
     int sceneCode = rsp->msgCode == SSAP_FIND_STRUCTURE_RSP ?
@@ -801,6 +805,16 @@ void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         }
     }
     SSAPC_FindRspHandleCbk(link, req, preFindType, &reqUuid);
+}
+
+void SSAPC_FindRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+{
+    CP_LOG_DEBUG("[SSAP] enter find rsp handle");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_FindRspHandle, NULL)) {
+        return;
+    }
+    SSAPC_FindRspDecode(link, sdfBuff);
 }
 
 static void SingleReadRspDecode(SSAP_Link_S *link, SSAP_PduReadReq_S *readReq, SSAP_PduReadRsp_S *readRsp,
@@ -872,10 +886,61 @@ static SSAP_ValuePkt_S *MultiReadRspDecodeSingleItem(SSAP_PduReadRspItem_S *read
     return valuePkt;
 }
 
+static bool MultiReadRspDecodeItems(uint8_t *data, uint16_t rspLen, SSAP_ReadByHandleComplete_S *complete)
+{
+    uint16_t dataLen = 0;
+    while (rspLen > dataLen + sizeof(SSAP_PduReadRspItem_S)) {
+        SSAP_PduReadRspItem_S *readRspItem = (SSAP_PduReadRspItem_S *)data;
+        uint16_t valueLen = 0;
+        // valuePkt会在下面函数内部申请空间，返回地址，后面要考虑对该空间的管理和释放问题
+        SSAP_ValuePkt_S *valuePkt = MultiReadRspDecodeSingleItem(readRspItem, rspLen, dataLen, complete, &valueLen);
+        if (complete->errCode != SSAP_ERRCODE_SUCCESS || valuePkt == NULL) {
+            CP_LOG_ERROR("[SSAP] decode single item failed in multi read rsp decode");
+            return false;
+        }
+        if (!SDF_VectorEmplaceBack(complete->readVals, valuePkt)) {
+            SDF_MemFree(valuePkt);
+            CP_LOG_ERROR("[SSAP] valuePkt emplace back failed in multi read rsp decode");
+            complete->errCode = SSAP_ERRCODE_UNKNOWN;
+            return false;
+        }
+        data += sizeof(SSAP_PduReadRspItem_S) + valueLen;
+        dataLen += sizeof(SSAP_PduReadRspItem_S) + valueLen;
+    }
+    return true;
+}
+
+static bool MultiReadRspFillErrorItems(SSAP_ReadByHandleComplete_S *complete, uint8_t handleNum)
+{
+    // 服务端响应超MTU且对端不支持分包时只携带单个错误项（如SERVER_FRAG）：按请求handle数补齐
+    // 错误项，使每个请求handle都能逐项携带原因值上报，避免整组误判UNKNOWN
+    if (complete->readVals->size != 1 || handleNum <= 1) {
+        return true;
+    }
+    SSAP_ValuePkt_S *errValuePkt = (SSAP_ValuePkt_S *)SDF_VectorElementAt(complete->readVals, 0);
+    if (errValuePkt == NULL || errValuePkt->errorCode == SSAP_ERRCODE_SUCCESS) {
+        return true;
+    }
+    for (uint8_t i = 1; i < handleNum; i++) {
+        SSAP_ValuePkt_S *dupValuePkt = (SSAP_ValuePkt_S *)SDF_MemZalloc(sizeof(SSAP_ValuePkt_S));
+        if (dupValuePkt == NULL) {
+            complete->errCode = SSAP_ERRCODE_NO_RESOURCE;
+            return false;
+        }
+        (void)memcpy_s(dupValuePkt, sizeof(SSAP_ValuePkt_S), errValuePkt, sizeof(SSAP_ValuePkt_S));
+        dupValuePkt->value.len = 0;  // 错误项不含value，防御性清零
+        if (!SDF_VectorEmplaceBack(complete->readVals, dupValuePkt)) {
+            SDF_MemFree(dupValuePkt);
+            complete->errCode = SSAP_ERRCODE_NO_RESOURCE;
+            return false;
+        }
+    }
+    return true;
+}
+
 static void MultiReadRspDecode(SSAP_Link_S *link, Ssap_PduReadReqItem_S *readReqItems, uint8_t handleNum,
     uint8_t *data, uint16_t rspLen)
 {
-    uint16_t dataLen = 0;
     SSAP_ReadByHandleComplete_S complete = {.errCode = SSAP_ERRCODE_SUCCESS};
     (void)memcpy_s(&complete.addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
     complete.readVals = SDF_CreateVector(MAKE_TRAITS(SDF_MemFree, NULL));
@@ -883,23 +948,8 @@ static void MultiReadRspDecode(SSAP_Link_S *link, Ssap_PduReadReqItem_S *readReq
         complete.errCode = SSAP_ERRCODE_NO_RESOURCE;
         goto CB_LABEL;
     }
-    while (rspLen > dataLen + sizeof(SSAP_PduReadRspItem_S)) {
-        SSAP_PduReadRspItem_S *readRspItem = (SSAP_PduReadRspItem_S *)data;
-        uint16_t valueLen = 0;
-        // valuePkt会在下面函数内部申请空间，返回地址，后面要考虑对该空间的管理和释放问题
-        SSAP_ValuePkt_S *valuePkt = MultiReadRspDecodeSingleItem(readRspItem, rspLen, dataLen, &complete, &valueLen);
-        if (complete.errCode != SSAP_ERRCODE_SUCCESS || valuePkt == NULL) {
-            CP_LOG_ERROR("[SSAP] decode single item failed in multi read rsp decode");
-            goto CB_LABEL;
-        }
-        if (!SDF_VectorEmplaceBack(complete.readVals, valuePkt)) {
-            SDF_MemFree(valuePkt);
-            CP_LOG_ERROR("[SSAP] valuePkt emplace back failed in multi read rsp decode");
-            complete.errCode = SSAP_ERRCODE_UNKNOWN;
-            goto CB_LABEL;
-        }
-        data += sizeof(SSAP_PduReadRspItem_S) + valueLen;
-        dataLen += sizeof(SSAP_PduReadRspItem_S) + valueLen;
+    if (!MultiReadRspDecodeItems(data, rspLen, &complete) || !MultiReadRspFillErrorItems(&complete, handleNum)) {
+        goto CB_LABEL;
     }
     if (complete.readVals->size != handleNum) {
         complete.errCode = SSAP_ERRCODE_UNKNOWN;
@@ -914,7 +964,6 @@ CB_LABEL:
     CP_LOG_DEBUG("[SSAP] multi read rsp decode complete, errcode:0x%u", complete.errCode);
     SsapTaskExecuteCallback(link, &complete);
     SDF_DestroyVector(complete.readVals);
-    return;
 }
 
 static uint8_t CountReqHandleNum(SDF_Buff_S *buff)
@@ -933,6 +982,10 @@ static uint8_t CountReqHandleNum(SDF_Buff_S *buff)
  */
 void SSAPC_ReadRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_ReadRspHandle, NULL)) {
+        return;
+    }
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     CP_CHECK_LOG_RETURN_VOID(lastBuff != NULL, "[SSAP] read rsp handle lastBuff is null");
     uint8_t *lastBuffData = SDF_DataOffset(lastBuff);
@@ -940,7 +993,9 @@ void SSAPC_ReadRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     SSAP_PduReadReq_S *readReq = (SSAP_PduReadReq_S *)lastBuffData;
 
     CP_LOG_DEBUG("[SSAP] enter read rsp handle");
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len >= SSAP_READ_RSP_DATA_OFFSET, "[SSAP] read rsp handle data len error");
     SSAP_PduReadRsp_S *readRsp = (SSAP_PduReadRsp_S *)SDF_DataOffset(sdfBuff);
@@ -1005,14 +1060,39 @@ static void SSAPC_ReadByUuidRspDecode(uint8_t controlCode, uint8_t *data, uint16
 }
 
 /**
- * @brief  接收到的通过UUID读取数据响应报文处理
+ * @brief  READ_BY_UUID_RSP载荷解码：解析结果集合并回调应用
  */
-void SSAPC_ReadByUuidRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+static void SSAPC_ReadByUuidRspDecodeItems(SSAP_Link_S *link, SSAP_ReadByUuidComplete_S *complete,
+    SSAP_PduReadByUuidRsp_S *readByUuidRsp, uint16_t len)
 {
-    CP_LOG_INFO("[SSAP] enter read by uuid rsp handle");
+    SDF_Vector_S *readVals = SDF_CreateVector(MAKE_TRAITS(SDF_MemFree, NULL));
+    if (readVals == NULL) {
+        complete->errCode = SSAP_ERRCODE_NO_RESOURCE;
+        SsapTaskExecuteCallback(link, complete);
+        return;
+    }
+    uint8_t *data = readByUuidRsp->items;
+    uint16_t dataLen = len - SSAP_READ_RSP_DATA_OFFSET;
+    SSAPC_ReadByUuidRspDecode(readByUuidRsp->msgCtrl, data, dataLen, readVals);
+    if (readVals->size == 0) {
+        complete->errCode = SSAP_ERRCODE_ITEM_INEXIST;
+    } else {
+        complete->errCode = SSAP_ERRCODE_SUCCESS;
+        complete->readVals = readVals;
+    }
+    CP_LOG_INFO("[SSAP] read by uuid rsp handle uuid: %s, data type: %d, begin handle: %d, end handle %d",
+        SSAP_GET_ENC_UUID(&complete->uuid), complete->dataType, complete->beginHandle, complete->endHandle);
+    SsapTaskExecuteCallback(link, complete);
+    SDF_DestroyVector(readVals);
+}
+
+/**
+ * @brief  READ_BY_UUID_RSP非分片报文解码处理：请求匹配、长度校验、结果解析与回调
+ */
+static void SSAPC_ReadByUuidRspDecodeProcess(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+{
     SSAP_ReadByUuidComplete_S complete = {0};
     (void)memcpy_s(&complete.addr, sizeof(SLE_Addr_S), &link->addr, sizeof(SLE_Addr_S));
-    SDF_Vector_S *readVals = NULL;
     SDF_Buff_S *lastBuff = SSAP_GetLastBuff(link);
     if (lastBuff == NULL || SDF_DataLenGet(lastBuff) > UINT32_MAX ||
         SDF_DataLenGet(lastBuff) < sizeof(SSAP_PduReadByUuidReq_S)) {
@@ -1027,37 +1107,30 @@ void SSAPC_ReadByUuidRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     complete.dataType = req->dataType;
     complete.beginHandle = req->handleStart;
     complete.endHandle = req->handleEnd;
-    if (SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX || SDF_DataLenGet(sdfBuff) <= SSAP_READ_BY_UUID_RSP_DATA_OFFSET) {
+    // 报文长度防护：上限仅对非组包单包校验（组包报文上限由组包工具保证），长度下限始终校验
+    if ((!link->fragCtx.reassemComplete && SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX) ||
+        SDF_DataLenGet(sdfBuff) <= SSAP_READ_BY_UUID_RSP_DATA_OFFSET) {
         CP_LOG_ERROR("[SSAP] read by uuid rsp handle data len error");
         complete.errCode = SSAP_ERRCODE_INVALID_PDU;
         SDF_SsapTrace(link->addr.addr, EXCEP_SSAP_READ_BY_UUID_RSP_RECV, SSAP_ERRCODE_INVALID_PDU);
         goto CB_LABEL;
     }
-    uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     SSAP_PduReadByUuidRsp_S *readByUuidRsp = (SSAP_PduReadByUuidRsp_S *)SDF_DataOffset(sdfBuff);
-    uint8_t *data = readByUuidRsp->items;
-    uint16_t dataLen = len - SSAP_READ_RSP_DATA_OFFSET;
-    uint8_t controlCode = readByUuidRsp->msgCtrl;
-    // 存读取解析到的SSAP_ValuePkt
-    readVals = SDF_CreateVector(MAKE_TRAITS(SDF_MemFree, NULL));
-    if (readVals == NULL) {
-        complete.errCode = SSAP_ERRCODE_NO_RESOURCE;
-        SsapTaskExecuteCallback(link, &complete);
-        return;
-    }
-    SSAPC_ReadByUuidRspDecode(controlCode, data, dataLen, readVals);
-    if (readVals->size == 0) {
-        complete.errCode = SSAP_ERRCODE_ITEM_INEXIST;
-    } else {
-        complete.errCode = SSAP_ERRCODE_SUCCESS;
-        complete.readVals = readVals;
-    }
-    CP_LOG_INFO("[SSAP] read by uuid rsp handle uuid: %s, data type: %d, begin handle: %d, end handle %d",
-        SSAP_GET_ENC_UUID(&complete.uuid), complete.dataType, complete.beginHandle, complete.endHandle);
+    SSAPC_ReadByUuidRspDecodeItems(link, &complete, readByUuidRsp, (uint16_t)SDF_DataLenGet(sdfBuff));
+    return;
 CB_LABEL:
     SsapTaskExecuteCallback(link, &complete);
-    SDF_DestroyVector(readVals);
     return;
+}
+
+void SSAPC_ReadByUuidRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
+{
+    CP_LOG_INFO("[SSAP] enter read by uuid rsp handle");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_ReadByUuidRspHandle, NULL)) {
+        return;
+    }
+    SSAPC_ReadByUuidRspDecodeProcess(link, sdfBuff);
 }
 
 static void HandleWriteRspHandleError(SSAP_Link_S *link, SSAP_PduWriteReq_S *req,
@@ -1090,6 +1163,13 @@ static void HandleWriteRspHandleError(SSAP_Link_S *link, SSAP_PduWriteReq_S *req
 void SSAPC_WriteRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("SSAP ENTER Write Rsp Handle");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_WriteRspHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint16_t len = (uint16_t)sdfBuff->dataLen;
     CP_CHECK_LOG_RETURN_VOID(len > SSAP_WRITE_RSP_PDU_LEN, "[SSAP] write rsp handle data len error");
     SSAP_PduWriteRsp_S *writeRsp = (SSAP_PduWriteRsp_S *)SDF_DataOffset(sdfBuff);
@@ -1185,7 +1265,13 @@ static void SSAPC_BuildAndNotifyValuePkt(const SLE_Addr_S *addr, uint8_t opCode,
 void SSAPC_ValueNtfHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_INFO("[SSAP] enter value ntf handle");
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_ValueNtfHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len >= SSAP_VALUE_NTF_PDU_MIN_LEN, "[SSAP] value ntf handle data len error");
     size_t leftSize = len - sizeof(SSAP_PduValueNtf_S);
@@ -1290,7 +1376,13 @@ static void SSAPC_ValueIndSendAck(SSAP_Link_S *link, uint16_t itemCount)
 void SSAPC_ValueIndHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_INFO("[SSAP] enter value ind handle");
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_ValueIndHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len >= SSAP_VALUE_IND_PDU_MIN_LEN, "[SSAP] value ind handle data len error");
     size_t leftSize = len - sizeof(SSAP_PduValueInd_S);
@@ -1306,6 +1398,13 @@ void SSAPC_ValueIndHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
  */
 void SSAPC_CallMethodRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
+    // 分片报文：组包完成后再处理（proc为自身，完整报文走非分片分支）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPC_CallMethodRspHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint32_t len = (uint32_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len >= sizeof(SSAP_PduCallMethodRsp_S), "SSAPC_CallMethodRspHandle data len error");
     uint8_t *buf = SDF_DataOffset(sdfBuff);
@@ -1324,33 +1423,6 @@ void SSAPC_CallMethodRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     (void)memcpy_s(result->value.value, dataLen, data->result, dataLen);
     SsapTaskExecuteCallback(link, result);
     SDF_MemFree(result);
-}
-
-void SSAPC_InitFindReq(SSAP_Link_S *link, void *arg)
-{
-    CP_LOG_DEBUG("[SSAP] enter init find req");
-    CP_CHECK_LOG_RETURN_VOID(arg != NULL, "[SSAP] init find req arg is null");
-    SSAP_ParamFind_S *findParam = (SSAP_ParamFind_S *)arg;
-    uint32_t realSize = sizeof(SSAP_PduFindStructReq_S);
-    SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(realSize);
-    CP_CHECK_LOG_RETURN_VOID(sdfBuff != NULL, "[SSAP] init find req sdfBuff malloc fail");
-    uint8_t *buf = SDF_BuffAppend(sdfBuff, realSize);
-    if (buf == NULL) {
-        SDF_BuffFree(sdfBuff);
-        CP_LOG_ERROR("[SSAP] init find req create buf fail");
-        return;
-    }
-    SSAP_PduFindStructReq_S *findReq = (SSAP_PduFindStructReq_S *)buf;
-    findReq->msgCode = SSAP_FIND_STRUCTURE_REQ;
-    findReq->ctrl.findType = findParam->type;
-    findReq->ctrl.itemType = FIND_ITEM_TYPE_STANDARD;
-    findReq->ctrl.rspMode = FIND_RSP_MODE_SINGLE_RSP;
-    findReq->startHandle = findParam->startHandle;
-    findReq->endHandle = findParam->endHandle;
-    CP_LOG_INFO("[SSAP] init find req find type: %d, item type: %d, rsp mode: %d, start: %d, end: %d",
-        findReq->ctrl.findType, findReq->ctrl.itemType, findReq->ctrl.rspMode,
-        findReq->startHandle, findReq->endHandle);
-    link->sendFunc(link, sdfBuff, SSAP_FIND_STRUCTURE_REQ);
 }
 
 /**
@@ -1374,6 +1446,7 @@ void SSAPC_ExchangeInfoReq(SSAP_Link_S *link, void *arg)
     exchangePkt->msgCode = SSAP_EXCHANGE_INFO_REQ;
     exchangePkt->ctrl.mtu = 1;
     exchangePkt->ctrl.version = 1;
+    exchangePkt->ctrl.fragment = 1;         // 本端支持SSAP分包
     exchangePkt->ctrl.multiProcessing = 1;
     exchangePkt->msgMtu = exchangeInfoReqInfo->mtu;
     exchangePkt->msgVersion = SSAP_EXCHANGE_VERSION;
@@ -1400,7 +1473,7 @@ static void SendFindPkt(SSAP_Link_S *link, SSAP_ParamFind_S *findParam)
     } else {
         findReq->ctrl.itemType = FIND_ITEM_TYPE_MIX;
     }
-    findReq->ctrl.rspMode = FIND_RSP_MODE_SINGLE_RSP;
+    findReq->ctrl.rspMode = link->fragCtx.fragment ? FIND_RSP_MODE_MULTI_RSP : FIND_RSP_MODE_SINGLE_RSP;
     findReq->startHandle = findParam->startHandle;
     findReq->endHandle = findParam->endHandle;
     CP_LOG_INFO("[SSAP] find req find type: %d, item type: %d, rsp mode: %d, start: %d, end: %d",
@@ -1438,7 +1511,7 @@ static void SendFindByUuidPkt(SSAP_Link_S *link, SSAP_ParamFindByUuid_S *findPar
     } else {
         findReq->ctrl.itemType = FIND_ITEM_TYPE_MIX;
     }
-    findReq->ctrl.rspMode = FIND_RSP_MODE_SINGLE_RSP;
+    findReq->ctrl.rspMode = link->fragCtx.fragment ? FIND_RSP_MODE_MULTI_RSP : FIND_RSP_MODE_SINGLE_RSP;
     findReq->startHandle = findParam->startHandle;
     findReq->endHandle = findParam->endHandle;
     SSAP_PutUuidToPktBuf(&findParam->uuid, findReq->uuid, uuidSize);
@@ -1509,6 +1582,7 @@ void SSAPC_ReadProps(SSAP_Link_S *link, void *arg)
         readReqItems[i].type = readPropsInfo->type;
         CP_LOG_INFO("[SSAP] read req handle: %d, type: %d", readReqItems[i].handle, readReqItems[i].type);
     }
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_READ_REQ);
 }
 
@@ -1577,6 +1651,7 @@ void SSAPC_WriteCmd(SSAP_Link_S *link, void *arg)
     writeCmdItem->type = writeCmdInfo->type;
     (void)memcpy_s(writeCmdItem->value, valueLen, writeCmdInfo->value.value, valueLen);
     CP_LOG_DEBUG("[SSAP] write cmd item handle: %d, type: %d", writeCmdItem->handle, writeCmdItem->type);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_WRITE_CMD);
 }
 
@@ -1609,6 +1684,7 @@ void SSAPC_WriteReq(SSAP_Link_S *link, void *arg)
     writeReqItem->type = writeReqInfo->type;
     (void)memcpy_s(writeReqItem->value, writeReqInfo->value.len, writeReqInfo->value.value, writeReqInfo->value.len);
     CP_LOG_INFO("[SSAP] write req item handle: %d, type: %d", writeReqItem->handle, writeReqItem->type);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_WRITE_REQ);
 }
 
@@ -1637,6 +1713,7 @@ void SSAPC_ValueAck(SSAP_Link_S *link, void *arg)
     valueAck->ctrl.fragment = SSAP_CTRL_NO_FRAG;
     valueAck->ctrl.type = 0;
     (void)memcpy_s(valueAck->result, valueInfo->value.len, valueInfo->value.value, valueInfo->value.len);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_VALUE_ACK);
 }
 
@@ -1661,6 +1738,7 @@ void SSAPC_CallMethodReq(SSAP_Link_S *link, void *arg)
     data->ctrl.fragment = SSAP_CTRL_NO_FRAG;
     data->handle = callMethodInfo->handle;
     (void)memcpy_s(data->param, callMethodInfo->value.len, callMethodInfo->value.value, callMethodInfo->value.len);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_CALL_METHOD_REQ);
 }
 
@@ -1685,8 +1763,8 @@ void SSAPC_CallMethodCmd(SSAP_Link_S *link, void *arg)
     data->ctrl.fragment = SSAP_CTRL_NO_FRAG;
     data->handle = callMethodInfo->handle;
     (void)memcpy_s(data->param, callMethodInfo->value.len, callMethodInfo->value.value, callMethodInfo->value.len);
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_CALL_METHOD_CMD);
-
     // 按writeCmd的逻辑这里要有一个回调，目前未实现
 }
 
