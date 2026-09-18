@@ -1147,7 +1147,7 @@ void SlePeripheralDevice::ParseSleDisData()
     int type = -1;
     size_t length = 0;
     while ((i + SLE_ADV_DEVICE_INFO_MIN_LEN) < disServiceData.size()) {
-        type = disServiceData[i++];
+        type = static_cast<uint8_t>(disServiceData[i++]);
         length = static_cast<uint8_t>(disServiceData[i++]);
         if (length <= 0 || i + length > disServiceData.size()) {
             break;
