@@ -343,9 +343,6 @@ static SDF_Buff_S* BuildMixPrimaryServicePayloadV10(uint32_t mtu, SDF_Vector_S *
 {
     uint32_t stdCount = 0;
     uint32_t cusCount = 0;
-    /* Defense-in-depth: mtu is clamped to [SSAP_STACK_MTU_DEFAULT, SSAP_STACK_MTU_MAX] at its write sites
-     * (SSAP_SetServerExchangeInfo / exchange req handling), so it cannot undercut the fixed header today;
-     * if that invariant is ever relaxed, this guard keeps leftSize/realSize from wrapping on subtraction. */
     NLSTK_CHECK_RETURN(mtu >= SSAP_PDU_BASE_LEN + SSAP_FIND_INFO_INDICATION_LEN * 2, NULL, "[SSAP] mtu is invalid");
     uint32_t leftSize = mtu - SSAP_PDU_BASE_LEN - SSAP_FIND_INFO_INDICATION_LEN * 2;
     for (size_t i = 0; i < findServices->size; i++) {
