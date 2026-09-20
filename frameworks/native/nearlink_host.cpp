@@ -43,7 +43,7 @@
 namespace OHOS {
 namespace Nearlink {
 namespace {
-constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 30000;       // 默认加载超时时间，异步接口与缓存事件重放使用 30s
+constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 30000;       // 默认加载超时时间，异步接口与缓存事件的下发使用 30s
 constexpr int32_t LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS = 5000;   // 同步接口加载超时时间，避免长时间阻塞调用线程
 
 #ifdef NEARLINK_HOST_AVOID_SLEEP

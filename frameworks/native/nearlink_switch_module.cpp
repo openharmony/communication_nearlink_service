@@ -97,17 +97,17 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchEvent(
     return NL_ERR_INTERNAL_ERROR;
 }
 
-void NearlinkSwitchModule::OnTaskTimeout(uint32_t actionId)
+void NearlinkSwitchModule::OnTaskTimeout(uint32_t actionSeq)
 {
     HILOGW("[NearlinkSwitchModule] Nearlink switch action timeout");
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
-    if (actionId != actionId_ || !isNlSwitchProcessing_.load()) {
+    if (actionSeq != latestActionSeq_ || !isNlSwitchProcessing_.load()) {
         // 该超时任务对应的动作已结束或被新动作取代，跳过
-        HILOGW("[NearlinkSwitchModule] timeout task of action(id=%{public}u) is outdated, skip", actionId);
+        HILOGW("[NearlinkSwitchModule] timeout task of action(seq=%{public}u) is outdated, skip", actionSeq);
         return;
     }
-    // 当前动作已超时失效：编号 +1，使其后续返回结果不再改写状态
-    ++actionId_;
+    // 当前动作已超时失效：序号 +1，该动作的接口稍后返回时不再改写状态
+    ++latestActionSeq_;
     isNlSwitchProcessing_ = false;
     if (cachedEventVec_.empty()) {
         // 缓存队列为空，本次开关流程结束，连续超时次数清零
@@ -135,7 +135,7 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
     std::function<NlErrCode(const NearlinkSwitchActionValidChecker &)> action,
     NearlinkSwitchEvent switchEvent, int32_t loadSaTimeoutMs)
 {
-    uint32_t actionId = 0;
+    uint32_t actionSeq = 0;
     {
         // 临界区仅覆盖状态置位与缓存判定，耗时动作在锁外执行，避免阻塞超时处理与其它调用方
         std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
@@ -147,63 +147,67 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
             return NL_NO_ERROR;
         }
 
-        actionId = ++actionId_;
-        // 动作返回前：超时时间 = SA 加载超时 + taskTimeout_，避免 SA 还在正常加载就被判超时；
-        // 动作返回后重新计时，见下方
+        actionSeq = ++latestActionSeq_;
+        // 开启/半开接口返回前：超时时间 = SA 加载超时 + taskTimeout_，避免 SA 还在正常加载就被判超时；
+        // 接口返回后重新计时，见下方
         uint64_t actionTimeout = taskTimeout_;
         if (loadSaTimeoutMs >= 0) {
             int32_t loadTimeoutMs = loadSaTimeoutMs > 0 ? loadSaTimeoutMs : DEFAULT_SA_LOAD_TIMEOUT_MS;
             actionTimeout += static_cast<uint64_t>(loadTimeoutMs) * 1000;
         }
-        SetTaskTimeout(actionId, actionTimeout);
+        SetTaskTimeout(actionSeq, actionTimeout);
 
         isNlSwitchProcessing_ = true;
     }
 
-    // 动作有效性校验器：动作在向服务下发命令前调用；返回 false 表示该动作已超时或被新动作取代
-    auto actionValidChecker = [this, actionId]() -> bool {
-        std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
-        return actionId == actionId_;
+    // 动作有效性校验器：动作在向服务下发命令前调用；返回 false 表示动作已超时或被新动作取代（弱引用捕获模块，模块已销毁也安全）
+    auto actionValidChecker = [switchWptr = weak_from_this(), actionSeq]() -> bool {
+        auto switchSptr = switchWptr.lock();
+        if (switchSptr == nullptr) {
+            return false;
+        }
+        std::lock_guard<ffrt::mutex> lock(switchSptr->nearlinkSwitchEventMutex_);
+        return actionSeq == switchSptr->latestActionSeq_;
     };
     NlErrCode ret = action(actionValidChecker);
 
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
-    // 动作返回（命令已下发）后重新计时：等待状态变化的超时时间固定为 taskTimeout_，
+    // 开关接口返回（命令已下发）后重新计时：等待状态变化的超时时间固定为 taskTimeout_，
     // 不因 SA 加载耗时长短而变化
-    if (ret == NL_NO_ERROR && actionId == actionId_) {
-        SetTaskTimeout(actionId, taskTimeout_);
+    if (ret == NL_NO_ERROR && actionSeq == latestActionSeq_) {
+        SetTaskTimeout(actionSeq, taskTimeout_);
     }
-    return FinishSwitchAction(switchEvent, actionId, ret);
+    return FinishSwitchAction(switchEvent, actionSeq, ret);
 }
 
-void NearlinkSwitchModule::SetTaskTimeout(uint32_t actionId, uint64_t delayUs)
+void NearlinkSwitchModule::SetTaskTimeout(uint32_t actionSeq, uint64_t delayUs)
 {
     // 调用方须持有 nearlinkSwitchEventMutex_ 锁
     ffrtQueue_.cancel(taskTimeoutHandle_);
     ffrt::task_attr taskAttr;
     taskAttr.name("nl_switch").delay(delayUs);
-    taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this(), actionId]() -> void {
+    taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this(), actionSeq]() -> void {
         auto switchSptr = switchWptr.lock();
         if (switchSptr == nullptr) {
             HILOGE("switchSptr is nullptr");
             return;
         }
-        switchSptr->OnTaskTimeout(actionId);
+        switchSptr->OnTaskTimeout(actionSeq);
     }, taskAttr);
 }
 
 NlErrCode NearlinkSwitchModule::FinishSwitchAction(
-    NearlinkSwitchEvent switchEvent, uint32_t actionId, NlErrCode ret)
+    NearlinkSwitchEvent switchEvent, uint32_t actionSeq, NlErrCode ret)
 {
     // 调用方须持有 nearlinkSwitchEventMutex_ 锁
-    if (actionId != actionId_) {
-        // 该动作已超时失效或被新动作取代，本次返回结果不再改写状态
-        HILOGW("[NearlinkSwitchModule] action(id=%{public}u) is outdated, skip finish", actionId);
+    if (actionSeq != latestActionSeq_) {
+        // 该动作已超时失效或被新动作取代，本次接口返回结果不再改写状态
+        HILOGW("[NearlinkSwitchModule] action(seq=%{public}u) is outdated, skip finish", actionSeq);
         return ret == NL_ERR_INVALID_SWITCH_OPERATION ? NL_NO_ERROR : ret;
     }
     if (ret != NL_NO_ERROR) {
         isNlSwitchProcessing_ = false;
-        // 动作立即失败结束（非超时），连续超时计数清零
+        // 接口立即返回失败（非超时），连续超时计数清零
         consecutiveTimeoutCnt_ = 0;
         ffrtQueue_.cancel(taskTimeoutHandle_);
     }
@@ -319,9 +323,9 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
     NearlinkSwitchEvent curSwitchActionEvent, std::vector<NearlinkSwitchEvent> expectedEventVec)
 {
     // 调用方须持有 nearlinkSwitchEventMutex_ 锁
-    ++actionId_;  // 动作结束：编号 +1，使该动作的后续返回结果不再改写状态
+    ++latestActionSeq_;  // 动作结束：序号 +1，使接口稍后返回时不再改写状态
     isNlSwitchProcessing_ = false;
-    // 一次开关动作正常完成（含超时后重放完成），系统已恢复，计数清零
+    // 一次开关动作正常完成（含超时后继续处理缓存事件），系统已恢复，计数清零
     consecutiveTimeoutCnt_ = 0;
     ffrtQueue_.cancel(taskTimeoutHandle_);
     DeduplicateCachedEvent(curSwitchActionEvent);
@@ -349,7 +353,7 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchActionFinished(
 
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchCachedEvent(NearlinkSwitchEvent event)
 {
-    // 缓存事件重放不带 SA 加载超时参数，由开关动作使用默认超时
+    // 缓存事件的下发不带 SA 加载超时参数，由开关动作使用默认超时
     HILOGI("[NearlinkSwitchModule] Process cached %{public}s event", ToEventString(event));
     ffrtQueue_.submit([switchWptr = weak_from_this(), event]() -> void {
         auto switchSptr = switchWptr.lock();
