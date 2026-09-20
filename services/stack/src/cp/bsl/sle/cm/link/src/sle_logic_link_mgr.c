@@ -58,6 +58,8 @@ SleLogicLink_S *SleLogicLinkAdd(SLE_Addr_S *addr)
     node->lcid = CM_INVALID_LCID;
     node->protocolVersion = CM_INVALID_VERSION;
     node->exchangeVersion = CM_INVALID_VERSION;
+    (void)memset_s(node->remotePrivateFeature, sizeof(node->remotePrivateFeature), 0,
+        sizeof(node->remotePrivateFeature));
     (void)memcpy_s(&node->rmtAddr, sizeof(node->rmtAddr), addr, sizeof(SLE_Addr_S));
     SDF_DListEntryInit(&node->entry);
     SDF_DListElmTailInsert(&g_deviceLinkListHead, node, entry);

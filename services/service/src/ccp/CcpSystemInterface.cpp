@@ -196,7 +196,7 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
             } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
                 systemInterface.allowedVoipCallIdSet_.end()) {
                 // 未接入call kit的voip通话，拦截不处理
-                HILOGD("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
+                HILOGI("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
                 return;
             }
             if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
