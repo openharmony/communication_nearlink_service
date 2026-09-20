@@ -36,11 +36,11 @@ public:
     virtual ~INearlinkSwitchAction() = default;
 
     virtual NlErrCode EnableNearlink(SleAutoConnectPolicy, int32_t loadSaTimeoutMs,
-        const NearlinkSwitchActionValidChecker &isActionValid) = 0;
+        const NearlinkSwitchActionValidChecker &actionValidChecker) = 0;
     virtual NlErrCode DisableNearlink() = 0;
     virtual NlErrCode DisableNearlinkToOff() = 0;
     virtual NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
-        const NearlinkSwitchActionValidChecker &isActionValid) = 0;
+        const NearlinkSwitchActionValidChecker &actionValidChecker) = 0;
 };
 
 enum class NearlinkSwitchEvent : int {

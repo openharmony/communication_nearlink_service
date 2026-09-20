@@ -919,15 +919,15 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_031, TestSize.Level1
     std::promise<void> releaseAction;
     std::shared_future<void> releaseFut = releaseAction.get_future().share();
     EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Invoke(
-        [&](SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &isActionValid) {
-            validBeforeTimeout = isActionValid && isActionValid();
+        [&](SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &actionValidChecker) {
+            validBeforeTimeout = actionValidChecker != nullptr && actionValidChecker();
             {
                 std::lock_guard<std::mutex> lock(mtx);
                 actionStarted = true;
             }
             cv.notify_all();
             releaseFut.wait();      // 模拟 SA 加载等待，期间动作被超时判死
-            validAfterTimeout = isActionValid && isActionValid();
+            validAfterTimeout = actionValidChecker != nullptr && actionValidChecker();
             return NL_ERR_INVALID_SWITCH_OPERATION;   // 复核失败不下发，动作直接返回
         }));
 

@@ -161,11 +161,11 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
     }
 
     // 在途代次校验器：动作在下发服务操作前复核，避免被超时判死或被新动作取代的旧动作落到设备侧
-    auto isActionValid = [this, actionGen]() -> bool {
+    auto actionValidChecker = [this, actionGen]() -> bool {
         std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
         return actionGen == actionGeneration_;
     };
-    NlErrCode ret = action(isActionValid);
+    NlErrCode ret = action(actionValidChecker);
 
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
     // 动作已返回（操作已下发/失败）：仍在途时重挂为固定的动作自身窗口，
@@ -223,10 +223,10 @@ NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkEvent(
     const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
     return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), autoConnPolicy,
-        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &isActionValid) -> NlErrCode {
+        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &actionValidChecker) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy, loadSaTimeoutMs, isActionValid);
+            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy, loadSaTimeoutMs, actionValidChecker);
         }, NearlinkSwitchEvent::ENABLE_NEARLINK, loadSaTimeoutMs);
 }
 
@@ -243,10 +243,10 @@ NlErrCode NearlinkSwitchModule::ProcessDisableNearlinkEvent()
 NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs)
 {
     return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(),
-        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &isActionValid) -> NlErrCode {
+        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &actionValidChecker) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlinkToHalf(loadSaTimeoutMs, isActionValid);
+            return switchSptr->switchAction_->EnableNearlinkToHalf(loadSaTimeoutMs, actionValidChecker);
         }, NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF, loadSaTimeoutMs);
 }
 

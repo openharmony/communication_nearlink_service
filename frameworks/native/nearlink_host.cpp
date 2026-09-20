@@ -374,14 +374,16 @@ public:
     ~NearlinkSwitchAction() override = default;
 
     NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs,
-        const NearlinkSwitchActionValidChecker &isActionValid) override
+        const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
         NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
-        if (isActionValid && !isActionValid()) {
-            // 加载期间动作已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
+        // 下发前复核在途代次：加载期间动作可能已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
+        // （校验器由开关模块注入，判空为防御性代码）
+        bool actionSuperseded = actionValidChecker != nullptr && !actionValidChecker();
+        if (actionSuperseded) {
             HILOGW("enable nearlink action superseded, skip EnableSle");
             return NL_ERR_INVALID_SWITCH_OPERATION;
         }
@@ -403,14 +405,16 @@ public:
     }
 
     NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
-        const NearlinkSwitchActionValidChecker &isActionValid) override
+        const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
         NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
-        if (isActionValid && !isActionValid()) {
-            // 加载期间动作已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
+        // 下发前复核在途代次：加载期间动作可能已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
+        // （校验器由开关模块注入，判空为防御性代码）
+        bool actionSuperseded = actionValidChecker != nullptr && !actionValidChecker();
+        if (actionSuperseded) {
             HILOGW("enable nearlink to half action superseded, skip EnableSleToHalf");
             return NL_ERR_INVALID_SWITCH_OPERATION;
         }
