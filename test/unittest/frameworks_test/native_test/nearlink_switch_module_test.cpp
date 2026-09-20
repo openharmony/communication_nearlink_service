@@ -606,7 +606,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1
     }
 
     switchModule_->taskTimeout_ = 10000;  // 10ms
-    // 首个开启动作指定 10ms 加载窗口：动作返回后超时窗口重挂为 10ms(自身)，随后触发超时
+    // 开启动作指定 10ms 加载超时：动作返回后按 10ms 重新计时，随后触发超时
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
         SleAutoConnectPolicy::AUTO_CONN_GENERAL, 10), NL_NO_ERROR);
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
@@ -616,7 +616,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 4);
 
-    // 第一次超时(重挂 10ms)后下发队尾 DISABLE_NEARLINK；第二次超时无缓存事件后流程结束
+    // 第一次超时(动作返回后按 10ms 重新计时)后下发队尾 DISABLE_NEARLINK；第二次超时无缓存事件后流程结束
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
@@ -650,7 +650,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_026, TestSize.Level1
 
     // 取消真实定时任务后手动触发一次超时
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
@@ -692,7 +692,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第一次超时：下发队尾 ENABLE_NEARLINK_TO_HALF
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
     WAIT_CACHED_EVENT_COMPLETE;
@@ -705,7 +705,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第二次超时：下发队尾 DISABLE_NEARLINK
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 2);
     WAIT_CACHED_EVENT_COMPLETE;
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
@@ -716,7 +716,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1
 
     // 第三次超时：达到连续超时上限，清空缓存队列，不再下发
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
@@ -747,7 +747,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_025, TestSize.Level1
 
 /**
  * @tc.name: NearlinkSwitchModuleTest_028
- * @tc.desc: 耗时动作在锁外执行：不阻塞其它事件与超时补救；被超时判死的旧动作返回
+ * @tc.desc: 耗时动作在锁外执行：不阻塞其它事件与超时处理；被判定超时的旧动作返回
  *           不再覆盖重放新动作的状态
  * @tc.type: FUNC
  */
@@ -788,20 +788,20 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_028, TestSize.Level1
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 1);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
 
-    // 超时任务不被耗时动作阻塞，可立即执行补救：下发队尾事件
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    // 超时任务不被耗时动作阻塞，可立即执行超时处理：下发队尾事件
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
     WAIT_CACHED_EVENT_COMPLETE;
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);  // 队尾 DISABLE 动作已启动
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
 
-    // 旧动作失败返回（已被代次作废）：不得覆盖新动作状态、不得清零计数
-    uint32_t genBeforeRelease = switchModule_->actionGeneration_;
+    // 旧动作失败返回（已被判定超时）：不得覆盖新动作状态、不得清零计数
+    uint32_t actionIdBeforeRelease = switchModule_->actionId_;
     releaseAction.set_value();
     actionThread.join();
     WAIT_CACHED_EVENT_COMPLETE;
-    EXPECT_EQ(switchModule_->actionGeneration_, genBeforeRelease);
+    EXPECT_EQ(switchModule_->actionId_, actionIdBeforeRelease);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
 
@@ -811,7 +811,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_028, TestSize.Level1
 
 /**
  * @tc.name: NearlinkSwitchModuleTest_029
- * @tc.desc: 动作终结后到达的陈旧超时任务被跳过，无副作用
+ * @tc.desc: 动作结束后才到达的超时任务被跳过，无副作用
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_029, TestSize.Level1)
@@ -823,17 +823,17 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_029, TestSize.Level1
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
-    uint32_t genAtStart = switchModule_->actionGeneration_;
+    uint32_t actionIdAtStart = switchModule_->actionId_;
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
 
-    // 动作正常完成（动作终结时递增代次）
+    // 动作正常完成（结束时动作编号 +1）
     switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_ON);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
-    EXPECT_EQ(switchModule_->actionGeneration_, genAtStart + 1);
+    EXPECT_EQ(switchModule_->actionId_, actionIdAtStart + 1);
 
-    // 携带旧代次的陈旧超时任务：直接跳过，无副作用
-    switchModule_->OnTaskTimeout(genAtStart);
+    // 携带旧编号的超时任务：直接跳过，无副作用
+    switchModule_->OnTaskTimeout(actionIdAtStart);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
@@ -843,14 +843,14 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_029, TestSize.Level1
 
 /**
  * @tc.name: NearlinkSwitchModuleTest_030
- * @tc.desc: 动作超时窗口分两段：动作执行期 = SA 加载窗口 + 动作自身窗口（合法加载等待不被误判），
- *           动作返回后重挂为固定的动作自身窗口（等待状态变化阶段不继承加载窗口）
+ * @tc.desc: 动作超时时间分两段：动作返回前 = SA 加载超时 + taskTimeout_（SA 正常加载时不被判超时），
+ *           动作返回后按 taskTimeout_ 重新计时
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_030, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_030 start");
-    switchModule_->taskTimeout_ = 50000;  // 动作自身窗口 50ms
+    switchModule_->taskTimeout_ = 50000;  // taskTimeout_ 缩短为 50ms 便于测试
 
     std::mutex mtx;
     std::condition_variable cv;
@@ -864,11 +864,11 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_030, TestSize.Level1
                 actionStarted = true;
             }
             cv.notify_all();
-            releaseFut.wait();      // 模拟 SA 加载等待（在 200ms 加载窗口内）
+            releaseFut.wait();      // 模拟 SA 加载等待（在 200ms 加载超时内）
             return NL_NO_ERROR;
         }));
 
-    // 加载窗口 200ms：动作执行期窗口 = 50ms + 200ms = 250ms
+    // SA 加载超时 200ms：动作返回前的超时时间 = 50ms + 200ms = 250ms
     std::thread actionThread([this]() {
         switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
             SleAutoConnectPolicy::AUTO_CONN_GENERAL, 200);
@@ -877,25 +877,25 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_030, TestSize.Level1
         std::unique_lock<std::mutex> lock(mtx);
         cv.wait(lock, [&actionStarted] { return actionStarted; });
     }
-    uint32_t genAtStart = switchModule_->actionGeneration_;
+    uint32_t actionIdAtStart = switchModule_->actionId_;
 
-    // 动作执行期：等待 100ms 已超过动作自身窗口(50ms)但仍在执行期窗口(250ms)内，不被误判
+    // 等待 100ms：已超过 taskTimeout_(50ms)，但未超过动作返回前的超时时间(250ms)，不被判超时
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
-    EXPECT_EQ(switchModule_->actionGeneration_, genAtStart);
+    EXPECT_EQ(switchModule_->actionId_, actionIdAtStart);
 
-    // 放行动作返回：超时窗口应重挂为固定的动作自身窗口(50ms)
+    // 放行动作返回：应重新按 taskTimeout_(50ms) 计时
     releaseAction.set_value();
     actionThread.join();
 
-    // 返回后短时间内不判死（重挂生效，未残留执行期长窗口）
+    // 返回后短时间内不判超时（重新计时生效，未沿用返回前的长超时）
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
 
-    // 超过重挂窗口(50ms)后判死；无缓存事件，流程结束且计数清零、代次仅递增一次
+    // 超过重新计时后的 50ms 即判超时；无缓存事件，流程结束且计数清零、动作编号仅递增一次
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
-    EXPECT_EQ(switchModule_->actionGeneration_, genAtStart + 1);
+    EXPECT_EQ(switchModule_->actionId_, actionIdAtStart + 1);
     EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
 
     HILOGI("NearlinkSwitchModuleTest_030 end");
@@ -903,7 +903,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_030, TestSize.Level1
 
 /**
  * @tc.name: NearlinkSwitchModuleTest_031
- * @tc.desc: 在途代次校验器：动作在途时校验为真；被超时判死后校验为假，动作不得再下发
+ * @tc.desc: 动作有效性校验器：动作进行中校验为真；被判定超时后校验为假，动作不得再下发
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_031, TestSize.Level1)
@@ -926,7 +926,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_031, TestSize.Level1
                 actionStarted = true;
             }
             cv.notify_all();
-            releaseFut.wait();      // 模拟 SA 加载等待，期间动作被超时判死
+            releaseFut.wait();      // 模拟 SA 加载等待，期间动作被判超时
             validAfterTimeout = actionValidChecker != nullptr && actionValidChecker();
             return NL_ERR_INVALID_SWITCH_OPERATION;   // 复核失败不下发，动作直接返回
         }));
@@ -940,15 +940,15 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_031, TestSize.Level1
         cv.wait(lock, [&actionStarted] { return actionStarted; });
     }
 
-    // 动作在途：校验器为真
+    // 动作进行中：校验器为真
     EXPECT_TRUE(validBeforeTimeout);
 
-    // 模拟超时判死（如动作内下发前的等待超过动作超时窗口）
+    // 模拟超时判定（动作等待已超过超时时间）
     switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
-    switchModule_->OnTaskTimeout(switchModule_->actionGeneration_);
+    switchModule_->OnTaskTimeout(switchModule_->actionId_);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
 
-    // 判死后释放动作：校验器为假，动作不得再下发
+    // 判定超时后放行动作：校验器为假，动作不得再下发
     releaseAction.set_value();
     actionThread.join();
     EXPECT_FALSE(validAfterTimeout);

@@ -380,11 +380,11 @@ public:
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
-        // 下发前复核在途代次：加载期间动作可能已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
-        // （校验器由开关模块注入，判空为防御性代码）
-        bool actionSuperseded = actionValidChecker != nullptr && !actionValidChecker();
-        if (actionSuperseded) {
-            HILOGW("enable nearlink action superseded, skip EnableSle");
+        // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
+        // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
+        bool isActionOutdated = actionValidChecker != nullptr && !actionValidChecker();
+        if (isActionOutdated) {
+            HILOGW("enable nearlink action is outdated, skip EnableSle");
             return NL_ERR_INVALID_SWITCH_OPERATION;
         }
         return proxy->EnableSle(autoConnPolicy);
@@ -411,11 +411,11 @@ public:
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
-        // 下发前复核在途代次：加载期间动作可能已被超时判死或被新动作取代，不再下发，避免过期动作落到设备侧
-        // （校验器由开关模块注入，判空为防御性代码）
-        bool actionSuperseded = actionValidChecker != nullptr && !actionValidChecker();
-        if (actionSuperseded) {
-            HILOGW("enable nearlink to half action superseded, skip EnableSleToHalf");
+        // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
+        // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
+        bool isActionOutdated = actionValidChecker != nullptr && !actionValidChecker();
+        if (isActionOutdated) {
+            HILOGW("enable nearlink to half action is outdated, skip EnableSleToHalf");
             return NL_ERR_INVALID_SWITCH_OPERATION;
         }
         return proxy->EnableSleToHalf();
@@ -552,7 +552,7 @@ bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
         return false;
     }
     // 等待 SA 加载完成，超时时长由调用方指定（同步接口短超时、异步接口长超时）。唤醒源有三类：
-    // 1. OnLoadSystemAbilitySuccess：SA 在加载窗口内启动完成；
+    // 1. OnLoadSystemAbilitySuccess：SA 在超时时间内启动完成；
     // 2. OnLoadSystemAbilityFail：加载请求超时，但 SA 仍可能在后台继续启动，此处仅唤醒重查；
     // 3. 服务启动事件（serviceStartedFunc_）：SA 真实启动成功，解除等待避免空等超时。
     auto waitStatus = proxyConVar_.wait_for(
@@ -582,7 +582,7 @@ void NearlinkHost::impl::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &rem
 
 void NearlinkHost::impl::LoadSystemAbilityFail()
 {
-    // 加载请求超时仅代表未在加载窗口内收到成功回调，SA 仍可能启动成功，
+    // 加载请求超时仅代表未在超时时间内收到成功回调，SA 仍可能启动成功，
     // 此时继续等待服务启动事件（serviceStartedFunc_）唤醒。
     HILOGI("LoadSystemAbilityFail FinishStart SA");
     proxyConVar_.notify_one();
