@@ -27,15 +27,20 @@
 
 namespace OHOS {
 namespace Nearlink {
+// 在途动作有效性校验器：返回 true 表示动作仍为当前在途动作（未被超时判死或被新动作取代）
+using NearlinkSwitchActionValidChecker = std::function<bool(void)>;
+
 class INearlinkSwitchAction {
 public:
     INearlinkSwitchAction() = default;
     virtual ~INearlinkSwitchAction() = default;
 
-    virtual NlErrCode EnableNearlink(SleAutoConnectPolicy, int32_t loadSaTimeoutMs) = 0;
+    virtual NlErrCode EnableNearlink(SleAutoConnectPolicy, int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &isActionValid) = 0;
     virtual NlErrCode DisableNearlink() = 0;
     virtual NlErrCode DisableNearlinkToOff() = 0;
-    virtual NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs) = 0;
+    virtual NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &isActionValid) = 0;
 };
 
 enum class NearlinkSwitchEvent : int {
@@ -67,7 +72,7 @@ public:
 
     NlErrCode ProcessNearlinkSwitchEvent(NearlinkSwitchEvent event,
         const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL,
-        int32_t loadSaTimeoutMs = 0);  // loadSaTimeoutMs: SA 加载超时(ms)，<=0 时由开关动作使用默认超时
+        int32_t loadSaTimeoutMs = 0);  // loadSaTimeoutMs: SA 加载超时(ms)，<=0 时由开关动作使用默认超时，并计入动作超时窗口
     void SetNoAutoConnect(bool noAutoConnect);
 
 private:
@@ -81,7 +86,12 @@ private:
     NlErrCode ProcessNearlinkHalfEvent(void);
     NlErrCode ProcessDisableResponseHalfEvent(void);
     NlErrCode ProcessDisableResponseOffEvent(void);
-    NlErrCode ProcessNearlinkSwitchAction(std::function<NlErrCode(void)> action, NearlinkSwitchEvent cachedEvent);
+    // loadSaTimeoutMs: 动作内 SA 加载等待窗口(ms)，-1 表示动作无加载等待，0 按默认长超时计算；
+    // 动作执行期超时窗口 = 加载等待窗口 + 动作自身窗口(taskTimeout_)，动作返回（下发完成）后
+    // 重挂为固定的动作自身窗口，使"等待状态变化"阶段不再继承未用完的加载窗口
+    NlErrCode ProcessNearlinkSwitchAction(
+        std::function<NlErrCode(const NearlinkSwitchActionValidChecker &)> action,
+        NearlinkSwitchEvent cachedEvent, int32_t loadSaTimeoutMs = -1);
     NlErrCode FinishSwitchAction(NearlinkSwitchEvent switchEvent, uint32_t actionGen, NlErrCode ret);
     NlErrCode ProcessNearlinkSwitchCachedEvent(NearlinkSwitchEvent event);
     NlErrCode ProcessNearlinkSwitchActionFinished(
@@ -90,9 +100,14 @@ private:
     void RemoveIgnoredCachedEvent(size_t ignoredCnt);
     void LogNearlinkSwitchEvent(NearlinkSwitchEvent event);
     void OnTaskTimeout(uint32_t actionGen);
+    // 重挂动作超时任务（先取消旧任务），调用方须持有 nearlinkSwitchEventMutex_ 锁
+    void RearmTaskTimeout(uint32_t actionGen, uint64_t delayUs);
 
     const uint64_t DEFAULT_TASK_TIMEOUT = 8000000;  // 8s
     uint64_t taskTimeout_ = DEFAULT_TASK_TIMEOUT;
+    // SA 加载默认超时（与 nearlink_host.cpp 的 LOAD_NEARLINK_SA_TIMEOUT_MS 对齐），
+    // 加载入参 <=0（含缓存重放）时按此值计入动作超时窗口
+    const int32_t DEFAULT_SA_LOAD_TIMEOUT_MS = 30000;
     const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;  // 连续超时达到该次数后清空缓存队列
     // 连续超时次数：动作正常完成、动作立即失败、超时且无缓存事件三处清零；
     // 上限仅在“每次超时都命中非空缓存且期间无动作正常完成”时可达

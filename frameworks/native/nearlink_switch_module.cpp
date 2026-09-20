@@ -132,7 +132,8 @@ void NearlinkSwitchModule::OnTaskTimeout(uint32_t actionGen)
 }
 
 NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
-    std::function<NlErrCode(void)> action, NearlinkSwitchEvent switchEvent)
+    std::function<NlErrCode(const NearlinkSwitchActionValidChecker &)> action,
+    NearlinkSwitchEvent switchEvent, int32_t loadSaTimeoutMs)
 {
     uint32_t actionGen = 0;
     {
@@ -147,24 +148,48 @@ NlErrCode NearlinkSwitchModule::ProcessNearlinkSwitchAction(
         }
 
         actionGen = ++actionGeneration_;
-        ffrt::task_attr taskAttr;
-        taskAttr.name("nl_switch").delay(taskTimeout_);
-        taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this(), actionGen]() -> void {
-            auto switchSptr = switchWptr.lock();
-            if (switchSptr == nullptr) {
-                HILOGE("switchSptr is nullptr");
-                return;
-            }
-            switchSptr->OnTaskTimeout(actionGen);
-        }, taskAttr);
+        // 动作执行期窗口 = SA 加载等待窗口 + 动作自身窗口，避免合法加载等待被误判超时；
+        // 动作返回（下发完成）后重挂为固定的动作自身窗口，见下方重挂逻辑
+        uint64_t actionTimeout = taskTimeout_;
+        if (loadSaTimeoutMs >= 0) {
+            int32_t loadTimeoutMs = loadSaTimeoutMs > 0 ? loadSaTimeoutMs : DEFAULT_SA_LOAD_TIMEOUT_MS;
+            actionTimeout += static_cast<uint64_t>(loadTimeoutMs) * 1000;
+        }
+        RearmTaskTimeout(actionGen, actionTimeout);
 
         isNlSwitchProcessing_ = true;
     }
 
-    NlErrCode ret = action();
+    // 在途代次校验器：动作在下发服务操作前复核，避免被超时判死或被新动作取代的旧动作落到设备侧
+    auto isActionValid = [this, actionGen]() -> bool {
+        std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+        return actionGen == actionGeneration_;
+    };
+    NlErrCode ret = action(isActionValid);
 
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
+    // 动作已返回（操作已下发/失败）：仍在途时重挂为固定的动作自身窗口，
+    // 使"等待状态变化"阶段恢复固定判定，不再继承未用完的 SA 加载窗口
+    if (ret == NL_NO_ERROR && actionGen == actionGeneration_) {
+        RearmTaskTimeout(actionGen, taskTimeout_);
+    }
     return FinishSwitchAction(switchEvent, actionGen, ret);
+}
+
+void NearlinkSwitchModule::RearmTaskTimeout(uint32_t actionGen, uint64_t delayUs)
+{
+    // 调用方须持有 nearlinkSwitchEventMutex_ 锁
+    ffrtQueue_.cancel(taskTimeoutHandle_);
+    ffrt::task_attr taskAttr;
+    taskAttr.name("nl_switch").delay(delayUs);
+    taskTimeoutHandle_ = ffrtQueue_.submit_h([switchWptr = weak_from_this(), actionGen]() -> void {
+        auto switchSptr = switchWptr.lock();
+        if (switchSptr == nullptr) {
+            HILOGE("switchSptr is nullptr");
+            return;
+        }
+        switchSptr->OnTaskTimeout(actionGen);
+    }, taskAttr);
 }
 
 NlErrCode NearlinkSwitchModule::FinishSwitchAction(
@@ -198,16 +223,17 @@ NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkEvent(
     const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
     return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), autoConnPolicy,
-        loadSaTimeoutMs]() -> NlErrCode {
+        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &isActionValid) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy, loadSaTimeoutMs);
-        }, NearlinkSwitchEvent::ENABLE_NEARLINK);
+            return switchSptr->switchAction_->EnableNearlink(autoConnPolicy, loadSaTimeoutMs, isActionValid);
+        }, NearlinkSwitchEvent::ENABLE_NEARLINK, loadSaTimeoutMs);
 }
 
 NlErrCode NearlinkSwitchModule::ProcessDisableNearlinkEvent()
 {
-    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this()]() -> NlErrCode {
+    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this()](
+        const NearlinkSwitchActionValidChecker &) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
             return switchSptr->switchAction_->DisableNearlink();
@@ -216,16 +242,18 @@ NlErrCode NearlinkSwitchModule::ProcessDisableNearlinkEvent()
 
 NlErrCode NearlinkSwitchModule::ProcessEnableNearlinkToHalfEvent(int32_t loadSaTimeoutMs)
 {
-    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), loadSaTimeoutMs]() -> NlErrCode {
+    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(),
+        loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &isActionValid) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
-            return switchSptr->switchAction_->EnableNearlinkToHalf(loadSaTimeoutMs);
-        }, NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+            return switchSptr->switchAction_->EnableNearlinkToHalf(loadSaTimeoutMs, isActionValid);
+        }, NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF, loadSaTimeoutMs);
 }
 
 NlErrCode NearlinkSwitchModule::ProcessDisableNearlinkToOffEvent()
 {
-    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this()]() -> NlErrCode {
+    return ProcessNearlinkSwitchAction([switchWptr = weak_from_this()](
+        const NearlinkSwitchActionValidChecker &) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
             NL_CHECK_RETURN_RET(switchSptr != nullptr, NL_ERR_INTERNAL_ERROR, "switchSptr is nullptr");
             return switchSptr->switchAction_->DisableNearlinkToOff();
