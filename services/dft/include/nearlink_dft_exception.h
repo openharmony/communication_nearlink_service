@@ -47,6 +47,10 @@
 #define DFT_DISCONN_PROFILECONNTIMEOUT "profile conn timeout."
 #define DFT_DISCONN_DISCONNALLPROFILES "disconn all profiles."
 #define DFT_DISCONN_NOAVAILABLEPROFILE "no available profile"
+#define DFT_DISCONN_SILENTTRANSFER "silent transfer disconn all profiles."
+#define DFT_DISCONN_CLICKDISCONN "user click disconnect."
+#define DFT_DISCONN_CLICKUNPAIR "user click unpair."
+#define DFT_DISCONN_CONNTIMEOUT "link conn timeout."
 
 // DFT PAIR MSG
 #define PAIR_SSAP_TIMEOUT "SleAdapterProfConnInst Timeout!"
@@ -121,6 +125,7 @@ typedef enum DftDisconnScene :int {
     DISCONN_CLICK_DISCONN,
     DISCONN_CLICK_UNPAIR,
     DISCONN_CLICK_SWITCH,
+    DISCONN_SILENT_TRANSFER,
     DISCONN_EXCEP = 100,
 } DftDisconnScene;
 

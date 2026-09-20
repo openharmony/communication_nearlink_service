@@ -1627,7 +1627,9 @@ NlErrCode NearlinkHostServer::DisconnectAllowedProfiles(const std::string &addre
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
-    sleService->DisconnectAllProfile(addr);
+    if (sleService->DisconnectAllProfile(addr)) {
+        DftCacheDisconnInfoMsg(addr.GetAddress(), DFT_DISCONN_CLICKDISCONN, DISCONN_CLICK_SWITCH);
+    }
     return NL_NO_ERROR;
 }
 
