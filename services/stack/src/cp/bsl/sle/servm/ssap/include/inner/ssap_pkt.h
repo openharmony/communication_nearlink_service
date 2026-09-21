@@ -26,6 +26,7 @@ extern "C" {
 #define SSAP_EXCHANGE_INFO_PKT_LEN 6        // 信息交换报文长度
 #define SSAP_STACK_MTU_DEFAULT 251          // 星闪服务MTU缺省值
 #define SSAP_STACK_MTU_MAX 1024             // 星闪服务MTU最大值
+#define SSAP_REASSEM_MAX_SIZE (32 * 1024)   // 分包重组后报文最大长度
 #define SSAP_EXCHANGE_VERSION SSAP_VERSION_1_3 // 星闪服务Version号
 #define SSAP_PDU_BASE_LEN 2                 // msgCode+ctl长度
 #define SSAP_HANDLE_LEN sizeof(uint16_t)
@@ -33,6 +34,7 @@ extern "C" {
 // 服务发现报文相关
 // 信息指示，用于mix返回
 #define SSAP_FIND_INFO_INDICATION_LEN sizeof(uint8_t)
+#define SSAP_FIND_INDICATOR_COUNT_MAX 127         // 指示头count字段为7bit，单类型项数上限
 
 #define SSAP_FIND_PRIMARY_SERVICE_MEMBER_LEN sizeof(uint8_t)
 #define SSAP_FIND_PRIMARY_SERVICE_BASE_LEN (SSAP_HANDLE_LEN + SSAP_HANDLE_LEN + SSAP_FIND_PRIMARY_SERVICE_MEMBER_LEN)
@@ -78,6 +80,7 @@ extern "C" {
 
 #define SSAP_READ_RSP_DATA_OFFSET SSAP_PDU_BASE_LEN
 #define SSAP_READ_BY_UUID_RSP_DATA_OFFSET (SSAP_PDU_BASE_LEN + SSAP_HANDLE_LEN)
+#define SSAP_READ_RSP_ITEM_LEN_MAX 32767    // 读响应条目length字段为15bit，单条目值最大长度
 #define SSAP_INDICATION_LEN sizeof(uint16_t)    // 数据指示长度
 #define SSAP_READ_BY_UUID_RSP_MULTI_CONTROL 4   // 通过uuid读取响应报文多实例控制校验
 #define SSAP_READ_BY_UUID_RSP_ERR_CONTROL 8     // 通过uuid读取响应报文错误控制校验
@@ -156,6 +159,10 @@ typedef enum SSAP_Version {
 #define SSAP_CTRL_FRAG_MID 0b01     // 中间数据包
 #define SSAP_CTRL_FRAG_END 0b10     // 结束数据包
 #define SSAP_CTRL_NO_FRAG 0b11      // 单个完整数据包
+
+#define SSAP_CTRL_FRAG_MASK 0x03            // ctrl中fragment字段掩码（低2bit）
+#define SSAP_CTRL_WRITE_OPER_SHIFT 3              // ctrl中oper字段起始bit位
+#define SSAP_CTRL_WRITE_OPER_MASK (0x03 << SSAP_CTRL_WRITE_OPER_SHIFT)  // ctrl中oper字段掩码
 
 #define SSAP_CTRL_WRITE_SUCCESS 0b00 // 写入成功
 #define SSAP_CTRL_WRITE_PART 0b01    // 部分写入

@@ -185,6 +185,41 @@ static void AddTestServiceWithProperties()
     }
 }
 
+// 注册含2个30B大值属性的标准服务：用于多值响应超MTU且对端不支持分包场景
+static void AddServiceWithBigProperties()
+{
+    SSAP_ParamAddService_S *serviceParam = (SSAP_ParamAddService_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddService_S));
+    serviceParam->serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    (void)memcpy_s(&serviceParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid1, sizeof(NLSTK_SsapUuid_S));
+    SSAP_CacheService(serviceParam);
+    SDF_MemFree(serviceParam);
+    for (uint8_t i = 0; i < 2; i++) {
+        SSAP_ParamAddProperty_S *propertyParam =
+            (SSAP_ParamAddProperty_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddProperty_S) + 30);
+        if (i == 0) {
+            (void)memcpy_s(&propertyParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2, sizeof(NLSTK_SsapUuid_S));
+            (void)memset_s(propertyParam->val.value, 30, 0xAA, 30);
+        } else {
+            (void)memcpy_s(&propertyParam->uuid, sizeof(NLSTK_SsapUuid_S), &g_uuidProp1, sizeof(NLSTK_SsapUuid_S));
+            (void)memset_s(propertyParam->val.value, 30, 0xBB, 30);
+        }
+        propertyParam->val.len = 30;
+        propertyParam->operation.operationValue =
+            SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE;
+        SSAP_CacheProperty(propertyParam);
+        SDF_MemFree(propertyParam);
+    }
+    SSAP_StartService(NULL);
+    SDF_Vector_S *services = SSAPS_GetServices();
+    if (services != NULL && services->size > 0) {
+        SSAP_Service_S *service = (SSAP_Service_S *)SDF_VectorElementAt(services, services->size - 1);
+        if (service != NULL && service->properties != NULL && service->properties->size >= 2) {
+            g_propertyHandle1 = ((SSAP_Property_S *)SDF_VectorElementAt(service->properties, 0))->handle;
+            g_propertyHandle2 = ((SSAP_Property_S *)SDF_VectorElementAt(service->properties, 1))->handle;
+        }
+    }
+}
+
 /*
  * @brief 添加第二个测试服务
  *
@@ -386,7 +421,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, ADD_SERVICE)
  * 2. 创建SSAP链路
  * 3. 发送单句柄读请求: opcode=0x08
  *    - 字节[0]: 0x08 = SSAP_READ_REQ
- *    - 字节[1]: 0x02 = 数据长度(2字节: handle+type)
+ *    - 字节[1]: 0x03 = ctrl.fragment=NO_FRAG(0b11)，单包非分片
  *    - 字节[2-3]: handle (动态分配)
  *    - 字节[4]: 0x00 = 操作类型(读数据值)
  * 4. 验证响应已发送、响应长度足够、multi标志为单值(0)
@@ -402,7 +437,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, SINGLE_HANDLE_READ_SUCCESS)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[] = {0x08, 0x02, 0x00, 0x01, 0x00};
+    uint8_t req[] = {0x08, 0x03, 0x00, 0x01, 0x00};
     Test_SSAP_RecvReq(req, sizeof(req));
 
     EXPECT_TRUE(isSendRsp);
@@ -621,6 +656,78 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_HANDLE_WRITE_WITH_ERRORS)
     DeleteLink();
 }
 
+// 多值读响应超MTU且对端不支持分包：不做部分返回，READ_RSP携带单个不支持分包错误项
+TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_HANDLE_READ_OVER_MTU_NO_FRAG)
+{
+    CP_LOG_INFO("[UT_SSAP_MULTI_READ_WRITE] enter MULTI_HANDLE_READ_OVER_MTU_NO_FRAG");
+    AddServiceWithBigProperties();
+    SSAP_Link *link = CreateLink();
+    link->mtu = 40;
+    link->fragCtx.fragment = false;  // 对端不支持分包
+
+    uint8_t req[] = {
+        0x08,             // opcode = SSAP_READ_REQ
+        0x03,             // ctrl.fragment = 0b11 (不分片)
+        0x00, 0x00, 0x00, // handle1 placeholder, type=0x00
+        0x00, 0x00, 0x00  // handle2 placeholder, type=0x00
+    };
+    (void)memcpy_s(&req[2], sizeof(uint16_t), &g_propertyHandle1, sizeof(uint16_t));
+    (void)memcpy_s(&req[5], sizeof(uint16_t), &g_propertyHandle2, sizeof(uint16_t));
+    Test_SSAP_RecvReq(req, sizeof(req));
+
+    // 响应 = 头2B + 单个SERVER_FRAG错误项{length=SERVER_FRAG, success=0} = 4B
+    EXPECT_TRUE(isSendRsp);
+    EXPECT_EQ(g_buffLen, 4u);
+    EXPECT_EQ(g_buffCache[0], SSAP_READ_RSP);
+    EXPECT_EQ(g_buffCache[1], 0x0F);  // fragment=NO_FRAG(0x03) + multi(0x04) + error(0x08)
+    EXPECT_EQ(g_buffCache[2], SSAP_ERRCODE_SERVER_FRAG);
+    EXPECT_FALSE(g_buffCache[3] & 0x80);
+    DeleteLink();
+}
+
+// 多值写verify回显超MTU且对端不支持分包：不做部分回显，WRITE_RSP携带单个不支持分包错误项
+TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_ORIGIN_OVER_MTU_NO_FRAG)
+{
+    CP_LOG_INFO("[UT_SSAP_MULTI_READ_WRITE] enter MULTI_WRITE_ORIGIN_OVER_MTU_NO_FRAG");
+    AddServiceWithBigProperties();
+    SSAP_Link *link = CreateLink();
+    link->mtu = 40;
+    link->fragCtx.fragment = false;  // 对端不支持分包
+
+    uint8_t value1[25];
+    uint8_t value2[25];
+    (void)memset_s(value1, sizeof(value1), 0x01, sizeof(value1));
+    (void)memset_s(value2, sizeof(value2), 0x02, sizeof(value2));
+    // 报文 = 头2B + 2×{handle2B + subItemCount1B + {type1B+len2B+value25B}} = 64B
+    uint8_t req[2 + 2 * (2 + 1 + 3 + 25)] = {0};
+    req[0] = 0x0D;
+    req[1] = 0x27;  // fragment=0b11, multi=1, oper=0, verify=1
+    uint32_t off = 2;
+    for (uint8_t i = 0; i < 2; i++) {
+        (void)memcpy_s(&req[off], sizeof(uint16_t), i == 0 ? &g_propertyHandle1 : &g_propertyHandle2,
+            sizeof(uint16_t));
+        off += 2;
+        req[off++] = 1;         // subItemCount
+        req[off++] = 0;         // type=0x00(DATA)
+        req[off++] = 25;        // len低字节
+        req[off++] = 0;         // len高字节
+        (void)memcpy_s(&req[off], 25, i == 0 ? value1 : value2, 25);
+        off += 25;
+    }
+    Test_SSAP_RecvReq(req, sizeof(req));
+
+    // 响应 = 头2B + errorInfo{errorNum=1, errList{handle1(2B), SERVER_FRAG(1B)}} = 6B
+    EXPECT_TRUE(isSendRsp);
+    EXPECT_EQ(g_buffLen, 6u);
+    EXPECT_EQ(g_buffCache[0], SSAP_WRITE_RSP);
+    EXPECT_EQ(g_buffCache[1], 0x07);  // fragment=NO_FRAG(0x03) + result=PART(0x04)
+    EXPECT_EQ(g_buffCache[2], 1u);  // errorNum
+    // errList[0] = {handle1, SERVER_FRAG}
+    EXPECT_EQ(memcmp(&g_buffCache[3], &g_propertyHandle1, sizeof(uint16_t)), 0);
+    EXPECT_EQ(g_buffCache[5], SSAP_ERRCODE_SERVER_FRAG);
+    DeleteLink();
+}
+
 /*
  * @brief 测试用例: MULTI_WRITE_RETURN_ORIGIN - 多值写入返回原始句柄
  *
@@ -677,7 +784,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_RETURN_ORIGIN)
  * 测试流程:
  * 1. 注册测试服务和属性
  * 2. 创建SSAP链路
- * 3. 发送过短的写请求: opcode=0x0D, ctrl=0x04(multi), 但无子项数据
+ * 3. 发送过短的写请求: opcode=0x0D, ctrl=0x03(no_frag), 但无子项数据
  *    - 仅发送opcode和ctrl，没有子项数据
  * 4. 验证返回错误响应
  *
@@ -693,7 +800,7 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_WRITE_INVALID_PDU_TOO_SHORT)
     AddTestServiceWithProperties();
     (void)CreateLink();
 
-    uint8_t req[] = {0x0D, 0x04};
+    uint8_t req[] = {0x0D, 0x03};
     Test_SSAP_RecvReq(req, sizeof(req));
 
     uint8_t errRsp[] = {0x01, 0x00, 0x0D, 0x00, 0x00, 0x01};
@@ -1383,47 +1490,6 @@ TEST_F(UT_SSAP_MULTI_READ_WRITE, MULTI_READ_THREE_HANDLES_SUCCESS)
 
     EXPECT_TRUE(isSendRsp);
     EXPECT_TRUE(Test_SSAP_CheckMultiFlag(SSAP_CTRL_MULTI_MULTI));
-
-    DeleteLink();
-}
-
-/*
- * @brief 测试用例: WRITE_REQ_CTRL_FRAGMENT_NOT_SUPPORTED - 写请求不支持分片
- *
- * 测试当写请求ctrl.fragment包含分片标志(非0b11)时的错误处理
- *
- * 测试流程:
- * 1. 注册测试服务和属性
- * 2. 创建SSAP链路
- * 3. 发送带分片标志的写请求: opcode=0x0D, ctrl=0x00
- *    - ctrl=0x00: fragment=0b00(分片), multi=0, oper=0b00(WRITE_INSTANT), verify=0
- *    - SSAP服务器不支持分片，fragment必须为0b11(0x03)
- *    - oper=0b00满足WRITE_INSTANT检查，但fragment检查失败
- * 4. 验证返回WRITE_RSP错误响应
- *
- * 验证点:
- * - 响应内容匹配预期错误包: {0x0E, 0x07, 0x01, 0x00, 0x00, 0x10}
- *   - 0x0E: SSAP_WRITE_RSP opcode
- *   - 0x07: ctrl (fragment=0b11, multi=1, error=1)
- *   - 0x01: errorCount
- *   - 0x00, 0x00: handle (句柄不足时空为0)
- *   - 0x10: SSAP_ERRCODE_SERVER_FRAG (服务端不支持分片)
- */
-TEST_F(UT_SSAP_MULTI_READ_WRITE, WRITE_REQ_CTRL_FRAGMENT_NOT_SUPPORTED)
-{
-    CP_LOG_INFO("[UT_SSAP_MULTI_READ_WRITE] enter WRITE_REQ_CTRL_FRAGMENT_NOT_SUPPORTED");
-    AddTestServiceWithProperties();
-    (void)CreateLink();
-
-    uint8_t req[] = {
-        0x0D,
-        0x00,
-        0x02, 0x00, 0x00, 0xAA, 0xBB
-    };
-    Test_SSAP_RecvReq(req, sizeof(req));
-
-    uint8_t errRsp[] = {0x0E, 0x07, 0x01, 0x00, 0x00, 0x10};
-    EXPECT_TRUE(Test_SSAP_CompareLastSendPkt(errRsp, sizeof(errRsp)));
 
     DeleteLink();
 }

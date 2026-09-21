@@ -123,7 +123,7 @@ void HadmClientService::impl::SleConnectionUpdateCallback::OnConnectionUpdate(
             static_cast<SleInterfaceAdapterSub*>(SleInterfaceManager::GetInstance()->GetAdapter(ADAPTER_SLE));
         NL_CHECK_RETURN(sleAdapter, "sleAdapter is NULL.");
         std::string addr = SleRemoteDeviceAdapter::GetInstance()->GetAddressByLcid(connHandle);
-        uint32_t interval = maxLatency == 0 ? minInterval : maxLatency * minInterval;
+        uint32_t interval = maxLatency == 0 ? minInterval : static_cast<uint32_t>(maxLatency) * minInterval;
         if (interval < MIN_CONNECTION_INTERVAL_LIMIT) {
             self_.connectionInterval_.EnsureInsert(addr, minInterval);
             HILOGI("sle hadm high duty cycle task :%{public}s, interval:0x%{public}x, size:%{public}d",

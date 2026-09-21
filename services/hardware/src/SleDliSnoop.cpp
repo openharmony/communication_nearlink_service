@@ -24,6 +24,7 @@
 #include <iostream>
 #include <chrono>
 #include <sstream>
+#include <cinttypes>
 #include <dirent.h>
 #include "parameters.h"
 #include "parameter.h"
@@ -45,7 +46,8 @@ namespace {
     constexpr uint32_t COMMERCIAL_VERSION_SIZE = 10;
     const std::string SNOOP_BASE_PATH = "/data/log/nearlink/";
     constexpr uint32_t MAX_SNOOP_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    constexpr uint32_t MAX_SNOOP_FILES_TOTAL_SIZE = 90 * 1024 * 1024; // 90MB（总文件大小限制防止超过100MB）
+    constexpr uint32_t MAX_SNOOP_FILES_TOTAL_SIZE_COMMERCIAL = 30 * 1024 * 1024; // 30MB（商用版本总文件大小限制）
+    constexpr uint32_t MAX_SNOOP_FILES_TOTAL_SIZE_NON_COMMERCIAL = 90 * 1024 * 1024; // 90MB（非商用版本总文件大小限制）
     constexpr uint32_t MAX_TOTAL_SNOOP_FILES = 100;
     constexpr size_t MAX_SNOOP_DATA_LEN = UINT16_MAX;
     constexpr size_t MAX_SNOOP_LOG_LEN = 200; // 单条日志能显示的码流最大长度（字节）
@@ -176,8 +178,9 @@ void SleDliSnoop::SnoopStartUp()
     bool isCommercialVersion = IsVendorCommercialVersion();
     isCommercialVersion_.store(isCommercialVersion);
     if (isCommercialVersion) {
-        HILOGW("Commercial Version, dli snoop data will be anonymized");
-        WatchRemoteLogChange(); // 监听远程诊断开关变化，运行期撤销例外时切回匿名化并清理已落盘文件
+        // 商用版本：默认不落盘；定制化场景开启时匿名化落盘，撤销定制化（远程诊断关）时停止落盘并清理
+        HILOGW("Commercial Version, dli snoop disabled by default, customized scenario logs anonymized");
+        WatchRemoteLogChange(); // 监听远程诊断开关变化
     }
 
     DoInSnoopThread([this]() -> void {
@@ -299,6 +302,10 @@ void SleDliSnoop::CreateSnoopFile(bool isNewTimeNeeded)
 {
     HILOGI("enter");
     DoInSnoopThread([this, isNewTimeNeeded]() -> void {
+        if (!isLogging_.load()) {
+            // 队列内复查：与SnoopStartUpTask同队列串行，消除调用线程时序竞态；商用无定制化时拦截建文件
+            return;
+        }
         CreateSnoopFileTask(isNewTimeNeeded);
     });
 }
@@ -347,7 +354,7 @@ void SleDliSnoop::OpenSnoopFile()
     if (logFileFd_ < 0) {
         HILOGE("unable to open '%{public}s', err:%{public}s", snoopLogfilePath_.c_str(), strerror(errno));
         logFileFd_ = INVALID_FD;
-        isLogging_ = false;
+        isLogging_.store(false);
         umask(prevmask);
         return;
     }
@@ -358,41 +365,47 @@ void SleDliSnoop::OpenSnoopFile()
 void SleDliSnoop::UpdateLogging()
 {
     HILOGI("enter");
-
-    bool shouldLog = isModuleStarted_;
-    bool shouldAnonymize = IsSnoopAnonymizationEnabled();
-    if (shouldLog && shouldAnonymize) {
+    bool isCommercial = isCommercialVersion_.load();
+    // 定制化开关仅在商用版本下生效：非商用完整落盘无需评估定制化，&&短路跳过系统参数查询
+    bool isCustomizedOn = isCommercial && IsSnoopCustomizationEnabled();
+    // 商用版本默认不落盘，定制化场景（开发者选项/远程诊断/花粉版本任一开启）开启时匿名化落盘；
+    // 非商用工程调试版本完整落盘，永不匿名化（匿名化由捕获任务直读版本标志判定，无独立开关）
+    bool shouldLog = isModuleStarted_ && (!isCommercial || isCustomizedOn);
+    // 商用且无定制化：目录中不残留任何snoop文件（每次评估收敛运行期撤销与上周期/停机遗留）
+    if (isCommercial && !isCustomizedOn) {
         UpdateFilesQueue();
-        if (!files_.empty()) {
-            HILOGI("files_ size(%{public}zu)", files_.size());
+        if (!files_.empty()) { // 空目录静默跳过，避免0入参触发RemoveSnoopFiles的非法入参校验日志
             RemoveSnoopFiles(static_cast<uint32_t>(files_.size()));
         }
     }
-    isAnonymized_.store(shouldAnonymize);
-    if (shouldLog == isLogging_) {
-        return;
+    if (shouldLog == isLogging_.load()) {
+        return; // 落盘状态未变化，无需翻转
     }
-    isLogging_ = shouldLog;
-    if (!shouldLog) {
-        HILOGI("should not log");
+    if (shouldLog) {
+        HILOGI("enable snoop logging");
+        UpdateFilesQueue();
+        CheckAndRemoveFiles();
+    } else {
+        HILOGI("disable snoop logging");
         if (logFileFd_ != INVALID_FD) {
             HILOGI("close file");
             fdsan_close_with_tag(logFileFd_, NEARLINK_FDSAN_TAG_SNOOP);
             logFileFd_ = INVALID_FD;
         }
-        return;
     }
-
-    UpdateFilesQueue();
-    CheckAndRemoveFiles();
+    isLogging_.store(shouldLog);
 }
 
 void SleDliSnoop::CheckAndRemoveFiles()
 {
-    HILOGI("files_ size(%{public}zu)), totalFilesSize_(%{public}lu)", files_.size(), totalFilesSize_);
-    while (totalFilesSize_ > MAX_SNOOP_FILES_TOTAL_SIZE || files_.size() > MAX_TOTAL_SNOOP_FILES) {
+    // 总文件大小限制：商用30MB，非商用90MB
+    uint32_t maxTotalSize = isCommercialVersion_.load() ?
+        MAX_SNOOP_FILES_TOTAL_SIZE_COMMERCIAL : MAX_SNOOP_FILES_TOTAL_SIZE_NON_COMMERCIAL;
+    HILOGI("files_ size(%{public}zu), totalFilesSize_(%{public}" PRIu64 "), maxTotalSize(%{public}u)",
+        files_.size(), totalFilesSize_, maxTotalSize);
+    while (totalFilesSize_ > maxTotalSize || files_.size() > MAX_TOTAL_SNOOP_FILES) {
         if (files_.size() == 0) {
-            HILOGE("files_ is empty, totalFilesSize_(%{public}lu)", totalFilesSize_);
+            HILOGE("files_ is empty, totalFilesSize_(%{public}" PRIu64 ")", totalFilesSize_);
             break;
         }
         RemoveSnoopFiles(FILES_NUM_TO_DELETE);
@@ -425,11 +438,15 @@ void SleDliSnoop::DliSnoopCapture(uint32_t packetType, const std::vector<uint8_t
 void SleDliSnoop::DliSnoopCaptureTask(std::vector<uint8_t> &buffer, bool isReceived)
 {
     HILOGD("enter");
+    // 出队复查：投递后到执行前可能已撤销定制化（文件已随清理删除），防止在途任务经CheckFileExist重建
+    if (!isLogging_.load()) {
+        return;
+    }
     size_t buffLen = buffer.size();
     NL_CHECK_RETURN(buffLen > 0 && buffLen <= MAX_SNOOP_DATA_LEN, "invalid buffer length: %{public}zu", buffLen);
     NL_CHECK_RETURN(AssignSnoopHeader(buffer, isReceived), "AssignSnoopHeader failed");
-    // 商用版本且匿名化模式开启（例外场景关）时落盘前匿名化，仅保留指令标识；非商用版本永不匿名化
-    if (isCommercialVersion_.load() && isAnonymized_.load()) {
+    // 商用版本（含定制化场景）落盘前匿名化，仅保留指令标识；非商用版本永不匿名化（完整落盘）
+    if (isCommercialVersion_.load()) {
         AnonymizeSnoopData(buffer);
     }
     SnoopWriteLogHexStr(buffer);
@@ -568,18 +585,16 @@ extern "C" void SleDliSnoopRegisterSensitiveOpcodes(const uint16_t *cmdOpcodes, 
     SleDliSnoop::GetInstance().RegisterSensitiveOpcodes(cmdOpcodes, cmdNum, evtOpcodes, evtNum);
 }
 
-bool SleDliSnoop::IsSnoopAnonymizationEnabled()
+bool SleDliSnoop::IsSnoopCustomizationEnabled()
 {
-    if (!isCommercialVersion_.load()) {
-        return false; // 非商用版本不进行匿名化，完整落盘
-    }
-    // 商用版本：开发者选项开关、远程诊断开关、花粉版本任一开启属于例外场景，不匿名化（完整落盘）
+    // 定制化场景：开发者选项/远程诊断/花粉版本任一开启；dev/fans为只读或运行期少变参数，仅使能评估时生效，
+    // 运行期变化仅远程诊断开关经watch感知
     bool isDeveloperModeOn = OHOS::system::GetBoolParameter(DEVELOPER_MODE_KEY, false);
     bool isRemoteLogOn = OHOS::system::GetBoolParameter(REMOTE_LOG_KEY, false);
     bool isFansStateOn = OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
     HILOGI("isDeveloperModeOn: %{public}d, isRemoteLogOn: %{public}d, isFansStateOn: %{public}d",
         isDeveloperModeOn, isRemoteLogOn, isFansStateOn);
-    return !(isDeveloperModeOn || isRemoteLogOn || isFansStateOn);
+    return isDeveloperModeOn || isRemoteLogOn || isFansStateOn;
 }
 
 void SleDliSnoop::WatchRemoteLogChange()
@@ -590,8 +605,8 @@ void SleDliSnoop::WatchRemoteLogChange()
     }
     int ret = WatchParameter(REMOTE_LOG_KEY.c_str(), OnRemoteLogChange, this);
     if (ret != 0) {
-        // 注册失败后例外撤销（远程诊断关）不可感知，完整落盘将延续到下次SnoopStartUp重试成功
-        // 启动评估本身仍保守（isAnonymized_初值true），风险仅在运行期"先开后关"路径
+        // 注册失败后定制化撤销（远程诊断关）不可感知，落盘将延续到下次SnoopStartUp重试成功
+        // 启动评估本身保守（商用无定制化时不落盘），风险仅在"先开后关"路径且落盘内容为匿名化数据
         HILOGE("WatchParameter failed, ret: %{public}d", ret);
         return;
     }
@@ -622,7 +637,7 @@ void SleDliSnoop::OnRemoteLogChange(const char *key, const char *value, void *co
         return;
     }
     instance->DoInSnoopThread([instance]() -> void {
-        instance->UpdateLogging(); // 远程诊断开关变化后在snoop线程重估匿名化模式
+        instance->UpdateLogging(); // 远程诊断开关变化后在snoop线程重估定制化与落盘开关
     });
 }
 

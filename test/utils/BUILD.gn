@@ -13,11 +13,31 @@
 
 import("../../nearlink_config.gni")
 import("test_utils.gni")
+import("service_tdd.gni")
 
 config("test_utils_config") {
   include_dirs = [
     "${nearlink_test_utils_path}",
   ]
+}
+
+# Service 层源码直接编译所需的 include 与宏（配套 test/utils/service_tdd.gni）。
+# cflags 镜像 services/service/BUILD.gn 中 service_cflags 的告警配置子集，
+# 避免 impl 源码在测试目标下因 -Werror 告警升级为编译错误。
+config("service_tdd_config") {
+  include_dirs = shared_service_include_dirs
+  defines = shared_service_defines
+
+  cflags = [
+    "-Wno-format",
+    "-Wno-pessimizing-move",
+    "-Wno-unused-parameter",
+    "-Wno-non-c-typedef-for-linkage",
+    "-Wno-unused-but-set-variable",
+    "-Wno-array-parameter",
+    "-Wno-unused-lambda-capture",
+  ]
+  cflags_cc = cflags
 }
 
 # Only used for test

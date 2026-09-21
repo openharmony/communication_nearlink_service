@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
+import("../../../../../test/utils/service_tdd.gni")
 import("../../../../../test/utils/test_utils.gni")
 
 config("nl_tws_service_unit_test_config") {
@@ -62,7 +63,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
   "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "$NEARLINK_ROOT/services/stack:nearlink_stack",
   "$NEARLINK_ROOT/services/stack/src/sdf:nearlink_stack_sdf",
   "$NEARLINK_ROOT/services/dft:nearlink_dft_manager",
@@ -105,11 +105,16 @@ ohos_unittest("nl_tws_test") {
 
   configs = [ ":nl_tws_service_unit_test_config" ]
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
+  configs += ["${nearlink_test_utils_path}:service_tdd_config"]
+  sources += shared_service_source
 
   deps = unit_test_deps
 
   external_deps = unit_test_external_deps
   external_deps += [ "ffrt:libffrt" ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

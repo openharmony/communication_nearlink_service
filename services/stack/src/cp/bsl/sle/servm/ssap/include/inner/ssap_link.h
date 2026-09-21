@@ -28,6 +28,7 @@ extern "C" {
 
 #define SSAP_TIMER_NO_USED_HANDLE (-1)
 #define SSAP_TIMEOUT_TIME 30000   // msec
+#define SSAP_REASSEM_TIMEOUT 10000   // 分片接收超时时间，msec
 
 typedef struct SSAP_Link SSAP_Link_S;
 
@@ -74,19 +75,29 @@ typedef enum SSAP_LinkStatus {
 } SSAP_LinkStatus_E;
 
 /**
+ * @brief  SSAP分包上下文：分包能力协商结果与分片接收重组状态
+ */
+typedef struct SSAP_FragCtx {
+    bool fragment;                      // 对端是否支持分包
+    bool reassemComplete;               // 正在处理组包完成的完整报文（组包完成回调期间有效）
+    SDF_Buff_S *reassemBuff;            // 分包接收重组缓冲区
+    uint8_t reassemOp;                  // 重组报文的opcode，用于分片一致性校验
+    int reassemTimerHandle;             // 分包接收重组超时定时器
+} SSAP_FragCtx_S;
+
+/**
  * @brief  SSAP链路实体，控制报文处理
  */
 struct SSAP_Link {
     SDF_DListHead_S paramList;          // 有回复信令缓存列表，节点SSAP_ParamNode_S
     SSAP_Task_S curTask;                // 当前执行的任务
     uint8_t status;                     // 任务状态，对应SSAP_LinkStatus_E
-    bool hasInitReqTask;                // 是否是初始任务，初始的find任务不需要处理rsp
     SLE_Addr_S addr;                    // 对端地址
     SendCb sendFunc;                    // 发包钩子
     uint16_t lcid;                      // 链路id
     uint16_t mtu;                       // ssap mtu
     uint16_t version;                   // 对端星闪version
-    bool fragment;                      // 对端是否支持分包，预留
+    SSAP_FragCtx_S fragCtx;             // 分包上下文：能力协商与分片接收重组状态
     bool multiProcessing;               // 对端是否支持多值处理
     int timerHandle;
 };
@@ -94,8 +105,6 @@ struct SSAP_Link {
 uint32_t SSAP_LinkInit(void);
 
 void SSAP_LinkDeInit(void);
-
-SSAP_Link_S *SSAP_CreateSsapLinkWithInitReq(SLE_Addr_S *addr, uint16_t lcid, SendCb sendFunc, bool hasInitReqTask);
 
 SSAP_Link_S *SSAP_CreateSsapLink(SLE_Addr_S *addr, uint16_t lcid, SendCb sendFunc);
 
@@ -130,6 +139,10 @@ SDF_DListHead_S *SSAP_GetSsapLinkList(void);
 bool SSAP_StartTimer(SSAP_Link_S *link, SDF_TimerCallback callback);
 
 void SSAP_DelTimer(SSAP_Link_S *link);
+
+bool SSAP_StartReassemTimer(SSAP_Link_S *link, SDF_TimerCallback callback);
+
+void SSAP_DelReassemTimer(SSAP_Link_S *link);
 
 void SsapTaskExecuteCallback(SSAP_Link_S *link, void *arg);
 

@@ -64,6 +64,8 @@ static EvtRegOpcodeMappingTable g_evtRegOpcodeMappingTable[] = {
 
     {DLI_SETUP_ICB_DATA_PATH, DLI_CBK_ICB_SETUP_DATA_PATH},
     {DLI_REMOVE_ICB_DATA_PATH, DLI_CBK_ICB_REMOVE_DATA_PATH},
+    {DLI_SET_PHY, DLI_CBK_SET_PHY},
+    {DLI_SET_MCS, DLI_CBK_SET_MCS},
 };
 
 #define DLI_EVT_REG_OPCODE_MAPPING_TABLE_NUM (sizeof(g_evtRegOpcodeMappingTable) / sizeof(EvtRegOpcodeMappingTable))
@@ -300,7 +302,7 @@ static void DLI_InnerCbkNodeStruFree(void *param)
     if (node == NULL) {
         return;
     }
- 
+
     SDF_MemFree((void *)node->table);
     SDF_MemFree(node);
 }
@@ -310,7 +312,7 @@ void DLI_InnerEventCbkUnReg(const DLI_InnerCbkLineStru *table, const uint32_t si
     if (table == NULL || size == 0) {
         return;
     }
- 
+
     DLI_InnerCbkNodeStru *node = (DLI_InnerCbkNodeStru *)SDF_MemZalloc(sizeof(DLI_InnerCbkNodeStru));
     if (node == NULL) {
         DLI_LOGE("malloc node failed");
@@ -325,7 +327,7 @@ void DLI_InnerEventCbkUnReg(const DLI_InnerCbkLineStru *table, const uint32_t si
     }
     (void)memcpy_s((void *)node->table, totalSize, table, totalSize);
     node->size = size;
- 
+
     (void)DLI_PostOtherThread(DLI_InnerEventCbkUnRegInner, (void *)node, DLI_InnerCbkNodeStruFree);
 }
 

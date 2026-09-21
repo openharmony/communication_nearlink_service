@@ -113,6 +113,7 @@ ServiceCommonSrc = [
   "src/common/SleHiviewUe.cpp",
   "src/common/SleCommonEventSubscriber.cpp",
   "src/common/SleSwitchDependency.cpp",
+  "src/common/SleDataShareCheckUtils.cpp",
   "src/common/SysStateMachine.cpp",
   "src/common/SleMultiScanData.cpp",
   "src/common/SleFrame4AntennaMgr.cpp",
@@ -411,6 +412,9 @@ ohos_shared_library("nearlink_service_impl") {
 
   configs = [ ":nearlink_service_config" ]
   public_configs = [ ":nearlink_service_public_config" ]
+
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_service_impl.versionscript"
 
   sources = nearlink_service_sources
   deps = nearlink_service_deps

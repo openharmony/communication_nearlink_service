@@ -190,6 +190,7 @@ shared_stack_source = [
     "$STACK_DIR/src/cp/bsl/sle/qosm/autorate/src/qosm_table_mgr.c",
     "$STACK_DIR/src/cp/bsl/sle/qosm/src/qosm.c",
     "$STACK_DIR/src/cp/bsl/sle/qosm/src/qosm_trans_channel.c",
+    "$STACK_DIR/src/cp/bsl/sle/qosm/src/qosm_trans_channel_tuning.c",
     "$STACK_DIR/src/cp/bsl/sle/qosm/autorate/src/qosm_autorate.c",
     "$STACK_DIR/src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_notify.c",
     "$STACK_DIR/src/cp/bsl/sle/qosm/autorate/src/qosm_autorate_report.c",

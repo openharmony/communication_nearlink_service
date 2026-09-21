@@ -125,7 +125,9 @@ uint8_t SSAPS_UpdatePropertyValue(SSAP_Property_S *property, uint8_t type, SSAP_
 
 SSAP_Property_S *SSAPS_GetPropertyByHandle(uint16_t handle);
 
-void SSAPS_PushOperationPenddingVector(SSAP_BufferedOperation_S *operation);
+bool SSAPS_PushOperationPenddingVector(SSAP_BufferedOperation_S *operation);
+
+void SSAPS_CleanPendingVectorByAddr(SLE_Addr_S *addr);
 
 SSAP_BufferedOperation_S *SSAPS_PopOperationPenddingVector(uint16_t requestId, size_t *index);
 

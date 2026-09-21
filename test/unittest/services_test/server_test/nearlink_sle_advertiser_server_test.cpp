@@ -541,14 +541,18 @@ HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest006, TestSize.Level2)
 HWTEST_F(NearlinkAdvertiserServerTest, AdvertiserServerTest008, TestSize.Level1)
 {
     HILOGI("AdvertiserServerTest008 start");
-    ResetAdvertiserCbTestStatus();
+    NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_ = 0;
+    sptr<INearlinkSleAdvertiseCallback> dropCb = new (std::nothrow) NearlinkSleAdvertiserIsolationCbTest();
+    ASSERT_NE(dropCb, nullptr);
+    g_advertiserServer->RegisterSleAdvertiserCallback(dropCb);
     int32_t handle = -1;
     NlErrCode res = g_advertiserServer->GetAdvertiserHandle(handle);
     EXPECT_EQ(res, NL_NO_ERROR);
     // 移除归属记录，模拟客户端退出后handle已清理的场景
     g_advertiserServer->pimpl->remoteContainer_->RemoveAdvHandle(handle);
     g_advertiserServer->pimpl->observerImp_->OnStartResultEvent(0, handle);
-    EXPECT_EQ(advertiserCbTestStatus_, static_cast<int>(AdvertiserCBTest::ADVERTISER_EVENT_TEST_MAX));
+    EXPECT_EQ(NearlinkSleAdvertiserIsolationCbTest::startResultEventCount_.load(), 0);
+    g_advertiserServer->DeregisterSleAdvertiserCallback(dropCb);
     HILOGI("AdvertiserServerTest008 end");
 }
 

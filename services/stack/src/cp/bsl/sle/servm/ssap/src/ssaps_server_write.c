@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,9 +176,15 @@ uint8_t SSAPS_UpdatePropertyValue(SSAP_Property_S *property, uint8_t type, SSAP_
 void SSAPS_SendWriteReqRsp(SSAP_Link_S *link, uint8_t errorCode, SSAP_BufferedOperation_S *operation)
 {
     SDF_Buff_S *sdfBuff = NULL;
+    uint32_t realSize = sizeof(SSAP_PduWriteRsp_S) + sizeof(SSAP_PduWriteRspItem_S) + operation->value.len;
     if (errorCode != SSAP_ERRCODE_SUCCESS) {
         sdfBuff = SSAPS_BuildWriteRspErrorPayload(errorCode, operation);
         CP_LOG_ERROR("[SSAP] write rsp error, error code: %d", errorCode);
+    } else if ((operation->controlCode & SSAP_WRITE_REQ_NEED_ORIGIN_RET) != 0 &&
+        realSize > link->mtu && !link->fragCtx.fragment) {
+        // 对端不支持分包且verify回显超MTU：报SERVER_FRAG（与READ_RSP预检一致）
+        CP_LOG_ERROR("[SSAP] write rsp origin return over mtu");
+        sdfBuff = SSAPS_BuildWriteRspErrorPayload(SSAP_ERRCODE_SERVER_FRAG, operation);
     } else {
         sdfBuff = SSAPS_BuildWriteRspPayload(errorCode, operation);
     }
@@ -186,7 +192,44 @@ void SSAPS_SendWriteReqRsp(SSAP_Link_S *link, uint8_t errorCode, SSAP_BufferedOp
         CP_LOG_ERROR("[SSAP] write rsp buff is null");
         return;
     }
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_WRITE_RSP);
+}
+
+/**
+ * @brief  发送取消写入响应：指示服务端已清空取消写入相关的所有分片
+ */
+static void SSAPS_SendWriteCancelRsp(SSAP_Link_S *link)
+{
+    SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(sizeof(SSAP_PduWriteRsp_S));
+    CP_CHECK_LOG_RETURN_VOID(sdfBuff != NULL, "[SSAP] write cancel rsp sdfBuff malloc fail");
+    uint8_t *buf = SDF_BuffAppend(sdfBuff, sizeof(SSAP_PduWriteRsp_S));
+    if (buf == NULL) {
+        SDF_BuffFree(sdfBuff);
+        CP_LOG_ERROR("[SSAP] write cancel rsp create buf fail");
+        return;
+    }
+    SSAP_PduWriteRsp_S *writeRsp = (SSAP_PduWriteRsp_S *)buf;
+    writeRsp->msgCode = SSAP_WRITE_RSP;
+    writeRsp->ctrl.fragment = SSAP_CTRL_NO_FRAG;
+    writeRsp->ctrl.result = SSAP_CTRL_WRITE_CANCEL;
+    CP_LOG_INFO("[SSAP] send write cancel rsp");
+    link->sendFunc(link, sdfBuff, SSAP_WRITE_RSP);
+}
+
+/**
+ * @brief  处理取消写入：清空已缓存的分片，WRITE_REQ场景返回取消写入结果
+ */
+static void SSAPS_HandleWriteCancel(SSAP_Link_S *link, uint8_t opcode)
+{
+    if (link->fragCtx.reassemBuff != NULL) {
+        SDF_BuffFree(link->fragCtx.reassemBuff);
+        link->fragCtx.reassemBuff = NULL;
+    }
+    SSAP_DelReassemTimer(link);  // 取消写入后一并清理重组超时定时器（重复调用幂等）
+    if (opcode == SSAP_WRITE_REQ) {
+        SSAPS_SendWriteCancelRsp(link);
+    }
 }
 
 static uint32_t SSAPS_CalcWriteResultItemSize(SSAP_WriteResultItem_S *result)
@@ -306,6 +349,29 @@ static void SSAPS_BuildMultiWriteSuccessRsp(SSAP_PduWriteRsp_S *writeRsp, SSAP_W
     }
 }
 
+// 对端不支持分包且多值写verify回显超MTU：不做部分回显，WRITE_RSP内携带单个不支持分包错误项
+static void SSAPS_SendMultiWriteNoFragErrorRsp(SSAP_Link_S *link, SSAP_WriteResultItem_S *results)
+{
+    uint32_t realSize = sizeof(SSAP_PduWriteRsp_S) + sizeof(SSAP_PduWriteRspErrorInfo_S) +
+        sizeof(SSAP_PduWriteRspErrorItem_S);
+    SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(realSize);
+    CP_CHECK_LOG_RETURN_VOID(sdfBuff != NULL, "[SSAP] multi write no frag error rsp malloc fail");
+    uint8_t *buf = SDF_BuffAppend(sdfBuff, realSize);
+    if (buf == NULL) {
+        SDF_BuffFree(sdfBuff);
+        return;
+    }
+    SSAP_PduWriteRsp_S *writeRsp = (SSAP_PduWriteRsp_S *)buf;
+    writeRsp->msgCode = SSAP_WRITE_RSP;
+    writeRsp->ctrl.fragment = SSAP_CTRL_NO_FRAG;
+    writeRsp->ctrl.result = SSAP_CTRL_WRITE_PART;
+    SSAP_PduWriteRspErrorInfo_S *errorInfo = (SSAP_PduWriteRspErrorInfo_S *)(writeRsp->items);
+    errorInfo->errorNum = SSAP_WRITE_ERROR_SINGLE_NUM;
+    errorInfo->errList[0].handle = results[0].handle;
+    errorInfo->errList[0].errorCode = SSAP_ERRCODE_SERVER_FRAG;
+    link->sendFunc(link, sdfBuff, SSAP_WRITE_RSP);
+}
+
 static void SSAPS_SendMultiWriteReqRsp(SSAP_Link_S *link, SSAP_WriteResultItem_S *results,
     uint16_t resultCount, uint8_t controlCode)
 {
@@ -318,6 +384,12 @@ static void SSAPS_SendMultiWriteReqRsp(SSAP_Link_S *link, SSAP_WriteResultItem_S
     if (realSize == 0) {
         CP_LOG_ERROR("realSize == 0");
         SSAP_PduErrorRsp(link, SSAP_WRITE_REQ, 0, SSAP_ERRCODE_INVALID_PDU);
+        return;
+    }
+    // 对端不支持分包且verify回显超MTU：WRITE_RSP携带单个SERVER_FRAG错误项，不做部分回显
+    if (needOriginReturn && realSize > link->mtu && !link->fragCtx.fragment) {
+        CP_LOG_ERROR("[SSAP] multi write rsp origin return over mtu, send SERVER_FRAG");
+        SSAPS_SendMultiWriteNoFragErrorRsp(link, results);
         return;
     }
 
@@ -341,7 +413,7 @@ static void SSAPS_SendMultiWriteReqRsp(SSAP_Link_S *link, SSAP_WriteResultItem_S
     } else {
         writeRsp->ctrl.result = SSAP_CTRL_WRITE_SUCCESS;
     }
-
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, SSAP_WRITE_RSP);
 }
 
@@ -652,7 +724,11 @@ static void SSAPS_WriteSingleItem(SSAP_Link_S *link, SSAP_BufferedOperation_S *o
 
     if ((permissions & (uint8_t)SSAP_PERMISSION_AUTHORIZATION_NEED) != 0) {
         operation->needAuth = true;
-        SSAPS_PushOperationPenddingVector(operation);
+        if (!SSAPS_PushOperationPenddingVector(operation)) {
+            CP_LOG_ERROR("[SSAP] push write operation failed, pending vector is full");
+            operation->errCode = SSAP_ERRCODE_NO_RESOURCE;
+            SSAPS_SendWriteReqRsp(link, SSAP_ERRCODE_NO_RESOURCE, operation);
+        }
         return;
     }
 
@@ -692,7 +768,12 @@ static void SSAPS_WriteSingleHandleReq(SSAP_Link_S *link, SSAP_PduWriteReq_S *wr
 void SSAPS_WriteReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("[SSAP] enter write req handle");
-    if (SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX) {
+    // 分片报文：组包完成后再处理（proc为自身）；取消写入时清空缓存并返回取消结果
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPS_WriteReqHandle, SSAPS_SendWriteCancelRsp)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    if (!link->fragCtx.reassemComplete && SDF_DataLenGet(sdfBuff) > SSAP_STACK_MTU_MAX) {
         CP_LOG_ERROR("[SSAP] len > SSAP_STACK_MTU_MAX(1024)");
         SSAP_PduErrorRsp(link, SSAP_WRITE_REQ, 0, SSAP_ERRCODE_INVALID_PDU);
         return;
@@ -705,7 +786,12 @@ void SSAPS_WriteReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
         return;
     }
 
-    if ((writeReq->ctrl.oper != SSAP_CTRL_WRITE_INSTANT)) {
+    if (writeReq->ctrl.oper == SSAP_CTRL_WRITE_CANCEL) {
+        // 单包形式取消写入：清空已缓存分片并返回取消写入结果
+        SSAPS_HandleWriteCancel(link, SSAP_WRITE_REQ);
+        return;
+    }
+    if (writeReq->ctrl.oper != SSAP_CTRL_WRITE_INSTANT) {
         SSAP_PduErrorRsp(link, SSAP_WRITE_REQ, 0, SSAP_ERRCODE_UNSUPPORT_PDU);
         return;
     }
@@ -902,7 +988,10 @@ static void SSAPS_WriteSingleCmdHandle(SSAP_Link_S *link, SSAP_PduWriteCmd_S *wr
     } else if ((permissions & (uint8_t)SSAP_PERMISSION_AUTHORIZATION_NEED) != 0) {
         operation->needRsp = false;
         operation->needAuth = true;
-        SSAPS_PushOperationPenddingVector(operation);
+        if (!SSAPS_PushOperationPenddingVector(operation)) {
+            CP_LOG_ERROR("[SSAP] push write cmd operation failed, pending vector is full");
+            operation->errCode = SSAP_ERRCODE_NO_RESOURCE;
+        }
     } else {
         operation->needRsp = false;
         operation->needAuth = false;
@@ -915,7 +1004,13 @@ static void SSAPS_WriteSingleCmdHandle(SSAP_Link_S *link, SSAP_PduWriteCmd_S *wr
 void SSAPS_WriteCmdHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("[SSAP] enter write cmd handle");
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] recv datalen is invalid");
+    // 分片报文：组包完成后再处理（proc为自身，取消写入命令无响应）
+    if (SSAP_HandleFragRecv(link, sdfBuff, SSAPS_WriteCmdHandle, NULL)) {
+        return;
+    }
+    // 报文长度防护：非组包单包严格按MTU上限校验（对端可能任意发送），组包报文上限由组包工具保证
+    CP_CHECK_LOG_RETURN_VOID(link->fragCtx.reassemComplete || SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] recv datalen is invalid");
     uint16_t len = (uint16_t)SDF_DataLenGet(sdfBuff);
     CP_CHECK_LOG_RETURN_VOID(len > sizeof(SSAP_PduWriteCmd_S), "[SSAP] len(%d) <= sizeof(SSAP_PduWriteCmd_S)", len);
 
@@ -923,6 +1018,11 @@ void SSAPS_WriteCmdHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
     CP_LOG_INFO("[SSAP] write cmd handle opCode[0x%02x], ctrl[0x%02x]",
         writeCmd->msgCode, writeCmd->msgCtrl);
 
+    if (writeCmd->ctrl.oper == SSAP_CTRL_WRITE_CANCEL) {
+        // 单包形式取消写入：清空已缓存分片，命令无响应
+        SSAPS_HandleWriteCancel(link, SSAP_WRITE_CMD);
+        return;
+    }
     if ((writeCmd->ctrl.oper != SSAP_CTRL_WRITE_INSTANT) ||
         (writeCmd->ctrl.fragment != SSAP_CTRL_NO_FRAG)) {
         CP_LOG_ERROR("[SSAP] write cmd handle ctrl error");

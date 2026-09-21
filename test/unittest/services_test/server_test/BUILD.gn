@@ -13,6 +13,7 @@
 
 import("//build/test.gni")
 import("../../../../nearlink_config.gni")
+import("../../../../test/utils/service_tdd.gni")
 
 config("server_unit_test_config") {
   visibility = [ ":*" ]
@@ -53,7 +54,6 @@ unit_test_deps = [
   "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
   "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
   "$NEARLINK_ROOT/services/server:nearlink_server_static_tdd",
-  "$NEARLINK_ROOT/services/service:nearlink_service_impl",
   "$NEARLINK_ROOT/services/common:nearlink_service_common",
   "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
   "$NEARLINK_ROOT/services/stack:nearlink_stack",
@@ -116,6 +116,8 @@ ohos_unittest("nl_server_test") {
 
   configs = [ ":server_unit_test_config" ]
   configs += ["$NEARLINK_ROOT/test/utils:test_utils_config"]
+  configs += ["$NEARLINK_ROOT/test/utils:service_tdd_config"]
+  sources += shared_service_source
 
   deps = unit_test_deps
 
@@ -125,6 +127,9 @@ ohos_unittest("nl_server_test") {
     "hisysevent:libhisysevent",
     "hisysevent:libhisyseventmanager",
   ]
+
+  deps += shared_service_deps
+  external_deps += shared_service_external_deps
 
   part_name = "nearlink"
   subsystem_name = "communication"

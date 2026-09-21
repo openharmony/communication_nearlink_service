@@ -480,6 +480,9 @@ uint16_t SleDataTransferService::CreatePortInner(
         }
     }
 
+    // 端口池耗尽时 srcPort 仍为 0，直接返回，禁止以 0 端口入映射缓存
+    NL_CHECK_RETURN_RET(srcPort != 0, srcPort, "port pool exhausted");
+
     if (uuid != STANDARD_UUID_ICCE) {
         PortService *portService = PortService::GetPortService();
         NL_CHECK_RETURN_RET(portService, srcPort, "PortService empty");
@@ -533,7 +536,7 @@ bool SleDataTransferService::ReceivedData(std::shared_ptr<InputStream> inputStre
         (void)memset_s(pBuf, sizeof(pBuf), 0, sizeof(pBuf));
         int res = inputStream->Read(pBuf, sizeof(pBuf));
         NL_CHECK_RETURN_RET(res != 0, false, "fd disconnected err");
-        NL_CHECK_RETURN_RET(res == pLen, false, "data len err");
+        NL_CHECK_RETURN_RET(res == static_cast<int>(pLen), false, "data len err");
         std::shared_ptr<DataTransferDataParams> result = std::make_shared<DataTransferDataParams>();
         NearlinkDataTransferDataParams::DeserializeData(pBuf, pLen, *result);
         NL_CHECK_RETURN_RET(result->port_ == portId, false, "port not match");

@@ -29,6 +29,8 @@
     "*IAdapterStateObserver*";
     "*IDeviceBatteryCallback*";
     "*ISystemStateObserver*";
+    "*UnloadSa*";
+    "*SleEdmManager*";
 
     # ============ Profile 基类 (精确类名) ============
     "*SleInterfaceProfile*";

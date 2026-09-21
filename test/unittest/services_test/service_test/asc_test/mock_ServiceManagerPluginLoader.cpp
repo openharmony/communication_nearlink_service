@@ -14,6 +14,7 @@
  */
 
 #include "ServiceManagerPluginLoader.h"
+#include "IServiceManagerPlugin.h"
 #include "SleAdapterWrapper.h"
 #include "log.h"
 
@@ -103,6 +104,69 @@ void ServiceManagerPluginLoader::SetAcbSubrate(
     HILOGI("[ServiceManagerPluginLoader Mocker] SetAcbSubrate, address=%{public}s, onlySubrate=%{public}d, "
         "subrate=%{public}d", device.GetAddress().c_str(), subrateParam.onlySubrate, subrateParam.subrate);
     ret = true;
+}
+
+
+// Supplement mocks for methods referenced by other directly-compiled service
+// sources (see test/utils/service_tdd.gni)，避免归档排除后符号缺失。
+ServiceManagerPluginInterface *ServiceManagerPluginInterface::GetInstance()
+{
+    return nullptr;
+}
+
+void ServiceManagerPluginLoader::SetSleAdapterFunc(GetSleAdapterFunc func)
+{}
+
+void ServiceManagerPluginLoader::SetAdapterStateObserver(SetAdapterStateObserverFunc func)
+{}
+
+void ServiceManagerPluginLoader::SetPeripheralCallback(SetPeripheralCallbackFunc func)
+{}
+
+void ServiceManagerPluginLoader::PowerMgrProc()
+{}
+
+void ServiceManagerPluginLoader::HidDataStatisticsProc(const std::string &address)
+{}
+
+void ServiceManagerPluginLoader::IsNeedCustomParam(bool &isNeedCustomParam, int appearance, uint16_t interval)
+{}
+
+void ServiceManagerPluginLoader::UpdateCustomParam(uint16_t &intervalMin, uint16_t &intervalMax, int appearance)
+{}
+
+void ServiceManagerPluginLoader::SvcCmdProc(std::string cmd, int32_t fd, const std::vector<std::u16string> &args,
+    int32_t &svcResult, std::string &info)
+{}
+
+void ServiceManagerPluginLoader::SleReconnectProc(bool &isNeedReconn, int acbConnState, const RawAddress &peerAddr,
+    int reason, std::set<int> reasonList)
+{}
+
+void ServiceManagerPluginLoader::PeerDeviceTypeProc(PeerDeviceTypeProcType proctype, const RawAddress &device)
+{}
+
+void ServiceManagerPluginLoader::SetPowerModeProc(SetPowerModeProcType proctype)
+{}
+
+void ServiceManagerPluginLoader::RegisterCallbackExt(RegisterCallbackModule module, int32_t &result)
+{}
+
+void ServiceManagerPluginLoader::GetLocalVocieCallFrameFourAbility(bool &isSupport)
+{}
+
+void ServiceManagerPluginLoader::SetConnFrameType4Subrate(const RawAddress &device)
+{}
+
+void ServiceManagerPluginLoader::RejectSetSubrate(const RawAddress &device)
+{}
+
+void ServiceManagerPluginLoader::ControlAntennaFix(bool enable, AntennaFixScene scene)
+{}
+
+std::string ServiceManagerPluginLoader::GetBundleName(BundleNameType type)
+{
+    return "";
 }
 
 }  // namespace Nearlink

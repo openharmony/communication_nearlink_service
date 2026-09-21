@@ -232,7 +232,8 @@ static SDF_Buff_S* BuildPrimaryServicePayloadV10(uint32_t mtu, SDF_Vector_S *fin
 static SDF_Buff_S* FillMixPrimaryServicePayload(SDF_Vector_S *findServices, uint32_t realSize, uint32_t totalStdCount,
     uint32_t totalCusCount)
 {
-    if (totalStdCount > UINT8_MAX || totalCusCount > UINT8_MAX) {
+    // 计数上限由组包预算BuildMix*保证（指示头count为7bit，上限127），此处仅作异常防御
+    if (totalStdCount > SSAP_FIND_INDICATOR_COUNT_MAX || totalCusCount > SSAP_FIND_INDICATOR_COUNT_MAX) {
         CP_LOG_ERROR("[SSAP] find rsp stdCount or cusCount overflow");
         return NULL;
     }
@@ -275,7 +276,8 @@ static SDF_Buff_S* FillMixPrimaryServicePayload(SDF_Vector_S *findServices, uint
 static SDF_Buff_S* FillMixPrimaryServicePayloadV10(SDF_Vector_S *findServices, uint32_t realSize,
     uint32_t totalStdCount, uint32_t totalCusCount)
 {
-    if (totalStdCount > UINT8_MAX || totalCusCount > UINT8_MAX) {
+    // 计数上限由组包预算BuildMix*保证（指示头count为7bit，上限127），此处仅作异常防御
+    if (totalStdCount > SSAP_FIND_INDICATOR_COUNT_MAX || totalCusCount > SSAP_FIND_INDICATOR_COUNT_MAX) {
         CP_LOG_ERROR("[SSAP] find rsp stdCount or cusCount overflow");
         return NULL;
     }
@@ -334,6 +336,10 @@ static SDF_Buff_S* BuildMixPrimaryServicePayload(uint32_t mtu, SDF_Vector_S *fin
         } else {
             cusCount++;
         }
+        // 指示头count为7bit（上限127）：任一类型计数达上限即结束本次组包，超限项不装入（截断会污染计数/类型位）
+        if (stdCount >= SSAP_FIND_INDICATOR_COUNT_MAX || cusCount >= SSAP_FIND_INDICATOR_COUNT_MAX) {
+            break;
+        }
     }
     uint32_t realSize = mtu - leftSize;
     return FillMixPrimaryServicePayload(findServices, realSize, stdCount, cusCount);
@@ -343,6 +349,7 @@ static SDF_Buff_S* BuildMixPrimaryServicePayloadV10(uint32_t mtu, SDF_Vector_S *
 {
     uint32_t stdCount = 0;
     uint32_t cusCount = 0;
+    NLSTK_CHECK_RETURN(mtu >= SSAP_PDU_BASE_LEN + SSAP_FIND_INFO_INDICATION_LEN * 2, NULL, "[SSAP] mtu is invalid");
     uint32_t leftSize = mtu - SSAP_PDU_BASE_LEN - SSAP_FIND_INFO_INDICATION_LEN * 2;
     for (size_t i = 0; i < findServices->size; i++) {
         SSAP_FindServiceInfo_S *info = SDF_VectorElementAt(findServices, i);
@@ -355,6 +362,10 @@ static SDF_Buff_S* BuildMixPrimaryServicePayloadV10(uint32_t mtu, SDF_Vector_S *
             stdCount++;
         } else {
             cusCount++;
+        }
+        // 指示头count为7bit（上限127）：任一类型计数达上限即结束本次组包，超限项不装入（截断会污染计数/类型位）
+        if (stdCount >= SSAP_FIND_INDICATOR_COUNT_MAX || cusCount >= SSAP_FIND_INDICATOR_COUNT_MAX) {
+            break;
         }
     }
     uint32_t realSize = mtu - leftSize;
@@ -372,6 +383,7 @@ static void SendFindRspPkt(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req, SDF_
     }
     rsp->ctrl.fragment = SSAP_CTRL_NO_FRAG;
     rsp->ctrl.itemType = itemType;
+    // 分包判断收敛到发送入口SSAP_Send：报文超MTU且对端支持分包时由SSAP_Send内部走SSAP_SendFragPkt
     link->sendFunc(link, sdfBuff, rsp->msgCode);
 }
 
@@ -386,7 +398,8 @@ static void SendFindPrimaryServiceRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S
         SDF_SsapTrace(link->addr.addr, sceneCode, EXCEP_SSAP_ITEM_INEXIST);
         return;
     }
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     SDF_Traits findServiceTraits = {.dtor = SDF_MemFree};
     SDF_Vector_S *findServices = SDF_CreateVector(findServiceTraits);
     if (findServices == NULL) {
@@ -426,7 +439,8 @@ static void SendFindPrimaryServiceRspV10(SSAP_Link_S *link, SSAP_PduFindStructRe
         SDF_SsapTrace(link->addr.addr, sceneCode, EXCEP_SSAP_ITEM_INEXIST);
         return;
     }
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     SDF_Traits findServiceTraits = {.dtor = SDF_MemFree};
     SDF_Vector_S *findServices = SDF_CreateVector(findServiceTraits);
     if (findServices == NULL) {
@@ -674,7 +688,8 @@ static SDF_Buff_S *BuildPropertyPayloadV10(uint32_t mtu, SDF_Vector_S *findPrope
 static SDF_Buff_S *FillMixPropertyPayload(SDF_Vector_S *findProperty, uint32_t realSize, uint32_t totalStdCount,
     uint32_t totalCusCount)
 {
-    if (totalStdCount > UINT8_MAX || totalCusCount > UINT8_MAX) {
+    // 计数上限由组包预算BuildMix*保证（指示头count为7bit，上限127），此处仅作异常防御
+    if (totalStdCount > SSAP_FIND_INDICATOR_COUNT_MAX || totalCusCount > SSAP_FIND_INDICATOR_COUNT_MAX) {
         CP_LOG_ERROR("[SSAP] find rsp stdCount or cusCount overflow");
         return NULL;
     }
@@ -717,7 +732,8 @@ static SDF_Buff_S *FillMixPropertyPayload(SDF_Vector_S *findProperty, uint32_t r
 static SDF_Buff_S *FillMixPropertyPayloadV10(SDF_Vector_S *findProperty, uint32_t realSize, uint32_t totalStdCount,
     uint32_t totalCusCount)
 {
-    if (totalStdCount > UINT8_MAX || totalCusCount > UINT8_MAX) {
+    // 计数上限由组包预算BuildMix*保证（指示头count为7bit，上限127），此处仅作异常防御
+    if (totalStdCount > SSAP_FIND_INDICATOR_COUNT_MAX || totalCusCount > SSAP_FIND_INDICATOR_COUNT_MAX) {
         CP_LOG_ERROR("[SSAP] find rsp stdCount or cusCount overflow");
         return NULL;
     }
@@ -775,6 +791,10 @@ static SDF_Buff_S *BuildMixPropertyPayload(uint32_t mtu, SDF_Vector_S *findPrope
         } else {
             cusCount++;
         }
+        // 指示头count为7bit（上限127）：任一类型计数达上限即结束本次组包，超限项不装入（截断会污染计数/类型位）
+        if (stdCount >= SSAP_FIND_INDICATOR_COUNT_MAX || cusCount >= SSAP_FIND_INDICATOR_COUNT_MAX) {
+            break;
+        }
     }
     uint32_t realSize = mtu - leftSize;
     return FillMixPropertyPayload(findProperty, realSize, stdCount, cusCount);
@@ -796,6 +816,10 @@ static SDF_Buff_S *BuildMixPropertyPayloadV10(uint32_t mtu, SDF_Vector_S *findPr
             stdCount++;
         } else {
             cusCount++;
+        }
+        // 指示头count为7bit（上限127）：任一类型计数达上限即结束本次组包，超限项不装入（截断会污染计数/类型位）
+        if (stdCount >= SSAP_FIND_INDICATOR_COUNT_MAX || cusCount >= SSAP_FIND_INDICATOR_COUNT_MAX) {
+            break;
         }
     }
     uint32_t realSize = mtu - leftSize;
@@ -836,7 +860,8 @@ static void SendFindPropertyRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req,
         SDF_DestroyVector(findPropertys);
         return;
     }
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     SDF_Buff_S *sdfBuff = NULL;
     if (req->ctrl.itemType == FIND_ITEM_TYPE_STANDARD) {
         sdfBuff = BuildPropertyPayload(mtu, findPropertys, SSAP_FIND_PROPERTY_STD_LEN);
@@ -853,7 +878,8 @@ static void SendFindPropertyRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req,
 static SDF_Buff_S *BuildFindPropertyRspV10(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req, SDF_Vector_S *findPropertys,
     bool hasCus)
 {
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     if (hasCus) {
         if (req->msgCode == SSAP_FIND_STRUCTURE_REQ) {
             return BuildMixPropertyPayload(mtu, findPropertys);
@@ -956,7 +982,8 @@ static SDF_Buff_S *BuildMethodPayload(uint32_t mtu, SDF_Vector_S *findMethod, ui
 static SDF_Buff_S *FillMixMethodPayload(SDF_Vector_S *findMethod, uint32_t realSize, uint32_t totalStdCount,
     uint32_t totalCusCount)
 {
-    if (totalStdCount > UINT8_MAX || totalCusCount > UINT8_MAX) {
+    // 计数上限由组包预算BuildMix*保证（指示头count为7bit，上限127），此处仅作异常防御
+    if (totalStdCount > SSAP_FIND_INDICATOR_COUNT_MAX || totalCusCount > SSAP_FIND_INDICATOR_COUNT_MAX) {
         CP_LOG_ERROR("[SSAP] find rsp stdCount or cusCount overflow");
         return NULL;
     }
@@ -1012,6 +1039,10 @@ static SDF_Buff_S *BuildMixMethodPayload(uint32_t mtu, SDF_Vector_S *findMethod)
             stdCount++;
         } else {
             cusCount++;
+        }
+        // 指示头count为7bit（上限127）：任一类型计数达上限即结束本次组包，超限项不装入（截断会污染计数/类型位）
+        if (stdCount >= SSAP_FIND_INDICATOR_COUNT_MAX || cusCount >= SSAP_FIND_INDICATOR_COUNT_MAX) {
+            break;
         }
     }
     uint32_t realSize = mtu - leftSize;
@@ -1101,7 +1132,8 @@ static void SendFindMethodRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req, N
         SDF_DestroyVector(findMethod);
         return;
     }
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     SDF_Buff_S *sdfBuff = NULL;
     uint8_t itemType = req->ctrl.itemType;
     if (itemType == FIND_ITEM_TYPE_STANDARD) {
@@ -1384,7 +1416,8 @@ static void SendFindStructureRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req
         SDF_SsapTrace(link->addr.addr, sceneCode, EXCEP_SSAP_INVALID_PDU);
         return;
     }
-    uint32_t mtu = link->mtu;
+    // 对端支持分包时按重组上限构建完整载荷，超MTU由分包发送承载；对端不支持分包时按MTU截断
+    uint32_t mtu = link->fragCtx.fragment ? SSAP_REASSEM_MAX_SIZE : link->mtu;
     SDF_Traits findStructureTrait = {.dtor = FreeFindStructureInfo};
     SDF_Vector_S *findStructures = SDF_CreateVector(findStructureTrait);
     if (findStructures == NULL) {
@@ -1410,8 +1443,10 @@ static void SendFindRsp(SSAP_Link_S *link, SSAP_PduFindStructReq_S *req, NLSTK_S
 {
     int sceneCode = req->msgCode == SSAP_FIND_STRUCTURE_REQ ?
             EXCEP_SSAP_FIND_STRUCTURE_REQ_RECV : EXCEP_SSAP_FIND_BY_UUID_REQ_RECV;
+    // 多响应模式仅允许对端支持分包时使用（FIND_RSP超MTU走分包发送），否则拒绝
     if (((req->ctrl.itemType != FIND_ITEM_TYPE_STANDARD) && (req->ctrl.itemType != FIND_ITEM_TYPE_MIX) &&
-        (req->ctrl.itemType != FIND_ITEM_TYPE_CUSTOMIZE)) || req->ctrl.rspMode == FIND_RSP_MODE_MULTI_RSP) {
+        (req->ctrl.itemType != FIND_ITEM_TYPE_CUSTOMIZE)) ||
+        (req->ctrl.rspMode == FIND_RSP_MODE_MULTI_RSP && !link->fragCtx.fragment)) {
         CP_LOG_ERROR("[SSAP] recv not support item type: 0x%d", req->ctrl.itemType);
         SSAP_PduErrorRsp(link, req->msgCode, 0, SSAP_ERRCODE_UNSUPPORT_PDU);
         SDF_SsapTrace(link->addr.addr, sceneCode, EXCEP_SSAP_UNSUPPORT_PDU);
@@ -1454,7 +1489,9 @@ void SSAPS_FindReqHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff)
 {
     CP_LOG_DEBUG("enter find req handle");
     uint8_t *buf = SDF_DataOffset(sdfBuff);
-    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX, "[SSAP] find req pdu size overflow");
+    // 报文长度防护：FIND_REQ不支持分包，按MTU上限校验（对端可能任意发送）
+    CP_CHECK_LOG_RETURN_VOID(SDF_DataLenGet(sdfBuff) <= SSAP_STACK_MTU_MAX,
+        "[SSAP] find req pdu size overflow");
     uint32_t size = (uint32_t)SDF_DataLenGet(sdfBuff);
     SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)buf;
     if ((req->msgCode == SSAP_FIND_STRUCTURE_REQ) && (size != sizeof(SSAP_PduFindStructReq_S))) {

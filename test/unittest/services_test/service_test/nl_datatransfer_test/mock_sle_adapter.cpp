@@ -404,5 +404,31 @@ void SleAdapter::PostEnable()
 void SleAdapter::RemoveBgConnDevice(const std::string &delAddr) const
 {}
 
+
+// Supplement mocks for methods referenced by other directly-compiled service
+// sources, so the real SleAdapter.o is never linked in.
+bool SleAdapter::IsScanConnTypeAndFrameType4(const RawAddress &device, uint8_t connCompleteType) const
+{
+    return false;
+}
+
+void SleAdapter::ConnectAcb(const RawAddress &device)
+{}
+
+void SleAdapter::RemoveNotPairedCloudDevice(const RawAddress &device) const
+{}
+
+void SleAdapter::ClearBgConnDevice() const
+{}
+
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    return false;
+}
+
+void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

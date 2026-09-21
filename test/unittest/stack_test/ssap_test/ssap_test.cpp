@@ -141,7 +141,6 @@ TEST_F(UT_SSAP_TEST, SSAP_TimeoutCbk)
 
     para->valid = true;
     link.curTask.param = para;
-    link.hasInitReqTask = true;
     link.curTask.opcode = SSAP_EXCHANGE_INFO_REQ;
     SSAP_TimeoutCbk(&link);
     CP_LOG_ERROR("**** SSAP_TimeoutCbk 2");

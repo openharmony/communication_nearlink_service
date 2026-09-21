@@ -395,9 +395,9 @@ uint32_t SDF_EvcListenEvent(int handle, SDF_EvcEvent *event)
     SDF_MutexUnlock(g_evcLock);
     return SDF_OK;
 FAIL1:
-    /* epoll_ctl failed: the event never took ownership of args/fd. Pop without the
-     * vector dtor so freeFunc is not consumed; the caller cleans up its own args/fd. */
-    (void)SDF_VectorPopElement(evcDesc->eventVector, evcDesc->eventVector->size - 1);
+    evcEvent->freeFunc = NULL;
+    SDF_VectorRemoveLast(evcDesc->eventVector);
+    goto FAIL3;
 FAIL2:
     SDF_MemFree(evcEvent);
 FAIL3:

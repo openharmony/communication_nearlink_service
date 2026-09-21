@@ -491,5 +491,18 @@ bool SleRemoteDeviceAdapter::GetSleAddrByBtAddrTask(const std::string &btAddr, s
     return true;
 }
 
+
+bool SleRemoteDeviceAdapter::GetCdsmOtherAddr(const RawAddress &member, RawAddress &other)
+{
+    other = member;
+    return true;
+}
+
+void SleRemoteDeviceAdapter::SendBgConnList(NearlinkSafeList<RawAddress> &bgList)
+{}
+
+void SleRemoteDeviceAdapter::SendDirectConnList(NearlinkSafeList<RawAddress> &directList)
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

@@ -73,11 +73,6 @@ void SSAPC_ValueIndHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff);
 void SSAPC_CallMethodRspHandle(SSAP_Link_S *link, SDF_Buff_S *sdfBuff);
 
 /**
- * @brief  建链发送第一条报文，确保连接管理能力查询完成，收到的rsp不作处理
- */
-void SSAPC_InitFindReq(SSAP_Link_S *link, void *arg);
-
-/**
  * @brief  客户端Mtu信息交互
  */
 void SSAPC_ExchangeInfoReq(SSAP_Link_S *link, void *arg);

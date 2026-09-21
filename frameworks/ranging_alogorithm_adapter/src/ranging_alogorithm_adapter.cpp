@@ -97,9 +97,17 @@ void HadmRangingAdapter::TransferSoundingToAlgPara(NearlinkHadmSoundingResult so
     auto duration = now.time_since_epoch();
     algPara.iqChnlNum = static_cast<uint32_t>(dutIData.size());
     algPara.iqDut = new (std::nothrow) algIq[dutIData.size()];
+    if (algPara.iqDut == nullptr) {
+        HILOGE("iqDut is nullptr");
+        return;
+    }
     algPara.iqRtd = new (std::nothrow) algIq[dutIData.size()];
-    NL_CHECK_RETURN(algPara.iqDut, "iqDut is nullptr");
-    NL_CHECK_RETURN(algPara.iqRtd, "iqRtd is nullptr");
+    if (algPara.iqRtd == nullptr) {
+        HILOGE("iqRtd is nullptr");
+        delete[] algPara.iqDut;
+        algPara.iqDut = nullptr;
+        return;
+    }
     for (size_t i = 0; i < dutIData.size(); i++) {
         algPara.iqDut[i].iData = dutIData[i];
         algPara.iqDut[i].qData = dutQData[i];
@@ -139,6 +147,9 @@ int HadmRangingAdapter::CalculateHadmDistance(NearlinkHadmSoundingResult soundin
     MeasureAlgPara algPara;
     (void)memset_s(&algPara, sizeof(MeasureAlgPara), 0, sizeof(MeasureAlgPara));
     TransferSoundingToAlgPara(soundingResult, algPara);
+    if (algPara.iqDut == nullptr || algPara.iqRtd == nullptr) {
+        return NL_ERR_INTERNAL_ERROR;
+    }
 
     DisResult result;
     errcode_slem err = calcHadmDis_(&result, &algPara);

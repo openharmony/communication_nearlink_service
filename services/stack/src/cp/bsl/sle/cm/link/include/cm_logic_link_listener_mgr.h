@@ -41,6 +41,10 @@ void CM_ExecLogicLinkRemoteFeaturesCbks(CM_LogicLinkRemoteFeatures_S *param);
 
 void CM_ExecLogicLinkConnUpdateParamCbks(CM_LogicLinkConnUpdateParam_S *param);
 
+void CM_ExecLogicLinkSetPhyCbks(CM_LogicLinkSetPhy_S *param);
+
+void CM_ExecLogicLinkSetMcsCbks(CM_LogicLinkSetMcs_S *param);
+
 uint32_t CM_UnRegLogicLinkCbks(uint16_t moduleId);
 
 #ifdef __cplusplus

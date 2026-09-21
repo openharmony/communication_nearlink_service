@@ -507,19 +507,29 @@ static void SleAccessSetRxDataFilterCbk(void *context, uint16_t status, DLI_Exec
 static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_LOGI("status:%hu", status);
-    CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
 
     uint32_t versionAndLocalIndex = (context != NULL) ? ((DLI_ConnCbkContext *)context)->versionAndLocalIndex : 0;
     uint8_t version = CM_UnPackVersion(versionAndLocalIndex);
     uint16_t localIndex = CM_UnPackLocalIndex(versionAndLocalIndex);
 
-    DLI_SetPhyEvt *evt = (DLI_SetPhyEvt *)cmdRes->eventParameter;
+    DLI_SetPhyEvt completeEvt = { 0 };
+    DLI_SetPhyEvt *evt = NULL;
+    if (status == DLI_SUCCESS) {
+        CM_CHECK_RETURN((cmdRes != NULL && cmdRes->eventParameter != NULL), "param is null");
+        evt = (DLI_SetPhyEvt *)cmdRes->eventParameter;
+    } else {
+        evt = (DLI_SetPhyEvt *)&completeEvt;
+        // 已出错其他值设为0即可
+        evt->connHandle = (context != NULL) ? ((DLI_ConnCbkContext *)context)->connHandle : CM_INVALID_LCID;
+        evt->status = status;
+    }
+
     CM_SetPhyRsp_S setPhyRsp = {0};
     setPhyRsp.status = (uint8_t)evt->status;
     setPhyRsp.lcid = evt->connHandle;
     setPhyRsp.txFormat = evt->txFormat;
     setPhyRsp.rxFormat = evt->rxFormat;
-    setPhyRsp.txPhy =  evt->txPhy;
+    setPhyRsp.txPhy = evt->txPhy;
     setPhyRsp.rxPhy = evt->rxPhy;
     setPhyRsp.txPilotDensity = evt->txPilotDensity;
     setPhyRsp.rxPilotDensity = evt->rxPilotDensity;
@@ -527,6 +537,17 @@ static void SleAccessSetPhyCbk(void *context, uint16_t status, DLI_ExecuteCmdRet
     setPhyRsp.tFeedback = evt->tFeedback;
     SleAccessLinkStatusReport(CM_PackVersionLocalIndex(version, localIndex), SLE_ACCESS_CBK_SET_PHY,
         &setPhyRsp, sizeof(CM_SetPhyRsp_S), (uint8_t)status);
+}
+
+static void SleAccessSetMcsCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
+{
+    CM_LOGI("status:%hu", status);
+    CM_ExeCmdCbk cbk = CM_AccessGetCbk(SLE_ACCESS_CBK_SET_MCS);
+    if (cbk == NULL) {
+        CM_LOGE("cbk is null");
+        return;
+    }
+    cbk(context, (uint8_t)status, NULL);
 }
 
 static void SleAccessDataLenChangeCbk(void *context, uint16_t statuss, DLI_ExecuteCmdRetParam *cmdRes)
@@ -861,6 +882,7 @@ static const struct DLI_CbkLineStru g_sleCmCbk[] = {
     { DLI_CBK_READ_REMOTE_RSSI, (void *)SleAccessRemoteRssiRequestsReplyCbk },
     { DLI_CBK_SET_RX_DATA_FILTER, (void *)SleAccessSetRxDataFilterCbk },
     { DLI_CBK_SET_PHY, (void *)SleAccessSetPhyCbk },
+    { DLI_CBK_SET_MCS, (void *)SleAccessSetMcsCbk },
     { DLI_CBK_DATA_LEN_CHANGE, (void *)SleAccessDataLenChangeCbk },
     { DLI_CBK_ENABLE_CONN_HIGH_POWER, (void *)SleAccessEnableConnHighPowerCbk },
     { DLI_CBK_SET_PEER_DEV_TYPE, (void *)SleAccessSetPeerDevTypeCbk },
@@ -977,4 +999,11 @@ bool SleAccessHidCoexModeInterval(uint16_t *coexInterval, const SLE_Addr_S *addr
     paramCbk.size = sizeof(CM_HidCoexModeRsp_S);
     cbk(context, DLI_SUCCESS, &paramCbk);
     return coexParam.coexInterval != 0;
+}
+
+uint32_t SleAccessSetMcs(DLI_SetMcsParam *param)
+{
+    uint32_t ret = DLI_SetMcs(param);
+    CM_CHECK_RETURN_RET((ret == DLI_SUCCESS), CM_FAIL, "DLI_SetMcs failed, ret:0x%08x", ret);
+    return CM_SUCCESS;
 }

@@ -293,6 +293,7 @@ nearlink_stack_sources = [
     "src/cp/bsl/sle/qosm/autorate/src/qosm_icg_callback.c",
     "src/cp/bsl/sle/qosm/src/qosm.c",
     "src/cp/bsl/sle/qosm/src/qosm_trans_channel.c",
+    "src/cp/bsl/sle/qosm/src/qosm_trans_channel_tuning.c",
     "src/cp/bsl/sle/servm/ssap/src/ssap_app_link.c",
     "src/cp/bsl/sle/servm/ssap/src/ssap_common.c",
     "src/cp/bsl/sle/servm/ssap/src/ssap_handle.c",

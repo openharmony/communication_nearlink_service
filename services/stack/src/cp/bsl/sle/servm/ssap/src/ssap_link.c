@@ -64,7 +64,7 @@ void SSAP_LinkDeInit(void)
     SDF_DListHeadInit(&g_SsapLinkList);
 }
 
-SSAP_Link_S *SSAP_CreateSsapLinkWithInitReq(SLE_Addr_S *addr, uint16_t lcid, SendCb sendFunc, bool hasInitReqTask)
+SSAP_Link_S *SSAP_CreateSsapLink(SLE_Addr_S *addr, uint16_t lcid, SendCb sendFunc)
 {
     CP_CHECK_LOG_RETURN(addr != NULL && sendFunc != NULL, NULL, "[SSAP] param is null");
     SSAP_Link_S *link = (SSAP_Link_S *)SDF_MemZalloc(sizeof(SSAP_Link_S));
@@ -76,8 +76,8 @@ SSAP_Link_S *SSAP_CreateSsapLinkWithInitReq(SLE_Addr_S *addr, uint16_t lcid, Sen
     link->version = SSAP_EXCHANGE_VERSION;
     link->status = SSAP_LINK_IDLE;
     link->sendFunc = sendFunc;
-    link->hasInitReqTask = hasInitReqTask;
     link->timerHandle = SSAP_TIMER_NO_USED_HANDLE;
+    link->fragCtx.reassemTimerHandle = SSAP_TIMER_NO_USED_HANDLE;
     SSAP_LinkNode_S *linkNode = (SSAP_LinkNode_S *)SDF_MemZalloc(sizeof(SSAP_LinkNode_S));
     if (linkNode == NULL) {
         SDF_MemFree(link);
@@ -89,11 +89,6 @@ SSAP_Link_S *SSAP_CreateSsapLinkWithInitReq(SLE_Addr_S *addr, uint16_t lcid, Sen
     CP_LOG_INFO("[SSAP] ssap create link, addr = %s, lcid = %d", GET_ENC_ADDR(&link->addr), link->lcid);
 
     return link;
-}
-
-SSAP_Link_S *SSAP_CreateSsapLink(SLE_Addr_S *addr, uint16_t lcid, SendCb sendFunc)
-{
-    return SSAP_CreateSsapLinkWithInitReq(addr, lcid, sendFunc, false);
 }
 
 SSAP_TaskParam_S *SSAP_AllocTaskParam(SSAP_TaskParam_S *taskParam)
@@ -137,6 +132,7 @@ void SSAP_DeleteSsapLinkByAddr(SLE_Addr_S *addr)
     SSAP_Link_S *link = linkNode->link;
     CP_LOG_INFO("[SSAP] ssap delete link, addr = %s, lcid = %d", GET_ENC_ADDR(&link->addr), link->lcid);
     SSAP_DelTimer(link);
+    SSAP_DelReassemTimer(link);
     SSAP_ParamNode_S *taskParamNode = NULL;
     SSAP_ParamNode_S *tmpTaskParamNode = NULL;
     SDF_DListElmSafeForeach(taskParamNode, tmpTaskParamNode, &link->paramList, entry) {
@@ -147,6 +143,7 @@ void SSAP_DeleteSsapLinkByAddr(SLE_Addr_S *addr)
         SSAP_FreeTaskParams(link->curTask.param);
     }
     SDF_BuffFree(link->curTask.buff);
+    SDF_BuffFree(link->fragCtx.reassemBuff);
     SDF_MemFree(link);
     SDF_MemFree(linkNode);
 }
@@ -221,6 +218,7 @@ void SSAP_LinkClearCurrentTask(SSAP_Link_S *link)
     link->curTask.buff = NULL;
     SSAP_FreeTaskParams(link->curTask.param);
     link->curTask.param = NULL;
+    link->curTask.opcode = 0;   // 任务清理后opcode一并复位，避免残留旧值
     SSAP_DelTimer(link);
 
     link->status = SSAP_LINK_IDLE;
@@ -361,6 +359,29 @@ void SSAP_DelTimer(SSAP_Link_S *link)
         CP_TimerDel(link->timerHandle);
     }
     link->timerHandle = SSAP_TIMER_NO_USED_HANDLE;
+}
+
+bool SSAP_StartReassemTimer(SSAP_Link_S *link, SDF_TimerCallback callback)
+{
+    CP_LOG_DEBUG("[SSAP] SSAP_StartReassemTimer enter");
+    CP_CHECK_LOG_RETURN(link->fragCtx.reassemTimerHandle == SSAP_TIMER_NO_USED_HANDLE, false,
+        "[SSAP] reassem timerHandle is in use.");
+    SDF_TimerParam param = {
+        .expires = SSAP_REASSEM_TIMEOUT,
+        .period = false,
+        .callback = callback,
+        .args = link,
+    };
+    return CP_TimerAdd(&link->fragCtx.reassemTimerHandle, &param) == CP_OK;
+}
+
+void SSAP_DelReassemTimer(SSAP_Link_S *link)
+{
+    CP_LOG_DEBUG("[SSAP] SSAP_DelReassemTimer enter");
+    if (link->fragCtx.reassemTimerHandle != SSAP_TIMER_NO_USED_HANDLE) {
+        CP_TimerDel(link->fragCtx.reassemTimerHandle);
+    }
+    link->fragCtx.reassemTimerHandle = SSAP_TIMER_NO_USED_HANDLE;
 }
 
 void SsapTaskExecuteCallback(SSAP_Link_S *link, void *arg)
