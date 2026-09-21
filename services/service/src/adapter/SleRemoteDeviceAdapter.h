@@ -84,6 +84,7 @@ public:
     void SetConnDirectActive(const RawAddress &device) override;
     void UpdateDeviceManufacturerAbility(
         const RawAddress &rawAddr, std::array<uint8_t, SLE_MANU_ABILITY_LEN> &deviceManuAbility);
+    void SaveHidManufacturerAbilityFromAdv(const RawAddress &rawAddr);
     bool GetManufacturerAbility(const RawAddress &rawAddr, uint8_t ability);
     int GetNotPairNoneCnt(const RawAddress &device);
     int GetPairedCnt(const RawAddress &device);
@@ -100,6 +101,7 @@ public:
     bool SavePeerDeviceInfoToConf();
     void SavePeerDevices2Smp();
     std::vector<NLSTK_SmRecoverKeyParam_S> CollectPairedDevicesForSmp();
+    void RestorePairedDevicesAbility2Cfgdb();
     void SavePairDirect(int connDirect, const RawAddress &device);
     bool SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr);
     bool GetBtAddrBySleAddrTask(const std::string &sleAddr, std::string &btAddr);

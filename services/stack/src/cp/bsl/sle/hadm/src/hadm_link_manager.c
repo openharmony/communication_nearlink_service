@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "stdbool.h"
 #include "sdf_mem.h"
 #include "sdf_vector.h"
 #include "securec.h"
@@ -20,6 +21,16 @@
 #include "hadm_link_manager.h"
 
 SDF_Vector_S *g_hadmLinkCbVec = NULL;
+
+#define HADM_PENDING_FEATURES_MAX 8
+
+typedef struct {
+    uint16_t lcid;
+    uint8_t supportSounding;
+    bool valid;
+} HadmPendingFeatures_S;
+
+static HadmPendingFeatures_S g_hadmPendingFeatures[HADM_PENDING_FEATURES_MAX] = {0};
 
 static void HadmFreeSoundingCb(void *args)
 {

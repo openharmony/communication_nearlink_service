@@ -387,6 +387,7 @@ int SleAdapter::InitSlemAndCm()
         cdsmService->CdsmRecoverFromConf();
     }
     adapterProperties_->SavePeerDevices2Smp();
+    adapterProperties_->RestorePairedDevicesAbility2Cfgdb();
     InitSleProfileConnectManager();
     SleReconnectManager::GetInstance().SetReconnDeviceParam();
     ParameterManager::NotifyTriggerInitialization();
@@ -1987,6 +1988,7 @@ void SleAdapter::ConnectionCompleteTask(const SLE_Addr_S &addr, uint16_t lcid, u
     } else {
         CreateNewPeripheralDevice(addr, lcid, role, connCompleteType);
     }
+    adapterProperties_->SaveHidManufacturerAbilityFromAdv(peerAddr);
     if (IsScanConnTypeAndFrameType4(peerAddr, connCompleteType) &&
         !SleRemoteDeviceAdapter::GetInstance()->IsAudioDevice(peerAddr.GetAddress())) {
         ServiceManagerPluginInterface::GetInstance()->SetConnFrameType4Subrate(peerAddr);
