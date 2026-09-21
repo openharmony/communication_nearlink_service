@@ -60,6 +60,9 @@ SleLogicLink_S *SleLogicLinkAdd(SLE_Addr_S *addr)
     node->exchangeVersion = CM_INVALID_VERSION;
     (void)memset_s(node->remotePrivateFeature, sizeof(node->remotePrivateFeature), 0,
         sizeof(node->remotePrivateFeature));
+    // autorate 特性默认置为支持(true)，后续与对端交换 features 后由 CM_SetRemoteFeature 更新
+    node->remotePrivateFeature[CM_PRIVATE_FEATURES_BIT_AUTORATE / BITS_OF_BYTE] |=
+        (1 << (CM_PRIVATE_FEATURES_BIT_AUTORATE % BITS_OF_BYTE));
     (void)memcpy_s(&node->rmtAddr, sizeof(node->rmtAddr), addr, sizeof(SLE_Addr_S));
     SDF_DListEntryInit(&node->entry);
     SDF_DListElmTailInsert(&g_deviceLinkListHead, node, entry);
