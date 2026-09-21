@@ -58,8 +58,6 @@ SleLogicLink_S *SleLogicLinkAdd(SLE_Addr_S *addr)
     node->lcid = CM_INVALID_LCID;
     node->protocolVersion = CM_INVALID_VERSION;
     node->exchangeVersion = CM_INVALID_VERSION;
-    (void)memset_s(node->remotePrivateFeature, sizeof(node->remotePrivateFeature), 0,
-        sizeof(node->remotePrivateFeature));
     // autorate 特性默认置为支持(true)，后续与对端交换 features 后由 CM_SetRemoteFeature 更新
     node->remotePrivateFeature[CM_PRIVATE_FEATURES_BIT_AUTORATE / BITS_OF_BYTE] |=
         (1 << (CM_PRIVATE_FEATURES_BIT_AUTORATE % BITS_OF_BYTE));
