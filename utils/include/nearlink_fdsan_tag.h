@@ -33,7 +33,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-uint64_t fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
+void fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
 int fdsan_close_with_tag(int fd, uint64_t tag);
 #ifdef __cplusplus
 }
