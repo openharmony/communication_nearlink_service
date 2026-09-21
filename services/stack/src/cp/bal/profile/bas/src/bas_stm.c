@@ -410,6 +410,7 @@ static void BasOnNotifyPropertyInConnectedState(BasDeviceInfo_S *devInfo, BasStm
             NLSTK_LOG_ERROR("[BAS] property data len is invalid");
             return;
         }
+        SDF_MemFree(value->data);
         value->data = (uint8_t *)SDF_MemZalloc(value->len);
         NLSTK_CHECK_RETURN_VOID(value->data != NULL, "[BAS] malloc fail for remainBatPctInfo");
         (void)memcpy_s(value->data, value->len, ntfMsg->value.data, value->len);
@@ -430,6 +431,7 @@ static void BasOnReadPropertyInConnectedState(BasDeviceInfo_S *devInfo, BasStmPa
             NLSTK_LOG_ERROR("[BAS] property data len is invalid");
             return;
         }
+        SDF_MemFree(value->data);
         value->data = (uint8_t *)SDF_MemZalloc(value->len);
         NLSTK_CHECK_RETURN_VOID(value->data != NULL, "[BAS] malloc fail for remainBatPctInfo");
         (void)memcpy_s(value->data, value->len, readMsg->property->value.data, value->len);
