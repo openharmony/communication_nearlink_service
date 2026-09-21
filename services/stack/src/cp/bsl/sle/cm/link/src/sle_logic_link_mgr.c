@@ -18,6 +18,7 @@
 #include "securec.h"
 #include "cm_log.h"
 #include "cm_def.h"
+#include "byte_codec.h"
 
 static SDF_DListHead_S g_deviceLinkListHead = {
     .list = {&(g_deviceLinkListHead).list, &(g_deviceLinkListHead).list}, .size = 0};
