@@ -40,7 +40,8 @@
             "nearlink_service_sync_ap_to_mcu",
             "nearlink_service_non_audio_device_direct_conn",
             "nearlink_service_min_conn_interval",
-            "nearlink_service_direct_conn_scan_params"
+            "nearlink_service_direct_conn_scan_params",
+            "nearlink_service_enable_ssap_mtu"
         ],
         "adapted_system_type": [
             "standard"
