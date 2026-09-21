@@ -286,5 +286,14 @@ void CdsmService::GetRealConnectAddress(const RawAddress &addr, RawAddress &real
     realConnectAddr = addr;
 }
 
+void CdsmService::NotifyStateChanged(const RawAddress &device, CdsmClientState state, CdsmClientState preState)
+{}
+
+
+bool CdsmService::CdsmCheckIsPrivateCooperationDevice(const RawAddress &devAddr)
+{
+    return false;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

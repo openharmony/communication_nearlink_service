@@ -157,5 +157,69 @@ SleInterfaceAdapter *SleServiceManager::GetAdapter(const SleTransport transport)
 
     return pimpl->instance_.get();
 }
+bool SleServiceManager::AdapterStop() const
+{
+    return true;
+}
+
+
+bool SleServiceManager::ClearAllStorage() const
+{
+    return true;
+}
+
+
+void SleServiceManager::OnSysStateChange(const std::string &state) const
+{}
+
+
+void SleServiceManager::OnSysStateExit(const std::string &state) const
+{}
+
+
+bool SleServiceManager::IsStateStable(SleStateID sleState)
+{
+    return true;
+}
+
+
+int32_t SleServiceManager::SwitchToOffTask(const SleTransport transport, const SleEventType reason,
+    const SwitchCallerInfo callerInfo) const
+{
+    return 0;
+}
+
+
+bool SleServiceManager::StartTask()
+{
+    return true;
+}
+
+
+bool SleServiceManager::IsEnableAutoConnectAudioDevices() const
+{
+    return false;
+}
+
+
+bool SleServiceManager::IsEnableAutoConnectUserDisconnectedDevices() const
+{
+    return false;
+}
+
+
+bool SleServiceManager::IsDisabling() const
+{
+    return false;
+}
+
+
+void SleServiceManager::OnProfileServicesEnableComplete(const SleTransport transport, const bool ret) const
+{}
+
+
+void SleServiceManager::OnProfileServicesDisableComplete(const SleTransport transport, const bool ret) const
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

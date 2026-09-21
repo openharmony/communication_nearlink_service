@@ -460,5 +460,38 @@ bool SleAdapter::IsScanConnTypeAndFrameType4(OHOS::Nearlink::RawAddress const&, 
 void SleAdapter::RemoveBgConnDevice(const std::string &delAddr) const
 {}
 
+void SleAdapter::PairStartChanged(const RawAddress &device) const
+{}
+
+
+void SleAdapter::PairComplete(const RawAddress &device, const int status) const
+{}
+
+
+void SleAdapter::PairingRequest(const RawAddress &device, std::string &passKey, const int type) const
+{}
+
+
+void SleAdapter::EncryptionComplete(const RawAddress &device, const int status) const
+{}
+
+
+void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, const int unpairedReason) const
+{}
+
+
+uint32_t SleAdapter::GetAcbCount() const
+{
+    return 0;
+}
+
+
+void SleAdapter::RemoveNotPairedCloudDevice(const RawAddress &device) const
+{}
+
+
+void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
+{}
+
 } // namespace Nearlink
 } // namespace OHOS
