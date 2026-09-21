@@ -504,5 +504,8 @@ void SleRemoteDeviceAdapter::SendBgConnList(NearlinkSafeList<RawAddress> &bgList
 void SleRemoteDeviceAdapter::SendDirectConnList(NearlinkSafeList<RawAddress> &directList)
 {}
 
+void SleRemoteDeviceAdapter::RemovePeerDeviceTypeToController(const RawAddress &device)
+{}
+
 } // namespace Nearlink
 } // namespace OHOS

@@ -423,5 +423,25 @@ bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint1
     return false;
 }
 
+void SleAdapter::PairStartChanged(const RawAddress &device) const
+{}
+
+
+void SleAdapter::PairComplete(const RawAddress &device, const int status) const
+{}
+
+
+void SleAdapter::PairingRequest(const RawAddress &device, std::string &passKey, const int type) const
+{}
+
+
+void SleAdapter::EncryptionComplete(const RawAddress &device, const int status) const
+{}
+
+
+void SleAdapter::CancelPairComplete(const RawAddress &device, const int status, const int unpairedReason) const
+{}
+
+
 } // namespace Nearlink
 } // namespace OHOS
