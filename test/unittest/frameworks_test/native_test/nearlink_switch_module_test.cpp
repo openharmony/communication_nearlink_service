@@ -15,6 +15,9 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
 #include <thread>
 #include "nearlink_switch_module.h"
 #include "log.h"
@@ -30,10 +33,12 @@ namespace Nearlink {
 
 class MockNearlinkSwitchAction : public INearlinkSwitchAction {
 public:
-    MOCK_METHOD(NlErrCode, EnableNearlink, (SleAutoConnectPolicy), (override));
+    MOCK_METHOD(NlErrCode, EnableNearlink,
+        (SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &), (override));
     MOCK_METHOD(NlErrCode, DisableNearlink, (), (override));
     MOCK_METHOD(NlErrCode, DisableNearlinkToOff, (), (override));
-    MOCK_METHOD(NlErrCode, EnableNearlinkToHalf, (), (override));
+    MOCK_METHOD(NlErrCode, EnableNearlinkToHalf,
+        (int32_t, const NearlinkSwitchActionValidChecker &), (override));
 };
 
 class NearlinkSwitchModuleTest : public testing::Test {
@@ -67,7 +72,7 @@ public:
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_001, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_001 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
 
@@ -84,7 +89,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_001, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_002, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_002 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK),
         NL_ERR_INTERNAL_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -99,7 +104,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_002, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_003, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_003 start");
-    EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK),
         NL_NO_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -232,7 +237,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_010, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_011, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_011 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_NO_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_NO_ERROR);
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
@@ -250,7 +255,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_011, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_012, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_012 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_ERR_INTERNAL_ERROR));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_ERR_INTERNAL_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -265,7 +270,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_012, TestSize.Level1
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_013, TestSize.Level1)
 {
     HILOGI("NearlinkSwitchModuleTest_013 start");
-    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
+    EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_ERR_INVALID_SWITCH_OPERATION));
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF),
         NL_NO_ERROR);
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
@@ -282,7 +287,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_014, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_014 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
 
@@ -318,7 +323,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_015, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_015 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
         EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
 
@@ -359,7 +364,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_016, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_016 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -389,7 +394,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_017, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_017 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -451,7 +456,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_019, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_019 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
@@ -513,7 +518,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_021, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_021 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -540,7 +545,7 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_022, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_022 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf()).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_NO_ERROR));
     }
 
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
@@ -586,7 +591,8 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_023, TestSize.Level1
 
 /**
  * @tc.name: NearlinkSwitchModuleTest_024
- * @tc.desc: Test switch module timer dfr
+ * @tc.desc: 开关动作超时后下发最近一次缓存事件（队尾），其余缓存事件清除；
+ *           无缓存事件后流程结束
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1)
@@ -594,11 +600,15 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1
     HILOGI("NearlinkSwitchModuleTest_024 start");
     {
         InSequence seq;
-        EXPECT_CALL(*switchAction_, EnableNearlink(_)).WillOnce(Return(NL_NO_ERROR));
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
+        // 超时后队尾事件 DISABLE_NEARLINK 被下发处理
+        EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
     }
 
     switchModule_->taskTimeout_ = 10000;  // 10ms
-    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    // 开启动作指定 10ms 加载超时：开启接口返回后按 10ms 重新计时，随后触发超时
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
+        SleAutoConnectPolicy::AUTO_CONN_GENERAL, 10), NL_NO_ERROR);
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
     EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
@@ -606,12 +616,112 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_024, TestSize.Level1
     EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 4);
 
-    // 10 ms timeout, clear all state and cache event.
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    // 第一次超时(开启接口返回后按 10ms 重新计时)后下发队尾 DISABLE_NEARLINK；第二次超时无缓存事件后流程结束
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
     EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
 
-    HILOGI("NearlinkSwitchModuleTest_024 start");
+    HILOGI("NearlinkSwitchModuleTest_024 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_026
+ * @tc.desc: 开关动作超时后仅下发最近一次缓存事件（队尾），其余缓存事件清除，
+ *           开关动作正常完成后连续超时次数清零
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_026, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_026 start");
+    {
+        InSequence seq;
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
+        // 超时后仅队尾事件 ENABLE_NEARLINK 被下发，DISABLE_NEARLINK 与 ENABLE_NEARLINK_TO_HALF 被清除
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
+    }
+
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 3);
+
+    // 取消真实定时任务后手动触发一次超时
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+
+    WAIT_CACHED_EVENT_COMPLETE;
+    // 队尾 ENABLE_NEARLINK 被下发处理
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 开关动作正常完成后连续超时次数清零
+    switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_ON);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+
+    HILOGI("NearlinkSwitchModuleTest_026 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_027
+ * @tc.desc: 开关动作连续超时达到3次后清空缓存队列，不再下发缓存事件
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_027, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_027 start");
+    {
+        InSequence seq;
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
+        // 第一次超时后下发队尾 ENABLE_NEARLINK_TO_HALF
+        EXPECT_CALL(*switchAction_, EnableNearlinkToHalf(_, _)).WillOnce(Return(NL_NO_ERROR));
+        // 第二次超时后下发队尾 DISABLE_NEARLINK
+        EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
+    }
+
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 2);
+
+    // 第一次超时：下发队尾 ENABLE_NEARLINK_TO_HALF
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    // 处理期间再次缓存 DISABLE_NEARLINK
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 1);
+
+    // 第二次超时：下发队尾 DISABLE_NEARLINK
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 2);
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 处理期间再次缓存 ENABLE_NEARLINK_TO_HALF
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 1);
+
+    // 第三次超时：达到连续超时上限，清空缓存队列，不再下发
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+
+    HILOGI("NearlinkSwitchModuleTest_027 end");
 }
 
  /**
@@ -633,6 +743,220 @@ HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_025, TestSize.Level1
     EXPECT_EQ(switchModule_->cachedEventVec_.back(), NearlinkSwitchEvent::DISABLE_NEARLINK);
 
     HILOGI("NearlinkSwitchModuleTest_025 start");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_028
+ * @tc.desc: 耗时动作在锁外执行：不阻塞其它事件与超时处理；被判定超时的旧动作接口稍后返回，
+ *           不再覆盖由缓存事件发起的新动作状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_028, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_028 start");
+    switchModule_->taskTimeout_ = 5000000;  // 5s，避免自动超时干扰
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool actionStarted = false;
+    std::promise<void> releaseAction;
+    std::shared_future<void> releaseFut = releaseAction.get_future().share();
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Invoke(
+        [&](SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &) {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            actionStarted = true;
+        }
+        cv.notify_all();
+        releaseFut.wait();      // 模拟耗时动作（如 SA 慢加载）：接口长时间未返回
+        return NL_ERR_INTERNAL_ERROR;   // 旧动作接口最终返回失败
+    }));
+    EXPECT_CALL(*switchAction_, DisableNearlink()).WillOnce(Return(NL_NO_ERROR));
+
+    // 动作在独立线程执行，阻塞在耗时动作内（不持开关锁）
+    std::thread actionThread([this]() {
+        switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK);
+    });
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&actionStarted] { return actionStarted; });
+    }
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+
+    // 耗时动作不持锁：其它开关事件可正常进入并缓存
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK), NL_NO_ERROR);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 1);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 超时任务不被耗时动作阻塞，可立即执行超时处理：下发队尾事件
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);  // 队尾 DISABLE 动作已启动
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    // 旧动作接口失败返回（已被判定超时）：不得覆盖新动作状态、不得清零计数
+    uint32_t actionSeqBeforeRelease = switchModule_->latestActionSeq_;
+    releaseAction.set_value();
+    actionThread.join();
+    WAIT_CACHED_EVENT_COMPLETE;
+    EXPECT_EQ(switchModule_->latestActionSeq_, actionSeqBeforeRelease);
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 1);
+
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    HILOGI("NearlinkSwitchModuleTest_028 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_029
+ * @tc.desc: 动作结束后才到达的超时任务被跳过，无副作用
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_029, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_029 start");
+    {
+        InSequence seq;
+        EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Return(NL_NO_ERROR));
+    }
+
+    EXPECT_EQ(switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK), NL_NO_ERROR);
+    uint32_t actionSeqAtStart = switchModule_->latestActionSeq_;
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 动作正常完成（结束时动作序号 +1）
+    switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_ON);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+    EXPECT_EQ(switchModule_->latestActionSeq_, actionSeqAtStart + 1);
+
+    // 携带旧序号的超时任务：直接跳过，无副作用
+    switchModule_->OnTaskTimeout(actionSeqAtStart);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    HILOGI("NearlinkSwitchModuleTest_029 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_030
+ * @tc.desc: 动作超时时间分两段：开关接口返回前 = SA 加载超时 + taskTimeout_（SA 正常加载时不被判超时），
+ *           接口返回后按 taskTimeout_ 重新计时
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_030, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_030 start");
+    switchModule_->taskTimeout_ = 50000;  // taskTimeout_ 缩短为 50ms 便于测试
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool actionStarted = false;
+    std::promise<void> releaseAction;
+    std::shared_future<void> releaseFut = releaseAction.get_future().share();
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Invoke(
+        [&](SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &) {
+            {
+                std::lock_guard<std::mutex> lock(mtx);
+                actionStarted = true;
+            }
+            cv.notify_all();
+            releaseFut.wait();      // 模拟 SA 加载等待（在 200ms 加载超时内）
+            return NL_NO_ERROR;
+        }));
+
+    // SA 加载超时 200ms：接口返回前的超时时间 = 50ms + 200ms = 250ms
+    std::thread actionThread([this]() {
+        switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
+            SleAutoConnectPolicy::AUTO_CONN_GENERAL, 200);
+    });
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&actionStarted] { return actionStarted; });
+    }
+    uint32_t actionSeqAtStart = switchModule_->latestActionSeq_;
+
+    // 等待 100ms：已超过 taskTimeout_(50ms)，但未超过接口返回前的超时时间(250ms)，不被判超时
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->latestActionSeq_, actionSeqAtStart);
+
+    // 放开阻塞的动作：接口返回后应重新按 taskTimeout_(50ms) 计时
+    releaseAction.set_value();
+    actionThread.join();
+
+    // 接口返回后短时间内不判超时（重新计时生效，未沿用返回前的长超时）
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    EXPECT_TRUE(switchModule_->isNlSwitchProcessing_);
+
+    // 超过重新计时后的 50ms 即判超时；无缓存事件，流程结束且计数清零、动作序号仅递增一次
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->latestActionSeq_, actionSeqAtStart + 1);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+
+    HILOGI("NearlinkSwitchModuleTest_030 end");
+}
+
+/**
+ * @tc.name: NearlinkSwitchModuleTest_031
+ * @tc.desc: 动作有效性校验器：动作进行中校验为真；被判定超时后校验为假，动作不得再下发
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSwitchModuleTest, NearlinkSwitchModuleTest_031, TestSize.Level1)
+{
+    HILOGI("NearlinkSwitchModuleTest_031 start");
+    switchModule_->taskTimeout_ = 5000000;  // 5s，避免自动超时干扰
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool actionStarted = false;
+    bool validBeforeTimeout = false;
+    bool validAfterTimeout = true;
+    std::promise<void> releaseAction;
+    std::shared_future<void> releaseFut = releaseAction.get_future().share();
+    EXPECT_CALL(*switchAction_, EnableNearlink(_, _, _)).WillOnce(Invoke(
+        [&](SleAutoConnectPolicy, int32_t, const NearlinkSwitchActionValidChecker &actionValidChecker) {
+            validBeforeTimeout = actionValidChecker != nullptr && actionValidChecker();
+            {
+                std::lock_guard<std::mutex> lock(mtx);
+                actionStarted = true;
+            }
+            cv.notify_all();
+            releaseFut.wait();      // 模拟 SA 加载等待，期间动作被判超时
+            validAfterTimeout = actionValidChecker != nullptr && actionValidChecker();
+            return NL_ERR_INVALID_SWITCH_OPERATION;   // 复核失败不下发，接口直接返回
+        }));
+
+    // 动作在独立线程执行，阻塞在耗时动作内（不持开关锁）
+    std::thread actionThread([this]() {
+        switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK);
+    });
+    {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [&actionStarted] { return actionStarted; });
+    }
+
+    // 动作进行中：校验器为真
+    EXPECT_TRUE(validBeforeTimeout);
+
+    // 模拟超时判定（动作等待已超过超时时间）
+    switchModule_->ffrtQueue_.cancel(switchModule_->taskTimeoutHandle_);
+    switchModule_->OnTaskTimeout(switchModule_->latestActionSeq_);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+
+    // 判定超时后放行动作：校验器为假，动作不得再下发
+    releaseAction.set_value();
+    actionThread.join();
+    EXPECT_FALSE(validAfterTimeout);
+    EXPECT_FALSE(switchModule_->isNlSwitchProcessing_);
+    EXPECT_EQ(switchModule_->consecutiveTimeoutCnt_, 0);
+    EXPECT_EQ(switchModule_->cachedEventVec_.size(), 0);
+
+    HILOGI("NearlinkSwitchModuleTest_031 end");
 }
 } // Nearlink
 } // OHOS

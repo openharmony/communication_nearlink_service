@@ -114,6 +114,20 @@ HWTEST_F(NearlinkHostTest, EnableNl001, TestSize.Level1)
 }
 
 /**
+ * @tc.number: EnableNlAsync001
+ * @tc.name:
+ * @tc.desc:
+ */
+HWTEST_F(NearlinkHostTest, EnableNlAsync001, TestSize.Level1)
+{
+    HILOGI("EnableNlAsync001 start");
+    NlErrCode ret = NearlinkHost::GetInstance().EnableNlAsync();
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    sleep(2);
+    HILOGI("EnableNlAsync001 end");
+}
+
+/**
  * @tc.number: IsSleEnabled001
  * @tc.name:
  * @tc.desc:

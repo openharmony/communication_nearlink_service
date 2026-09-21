@@ -28,6 +28,7 @@
 #include "nearlink_device_rssi_observer_stub.h"
 #include "nearlink_switch_module.h"
 #include "nearlink_utils.h"
+#include "ffrt_inner.h"
 #include "iservice_registry.h"
 #include "system_ability_definition.h"
 #include "parameters.h"
@@ -42,7 +43,8 @@
 namespace OHOS {
 namespace Nearlink {
 namespace {
-constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 20000;
+constexpr int32_t LOAD_NEARLINK_SA_TIMEOUT_MS = 30000;       // 默认加载超时时间，异步接口与缓存事件的下发使用 30s
+constexpr int32_t LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS = 5000;   // 同步接口加载超时时间，避免长时间阻塞调用线程
 
 #ifdef NEARLINK_HOST_AVOID_SLEEP
     const uint16_t WAKE_TIME = 3000; //3s
@@ -62,7 +64,12 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
     ~impl();
 
     void Init();
-    bool LoadNearlinkHostService(void);
+    void InitObservers();
+    void InitSwitchModule();
+    void RegisterSaManagerFunc();
+    void OnServiceStarted(const sptr<IRemoteObject> &remote);
+    void OnServiceStopped();
+    bool LoadNearlinkHostService(int32_t loadSaTimeoutMs);
     void LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void LoadSystemAbilityFail();
 
@@ -95,6 +102,8 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
 
     class NearlinkSwitchAction;
     std::shared_ptr<NearlinkSwitchModule> switchModule_ { nullptr };
+    // 异步开关操作执行队列，保证多次异步操作按调用顺序串行处理
+    ffrt::queue switchQueue_ { "nl_switch_async" };
 
     void SyncRandomAddrToService(void);
 #ifdef NEARLINK_HOST_AVOID_SLEEP
@@ -364,12 +373,20 @@ public:
     NearlinkSwitchAction() = default;
     ~NearlinkSwitchAction() override = default;
 
-    NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy) override
+    NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(),
+        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
+        // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
+        // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
+        bool isActionOutdated = actionValidChecker != nullptr && !actionValidChecker();
+        if (isActionOutdated) {
+            HILOGW("enable nearlink action is outdated, skip EnableSle");
+            return NL_ERR_INVALID_SWITCH_OPERATION;
+        }
         return proxy->EnableSle(autoConnPolicy);
     }
 
@@ -387,12 +404,20 @@ public:
         return proxy->DisableSleToOff();
     }
 
-    NlErrCode EnableNearlinkToHalf() override
+    NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(),
+        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
         sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
+        // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
+        // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
+        bool isActionOutdated = actionValidChecker != nullptr && !actionValidChecker();
+        if (isActionOutdated) {
+            HILOGW("enable nearlink to half action is outdated, skip EnableSleToHalf");
+            return NL_ERR_INVALID_SWITCH_OPERATION;
+        }
         return proxy->EnableSleToHalf();
     }
 };
@@ -422,51 +447,39 @@ void NearlinkHost::impl::Init()
 {
     HILOGI("starts");
     slefHostImplWeak_ = shared_from_this();
+    InitObservers();
+    InitSwitchModule();
+    RegisterSaManagerFunc();
+}
+
+void NearlinkHost::impl::InitObservers()
+{
     hostObserverImp_ = new (std::nothrow) NearlinkHostObserverImp(slefHostImplWeak_);
     remoteObserverImp_ = new (std::nothrow) NearlinkSlePeripheralCallbackImp(slefHostImplWeak_);
     deviceBatteryObserverImp_ = new (std::nothrow) NearlinkDeviceBatteryObserverImp(slefHostImplWeak_);
     deviceRssiObserverImp_ = new (std::nothrow) NearlinkDeviceRssiObserverImp(slefHostImplWeak_);
+}
 
+void NearlinkHost::impl::InitSwitchModule()
+{
     auto switchActionPtr = std::make_unique<NearlinkSwitchAction>();
     switchModule_ = std::make_shared<NearlinkSwitchModule>(std::move(switchActionPtr));
+}
 
+void NearlinkHost::impl::RegisterSaManagerFunc()
+{
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_HOST);
     std::weak_ptr<impl> wp = shared_from_this();
     info->serviceStartedFunc_ = [wp](sptr<IRemoteObject> remote) -> void {
         auto implSptr = wp.lock();
         NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
-        sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
-        NL_CHECK_RETURN(proxy, "proxy is nullptr");
-        NL_CHECK_RETURN(implSptr->hostObserverImp_, "hostObserverImp_ is nullptr");
-        proxy->RegisterSleAdapterObserver(implSptr->hostObserverImp_);
-        NL_CHECK_RETURN(implSptr->remoteObserverImp_, "remoteObserverImp_ is nullptr");
-        proxy->RegisterSlePeripheralCallback(implSptr->remoteObserverImp_);
-        NL_CHECK_RETURN(implSptr->deviceBatteryObserverImp_, "deviceBatteryObserverImp_ is nullptr");
-        proxy->RegisterDeviceBatteryObserver(implSptr->deviceBatteryObserverImp_);
-        NL_CHECK_RETURN(implSptr->deviceRssiObserverImp_, "deviceRssiObserverImp_ is nullptr");
-        proxy->RegisterDeviceRssiObserver(implSptr->deviceRssiObserverImp_);
-        bool isSleEnabled = false;
-        NlErrCode ret = proxy->IsSleEnabled(isSleEnabled);
-        NL_CHECK_RETURN(ret == NL_NO_ERROR, "IsSleEnabled failed, error code: %{public}d", ret);
-        if (isSleEnabled) {
-            HILOGW("execute serviceStartedFunc_, sle is enabled, maybe app is freezed before.");
-            implSptr->hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-                observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
-                observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
-            });
-        }
+        implSptr->OnServiceStarted(remote);
     };
 
     info->serviceStoppedFunc_ = [wp]() -> void {
         auto implSptr = wp.lock();
         NL_CHECK_RETURN(implSptr, "implSptr is nullptr.");
-        implSptr->hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-            observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
-            observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
-        });
-
-        NL_CHECK_RETURN(implSptr->switchModule_ != nullptr, "switchModule is nullptr");
-        implSptr->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_OFF);
+        implSptr->OnServiceStopped();
     };
 
     profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
@@ -475,8 +488,50 @@ void NearlinkHost::impl::Init()
     }
 }
 
-bool NearlinkHost::impl::LoadNearlinkHostService()
+void NearlinkHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
 {
+    // SA 已真实启动，唤醒等待加载完成的调用方：
+    // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
+    // 需由服务启动事件解除等待，避免空等到 LoadSystemAbility 超时。
+    // 唤醒先于下方观察者注册执行：等待方仅以代理可用为完成条件，注册前的状态变化由
+    // 函数末尾的 isSleEnabled 补发兜底；若移至注册之后，注册失败路径（提前 return）会丢失本次唤醒。
+    proxyConVar_.notify_all();
+    sptr<INearlinkHost> proxy = iface_cast<INearlinkHost>(remote);
+    NL_CHECK_RETURN(proxy, "proxy is nullptr");
+    NL_CHECK_RETURN(hostObserverImp_, "hostObserverImp_ is nullptr");
+    proxy->RegisterSleAdapterObserver(hostObserverImp_);
+    NL_CHECK_RETURN(remoteObserverImp_, "remoteObserverImp_ is nullptr");
+    proxy->RegisterSlePeripheralCallback(remoteObserverImp_);
+    NL_CHECK_RETURN(deviceBatteryObserverImp_, "deviceBatteryObserverImp_ is nullptr");
+    proxy->RegisterDeviceBatteryObserver(deviceBatteryObserverImp_);
+    NL_CHECK_RETURN(deviceRssiObserverImp_, "deviceRssiObserverImp_ is nullptr");
+    proxy->RegisterDeviceRssiObserver(deviceRssiObserverImp_);
+    bool isSleEnabled = false;
+    NlErrCode ret = proxy->IsSleEnabled(isSleEnabled);
+    NL_CHECK_RETURN(ret == NL_NO_ERROR, "IsSleEnabled failed, error code: %{public}d", ret);
+    if (isSleEnabled) {
+        HILOGW("execute OnServiceStarted, sle is enabled, maybe app is freezed before.");
+        hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+            observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+            observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+        });
+    }
+}
+
+void NearlinkHost::impl::OnServiceStopped()
+{
+    hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+        observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+        observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+    });
+
+    NL_CHECK_RETURN(switchModule_ != nullptr, "switchModule is nullptr");
+    switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_OFF);
+}
+
+bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
+{
+    int32_t timeoutMs = loadSaTimeoutMs > 0 ? loadSaTimeoutMs : LOAD_NEARLINK_SA_TIMEOUT_MS;
     std::unique_lock<std::mutex> lock(loadServiceMutex_);
     auto samgrProxy = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN_RET(samgrProxy, false, "samgrProxy is nullptr");
@@ -496,13 +551,17 @@ bool NearlinkHost::impl::LoadNearlinkHostService()
         HILOGE("Failed to load nearlink systemAbility");
         return false;
     }
+    // 等待 SA 加载完成，超时时长由调用方指定（同步接口短超时、异步接口长超时）。唤醒源有三类：
+    // 1. OnLoadSystemAbilitySuccess：SA 在超时时间内启动完成；
+    // 2. OnLoadSystemAbilityFail：加载请求超时，但 SA 仍可能在后台继续启动，此处仅唤醒重查；
+    // 3. 服务启动事件（serviceStartedFunc_）：SA 真实启动成功，解除等待避免空等超时。
     auto waitStatus = proxyConVar_.wait_for(
-        lock, std::chrono::milliseconds(LOAD_NEARLINK_SA_TIMEOUT_MS), []() -> bool {
+        lock, std::chrono::milliseconds(timeoutMs), []() -> bool {
             sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
             return proxy != nullptr;
         });
     if (!waitStatus) {
-        HILOGE("load nearlink systemAbility timeout");
+        HILOGE("load nearlink systemAbility timeout(%{public}d ms)", timeoutMs);
         return false;
     }
     return true;
@@ -523,6 +582,8 @@ void NearlinkHost::impl::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &rem
 
 void NearlinkHost::impl::LoadSystemAbilityFail()
 {
+    // 加载请求超时仅代表未在超时时间内收到成功回调，SA 仍可能启动成功，
+    // 此时继续等待服务启动事件（serviceStartedFunc_）唤醒。
     HILOGI("LoadSystemAbilityFail FinishStart SA");
     proxyConVar_.notify_one();
 }
@@ -595,7 +656,7 @@ NlErrCode NearlinkHost::LoadNearlinkSa()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
-    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(), NL_ERR_INTERNAL_ERROR,
+    NL_CHECK_RETURN_RET(pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS), NL_ERR_INTERNAL_ERROR,
         "load nearlink service failed.");
     return NL_NO_ERROR;
 }
@@ -609,7 +670,34 @@ NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
 #ifdef NEARLINK_HOST_AVOID_SLEEP
     auto runningLock = pimpl->AcquireWakeLock();
 #endif
-    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy);
+    // 同步接口短超时，避免长时间阻塞调用线程
+    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK,
+        autoConnPolicy, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
+}
+
+NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
+{
+    // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
+    HILOGI("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
+    NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
+    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    pimpl->switchQueue_.submit([hostImplWptr, autoConnPolicy]() -> void {
+        auto hostImplSptr = hostImplWptr.lock();
+        NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
+        NL_CHECK_RETURN(hostImplSptr->switchModule_, "switchModule is nullptr");
+#ifdef NEARLINK_HOST_AVOID_SLEEP
+        auto runningLock = hostImplSptr->AcquireWakeLock();
+#endif
+        // 异步接口在 ffrt 队列线程执行，使用长超时等待 SA 加载，提高慢启动场景一次成功率
+        NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
+            NearlinkSwitchEvent::ENABLE_NEARLINK, autoConnPolicy, LOAD_NEARLINK_SA_TIMEOUT_MS);
+        if (ret != NL_NO_ERROR) {
+            HILOGE("enable nearlink asynchronously failed, error code: %{public}d", ret);
+        }
+    });
+    return NL_NO_ERROR;
 }
 
 NlErrCode NearlinkHost::DisableNl()
@@ -636,7 +724,33 @@ NlErrCode NearlinkHost::EnableNlToHalf()
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
-    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF);
+    return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF,
+        SleAutoConnectPolicy::AUTO_CONN_GENERAL, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
+}
+
+NlErrCode NearlinkHost::EnableNlToHalfAsync()
+{
+    // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
+    HILOGI("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
+    NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
+    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    pimpl->switchQueue_.submit([hostImplWptr]() -> void {
+        auto hostImplSptr = hostImplWptr.lock();
+        NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
+        NL_CHECK_RETURN(hostImplSptr->switchModule_, "switchModule is nullptr");
+#ifdef NEARLINK_HOST_AVOID_SLEEP
+        auto runningLock = hostImplSptr->AcquireWakeLock();
+#endif
+        NlErrCode ret = hostImplSptr->switchModule_->ProcessNearlinkSwitchEvent(
+            NearlinkSwitchEvent::ENABLE_NEARLINK_TO_HALF, SleAutoConnectPolicy::AUTO_CONN_GENERAL,
+            LOAD_NEARLINK_SA_TIMEOUT_MS);
+        if (ret != NL_NO_ERROR) {
+            HILOGE("enable nearlink to half asynchronously failed, error code: %{public}d", ret);
+        }
+    });
+    return NL_NO_ERROR;
 }
 
 SleStateID NearlinkHost::GetSleFullState()
@@ -933,8 +1047,8 @@ NlErrCode NearlinkHost::NearlinkFactoryReset()
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     if (!IS_SLE_ENABLED() && !IsSleHalfDisabled()) {
-        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(), NL_ERR_INTERNAL_ERROR,
-            "pimpl is null or load nearlink service failed.");
+        NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS),
+            NL_ERR_INTERNAL_ERROR, "pimpl is null or load nearlink service failed.");
     }
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
