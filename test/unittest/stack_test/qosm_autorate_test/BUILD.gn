@@ -221,20 +221,22 @@ ohos_unittest("nl_stack_qosm_trans_channel_test") {
     debug = false
   }
 
-  
   sources = [
     "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
     "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_map.c",
     "$NEW_STACK_DIR/sdf/dfx/log/src/sdf_log_api.c",
     "$NEW_STACK_DIR/sdf/oal/memm/src/sdf_mem.c",
+    "$NEW_STACK_DIR/sdf/bsl/stm/src/sdf_stm.c",
     "$NEW_STACK_DIR/sdf/utils/src/sdf_addr.c",
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm.c",
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm_trans_channel.c",
+    "$NEW_STACK_DIR/cp/bsl/sle/qosm/src/qosm_trans_channel_tuning.c",
     "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
     "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
     "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
 
     "qosm_trans_channel_test.cpp",
+    "qosm_trans_channel_tuning_test.cpp",
   ]
 
   configs = [ ":stack_unit_test_config" ]
@@ -260,7 +262,6 @@ ohos_unittest("nl_stack_qosm_uevent_test") {
     debug = false
   }
 
-  
   sources = [
     "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_dlist.c",
     "$NEW_STACK_DIR/sdf/bsl/dsl/src/sdf_map.c",

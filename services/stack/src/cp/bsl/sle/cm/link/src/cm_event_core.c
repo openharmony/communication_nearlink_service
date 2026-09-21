@@ -187,6 +187,23 @@ static void CM_SleSetPhyProc(void *context, uint8_t result, const CM_ExecuteCmdP
 
     CM_SetPhyRsp_S *setPhyRsp = (CM_SetPhyRsp_S *)par->eventParameter;
     CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_SET_PHY, setPhyRsp);
+
+    CM_LogicLinkSetPhy_S setPhyParam = { 0 };
+    setPhyParam.status = setPhyRsp->status;
+    setPhyParam.lcid = setPhyRsp->lcid;
+    CM_ExecLogicLinkSetPhyCbks(&setPhyParam);
+}
+
+static void CM_SleSetMcsProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
+{
+    (void)par;
+    uint16_t lcid = (context != NULL) ? ((DLI_ConnCbkContext *)context)->connHandle : CM_INVALID_LCID;
+    CM_LOGI("sle set mcs proc enter, result = 0x%02x, lcid = 0x%04x", result, lcid);
+
+    CM_LogicLinkSetMcs_S setMcsParam = { 0 };
+    setMcsParam.status = result;
+    setMcsParam.lcid = lcid;
+    CM_ExecLogicLinkSetMcsCbks(&setMcsParam);
 }
 
 static void CM_SleReadRemoteVersionProc(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
@@ -380,6 +397,7 @@ static void CM_RegEventCbk(void)
     CM_AccessRegCbk(SLE_ACCESS_CBK_CONNECT_REMOTE_UPDATE_REQ, CM_SleConnectRemoteParamUpdateReqProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_CONNECT_UPDATE, CM_SleConnectUpdateProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_SET_PHY, CM_SleSetPhyProc);
+    CM_AccessRegCbk(SLE_ACCESS_CBK_SET_MCS, CM_SleSetMcsProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_SET_DATA_LEN, CM_SleSetDataLenProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_READ_REMOTE_VERSION, CM_SleReadRemoteVersionProc);
     CM_AccessRegCbk(SLE_ACCESS_CBK_READ_REMOTE_FEATURE, CM_SleReadRemoteFeatureProc);
