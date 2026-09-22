@@ -16,6 +16,7 @@
 #include "nearlink_sle_datatransfer_callback_stub.h"
 #include "log.h"
 #include "nearlink_def.h"
+#include "nearlink_fdsan_tag.h"
 #include "ipc_types.h"
 #include "string_ex.h"
 
@@ -72,6 +73,10 @@ ErrCode NearlinkSleDataTransferCallbackStub::OnConnectionStateChangedInner(Messa
         if (fd < 0) {
             return TRANSACTION_ERR;
         }
+        /* The fd arrives as an untagged dup in this process; take ownership with the SOCKET
+         * tag so the downstream close_with_tag sites (PortInfo dtor, null-callback guard)
+         * in this process close a tagged fd instead of false-aborting on tag 0. */
+        fdsan_exchange_owner_tag(fd, 0, NEARLINK_FDSAN_TAG_SOCKET);
     }
     OnConnectionStateChanged(*connectionParams, fd);
     return NO_ERROR;
