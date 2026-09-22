@@ -15,8 +15,7 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <stdint.h>
-/* fdsan: use the platform header when the sysroot ships one, else declare
- * the OHOS musl exports directly (same symbols HidHostUhid.cpp links against). */
+/* fdsan：优先用平台头；没有则直接声明 OHOS musl 导出的符号 */
 #if defined(__has_include) && __has_include(<fdsan.h>)
 #include <fdsan.h>
 #elif defined(__has_include) && __has_include(<sys/fdsan.h>)
@@ -29,7 +28,7 @@ int fdsan_close_with_tag(int fd, uint64_t tag);
 #include "sdf_event.h"
 #include "sdf_mem.h"
 
-/* fdsan owner tag for sdf event fds (nearlink 0xD00015x family) */
+/* sdf event fd 的 fdsan owner tag（nearlink 0xD00015x 段） */
 #define SDF_EVENT_FDSAN_OWNER_TAG 0xD000157
 
 typedef struct {

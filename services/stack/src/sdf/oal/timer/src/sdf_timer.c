@@ -16,8 +16,7 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <stdint.h>
-/* fdsan: use the platform header when the sysroot ships one, else declare
- * the OHOS musl exports directly (same symbols HidHostUhid.cpp links against). */
+/* fdsan：优先用平台头；没有则直接声明 OHOS musl 导出的符号 */
 #if defined(__has_include) && __has_include(<fdsan.h>)
 #include <fdsan.h>
 #elif defined(__has_include) && __has_include(<sys/fdsan.h>)
@@ -31,7 +30,7 @@ int fdsan_close_with_tag(int fd, uint64_t tag);
 #include "sdf_mem.h"
 #include "sdf_timer.h"
 
-/* fdsan owner tag for sdf timer fds (nearlink 0xD00015x family) */
+/* sdf timer fd 的 fdsan owner tag（nearlink 0xD00015x 段） */
 #define SDF_TIMER_FDSAN_OWNER_TAG 0xD000156
 
 typedef struct {

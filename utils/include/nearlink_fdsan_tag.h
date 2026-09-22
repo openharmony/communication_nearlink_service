@@ -18,8 +18,7 @@
 
 #include <stdint.h>
 
-/* Use the platform fdsan header when the sysroot ships one; otherwise declare
- * the OHOS musl exports directly (same symbols HidHostUhid.cpp links against). */
+/* 优先包含平台 fdsan 头；sysroot 没有时直接声明 OHOS musl 导出的符号 */
 #if defined(__has_include)
 #if __has_include(<fdsan.h>)
 #include <fdsan.h>
@@ -40,15 +39,13 @@ int fdsan_close_with_tag(int fd, uint64_t tag);
 #endif
 #endif
 
-/* fdsan owner tags: one stable value per owning module, allocated from the
- * nearlink LOG_DOMAIN family (utils/include/log.h, 0xD000150). The tag shows up
- * in fdsan reports and names the module owning the fd at that moment. */
+/* fdsan owner tag：每个持有 fd 的模块分配一个固定值，取自 nearlink LOG_DOMAIN 段
+ * （utils/include/log.h，0xD000150 起）；fdsan 报错日志里以此识别 fd 归属模块 */
 
-#define NEARLINK_FDSAN_TAG_TIMER  0xD000151 /* services/common NearlinkTimer: epoll/event/timer fd */
-#define NEARLINK_FDSAN_TAG_SOCKET 0xD000152 /* socket pair fds of PortSocketManager/WorkerContext,
-                                               * incl. datatransfer channel ends closed by PortInfo,
-                                               * frameworks callback and ipc proxy */
-#define NEARLINK_FDSAN_TAG_SNOOP  0xD000153 /* services/hardware SleDliSnoop log file fd */
-#define NEARLINK_FDSAN_TAG_DEVCFG 0xD000154 /* services/device_manager AdapterDeviceConfig fd */
+#define NEARLINK_FDSAN_TAG_TIMER  0xD000151 /* NearlinkTimer 的 epoll/event/timer fd */
+#define NEARLINK_FDSAN_TAG_SOCKET 0xD000152 /* socketpair fd 全族：PortSocketManager/WorkerContext，
+                                               * 含数传通道两端及 IPC 收包侧 */
+#define NEARLINK_FDSAN_TAG_SNOOP  0xD000153 /* SleDliSnoop 日志文件 fd */
+#define NEARLINK_FDSAN_TAG_DEVCFG 0xD000154 /* AdapterDeviceConfig 配置文件 fd */
 
 #endif /* NEARLINK_FDSAN_TAG_H */
