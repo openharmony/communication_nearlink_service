@@ -16,7 +16,6 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <stdint.h>
-/* fdsan 声明与 owner tag 统一取自公共头 */
 #include "nearlink_fdsan_tag.h"
 #include "securec.h"
 #include "sdf_log.h"
