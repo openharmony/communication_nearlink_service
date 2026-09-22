@@ -25,8 +25,8 @@ extern "C" {
 
 #define SSAP_EXCHANGE_INFO_PKT_LEN 6        // 信息交换报文长度
 #define SSAP_STACK_MTU_DEFAULT 251          // 星闪服务MTU缺省值
-#if defined(LOCAL_MTU) && (LOCAL_MTU != 0)
-#define SSAP_STACK_MTU_MAX LOCAL_MTU
+#if defined(SSAP_STACK_MTU_MAX_CFG) && (SSAP_STACK_MTU_MAX_CFG != 0)
+#define SSAP_STACK_MTU_MAX SSAP_STACK_MTU_MAX_CFG
 #else
 #define SSAP_STACK_MTU_MAX 1024             // 星闪服务MTU最大值
 #endif
