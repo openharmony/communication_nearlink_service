@@ -65,6 +65,7 @@ void HadmDeInitLinkCbManager(void)
         SDF_DestroyVector(g_hadmLinkCbVec);
         g_hadmLinkCbVec = NULL;
     }
+    (void)memset_s(g_hadmPendingFeatures, sizeof(g_hadmPendingFeatures), 0, sizeof(g_hadmPendingFeatures));
 }
 
 static bool HadmComparaLinkAddrs(void *ptr, void *args)
@@ -161,6 +162,50 @@ uint32_t HadmGetAddrsByLcid(uint16_t lcid, SLE_Addr_S *addr)
         }
     }
     return NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB;
+}
+
+uint32_t HadmCachePendingFeatures(uint16_t lcid, uint8_t supportSounding)
+{
+    for (int32_t i = 0; i < HADM_PENDING_FEATURES_MAX; i++) {
+        if (g_hadmPendingFeatures[i].valid && g_hadmPendingFeatures[i].lcid == lcid) {
+            g_hadmPendingFeatures[i].supportSounding = supportSounding;
+            return NLSTK_ERRCODE_SUCCESS;
+        }
+    }
+    for (int32_t i = 0; i < HADM_PENDING_FEATURES_MAX; i++) {
+        if (!g_hadmPendingFeatures[i].valid) {
+            g_hadmPendingFeatures[i].lcid = lcid;
+            g_hadmPendingFeatures[i].supportSounding = supportSounding;
+            g_hadmPendingFeatures[i].valid = true;
+            return NLSTK_ERRCODE_SUCCESS;
+        }
+    }
+    NLSTK_LOG_ERROR("[HADM]cache pending features fail, pending list is full, lcid: %u", lcid);
+    return NLSTK_ERRCODE_FAIL;
+}
+
+uint32_t HadmGetPendingFeatures(uint16_t lcid, uint8_t *supportSounding)
+{
+    NLSTK_CHECK_RETURN(supportSounding != NULL, NLSTK_ERRCODE_POINTER_NULL,
+                            "[HADM]the input point is NULL when get pending features")
+    for (int32_t i = 0; i < HADM_PENDING_FEATURES_MAX; i++) {
+        if (g_hadmPendingFeatures[i].valid && g_hadmPendingFeatures[i].lcid == lcid) {
+            *supportSounding = g_hadmPendingFeatures[i].supportSounding;
+            g_hadmPendingFeatures[i].valid = false;
+            return NLSTK_ERRCODE_SUCCESS;
+        }
+    }
+    return NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB;
+}
+
+uint32_t HadmClearPendingFeatures(uint16_t lcid)
+{
+    for (int32_t i = 0; i < HADM_PENDING_FEATURES_MAX; i++) {
+        if (g_hadmPendingFeatures[i].valid && g_hadmPendingFeatures[i].lcid == lcid) {
+            g_hadmPendingFeatures[i].valid = false;
+        }
+    }
+    return;
 }
 
 uint32_t HadmSetSoundingState(SLE_Addr_S *addr, HadmSoundingState_E state)
