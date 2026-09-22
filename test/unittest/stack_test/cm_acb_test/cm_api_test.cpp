@@ -646,6 +646,67 @@ TEST_F(UT_CM_API, CM_ReqSubrateParam_01)
     CM_DeInit();
 }
 
+static uint16_t UT_CM_PrepareCreateConnectTest(void)
+{
+    EXPECT_EQ(CM_Init(), CM_SUCCESS);
+    // 1) 初始化注册环境，并创建1个连接
+    CM_ConnectCbks_S cbks = UT_CM_GetRequiredConnectCbks();
+    cbks.reqAcbSubrateCbk = UT_CM_ReqAcbSubrateCbk;
+    EXPECT_EQ(CM_RegConnectCbks(&cbks), CM_SUCCESS);
+
+    UT_CM_ADPT_RegLogicLinkListener();
+    UT_CM_RegTransChannelListener();
+    uint16_t handle = g_activeHandleInitValue;
+    UT_CM_ApiTestConnect(handle);
+    return handle;
+}
+
+static void UT_CM_AfterDisconnectTest(uint16_t handle)
+{
+    // 1) 断开1个连接，并去初始化环境
+    CM_ApiTestDisconnect(handle);
+    CM_DeInit();
+}
+class CM_UT_TestcaseFactory {
+public:
+    void RegisterTestcaseFunc(const std::function<void(uint16_t handle)>& func)
+    {
+        func_ = func;
+    }
+
+    void ExecuteFunc(void)
+    {
+        // 创建1个连接
+        uint16_t handle = UT_CM_PrepareCreateConnectTest();
+        // 执行测试用例函数
+        func_(handle);
+        // 断开1个连接
+        UT_CM_AfterDisconnectTest(handle);
+    }
+private:
+    std::function<void(uint16_t)> func_;
+};
+
+static void UT_CM_ExecuteTestcaseFunc(const std::function<void(uint16_t handle)>& func)
+{
+    CM_UT_TestcaseFactory factory;
+    factory.RegisterTestcaseFunc(func);
+    factory.ExecuteFunc();
+}
+
+TEST_F(UT_CM_API, CM_SetMcs_01)
+{
+    UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
+        CM_LOGI("CM_SetMcs_01 start, handle:%hu", handle);
+        CM_SetMcsReq_S req = {};
+        req.lcid = handle;
+        req.mcs = CM_MCS_08;
+        EXPECT_EQ(CM_SetMcs(&req), CM_SUCCESS);
+        std::nullptr_t evt = nullptr;
+        UT_CM_SleCompleteEvt(DLI_SET_MCS, DLI_CBK_SET_MCS, evt, handle);
+    });
+}
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS
