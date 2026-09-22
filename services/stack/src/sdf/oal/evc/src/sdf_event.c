@@ -15,21 +15,12 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <stdint.h>
-/* fdsan：优先用平台头；没有则直接声明 OHOS musl 导出的符号 */
-#if defined(__has_include) && __has_include(<fdsan.h>)
-#include <fdsan.h>
-#elif defined(__has_include) && __has_include(<sys/fdsan.h>)
-#include <sys/fdsan.h>
-#else
-void fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
-int fdsan_close_with_tag(int fd, uint64_t tag);
-#endif
+/* fdsan 声明与 owner tag 统一取自公共头 */
+#include "nearlink_fdsan_tag.h"
 #include "securec.h"
 #include "sdf_event.h"
 #include "sdf_mem.h"
 
-/* sdf event fd 的 fdsan owner tag（nearlink 0xD00015x 段） */
-#define SDF_EVENT_FDSAN_OWNER_TAG 0xD000157
 
 typedef struct {
     int eventHandle;
@@ -53,7 +44,7 @@ static void CleanEventDesc(void *args)
     if (eventDesc == NULL) {
         return;
     }
-    fdsan_close_with_tag(eventDesc->eventHandle, SDF_EVENT_FDSAN_OWNER_TAG);
+    fdsan_close_with_tag(eventDesc->eventHandle, NEARLINK_FDSAN_TAG_SDF_EVENT);
     SDF_MemFree(eventDesc);
 }
 
@@ -68,14 +59,14 @@ uint32_t SDF_EventAdd(int *handle, SDF_EventParam *param)
         SDF_MemFree(eventDesc);
         return SDF_EVENT_ERROR_CREATE_FD_FAILED;
     }
-    fdsan_exchange_owner_tag(eFd, 0, SDF_EVENT_FDSAN_OWNER_TAG);
+    fdsan_exchange_owner_tag(eFd, 0, NEARLINK_FDSAN_TAG_SDF_EVENT);
 
     eventDesc->eventHandle = eFd;
     (void)memcpy_s(&eventDesc->eventParam, sizeof(SDF_EventParam), param, sizeof(SDF_EventParam));
     SDF_EvcEvent event = {SDF_EVC_EVENT, eFd, EventProc, (void *)eventDesc, CleanEventDesc};
     if (SDF_EvcListenEvent(param->handle, &event) != SDF_OK) {
         SDF_MemFree(eventDesc);
-        fdsan_close_with_tag(eFd, SDF_EVENT_FDSAN_OWNER_TAG);
+        fdsan_close_with_tag(eFd, NEARLINK_FDSAN_TAG_SDF_EVENT);
         return SDF_EVENT_ERROR_EVC_FAILED;
     }
     *handle = eFd;

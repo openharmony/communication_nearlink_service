@@ -17,15 +17,8 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
-/* fdsan：优先用平台头；没有则直接声明 OHOS musl 导出的符号 */
-#if defined(__has_include) && __has_include(<fdsan.h>)
-#include <fdsan.h>
-#elif defined(__has_include) && __has_include(<sys/fdsan.h>)
-#include <sys/fdsan.h>
-#else
-void fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
-int fdsan_close_with_tag(int fd, uint64_t tag);
-#endif
+/* fdsan 声明与 owner tag 统一取自公共头 */
+#include "nearlink_fdsan_tag.h"
 #include "securec.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"
@@ -34,8 +27,6 @@ int fdsan_close_with_tag(int fd, uint64_t tag);
 #include "sdf_log.h"
 #include "sdf_evc.h"
 
-/* sdf evc 实例 fd 的 fdsan owner tag（nearlink 0xD00015x 段） */
-#define SDF_EVC_FDSAN_OWNER_TAG 0xD000158
 
 typedef struct {
     int handle;
@@ -54,10 +45,10 @@ void DectoryEvcDesc(void *data)
     }
     SDF_EvcDesc *evcDesc = (SDF_EvcDesc *)data;
     if (evcDesc->handle >= 0) {
-        fdsan_close_with_tag(evcDesc->handle, SDF_EVC_FDSAN_OWNER_TAG);
+        fdsan_close_with_tag(evcDesc->handle, NEARLINK_FDSAN_TAG_SDF_EVC);
     }
     if (evcDesc->closeEventHandle >= 0) {
-        fdsan_close_with_tag(evcDesc->closeEventHandle, SDF_EVC_FDSAN_OWNER_TAG);
+        fdsan_close_with_tag(evcDesc->closeEventHandle, NEARLINK_FDSAN_TAG_SDF_EVC);
     }
     SDF_DestroyVector(evcDesc->eventVector);
     SDF_MemFree(evcDesc);
@@ -262,7 +253,7 @@ static bool SDF_EvcInstanceAddCloseEvent(SDF_EvcDesc *evcDesc, uint32_t *ret)
         *ret = SDF_EVC_ERROR_FD_CREATE_FAILED;
         return false;
     }
-    fdsan_exchange_owner_tag(evcDesc->closeEventHandle, 0, SDF_EVC_FDSAN_OWNER_TAG);
+    fdsan_exchange_owner_tag(evcDesc->closeEventHandle, 0, NEARLINK_FDSAN_TAG_SDF_EVC);
     struct epoll_event epEvent = {
         .events = EPOLLIN,
         .data.fd = evcDesc->closeEventHandle,
@@ -299,7 +290,7 @@ uint32_t SDF_EvcInstanceCreate(int *handle, const char *name)
         ret = SDF_EVC_ERROR_EPOLL_CREATE_FAILED;
         goto Fail2;
     }
-    fdsan_exchange_owner_tag(evcDesc->handle, 0, SDF_EVC_FDSAN_OWNER_TAG);
+    fdsan_exchange_owner_tag(evcDesc->handle, 0, NEARLINK_FDSAN_TAG_SDF_EVC);
     if (!SDF_VectorEmplaceBack(g_evcDescVector, evcDesc)) {
         ret = SDF_EVC_ERROR_VECTOR_FAIL;
         goto Fail2;

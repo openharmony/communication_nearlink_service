@@ -16,22 +16,13 @@
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <stdint.h>
-/* fdsan：优先用平台头；没有则直接声明 OHOS musl 导出的符号 */
-#if defined(__has_include) && __has_include(<fdsan.h>)
-#include <fdsan.h>
-#elif defined(__has_include) && __has_include(<sys/fdsan.h>)
-#include <sys/fdsan.h>
-#else
-void fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
-int fdsan_close_with_tag(int fd, uint64_t tag);
-#endif
+/* fdsan 声明与 owner tag 统一取自公共头 */
+#include "nearlink_fdsan_tag.h"
 #include "securec.h"
 #include "sdf_log.h"
 #include "sdf_mem.h"
 #include "sdf_timer.h"
 
-/* sdf timer fd 的 fdsan owner tag（nearlink 0xD00015x 段） */
-#define SDF_TIMER_FDSAN_OWNER_TAG 0xD000156
 
 typedef struct {
     int eventHandle;
@@ -74,7 +65,7 @@ static void CleanTimerDesc(void *args)
     if (timerDesc == NULL) {
         return;
     }
-    fdsan_close_with_tag(timerDesc->eventHandle, SDF_TIMER_FDSAN_OWNER_TAG);
+    fdsan_close_with_tag(timerDesc->eventHandle, NEARLINK_FDSAN_TAG_SDF_TIMER);
     SDF_MemFree(timerDesc);
 }
 
@@ -90,7 +81,7 @@ uint32_t SDF_TimerAdd(int *handle, SDF_TimerParam *param)
         SDF_MemFree(timerDesc);
         return SDF_TIMER_ERROR_TIMER_CREATE_FAILED;
     }
-    fdsan_exchange_owner_tag(tFd, 0, SDF_TIMER_FDSAN_OWNER_TAG);
+    fdsan_exchange_owner_tag(tFd, 0, NEARLINK_FDSAN_TAG_SDF_TIMER);
     struct itimerspec spec = {0};
     SetTimerSpec(&spec, param->expires, param->period);
 
@@ -114,7 +105,7 @@ uint32_t SDF_TimerAdd(int *handle, SDF_TimerParam *param)
     return SDF_OK;
 FAIL:
     SDF_MemFree(timerDesc);
-    fdsan_close_with_tag(tFd, SDF_TIMER_FDSAN_OWNER_TAG);
+    fdsan_close_with_tag(tFd, NEARLINK_FDSAN_TAG_SDF_TIMER);
     return ret;
 }
 

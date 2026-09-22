@@ -16,36 +16,20 @@
 #ifndef NEARLINK_FDSAN_TAG_H
 #define NEARLINK_FDSAN_TAG_H
 
-#include <stdint.h>
+#include <stdio.h> /* fdsan 声明由平台随 <stdio.h> 提供，不得手写 */
 
-/* 优先包含平台 fdsan 头；sysroot 没有时直接声明 OHOS musl 导出的符号 */
-#if defined(__has_include)
-#if __has_include(<fdsan.h>)
-#include <fdsan.h>
-#define NEARLINK_FDSAN_HEADER_FOUND 1
-#elif __has_include(<sys/fdsan.h>)
-#include <sys/fdsan.h>
-#define NEARLINK_FDSAN_HEADER_FOUND 1
-#endif
-#endif
-#ifndef NEARLINK_FDSAN_HEADER_FOUND
-#ifdef __cplusplus
-extern "C" {
-#endif
-void fdsan_exchange_owner_tag(int fd, uint64_t old_tag, uint64_t new_tag);
-int fdsan_close_with_tag(int fd, uint64_t tag);
-#ifdef __cplusplus
-}
-#endif
-#endif
+/* fdsan owner tag：每个持有 fd 的模块一个固定值。号段独立于 LOG_DOMAIN（避免与
+ * 日志分层号混淆回溯），用 'N''L'（0x4E4C）前缀便于在 fdsan 报错中辨认 nearlink
+ * 家族；具体段位待与平台 tag 登记约定核对后如需调整只改宏值。
+ * 注：HidHostUhid.cpp 旧写法直接用 LOG_DOMAIN 作 tag，登记为遗留，另行整改。 */
 
-/* fdsan owner tag：每个持有 fd 的模块分配一个固定值，取自 nearlink LOG_DOMAIN 段
- * （utils/include/log.h，0xD000150 起）；fdsan 报错日志里以此识别 fd 归属模块 */
-
-#define NEARLINK_FDSAN_TAG_TIMER  0xD000151 /* NearlinkTimer 的 epoll/event/timer fd */
-#define NEARLINK_FDSAN_TAG_SOCKET 0xD000152 /* socketpair fd 全族：PortSocketManager/WorkerContext，
-                                               * 含数传通道两端及 IPC 收包侧 */
-#define NEARLINK_FDSAN_TAG_SNOOP  0xD000153 /* SleDliSnoop 日志文件 fd */
-#define NEARLINK_FDSAN_TAG_DEVCFG 0xD000154 /* AdapterDeviceConfig 配置文件 fd */
+#define NEARLINK_FDSAN_TAG_TIMER     0x4E4C0001 /* NearlinkTimer 的 epoll/event/timer fd */
+#define NEARLINK_FDSAN_TAG_SOCKET    0x4E4C0002 /* socketpair fd 全族：PortSocketManager/WorkerContext，
+                                                 * 含数传通道两端及 IPC 收包侧 */
+#define NEARLINK_FDSAN_TAG_SNOOP     0x4E4C0003 /* SleDliSnoop 日志文件 fd */
+#define NEARLINK_FDSAN_TAG_DEVCFG    0x4E4C0004 /* AdapterDeviceConfig 配置文件 fd */
+#define NEARLINK_FDSAN_TAG_SDF_TIMER 0x4E4C0005 /* sdf timer fd */
+#define NEARLINK_FDSAN_TAG_SDF_EVENT 0x4E4C0006 /* sdf event fd */
+#define NEARLINK_FDSAN_TAG_SDF_EVC   0x4E4C0007 /* sdf evc 实例 fd（epoll/关闭事件） */
 
 #endif /* NEARLINK_FDSAN_TAG_H */
