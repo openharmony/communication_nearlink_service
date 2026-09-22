@@ -425,8 +425,8 @@ ohos_shared_library("nearlink_stack") {
     defines += [ "DIRECT_CONN_SCAN_PARAMS=${nearlink_service_direct_conn_scan_params}" ]
   }
 
-  if (nearlink_service_enable_ssap_mtu) {
-    defines += [ "SSAP_STACK_MTU" ]
+  if (nearlink_service_local_mtu != 0) {
+    defines += [ "LOCAL_MTU=${nearlink_service_local_mtu}" ]
   }
 
   configs = [ ":nearlink_stack_config" ]
