@@ -1888,6 +1888,19 @@ NlErrCode NearlinkHostServer::GetBatteryLevel(const std::string &address)
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(address, realAddr);
     HILOGI("address: %{public}s", GetEncryptAddr(realAddr).c_str());
     RawAddress addr(realAddr);
+    // 仅允许已注册电量观察者的调用者查询，未注册调用直接拒绝。
+    // 只读匹配判定须先于连接状态检查，避免未注册调用者借返回码差异探测设备连接状态
+    SwitchCallerInfo caller = SleInterfaceManager::GetCallerInfo();
+    bool isCallerRegistered = false;
+    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isCallerRegistered](
+        sptr<INearlinkDeviceBatteryObserver> observer) {
+        impl::NearlinkBasRemoteInfo info = pimpl->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
+        if (info.fullToken == caller.fullTokenId && info.uid == caller.callerUid) {
+            isCallerRegistered = true;
+        }
+    });
+    NL_CHECK_RETURN_RET(isCallerRegistered, NL_ERR_PERMISSION_FAILED,
+        "caller is not registered as battery observer, drop request.");
     int32_t connState = static_cast<int32_t>(SleConnectState::INVALID_STATE);
     NlErrCode result = GetProfileConnState(address, connState);
     NL_CHECK_RETURN_RET(result == NL_NO_ERROR, result, "get connection state error.");
@@ -1896,24 +1909,18 @@ NlErrCode NearlinkHostServer::GetBatteryLevel(const std::string &address)
     ProfileBas *basService = static_cast<ProfileBas *>
         (SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_BAS));
     NL_CHECK_RETURN_RET(basService, NL_ERR_INTERNAL_ERROR, "basService is nullptr.");
-    SwitchCallerInfo caller = SleInterfaceManager::GetCallerInfo();
     bool isReqSent = false;
-    bool isCallerRegistered = false;
-    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isReqSent, &isCallerRegistered](
+    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isReqSent](
         sptr<INearlinkDeviceBatteryObserver> observer) {
         impl::NearlinkBasRemoteInfo info = pimpl->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
         if (info.isSendingReq == true) {
             isReqSent = true;
         }
         if (info.fullToken == caller.fullTokenId && info.uid == caller.callerUid) {
-            isCallerRegistered = true;
             pimpl->remoteBatteryContainer_->UpdateRemoteInfo(observer->AsObject(), true);
             return;
         }
     });
-    // 仅允许已注册电量观察者的调用者查询；未注册调用直接拒绝，避免被用于探测设备连接状态
-    NL_CHECK_RETURN_RET(isCallerRegistered, NL_ERR_PERMISSION_FAILED,
-        "caller is not registered as battery observer, drop request.");
     if (!isReqSent) {
         basService->GetDeviceBatteryLevel(addr);
     }

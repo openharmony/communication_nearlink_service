@@ -117,7 +117,8 @@ static void SSAPS_UpdatePropertyValueCpcd(SSAP_Descriptor_S *descriptor, SLE_Add
     SSAP_LengthValue_S *value)
 {
     size_t index = 0;
-    CP_LOG_INFO("[SSAP] update cpcd value len %d, val: %s", value->len, SDF_GET_UINT8_STR(value->value, value->len));
+    // CPCD 值为对端业务数据，仅记录长度，不打印明文（与收发报文日志脱敏口径一致）
+    CP_LOG_INFO("[SSAP] update cpcd value len %d", value->len);
     CP_CHECK_LOG_RETURN_VOID(descriptor->clientConfigs != NULL, "[SSAP] update cpcd vector null");
     SSAP_LengthValue_S *newConfigVal = (SSAP_LengthValue_S *)SDF_MemZalloc(sizeof(SSAP_LengthValue_S) + value->len);
     CP_CHECK_LOG_RETURN_VOID(newConfigVal != NULL, "[SSAP] update cpcd malloc fail");
