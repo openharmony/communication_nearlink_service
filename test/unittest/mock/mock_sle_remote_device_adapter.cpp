@@ -451,7 +451,7 @@ void SleRemoteDeviceAdapter::HandleCdsmMemberFirstPairing(const RawAddress &memb
     HILOGI("[SleRemoteDeviceAdapter Mocker] HandleCdsmMemberFirstPairing addr:%{public}s", member.GetAddress().c_str());
 }
 
-void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType)
+void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType)
 {
     HILOGI("[SleRemoteDeviceAdapter Mocker] GetDeviceTypeInfo addr:%{public}s", device.GetAddress().c_str());
     devType = 0;

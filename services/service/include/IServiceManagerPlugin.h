@@ -53,7 +53,7 @@ public:
     virtual std::string GetAliasName(const std::string &address) const = 0;
     virtual bool WrapperCdsmGetAllMemberInfo(const RawAddress &rawAddr, std::vector<RawAddress> &cdsmInfoAddr) = 0;
     virtual uint8_t GetPeerDeviceAddrType(const RawAddress& address) const = 0;
-    virtual void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType) const = 0;
+    virtual void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType) const = 0;
     virtual int HidSendData(const HidReportInfo &reportInfo) const = 0;
     virtual int GetDeviceAppearance(const RawAddress &device) const = 0;
     virtual bool DisconnectAllProfile(const RawAddress &device) = 0;

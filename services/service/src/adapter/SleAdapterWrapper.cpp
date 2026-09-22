@@ -49,7 +49,7 @@ uint8_t SleAdapterWrapper::GetPeerDeviceAddrType(const RawAddress &address) cons
     return SleRemoteDeviceAdapter::GetInstance()->GetPeerDeviceAddrType(address);
 }
 
-void SleAdapterWrapper::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType) const
+void SleAdapterWrapper::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType) const
 {
     SleRemoteDeviceAdapter::GetInstance()->GetDeviceTypeInfo(device, addrInfo, devType);
 }
