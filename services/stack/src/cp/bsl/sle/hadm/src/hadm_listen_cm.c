@@ -36,6 +36,9 @@ static void HadmLinstenCmLinkReport(CM_LogicLinkState_S *param)
             NLSTK_LOG_ERROR("[HADM] alloc link cb fail");
             return;
         }
+        // 远端特性上报可能先于连接状态上报到达，注册linkCb后重放缓存的特性结果
+        uint8_t supportSounding = 0;
+        if ()
     } else if (param->result == CM_LINK_STATE_DISCONNECTED) {
         uint32_t ret = HadmTriggerStateMachine(&param->addr, CM_REPORT_LINK_STATE_DISCONNECTED, NULL);
         if (ret != NLSTK_ERRCODE_SUCCESS) {
