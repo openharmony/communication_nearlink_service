@@ -653,7 +653,7 @@ static void SSAP_CMLogicLinkCbk(CM_LogicLinkState_S *param)
         CP_CHECK_LOG_RETURN_VOID(exchangeParam != NULL, "[SSAP] init exchange info req malloc failed");
         (void)memcpy_s(&exchangeParam->addr, sizeof(SLE_Addr_S), &param->addr, sizeof(SLE_Addr_S));
         exchangeParam->mtu = link->mtu;
-#ifdef DISABLE_EXCHANGE_INFO_REQ
+#ifndef DISABLE_EXCHANGE_INFO_REQ
         SSAP_TaskParam_S taskParam = {.appId = SSAP_APP_INVALID_ID, .arg = exchangeParam, .freeFunc = SDF_MemFree,
             .func = SSAPC_ExchangeInfoReq, .timeout = SSAP_INTERACTION_MAX_TIMEOUT, .valid = true};
         // SSAP默认EXCHANGE_INFO_REQ添加至缓存队列。此时配对之类的流程还未结束，不影响芯片交互流程，因此延迟发送
