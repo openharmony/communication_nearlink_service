@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -404,6 +404,49 @@ TEST_F(SleAdapterSecurityTest, SavePeerDevices2Smp001)
     SleRemoteDeviceAdapter::GetInstance()->SavePeerDevices2Smp();
     peerConnDeviceSafeList.Erase(addr.GetAddress());
     HILOGI("SleAdapterSecurityTest: SavePeerDevices2Smp001 end");
+}
+
+/**
+ * @tc.name: RestorePairedDevicesAbility2Cfgdb001
+ * @tc.desc: 验证 Enable 时恢复已配对设备能力位图到栈cfgdb
+ * @tc.type: FUNC
+ */
+TEST_F(SleAdapterSecurityTest, RestorePairedDevicesAbility2Cfgdb001)
+{
+    HILOGI("SleAdapterSecurityTest: RestorePairedDevicesAbility2Cfgdb001 start");
+    RawAddress device("00:11:22:33:44:66");
+    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
+    peerDevice->SetAddress(device);
+    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
+    peerDevice->SetManufacturerAbility({0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
+
+    RawAddress invalidDevice("00:11:22:33:44:67");
+    std::shared_ptr<SlePeripheralDevice> invalidPeerDevice = std::make_shared<SlePeripheralDevice>();
+    invalidPeerDevice->SetAddress(invalidDevice);
+    invalidPeerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
+    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(invalidDevice.GetAddress(), invalidPeerDevice);
+
+    SleRemoteDeviceAdapter::GetInstance()->RestorePairedDevicesAbility2Cfgdb();
+
+    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
+    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(invalidDevice.GetAddress());
+    HILOGI("SleAdapterSecurityTest: RestorePairedDevicesAbility2Cfgdb001 end");
+}
+
+/**
+ * @tc.name: SaveHidManufacturerAbilityFromAdv001
+ * @tc.desc: 验证回连时保存HID广播能力位图
+ * @tc.type: FUNC
+ */
+TEST_F(SleAdapterSecurityTest, SaveHidManufacturerAbilityFromAdv001)
+{
+    HILOGI("SleAdapterSecurityTest: SaveHidManufacturerAbilityFromAdv001 start");
+    RawAddress device("00:11:22:33:44:68");
+    SleRemoteDeviceAdapter::GetInstance()->SaveHidManufacturerAbilityFromAdv(device);
+    std::this_thread::sleep_for(std::chrono::milliseconds(VCP_SERVICE_TDD_DELAY_1000_MS));
+    HILOGI("SleAdapterSecurityTest: SaveHidManufacturerAbilityFromAdv001 end");
 }
 
 /**
