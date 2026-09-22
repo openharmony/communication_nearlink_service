@@ -1149,7 +1149,9 @@ void SleServiceManager::OnProfileServicesDisableComplete(const SleTransport tran
     HILOGI("transport(%{public}s), ret(%{public}d)", GetTransportString(transport).c_str(), ret);
     int msgId = static_cast<int>(AdapterStateMachine::AdapterStateMessage::MSG_PROFILE_DISABLE_CMP);
     utility::Message msg(msgId, ret ? true : false);
-    pimpl->ProcessMessage(transport, msg);
+    DoInServiceManagerThread([this, transport, msg]() -> void {
+        pimpl->ProcessMessage(transport, msg);
+    });
 }
 
 void SleServiceManager::OnPairDevicesRemoved(const SleTransport transport, const std::vector<RawAddress> &devices) const
