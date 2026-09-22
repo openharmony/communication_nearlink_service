@@ -236,6 +236,32 @@ uint32_t HadmCacheRemoteFeatures(SLE_Addr_S *addr, uint8_t peerSupportSounding);
 
 uint32_t HadmGetRemoteFeatures(SLE_Addr_S *addr, HadmPeerSupportSounding_E *peerSupportSounding);
 
+/**
+ * @brief 缓存先于连接状态上报到达的远端特性结果
+ * @param [in] uint16_t lcid 链路的逻辑通道标识符
+ * @param [in] uint8_t supportSounding 对端是否支持测距，非0表示支持
+ * @return uint32_t 状态码，0表示成功，非0表示失败
+ * @details 远端特性上报可能先于连接状态上报到达，此时linkCb尚未创建，先按lcid缓存特性结果，
+            待连接状态上报创建linkCb后重放触发状态机
+ */
+uint32_t HadmCachePendingFeatures(uint16_t lcid, uint8_t supportSounding);
+
+/**
+ * @brief 获取并消费缓存的远端特性结果
+ * @param [in] uint16_t lcid 链路的逻辑通道标识符
+ * @param [out] uint8_t *supportSounding 对端是否支持测距，非0表示支持
+ * @return uint32_t 状态码，0表示成功，非0表示失败（无缓存）
+ * @details 查找即消费：命中后清除对应缓存条目
+ */
+uint32_t HadmGetPendingFeatures(uint16_t lcid, uint8_t *supportSounding);
+
+/**
+ * @brief 清除指定lcid的待定特性缓存
+ * @param [in] uint16_t lcid 链路的逻辑通道标识符
+ * @details 链路断开时调用，避免lcid复用后误重放
+ */
+void HadmClearPendingFeatures(uint16_t lcid);
+
 uint32_t HadmCacheLocalIqInfo(SLE_Addr_S *addr, HadmIqInfoFromDli_S *iqInfo);
 uint32_t HadmCacheRemoteIqInfo(SLE_Addr_S *addr, HadmIqInfoFromDli_S *iqInfo);
 HadmIqInfoFromDli_S *HadmGetLocalIqInfo(SLE_Addr_S *addr);
