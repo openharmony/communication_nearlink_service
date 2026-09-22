@@ -820,3 +820,50 @@ TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_001)
     smState = HadmGetSoundingStateByAddr(&g_addr);
     EXPECT_EQ(smState, HADM_SOUNDING_STATE_SOUNDING_READY);
 }
+
+/**
+ * @test HADM_FEATURES_BEFORE_CONNECT_002
+ * @brief 验证远端特性上报先于连接状态上报且链路随即断开时，缓存被清理，重连后不重放。
+ * @details 特性上报缓存后链路断开，DISCONNECTED处理清理该lcid的缓存；
+ *          重连后无重放，对端测距支持能力保持默认值。
+ */
+TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_002)
+{
+    TriggerCmReportFeatureEvent();
+    TriggerCmDisconnectEvent();
+    TriggerCmConnectEvent();
+
+    HadmSoundingState_E smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
+    // 无重放，对端测距支持能力保持默认值
+    HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
+    NLSTK_Errcode_E ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_DEFALUT);
+}
+
+/**
+ * @test HADM_PENDING_FEATURES_CACHE_001
+ * @brief 验证待定特性缓存接口的存取与清理语义。
+ * @details 缓存后获取即消费，不可重复获取；断链清理后不可获取。
+ */
+TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_001)
+{
+    uint8_t supportSounding = 0;
+    NLSTK_Errcode_E ret = HadmCachePendingFeatures(g_lcid, 1);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    ret = HadmGetPendingFeatures(g_lcid, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(supportSounding, 1);
+
+    // 获取即消费，二次获取失败
+    ret = HadmGetPendingFeatures(g_lcid, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+
+    // 断链清理后不可获取
+    ret = HadmCachePendingFeatures(g_lcid + 1, 0);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    HadmClearPendingFeatures(g_lcid + 1);
+    ret = HadmGetPendingFeatures(g_lcid + 1, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+}
