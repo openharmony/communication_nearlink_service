@@ -794,3 +794,29 @@ TEST_F(HADM_TEST, HADM_USER_STOP_001)
 
     EXPECT_EQ(userErrorCode, NLSTK_ERRCODE_SUCCESS);
 }
+
+/**
+ * @test HADM_FEATURES_BEFORE_CONNECT_001
+ * @brief 验证G-node连接流程下远端特性上报先于连接状态上报到达时，特性结果缓存重放功能。
+ * @details 特性上报到达
+ */
+TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_001)
+{
+    // 模拟远端特性上报先于连接状态上报到达
+    TriggerCmReportFeatureEvent();
+    HadmSoundingState_E smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_INVALID);
+    // 连接状态上报创建linkCb并重放缓存的特性结果，状态机处于IDLE
+    TriggerCmConnectEvent();
+    smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
+    // 重放触发后，对端测距支持能力已被缓存
+    HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
+    NLSTK_Errcode_E ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_YES);
+    // 收到remote cs caps回复，状态机切到SOUNDING_READY
+    TriggerDliReportRemoteCsEvent();
+    smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_SOUNDING_READY);
+}
