@@ -425,6 +425,10 @@ ohos_shared_library("nearlink_stack") {
     defines += [ "DIRECT_CONN_SCAN_PARAMS=${nearlink_service_direct_conn_scan_params}" ]
   }
 
+  if (nearlink_service_ssap_stack_mtu_max_cfg != 0) {
+    defines += [ "SSAP_STACK_MTU_MAX_CFG=${nearlink_service_ssap_stack_mtu_max_cfg}" ]
+  }
+
   configs = [ ":nearlink_stack_config" ]
   public_configs = [ ":nearlink_stack_public_config" ]
   sources = nearlink_stack_sources
