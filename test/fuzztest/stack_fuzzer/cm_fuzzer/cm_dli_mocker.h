@@ -32,6 +32,8 @@ uint32_t DLI_UpdateConnectionParam(uint8_t version, uint16_t localIndex, DLI_Con
 
 uint32_t DLI_SetPhy(DLI_SetPhyParam *param);
 
+uint32_t DLI_SetMcs(DLI_SetMcsParam *param);
+
 uint32_t DLI_ReadRemoteFeatures(DLI_ConnHandleStru *param);
 
 uint32_t DLI_RemoteConnectionParamReqReply(DLI_RemConParamReqReplyParam *param);

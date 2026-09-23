@@ -111,6 +111,11 @@ uint32_t DLI_SetPhy(DLI_SetPhyParam *param)
     return DLI_SUCCESS;
 }
 
+uint32_t DLI_SetMcs(DLI_SetMcsParam *param)
+{
+    return DLI_SUCCESS;
+}
+
 uint16_t DLI_GetAcbDataLen(void)
 {
     return DLI_SUCCESS;

@@ -41,6 +41,11 @@ uint32_t DLI_SetPhy(DLI_SetPhyParam *param)
     return DLI_SUCCESS;
 }
 
+uint32_t DLI_SetMcs(DLI_SetMcsParam *param)
+{
+    return DLI_SUCCESS;
+}
+
 uint32_t DLI_ReadRemoteRssi(DLI_ConnHandleStru *param)
 {
     return 0;
