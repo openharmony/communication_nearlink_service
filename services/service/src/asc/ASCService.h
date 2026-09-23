@@ -595,7 +595,7 @@ private:
     bool IsAllCosetFrameTypeChangedSucc(uint32_t groupId);
     bool GetVoiceCallAcbStatus(const RawAddress &device, uint8_t& frameType, uint8_t& phyType);
     void SetVoiceCallAcbStatus(const RawAddress &device, uint8_t frameType, uint8_t phyType);
-    void RecoverFrameTypeWhenReleaseStream(const RawAddress &device);
+    void RecoverFrameTypeWhenReleaseStream(const RawAddress &device, uint8_t releaseResult);
     void SetAutoRateRecvMsg(AscBitrateChange bitchange, NLSTK_ActmAutoRateRecvMsg_S& msg);
     bool IsExcuteChangeLocalBitrateNow(uint32_t groupId);
     void UpdateLocalDspBitrate(const AscBitrateChange& ascBitrate);

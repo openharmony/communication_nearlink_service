@@ -4421,6 +4421,8 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
 
     ASCState state = GetASCStatus(device);
     AudioStreamType streamType = GetProcessingStreamType(device);
+    // 通话 Autorate 还原帧格式为帧1
+    RecoverFrameTypeWhenReleaseStream(device, result);
     if (IsReconfigStopping(state)) {
         CbkReconfigStopping(device, result, streamType);
         return;
@@ -4443,8 +4445,6 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
             GetEncryptAddr(device.GetAddress()).c_str(), state);
         // 通知DSP断链的connhandle
         SetAudioDisconnInfo(device, connHandle);
-        // 通话 Autorate 还原帧格式为帧1
-        RecoverFrameTypeWhenReleaseStream(device);
         ClearWhenDisconnect(device);
         // 断连接场景会上报deleteDevice，音频框架会清空状态，不用上报流状态
         return;
@@ -4472,8 +4472,6 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
     SetAutoRateBps(device, 0);
     // 删除Qos配置信息
     QosM::GetInstance().ClearQosM(device);
-    // 通话 Autorate 还原帧格式为帧1
-    RecoverFrameTypeWhenReleaseStream(device);
     // 取出缓存的关闭流任务进行处理
     ProcStopBuff(device, NL_SLE_ASC_RELEASED);
 
@@ -4896,8 +4894,12 @@ void ASCService::SetVoiceCallAcbStatus(const RawAddress &device, uint8_t frameTy
     it->second.multicastPhyType = phyType;
 }
 
-void ASCService::RecoverFrameTypeWhenReleaseStream(const RawAddress &device)
+void ASCService::RecoverFrameTypeWhenReleaseStream(const RawAddress &device, uint8_t releaseResult)
 {
+    if (releaseResult != NL_NO_ERROR) {
+        HILOGI("%{public}s release stream not success, no need recover frame type", GET_ENCRYPT_ADDR(device));
+        return;
+    }
     auto it = ascStatusMap_.find(device.GetAddress());
     NL_CHECK_RETURN(it != ascStatusMap_.end() && GetLongRangeVoiceCallAbility(device),
         "[ASCService] NO item %{public}s in AscStatusMap or not support frame4 voice call", GET_ENCRYPT_ADDR(device));
