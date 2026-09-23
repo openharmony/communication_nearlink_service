@@ -458,10 +458,13 @@ bool SleAdapter::DisableTask()
         LOG_DEBUG("[SleAdapter]:BTM Disable successfully!");
     }
     SleDliSnoop::GetInstance().SnoopShutDown();
-    GetContext()->OnDisable(ADAPTER_NAME_SLE, ret);
 
+    // 必须在slem_disable之后清理
     ClearPeerDeviceInfo();
     InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
+
+    // OnDisable会触发profile服务销毁，相关清理动作需排查是否需要放到OnDisable之前，无关的建议放在之后
+    GetContext()->OnDisable(ADAPTER_NAME_SLE, ret);
     return ret;
 }
 
