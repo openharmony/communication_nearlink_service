@@ -253,6 +253,8 @@ public:
      * @brief Get battery level of the remote device.
      *
      * @return Returns the battery level of the remote device as a percentage.
+     * @note Requires the caller to be registered as a battery observer; otherwise
+     * returns NL_ERR_PERMISSION_FAILED.
      * @since 6
      */
     NlErrCode GetBatteryLevel();

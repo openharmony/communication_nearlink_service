@@ -21,27 +21,6 @@
 #include "log.h"
 #include "ffrt_inner.h"
 
-#ifdef HILOGE
-#undef HILOGE
-#endif
-
-#ifdef HILOGW
-#undef HILOGW
-#endif
-
-#ifdef HILOGI
-#undef HILOGI
-#endif
-
-#ifdef HILOGD
-#undef HILOGD
-#endif
-
-#define HILOGD(fmt, ...)  NL_HILOG(HILOG_DEBUG, "[%{public}ld]" fmt, (ffrt::get_queue_id()), ##__VA_ARGS__)
-#define HILOGI(fmt, ...)  NL_HILOG(HILOG_INFO, "[%{public}ld]" fmt, (ffrt::get_queue_id()), ##__VA_ARGS__)
-#define HILOGW(fmt, ...)  NL_HILOG(HILOG_WARN, "[%{public}ld]" fmt, (ffrt::get_queue_id()), ##__VA_ARGS__)
-#define HILOGE(fmt, ...)  NL_HILOG(HILOG_ERROR, "[%{public}ld]" fmt, (ffrt::get_queue_id()), ##__VA_ARGS__)
-
 namespace OHOS {
 namespace Nearlink {
  /**
