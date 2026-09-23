@@ -486,6 +486,8 @@ static NLSTK_Errcode_E SsapClientWrite
 {
     NLSTK_CHECK_RETURN(value && value->data && value->len > 0, NLSTK_ERRCODE_POINTER_NULL,
         "[NLSTK_SSAPC] input param is null");
+    NLSTK_CHECK_RETURN(value->len <= SSAP_MAX_VALUE_LENTH, NLSTK_ERRCODE_PARAM_ERR,
+        "[NLSTK_SSAPC] value len over max in SsapClientWrite");
 
     /* 申请内存 */
     NLSTK_SsapClientWriteBaseInfo_S *param =

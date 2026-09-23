@@ -522,6 +522,10 @@ static uint32_t CcpAddCcsCallInOutInfo(NLSTK_SsapServicePropertyParam_S *propert
     (void)memcpy_s(&property->uuid, sizeof(NLSTK_SsapUuid_S), &uuidStru, sizeof(NLSTK_SsapUuid_S));
     uint8_t right = baseInfo->propertyRights[NLSTK_CCP_CCS_CALLIN_OUT_INFO];
     CcpSetPermissionAndOperation(property, right, false);
+    NLSTK_CHECK_RETURN(CCP_CALLIN_OUT_LEN <= (UINT16_MAX - baseInfo->callInOutInfo.userInfo.len) &&
+        (CCP_CALLIN_OUT_LEN + baseInfo->callInOutInfo.userInfo.len) <=
+            (UINT16_MAX - baseInfo->callInOutInfo.userAlias.len),
+        NLSTK_ERRCODE_PARAM_ERR, "[CCP] callin/out info len is over max");
     property->val.len =
         CCP_CALLIN_OUT_LEN + baseInfo->callInOutInfo.userInfo.len + baseInfo->callInOutInfo.userAlias.len;
     property->val.data = (uint8_t *)SDF_MemZalloc(property->val.len);

@@ -567,7 +567,11 @@ static SSAP_LoopControlType_E SSAPS_ExecWriteMultiSubItem(SSAP_Link_S *link, SSA
     SSAP_WriteOriginData_S *originDataItem = &results->originData[results->originDataCount++];
     originDataItem->dataType = operation->dataType;
     originDataItem->value = (SSAP_LengthValue_S *)SDF_MemZalloc(sizeof(SSAP_LengthValue_S) + operation->value.len);
-    CP_CHECK_LOG_RETURN(originDataItem->value != NULL, LOOP_BREAK, "[SSAP] update property value malloc fail");
+    if (originDataItem->value == NULL) {
+        CP_LOG_ERROR("[SSAP] update property value malloc fail");
+        SDF_MemFree(operation);
+        return LOOP_BREAK;
+    }
     originDataItem->value->len = operation->value.len;
     (void)memcpy_s(originDataItem->value->value, operation->value.len, operation->value.value, operation->value.len);
 

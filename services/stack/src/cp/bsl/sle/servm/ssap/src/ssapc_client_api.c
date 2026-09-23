@@ -149,6 +149,8 @@ void SSAP_WriteCmd(SSAP_WriteCmdInfo_S *writeCmdInfo)
     CP_CHECK_LOG_RETURN_VOID(writeCmdInfo != NULL, "[SSAP] SSAP_WriteCmd arg is null");
     SSAP_Link_S *link = SSAP_FindSsapLinkByAddr(&writeCmdInfo->addr);
     CP_CHECK_LOG_RETURN_VOID(link != NULL, "[SSAP] SSAP_WriteCmd link is null");
+    CP_CHECK_LOG_RETURN_VOID(writeCmdInfo->value.len <= SSAP_MAX_VALUE_LENTH,
+        "[SSAP] SSAP_WriteCmd value len over max");
     uint32_t size = sizeof(SSAP_WriteCmdInfo_S) + writeCmdInfo->value.len;
     SSAP_WriteCmdInfo_S *copyParam = (SSAP_WriteCmdInfo_S *)SDF_MemZalloc(size);
     CP_CHECK_LOG_RETURN_VOID(copyParam != NULL, "[SSAP] SSAP_WriteCmd malloc is null");

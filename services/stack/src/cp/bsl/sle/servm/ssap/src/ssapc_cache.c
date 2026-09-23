@@ -747,7 +747,7 @@ NLSTK_Errcode_E SsapcCacheGetServices(SLE_Addr_S *addr, int32_t appId, NLSTK_Ssa
         }
         if (ConvertCacheServ(appId, &servInstance[resNum], cache) != NLSTK_ERRCODE_SUCCESS) {
             CP_LOG_ERROR("[SSAPC_CACHE] convert serv fail");
-            SsapcCacheFreeServices(servInstance, resNum);
+            SsapcCacheFreeServices(servInstance, resNum + 1);
             return NLSTK_ERRCODE_FAIL;
         }
         resNum++;
