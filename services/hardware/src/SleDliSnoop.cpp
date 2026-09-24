@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include "parameters.h"
 #include "parameter.h"
+#include "nearlink_fdsan_tag.h"
 #include "SleDliLayerAdapter.h"
 #include "SleDliThreadUtil.h"
 #include "log.h"
@@ -207,7 +208,7 @@ void SleDliSnoop::SnoopShutDownTask()
 {
     HILOGI("enter");
     if (logFileFd_ != INVALID_FD) {
-        int ret = close(logFileFd_);
+        int ret = fdsan_close_with_tag(logFileFd_, NEARLINK_FDSAN_TAG_SNOOP);
         if (ret == -1) {
             HILOGE("close file fail, errno:%{public}s", strerror(errno));
         }
@@ -341,7 +342,7 @@ void SleDliSnoop::OpenSnoopFile()
     NL_CHECK_RETURN(!snoopLogfilePath_.empty(), "SleDliSnoop path empty");
     if (logFileFd_ != INVALID_FD) {
         HILOGI("close file");
-        close(logFileFd_);
+        fdsan_close_with_tag(logFileFd_, NEARLINK_FDSAN_TAG_SNOOP);
         logFileFd_ = INVALID_FD;
     }
 
@@ -358,6 +359,7 @@ void SleDliSnoop::OpenSnoopFile()
         return;
     }
     umask(prevmask);
+    fdsan_exchange_owner_tag(logFileFd_, 0, NEARLINK_FDSAN_TAG_SNOOP);
 }
 
 void SleDliSnoop::UpdateLogging()
@@ -387,7 +389,7 @@ void SleDliSnoop::UpdateLogging()
         HILOGI("disable snoop logging");
         if (logFileFd_ != INVALID_FD) {
             HILOGI("close file");
-            close(logFileFd_);
+            fdsan_close_with_tag(logFileFd_, NEARLINK_FDSAN_TAG_SNOOP);
             logFileFd_ = INVALID_FD;
         }
     }

@@ -24,6 +24,7 @@
 #include "i_nearlink_sle_datatransfer.h"
 #include "nearlink_safe_map.h"
 #include "sle_uuid.h"
+#include "nearlink_fdsan_tag.h"
 #include <memory>
 #include <thread>
 #include <sys/socket.h>
@@ -92,7 +93,9 @@ public:
                 GetDataTransferCallback(connectionParams.port_, sleDataTransferImplSptr);
 
         if (!callbackSptr) {
-            close(fd);
+            if (fd != -1) {
+                fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
+            }
             return;
         }
 

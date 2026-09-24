@@ -136,10 +136,12 @@ int PortSocketManager::CreateSocketPair(uint16_t portId, const std::string &addr
         sv[0], sv[1], portId);
     SetNonblock(sv[0]); // local fd
     SetNonblock(sv[1]); // remote fd
+    fdsan_exchange_owner_tag(sv[0], 0, NEARLINK_FDSAN_TAG_SOCKET);
+    fdsan_exchange_owner_tag(sv[1], 0, NEARLINK_FDSAN_TAG_SOCKET);
     if (SetBufferSize(sv[0], MAX_BUFFER_SIZE_TO_SET) != ReturnValue::RET_NO_ERROR
         || SetBufferSize(sv[1], MAX_BUFFER_SIZE_TO_SET) != ReturnValue::RET_NO_ERROR) { // set buff size
-        close(sv[0]);
-        close(sv[1]);
+        fdsan_close_with_tag(sv[0], NEARLINK_FDSAN_TAG_SOCKET);
+        fdsan_close_with_tag(sv[1], NEARLINK_FDSAN_TAG_SOCKET);
         return -1;
     }
 

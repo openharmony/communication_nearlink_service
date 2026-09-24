@@ -15,6 +15,7 @@
 
 #include "nearlink_sle_datatransfer_callback_proxy.h"
 #include "log.h"
+#include "nearlink_fdsan_tag.h"
 
 namespace OHOS::Nearlink {
 NearlinkSleDataTransferCallbackProxy::NearlinkSleDataTransferCallbackProxy(const sptr<IRemoteObject> &impl)
@@ -31,24 +32,24 @@ void NearlinkSleDataTransferCallbackProxy::OnConnectionStateChanged(
     if (!data.WriteInterfaceToken(NearlinkSleDataTransferCallbackProxy::GetDescriptor())) {
         HILOGE("Write Token error");
         if (fd != -1) {
-            close(fd);
+            fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
         }
         return;
     }
     if (!data.WriteParcelable(&connectionParams)) {
         HILOGE("write connect failed");
         if (fd != -1) {
-            close(fd);
+            fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
         }
         return;
     }
     if (fd != -1) {
         if (!data.WriteFileDescriptor(fd)) {
             HILOGE("write fd failed");
-            close(fd);
+            fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
             return;
         }
-        close(fd);
+        fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
     }
     MessageParcel reply;
     MessageOption option = {MessageOption::TF_ASYNC};

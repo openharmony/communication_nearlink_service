@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "log.h"
+#include "nearlink_fdsan_tag.h"
 #include "xml_parse.h"
 
 namespace OHOS {
@@ -92,10 +93,11 @@ bool AdapterDeviceConfig::Fsync()
         HILOGE("[SleConfig] open fail, errno:%{public}s", strerror(errno));
         return false;
     }
+    fdsan_exchange_owner_tag(fd, 0, NEARLINK_FDSAN_TAG_DEVCFG);
     if (fsync(fd) == -1) {
         HILOGE("[SleConfig] fsync fail.");
     }
-    close(fd);
+    fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_DEVCFG);
     return true;
 }
 

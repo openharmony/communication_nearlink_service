@@ -27,6 +27,7 @@
 #include "nearlink_socket_inputstream.h"
 #include "nearlink_socket_outputstream.h"
 #include <log.h>
+#include "nearlink_fdsan_tag.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -59,7 +60,7 @@ struct PortInfo {
     {
         HILOGI("PortInfo close");
         if (fd_ != -1) {
-            close(fd_);
+            fdsan_close_with_tag(fd_, NEARLINK_FDSAN_TAG_SOCKET);
         }
     }
 public:
@@ -108,6 +109,7 @@ struct WorkerContext {
             HILOGE("Failed to create worker epfd");
             return;
         }
+        fdsan_exchange_owner_tag(epfd, 0, NEARLINK_FDSAN_TAG_SOCKET);
 
         int fds[2];
 
@@ -119,6 +121,8 @@ struct WorkerContext {
         HILOGD("create : wakeReadFd %{public}d, wakeWriteFd: %{public}d", fds[0], fds[1]);
         SetNonblock(fds[0]); // read fd
         SetNonblock(fds[1]); // write fd
+        fdsan_exchange_owner_tag(fds[0], 0, NEARLINK_FDSAN_TAG_SOCKET);
+        fdsan_exchange_owner_tag(fds[1], 0, NEARLINK_FDSAN_TAG_SOCKET);
 
         wakeReadFd = fds[0];
         wakeWriteFd = fds[1];
@@ -136,13 +140,13 @@ struct WorkerContext {
 
     ~WorkerContext() {
         if (epfd != -1) {
-            close(epfd);
+            fdsan_close_with_tag(epfd, NEARLINK_FDSAN_TAG_SOCKET);
         }
         if (wakeReadFd != -1) {
-            close(wakeReadFd);
+            fdsan_close_with_tag(wakeReadFd, NEARLINK_FDSAN_TAG_SOCKET);
         }
         if (wakeWriteFd != -1) {
-            close(wakeWriteFd);
+            fdsan_close_with_tag(wakeWriteFd, NEARLINK_FDSAN_TAG_SOCKET);
         }
     }
 

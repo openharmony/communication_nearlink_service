@@ -15,9 +15,11 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <stdint.h>
+#include "nearlink_fdsan_tag.h"
 #include "securec.h"
 #include "sdf_event.h"
 #include "sdf_mem.h"
+
 
 typedef struct {
     int eventHandle;
@@ -41,7 +43,7 @@ static void CleanEventDesc(void *args)
     if (eventDesc == NULL) {
         return;
     }
-    close(eventDesc->eventHandle);
+    fdsan_close_with_tag(eventDesc->eventHandle, NEARLINK_FDSAN_TAG_SDF_EVENT);
     SDF_MemFree(eventDesc);
 }
 
@@ -56,13 +58,14 @@ uint32_t SDF_EventAdd(int *handle, SDF_EventParam *param)
         SDF_MemFree(eventDesc);
         return SDF_EVENT_ERROR_CREATE_FD_FAILED;
     }
+    fdsan_exchange_owner_tag(eFd, 0, NEARLINK_FDSAN_TAG_SDF_EVENT);
 
     eventDesc->eventHandle = eFd;
     (void)memcpy_s(&eventDesc->eventParam, sizeof(SDF_EventParam), param, sizeof(SDF_EventParam));
     SDF_EvcEvent event = {SDF_EVC_EVENT, eFd, EventProc, (void *)eventDesc, CleanEventDesc};
     if (SDF_EvcListenEvent(param->handle, &event) != SDF_OK) {
         SDF_MemFree(eventDesc);
-        close(eFd);
+        fdsan_close_with_tag(eFd, NEARLINK_FDSAN_TAG_SDF_EVENT);
         return SDF_EVENT_ERROR_EVC_FAILED;
     }
     *handle = eFd;
