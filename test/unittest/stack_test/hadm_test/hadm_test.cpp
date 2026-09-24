@@ -812,7 +812,7 @@ TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_001)
     EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
     // 重放触发后，对端测距支持能力已被缓存
     HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
-    NLSTK_Errcode_E ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    uint32_t ret = HadmGetRemoteFeatures(&g_addr, &peer);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_YES);
     // 收到remote cs caps回复，状态机切到SOUNDING_READY
@@ -837,7 +837,7 @@ TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_002)
     EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
     // 无重放，对端测距支持能力保持默认值
     HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
-    NLSTK_Errcode_E ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    uint32_t ret = HadmGetRemoteFeatures(&g_addr, &peer);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_DEFALUT);
 }
@@ -850,7 +850,7 @@ TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_002)
 TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_001)
 {
     uint8_t supportSounding = 0;
-    NLSTK_Errcode_E ret = HadmCachePendingFeatures(g_lcid, 1);
+    uint32_t ret = HadmCachePendingFeatures(g_lcid, 1);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     ret = HadmGetPendingFeatures(g_lcid, &supportSounding);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
