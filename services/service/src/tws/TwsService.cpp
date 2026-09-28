@@ -569,6 +569,7 @@ void TwsService::OnProfileStateChange(TwsClientData &clientData)
         "preMediaState:%{public}u,preCallState:%{public}u,inputMediaState:%{public}u,inputCallState:%{public}u",
         action, mediaState, callsState, preMediaState, preCallState, inputMediaState, inputCallState);
 
+    /* 方案建议媒体和通话分开处理，当前是调用同一个接口 */
     NL_CHECK_RETURN((mediaState != static_cast<uint8_t>(TwsStreamUsability::INVALID) ||
         callsState != static_cast<uint8_t>(TwsStreamUsability::INVALID)), "media or call state is invalid");
     std::vector<struct AudioStreamInfo> streamData = { };
