@@ -444,8 +444,14 @@ TEST_F(SleAdapterSecurityTest, SaveHidManufacturerAbilityFromAdv001)
 {
     HILOGI("SleAdapterSecurityTest: SaveHidManufacturerAbilityFromAdv001 start");
     RawAddress device("00:11:22:33:44:68");
+    int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(device.GetAddress());
+    EXPECT_NE(SLE_PRIVATE_HID_BUSINESS_TYPE, businessType);
+
     SleRemoteDeviceAdapter::GetInstance()->SaveHidManufacturerAbilityFromAdv(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(VCP_SERVICE_TDD_DELAY_1000_MS));
+    SleRemoteDeviceAdapter::GetInstance()->SavePeerDeviceInfoToConf();
+
+    std::vector<RawAddress> pairedList = SleRemoteDeviceManager::GetInstance()->GetPairedDevices();
+    EXPECT_EQ(pairedList.end(), std::find(pairedList.begin(), pairedList.end(), device));
     HILOGI("SleAdapterSecurityTest: SaveHidManufacturerAbilityFromAdv001 end");
 }
 
