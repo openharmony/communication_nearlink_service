@@ -113,7 +113,7 @@ public:
 
     void CdsmAddOtherRecord(const RawAddress &srcAddr, const RawAddress &otherAddr);
     void HandleCdsmMemberFirstPairing(const RawAddress &member);
-    void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType);
+    void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType);
     // Internal helper methods
     void SetPeerDeviceTypeToController(const RawAddress &device) override;
     void RemovePeerDeviceTypeToController(const RawAddress &device);

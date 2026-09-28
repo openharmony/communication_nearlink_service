@@ -1655,7 +1655,7 @@ uint32_t GetVendorAudioDeviceGroupId(const RawAddress &device)
     return groupId;
 }
 
-void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType)
+void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType)
 {
     ProfileCdsm *cdsmService = static_cast<ProfileCdsm *>(
         SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CDSM));

@@ -40,7 +40,7 @@ public:
     std::string GetAliasName(const std::string &address) const override;
     bool WrapperCdsmGetAllMemberInfo(const RawAddress &rawAddr, std::vector<RawAddress> &cdsmInfoAddr) override;
     uint8_t GetPeerDeviceAddrType(const RawAddress& address) const override;
-    void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, int &devType) const override;
+    void GetDeviceTypeInfo(const RawAddress &device, SLE_Addr_S &addrInfo, uint32_t &devType) const override;
     int HidSendData(const HidReportInfo &reportInfo) const override;
     int GetDeviceAppearance(const RawAddress &device) const override;
     bool DisconnectAllProfile(const RawAddress &device) override;
