@@ -42,14 +42,19 @@ static void HadmLinstenCmLinkReport(CM_LogicLinkState_S *param)
             bool isRemoteSupportSounding = (supportSounding != 0);
             NLSTK_LOG_INFO("[HADM] replay pending remote features, lcid:%d, isRemoteSupportSounding:%d",
                             param->lcid, isRemoteSupportSounding);
-            (void)HadmTriggerStateMachine(&param->addr, CM_REPORT_FEATURES_EVENT, &isRemoteSupportSounding);
+            uint32_t ret = HadmTriggerStateMachine(&param->addr, CM_REPORT_FEATURES_EVENT,
+                                                    &isRemoteSupportSounding);
+            if (ret != NLSTK_ERRCODE_SUCCESS) {
+                NLSTK_LOG_ERROR("[HADM] replay pending features trigger state machine failed, lcid:%d, fail:%d",
+                        param->lcid, ret);
+            }
         }
     } else if (param->result == CM_LINK_STATE_DISCONNECTED) {
         // 清理该链路缓存的待定特性结果，避免lcid复用后误放
         HadmClearPendingFeatures(param->lcid);
         uint32_t ret = HadmTriggerStateMachine(&param->addr, CM_REPORT_LINK_STATE_DISCONNECTED, NULL);
         if (ret != NLSTK_ERRCODE_SUCCESS) {
-            NLSTK_LOG_ERROR("[HADM]triggers state machine failed, fail %d", ret);
+            NLSTK_LOG_ERROR("[HADM]trigger state machine failed, fail %d", ret);
         }
         HADM_ExtClearRemoteCsCaps(param->lcid);
         // 状态机触发完成之后，释放linkCb
@@ -79,6 +84,9 @@ static void ReadRemoteFeatureCbk(CM_LogicLinkRemoteFeatures_S *param)
             return;
         }
         NLSTK_LOG_INFO("[HADM]link cb not ready, cache remote features, lcid:%d", param->lcid);
+    } else if (ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[HADM]trigger state machine failed when report remote features, lcid:%d, fail:%d",
+                        param->lcid, ret);
     }
 }
 
