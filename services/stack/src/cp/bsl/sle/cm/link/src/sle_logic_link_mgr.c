@@ -18,6 +18,7 @@
 #include "securec.h"
 #include "cm_log.h"
 #include "cm_def.h"
+#include "byte_codec.h"
 
 static SDF_DListHead_S g_deviceLinkListHead = {
     .list = {&(g_deviceLinkListHead).list, &(g_deviceLinkListHead).list}, .size = 0};
@@ -58,6 +59,9 @@ SleLogicLink_S *SleLogicLinkAdd(SLE_Addr_S *addr)
     node->lcid = CM_INVALID_LCID;
     node->protocolVersion = CM_INVALID_VERSION;
     node->exchangeVersion = CM_INVALID_VERSION;
+    // autorate特性默认置为支持V2(true)，后续与对端协商成功后由协商特性决定
+    node->remotePrivateFeature[CM_PRIVATE_FEATURES_BIT_AUTORATE / BITS_OF_BYTE] |=
+        (1 << (CM_PRIVATE_FEATURES_BIT_AUTORATE % BITS_OF_BYTE));
     (void)memcpy_s(&node->rmtAddr, sizeof(node->rmtAddr), addr, sizeof(SLE_Addr_S));
     SDF_DListEntryInit(&node->entry);
     SDF_DListElmTailInsert(&g_deviceLinkListHead, node, entry);
