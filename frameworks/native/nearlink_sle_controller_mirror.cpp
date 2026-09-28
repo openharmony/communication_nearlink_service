@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_sle_controller.h"
-#include "base/nearlink_sle_controller_core.h"
+#include "nearlink_sle_controller_core.h"
 
 namespace OHOS {
 namespace Nearlink {

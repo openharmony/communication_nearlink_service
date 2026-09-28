@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_device_battery_observer_stub_core.h"
+#include "nearlink_device_battery_observer_stub_core.h"
 #include "log.h"
 #include "ipc_types.h"
 #include "string_ex.h"

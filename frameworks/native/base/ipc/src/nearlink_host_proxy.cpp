@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_host_proxy_core.h"
+#include "nearlink_host_proxy_core.h"
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_def.h"

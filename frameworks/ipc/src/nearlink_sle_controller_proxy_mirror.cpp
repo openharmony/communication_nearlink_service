@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_sle_controller_proxy.h"
-#include "base/nearlink_sle_controller_proxy_core.h"
+#include "nearlink_sle_controller_proxy_core.h"
 
 namespace OHOS::Nearlink {
 

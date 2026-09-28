@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_sa_manager.h"
-#include "base/nearlink_sa_manager_core.h"
+#include "nearlink_sa_manager_core.h"
 
 namespace OHOS {
 namespace Nearlink {

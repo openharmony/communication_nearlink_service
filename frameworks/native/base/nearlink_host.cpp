@@ -13,20 +13,20 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_host_core.h"
+#include "nearlink_host_core.h"
 
 #include <mutex>
-#include "base/nearlink_sa_manager_core.h"
+#include "nearlink_sa_manager_core.h"
 #include "nearlink_safe_weak_list.h"
 #include "log_util.h"
 #include "i_nearlink_host.h"
 #include "nearlink_errorcode.h"
-#include "base/nearlink_host_load_callback_core.h"
-#include "base/nearlink_host_observer_stub_core.h"
-#include "base/nearlink_sle_peripheral_observer_stub_core.h"
-#include "base/nearlink_device_battery_observer_stub_core.h"
-#include "base/nearlink_device_rssi_observer_stub_core.h"
-#include "base/nearlink_switch_module_core.h"
+#include "nearlink_host_load_callback_core.h"
+#include "nearlink_host_observer_stub_core.h"
+#include "nearlink_sle_peripheral_observer_stub_core.h"
+#include "nearlink_device_battery_observer_stub_core.h"
+#include "nearlink_device_rssi_observer_stub_core.h"
+#include "nearlink_switch_module_core.h"
 #include "nearlink_utils.h"
 #include "ffrt_inner.h"
 #include "iservice_registry.h"

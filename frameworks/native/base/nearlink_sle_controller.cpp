@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_sle_controller_core.h"
-#include "base/nearlink_sa_manager_core.h"
+#include "nearlink_sle_controller_core.h"
+#include "nearlink_sa_manager_core.h"
 #include "log_util.h"
 #include "i_nearlink_sle_controller.h"
-#include "base/nearlink_host_core.h"
+#include "nearlink_host_core.h"
 #include "nearlink_def.h"
 #include "nearlink_utils.h"
 

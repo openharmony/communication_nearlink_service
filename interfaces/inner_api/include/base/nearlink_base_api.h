@@ -31,8 +31,8 @@
 #ifndef NEARLINK_BASE_API_H
 #define NEARLINK_BASE_API_H
 
-#include "base/nearlink_host_core.h"
-#include "base/nearlink_remote_device_core.h"
-#include "base/nearlink_sle_controller_core.h"
+#include "nearlink_host_core.h"
+#include "nearlink_remote_device_core.h"
+#include "nearlink_sle_controller_core.h"
 
 #endif  // NEARLINK_BASE_API_H

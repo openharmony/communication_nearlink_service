@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_host_observer_stub_core.h"
+#include "nearlink_host_observer_stub_core.h"
 #include "log.h"
 
 namespace OHOS {

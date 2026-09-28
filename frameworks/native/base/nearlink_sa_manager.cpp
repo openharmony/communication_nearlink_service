@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "base/nearlink_sa_manager_core.h"
+#include "nearlink_sa_manager_core.h"
 
 #include <thread>
 #include <atomic>
 #include <mutex>
 
 #include "i_nearlink_host.h"
-#include "base/nearlink_host_core.h"
+#include "nearlink_host_core.h"
 #include "log.h"
 #include "iservice_registry.h"
 #include "system_ability_definition.h"

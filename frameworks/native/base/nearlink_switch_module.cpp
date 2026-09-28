@@ -16,7 +16,7 @@
 #define LOG_TAG "nl_fwk_switch_module"
 #endif
 
-#include "base/nearlink_switch_module_core.h"
+#include "nearlink_switch_module_core.h"
 
 #include <algorithm>
 #include "parameters.h"

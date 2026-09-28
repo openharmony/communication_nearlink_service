@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_host_load_callback.h"
-#include "base/nearlink_host_load_callback_core.h"
+#include "nearlink_host_load_callback_core.h"
 
 namespace OHOS {
 namespace Nearlink {

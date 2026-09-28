@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_device_rssi_observer_stub.h"
-#include "base/nearlink_device_rssi_observer_stub_core.h"
+#include "nearlink_device_rssi_observer_stub_core.h"
 
 namespace OHOS {
 namespace Nearlink {

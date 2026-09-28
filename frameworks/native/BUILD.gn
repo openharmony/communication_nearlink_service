@@ -118,6 +118,7 @@ config("nearlink_framework_config") {
     "../ipc/include",
     "$NEARLINK_ROOT/socket",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/interfaces/inner_api/include/base",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/src",
   ]

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "base/nearlink_host_load_callback_core.h"
-#include "base/nearlink_host_core.h"
+#include "nearlink_host_load_callback_core.h"
+#include "nearlink_host_core.h"
 #include "iremote_object.h"
 
 namespace OHOS {

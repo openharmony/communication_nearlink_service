@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_host_proxy.h"
-#include "base/nearlink_host_proxy_core.h"
+#include "nearlink_host_proxy_core.h"
 
 namespace OHOS {
 namespace Nearlink {

@@ -14,7 +14,7 @@
  */
 
 #include "nearlink_switch_module.h"
-#include "base/nearlink_switch_module_core.h"
+#include "nearlink_switch_module_core.h"
 
 namespace OHOS {
 namespace Nearlink {

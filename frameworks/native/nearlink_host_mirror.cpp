@@ -14,8 +14,8 @@
  */
 
 #include "nearlink_host.h"
-#include "base/nearlink_host_core.h"
-#include "base/nearlink_remote_device_core.h"
+#include "nearlink_host_core.h"
+#include "nearlink_remote_device_core.h"
 
 namespace OHOS {
 namespace Nearlink {
