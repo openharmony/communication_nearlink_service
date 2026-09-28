@@ -32,6 +32,11 @@ public:
         uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option) override;
 
 private:
+    static void BridgeInit(NearlinkSlePeripheralObserverStub* self);
+    static void BridgeDestroy(NearlinkSlePeripheralObserverStub* self);
+    static int BridgeOnRemoteRequest(NearlinkSlePeripheralObserverStub* self, uint32_t code,
+        MessageParcel& data, MessageParcel& reply, MessageOption& option);
+
     ErrCode OnReadRemoteRssiEventInner(MessageParcel &data, MessageParcel &reply);
     ErrCode OnPairRequestInner(MessageParcel &data, MessageParcel &reply);
     ErrCode OnPairStatusChangedInner(MessageParcel &data, MessageParcel &reply);

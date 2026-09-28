@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "nearlink_sle_controller_proxy.h"
+#include "base/nearlink_sle_controller_proxy_core.h"
  
 #include <cmath>
 #include "nearlink_errorcode.h"
@@ -24,17 +24,17 @@ namespace {
 constexpr size_t MAX_COEX_DEVICE_NUM = 32;
 }
 
-NearlinkSleControllerProxy::NearlinkSleControllerProxy(const sptr<IRemoteObject> &impl)
+NearlinkSleControllerProxyCore::NearlinkSleControllerProxyCore(const sptr<IRemoteObject> &impl)
     : IRemoteProxy<INearlinkSleController>(impl)
 {}
 
-NearlinkSleControllerProxy::~NearlinkSleControllerProxy()
+NearlinkSleControllerProxyCore::~NearlinkSleControllerProxyCore()
 {}
 
-NlErrCode NearlinkSleControllerProxy::SetSleCoexParam(uint16_t maxBitRate, uint8_t dutyCycle)
+NlErrCode NearlinkSleControllerProxyCore::SetSleCoexParam(uint16_t maxBitRate, uint8_t dutyCycle)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteUint16(maxBitRate), NL_ERR_IPC_TRANS_FAILED, "Write maxBitRate error.");
     NL_CHECK_RETURN_RET(data.WriteUint8(dutyCycle), NL_ERR_IPC_TRANS_FAILED, "Write dutyCycle error.");
@@ -47,10 +47,10 @@ NlErrCode NearlinkSleControllerProxy::SetSleCoexParam(uint16_t maxBitRate, uint8
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSleControllerProxy::UpdateConnectInterval(const std::string &device, int32_t intervalType)
+NlErrCode NearlinkSleControllerProxyCore::UpdateConnectInterval(const std::string &device, int32_t intervalType)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(device), NL_ERR_IPC_TRANS_FAILED, "Write device error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(intervalType), NL_ERR_IPC_TRANS_FAILED, "Write intervalType error.");
@@ -63,13 +63,13 @@ NlErrCode NearlinkSleControllerProxy::UpdateConnectInterval(const std::string &d
     return exception;
 }
 
-NlErrCode NearlinkSleControllerProxy::SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
+NlErrCode NearlinkSleControllerProxyCore::SetSleCoexMode(int32_t mode, const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), NL_ERR_INVALID_PARAM,
         "device and param list size not match");
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSleControllerProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(mode), NL_ERR_IPC_TRANS_FAILED, "Write mode error.");
     size_t deviceSize = std::min(deviceList.size(), MAX_COEX_DEVICE_NUM);
@@ -89,7 +89,7 @@ NlErrCode NearlinkSleControllerProxy::SetSleCoexMode(int32_t mode, const std::ve
     return exception;
 }
 
-ErrCode NearlinkSleControllerProxy::InnerTransact(
+ErrCode NearlinkSleControllerProxyCore::InnerTransact(
     uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply)
 {
     auto remote = Remote();
@@ -109,4 +109,5 @@ ErrCode NearlinkSleControllerProxy::InnerTransact(
         }
     }
 }
-}  // namespace OHOS::Nearlink
+}
+}

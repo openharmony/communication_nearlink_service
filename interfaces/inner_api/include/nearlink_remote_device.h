@@ -28,6 +28,12 @@
 namespace OHOS {
 namespace Nearlink {
 
+/**
+ * @brief Represents framework remote device.
+ *
+ * 说明：仅声明未实现（无任何定义）的接口（如 GetDeviceBatteryLevel）不建立桥接转发
+ * （拆分前框架亦未导出）。
+ */
 class NEARLINK_API NearlinkRemoteDevice {
 public:
     /**

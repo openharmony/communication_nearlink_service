@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "nearlink_sa_manager.h"
+#include "base/nearlink_sa_manager_core.h"
 
 #include <thread>
 #include <atomic>
 #include <mutex>
 
 #include "i_nearlink_host.h"
-#include "nearlink_host.h"
+#include "base/nearlink_host_core.h"
 #include "log.h"
 #include "iservice_registry.h"
 #include "system_ability_definition.h"
@@ -33,25 +33,25 @@ constexpr uint32_t SUBSCRIBE_SERVICE_TIMEOUT_MS = 50; // ms
 const char *NEARLINK_HOST = "NearlinkHost";
 }
 
-NearlinkSaManager::NearlinkSaManager()
+NearlinkSaManagerCore::NearlinkSaManagerCore()
 {
     nearlinkSa_ = sptr<NearlinkSa>::MakeSptr();
     SubscribeNearlinkSa();
 }
 
-NearlinkSaManager::~NearlinkSaManager()
+NearlinkSaManagerCore::~NearlinkSaManagerCore()
 {
     UnsubscribeNearlinkSa();
 }
 
-NearlinkSaManager &NearlinkSaManager::GetInstance()
+NearlinkSaManagerCore &NearlinkSaManagerCore::GetInstance()
 {
     // C++11 static local variable initialization is thread-safe.
-    static NearlinkSaManager saMgr;
+    static NearlinkSaManagerCore saMgr;
     return saMgr;
 }
 
-void NearlinkSaManager::SubscribeNearlinkSa()
+void NearlinkSaManagerCore::SubscribeNearlinkSa()
 {
     sptr<ISystemAbilityManager> samgrProxy = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN(samgrProxy, "samgrProxy is nullptr.");
@@ -59,7 +59,7 @@ void NearlinkSaManager::SubscribeNearlinkSa()
     NL_CHECK_RETURN(ret == ERR_OK, "subscribe nearlink SA failed!");
 }
 
-void NearlinkSaManager::UnsubscribeNearlinkSa()
+void NearlinkSaManagerCore::UnsubscribeNearlinkSa()
 {
     sptr<ISystemAbilityManager> samgrProxy = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN(samgrProxy, "samgrProxy is nullptr.");
@@ -67,7 +67,7 @@ void NearlinkSaManager::UnsubscribeNearlinkSa()
     NL_CHECK_RETURN(ret == ERR_OK, "unsubscribe nearlink SA failed!");
 }
 
-sptr<IRemoteObject> NearlinkSaManager::GetRemoteHost()
+sptr<IRemoteObject> NearlinkSaManagerCore::GetRemoteHost()
 {
     sptr<IRemoteObject> remote = nullptr;
     if (profileRemoteMap_.GetValue(NEARLINK_HOST, remote)) {
@@ -82,7 +82,7 @@ sptr<IRemoteObject> NearlinkSaManager::GetRemoteHost()
     return remote;
 }
 
-sptr<IRemoteObject> NearlinkSaManager::GetRemoteProfile(const std::string &profileName)
+sptr<IRemoteObject> NearlinkSaManagerCore::GetRemoteProfile(const std::string &profileName)
 {
     sptr<IRemoteObject> remote = nullptr;
     if (profileRemoteMap_.GetValue(profileName, remote)) {
@@ -103,7 +103,7 @@ sptr<IRemoteObject> NearlinkSaManager::GetRemoteProfile(const std::string &profi
     return remote;
 }
 
-void NearlinkSaManager::OnServiceStarted()
+void NearlinkSaManagerCore::OnServiceStarted()
 {
     HILOGI("Nearlink service started.");
     std::unique_lock<std::mutex> lock(serviceStateMutex_);
@@ -119,7 +119,7 @@ void NearlinkSaManager::OnServiceStarted()
     cvfull_.notify_all();
 }
 
-void NearlinkSaManager::OnServiceStopped()
+void NearlinkSaManagerCore::OnServiceStopped()
 {
     HILOGI("Nearlink service stopped.");
     std::unique_lock<std::mutex> lock(serviceStateMutex_);
@@ -135,12 +135,12 @@ void NearlinkSaManager::OnServiceStopped()
     cvfull_.notify_all();
 }
 
-void NearlinkSaManager::NearlinkSa::OnAddSystemAbility(
+void NearlinkSaManagerCore::NearlinkSa::OnAddSystemAbility(
     int32_t systemAbilityId, const std::string &deviceId)
 {
     switch (systemAbilityId) {
         case NEARLINK_HOST_SYS_ABILITY_ID: {
-            NearlinkSaManager::GetInstance().OnServiceStarted();
+            NearlinkSaManagerCore::GetInstance().OnServiceStarted();
             break;
         }
         default:
@@ -149,12 +149,12 @@ void NearlinkSaManager::NearlinkSa::OnAddSystemAbility(
     }
 }
 
-void NearlinkSaManager::NearlinkSa::OnRemoveSystemAbility(
+void NearlinkSaManagerCore::NearlinkSa::OnRemoveSystemAbility(
     int32_t systemAbilityId, const std::string &deviceId)
 {
     switch (systemAbilityId) {
         case NEARLINK_HOST_SYS_ABILITY_ID: {
-            NearlinkSaManager::GetInstance().OnServiceStopped();
+            NearlinkSaManagerCore::GetInstance().OnServiceStopped();
             break;
         }
         default:
@@ -164,7 +164,7 @@ void NearlinkSaManager::NearlinkSa::OnRemoveSystemAbility(
     return;
 }
 
-void NearlinkSaManager::OnStateChanged(const int transport, const int status)
+void NearlinkSaManagerCore::OnStateChanged(const int transport, const int status)
 {
     HILOGD("status: %{public}d,", status);
     if (transport == static_cast<int>(SleTransport::ADAPTER_SLE) &&
@@ -186,7 +186,7 @@ void NearlinkSaManager::OnStateChanged(const int transport, const int status)
     }
 }
 
-int32_t NearlinkSaManager::AllocateProfileId()
+int32_t NearlinkSaManagerCore::AllocateProfileId()
 {
     std::shared_ptr<NearlinkRegisterInfo> info = nullptr;
     while (profileIdFuncMap_.GetValue(g_profileId, info)) {
@@ -200,7 +200,7 @@ int32_t NearlinkSaManager::AllocateProfileId()
     return g_profileId;
 }
 
-int32_t NearlinkSaManager::RegisterFunc(std::shared_ptr<NearlinkRegisterInfo> info)
+int32_t NearlinkSaManagerCore::RegisterFunc(std::shared_ptr<NearlinkRegisterInfo> info)
 {
     NL_CHECK_RETURN_RET(info, INVALID_PROFILE_ID, "info is nullptr.");
 
@@ -231,7 +231,7 @@ int32_t NearlinkSaManager::RegisterFunc(std::shared_ptr<NearlinkRegisterInfo> in
                 profileId, info->profileName_.c_str());
             info->serviceStartedFunc_(remote);
         }
-        if (info->stateOnFunc_ && NearlinkHost::GetInstance().IsSleAvailableToCaller()) {
+        if (info->stateOnFunc_ && NearlinkHostCore::GetInstance().IsSleAvailableToCaller()) {
             info->stateOnFunc_(remote);
         }
     } else {
@@ -241,7 +241,7 @@ int32_t NearlinkSaManager::RegisterFunc(std::shared_ptr<NearlinkRegisterInfo> in
     return profileId;
 }
 
-void NearlinkSaManager::DeregisterFunc(int32_t profileId)
+void NearlinkSaManagerCore::DeregisterFunc(int32_t profileId)
 {
     std::unique_lock<std::mutex> lock(serviceStateMutex_);
     HILOGI("profileId(%{public}d)", profileId);

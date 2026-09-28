@@ -257,6 +257,9 @@ public:
 /**
  * @brief Represents framework host device.
  *
+ * 说明：仅声明未实现（无任何定义）的接口（如 GetLocalSupportedUuids/GetLocalProfileUuids/
+ * GetLocalDeviceAppearance/SetLocalDeviceAppearance）不建立桥接转发（拆分前框架亦未导出）。
+ * 
  * @since 6
  */
 class NEARLINK_API NearlinkHost {
@@ -652,6 +655,8 @@ public:
      */
     bool IsBasSupported();
 private:
+    static void BridgeInitPimpl(NearlinkHost* self);
+
     bool IsNearlinkSupportFrame4() const;
 
     NearlinkHost();

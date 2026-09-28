@@ -41,6 +41,11 @@ public:
     std::function<void(sptr<IRemoteObject>)> stateOffFunc_;
 };
 
+/**
+ * Ctor/dtor are defined in the mirror source (see nearlink_sa_manager_mirror.cpp) to
+ * forward to the real implementation; keep them in sync. External modules may construct
+ * this class directly.
+ */
 class NearlinkSaManager {
 public:
     /**

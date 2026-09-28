@@ -13,24 +13,24 @@
  * limitations under the License.
  */
 
-#include "nearlink_sle_controller.h"
-#include "nearlink_sa_manager.h"
+#include "base/nearlink_sle_controller_core.h"
+#include "base/nearlink_sa_manager_core.h"
 #include "log_util.h"
 #include "i_nearlink_sle_controller.h"
-#include "nearlink_host.h"
+#include "base/nearlink_host_core.h"
 #include "nearlink_def.h"
 #include "nearlink_utils.h"
 
 namespace OHOS {
 namespace Nearlink {
 
-struct NearlinkSleController::impl {
+struct NearlinkSleControllerCore::impl {
     impl();
     ~impl();
     int32_t profileRegisterId_{0};
 };
 
-NearlinkSleController::impl::impl()
+NearlinkSleControllerCore::impl::impl()
 {
     HILOGI("start");
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_SLE_CONTROLLER_SERVER);
@@ -38,56 +38,56 @@ NearlinkSleController::impl::impl()
         HILOGI("service started");
     };
 
-    profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
+    profileRegisterId_ = NearlinkSaManagerCore::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
         HILOGE("NearlinkSleController profileRegisterId_ is invalid");
     }
 }
 
-NearlinkSleController::impl::~impl()
+NearlinkSleControllerCore::impl::~impl()
 {
     HILOGI("start");
-    NearlinkSaManager::GetInstance().DeregisterFunc(profileRegisterId_);
+    NearlinkSaManagerCore::GetInstance().DeregisterFunc(profileRegisterId_);
 }
 
-NearlinkSleController::NearlinkSleController()
+NearlinkSleControllerCore::NearlinkSleControllerCore()
 {
     if (pimpl == nullptr) {
         pimpl = std::make_shared<impl>();
     }
 }
 
-NearlinkSleController::~NearlinkSleController() {}
+NearlinkSleControllerCore::~NearlinkSleControllerCore() {}
 
-NearlinkSleController &NearlinkSleController::GetInstance()
+NearlinkSleControllerCore &NearlinkSleControllerCore::GetInstance()
 {
     // C++11 static local variable initialization is thread-safe.
-    static NearlinkSleController controller;
+    static NearlinkSleControllerCore controller;
     return controller;
 }
 
-NlErrCode NearlinkSleController::SetSleCoexParam(SLEBitRate maxBitRate, SledutyCycle dutyCycle)
+NlErrCode NearlinkSleControllerCore::SetSleCoexParam(SLEBitRate maxBitRate, SledutyCycle dutyCycle)
 {
     HILOGD("enter, maxBitRate: %{public}u, dutyCycle: %{public}u",
            static_cast<uint16_t>(maxBitRate), static_cast<uint8_t>(dutyCycle));
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(),
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
 
-    sptr<INearlinkSleController> proxy = GetProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
+    sptr<INearlinkSleController> proxy = GetCoreProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->SetSleCoexParam(static_cast<uint16_t>(maxBitRate), static_cast<uint8_t>(dutyCycle));
 }
 
-NlErrCode NearlinkSleController::UpdateConnectInterval(const std::string &device, ConnectionInterval intervalType) const
+NlErrCode NearlinkSleControllerCore::UpdateConnectInterval(const std::string &device, ConnectionInterval intervalType) const
 {
     HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(),
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
                         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(device), NL_ERR_INVALID_PARAM, "device invalid");
 
-    sptr<INearlinkSleController> proxy = GetProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
+    sptr<INearlinkSleController> proxy = GetCoreProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
 
     NlErrCode errCode = proxy->UpdateConnectInterval(device, static_cast<int32_t>(intervalType));
@@ -97,11 +97,11 @@ NlErrCode NearlinkSleController::UpdateConnectInterval(const std::string &device
     return errCode;
 }
 
-NlErrCode NearlinkSleController::SetSleCoexMode(SleCoexMode mode, const std::vector<std::string> &deviceList,
+NlErrCode NearlinkSleControllerCore::SetSleCoexMode(SleCoexMode mode, const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
     HILOGD("enter, mode: %{public}d", static_cast<int>(mode));
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(),
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), NL_ERR_INVALID_PARAM,
@@ -109,10 +109,9 @@ NlErrCode NearlinkSleController::SetSleCoexMode(SleCoexMode mode, const std::vec
     for (auto device : deviceList) {
         NL_CHECK_RETURN_RET(IsValidAddress(device), NL_ERR_INVALID_PARAM, "device invalid");
     }
-    sptr<INearlinkSleController> proxy = GetProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
+    sptr<INearlinkSleController> proxy = GetCoreProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
     return proxy->SetSleCoexMode(static_cast<int32_t>(mode), deviceList, paramList);
 }
-
 } // namespace Nearlink
 } // namespace OHOS

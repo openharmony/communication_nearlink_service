@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +13,20 @@
  * limitations under the License.
  */
 
-#include "nearlink_host.h"
+#include "base/nearlink_host_core.h"
 
 #include <mutex>
-#include "nearlink_sa_manager.h"
+#include "base/nearlink_sa_manager_core.h"
 #include "nearlink_safe_weak_list.h"
 #include "log_util.h"
 #include "i_nearlink_host.h"
 #include "nearlink_errorcode.h"
-#include "nearlink_host_load_callback.h"
-#include "nearlink_host_observer_stub.h"
-#include "nearlink_sle_peripheral_observer_stub.h"
-#include "nearlink_device_battery_observer_stub.h"
-#include "nearlink_device_rssi_observer_stub.h"
-#include "nearlink_switch_module.h"
+#include "base/nearlink_host_load_callback_core.h"
+#include "base/nearlink_host_observer_stub_core.h"
+#include "base/nearlink_sle_peripheral_observer_stub_core.h"
+#include "base/nearlink_device_battery_observer_stub_core.h"
+#include "base/nearlink_device_rssi_observer_stub_core.h"
+#include "base/nearlink_switch_module_core.h"
 #include "nearlink_utils.h"
 #include "ffrt_inner.h"
 #include "iservice_registry.h"
@@ -59,7 +59,7 @@ constexpr int32_t LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS = 5000;   // 同步接口加�
 #endif
 }
 
-struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
+struct NearlinkHostCore::impl : public std::enable_shared_from_this<impl> {
     impl();
     ~impl();
 
@@ -101,7 +101,7 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
     NearlinkSafeWeakList<NearlinkRemoteDeviceRssiObserver> rssiObserverList;
 
     class NearlinkSwitchAction;
-    std::shared_ptr<NearlinkSwitchModule> switchModule_ { nullptr };
+    std::shared_ptr<NearlinkSwitchModuleCore> switchModule_ { nullptr };
     // 异步开关操作执行队列，保证多次异步操作按调用顺序串行处理
     ffrt::queue switchQueue_ { "nl_switch_async" };
 
@@ -121,12 +121,12 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
 
 private:
     std::condition_variable proxyConVar_;
-    std::weak_ptr<NearlinkHost::impl> slefHostImplWeak_;
+    std::weak_ptr<NearlinkHostCore::impl> slefHostImplWeak_;
 };
 
-class NearlinkHost::impl::NearlinkHostObserverImp : public NearlinkHostObserverStub {
+class NearlinkHostCore::impl::NearlinkHostObserverImp : public NearlinkHostObserverStubCore {
 public:
-    explicit NearlinkHostObserverImp(std::weak_ptr<NearlinkHost::impl> hostImpl) : hostImpl_(hostImpl){};
+    explicit NearlinkHostObserverImp(std::weak_ptr<NearlinkHostCore::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkHostObserverImp() override{};
 
     void OnStateChanged(int32_t transport, int32_t status) override
@@ -138,7 +138,7 @@ public:
         if (status == SleStateID::STATE_TURN_ON) {
             hostImpl->SyncRandomAddrToService();
         }
-        NearlinkSaManager::GetInstance().OnStateChanged(transport, status);
+        NearlinkSaManagerCore::GetInstance().OnStateChanged(transport, status);
         hostImpl->hostObserverList.IterateAsync([transport, status](
             std::shared_ptr<NearlinkHostObserver> observer) -> void {
             observer->OnStateChanged(transport, status);
@@ -191,7 +191,7 @@ public:
             transport, GetEncryptAddr((device).GetAddress()).c_str(), reqType, number);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), transport);
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), transport);
         hostImpl->hostObserverList.IterateAsync(
             [remoteDevice, reqType, number](std::shared_ptr<NearlinkHostObserver> observer) -> void {
             observer->OnPairConfirmed(remoteDevice, reqType, number);
@@ -219,13 +219,13 @@ public:
     }
 
 private:
-    std::weak_ptr<NearlinkHost::impl> hostImpl_;
+    std::weak_ptr<NearlinkHostCore::impl> hostImpl_;
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkHostObserverImp);
 };
 
-class NearlinkHost::impl::NearlinkSlePeripheralCallbackImp : public NearlinkSlePeripheralObserverStub {
+class NearlinkHostCore::impl::NearlinkSlePeripheralCallbackImp : public NearlinkSlePeripheralObserverStubCore {
 public:
-    explicit NearlinkSlePeripheralCallbackImp(std::weak_ptr<NearlinkHost::impl> hostImpl) : hostImpl_(hostImpl){};
+    explicit NearlinkSlePeripheralCallbackImp(std::weak_ptr<NearlinkHostCore::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkSlePeripheralCallbackImp() override = default;
 
     void OnAcbStateChanged(const NearlinkRawAddress &device, int state, int reason) override
@@ -234,7 +234,7 @@ public:
             GetEncryptAddr((device).GetAddress()).c_str(), state, reason);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
                 observer->OnAcbStateChanged(remoteDevice, state, reason);
@@ -247,7 +247,7 @@ public:
             __FUNCTION__, __LINE__, GetEncryptAddr((device).GetAddress()).c_str(), type);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, passkey, type](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
             observer->OnPairingRequest(remoteDevice, passkey, type);
@@ -260,7 +260,7 @@ public:
             GetEncryptAddr((device).GetAddress()).c_str(), state, reason);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
                 observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
@@ -273,7 +273,7 @@ public:
             GetEncryptAddr((device).GetAddress()).c_str(), state, reason);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
                 observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
@@ -286,7 +286,7 @@ public:
             GetEncryptAddr((device).GetAddress()).c_str(), rssi, status);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
                 observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
@@ -298,7 +298,7 @@ public:
         HILOGI("enter, device: %{public}s, reqType: %{public}d", GET_ENCRYPT_ADDR(device), freqBand);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, freqBand](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
                 observer->OnLinkFreqBandChanged(remoteDevice, freqBand);
@@ -306,13 +306,13 @@ public:
     }
 
 private:
-    std::weak_ptr<NearlinkHost::impl> hostImpl_;
+    std::weak_ptr<NearlinkHostCore::impl> hostImpl_;
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSlePeripheralCallbackImp);
 };
 
-class NearlinkHost::impl::NearlinkDeviceBatteryObserverImp : public NearlinkDeviceBatteryObserverStub {
+class NearlinkHostCore::impl::NearlinkDeviceBatteryObserverImp : public NearlinkDeviceBatteryObserverStubCore {
 public:
-    explicit NearlinkDeviceBatteryObserverImp(std::weak_ptr<NearlinkHost::impl> hostImpl) : hostImpl_(hostImpl){};
+    explicit NearlinkDeviceBatteryObserverImp(std::weak_ptr<NearlinkHostCore::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkDeviceBatteryObserverImp() override{};
 
     void OnGetBatteryLevelEvent(const NearlinkRawAddress &device, int32_t batteryLevel) override
@@ -320,7 +320,7 @@ public:
         HILOGI("enter, device: %{public}s, batterylevel: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         auto func = [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
             observer->OnGetBatteryLevelEvent(remoteDevice, batteryLevel);
         };
@@ -332,7 +332,7 @@ public:
         HILOGI("enter, device: %{public}s, batterylevel: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteBatteryObserverList.IterateAsync(
             [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
                 observer->OnBatteryLevelChanged(remoteDevice, batteryLevel);
@@ -340,13 +340,13 @@ public:
     }
 
 private:
-    std::weak_ptr<NearlinkHost::impl> hostImpl_;
+    std::weak_ptr<NearlinkHostCore::impl> hostImpl_;
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkDeviceBatteryObserverImp);
 };
 
-class NearlinkHost::impl::NearlinkDeviceRssiObserverImp : public NearlinkDeviceRssiObserverStub {
+class NearlinkHostCore::impl::NearlinkDeviceRssiObserverImp : public NearlinkDeviceRssiObserverStubCore {
 public:
-    explicit NearlinkDeviceRssiObserverImp(std::weak_ptr<NearlinkHost::impl> hostImpl) : hostImpl_(hostImpl){};
+    explicit NearlinkDeviceRssiObserverImp(std::weak_ptr<NearlinkHostCore::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkDeviceRssiObserverImp() override{};
 
     void OnReadRemoteRssiEvent(const NearlinkRawAddress &device, int rssi, int status) override
@@ -354,7 +354,7 @@ public:
         HILOGI("frameworkenter, device: %{public}s, rssi: %{public}d", GET_ENCRYPT_ADDR(device), rssi);
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        NearlinkRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
+        NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         auto func = [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer) {
             observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
         };
@@ -362,11 +362,11 @@ public:
     }
 
 private:
-    std::weak_ptr<NearlinkHost::impl> hostImpl_;
+    std::weak_ptr<NearlinkHostCore::impl> hostImpl_;
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkDeviceRssiObserverImp);
 };
 
-class NearlinkHost::impl::NearlinkSwitchAction : public INearlinkSwitchAction {
+class NearlinkHostCore::impl::NearlinkSwitchAction : public INearlinkSwitchAction {
 public:
     NearlinkSwitchAction() = default;
     ~NearlinkSwitchAction() override = default;
@@ -374,9 +374,9 @@ public:
     NlErrCode EnableNearlink(SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs,
         const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
+        NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
-        sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+        sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
         // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
         // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
@@ -390,14 +390,14 @@ public:
 
     NlErrCode DisableNearlink() override
     {
-        sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+        sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
         return proxy->DisableSle();
     }
 
     NlErrCode DisableNearlinkToOff() override
     {
-        sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+        sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
         return proxy->DisableSleToOff();
     }
@@ -405,9 +405,9 @@ public:
     NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
         const NearlinkSwitchActionValidChecker &actionValidChecker) override
     {
-        NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
+        NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().pimpl->LoadNearlinkHostService(loadSaTimeoutMs),
             NL_ERR_INTERNAL_ERROR, "load nearlink service failed.");
-        sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+        sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
         NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
         // 下发命令前确认该动作是否仍然有效：SA 加载期间可能已超时或被新动作取代，
         // 此时不再下发命令，避免失效的动作仍然去开关设备（校验器由开关模块注入，判空为防御性代码）
@@ -420,16 +420,16 @@ public:
     }
 };
 
-NearlinkHost::impl::impl()
+NearlinkHostCore::impl::impl()
 {
     HILOGI("start");
 }
 
-NearlinkHost::impl::~impl()
+NearlinkHostCore::impl::~impl()
 {
     HILOGI("starts");
-    NearlinkSaManager::GetInstance().DeregisterFunc(profileRegisterId_);
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    NearlinkSaManagerCore::GetInstance().DeregisterFunc(profileRegisterId_);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN(proxy, "proxy is nullptr");
     NL_CHECK_RETURN(hostObserverImp_, "hostObserverImp_ is nullptr");
     proxy->DeregisterSleAdapterObserver(hostObserverImp_);
@@ -441,7 +441,7 @@ NearlinkHost::impl::~impl()
     proxy->DeregisterDeviceRssiObserver(deviceRssiObserverImp_);
 }
 
-void NearlinkHost::impl::Init()
+void NearlinkHostCore::impl::Init()
 {
     HILOGI("starts");
     slefHostImplWeak_ = shared_from_this();
@@ -450,7 +450,7 @@ void NearlinkHost::impl::Init()
     RegisterSaManagerFunc();
 }
 
-void NearlinkHost::impl::InitObservers()
+void NearlinkHostCore::impl::InitObservers()
 {
     hostObserverImp_ = new (std::nothrow) NearlinkHostObserverImp(slefHostImplWeak_);
     remoteObserverImp_ = new (std::nothrow) NearlinkSlePeripheralCallbackImp(slefHostImplWeak_);
@@ -458,13 +458,13 @@ void NearlinkHost::impl::InitObservers()
     deviceRssiObserverImp_ = new (std::nothrow) NearlinkDeviceRssiObserverImp(slefHostImplWeak_);
 }
 
-void NearlinkHost::impl::InitSwitchModule()
+void NearlinkHostCore::impl::InitSwitchModule()
 {
     auto switchActionPtr = std::make_unique<NearlinkSwitchAction>();
-    switchModule_ = std::make_shared<NearlinkSwitchModule>(std::move(switchActionPtr));
+    switchModule_ = std::make_shared<NearlinkSwitchModuleCore>(std::move(switchActionPtr));
 }
 
-void NearlinkHost::impl::RegisterSaManagerFunc()
+void NearlinkHostCore::impl::RegisterSaManagerFunc()
 {
     std::shared_ptr<NearlinkRegisterInfo> info = std::make_shared<NearlinkRegisterInfo>(NEARLINK_HOST);
     std::weak_ptr<impl> wp = shared_from_this();
@@ -480,13 +480,13 @@ void NearlinkHost::impl::RegisterSaManagerFunc()
         implSptr->OnServiceStopped();
     };
 
-    profileRegisterId_ = NearlinkSaManager::GetInstance().RegisterFunc(info);
+    profileRegisterId_ = NearlinkSaManagerCore::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
         HILOGE("profileRegisterId_ is invalid");
     }
 }
 
-void NearlinkHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
+void NearlinkHostCore::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
 {
     // SA 已真实启动，唤醒等待加载完成的调用方：
     // 若 OnLoadSystemAbilityFail 已回调（加载请求超时），不会再收到 OnLoadSystemAbilitySuccess，
@@ -516,7 +516,7 @@ void NearlinkHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
     }
 }
 
-void NearlinkHost::impl::OnServiceStopped()
+void NearlinkHostCore::impl::OnServiceStopped()
 {
     hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
         observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
@@ -527,19 +527,19 @@ void NearlinkHost::impl::OnServiceStopped()
     switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::NEARLINK_OFF);
 }
 
-bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
+bool NearlinkHostCore::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
 {
     int32_t timeoutMs = loadSaTimeoutMs > 0 ? loadSaTimeoutMs : LOAD_NEARLINK_SA_TIMEOUT_MS;
     std::unique_lock<std::mutex> lock(loadServiceMutex_);
     auto samgrProxy = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
     NL_CHECK_RETURN_RET(samgrProxy, false, "samgrProxy is nullptr");
 
-    sptr<IRemoteObject> hostRemote = NearlinkSaManager::GetInstance().GetRemoteProfile(NEARLINK_HOST);
+    sptr<IRemoteObject> hostRemote = NearlinkSaManagerCore::GetInstance().GetRemoteProfile(NEARLINK_HOST);
     if (hostRemote != nullptr) {
         return true;
     }
 
-    sptr<NearlinkHostLoadCallBack> loadCallback = new (std::nothrow) NearlinkHostLoadCallBack();
+    sptr<NearlinkHostLoadCallBackCore> loadCallback = new (std::nothrow) NearlinkHostLoadCallBackCore();
     if (loadCallback == nullptr) {
         HILOGE("loadCallback is nullptr.");
         return false;
@@ -555,7 +555,7 @@ bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
     // 3. 服务启动事件（serviceStartedFunc_）：SA 真实启动成功，解除等待避免空等超时。
     auto waitStatus = proxyConVar_.wait_for(
         lock, std::chrono::milliseconds(timeoutMs), []() -> bool {
-            sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+            sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
             return proxy != nullptr;
         });
     if (!waitStatus) {
@@ -565,20 +565,20 @@ bool NearlinkHost::impl::LoadNearlinkHostService(int32_t loadSaTimeoutMs)
     return true;
 }
 
-NlErrCode NearlinkHost::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const
+NlErrCode NearlinkHostCore::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const
 {
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->GetSleMaxAdvertisingDataLength(maxAdvDataLen);
 }
 
-void NearlinkHost::impl::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject)
+void NearlinkHostCore::impl::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject)
 {
     HILOGI("LoadSystemAbilitySuccess FinishStart SA");
     proxyConVar_.notify_one();
 }
 
-void NearlinkHost::impl::LoadSystemAbilityFail()
+void NearlinkHostCore::impl::LoadSystemAbilityFail()
 {
     // 加载请求超时仅代表未在超时时间内收到成功回调，SA 仍可能启动成功，
     // 此时继续等待服务启动事件（serviceStartedFunc_）唤醒。
@@ -587,7 +587,7 @@ void NearlinkHost::impl::LoadSystemAbilityFail()
 }
 
 #ifdef NEARLINK_HOST_AVOID_SLEEP
-std::shared_ptr<OHOS::PowerMgr::RunningLock> NearlinkHost::impl::AcquireWakeLock(void)
+std::shared_ptr<OHOS::PowerMgr::RunningLock> NearlinkHostCore::impl::AcquireWakeLock(void)
 {
     auto runningLock = PowerMgr::PowerMgrClient::GetInstance().CreateRunningLock(
         "NearlinkEnableWakeLock", PowerMgr::RunningLockType::RUNNINGLOCK_BACKGROUND_TASK);
@@ -601,7 +601,7 @@ std::shared_ptr<OHOS::PowerMgr::RunningLock> NearlinkHost::impl::AcquireWakeLock
 }
 #endif
 
-void NearlinkHost::impl::SyncRandomAddrToService(void)
+void NearlinkHostCore::impl::SyncRandomAddrToService(void)
 {
     HILOGD("SyncRandomAddrToService.");
     if (!IsValidAddress(stagingRealAddr_)) {
@@ -612,28 +612,28 @@ void NearlinkHost::impl::SyncRandomAddrToService(void)
         HILOGE("stagingRandomAddr_ is invalid.");
         return;
     }
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN(proxy, "proxy is nullptr");
     stagingRealAddr_ = "";
     stagingRandomAddr_ = "";
 }
 
-NearlinkHost::NearlinkHost()
+NearlinkHostCore::NearlinkHostCore()
 {
     pimpl = std::make_shared<impl>();
     pimpl->Init();
 }
 
-NearlinkHost::~NearlinkHost() {}
+NearlinkHostCore::~NearlinkHostCore() {}
 
-NearlinkHost &NearlinkHost::GetInstance()
+NearlinkHostCore &NearlinkHostCore::GetInstance()
 {
     // C++11 static local variable initialization is thread-safe.
-    static NearlinkHost host;
+    static NearlinkHostCore host;
     return host;
 }
 
-NlErrCode NearlinkHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
+NlErrCode NearlinkHostCore::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_IMPL_ERROR, "piml is nullptr");
@@ -641,7 +641,7 @@ NlErrCode NearlinkHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> o
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
+NlErrCode NearlinkHostCore::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_IMPL_ERROR, "piml is nullptr");
@@ -649,7 +649,7 @@ NlErrCode NearlinkHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver>
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::LoadNearlinkSa()
+NlErrCode NearlinkHostCore::LoadNearlinkSa()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -659,7 +659,7 @@ NlErrCode NearlinkHost::LoadNearlinkSa()
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
+NlErrCode NearlinkHostCore::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -673,14 +673,14 @@ NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
         autoConnPolicy, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
 }
 
-NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
+NlErrCode NearlinkHostCore::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
 {
     // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
     HILOGI("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
-    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    std::weak_ptr<NearlinkHostCore::impl> hostImplWptr = pimpl;
     pimpl->switchQueue_.submit([hostImplWptr, autoConnPolicy]() -> void {
         auto hostImplSptr = hostImplWptr.lock();
         NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
@@ -698,7 +698,7 @@ NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::DisableNl()
+NlErrCode NearlinkHostCore::DisableNl()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -707,7 +707,7 @@ NlErrCode NearlinkHost::DisableNl()
     return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK);
 }
 
-NlErrCode NearlinkHost::DisableNlToOff()
+NlErrCode NearlinkHostCore::DisableNlToOff()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -716,7 +716,7 @@ NlErrCode NearlinkHost::DisableNlToOff()
     return pimpl->switchModule_->ProcessNearlinkSwitchEvent(NearlinkSwitchEvent::DISABLE_NEARLINK_TO_OFF);
 }
 
-NlErrCode NearlinkHost::EnableNlToHalf()
+NlErrCode NearlinkHostCore::EnableNlToHalf()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -726,14 +726,14 @@ NlErrCode NearlinkHost::EnableNlToHalf()
         SleAutoConnectPolicy::AUTO_CONN_GENERAL, LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS);
 }
 
-NlErrCode NearlinkHost::EnableNlToHalfAsync()
+NlErrCode NearlinkHostCore::EnableNlToHalfAsync()
 {
     // 异步接口调用与异步执行时机可能相隔较长，入口日志使用 info 级别便于定位调用时刻
     HILOGI("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr.");
     NL_CHECK_RETURN_RET(pimpl->switchModule_, NL_ERR_INTERNAL_ERROR, "switchModule is nullptr");
-    std::weak_ptr<NearlinkHost::impl> hostImplWptr = pimpl;
+    std::weak_ptr<NearlinkHostCore::impl> hostImplWptr = pimpl;
     pimpl->switchQueue_.submit([hostImplWptr]() -> void {
         auto hostImplSptr = hostImplWptr.lock();
         NL_CHECK_RETURN(hostImplSptr, "hostImplSptr is nullptr");
@@ -751,10 +751,10 @@ NlErrCode NearlinkHost::EnableNlToHalfAsync()
     return NL_NO_ERROR;
 }
 
-SleStateID NearlinkHost::GetSleFullState()
+SleStateID NearlinkHostCore::GetSleFullState()
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), SleStateID::STATE_TURN_OFF, "nearlink is not support.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, SleStateID::STATE_TURN_OFF, "proxy is nullptr");
     int sleCurrentState = static_cast<int>(SleStateID::STATE_TURN_OFF);
     NlErrCode ret = proxy->GetSleFullState(sleCurrentState);
@@ -763,9 +763,9 @@ SleStateID NearlinkHost::GetSleFullState()
     return static_cast<SleStateID>(sleCurrentState);
 }
 
-bool NearlinkHost::IsSleEnabled() const
+bool NearlinkHostCore::IsSleEnabled() const
 {
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isSleEnabled = false;
     NlErrCode ret = proxy->IsSleEnabled(isSleEnabled);
@@ -773,9 +773,9 @@ bool NearlinkHost::IsSleEnabled() const
     return isSleEnabled;
 }
 
-bool NearlinkHost::IsSleHalfDisabled() const
+bool NearlinkHostCore::IsSleHalfDisabled() const
 {
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isSleHalfDisabled = false;
     NlErrCode ret = proxy->IsSleHalfDisabled(isSleHalfDisabled);
@@ -783,9 +783,9 @@ bool NearlinkHost::IsSleHalfDisabled() const
     return isSleHalfDisabled;
 }
 
-bool NearlinkHost::IsSleDisabled() const
+bool NearlinkHostCore::IsSleDisabled() const
 {
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, true, "proxy is nullptr");
     bool isSleDisabled = true;
     NlErrCode ret = proxy->IsSleDisabled(isSleDisabled);
@@ -793,9 +793,9 @@ bool NearlinkHost::IsSleDisabled() const
     return isSleDisabled;
 }
 
-bool NearlinkHost::IsSleAvailableToCaller() const
+bool NearlinkHostCore::IsSleAvailableToCaller() const
 {
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isSleAvailable = false;
     NlErrCode ret = proxy->IsSleAvailableToCaller(isSleAvailable);
@@ -803,7 +803,7 @@ bool NearlinkHost::IsSleAvailableToCaller() const
     return isSleAvailable;
 }
 
-bool NearlinkHost::IsNearlinkSupport() const
+bool NearlinkHostCore::IsNearlinkSupport() const
 {
     NL_CHECK_RETURN_RET(pimpl != nullptr, false, "piml is nullptr");
     std::unique_lock<std::mutex> lock(pimpl->isNearlinkEnableMutex_);
@@ -822,7 +822,7 @@ bool NearlinkHost::IsNearlinkSupport() const
     return isSupported;
 }
 
-bool NearlinkHost::IsNearlinkAudioSupport() const
+bool NearlinkHostCore::IsNearlinkAudioSupport() const
 {
     NL_CHECK_RETURN_RET(pimpl != nullptr, false, "piml is nullptr");
     std::unique_lock<std::mutex> lock(pimpl->isNearlinkAudioEnableMutex_);
@@ -833,82 +833,82 @@ bool NearlinkHost::IsNearlinkAudioSupport() const
     return pimpl->isNearlinkAudioEnable_ == NEARLINK_SUPPORTED;
 }
 
-NlErrCode NearlinkHost::GetAdapterConnectState(int32_t &state) const
+NlErrCode NearlinkHostCore::GetAdapterConnectState(int32_t &state) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->GetAdapterConnectState(state);
 }
 
-NlErrCode NearlinkHost::GetProfileConnState(const std::string &remoteAddr, int32_t &state) const
+NlErrCode NearlinkHostCore::GetProfileConnState(const std::string &remoteAddr, int32_t &state) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(remoteAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->GetProfileConnState(remoteAddr, state);
 }
 
-NlErrCode NearlinkHost::GetLocalName(std::string &localDeviceName) const
+NlErrCode NearlinkHostCore::GetLocalName(std::string &localDeviceName) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->GetLocalName(localDeviceName);
 }
 
-NlErrCode NearlinkHost::SetLocalName(const std::string &name)
+NlErrCode NearlinkHostCore::SetLocalName(const std::string &name)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->SetLocalName(name);
 }
 
-NlErrCode NearlinkHost::GetLocalAddress(std::string &localDeviceAddres) const
+NlErrCode NearlinkHostCore::GetLocalAddress(std::string &localDeviceAddres) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
 
     return proxy->GetLocalAddress(localDeviceAddres);
 }
 
-NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
+NlErrCode NearlinkHostCore::GetPairedDevices(int transport, std::vector<NearlinkRemoteDeviceCore> &pairedDevices) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     std::vector<NearlinkRawAddress> pairedAddr;
     NlErrCode ret = proxy->GetPairedDevices(pairedAddr);
     NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, ret, "get paired device failed, ret=%{public}d", ret);
 
     for (auto it = pairedAddr.begin(); it != pairedAddr.end(); it++) {
-        NearlinkRemoteDevice device((*it).GetAddress(), transport);
+        NearlinkRemoteDeviceCore device((*it).GetAddress(), transport);
         pairedDevices.emplace_back(device);
     }
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t duration)
+NlErrCode NearlinkHostCore::SetConnectionMode(int32_t connectionMode, int32_t duration)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     NL_CHECK_RETURN_RET(connectionMode >= static_cast<int>(SLEConnectionMode::CONNECTION_MODE_UNCONNECTABLE) &&
                         connectionMode <= static_cast<int>(SLEConnectionMode::CONNECTION_MODE_CONNECTABLE),
@@ -917,13 +917,13 @@ NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t durati
     return proxy->SetConnectionMode(connectionMode, duration);
 }
 
-NlErrCode NearlinkHost::RemovePair(const NearlinkRemoteDevice &device)
+NlErrCode NearlinkHostCore::RemovePair(const NearlinkRemoteDeviceCore &device)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_STATE, "Invalid remote device.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
 
     sptr<NearlinkRawAddress> rawAddr = new (std::nothrow) NearlinkRawAddress(device.GetDeviceAddr());
@@ -932,28 +932,28 @@ NlErrCode NearlinkHost::RemovePair(const NearlinkRemoteDevice &device)
     return proxy->RemovePair(rawAddr);
 }
 
-NlErrCode NearlinkHost::RemoveAllPairs()
+NlErrCode NearlinkHostCore::RemoveAllPairs()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->RemoveAllPairs();
 }
 
-NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t &role) const
+NlErrCode NearlinkHostCore::GetLinkRole(const NearlinkRemoteDeviceCore &device, uint8_t &role) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_PARAM, "Invalid remote device");
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->GetLinkRole(device.GetTransportType(), device.GetDeviceAddr(), role);
 }
 
-NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
+NlErrCode NearlinkHostCore::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -962,7 +962,7 @@ NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRem
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
+NlErrCode NearlinkHostCore::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -971,7 +971,7 @@ NlErrCode NearlinkHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkR
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
+NlErrCode NearlinkHostCore::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
 
@@ -982,7 +982,7 @@ NlErrCode NearlinkHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDe
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
+NlErrCode NearlinkHostCore::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsBasSupported(), NL_ERR_FEATURE_NOT_SUPPORT, "Battery service is not supported.");
@@ -991,7 +991,7 @@ NlErrCode NearlinkHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemote
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
+NlErrCode NearlinkHostCore::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");
@@ -1000,7 +1000,7 @@ NlErrCode NearlinkHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDevic
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
+NlErrCode NearlinkHostCore::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");
@@ -1008,39 +1008,39 @@ NlErrCode NearlinkHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDev
     return NL_NO_ERROR;
 }
 
-void NearlinkHost::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject)
+void NearlinkHostCore::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject)
 {
     NL_CHECK_RETURN(pimpl, "pimpl is nullptr");
     pimpl->LoadSystemAbilitySuccess(remoteObject);
 }
 
-void NearlinkHost::LoadSystemAbilityFail()
+void NearlinkHostCore::LoadSystemAbilityFail()
 {
     NL_CHECK_RETURN(pimpl, "pimpl is nullptr");
     pimpl->LoadSystemAbilityFail();
 }
 
-NlErrCode NearlinkHost::ConnectAllowedProfiles(const std::string &remoteAddr) const
+NlErrCode NearlinkHostCore::ConnectAllowedProfiles(const std::string &remoteAddr) const
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(remoteAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device addr");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->ConnectAllowedProfiles(remoteAddr);
 }
 
-NlErrCode NearlinkHost::DisconnectAllowedProfiles(const std::string &remoteAddr) const
+NlErrCode NearlinkHostCore::DisconnectAllowedProfiles(const std::string &remoteAddr) const
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(remoteAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device addr");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->DisconnectAllowedProfiles(remoteAddr);
 }
 
-NlErrCode NearlinkHost::NearlinkFactoryReset()
+NlErrCode NearlinkHostCore::NearlinkFactoryReset()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -1048,12 +1048,12 @@ NlErrCode NearlinkHost::NearlinkFactoryReset()
         NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS),
             NL_ERR_INTERNAL_ERROR, "pimpl is null or load nearlink service failed.");
     }
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->FactoryReset();
 }
 
-NlErrCode NearlinkHost::SetFreqHopping(const std::vector<uint8_t> &freq)
+NlErrCode NearlinkHostCore::SetFreqHopping(const std::vector<uint8_t> &freq)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -1062,88 +1062,88 @@ NlErrCode NearlinkHost::SetFreqHopping(const std::vector<uint8_t> &freq)
         return NL_ERR_INVALID_PARAM;
     }
     NL_CHECK_RETURN_RET(IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->SetFreqHopping(freq);
 }
 
-NlErrCode NearlinkHost::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
+NlErrCode NearlinkHostCore::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(address), NL_ERR_INTERNAL_ERROR, "Invalid sle virtual device");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->UpdateSleVirtualDevice(cmd, address);
 }
 
-NlErrCode NearlinkHost::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
+NlErrCode NearlinkHostCore::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
 {
     NlErrCode result = NL_ERR_API_NOT_SUPPORT;
 #ifdef NEARLINK_KIA_ENABLE
     HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}ld", protocolType, pid, refuseTime);
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     result = proxy->UpdateRefusePolicy(protocolType, pid, refuseTime);
 #endif
     return result;
 }
 
-NlErrCode NearlinkHost::CheckPermissionForNapi(const std::string &permission, bool &isGranted)
+NlErrCode NearlinkHostCore::CheckPermissionForNapi(const std::string &permission, bool &isGranted)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->CheckPermissionForNapi(permission, isGranted);
 }
 
-NlErrCode NearlinkHost::GetSleAddrByBtAddr(const std::string &btAddr, std::string &sleAddr)
+NlErrCode NearlinkHostCore::GetSleAddrByBtAddr(const std::string &btAddr, std::string &sleAddr)
 {
 	NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsValidAddress(btAddr), NL_ERR_INTERNAL_ERROR, "Invalid bt remote device");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     NlErrCode ret = proxy->GetSleAddrByBtAddr(btAddr, sleAddr);
     HILOGD("btAddr=%{public}s, sleAddr=%{public}s", GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(sleAddr).c_str());
     return ret;
 }
 
-NlErrCode NearlinkHost::GetBtAddrBySleAddr(const std::string &sleAddr, std::string &btAddr)
+NlErrCode NearlinkHostCore::GetBtAddrBySleAddr(const std::string &sleAddr, std::string &btAddr)
 {
 	NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsValidAddress(sleAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     NlErrCode ret = proxy->GetBtAddrBySleAddr(sleAddr, btAddr);
     HILOGD("btAddr=%{public}s, sleAddr=%{public}s", GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(sleAddr).c_str());
     return ret;
 }
 
-NlErrCode NearlinkHost::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
+NlErrCode NearlinkHostCore::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
 {
     HILOGD("btAddr=%{public}s, sleAddr=%{public}s", GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(sleAddr).c_str());
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(sleAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device");
     NL_CHECK_RETURN_RET(IsValidAddress(btAddr), NL_ERR_INTERNAL_ERROR, "Invalid bt remote device");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->SetBtAddrBySleAddr(sleAddr, btAddr);
 }
 
-bool NearlinkHost::IsNearlinkSupportFrame4() const
+bool NearlinkHostCore::IsNearlinkSupportFrame4() const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
     return OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false);
 }
 
-bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)
+bool NearlinkHostCore::IsFeatureSupported(SleFeatureSupported feature)
 {
     HILOGD("enter");
     if (feature == SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4) {
@@ -1151,7 +1151,7 @@ bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)
     }
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), false, "nearlink is off.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isSupported = false;
     NlErrCode ret = proxy->IsFeatureSupported(static_cast<int32_t>(feature), isSupported);
@@ -1159,10 +1159,10 @@ bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)
     return isSupported;
 }
 
-bool NearlinkHost::IsConnectionExist()
+bool NearlinkHostCore::IsConnectionExist()
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
-    sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
+    sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isConnectionExist = true;
     NlErrCode ret = proxy->IsConnectionExist(isConnectionExist);
@@ -1170,13 +1170,12 @@ bool NearlinkHost::IsConnectionExist()
     return isConnectionExist;
 }
 
-bool NearlinkHost::IsBasSupported()
+bool NearlinkHostCore::IsBasSupported()
 {
 #ifdef NEARLINK_BAS_ENABLE
     return IsNearlinkSupport();
 #endif
     return false;
 }
-
 } // namespace Nearlink
 } // namespace OHOS

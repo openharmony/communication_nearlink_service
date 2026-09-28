@@ -13,43 +13,41 @@
  * limitations under the License.
  */
 
-#include "nearlink_sle_peripheral_observer_stub.h"
+#include "base/nearlink_sle_peripheral_observer_stub_core.h"
 #include "log.h"
 #include "ipc_types.h"
 #include "string_ex.h"
 
 namespace OHOS {
 namespace Nearlink {
-NearlinkSlePeripheralObserverStub::NearlinkSlePeripheralObserverStub()
+NearlinkSlePeripheralObserverStubCore::NearlinkSlePeripheralObserverStubCore()
 {
-    HILOGD("start.");
     memberFuncMap_ = {
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_ON_READ_REMOTE_RSSI_EVENT),
-            &NearlinkSlePeripheralObserverStub::OnReadRemoteRssiEventInner},
+            &NearlinkSlePeripheralObserverStubCore::OnReadRemoteRssiEventInner},
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_PAIRING_REQUEST),
-            &NearlinkSlePeripheralObserverStub::OnPairRequestInner},
+            &NearlinkSlePeripheralObserverStubCore::OnPairRequestInner},
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_PAIR_STATUS_CHANGED),
-            &NearlinkSlePeripheralObserverStub::OnPairStatusChangedInner},
+            &NearlinkSlePeripheralObserverStubCore::OnPairStatusChangedInner},
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_ACB_STATE_CHANGED),
-            &NearlinkSlePeripheralObserverStub::OnAcbStateChangedInner},
+            &NearlinkSlePeripheralObserverStubCore::OnAcbStateChangedInner},
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_CONNECT_STATE_CHANGED),
-            &NearlinkSlePeripheralObserverStub::OnConnectionStateChangedInner},
+            &NearlinkSlePeripheralObserverStubCore::OnConnectionStateChangedInner},
         {static_cast<uint32_t>(NearlinkSlePeripheralObserverInterfaceCode::NL_SLE_LINK_FREQ_BAND_CHANGED),
-            &NearlinkSlePeripheralObserverStub::OnLinkFreqBandChangedInner},
+            &NearlinkSlePeripheralObserverStubCore::OnLinkFreqBandChangedInner},
     };
 }
 
-NearlinkSlePeripheralObserverStub::~NearlinkSlePeripheralObserverStub()
+NearlinkSlePeripheralObserverStubCore::~NearlinkSlePeripheralObserverStubCore()
 {
-    HILOGD("start.");
     memberFuncMap_.clear();
 }
 
-int NearlinkSlePeripheralObserverStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
+int NearlinkSlePeripheralObserverStubCore::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
     MessageOption &option)
 {
     HILOGD("cmd=%{public}d, flags=%{public}d", code, option.GetFlags());
-    if (NearlinkSlePeripheralObserverStub::GetDescriptor() != data.ReadInterfaceToken()) {
+    if (NearlinkSlePeripheralObserverStubCore::GetDescriptor() != data.ReadInterfaceToken()) {
         HILOGI("local descriptor is not equal to remote");
         return ERR_INVALID_STATE;
     }
@@ -65,7 +63,7 @@ int NearlinkSlePeripheralObserverStub::OnRemoteRequest(uint32_t code, MessagePar
     return IPCObjectStub::OnRemoteRequest(code, data, reply, option);
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnReadRemoteRssiEventInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnReadRemoteRssiEventInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     if (!device) {
@@ -78,7 +76,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnReadRemoteRssiEventInner(MessagePar
     return NO_ERROR;
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnPairRequestInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnPairRequestInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     if (!device) {
@@ -92,7 +90,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnPairRequestInner(MessageParcel &dat
     return NO_ERROR;
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnPairStatusChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnPairStatusChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     if (!device) {
@@ -106,7 +104,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnPairStatusChangedInner(MessageParce
     return NO_ERROR;
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnConnectionStateChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnConnectionStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     if (!device) {
@@ -120,7 +118,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnConnectionStateChangedInner(Message
     return NO_ERROR;
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnAcbStateChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnAcbStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     if (!device) {
@@ -133,7 +131,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnAcbStateChangedInner(MessageParcel 
     return NO_ERROR;
 }
 
-ErrCode NearlinkSlePeripheralObserverStub::OnLinkFreqBandChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkSlePeripheralObserverStubCore::OnLinkFreqBandChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device transaction wrong.");
@@ -144,6 +142,7 @@ ErrCode NearlinkSlePeripheralObserverStub::OnLinkFreqBandChangedInner(MessagePar
     OnLinkFreqBandChanged(*device, freqBand);
 
     return NO_ERROR;
+}
 }
 }  // namespace Nearlink
 }  // namespace OHOS

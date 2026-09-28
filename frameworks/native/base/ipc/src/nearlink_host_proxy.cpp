@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "nearlink_host_proxy.h"
+#include "base/nearlink_host_proxy_core.h"
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_def.h"
@@ -23,10 +23,10 @@ namespace Nearlink {
 constexpr size_t PAIRED_DEVICE_MAX_NUM = 0xFFFF;
 constexpr size_t DEVICE_UUID_MAX_NUM = 0xFFFF;
 
-NlErrCode NearlinkHostProxy::GetProfile(const std::string &name, sptr<IRemoteObject> &remoteProfile)
+NlErrCode NearlinkHostProxyCore::GetProfile(const std::string &name, sptr<IRemoteObject> &remoteProfile)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(name), NL_ERR_IPC_TRANS_FAILED, "Write name error");
 
@@ -41,10 +41,10 @@ NlErrCode NearlinkHostProxy::GetProfile(const std::string &name, sptr<IRemoteObj
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::DisableSle()
+NlErrCode NearlinkHostProxyCore::DisableSle()
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -54,10 +54,10 @@ NlErrCode NearlinkHostProxy::DisableSle()
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::EnableSle(const SleAutoConnectPolicy autoConnPolicy)
+NlErrCode NearlinkHostProxyCore::EnableSle(const SleAutoConnectPolicy autoConnPolicy)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(static_cast<int>(autoConnPolicy)),
         NL_ERR_IPC_TRANS_FAILED, "Write flag error.");
@@ -69,10 +69,10 @@ NlErrCode NearlinkHostProxy::EnableSle(const SleAutoConnectPolicy autoConnPolicy
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DisableSleToOff()
+NlErrCode NearlinkHostProxyCore::DisableSleToOff()
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -83,10 +83,10 @@ NlErrCode NearlinkHostProxy::DisableSleToOff()
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::EnableSleToHalf()
+NlErrCode NearlinkHostProxyCore::EnableSleToHalf()
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -97,10 +97,10 @@ NlErrCode NearlinkHostProxy::EnableSleToHalf()
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::GetSleFullState(int &sleCurrentState)
+NlErrCode NearlinkHostProxyCore::GetSleFullState(int &sleCurrentState)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -115,10 +115,10 @@ NlErrCode NearlinkHostProxy::GetSleFullState(int &sleCurrentState)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsSleEnabled(bool &isSleEnabled)
+NlErrCode NearlinkHostProxyCore::IsSleEnabled(bool &isSleEnabled)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -132,10 +132,10 @@ NlErrCode NearlinkHostProxy::IsSleEnabled(bool &isSleEnabled)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsSleHalfDisabled(bool &isSleHalfDisabled)
+NlErrCode NearlinkHostProxyCore::IsSleHalfDisabled(bool &isSleHalfDisabled)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -149,10 +149,10 @@ NlErrCode NearlinkHostProxy::IsSleHalfDisabled(bool &isSleHalfDisabled)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsSleDisabled(bool &isSleDisabled)
+NlErrCode NearlinkHostProxyCore::IsSleDisabled(bool &isSleDisabled)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -166,10 +166,10 @@ NlErrCode NearlinkHostProxy::IsSleDisabled(bool &isSleDisabled)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsSleAvailableToCaller(bool &isSleAvailable)
+NlErrCode NearlinkHostProxyCore::IsSleAvailableToCaller(bool &isSleAvailable)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -183,17 +183,17 @@ NlErrCode NearlinkHostProxy::IsSleAvailableToCaller(bool &isSleAvailable)
     return exception;
 }
 
-bool NearlinkHostProxy::IsSleAvailableToCallerInner()
+bool NearlinkHostProxyCore::IsSleAvailableToCallerInner()
 {
     bool isSleAvailable = false;
     NlErrCode status = IsSleAvailableToCaller(isSleAvailable);
     return status == NL_NO_ERROR && isSleAvailable;
 }
 
-NlErrCode NearlinkHostProxy::GetAdapterConnectState(int32_t &state)
+NlErrCode NearlinkHostProxyCore::GetAdapterConnectState(int32_t &state)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -208,10 +208,10 @@ NlErrCode NearlinkHostProxy::GetAdapterConnectState(int32_t &state)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetProfileConnState(const std::string &address, int32_t &state)
+NlErrCode NearlinkHostProxyCore::GetProfileConnState(const std::string &address, int32_t &state)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
 
@@ -227,10 +227,10 @@ NlErrCode NearlinkHostProxy::GetProfileConnState(const std::string &address, int
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetLocalName(std::string &name)
+NlErrCode NearlinkHostProxyCore::GetLocalName(std::string &name)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -245,10 +245,10 @@ NlErrCode NearlinkHostProxy::GetLocalName(std::string &name)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::SetLocalName(const std::string &name)
+NlErrCode NearlinkHostProxyCore::SetLocalName(const std::string &name)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(name), NL_ERR_IPC_TRANS_FAILED, "Write name error");
 
@@ -260,10 +260,10 @@ NlErrCode NearlinkHostProxy::SetLocalName(const std::string &name)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::GetLocalAddress(std::string &addr)
+NlErrCode NearlinkHostProxyCore::GetLocalAddress(std::string &addr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -278,10 +278,10 @@ NlErrCode NearlinkHostProxy::GetLocalAddress(std::string &addr)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetPairedDevices(std::vector<NearlinkRawAddress> &pairedAddr)
+NlErrCode NearlinkHostProxyCore::GetPairedDevices(std::vector<NearlinkRawAddress> &pairedAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -307,10 +307,10 @@ NlErrCode NearlinkHostProxy::GetPairedDevices(std::vector<NearlinkRawAddress> &p
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::SetConnectionMode(int32_t connectionMode, int32_t duration)
+NlErrCode NearlinkHostProxyCore::SetConnectionMode(int32_t connectionMode, int32_t duration)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(connectionMode), NL_ERR_IPC_TRANS_FAILED, "Write connection mode error");
     NL_CHECK_RETURN_RET(data.WriteInt32(duration), NL_ERR_IPC_TRANS_FAILED, "Write duration error");
@@ -323,10 +323,10 @@ NlErrCode NearlinkHostProxy::SetConnectionMode(int32_t connectionMode, int32_t d
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RemovePair(const sptr<NearlinkRawAddress> &device)
+NlErrCode NearlinkHostProxyCore::RemovePair(const sptr<NearlinkRawAddress> &device)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteParcelable(device.GetRefPtr()), NL_ERR_IPC_TRANS_FAILED,
         "Write device.GetRefPtr() error.");
@@ -339,10 +339,10 @@ NlErrCode NearlinkHostProxy::RemovePair(const sptr<NearlinkRawAddress> &device)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RemoveAllPairs()
+NlErrCode NearlinkHostProxyCore::RemoveAllPairs()
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -353,11 +353,11 @@ NlErrCode NearlinkHostProxy::RemoveAllPairs()
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RegisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
+NlErrCode NearlinkHostProxyCore::RegisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
 {
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
         "Write RemoteObject error.");
@@ -369,11 +369,11 @@ NlErrCode NearlinkHostProxy::RegisterSlePeripheralCallback(const sptr<INearlinkS
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DeregisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
+NlErrCode NearlinkHostProxyCore::DeregisterSlePeripheralCallback(const sptr<INearlinkSlePeripheralObserver> &observer)
 {
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
         "Write RemoteObject error");
@@ -386,12 +386,12 @@ NlErrCode NearlinkHostProxy::DeregisterSlePeripheralCallback(const sptr<INearlin
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RegisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
+NlErrCode NearlinkHostProxyCore::RegisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
 {
     HILOGD("start");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
         "Write RemoteObject error.");
@@ -404,12 +404,12 @@ NlErrCode NearlinkHostProxy::RegisterSleAdapterObserver(const sptr<INearlinkHost
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DeregisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
+NlErrCode NearlinkHostProxyCore::DeregisterSleAdapterObserver(const sptr<INearlinkHostObserver> &observer)
 {
     HILOGI("start");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
         "Write RemoteObject error.");
@@ -421,11 +421,11 @@ NlErrCode NearlinkHostProxy::DeregisterSleAdapterObserver(const sptr<INearlinkHo
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RegisterDeviceBatteryObserver(const sptr<INearlinkDeviceBatteryObserver> &observer)
+NlErrCode NearlinkHostProxyCore::RegisterDeviceBatteryObserver(const sptr<INearlinkDeviceBatteryObserver> &observer)
 {
     HILOGD("start");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
@@ -438,11 +438,11 @@ NlErrCode NearlinkHostProxy::RegisterDeviceBatteryObserver(const sptr<INearlinkD
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DeregisterDeviceBatteryObserver(const sptr<INearlinkDeviceBatteryObserver> &observer)
+NlErrCode NearlinkHostProxyCore::DeregisterDeviceBatteryObserver(const sptr<INearlinkDeviceBatteryObserver> &observer)
 {
     HILOGI("start");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
@@ -456,11 +456,11 @@ NlErrCode NearlinkHostProxy::DeregisterDeviceBatteryObserver(const sptr<INearlin
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::RegisterDeviceRssiObserver(const sptr<INearlinkDeviceRssiObserver> &observer)
+NlErrCode NearlinkHostProxyCore::RegisterDeviceRssiObserver(const sptr<INearlinkDeviceRssiObserver> &observer)
 {
     HILOGD("start");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
                         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
@@ -473,11 +473,11 @@ NlErrCode NearlinkHostProxy::RegisterDeviceRssiObserver(const sptr<INearlinkDevi
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DeregisterDeviceRssiObserver(const sptr<INearlinkDeviceRssiObserver> &observer)
+NlErrCode NearlinkHostProxyCore::DeregisterDeviceRssiObserver(const sptr<INearlinkDeviceRssiObserver> &observer)
 {
     HILOGI("start");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
                         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(observer != nullptr, NL_ERR_INVALID_PARAM, "observer is null");
     NL_CHECK_RETURN_RET(data.WriteRemoteObject(observer->AsObject()), NL_ERR_IPC_TRANS_FAILED,
@@ -491,10 +491,10 @@ NlErrCode NearlinkHostProxy::DeregisterDeviceRssiObserver(const sptr<INearlinkDe
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen)
+NlErrCode NearlinkHostProxyCore::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -515,10 +515,10 @@ NlErrCode NearlinkHostProxy::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvData
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceName(int32_t transport, const std::string &address, std::string &name)
+NlErrCode NearlinkHostProxyCore::GetDeviceName(int32_t transport, const std::string &address, std::string &name)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -535,10 +535,10 @@ NlErrCode NearlinkHostProxy::GetDeviceName(int32_t transport, const std::string 
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceAlias(int32_t transport, const std::string &address, std::string &alias)
+NlErrCode NearlinkHostProxyCore::GetDeviceAlias(int32_t transport, const std::string &address, std::string &alias)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
@@ -555,10 +555,10 @@ NlErrCode NearlinkHostProxy::GetDeviceAlias(int32_t transport, const std::string
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::SetDeviceAlias(int32_t transport, const std::string &address, const std::string &alias)
+NlErrCode NearlinkHostProxyCore::SetDeviceAlias(int32_t transport, const std::string &address, const std::string &alias)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
@@ -571,10 +571,10 @@ NlErrCode NearlinkHostProxy::SetDeviceAlias(int32_t transport, const std::string
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::GetPairState(int32_t transport, const std::string &address, int &pairState)
+NlErrCode NearlinkHostProxyCore::GetPairState(int32_t transport, const std::string &address, int &pairState)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -591,10 +591,10 @@ NlErrCode NearlinkHostProxy::GetPairState(int32_t transport, const std::string &
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::StartPair(int32_t transport, const std::string &address)
+NlErrCode NearlinkHostProxyCore::StartPair(int32_t transport, const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -606,10 +606,10 @@ NlErrCode NearlinkHostProxy::StartPair(int32_t transport, const std::string &add
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::StartCrediblePair(int32_t transport, const std::string &address)
+NlErrCode NearlinkHostProxyCore::StartCrediblePair(int32_t transport, const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -621,10 +621,10 @@ NlErrCode NearlinkHostProxy::StartCrediblePair(int32_t transport, const std::str
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::CancelPairing(int32_t transport, const std::string &address)
+NlErrCode NearlinkHostProxyCore::CancelPairing(int32_t transport, const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -636,11 +636,11 @@ NlErrCode NearlinkHostProxy::CancelPairing(int32_t transport, const std::string 
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::SetPairingPassCode(int32_t transport, const std::string &address,
+NlErrCode NearlinkHostProxyCore::SetPairingPassCode(int32_t transport, const std::string &address,
                                                 const std::string &passCode)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
@@ -653,10 +653,10 @@ NlErrCode NearlinkHostProxy::SetPairingPassCode(int32_t transport, const std::st
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::IsBondedFromLocal(int32_t transport, const std::string &address, bool &isBondedFromLocal)
+NlErrCode NearlinkHostProxyCore::IsBondedFromLocal(int32_t transport, const std::string &address, bool &isBondedFromLocal)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -673,10 +673,10 @@ NlErrCode NearlinkHostProxy::IsBondedFromLocal(int32_t transport, const std::str
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsAcbConnected(int32_t transport, const std::string &address, bool &isAcbConnected)
+NlErrCode NearlinkHostProxyCore::IsAcbConnected(int32_t transport, const std::string &address, bool &isAcbConnected)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -693,10 +693,10 @@ NlErrCode NearlinkHostProxy::IsAcbConnected(int32_t transport, const std::string
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetLinkRole(int32_t transport, const std::string &address, uint8_t &role)
+NlErrCode NearlinkHostProxyCore::GetLinkRole(int32_t transport, const std::string &address, uint8_t &role)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -713,10 +713,10 @@ NlErrCode NearlinkHostProxy::GetLinkRole(int32_t transport, const std::string &a
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::SetPairingConfirmation(int32_t transport, const std::string &address, bool cfm)
+NlErrCode NearlinkHostProxyCore::SetPairingConfirmation(int32_t transport, const std::string &address, bool cfm)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
@@ -728,10 +728,10 @@ NlErrCode NearlinkHostProxy::SetPairingConfirmation(int32_t transport, const std
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::IsAcbEncrypted(int32_t transport, const std::string &address, bool &isAcbEncrypted)
+NlErrCode NearlinkHostProxyCore::IsAcbEncrypted(int32_t transport, const std::string &address, bool &isAcbEncrypted)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -748,11 +748,11 @@ NlErrCode NearlinkHostProxy::IsAcbEncrypted(int32_t transport, const std::string
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceUuids(int32_t transport, const std::string &address,
+NlErrCode NearlinkHostProxyCore::GetDeviceUuids(int32_t transport, const std::string &address,
     std::vector<std::string> &uuids)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -778,10 +778,10 @@ NlErrCode NearlinkHostProxy::GetDeviceUuids(int32_t transport, const std::string
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::PairRequestReply(int32_t transport, const std::string &address, bool accept)
+NlErrCode NearlinkHostProxyCore::PairRequestReply(int32_t transport, const std::string &address, bool accept)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(transport), NL_ERR_IPC_TRANS_FAILED, "Write transport error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
@@ -794,10 +794,10 @@ NlErrCode NearlinkHostProxy::PairRequestReply(int32_t transport, const std::stri
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::ReadRemoteRssiValue(const std::string &address)
+NlErrCode NearlinkHostProxyCore::ReadRemoteRssiValue(const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -810,10 +810,10 @@ NlErrCode NearlinkHostProxy::ReadRemoteRssiValue(const std::string &address)
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceAppearance(const std::string &address, int &appearance)
+NlErrCode NearlinkHostProxyCore::GetDeviceAppearance(const std::string &address, int &appearance)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -829,10 +829,10 @@ NlErrCode NearlinkHostProxy::GetDeviceAppearance(const std::string &address, int
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::ConnectAllowedProfiles(const std::string &remoteAddr)
+NlErrCode NearlinkHostProxyCore::ConnectAllowedProfiles(const std::string &remoteAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(remoteAddr), NL_ERR_IPC_TRANS_FAILED, "Write remoteAddr error.");
 
@@ -843,10 +843,10 @@ NlErrCode NearlinkHostProxy::ConnectAllowedProfiles(const std::string &remoteAdd
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::DisconnectAllowedProfiles(const std::string &remoteAddr)
+NlErrCode NearlinkHostProxyCore::DisconnectAllowedProfiles(const std::string &remoteAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(remoteAddr), NL_ERR_IPC_TRANS_FAILED, "Write remoteAddr error.");
 
@@ -857,10 +857,10 @@ NlErrCode NearlinkHostProxy::DisconnectAllowedProfiles(const std::string &remote
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceProductId(const std::string &address, uint16_t &productId)
+NlErrCode NearlinkHostProxyCore::GetDeviceProductId(const std::string &address, uint16_t &productId)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -875,10 +875,10 @@ NlErrCode NearlinkHostProxy::GetDeviceProductId(const std::string &address, uint
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceVendorId(const std::string &address, uint16_t &vendorId)
+NlErrCode NearlinkHostProxyCore::GetDeviceVendorId(const std::string &address, uint16_t &vendorId)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -893,10 +893,10 @@ NlErrCode NearlinkHostProxy::GetDeviceVendorId(const std::string &address, uint1
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceModel(const std::string &address, NearlinkDeviceModel &model)
+NlErrCode NearlinkHostProxyCore::GetDeviceModel(const std::string &address, NearlinkDeviceModel &model)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
                         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
     MessageParcel reply;
@@ -912,11 +912,11 @@ NlErrCode NearlinkHostProxy::GetDeviceModel(const std::string &address, Nearlink
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceInformation(const std::string &address, NearlinkDeviceInformation &information)
+NlErrCode NearlinkHostProxyCore::GetDeviceInformation(const std::string &address, NearlinkDeviceInformation &information)
 {
     HILOGI("enter");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
                         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
     MessageParcel reply;
@@ -932,10 +932,10 @@ NlErrCode NearlinkHostProxy::GetDeviceInformation(const std::string &address, Ne
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetAcbState(const std::string &address, int &acbState)
+NlErrCode NearlinkHostProxyCore::GetAcbState(const std::string &address, int &acbState)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
     MessageParcel reply;
@@ -949,10 +949,10 @@ NlErrCode NearlinkHostProxy::GetAcbState(const std::string &address, int &acbSta
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetBatteryLevel(const std::string &address)
+NlErrCode NearlinkHostProxyCore::GetBatteryLevel(const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
     MessageParcel reply;
@@ -963,10 +963,10 @@ NlErrCode NearlinkHostProxy::GetBatteryLevel(const std::string &address)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::FactoryReset()
+NlErrCode NearlinkHostProxyCore::FactoryReset()
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
@@ -976,13 +976,13 @@ NlErrCode NearlinkHostProxy::FactoryReset()
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::SetFreqHopping(const std::vector<uint8_t> &freq)
+NlErrCode NearlinkHostProxyCore::SetFreqHopping(const std::vector<uint8_t> &freq)
 {
     HILOGI("enter");
     NL_CHECK_RETURN_RET(freq.size() == SLE_FREQ_HOPPING_LEN, NL_ERR_INVALID_PARAM, "Param_Freq len is invalid!");
 
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteUInt8Vector(freq), NL_ERR_IPC_TRANS_FAILED, "Write freq error.");
 
@@ -993,11 +993,11 @@ NlErrCode NearlinkHostProxy::SetFreqHopping(const std::vector<uint8_t> &freq)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
+NlErrCode NearlinkHostProxyCore::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
 {
     HILOGI("enter");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(protocolType), NL_ERR_IPC_TRANS_FAILED, "Write protocolType error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(pid), NL_ERR_IPC_TRANS_FAILED, "Write pid error.");
@@ -1010,11 +1010,11 @@ NlErrCode NearlinkHostProxy::UpdateRefusePolicy(const int32_t protocolType, cons
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::CheckPermissionForNapi(const std::string &permission, bool &isGranted)
+NlErrCode NearlinkHostProxyCore::CheckPermissionForNapi(const std::string &permission, bool &isGranted)
 {
     HILOGI("enter");
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(permission), NL_ERR_IPC_TRANS_FAILED, "Write permission error.");
 
@@ -1029,10 +1029,10 @@ NlErrCode NearlinkHostProxy::CheckPermissionForNapi(const std::string &permissio
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
+NlErrCode NearlinkHostProxyCore::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(cmd), NL_ERR_IPC_TRANS_FAILED, "Write cmd error");
     NL_CHECK_RETURN_RET(data.WriteString(address), NL_ERR_IPC_TRANS_FAILED, "Write address error");
@@ -1044,7 +1044,7 @@ NlErrCode NearlinkHostProxy::UpdateSleVirtualDevice(int32_t cmd, const std::stri
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-ErrCode NearlinkHostProxy::InnerTransact(
+ErrCode NearlinkHostProxyCore::InnerTransact(
     uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply)
 {
     auto remote = Remote();
@@ -1056,10 +1056,10 @@ ErrCode NearlinkHostProxy::InnerTransact(
     return err;
 }
 
-NlErrCode NearlinkHostProxy::GetSleAddrByBtAddr(const std::string &btAddr, std::string &sleAddr)
+NlErrCode NearlinkHostProxyCore::GetSleAddrByBtAddr(const std::string &btAddr, std::string &sleAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(btAddr), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -1074,10 +1074,10 @@ NlErrCode NearlinkHostProxy::GetSleAddrByBtAddr(const std::string &btAddr, std::
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetBtAddrBySleAddr(const std::string &sleAddr, std::string &btAddr)
+NlErrCode NearlinkHostProxyCore::GetBtAddrBySleAddr(const std::string &sleAddr, std::string &btAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(sleAddr), NL_ERR_IPC_TRANS_FAILED, "Write address error.");
 
@@ -1092,10 +1092,10 @@ NlErrCode NearlinkHostProxy::GetBtAddrBySleAddr(const std::string &sleAddr, std:
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
+NlErrCode NearlinkHostProxyCore::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteString(sleAddr), NL_ERR_IPC_TRANS_FAILED, "Write sleAddr error.");
     NL_CHECK_RETURN_RET(data.WriteString(btAddr), NL_ERR_IPC_TRANS_FAILED, "Write btAddr error.");
@@ -1106,10 +1106,10 @@ NlErrCode NearlinkHostProxy::SetBtAddrBySleAddr(const std::string &sleAddr, cons
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::IsFeatureSupported(int32_t feature, bool &isSupported)
+NlErrCode NearlinkHostProxyCore::IsFeatureSupported(int32_t feature, bool &isSupported)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
     NL_CHECK_RETURN_RET(data.WriteInt32(feature), NL_ERR_IPC_TRANS_FAILED, "Write feature error.");
 
@@ -1124,10 +1124,10 @@ NlErrCode NearlinkHostProxy::IsFeatureSupported(int32_t feature, bool &isSupport
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::IsConnectionExist(bool &isConnectionExist)
+NlErrCode NearlinkHostProxyCore::IsConnectionExist(bool &isConnectionExist)
 {
     MessageParcel data;
-    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxyCore::GetDescriptor()),
         NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
 
     MessageParcel reply;
