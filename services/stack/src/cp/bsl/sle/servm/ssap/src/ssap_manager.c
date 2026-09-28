@@ -645,6 +645,7 @@ static void SSAP_CMLogicLinkCbk(CM_LogicLinkState_S *param)
         SsapTriggerLinkStateMachineChange(&(param->addr), SSAP_LOGIC_LINK_CONNECTED, param->discReason);
         NLSTK_Errcode_E cacheCreateRet = SsapcCacheCreate(&(param->addr));
         CP_LOG_INFO("[SSAP] ssap client cache create ret: %d", cacheCreateRet);
+#ifndef DISABLE_EXCHANGE_INFO_REQ
         SSAP_ExchangeInfoReqInfo_S *exchangeParam =
             (SSAP_ExchangeInfoReqInfo_S *)SDF_MemZalloc(sizeof(SSAP_ExchangeInfoReqInfo_S));
         CP_CHECK_LOG_RETURN_VOID(exchangeParam != NULL, "[SSAP] init exchange info req malloc failed");
@@ -654,6 +655,7 @@ static void SSAP_CMLogicLinkCbk(CM_LogicLinkState_S *param)
             .func = SSAPC_ExchangeInfoReq, .timeout = SSAP_INTERACTION_MAX_TIMEOUT, .valid = true};
         // SSAP默认EXCHANGE_INFO_REQ添加至缓存队列。此时配对之类的流程还未结束，不影响芯片交互流程，因此延迟发送
         SSAP_ProcessRequestTask(link, &taskParam, true);
+#endif
     } else if (param->result == CM_LINK_STATE_DISCONNECTED) {
         SSAP_DeleteSsapLinkByAddr(&param->addr);
         // 更新链路的实际连接状态
