@@ -79,7 +79,8 @@ NlErrCode NearlinkSleControllerCore::SetSleCoexParam(SLEBitRate maxBitRate, Sled
     return proxy->SetSleCoexParam(static_cast<uint16_t>(maxBitRate), static_cast<uint8_t>(dutyCycle));
 }
 
-NlErrCode NearlinkSleControllerCore::UpdateConnectInterval(const std::string &device, ConnectionInterval intervalType) const
+NlErrCode NearlinkSleControllerCore::UpdateConnectInterval(const std::string &device,
+    ConnectionInterval intervalType) const
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
