@@ -128,11 +128,16 @@ HWTEST_F(SleScannerTest, StartAndStopScan002, TestSize.Level1)
 /**
  * @tc.number: StartScanWithFilter001
  * @tc.name:
- * @tc.desc:
+ * @tc.desc: 帧四过滤扫描起扫。支持帧四的设备验证起扫/停扫成功；
+ *           不支持帧四的设备验证被server门控拦截，返回NL_ERR_API_NOT_SUPPORT
  */
 HWTEST_F(SleScannerTest, StartScanWithFilter001, TestSize.Level1)
 {
     HILOGI("StartScanWithFilter001 start");
+    // 帧四能力以CCM配置项为唯一判定源（与server侧门控同源）：
+    // 支持的设备起扫成功；不支持的设备期望被server门控拦截，返回NL_ERR_API_NOT_SUPPORT
+    bool frame4Supported = NearlinkHost::GetInstance().IsFeatureSupported(
+        SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4);
     std::shared_ptr<SleCentralManagerCallbackTest> callback = std::make_shared<SleCentralManagerCallbackTest>();
     std::shared_ptr<SleCentralManager> scanInst = SleCentralManager::CreateSleCentralManager(callback);
     SleScanSettings settings;
@@ -158,11 +163,15 @@ HWTEST_F(SleScannerTest, StartScanWithFilter001, TestSize.Level1)
     filter.SetManufactureDataMask(maufactureDataMask);
     std::vector<SleScanFilter> filters {filter};
     NlErrCode ret = scanInst->StartScanWithFilter(settings, filters);
-    EXPECT_EQ(NL_NO_ERROR, ret);
-    sleep(2); // Wait for 2s until the scan is completely started.
-    ret = scanInst->StopScan();
-    EXPECT_EQ(NL_NO_ERROR, ret);
-    sleep(2); // Wait for 2s until the scan is completely stopped.
+    if (frame4Supported) {
+        EXPECT_EQ(NL_NO_ERROR, ret);
+        sleep(2); // Wait for 2s until the scan is completely started.
+        ret = scanInst->StopScan();
+        EXPECT_EQ(NL_NO_ERROR, ret);
+        sleep(2); // Wait for 2s until the scan is completely stopped.
+    } else {
+        EXPECT_EQ(NL_ERR_API_NOT_SUPPORT, ret);
+    }
     HILOGI("StartScanWithFilter001 end");
 }
 } // namespace TEST

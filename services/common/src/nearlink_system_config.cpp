@@ -49,5 +49,12 @@ bool __attribute__((weak)) NearlinkSystemConfig::IsVoiceCallAutorateSupported()
     return isSupported;
 }
 
+bool __attribute__((weak)) NearlinkSystemConfig::IsFrame4Supported()
+{
+    bool isSupported = OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false);
+    HILOGI("[FRAME4_CONFIG] Check frame4 support: %{public}d", isSupported);
+    return isSupported;
+}
+
 } // namespace Nearlink
 } // namespace OHOS
