@@ -242,7 +242,7 @@ uint32_t HadmGetRemoteFeatures(SLE_Addr_S *addr, HadmPeerSupportSounding_E *peer
  * @param [in] uint8_t supportSounding 对端是否支持测距，非0表示支持
  * @return uint32_t 状态码，0表示成功，非0表示失败
  * @details 远端特性上报可能先于连接状态上报到达，此时linkCb尚未创建，先按lcid缓存特性结果，
-            待连接状态上报创建linkCb后重放触发状态机
+ *          待连接状态上报创建linkCb后重放触发状态机
  */
 uint32_t HadmCachePendingFeatures(uint16_t lcid, uint8_t supportSounding);
 
