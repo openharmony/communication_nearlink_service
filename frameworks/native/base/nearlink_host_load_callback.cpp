@@ -30,6 +30,5 @@ void NearlinkHostLoadCallBackCore::OnLoadSystemAbilityFail(int32_t systemAbility
 {
     NearlinkHostCore::GetInstance().LoadSystemAbilityFail();
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS

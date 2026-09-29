@@ -143,6 +143,5 @@ ErrCode NearlinkSlePeripheralObserverStubCore::OnLinkFreqBandChangedInner(Messag
 
     return NO_ERROR;
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS

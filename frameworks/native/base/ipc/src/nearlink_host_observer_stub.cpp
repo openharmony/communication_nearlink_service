@@ -142,6 +142,5 @@ ErrCode NearlinkHostObserverStubCore::OnDeviceAddrChangedInner(MessageParcel &da
 
     return NO_ERROR;
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS

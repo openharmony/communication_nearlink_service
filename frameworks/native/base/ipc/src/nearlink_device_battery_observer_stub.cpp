@@ -80,6 +80,5 @@ ErrCode NearlinkDeviceBatteryObserverStubCore::OnBatteryLevelChangedInner(Messag
 
     return NO_ERROR;
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS

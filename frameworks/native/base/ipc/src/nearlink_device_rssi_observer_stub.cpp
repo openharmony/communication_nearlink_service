@@ -65,6 +65,5 @@ ErrCode NearlinkDeviceRssiObserverStubCore::OnReadRemoteRssiEventInner(MessagePa
 
     return NO_ERROR;
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS

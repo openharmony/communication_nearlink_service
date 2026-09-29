@@ -392,6 +392,5 @@ void NearlinkSwitchModuleCore::RemoveIgnoredCachedEvent(size_t ignoredCnt)
     }
     cachedEventVec_.erase(cachedEventVec_.begin(), cachedEventVec_.begin() + ignoredEventCnt + 1);
 }
-}
 }  // namespace Nearlink
 }  // namespace OHOS
