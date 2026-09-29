@@ -24,6 +24,8 @@ inline NearlinkSleControllerProxyCore *ToCore(NearlinkSleControllerProxy *self)
     return reinterpret_cast<NearlinkSleControllerProxyCore *>(self);
 }
 }
+BrokerDelegator<NearlinkSleControllerProxy> NearlinkSleControllerProxy::delegator_;
+
 NearlinkSleControllerProxy::NearlinkSleControllerProxy(const sptr<IRemoteObject> &impl)
     : IRemoteProxy<INearlinkSleController>(impl)
 {}

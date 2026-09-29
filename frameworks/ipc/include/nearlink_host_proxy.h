@@ -97,7 +97,7 @@ public:
 private:
     bool IsSleAvailableToCallerInner();
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);
-    static inline BrokerDelegator<NearlinkHostProxy> delegator_;
+    static BrokerDelegator<NearlinkHostProxy> delegator_;
 };
 }  // namespace Nearlink
 }  // namespace OHOS

@@ -16,8 +16,7 @@
 #ifndef OHOS_NEARLINK_STANDARD_HOST_PROXY_CORE_H
 #define OHOS_NEARLINK_STANDARD_HOST_PROXY_CORE_H
 
-#include "i_nearlink_host.h"
-#include "iremote_proxy.h"
+#include "nearlink_host_proxy.h"
 
 namespace OHOS {
 namespace Nearlink {

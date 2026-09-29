@@ -25,6 +25,8 @@ inline NearlinkHostProxyCore *ToCore(NearlinkHostProxy *self)
     return reinterpret_cast<NearlinkHostProxyCore *>(self);
 }
 }
+BrokerDelegator<NearlinkHostProxy> NearlinkHostProxy::delegator_;
+
 NlErrCode NearlinkHostProxy::GetProfile(const std::string &name, sptr<IRemoteObject> &remoteProfile)
 {
     return ToCore(this)->NearlinkHostProxyCore::GetProfile(name, remoteProfile);
