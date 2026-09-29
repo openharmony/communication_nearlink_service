@@ -2256,6 +2256,7 @@ void SleAdapter::CancelPairCompleteInner(const RawAddress &device) const
     LOG_INFO("Erase device addr %{public}s.", GetEncryptAddr(device.GetAddress()).c_str());
     adapterProperties_->RemovePeripheralDevice(device.GetAddress());
     SleRemoteDeviceAdapter::GetInstance()->RemovePeerDeviceTypeToController(device);
+    ClearDeviceManufacturerAbility(device);
 }
 
 void SleAdapter::PairComplete(const RawAddress &device, const int status) const
