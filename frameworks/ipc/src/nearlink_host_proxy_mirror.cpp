@@ -167,12 +167,12 @@ NlErrCode NearlinkHostProxy::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvData
 
 NlErrCode NearlinkHostProxy::GetDeviceName(int32_t transport, const std::string &address, std::string &name)
 {
-    return ToCore(this)->NearlinkHostProxyCore::GetDeviceName(transport, address, &name);
+    return ToCore(this)->NearlinkHostProxyCore::GetDeviceName(transport, address, name);
 }
 
 NlErrCode NearlinkHostProxy::GetDeviceAlias(int32_t transport, const std::string &address, std::string &alias)
 {
-    return ToCore(this)->NearlinkHostProxyCore::GetDeviceAlias(transport, address, &alias);
+    return ToCore(this)->NearlinkHostProxyCore::GetDeviceAlias(transport, address, alias);
 }
 
 NlErrCode NearlinkHostProxy::SetDeviceAlias(int32_t transport, const std::string &address, const std::string &alias)
@@ -182,7 +182,7 @@ NlErrCode NearlinkHostProxy::SetDeviceAlias(int32_t transport, const std::string
 
 NlErrCode NearlinkHostProxy::GetPairState(int32_t transport, const std::string &address, int &pairState)
 {
-    return ToCore(this)->NearlinkHostProxyCore::GetPairState(transport, address, &pairState);
+    return ToCore(this)->NearlinkHostProxyCore::GetPairState(transport, address, pairState);
 }
 
 NlErrCode NearlinkHostProxy::StartPair(int32_t transport, const std::string &address)
@@ -214,28 +214,28 @@ NlErrCode NearlinkHostProxy::SetPairingPassCode(int32_t transport, const std::st
 NlErrCode NearlinkHostProxy::IsBondedFromLocal(int32_t transport, const std::string &address,
     bool &isBondedFromLocal)
 {
-    return ToCore(this)->NearlinkHostProxyCore::IsBondedFromLocal(transport, address, &isBondedFromLocal);
+    return ToCore(this)->NearlinkHostProxyCore::IsBondedFromLocal(transport, address, isBondedFromLocal);
 }
 
 NlErrCode NearlinkHostProxy::IsAcbConnected(int32_t transport, const std::string &address, bool &isAcbConnected)
 {
-    return ToCore(this)->NearlinkHostProxyCore::IsAcbConnected(transport, address, &isAcbConnected);
+    return ToCore(this)->NearlinkHostProxyCore::IsAcbConnected(transport, address, isAcbConnected);
 }
 
 NlErrCode NearlinkHostProxy::IsAcbEncrypted(int32_t transport, const std::string &address, bool &isAcbEncrypted)
 {
-    return ToCore(this)->NearlinkHostProxyCore::IsAcbEncrypted(transport, address, &isAcbEncrypted);
+    return ToCore(this)->NearlinkHostProxyCore::IsAcbEncrypted(transport, address, isAcbEncrypted);
 }
 
 NlErrCode NearlinkHostProxy::GetLinkRole(int32_t transport, const std::string &address, uint8_t &role)
 {
-    return ToCore(this)->NearlinkHostProxyCore::GetLinkRole(transport, address, &role);
+    return ToCore(this)->NearlinkHostProxyCore::GetLinkRole(transport, address, role);
 }
 
 NlErrCode NearlinkHostProxy::GetDeviceUuids(int32_t transport, const std::string &address,
     std::vector<std::string> &uuids)
 {
-    return ToCore(this)->NearlinkHostProxyCore::GetDeviceUuids(transport, address, &uuids);
+    return ToCore(this)->NearlinkHostProxyCore::GetDeviceUuids(transport, address, uuids);
 }
 
 NlErrCode NearlinkHostProxy::PairRequestReply(int32_t transport, const std::string &address, bool accept)
