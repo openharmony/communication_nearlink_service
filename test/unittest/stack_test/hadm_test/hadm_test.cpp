@@ -850,20 +850,43 @@ TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_002)
 TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_001)
 {
     uint8_t supportSounding = 0;
-    uint32_t ret = HadmCachePendingFeatures(g_lcid, 1);
+    uint32_t ret = HadmCachePendingFeatures(g_lcid, &g_addr, 1);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-    ret = HadmGetPendingFeatures(g_lcid, &supportSounding);
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(supportSounding, 1);
 
     // 获取即消费，二次获取失败
-    ret = HadmGetPendingFeatures(g_lcid, &supportSounding);
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
     EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
 
     // 断链清理后不可获取
-    ret = HadmCachePendingFeatures(g_lcid + 1, 0);
+    ret = HadmCachePendingFeatures(g_lcid + 1, &g_addr, 0);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
     HadmClearPendingFeatures(g_lcid + 1);
-    ret = HadmGetPendingFeatures(g_lcid + 1, &supportSounding);
+    ret = HadmGetPendingFeatures(g_lcid + 1, &g_addr, &supportSounding);
     EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+}
+
+/**
+ * @test HADM_PENDING_FEATURES_CACHE_002
+ * @brief 验证lcid复用时地址不匹配的残留缓存不重放。
+ * @details 同一lcid下缓存地址与查询地址不一致（旧链路残留），获取失败且不消费该条目；
+ *          地址恢复一致后可正常获取。
+ */
+TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_002)
+{
+    SLE_Addr_S otherAddr = {.type = PUBLIC_ADDRESS, .addr = {0x0A, 0X0A, 0X0B, 0X0B, 0X0C, 0X0C}};
+    uint8_t supportSounding = 0;
+    uint32_t ret = HadmCachePendingFeatures(g_lcid, &g_addr, 1);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+
+    // lcid复用，查询地址与缓存地址不一致，不重放
+    ret = HadmGetPendingFeatures(g_lcid, &otherAddr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+
+    // 地址一致时可正常获取并消费
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(supportSounding, 1);
 }
