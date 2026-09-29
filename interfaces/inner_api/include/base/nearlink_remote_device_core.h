@@ -69,6 +69,17 @@ private:
     std::string address_ = "00:00:00:00:00:00"; // address is little endian order
     int transport_ = 0;
 };
+
+/**
+ * @brief Convert Core device to framework device reference for observer callbacks.
+ *
+ * The two classes share identical memory layout; the cast is the inverse of the
+ * mirror ToCore cast.
+ */
+inline const NearlinkRemoteDevice &ToFrameworkDevice(const NearlinkRemoteDeviceCore &device)
+{
+    return reinterpret_cast<const NearlinkRemoteDevice &>(device);
+}
 }  // namespace Nearlink
 } // namespace OHOS
 
