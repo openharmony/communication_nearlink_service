@@ -16,7 +16,8 @@
 #ifndef OHOS_NEARLINK_SLE_CONTROLLER_PROXY_CORE_H
 #define OHOS_NEARLINK_SLE_CONTROLLER_PROXY_CORE_H
 
-#include "nearlink_sle_controller_proxy.h"
+#include "i_nearlink_sle_controller.h"
+#include "iremote_proxy.h"
 
 namespace OHOS::Nearlink {
 
