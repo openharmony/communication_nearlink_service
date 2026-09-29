@@ -194,7 +194,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), transport);
         hostImpl->hostObserverList.IterateAsync(
             [remoteDevice, reqType, number](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-            observer->OnPairConfirmed(remoteDevice, reqType, number);
+            const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+            observer->OnPairConfirmed(frameworkDevice, reqType, number);
         });
     }
 
@@ -237,7 +238,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnAcbStateChanged(remoteDevice, state, reason);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnAcbStateChanged(frameworkDevice, state, reason);
         });
     }
 
@@ -250,7 +252,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, passkey, type](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-            observer->OnPairingRequest(remoteDevice, passkey, type);
+            const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+            observer->OnPairingRequest(frameworkDevice, passkey, type);
         });
     }
 
@@ -263,7 +266,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnConnectionStateChanged(frameworkDevice, preState, state, reason);
         });
     }
 
@@ -276,7 +280,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnPairStatusChanged(frameworkDevice, preState, state, reason);
         });
     }
 
@@ -289,7 +294,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnReadRemoteRssiEvent(frameworkDevice, rssi, status);
         });
     }
 
@@ -301,7 +307,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
             [remoteDevice, freqBand](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnLinkFreqBandChanged(remoteDevice, freqBand);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnLinkFreqBandChanged(frameworkDevice, freqBand);
         });
     }
 
@@ -322,7 +329,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         auto func = [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
-            observer->OnGetBatteryLevelEvent(remoteDevice, batteryLevel);
+            const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+            observer->OnGetBatteryLevelEvent(frameworkDevice, batteryLevel);
         };
         hostImpl->remoteBatteryObserverList.IterateAsync(func);
     }
@@ -335,7 +343,8 @@ public:
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteBatteryObserverList.IterateAsync(
             [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
-                observer->OnBatteryLevelChanged(remoteDevice, batteryLevel);
+                const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+                observer->OnBatteryLevelChanged(frameworkDevice, batteryLevel);
             });
     }
 
@@ -356,7 +365,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkRemoteDeviceCore remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         auto func = [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer) {
-            observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
+            const auto &frameworkDevice = reinterpret_cast<const NearlinkRemoteDevice &>(remoteDevice);
+            observer->OnReadRemoteRssiEvent(frameworkDevice, rssi, status);
         };
         hostImpl->rssiObserverList.IterateAsync(func);
     }
