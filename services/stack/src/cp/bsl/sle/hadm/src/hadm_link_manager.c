@@ -165,7 +165,7 @@ uint32_t HadmGetAddrsByLcid(uint16_t lcid, SLE_Addr_S *addr)
     return NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB;
 }
 
-uint32_t HadmCachePendingFeatures(uint16_t lcid, SLE_Addr_S *addr, uint8_t supportSounding)
+uint32_t HadmCachePendingFeatures(uint16_t lcid, const SLE_Addr_S *addr, uint8_t supportSounding)
 {
     NLSTK_CHECK_RETURN(addr != NULL, NLSTK_ERRCODE_POINTER_NULL,
                         "[HADM]the input point is NULL when cache pending features");
@@ -189,7 +189,7 @@ uint32_t HadmCachePendingFeatures(uint16_t lcid, SLE_Addr_S *addr, uint8_t suppo
     return NLSTK_ERRCODE_FAIL;
 }
 
-uint32_t HadmGetPendingFeatures(uint16_t lcid, SLE_Addr_S *addr, uint8_t *supportSounding)
+uint32_t HadmGetPendingFeatures(uint16_t lcid, const SLE_Addr_S *addr, uint8_t *supportSounding)
 {
     NLSTK_CHECK_RETURN(addr != NULL && supportSounding != NULL, NLSTK_ERRCODE_POINTER_NULL,
                             "[HADM]the input point is NULL when get pending features");
