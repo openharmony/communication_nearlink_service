@@ -889,7 +889,7 @@ NlErrCode NearlinkHostCore::GetPairedDevices(int transport, std::vector<Nearlink
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     std::vector<NearlinkRawAddress> pairedAddr;
@@ -907,7 +907,7 @@ NlErrCode NearlinkHostCore::SetConnectionMode(int32_t connectionMode, int32_t du
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     NL_CHECK_RETURN_RET(connectionMode >= static_cast<int>(SLEConnectionMode::CONNECTION_MODE_UNCONNECTABLE) &&
@@ -922,7 +922,7 @@ NlErrCode NearlinkHostCore::RemovePair(const NearlinkRemoteDeviceCore &device)
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(device.IsValidNearlinkRemoteDevice(), NL_ERR_INVALID_STATE, "Invalid remote device.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
 
@@ -936,7 +936,7 @@ NlErrCode NearlinkHostCore::RemoveAllPairs()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->RemoveAllPairs();
@@ -1023,7 +1023,7 @@ void NearlinkHostCore::LoadSystemAbilityFail()
 NlErrCode NearlinkHostCore::ConnectAllowedProfiles(const std::string &remoteAddr) const
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(remoteAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device addr");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -1033,7 +1033,7 @@ NlErrCode NearlinkHostCore::ConnectAllowedProfiles(const std::string &remoteAddr
 NlErrCode NearlinkHostCore::DisconnectAllowedProfiles(const std::string &remoteAddr) const
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(remoteAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device addr");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -1044,7 +1044,7 @@ NlErrCode NearlinkHostCore::NearlinkFactoryReset()
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    if (!IS_SLE_ENABLED() && !IsSleHalfDisabled()) {
+    if (!NearlinkHostCore::GetInstance().IsSleEnabled() && !IsSleHalfDisabled()) {
         NL_CHECK_RETURN_RET(pimpl && pimpl->LoadNearlinkHostService(LOAD_NEARLINK_SA_SYNC_TIMEOUT_MS),
             NL_ERR_INTERNAL_ERROR, "pimpl is null or load nearlink service failed.");
     }
@@ -1071,7 +1071,7 @@ NlErrCode NearlinkHostCore::UpdateSleVirtualDevice(int32_t cmd, const std::strin
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(address), NL_ERR_INTERNAL_ERROR, "Invalid sle virtual device");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -1084,7 +1084,7 @@ NlErrCode NearlinkHostCore::UpdateRefusePolicy(const int32_t protocolType, const
 #ifdef NEARLINK_KIA_ENABLE
     HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}ld", protocolType, pid, refuseTime);
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     result = proxy->UpdateRefusePolicy(protocolType, pid, refuseTime);
@@ -1096,7 +1096,7 @@ NlErrCode NearlinkHostCore::CheckPermissionForNapi(const std::string &permission
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
     return proxy->CheckPermissionForNapi(permission, isGranted);
@@ -1128,7 +1128,7 @@ NlErrCode NearlinkHostCore::SetBtAddrBySleAddr(const std::string &sleAddr, const
 {
     HILOGD("btAddr=%{public}s, sleAddr=%{public}s", GetEncryptAddr(btAddr).c_str(), GetEncryptAddr(sleAddr).c_str());
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(sleAddr), NL_ERR_INTERNAL_ERROR, "Invalid sle remote device");
     NL_CHECK_RETURN_RET(IsValidAddress(btAddr), NL_ERR_INTERNAL_ERROR, "Invalid bt remote device");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
@@ -1150,7 +1150,7 @@ bool NearlinkHostCore::IsFeatureSupported(SleFeatureSupported feature)
         return IsNearlinkSupportFrame4();
     }
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), false, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), false, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetCoreProxy<INearlinkHost>(NEARLINK_HOST);
     NL_CHECK_RETURN_RET(proxy, false, "proxy is nullptr");
     bool isSupported = false;

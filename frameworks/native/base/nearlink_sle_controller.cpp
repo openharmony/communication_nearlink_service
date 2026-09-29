@@ -72,7 +72,7 @@ NlErrCode NearlinkSleControllerCore::SetSleCoexParam(SLEBitRate maxBitRate, Sled
            static_cast<uint16_t>(maxBitRate), static_cast<uint8_t>(dutyCycle));
     NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
 
     sptr<INearlinkSleController> proxy = GetCoreProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr");
@@ -85,7 +85,7 @@ NlErrCode NearlinkSleControllerCore::UpdateConnectInterval(const std::string &de
     HILOGD("enter");
     NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
                         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(IsValidAddress(device), NL_ERR_INVALID_PARAM, "device invalid");
 
     sptr<INearlinkSleController> proxy = GetCoreProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
@@ -104,7 +104,7 @@ NlErrCode NearlinkSleControllerCore::SetSleCoexMode(SleCoexMode mode, const std:
     HILOGD("enter, mode: %{public}d", static_cast<int>(mode));
     NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsNearlinkSupport(),
         NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(NearlinkHostCore::GetInstance().IsSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(deviceList.size() == paramList.size(), NL_ERR_INVALID_PARAM,
         "device and param list size not match");
     for (auto device : deviceList) {
