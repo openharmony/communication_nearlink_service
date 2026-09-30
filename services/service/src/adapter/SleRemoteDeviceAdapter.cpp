@@ -1096,6 +1096,48 @@ void SleRemoteDeviceAdapter::UpdateDeviceManufacturerAbility(
     future.get();
 }
 
+void SleRemoteDeviceAdapter::SaveHidManufacturerAbilityFromAdv(const RawAddress &rawAddr)
+{
+    DoInDeviceAdapterThread([rawAddr]() -> void {
+        int businessType = InterfaceScanService::GetInstance().GetManufacturerBusinessType(rawAddr.GetAddress());
+        if (businessType != SLE_PRIVATE_HID_BUSINESS_TYPE) {
+            LOG_INFO("device %{public}s business %{public}d is not hid, skip",
+                GET_ENCRYPT_ADDR(rawAddr), businessType);
+            return;
+        }
+
+        std::array<uint8_t, SLE_MANU_ABILITY_LEN> manufacturerAbility =
+            InterfaceScanService::GetInstance().GetDeviceManufacturerAbility(rawAddr.GetAddress());
+        if (manufacturerAbility == INVALID_MANUFACTURER_ABLITITY) {
+            LOG_INFO("device %{public}s has no valid adv ability, skip", GET_ENCRYPT_ADDR(rawAddr));
+            return;
+        }
+
+        std::string linkKeyStr = SleConfig::GetInstance().GetLinkKey(rawAddr.GetAddress());
+        if (linkKeyStr.empty()) {
+            LOG_INFO("device %{public}s not paired, skip", GET_ENCRYPT_ADDR(rawAddr));
+            return;
+        }
+
+        ManufacturerAbilityLoader::GetInstance().FilterAbility(manufacturerAbility);
+        SleRemoteDeviceManager::GetInstance()->SetManufacturerAbility(rawAddr, manufacturerAbility);
+        std::string manuAbility = SleUtils::ConvertIntToHexString(
+            manufacturerAbility.data(), SLE_MANU_ABILITY_LEN);
+        SleConfig::GetInstance().SetManufacturerAbility(rawAddr.GetAddress(), manuAbility);
+        SleConfig::GetInstance().Save();
+
+        SLE_Addr_S stackAddr = {};
+        rawAddr.ConvertToUint8(stackAddr.addr);
+        NLSTK_ManufacturerAbility_S mAbility = {0};
+        for (int i = 0; i < SLE_MANU_ABILITY_LEN; ++i) {
+            mAbility.ability[i] = manufacturerAbility[i];
+        }
+        uint32_t ret = NLSTK_CfgdbSetManufacturerAbility(&stackAddr, &mAbility);
+        LOG_INFO("SaveHidManufacturerAbilityFromAdv dev=%{public}s, ability=%{public}s, cfgdbRet=%{public}u",
+            GET_ENCRYPT_ADDR(rawAddr), manuAbility.c_str(), ret);
+    });
+}
+
 bool SleRemoteDeviceAdapter::SavePeerDeviceInfoToConf()
 {
     std::promise<bool> promise;
@@ -1121,6 +1163,29 @@ void SleRemoteDeviceAdapter::SavePeerDevices2Smp()
                 (void)memset_s(&storeDevices[i], sizeof(storeDevices[i]), 0x00, sizeof(storeDevices[i]));
             }
             storeDevices.clear();
+        }
+        promise.set_value();
+    });
+    future.get();
+}
+
+void SleRemoteDeviceAdapter::RestorePairedDevicesAbility2Cfgdb()
+{
+    std::promise<void> promise;
+    std::future<void> future = promise.get_future();
+    DoInDeviceAdapterThread([&promise, this]() -> void {
+        std::vector<RawAddress> pairedDevices = SleRemoteDeviceManager::GetInstance()->GetPairedDevices();
+        LOG_INFO("[SleRemoteDeviceAdapter]RestorePairedDevicesAbility2Cfgdb deviceSize=%{public}zu",
+            pairedDevices.size());
+        for (const auto &device : pairedDevices) {
+            std::array<uint8_t, SLE_MANU_ABILITY_LEN> manufacturerAbility =
+                SleRemoteDeviceManager::GetInstance()->GetManufacturerAbility(device);
+            if (manufacturerAbility == INVALID_MANUFACTURER_ABLITITY) {
+                LOG_INFO("[SleRemoteDeviceAdapter] device %{public}s has no valid ability, skip",
+                    GET_ENCRYPT_ADDR(device));
+                continue;
+            }
+            SaveDeviceManufacturerAbilityInner(device);
         }
         promise.set_value();
     });

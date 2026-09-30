@@ -794,3 +794,99 @@ TEST_F(HADM_TEST, HADM_USER_STOP_001)
 
     EXPECT_EQ(userErrorCode, NLSTK_ERRCODE_SUCCESS);
 }
+
+/**
+ * @test HADM_FEATURES_BEFORE_CONNECT_001
+ * @brief 验证G-node连接流程下远端特性上报先于连接状态上报到达时，特性结果缓存重放功能。
+ * @details 特性上报到达
+ */
+TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_001)
+{
+    // 模拟远端特性上报先于连接状态上报到达
+    TriggerCmReportFeatureEvent();
+    HadmSoundingState_E smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_INVALID);
+    // 连接状态上报创建linkCb并重放缓存的特性结果，状态机处于IDLE
+    TriggerCmConnectEvent();
+    smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
+    // 重放触发后，对端测距支持能力已被缓存
+    HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
+    uint32_t ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_YES);
+    // 收到remote cs caps回复，状态机切到SOUNDING_READY
+    TriggerDliReportRemoteCsEvent();
+    smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_SOUNDING_READY);
+}
+
+/**
+ * @test HADM_FEATURES_BEFORE_CONNECT_002
+ * @brief 验证远端特性上报先于连接状态上报且链路随即断开时，缓存被清理，重连后不重放。
+ * @details 特性上报缓存后链路断开，DISCONNECTED处理清理该lcid的缓存；
+ *          重连后无重放，对端测距支持能力保持默认值。
+ */
+TEST_F(HADM_TEST, HADM_FEATURES_BEFORE_CONNECT_002)
+{
+    TriggerCmReportFeatureEvent();
+    TriggerCmDisconnectEvent();
+    TriggerCmConnectEvent();
+
+    HadmSoundingState_E smState = HadmGetSoundingStateByAddr(&g_addr);
+    EXPECT_EQ(smState, HADM_SOUNDING_STATE_IDLE);
+    // 无重放，对端测距支持能力保持默认值
+    HadmPeerSupportSounding_E peer = HADM_PEER_SUPPORT_SOUNDING_DEFALUT;
+    uint32_t ret = HadmGetRemoteFeatures(&g_addr, &peer);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(peer, HADM_PEER_SUPPORT_SOUNDING_DEFALUT);
+}
+
+/**
+ * @test HADM_PENDING_FEATURES_CACHE_001
+ * @brief 验证待定特性缓存接口的存取与清理语义。
+ * @details 缓存后获取即消费，不可重复获取；断链清理后不可获取。
+ */
+TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_001)
+{
+    uint8_t supportSounding = 0;
+    uint32_t ret = HadmCachePendingFeatures(g_lcid, &g_addr, 1);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(supportSounding, 1);
+
+    // 获取即消费，二次获取失败
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+
+    // 断链清理后不可获取
+    ret = HadmCachePendingFeatures(g_lcid + 1, &g_addr, 0);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    HadmClearPendingFeatures(g_lcid + 1);
+    ret = HadmGetPendingFeatures(g_lcid + 1, &g_addr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+}
+
+/**
+ * @test HADM_PENDING_FEATURES_CACHE_002
+ * @brief 验证lcid复用时地址不匹配的残留缓存不重放。
+ * @details 同一lcid下缓存地址与查询地址不一致（旧链路残留），获取失败且不消费该条目；
+ *          地址恢复一致后可正常获取。
+ */
+TEST_F(HADM_TEST, HADM_PENDING_FEATURES_CACHE_002)
+{
+    SLE_Addr_S otherAddr = {.type = PUBLIC_ADDRESS, .addr = {0x0A, 0X0A, 0X0B, 0X0B, 0X0C, 0X0C}};
+    uint8_t supportSounding = 0;
+    uint32_t ret = HadmCachePendingFeatures(g_lcid, &g_addr, 1);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+
+    // lcid复用，查询地址与缓存地址不一致，不重放
+    ret = HadmGetPendingFeatures(g_lcid, &otherAddr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB);
+
+    // 地址一致时可正常获取并消费
+    ret = HadmGetPendingFeatures(g_lcid, &g_addr, &supportSounding);
+    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(supportSounding, 1);
+}

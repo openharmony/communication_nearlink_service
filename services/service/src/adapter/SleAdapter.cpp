@@ -387,6 +387,7 @@ int SleAdapter::InitSlemAndCm()
         cdsmService->CdsmRecoverFromConf();
     }
     adapterProperties_->SavePeerDevices2Smp();
+    adapterProperties_->RestorePairedDevicesAbility2Cfgdb();
     InitSleProfileConnectManager();
     SleReconnectManager::GetInstance().SetReconnDeviceParam();
     ParameterManager::NotifyTriggerInitialization();
@@ -2014,6 +2015,7 @@ void SleAdapter::ConnectionCompleteTask(const SLE_Addr_S &addr, uint16_t lcid, u
     } else {
         CreateNewPeripheralDevice(addr, lcid, role, connCompleteType);
     }
+    adapterProperties_->SaveHidManufacturerAbilityFromAdv(peerAddr);
     if (IsScanConnTypeAndFrameType4(peerAddr, connCompleteType) &&
         !SleRemoteDeviceAdapter::GetInstance()->IsAudioDevice(peerAddr.GetAddress())) {
         ServiceManagerPluginInterface::GetInstance()->SetConnFrameType4Subrate(peerAddr);
@@ -2304,6 +2306,7 @@ void SleAdapter::CancelPairCompleteInner(const RawAddress &device) const
     LOG_INFO("Erase device addr %{public}s.", GetEncryptAddr(device.GetAddress()).c_str());
     adapterProperties_->RemovePeripheralDevice(device.GetAddress());
     SleRemoteDeviceAdapter::GetInstance()->RemovePeerDeviceTypeToController(device);
+    ClearDeviceManufacturerAbility(device);
 }
 
 void SleAdapter::PairComplete(const RawAddress &device, const int status) const

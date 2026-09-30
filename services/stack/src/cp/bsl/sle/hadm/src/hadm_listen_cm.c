@@ -34,12 +34,28 @@ static void HadmLinstenCmLinkReport(CM_LogicLinkState_S *param)
         HadmSoundCb_S *linkCb = HadmAllocLinkCb(&param->addr, param->lcid);
         if (linkCb == NULL) {
             NLSTK_LOG_ERROR("[HADM] alloc link cb fail");
+            HadmClearPendingFeatures(param->lcid);
             return;
         }
+        // 远端特性上报可能先于连接状态上报到达，注册linkCb后重放缓存的特性结果
+        uint8_t supportSounding = 0;
+        if (HadmGetPendingFeatures(param->lcid, &param->addr, &supportSounding) == NLSTK_ERRCODE_SUCCESS) {
+            bool isRemoteSupportSounding = (supportSounding != 0);
+            NLSTK_LOG_INFO("[HADM] replay pending remote features, lcid:%d, isRemoteSupportSounding:%d",
+                            param->lcid, isRemoteSupportSounding);
+            uint32_t ret = HadmTriggerStateMachine(&param->addr, CM_REPORT_FEATURES_EVENT,
+                                                    &isRemoteSupportSounding);
+            if (ret != NLSTK_ERRCODE_SUCCESS) {
+                NLSTK_LOG_ERROR("[HADM] replay pending features trigger state machine failed, lcid:%d, fail:%u",
+                        param->lcid, ret);
+            }
+        }
     } else if (param->result == CM_LINK_STATE_DISCONNECTED) {
+        // 清理该链路缓存的待定特性结果，避免lcid复用后误放
+        HadmClearPendingFeatures(param->lcid);
         uint32_t ret = HadmTriggerStateMachine(&param->addr, CM_REPORT_LINK_STATE_DISCONNECTED, NULL);
         if (ret != NLSTK_ERRCODE_SUCCESS) {
-            NLSTK_LOG_ERROR("[HADM]triggers state machine failed, fail %d", ret);
+            NLSTK_LOG_ERROR("[HADM]trigger state machine failed, fail %u", ret);
         }
         HADM_ExtClearRemoteCsCaps(param->lcid);
         // 状态机触发完成之后，释放linkCb
@@ -60,8 +76,19 @@ static void ReadRemoteFeatureCbk(CM_LogicLinkRemoteFeatures_S *param)
         isRemoteSupportSounding = true;
     }
     NLSTK_LOG_INFO("[HADM]ReadRemoteFeatureCbk get remote cs CBK, isRemoteSupportSounding %d", isRemoteSupportSounding);
-    HadmTriggerStateMachineByLcid(param->lcid, CM_REPORT_FEATURES_EVENT,
+    uint32_t ret = HadmTriggerStateMachineByLcid(param->lcid, CM_REPORT_FEATURES_EVENT,
                                   &isRemoteSupportSounding);  // 触发状态机，进行状态的切换
+    if (ret == NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB) {
+        // 特性上报先于连接状态上报到达，linkCb尚未创建，先缓存特性结果，待连接状态上报后重放触发
+        if (HadmCachePendingFeatures(param->lcid, &param->addr, isRemoteSupportSounding) != NLSTK_ERRCODE_SUCCESS) {
+            NLSTK_LOG_ERROR("[HADM]cache pending remote features fail, lcid:%d", param->lcid);
+            return;
+        }
+        NLSTK_LOG_INFO("[HADM]link cb not ready, cache remote features, lcid:%d", param->lcid);
+    } else if (ret != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[HADM]trigger state machine failed when report remote features, lcid:%d, fail:%u",
+                        param->lcid, ret);
+    }
 }
 
 /**
