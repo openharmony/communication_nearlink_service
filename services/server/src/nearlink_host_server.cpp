@@ -15,6 +15,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <mutex>
+#include <set>
 #include <dlfcn.h>
 #include "nearlink_host_server.h"
 #include "nearlink_hadm_client_server.h"
@@ -145,6 +147,10 @@ struct NearlinkHostServer::impl {
     // shared_ptr for deathReipient of container
     std::shared_ptr<BasRemoteContainer> remoteBatteryContainer_ =
     std::make_shared<BasRemoteContainer>();
+
+    // addresses of remote devices with an in-flight battery level request
+    std::mutex batteryReqAddrMutex_;
+    std::set<std::string> batteryReqAddrs_;
 
     std::map<std::string, sptr<IRemoteObject>> servers_;
     std::map<std::string, sptr<IRemoteObject>> sleServers_;
@@ -359,6 +365,10 @@ public:
     void OnGetBatteryLevelEvent(const RawAddress &device, int8_t batteryLevel) override
     {
         HILOGI("device: %{public}s, state: %{public}d", GET_ENCRYPT_ADDR(device), batteryLevel);
+        {
+            std::lock_guard<std::mutex> lk(impl_->batteryReqAddrMutex_);
+            impl_->batteryReqAddrs_.erase(device.GetAddress());
+        }
         impl_->deviceBatteryObservers_.ForEach(
             [this, device, batteryLevel](sptr<INearlinkDeviceBatteryObserver> observer) {
                 NearlinkBasRemoteInfo info = impl_->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
@@ -1910,12 +1920,15 @@ NlErrCode NearlinkHostServer::GetBatteryLevel(const std::string &address)
         (SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_BAS));
     NL_CHECK_RETURN_RET(basService, NL_ERR_INTERNAL_ERROR, "basService is nullptr.");
     bool isReqSent = false;
-    pimpl->deviceBatteryObservers_.ForEach([this, &caller, &isReqSent](
-        sptr<INearlinkDeviceBatteryObserver> observer) {
-        impl::NearlinkBasRemoteInfo info = pimpl->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
-        if (info.isSendingReq == true) {
-            isReqSent = true;
+    {
+        std::lock_guard<std::mutex> lk(pimpl->batteryReqAddrMutex_);
+        isReqSent = pimpl->batteryReqAddrs_.find(realAddr) != pimpl->batteryReqAddrs_.end();
+        if (!isReqSent) {
+            pimpl->batteryReqAddrs_.insert(realAddr);
         }
+    }
+    pimpl->deviceBatteryObservers_.ForEach([this, &caller](sptr<INearlinkDeviceBatteryObserver> observer) {
+        impl::NearlinkBasRemoteInfo info = pimpl->remoteBatteryContainer_->RetrieveRemoteInfo(observer->AsObject());
         if (info.fullToken == caller.fullTokenId && info.uid == caller.callerUid) {
             pimpl->remoteBatteryContainer_->UpdateRemoteInfo(observer->AsObject(), true);
             return;
