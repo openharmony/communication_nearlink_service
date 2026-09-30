@@ -26,6 +26,7 @@ config("native_unit_test_config") {
     "$NEARLINK_ROOT/frameworks/ipc/include",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
     "$NEARLINK_ROOT/interfaces/inner_api/include/base",
+    "$NEARLINK_ROOT/frameworks/native/base/include",
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/ipc/src",
     "$NEARLINK_ROOT/services/common/include",

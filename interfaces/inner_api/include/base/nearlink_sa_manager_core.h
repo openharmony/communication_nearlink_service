@@ -15,7 +15,15 @@
 #ifndef NEARLINK_SA_MANAGER_CORE_H
 #define NEARLINK_SA_MANAGER_CORE_H
 
-#include "nearlink_sa_manager.h"
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <string>
+
+#include "iremote_broker.h"
+#include "system_ability_status_change_stub.h"
+#include "nearlink_register_info.h"
+#include "nearlink_safe_map.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -23,9 +31,9 @@ namespace Nearlink {
 /**
  * @brief base.so implementation class of framework SA manager.
  *
- * Kept in sync with NearlinkSaManager declared in nearlink_sa_manager.h;
- * NearlinkRegisterInfo is reused from that header. The template helper is named
- * GetCoreProxy to avoid redefinition with the public GetProxy template.
+ * Kept in sync with NearlinkSaManager declared in nearlink_sa_manager.h.
+ * The template helper is named GetCoreProxy to avoid redefinition with the
+ * public GetProxy template.
  */
 class NearlinkSaManagerCore {
 public:

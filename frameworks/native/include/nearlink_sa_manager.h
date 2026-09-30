@@ -23,23 +23,10 @@
 #include "system_ability_definition.h"
 #include "system_ability_status_change_stub.h"
 #include "nearlink_safe_map.h"
+#include "nearlink_register_info.h"
 
 namespace OHOS {
 namespace Nearlink {
-constexpr int32_t INVALID_PROFILE_ID = -1;
-
-class NearlinkRegisterInfo {
-public:
-    explicit NearlinkRegisterInfo(std::string name) : profileName_(name)
-    {}
-    ~NearlinkRegisterInfo() = default;
-
-    std::string profileName_ = "";
-    std::function<void(sptr<IRemoteObject>)> serviceStartedFunc_;
-    std::function<void(void)> serviceStoppedFunc_;
-    std::function<void(sptr<IRemoteObject>)> stateOnFunc_;
-    std::function<void(sptr<IRemoteObject>)> stateOffFunc_;
-};
 
 /**
  * Ctor/dtor are defined in the mirror source (see nearlink_sa_manager_mirror.cpp) to

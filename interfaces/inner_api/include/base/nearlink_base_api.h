@@ -24,8 +24,8 @@
  * or may keep using the framework public API which forwards to base internally.
  *
  * Only headers located under interfaces/inner_api/include are publishable;
- * internal base headers (sa_manager/proxy/stub/switch_module/host_load_callback)
- * are not listed here and are consumed inside this repository only.
+ * internal base headers (proxy/stub/switch_module/host_load_callback) are not
+ * listed here and are consumed inside this repository only.
  */
 
 #ifndef NEARLINK_BASE_API_H

@@ -65,6 +65,7 @@ config("nearlink_base_config") {
 
     include_dirs = [
         ".",
+        "include",
         "..",
         "../include",
         "../../ipc/include",

@@ -115,6 +115,7 @@ config("nearlink_framework_config") {
     ".",
     "include",
     "base",
+    "base/include",
     "../ipc/include",
     "$NEARLINK_ROOT/socket",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
