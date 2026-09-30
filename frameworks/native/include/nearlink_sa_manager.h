@@ -23,7 +23,7 @@
 #include "system_ability_definition.h"
 #include "system_ability_status_change_stub.h"
 #include "nearlink_safe_map.h"
-#include "nearlink_register_info.h"
+#include "nearlink_sa_manager_core.h"
 
 namespace OHOS {
 namespace Nearlink {
