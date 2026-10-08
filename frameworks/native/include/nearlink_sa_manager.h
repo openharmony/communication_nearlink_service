@@ -112,12 +112,6 @@ private:
     std::mutex serviceStateMutex_;
     std::condition_variable cvfull_;
 };
-
-template <typename T>
-sptr<T> GetProxy(const std::string &profileName)
-{
-    return iface_cast<T>(NearlinkSaManager::GetInstance().GetRemoteProfile(profileName));
-};
 } // namespace Nearlink
 } // namespace OHOS
 #endif // NEARLINK_SA_MANAGER_H

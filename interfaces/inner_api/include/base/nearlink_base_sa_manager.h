@@ -48,8 +48,7 @@ public:
  * @brief base.so implementation class of framework SA manager.
  *
  * Kept in sync with NearlinkSaManager declared in nearlink_sa_manager.h.
- * The template helper is named GetBaseProxy to avoid redefinition with the
- * public GetProxy template.
+ * GetProxy binds to this class and is shared with the framework.
  */
 class NearlinkBaseSaManager {
 public:
@@ -91,7 +90,7 @@ private:
 };
 
 template <typename T>
-sptr<T> GetBaseProxy(const std::string &profileName)
+sptr<T> GetProxy(const std::string &profileName)
 {
     return iface_cast<T>(NearlinkBaseSaManager::GetInstance().GetRemoteProfile(profileName));
 };
