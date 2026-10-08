@@ -89,6 +89,19 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
         HILOGI("isConnectable: %{public}d", isConnectable);
         outSettings.SetConnectable(isConnectable);
     }
+    if (input.frameType.has_value()) {
+        int32_t frameTypeValue = static_cast<int32_t>(input.frameType.value());
+        HILOGI("frameType: %{public}d", frameTypeValue);
+        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
+            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+            HILOGE("Invalid frameType: %{public}d", frameTypeValue);
+            return TaiheStatus::TAIHE_INVALID_ARG;
+        }
+        uint8_t frameType = (frameTypeValue == static_cast<int32_t>(FrameType::FRAME_TYPE_4)) ?
+            static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) :
+            static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
+        outSettings.SetPrimaryFrameType(frameType);
+    }
     return TaiheStatus::TAIHE_OK;
 }
 

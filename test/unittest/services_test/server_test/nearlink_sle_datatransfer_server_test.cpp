@@ -170,6 +170,35 @@ HWTEST_F(NearlinkSleDataTransferStubTest, Connect001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ConnectFrame4Gate
+ * @tc.desc: Test the frame4 capability gate of Connect: frameType = FRAME_TYPE_4 must be rejected
+ *           when frame4 capability is not established.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSleDataTransferStubTest, ConnectFrame4Gate001, TestSize.Level1)
+{
+    HILOGI("NearlinkSleDataTransferStubTest:ConnectFrame4Gate001 start");
+    std::string address = "00:00:00:00:00:00";
+    std::string uuid = "060D";
+    MessageParcel data;
+    MessageParcel reply;
+    NearlinkSleDataTransferConnectionParams param;
+
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    param.SetPort(testPort);
+    param.SetFrameType(static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4));
+    data.WriteInterfaceToken(NearlinkSleDataTransferStub::GetDescriptor());
+    data.WriteParcelable(&param);
+    int32_t ret = DataTransferOnRemoteRequest(NearlinkSleDataTransferInterfaceCode::SLE_CONNECT, data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    // 单测环境未建立帧四能力，门控应拒绝帧四连接请求而不是放行到服务层
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_NE(NL_NO_ERROR, result);
+    HILOGI("NearlinkSleDataTransferStubTest:ConnectFrame4Gate001 end");
+}
+
+/**
  * @tc.name: Disconnect
  * @tc.desc: Test the Disconnect function of NearlinkDataTransferProxy.
  * @tc.type: FUNC

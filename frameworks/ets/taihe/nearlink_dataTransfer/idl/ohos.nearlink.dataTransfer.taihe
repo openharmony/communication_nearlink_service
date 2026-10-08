@@ -37,6 +37,7 @@ struct ConnectionParams {
     address: String;
     uuid: String;
     transferMode: Optional<TransferMode>;
+    frameType: Optional<FrameType>;
 }
 
 struct DataParams {
@@ -60,4 +61,9 @@ struct ConnectionStateParams {
 enum TransferMode: i32 {
     BASIC = 0,
     RELIABLE = 1
+}
+
+enum FrameType: i32 {
+    FRAME_TYPE_1 = 1,
+    FRAME_TYPE_4 = 4
 }

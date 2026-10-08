@@ -264,6 +264,14 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
+    if (params.GetFrameType() == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
+        SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
+            (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
+        NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
+        NL_CHECK_RETURN_RET(
+            sleService->IsFeatureSupported(static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)),
+            NL_ERR_API_NOT_SUPPORT, "frame4 port connection is not supported.");
+    }
 #ifdef NEARLINK_KIA_ENABLE
     NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pid),
         NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");

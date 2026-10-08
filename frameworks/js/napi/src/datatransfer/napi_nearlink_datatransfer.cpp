@@ -117,7 +117,7 @@ napi_value NapiNearlinkDataTransfer::DestroyPort(napi_env env, napi_callback_inf
 
 napi_status CheckDataTransferConnectionParamWith(napi_env env, napi_value object, ConnectionParams &params)
 {
-    NAPI_NL_CALL_RETURN(NapiCheckObjectPropertiesName(env, object, {"address", "uuid", "transferMode"}));
+    NAPI_NL_CALL_RETURN(NapiCheckObjectPropertiesName(env, object, {"address", "uuid", "transferMode", "frameType"}));
 
     napi_value property;
     std::string address{};
@@ -139,6 +139,20 @@ napi_status CheckDataTransferConnectionParamWith(napi_env env, napi_value object
     if (exist) {
         NAPI_NL_CALL_RETURN(NapiParseTransMode(env, property, transMode));
         params.SetTransMode(transMode);
+    }
+    int32_t frameTypeValue;
+    NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, object, "frameType", frameTypeValue, exist));
+    if (exist) {
+        HILOGI("Connection frameType is %{public}d", frameTypeValue);
+        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
+            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+            HILOGE("Invalid connection frameType: %{public}d", frameTypeValue);
+            return napi_invalid_arg;
+        }
+        uint8_t frameType = (frameTypeValue == static_cast<int32_t>(FrameType::FRAME_TYPE_4)) ?
+            static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4) :
+            static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1);
+        params.SetFrameType(frameType);
     }
     params.SetAddress(address);
     params.SetUuid(uuid);
@@ -380,8 +394,13 @@ napi_value NapiNearlinkDataTransfer::PropertyInit(napi_env env, napi_value expor
     napi_create_object(env, &transferMode);
     SetNamedPropertyByInteger(env, transferMode, static_cast<int>(TransferMode::BASIC), "BASIC");
     SetNamedPropertyByInteger(env, transferMode, static_cast<int>(TransferMode::RELIABLE), "RELIABLE");
+    napi_value frameTypeObj = nullptr;
+    napi_create_object(env, &frameTypeObj);
+    SetNamedPropertyByInteger(env, frameTypeObj, static_cast<int32_t>(FrameType::FRAME_TYPE_1), "FRAME_TYPE_1");
+    SetNamedPropertyByInteger(env, frameTypeObj, static_cast<int32_t>(FrameType::FRAME_TYPE_4), "FRAME_TYPE_4");
     napi_property_descriptor exportFuncs[] = {
         DECLARE_NAPI_PROPERTY("TransferMode", transferMode),
+        DECLARE_NAPI_PROPERTY("FrameType", frameTypeObj),
     };
     napi_define_properties(env, exports, sizeof(exportFuncs) / sizeof(*exportFuncs), exportFuncs);
     return exports;

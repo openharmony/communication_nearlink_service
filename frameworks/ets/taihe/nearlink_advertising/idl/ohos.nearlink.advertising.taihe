@@ -34,6 +34,7 @@ struct AdvertisingSettings {
     interval: Optional<i32>;
     power: Optional<TxPowerMode>;
     isConnectable: Optional<bool>;
+    frameType: Optional<FrameType>;
 }
 
 struct AdvertisingData {
@@ -67,4 +68,9 @@ struct AdvertisingStateChangeInfo {
 enum AdvertisingState: i32 {
     STARTED = 1,
     STOPPED = 2
+}
+
+enum FrameType: i32 {
+    FRAME_TYPE_1 = 1,
+    FRAME_TYPE_4 = 4
 }
