@@ -25,8 +25,7 @@ inline NearlinkDeviceRssiObserverStubCore *ToCore(NearlinkDeviceRssiObserverStub
     return reinterpret_cast<NearlinkDeviceRssiObserverStubCore *>(self);
 }
 }
-// 镜像构造/析构保持空实现：对象实体由 base.so 中的 Core 类构造，
-// 镜像入口通过 ToCore() cast 直调 Core 真身方法。
+
 NearlinkDeviceRssiObserverStub::NearlinkDeviceRssiObserverStub()
 {
 }

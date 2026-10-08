@@ -50,8 +50,6 @@ void NearlinkSaManager::OnStateChanged(const int transport, const int status)
     ToCore(this)->OnStateChanged(transport, status);
 }
 
-// 镜像构造/析构保持空实现：单例由 base.so 中的 Core 类自行构造，
-// 镜像入口通过 ToCore() cast 直调 Core 真身方法。
 NearlinkSaManager::NearlinkSaManager()
 {
 }
