@@ -91,7 +91,6 @@ private:
     ~NearlinkSleController();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSleController);
     NEARLINK_DECLARE_IMPL();
-    static void BridgeInitPimpl(NearlinkSleController* self);
 };
 
 } // namespace Nearlink

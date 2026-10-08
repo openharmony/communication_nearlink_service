@@ -655,8 +655,6 @@ public:
      */
     bool IsBasSupported();
 private:
-    static void BridgeInitPimpl(NearlinkHost* self);
-
     bool IsNearlinkSupportFrame4() const;
 
     NearlinkHost();

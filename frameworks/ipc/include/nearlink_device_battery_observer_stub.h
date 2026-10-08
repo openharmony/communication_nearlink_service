@@ -31,11 +31,6 @@ public:
     int32_t OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option) override;
 
 private:
-    static void BridgeInit(NearlinkDeviceBatteryObserverStub* self);
-    static void BridgeDestroy(NearlinkDeviceBatteryObserverStub* self);
-    static int BridgeOnRemoteRequest(NearlinkDeviceBatteryObserverStub* self, uint32_t code,
-        MessageParcel& data, MessageParcel& reply, MessageOption& option);
-
     ErrCode OnGetBatteryLevelEventInner(MessageParcel &data, MessageParcel &reply);
     ErrCode OnBatteryLevelChangedInner(MessageParcel &data, MessageParcel &reply);
 

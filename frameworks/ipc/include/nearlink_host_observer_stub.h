@@ -31,11 +31,6 @@ public:
         uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option) override;
 
 private:
-    static void BridgeInit(NearlinkHostObserverStub* self);
-    static void BridgeDestroy(NearlinkHostObserverStub* self);
-    static int32_t BridgeOnRemoteRequest(NearlinkHostObserverStub* self, uint32_t code,
-        MessageParcel& data, MessageParcel& reply, MessageOption& option);
-
     ErrCode OnSystemStateChangedInner(MessageParcel &data, MessageParcel &reply);
     ErrCode OnStateChangedInner(MessageParcel &data, MessageParcel &reply);
     ErrCode OnFullStateChangedInner(MessageParcel &data, MessageParcel &reply);

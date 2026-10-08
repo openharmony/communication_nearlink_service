@@ -31,11 +31,6 @@ public:
     int32_t OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option) override;
 
 private:
-    static void BridgeInit(NearlinkDeviceRssiObserverStub* self);
-    static void BridgeDestroy(NearlinkDeviceRssiObserverStub* self);
-    static int32_t BridgeOnRemoteRequest(NearlinkDeviceRssiObserverStub* self, uint32_t code,
-        MessageParcel& data, MessageParcel& reply, MessageOption& option);
-
     ErrCode OnReadRemoteRssiEventInner(MessageParcel &data, MessageParcel &reply);
 
     std::map<uint32_t, ErrCode (NearlinkDeviceRssiObserverStub::*)(MessageParcel &data, MessageParcel &reply)>
