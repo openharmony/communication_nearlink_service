@@ -14,22 +14,22 @@
 import("../../../nearlink_config.gni")
 
 BaseSrc = [
-    "nearlink_host.cpp",
-    "nearlink_host_load_callback.cpp",
-    "nearlink_remote_device.cpp",
-    "nearlink_sa_manager.cpp",
-    "nearlink_sle_controller.cpp",
-    "nearlink_switch_module.cpp",
-    "nearlink_uuid.cpp",
+    "nearlink_base_host.cpp",
+    "nearlink_base_host_load_callback.cpp",
+    "nearlink_base_remote_device.cpp",
+    "nearlink_base_sa_manager.cpp",
+    "nearlink_base_sle_controller.cpp",
+    "nearlink_base_switch_module.cpp",
+    "nearlink_base_uuid.cpp",
 ]
 
 BaseIpcSrc = [
-    "ipc/src/nearlink_host_proxy.cpp",
-    "ipc/src/nearlink_sle_controller_proxy.cpp",
-    "ipc/src/nearlink_host_observer_stub.cpp",
-    "ipc/src/nearlink_sle_peripheral_observer_stub.cpp",
-    "ipc/src/nearlink_device_battery_observer_stub.cpp",
-    "ipc/src/nearlink_device_rssi_observer_stub.cpp",
+    "ipc/src/nearlink_base_host_proxy.cpp",
+    "ipc/src/nearlink_base_sle_controller_proxy.cpp",
+    "ipc/src/nearlink_base_host_observer_stub.cpp",
+    "ipc/src/nearlink_base_sle_peripheral_observer_stub.cpp",
+    "ipc/src/nearlink_base_device_battery_observer_stub.cpp",
+    "ipc/src/nearlink_base_device_rssi_observer_stub.cpp",
 ]
 
 config("nearlink_base_public") {

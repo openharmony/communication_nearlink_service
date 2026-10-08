@@ -13,19 +13,15 @@
 
 import("../../nearlink_config.gni")
 
-# Base-class mirrors: forward base symbols into the framework dynamic symbol table.
-MirrorSrc = [
-    "nearlink_host_mirror.cpp",
-    "nearlink_host_load_callback_mirror.cpp",
-    "nearlink_sa_manager_mirror.cpp",
-    "nearlink_remote_device_mirror.cpp",
-    "nearlink_sle_controller_mirror.cpp",
-    "nearlink_switch_module_mirror.cpp",
-    "nearlink_uuid_mirror.cpp",
-]
-
 FwkSrc = [
     "nearlink_hid_host.cpp",
+    "nearlink_host.cpp",
+    "nearlink_host_load_callback.cpp",
+    "nearlink_sa_manager.cpp",
+    "nearlink_remote_device.cpp",
+    "nearlink_sle_controller.cpp",
+    "nearlink_switch_module.cpp",
+    "nearlink_uuid.cpp",
     "nearlink_sle_advertiser.cpp",
     "nearlink_sle_scanner.cpp",
     "nearlink_sle_datatransfer.cpp",
@@ -44,18 +40,14 @@ FwkSrc = [
 ]
 
 NL_IPCSRC_DIR = "../ipc/src"
-# Base IPC mirrors: keep proxy/stub mirrors for base-class IPC symbols.
-MirrorIpcSrc = [
-    "$NL_IPCSRC_DIR/nearlink_host_proxy_mirror.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy_mirror.cpp",
-    "$NL_IPCSRC_DIR/nearlink_host_observer_stub_mirror.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub_mirror.cpp",
-    "$NL_IPCSRC_DIR/nearlink_device_battery_observer_stub_mirror.cpp",
-    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub_mirror.cpp",
-]
-
 FwkIpcSrc = [
     "$NL_IPCSRC_DIR/nearlink_hid_host_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_device_battery_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertise_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertiser_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_callback_stub.cpp",
@@ -164,8 +156,6 @@ ohos_shared_library("nearlink_framework") {
   }
 
   sources = []
-  sources += MirrorSrc
-  sources += MirrorIpcSrc
   sources += FwkSrc
   sources += FwkIpcSrc
   sources += RangAlgSrc

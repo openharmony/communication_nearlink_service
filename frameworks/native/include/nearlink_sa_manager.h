@@ -23,14 +23,14 @@
 #include "system_ability_definition.h"
 #include "system_ability_status_change_stub.h"
 #include "nearlink_safe_map.h"
-#include "nearlink_sa_manager_core.h"
+#include "nearlink_base_sa_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
 
 /**
- * Ctor/dtor are defined in the mirror source (see nearlink_sa_manager_mirror.cpp) to
- * forward to the real implementation; keep them in sync. External modules may construct
+ * Ctor/dtor are defined in nearlink_sa_manager.cpp to forward to the real
+ * implementation; keep them in sync. External modules may construct
  * this class directly.
  */
 class NearlinkSaManager {

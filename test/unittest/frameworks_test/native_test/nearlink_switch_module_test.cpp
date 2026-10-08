@@ -19,7 +19,7 @@
 #include <future>
 #include <mutex>
 #include <thread>
-#include "nearlink_switch_module_core.h"
+#include "nearlink_base_switch_module.h"
 #include "log.h"
 #include "nearlink_errorcode.h"
 
@@ -50,7 +50,7 @@ public:
     {
         auto switchAction = std::make_unique<MockNearlinkSwitchAction>();
         switchAction_ = switchAction.get();
-        switchModule_ = std::make_shared<NearlinkSwitchModuleCore>(std::move(switchAction));
+        switchModule_ = std::make_shared<NearlinkBaseSwitchModule>(std::move(switchAction));
         switchModule_->taskTimeout_ = 20000;  // 20000 is 20ms
     }
 
@@ -61,7 +61,7 @@ public:
     }
 
     MockNearlinkSwitchAction *switchAction_;
-    std::shared_ptr<NearlinkSwitchModuleCore> switchModule_;
+    std::shared_ptr<NearlinkBaseSwitchModule> switchModule_;
 };
 
 /**

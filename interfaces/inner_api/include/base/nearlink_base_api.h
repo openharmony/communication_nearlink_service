@@ -18,8 +18,8 @@
  *
  * @brief Aggregate entry of base.so public API for external repositories.
  *
- * base.so implementation classes carry the "Core" suffix (e.g. NearlinkHostCore)
- * while the framework.so mirrors keep the public names (e.g. NearlinkHost).
+ * base.so implementation classes carry the "Base" infix (e.g. NearlinkBaseHost)
+ * while the framework.so keeps the public names (e.g. NearlinkHost).
  * External repositories may depend on base.so directly and use these classes,
  * or may keep using the framework public API which forwards to base internally.
  *
@@ -31,8 +31,8 @@
 #ifndef NEARLINK_BASE_API_H
 #define NEARLINK_BASE_API_H
 
-#include "nearlink_host_core.h"
-#include "nearlink_remote_device_core.h"
-#include "nearlink_sle_controller_core.h"
+#include "nearlink_base_host.h"
+#include "nearlink_base_remote_device.h"
+#include "nearlink_base_sle_controller.h"
 
 #endif  // NEARLINK_BASE_API_H
