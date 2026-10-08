@@ -355,6 +355,7 @@ private:
     void ConnRptDelayTimeout();
     void CancelStopDelay(const RawAddress &device);
     bool IsNeedReconfigSpatialAudio(const RawAddress& device, AudioStreamType streamType, QosM& qosM);
+    void AudioStreamTypeUe(const RawAddress &device, AudioStreamType streamType, int result);
 
     /*
      * 连接设备管理函数
