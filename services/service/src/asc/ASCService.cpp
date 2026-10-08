@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -7342,7 +7342,7 @@ void ASCService::AudioStreamTypeUe(const RawAddress &device, AudioStreamType str
 {
     switch (streamType) {
         case AUDIO_STREAM_SING:{
-            WriteAudioSourceDeviceUe(device, device, KARAOKE_START, result);
+            NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, KARAOKE_START, result);
             break;
         }
         default:
