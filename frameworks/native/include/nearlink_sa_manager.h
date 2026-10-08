@@ -29,9 +29,9 @@ namespace OHOS {
 namespace Nearlink {
 
 /**
- * Ctor/dtor are defined in nearlink_sa_manager.cpp to forward to the real
- * implementation; keep them in sync. External modules may construct
- * this class directly.
+ * Keep in sync with NearlinkBaseSaManager declared in nearlink_base_sa_manager.h.
+ * Ctor/dtor are empty and private members are layout placeholders; the
+ * singleton is owned by NearlinkBaseSaManager in base.so, use GetInstance().
  */
 class NearlinkSaManager {
 public:

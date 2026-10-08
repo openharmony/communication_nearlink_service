@@ -23,9 +23,10 @@
  * External repositories may depend on base.so directly and use these classes,
  * or may keep using the framework public API which forwards to base internally.
  *
- * Only headers located under interfaces/inner_api/include are publishable;
- * internal base headers (proxy/stub/switch_module/host_load_callback) are not
- * listed here and are consumed inside this repository only.
+ * Only headers located under interfaces/inner_api/include/base are
+ * publishable; internal base headers (proxy/stub/switch_module/
+ * host_load_callback) are not listed here and are consumed inside this
+ * repository only.
  */
 
 #ifndef NEARLINK_BASE_API_H
@@ -33,6 +34,7 @@
 
 #include "nearlink_base_host.h"
 #include "nearlink_base_remote_device.h"
+#include "nearlink_base_sa_manager.h"
 #include "nearlink_base_sle_controller.h"
 
 #endif  // NEARLINK_BASE_API_H
