@@ -22,6 +22,7 @@ namespace OHOS {
 namespace Nearlink {
 NearlinkDeviceRssiObserverStubCore::NearlinkDeviceRssiObserverStubCore()
 {
+    HILOGD("start.");
     memberFuncMap_ = {
         {static_cast<uint32_t>(NearlinkDeviceRssiObserverInterfaceCode::NL_SLE_GET_RSSI_EVENT),
          &NearlinkDeviceRssiObserverStubCore::OnReadRemoteRssiEventInner},
@@ -30,6 +31,7 @@ NearlinkDeviceRssiObserverStubCore::NearlinkDeviceRssiObserverStubCore()
 
 NearlinkDeviceRssiObserverStubCore::~NearlinkDeviceRssiObserverStubCore()
 {
+    HILOGD("start.");
     memberFuncMap_.clear();
 }
 

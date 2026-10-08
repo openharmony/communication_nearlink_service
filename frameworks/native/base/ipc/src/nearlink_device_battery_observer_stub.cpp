@@ -22,6 +22,7 @@ namespace OHOS {
 namespace Nearlink {
 NearlinkDeviceBatteryObserverStubCore::NearlinkDeviceBatteryObserverStubCore()
 {
+    HILOGD("start.");
     memberFuncMap_ = {
         {static_cast<uint32_t>(NearlinkDeviceBatteryObserverInterfaceCode::NL_SLE_GET_BATTERYLEVEL_EVENT),
             &NearlinkDeviceBatteryObserverStubCore::OnGetBatteryLevelEventInner},
@@ -32,6 +33,7 @@ NearlinkDeviceBatteryObserverStubCore::NearlinkDeviceBatteryObserverStubCore()
 
 NearlinkDeviceBatteryObserverStubCore::~NearlinkDeviceBatteryObserverStubCore()
 {
+    HILOGD("start.");
     memberFuncMap_.clear();
 }
 

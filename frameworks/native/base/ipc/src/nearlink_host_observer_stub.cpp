@@ -20,6 +20,7 @@ namespace OHOS {
 namespace Nearlink {
 NearlinkHostObserverStubCore::NearlinkHostObserverStubCore()
 {
+    HILOGD("enter");
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_STATE_CHANGE)] =
         &NearlinkHostObserverStubCore::OnStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_PAIR_CONFIRMED)] =
@@ -41,6 +42,7 @@ NearlinkHostObserverStubCore::NearlinkHostObserverStubCore()
 
 NearlinkHostObserverStubCore::~NearlinkHostObserverStubCore()
 {
+    HILOGD("enter");
     memberFuncMap_.clear();
 }
 
