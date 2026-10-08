@@ -55,7 +55,7 @@ void NearlinkBaseSwitchModule::LogNearlinkSwitchEvent(NearlinkSwitchEvent event)
         event == NearlinkSwitchEvent::NEARLINK_OFF ||
         event == NearlinkSwitchEvent::NEARLINK_HALF) ? isNlSwitchProcessing_.load() : true;
     if (needLog) {
-        HILOGI("[NearlinkSwitchModule] Process Event: %{public}s", ToEventString(event));
+        HILOGI("[NearlinkBaseSwitchModule] Process Event: %{public}s", ToEventString(event));
     }
 }
 
@@ -93,17 +93,17 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkSwitchEvent(
         default:
             break;
     }
-    HILOGE("[NearlinkSwitchModule] Invalid event: %{public}s", ToEventString(event));
+    HILOGE("[NearlinkBaseSwitchModule] Invalid event: %{public}s", ToEventString(event));
     return NL_ERR_INTERNAL_ERROR;
 }
 
 void NearlinkBaseSwitchModule::OnTaskTimeout(uint32_t actionSeq)
 {
-    HILOGW("[NearlinkSwitchModule] Nearlink switch action timeout");
+    HILOGW("[NearlinkBaseSwitchModule] Nearlink switch action timeout");
     std::lock_guard<ffrt::mutex> lock(nearlinkSwitchEventMutex_);
     if (actionSeq != latestActionSeq_ || !isNlSwitchProcessing_.load()) {
         // 该超时任务对应的动作已结束或被新动作取代，跳过
-        HILOGW("[NearlinkSwitchModule] timeout task of action(seq=%{public}u) is outdated, skip", actionSeq);
+        HILOGW("[NearlinkBaseSwitchModule] timeout task of action(seq=%{public}u) is outdated, skip", actionSeq);
         return;
     }
     // 当前动作已超时失效：序号 +1，该动作的接口稍后返回时不再改写状态
@@ -117,14 +117,14 @@ void NearlinkBaseSwitchModule::OnTaskTimeout(uint32_t actionSeq)
     ++consecutiveTimeoutCnt_;
     if (consecutiveTimeoutCnt_ >= MAX_CONSECUTIVE_TIMEOUT_CNT) {
         // 连续超时达到上限，放弃恢复，清空缓存队列
-        HILOGW("[NearlinkSwitchModule] consecutive timeout %{public}u times, clear cached events",
+        HILOGW("[NearlinkBaseSwitchModule] consecutive timeout %{public}u times, clear cached events",
             consecutiveTimeoutCnt_);
         consecutiveTimeoutCnt_ = 0;
         cachedEventVec_.clear();
         return;
     }
     // 下发最近一次开关操作（队尾），其余缓存操作清除
-    HILOGW("[NearlinkSwitchModule] timeout %{public}u time(s), process the last cached event",
+    HILOGW("[NearlinkBaseSwitchModule] timeout %{public}u time(s), process the last cached event",
         consecutiveTimeoutCnt_);
     NearlinkSwitchEvent lastCachedEvent = cachedEventVec_.back();
     cachedEventVec_.clear();
@@ -142,7 +142,7 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkSwitchAction(
         currentSwitchEvent_ = switchEvent;
         if (isNlSwitchProcessing_.load()) {
             cachedEventVec_.push_back(switchEvent);
-            HILOGW("[NearlinkSwitchModule] NlSwich action is processing, cache the %{public}s event",
+            HILOGW("[NearlinkBaseSwitchModule] NlSwich action is processing, cache the %{public}s event",
                 ToEventString(switchEvent));
             return NL_NO_ERROR;
         }
@@ -202,7 +202,7 @@ NlErrCode NearlinkBaseSwitchModule::FinishSwitchAction(
     // 调用方须持有 nearlinkSwitchEventMutex_ 锁
     if (actionSeq != latestActionSeq_) {
         // 该动作已超时失效或被新动作取代，本次接口返回结果不再改写状态
-        HILOGW("[NearlinkSwitchModule] action(seq=%{public}u) is outdated, skip finish", actionSeq);
+        HILOGW("[NearlinkBaseSwitchModule] action(seq=%{public}u) is outdated, skip finish", actionSeq);
         return ret == NL_ERR_INVALID_SWITCH_OPERATION ? NL_NO_ERROR : ret;
     }
     if (ret != NL_NO_ERROR) {
@@ -213,7 +213,7 @@ NlErrCode NearlinkBaseSwitchModule::FinishSwitchAction(
     }
     // Invalid operaton is considered successful.
     if (ret == NL_ERR_INVALID_SWITCH_OPERATION) {
-        HILOGI("[NearlinkSwitchModule] switch operaton %{public}s is invalid", ToEventString(switchEvent));
+        HILOGI("[NearlinkBaseSwitchModule] switch operaton %{public}s is invalid", ToEventString(switchEvent));
         ret = NL_NO_ERROR;
         // 结束本次开关操作，并将下一个缓存的操作事件抛入任务队列
         ProcessNearlinkSwitchActionFinished(switchEvent, {NearlinkSwitchEvent::ENABLE_NEARLINK,
@@ -285,7 +285,7 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkOffEvent()
     }
     if (disableStatus_ == NearlinkDisableStatus::DISABLING_TO_HALF) {
         // 此次星闪进入OFF由三态场景的DisableNl触发，等待星闪开至半关状态
-        HILOGI("[NearlinkSwitchModule] waiting for NEARLINK_HALF event");
+        HILOGI("[NearlinkBaseSwitchModule] waiting for NEARLINK_HALF event");
         return NL_NO_ERROR;
     }
     HILOGE("Invalid disableStatus_: %{public}d", static_cast<int>(disableStatus_));
@@ -307,14 +307,14 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkHalfEvent()
 
 NlErrCode NearlinkBaseSwitchModule::ProcessDisableResponseHalfEvent()
 {
-    HILOGI("[NearlinkSwitchModule] disable response received, target state is half");
+    HILOGI("[NearlinkBaseSwitchModule] disable response received, target state is half");
     disableStatus_ = NearlinkDisableStatus::DISABLING_TO_HALF;
     return NL_NO_ERROR;
 }
 
 NlErrCode NearlinkBaseSwitchModule::ProcessDisableResponseOffEvent()
 {
-    HILOGI("[NearlinkSwitchModule] disable response received, target state is off");
+    HILOGI("[NearlinkBaseSwitchModule] disable response received, target state is off");
     disableStatus_ = NearlinkDisableStatus::DISABLING_TO_OFF;
     return NL_NO_ERROR;
 }
@@ -354,7 +354,7 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkSwitchActionFinished(
 NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkSwitchCachedEvent(NearlinkSwitchEvent event)
 {
     // 缓存事件的下发不带 SA 加载超时参数，由开关动作使用默认超时
-    HILOGI("[NearlinkSwitchModule] Process cached %{public}s event", ToEventString(event));
+    HILOGI("[NearlinkBaseSwitchModule] Process cached %{public}s event", ToEventString(event));
     ffrtQueue_.submit([switchWptr = weak_from_this(), event]() -> void {
         auto switchSptr = switchWptr.lock();
         if (switchSptr == nullptr) {
@@ -388,7 +388,7 @@ void NearlinkBaseSwitchModule::RemoveIgnoredCachedEvent(size_t ignoredCnt)
         log += " ";
     }
     if (!log.empty()) {
-        HILOGW("[NearlinkSwitchModule] Ignore cached event: %{public}s", log.c_str());
+        HILOGW("[NearlinkBaseSwitchModule] Ignore cached event: %{public}s", log.c_str());
     }
     cachedEventVec_.erase(cachedEventVec_.begin(), cachedEventVec_.begin() + ignoredEventCnt + 1);
 }

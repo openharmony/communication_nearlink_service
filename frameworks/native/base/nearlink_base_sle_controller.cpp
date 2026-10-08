@@ -40,7 +40,7 @@ NearlinkBaseSleController::impl::impl()
 
     profileRegisterId_ = NearlinkBaseSaManager::GetInstance().RegisterFunc(info);
     if (profileRegisterId_ == INVALID_PROFILE_ID) {
-        HILOGE("NearlinkSleController profileRegisterId_ is invalid");
+        HILOGE("NearlinkBaseSleController profileRegisterId_ is invalid");
     }
 }
 
