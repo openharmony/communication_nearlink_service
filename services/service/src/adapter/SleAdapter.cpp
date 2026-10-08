@@ -984,7 +984,7 @@ void SleAdapter::CdsmCancelPairingProcess(const RawAddress &device) const
 
         uint8_t addrType = adapterProperties_->GetPeerDeviceAddrType(member.addr_);
         pimpl->sleSecurity_.CancelPairing(member.addr_, addrType);
-        DftCacheDisconnInfoMsg(member.addr_.GetAddress(), "", DISCONN_CLICK_UNPAIR);
+        DftCacheDisconnInfoMsg(member.addr_.GetAddress(), DFT_DISCONN_CLICKUNPAIR, DISCONN_CLICK_UNPAIR);
 
         adapterProperties_->SetPairStatus(member.addr_, static_cast<int>(SlePairState::SLE_PAIR_CANCELING));
         adapterProperties_->SetCdsmAddrType(member.addr_, static_cast<int>(SleCdsmAddrType::CDSM_TYPE_NONE));
@@ -1034,7 +1034,7 @@ bool SleAdapter::CancelPairingTask(const RawAddress &device) const
 
         uint8_t peerAddrType = adapterProperties_->GetPeerDeviceAddrType(realAddr);
         if (pimpl->sleSecurity_.CancelPairing(realAddr, peerAddrType)) {
-            DftCacheDisconnInfoMsg(realAddr.GetAddress(), "", DISCONN_CLICK_UNPAIR);
+            DftCacheDisconnInfoMsg(realAddr.GetAddress(), DFT_DISCONN_CLICKUNPAIR, DISCONN_CLICK_UNPAIR);
             adapterProperties_->SetPrePairStatus(realAddr, pairState);
             adapterProperties_->SetPairStatus(realAddr, static_cast<int>(SlePairState::SLE_PAIR_CANCELING));
         } else {

@@ -101,6 +101,7 @@ void DftCacheAcbFinishConn(const std::string &addr, uint32_t result, int32_t rea
 {
     if (result == CM_STATE_DISCONNECTED && lcid == DFT_INVALID_LCID && reason == DFT_CONNECTION_TIMEOUT) {
         DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
+        DftCacheDisconnInfoMsg(addr, DFT_DISCONN_CONNTIMEOUT);
     }
 
     DftConnStateChange(addr, result, reason);

@@ -758,7 +758,7 @@ void SleProfileConnectManager::SleDisconnectAllProfileForSilentPort(const RawAdd
     }
     profConnInst->SetState(SLE_ADAPTER_PROF_CONN_STATE_DISCONNECTING);
     profConnInst->SetSilentPortFlag(true);
-    DftCacheDisconnInfoMsg(device.GetAddress(), DFT_DISCONN_DISCONNALLPROFILES);
+    DftCacheDisconnInfoMsg(device.GetAddress(), DFT_DISCONN_SILENTTRANSFER, DISCONN_SILENT_TRANSFER);
     DisconnectProfile(nextDisconnectProfileName, device);
 }
 
