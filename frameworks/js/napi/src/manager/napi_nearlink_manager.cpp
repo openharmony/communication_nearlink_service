@@ -52,6 +52,7 @@ napi_value NapiNearlinkManager::DefineManagerJSFunction(napi_env env, napi_value
         DECLARE_NAPI_FUNCTION("setConnectionMode", SetConnectionMode),
         DECLARE_NAPI_FUNCTION("factoryReset", FactoryReset),
         DECLARE_NAPI_FUNCTION("isNearLinkSupported", IsNearLinkSupported),
+        DECLARE_NAPI_FUNCTION("isFrameType4Supported", IsFrameType4Supported),
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     HILOGI("end");
@@ -229,6 +230,16 @@ napi_value NapiNearlinkManager::IsNearLinkSupported(napi_env env, napi_callback_
     bool isNearlinkSupport = NearlinkHost::GetInstance().IsNearlinkSupport();
     NapiNativeBool object(isNearlinkSupport);
     NapiHaManager::GetInstance().ReportEvent("isNearlinkSupported", beginTime, NL_NO_ERROR);
+    return object.ToNapiValue(env);
+}
+
+napi_value NapiNearlinkManager::IsFrameType4Supported(napi_env env, napi_callback_info info)
+{
+    int64_t beginTime = NapiHaManager::GetCurrentTimestamp();
+    HILOGI("enter");
+    bool isFrameType4Supported = NearlinkHost::GetInstance().IsNearlinkSupportFrame4();
+    NapiNativeBool object(isFrameType4Supported);
+    NapiHaManager::GetInstance().ReportEvent("isFrameType4Supported", beginTime, NL_NO_ERROR);
     return object.ToNapiValue(env);
 }
 
