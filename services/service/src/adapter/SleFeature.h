@@ -23,9 +23,6 @@
 constexpr int NEARLINK_FEATURE_INDEX_8 = 8;
 constexpr int NEARLINK_FEATURE_RANGE = 0x4;
 
-constexpr int NEARLINK_FEATURE_INDEX_0 = 0;
-constexpr int NEARLINK_FRAME_4_CAP_BIT = 0x80;
-
 /*
  * @brief The nearlink system.
  */
@@ -150,13 +147,6 @@ public:
      * @return @c true:supported; false:not supported.
      */
     bool IsRangSupported();
-
-    /**
-     * @brief Get sle feature frame four supported.
-     *
-     * @return @c true:supported; false:not supported.
-     */
-    bool IsFrameFourSupported();
 
 private:
     /**

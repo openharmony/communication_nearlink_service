@@ -19,6 +19,7 @@
 #include "SleInterfaceAdapterSub.h"
 #include "interface_advertiser_service.h"
 #include "SleInterfaceManager.h"
+#include "nearlink_system_config.h"
 #include "log_util.h"
 #include "ipc_skeleton.h"
 #include "remote_observer_list.h"
@@ -420,12 +421,8 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
         "advHandle is invalid.");
     if (settings.GetPrimaryFrameType() ==
         static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4)) {
-        SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
-            (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
-        NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
-        NL_CHECK_RETURN_RET(
-            sleService->IsFeatureSupported(static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)),
-            NL_ERR_API_NOT_SUPPORT, "frame4 advertising is not supported.");
+        NL_CHECK_RETURN_RET(NearlinkSystemConfig::IsFrame4Supported(), NL_ERR_API_NOT_SUPPORT,
+            "frame4 advertising is not supported.");
     }
     SleAdvertiserSettingsImpl settingsImpl;
     settingsImpl.SetConnectable(settings.IsConnectable());

@@ -58,6 +58,16 @@ public:
      * @return false 不支持通话码率自适应功能
      */
     static bool IsVoiceCallAutorateSupported();
+
+    /**
+     * @brief 检查帧4广播/扫描能力是否支持
+     *
+     * @return true 支持帧4能力
+     * @return false 不支持帧4能力
+     * @note 帧四能力统一以CCM配置项（const.nearlink.support_frame4）为唯一判定源，
+     *       不依赖芯片上报的本地能力位
+     */
+    static bool IsFrame4Supported();
 };
 
 } // namespace Nearlink

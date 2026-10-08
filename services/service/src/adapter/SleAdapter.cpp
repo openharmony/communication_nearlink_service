@@ -30,6 +30,7 @@
 #include "interface_scan_service.h"
 #include "interface_advertiser_service.h"
 #include "SleFeature.h"
+#include "nearlink_system_config.h"
 #include "SleInterfaceProfileHidHost.h"
 #include "SleInterfaceProfileManager.h"
 #include "SleServiceManager.h"
@@ -3298,10 +3299,11 @@ bool SleAdapter::IsLlPrivacySupported() const
     return SleFeature::GetInstance().IsPrivacySupported();
 }
 
+// 帧四能力统一以CCM配置项为准（NearlinkSystemConfig::IsFrame4Supported），与扫描/广播server门控同源
 bool SleAdapter::IsFeatureSupported(int32_t feature) const
 {
     if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)) {
-        return SleFeature::GetInstance().IsFrameFourSupported();
+        return NearlinkSystemConfig::IsFrame4Supported();
     }
     return false;
 }

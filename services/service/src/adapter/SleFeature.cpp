@@ -43,15 +43,5 @@ void SleFeature::SetLocalFeature(NLSTK_CfgdbLocalFeatures_S *param)
     }
 }
 
-bool SleFeature::IsFrameFourSupported()
-{
-    std::lock_guard<std::mutex> lock(g_featureInstanceMutex);
-    if ((g_localFeature.feats[NEARLINK_FEATURE_INDEX_0] & NEARLINK_FRAME_4_CAP_BIT) == NEARLINK_FRAME_4_CAP_BIT) {
-        HILOGI("[SleFeature] NEARLINK_FRAME_4_CAP support");
-        return true;
-    }
-    return false;
-}
-
 } // Nearlink
 } // OHOS
