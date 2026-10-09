@@ -124,6 +124,7 @@ typedef enum AudioSourceDeviceSceneCode :int {
     DUAL_REC_CAP = 6,
     DUAL_REC_START = 7,
     SPATIAL_AUDIO = 8,
+    KARAOKE_START = 9,
 } AudioSourceDeviceSceneCode;
 
 typedef enum AudioSourceDeviceSetActiveDeviceSubSceneCode :int {

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1087,7 +1087,9 @@ void ASCService::SetStartPlayingResult(const RawAddress& device, AudioStreamType
 {
     HILOGI("[ASCService]SetStartPlayingResult %{public}s streamType %{public}d isFinished %{public}d "
         "result %{public}d", GetEncryptAddr(device.GetAddress()).c_str(), streamType, isFinished, result);
-
+    if (isFinished) {
+        AudioStreamTypeUe(device, streamType, result);
+    }
     CheckAndAddPlayingResultInfo(device, streamType);
 
     std::map<AudioStreamType, StreamResult>& resultMap = streamResultMap_[device.GetAddress()];
@@ -7334,6 +7336,17 @@ void ASCService::SetASCStartStreamChangeSubrateFlag(const RawAddress &device, bo
 void ASCService::ClearASCSubrateInfo(const RawAddress &device)
 {
     ascSubrateMap_.erase(device.GetAddress());
+}
+
+void ASCService::AudioStreamTypeUe(const RawAddress &device, AudioStreamType streamType, int result)
+{
+    switch (streamType) {
+        case AUDIO_STREAM_SING:
+            NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, KARAOKE_START, result);
+            break;
+        default:
+            break;
+    }
 }
 REGISTER_CLASS_CREATOR(ASCService);
 
