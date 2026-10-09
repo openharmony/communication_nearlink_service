@@ -549,25 +549,29 @@ void TwsService::OnProfileStateChange(TwsClientData &clientData)
     bool ret = GetProfileStatus(clientData.peerAddr_.GetAddress(), preMediaState, preCallState);
 
     /* 新来状态和前一次状态比较：如果新来是INVALID, 需要和前一次保持一致 */
-    uint8_t newMediaState = clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::MUSIC)];
-    uint8_t newCallState = clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::CELL_CALL)];
+    uint8_t inputMediaState = clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::MUSIC)];
+    uint8_t inputCallState = clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::CELL_CALL)];
     uint8_t mediaState =
-        newMediaState == static_cast<uint8_t>(TwsStreamUsability::INVALID) ? preMediaState : newMediaState;
+        inputMediaState == static_cast<uint8_t>(TwsStreamUsability::INVALID) ? preMediaState : inputMediaState;
     uint8_t callsState =
-        newCallState == static_cast<uint8_t>(TwsStreamUsability::INVALID) ? preCallState : newCallState;
+        inputCallState == static_cast<uint8_t>(TwsStreamUsability::INVALID) ? preCallState : inputCallState;
     clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::MUSIC)] = mediaState;
     clientData.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::CELL_CALL)] = callsState;
 
     /* 检查流类型是否变换 */
     int action = static_cast<int>(UpdateOutputStackAction::ACTION_DISABLE_FROM_REMOTE);
-    if (newMediaState == static_cast<uint8_t>(TwsStreamUsability::AVAILABLE) ||
-        newCallState == static_cast<uint8_t>(TwsStreamUsability::AVAILABLE)) {
+    if (mediaState == static_cast<uint8_t>(TwsStreamUsability::AVAILABLE) &&
+        callsState == static_cast<uint8_t>(TwsStreamUsability::AVAILABLE)) {
+        // 当前仅当媒体和通话都可用时，action=2
         action = static_cast<int>(UpdateOutputStackAction::ACTION_ENABLE_FROM_REMOTE);
     }
     HILOGI("[Tws service]:audio stream state changed,action:%{public}u,media:%{public}u,cellCall:%{public}u,"
-        "preMediaState:%{public}u,preCallState:%{public}u,newMediaState:%{public}u,newCallState:%{public}u",
-        action, mediaState, callsState, preMediaState, preCallState, newMediaState, newCallState);
+        "preMediaState:%{public}u,preCallState:%{public}u,inputMediaState:%{public}u,inputCallState:%{public}u",
+        action, mediaState, callsState, preMediaState, preCallState, inputMediaState, inputCallState);
 
+    /* 方案建议媒体和通话分开处理，当前是调用同一个接口 */
+    NL_CHECK_RETURN((mediaState != static_cast<uint8_t>(TwsStreamUsability::INVALID) ||
+        callsState != static_cast<uint8_t>(TwsStreamUsability::INVALID)), "media or call state is invalid");
     std::vector<struct AudioStreamInfo> streamData = { };
     uint32_t arraySize = sizeof(ASC_AUDIO_STREAM_TYPE_LIST) / sizeof(uint32_t);
     for (uint32_t index = 0; index < arraySize; index++) {
