@@ -7341,10 +7341,9 @@ void ASCService::ClearASCSubrateInfo(const RawAddress &device)
 void ASCService::AudioStreamTypeUe(const RawAddress &device, AudioStreamType streamType, int result)
 {
     switch (streamType) {
-        case AUDIO_STREAM_SING:{
+        case AUDIO_STREAM_SING:
             NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, KARAOKE_START, result);
             break;
-        }
         default:
             break;
     }
