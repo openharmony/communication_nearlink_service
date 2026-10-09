@@ -131,8 +131,8 @@ static napi_status ParseAdvertisingSettingsParameters(
     NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, object, "frameType", frameTypeValue, exist));
     if (exist) {
         HILOGI("Advertising frameType is %{public}d", frameTypeValue);
-        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+        if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+            frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
             HILOGE("Invalid advertising frameType: %{public}d", frameTypeValue);
             return napi_invalid_arg;
         }

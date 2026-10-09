@@ -223,8 +223,8 @@ static TaiheStatus CheckFilterScanParams(::ohos::nearlink::scan::Filters const& 
         if (scanOptions.frameType.has_value()) {
             int32_t frameTypeValue = static_cast<int32_t>(scanOptions.frameType.value().get_value());
             HILOGI("frameType: %{public}d", frameTypeValue);
-            if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-                frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+            if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+                frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
                 HILOGE("Invalid frameType: %{public}d", frameTypeValue);
                 return TAIHE_INVALID_ARG;
             }

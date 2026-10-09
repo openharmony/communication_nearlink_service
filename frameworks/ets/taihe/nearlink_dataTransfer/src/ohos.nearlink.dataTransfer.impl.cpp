@@ -121,8 +121,8 @@ static TaiheStatus ParseFrameType(const ::ohos::nearlink::dataTransfer::Connecti
     }
     int32_t frameTypeValue = static_cast<int32_t>(params.frameType.value());
     HILOGI("frameType: %{public}d", frameTypeValue);
-    if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-        frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+    if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+        frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
         HILOGE("Invalid frameType: %{public}d", frameTypeValue);
         HandleSyncErr(NL_ERR_INVALID_PARAM);
         return TaiheStatus::TAIHE_INVALID_ARG;

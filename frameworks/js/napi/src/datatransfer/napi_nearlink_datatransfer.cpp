@@ -144,8 +144,8 @@ napi_status CheckDataTransferConnectionParamWith(napi_env env, napi_value object
     NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, object, "frameType", frameTypeValue, exist));
     if (exist) {
         HILOGI("Connection frameType is %{public}d", frameTypeValue);
-        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+        if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+            frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
             HILOGE("Invalid connection frameType: %{public}d", frameTypeValue);
             return napi_invalid_arg;
         }

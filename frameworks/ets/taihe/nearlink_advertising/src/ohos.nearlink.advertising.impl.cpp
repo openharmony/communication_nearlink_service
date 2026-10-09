@@ -92,8 +92,8 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
     if (input.frameType.has_value()) {
         int32_t frameTypeValue = static_cast<int32_t>(input.frameType.value());
         HILOGI("frameType: %{public}d", frameTypeValue);
-        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+        if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+            frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
             HILOGE("Invalid frameType: %{public}d", frameTypeValue);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
