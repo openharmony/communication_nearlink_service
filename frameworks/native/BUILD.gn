@@ -13,15 +13,14 @@
 
 import("../../nearlink_config.gni")
 
+
+
 FwkSrc = [
-    "nearlink_hid_host.cpp",
-    "nearlink_host.cpp",
     "nearlink_host_load_callback.cpp",
+    "nearlink_host.cpp",
+    "nearlink_hid_host.cpp",
     "nearlink_sa_manager.cpp",
     "nearlink_remote_device.cpp",
-    "nearlink_sle_controller.cpp",
-    "nearlink_switch_module.cpp",
-    "nearlink_uuid.cpp",
     "nearlink_sle_advertiser.cpp",
     "nearlink_sle_scanner.cpp",
     "nearlink_sle_datatransfer.cpp",
@@ -32,28 +31,29 @@ FwkSrc = [
     "nearlink_ssap_property.cpp",
     "nearlink_ssap_service.cpp",
     "nearlink_ssap_server.cpp",
+    "nearlink_switch_module.cpp",
     "nearlink_sle_ranging.cpp",
+    "nearlink_uuid.cpp",
     "nearlink_ASC_source.cpp",
     "nearlink_vcp_client.cpp",
     "nearlink_tws_client.cpp",
     "nearlink_cdsm_client.cpp",
+    "nearlink_sle_controller.cpp"
 ]
 
 NL_IPCSRC_DIR = "../ipc/src"
 FwkIpcSrc = [
-    "$NL_IPCSRC_DIR/nearlink_hid_host_proxy.cpp",
-    "$NL_IPCSRC_DIR/nearlink_host_proxy.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy.cpp",
-    "$NL_IPCSRC_DIR/nearlink_host_observer_stub.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_device_battery_observer_stub.cpp",
-    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_host_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_hid_host_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertise_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertiser_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_central_manager_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_central_manager_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_client_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_client_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_server_callback_stub.cpp",
@@ -67,6 +67,8 @@ FwkIpcSrc = [
     "$NL_IPCSRC_DIR/nearlink_tws_client_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_cdsm_client_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_cdsm_client_proxy.cpp",
+    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub.cpp",
+    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy.cpp",
 ]
 
 RangAlgSrc = [
