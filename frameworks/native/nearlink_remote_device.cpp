@@ -44,6 +44,31 @@ sptr<NearlinkHostProxy> GetHostProxy()
     return hostProxy;
 }
 
+bool IsRemoteProfileSupported(const std::string &address, int32_t transport, std::string profUuid)
+{
+    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
+    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
+    std::vector<std::string> uuids;
+    NlErrCode ret = hostProxy->GetDeviceUuids(transport, address, uuids);
+    if (ret != NL_NO_ERROR) {
+        HILOGE("get device uuids failed, ret=%{public}d", ret);
+        return true;
+    }
+    if (uuids.empty()) {
+        HILOGW("device uuids is empty, cannot determine profile supported, allow request");
+        return true;
+    }
+    ConvertUuidToUpperCase(profUuid);
+    for (auto &uuid : uuids) {
+        std::string remoteUuid = uuid;
+        ConvertUuidToUpperCase(remoteUuid);
+        if (remoteUuid == profUuid) {
+            return true;
+        }
+    }
+    return false;
+}
+
 NearlinkRemoteDevice::NearlinkRemoteDevice(const std::string &addr, const int transport)
 {
     address_ = addr;
@@ -354,6 +379,8 @@ NlErrCode NearlinkRemoteDevice::GetBatteryLevel()
                         "Battery service is not supported.");
     NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(IsRemoteProfileSupported(address_, transport_, SLE_UUID_BAS_PROFILE),
+        NL_ERR_PEER_NOT_SUPPORT_BATTERY_SERVICE, "remote device does not support BAS service.");
     sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
     NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
     return hostProxy->GetBatteryLevel(address_);
