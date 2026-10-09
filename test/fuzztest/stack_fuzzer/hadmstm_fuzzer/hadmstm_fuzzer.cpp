@@ -14,6 +14,7 @@
  */
 
 #include "hadmstm_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "hadm_dft.h"
 #include "securec.h"
 #include "cpfwk_log.h"
@@ -114,28 +115,42 @@ extern "C" void ScheduleTimerDel(int handle)
 namespace OHOS {
     void FuzzHadmStm(uint8_t* data, size_t size)
     {
-        if (size < sizeof(HadmDliReportRemoteCsParam_S) + FUZZ_TWO) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
         CM_LogicLinkState_S cmLinkState = {0};
         cmLinkState.result = CM_LINK_STATE_CONNECTED;
         (void)memcpy_s(&(cmLinkState.addr),sizeof(SLE_Addr_S), &g_addr, sizeof(SLE_Addr_S));
         uint8_t moduleId = CM_MODULE_HADM;
         CM_ExecLogicLinkModuleCbks(moduleId, &cmLinkState);   // 回调运行HadmLinstenCmLinkReport,不会重复alloc内存
-        HadmSoundingState_E state = (HadmSoundingState_E)(data[FUZZ_ZERO] % HADM_SOUNDING_STATE_INVALID);
+        HadmSoundingState_E state = static_cast<HadmSoundingState_E>(
+            fdp.ConsumeIntegral<uint8_t>() % HADM_SOUNDING_STATE_INVALID);
         uint32_t ret = HadmSetSoundingState(&g_addr, state);
         if (ret == NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB) {    // 8193
             NLSTK_LOG_ERROR("[FUZZ]HadmSetSoundingState failed, ret = %d", ret);
             return;
         }
 
-        HadmStateMachineEvent_E event = (HadmStateMachineEvent_E)(data[FUZZ_ONE] % HADM_MAX_EVENT_TYPE);
+        HadmStateMachineEvent_E event = static_cast<HadmStateMachineEvent_E>(
+            fdp.ConsumeIntegral<uint8_t>() % HADM_MAX_EVENT_TYPE);
         HadmDliReportRemoteCsParam_S *param = (HadmDliReportRemoteCsParam_S *)SDF_MemZalloc(
             sizeof(HadmDliReportRemoteCsParam_S));
         if (param == nullptr) {
             return;
         }
-        (void)memcpy_s(param, sizeof(HadmDliReportRemoteCsParam_S), data, sizeof(HadmDliReportRemoteCsParam_S));
+        param->status = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.measureSignalCapabilitySupported = fdp.ConsumeIntegral<uint32_t>();
+        param->csCaps.multiAntennasSupported = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.multiAntennasSwitchInterval = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.type1MinTimeIp1 = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.type1MinTimeIp2 = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.type1MinTimeIp3 = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.type1MinTimeIp4 = fdp.ConsumeIntegral<uint8_t>();
+        param->csCaps.type1MinTimeInterEvt = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.type2MinTimeInterEvt = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.minTimeInitializeInterEvt = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.minTimeIntraEvt = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.minTimeIntraEvtGroup = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.phaseCaliOffsetCm = fdp.ConsumeIntegral<uint16_t>();
+        param->csCaps.tofCaliOffsetM = fdp.ConsumeIntegral<uint16_t>();
         (void)HadmTriggerStateMachine(&g_addr, event, param);
 
         cmLinkState.result = CM_LINK_STATE_DISCONNECTED;
@@ -161,9 +176,7 @@ namespace OHOS {
 
     void FuzzHadmUserProc(uint8_t* data, size_t size)
     {
-        if (size < FUZZ_TWO) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
         HadmSoundingCbk_S *cbk = (HadmSoundingCbk_S *)SDF_MemZalloc(sizeof(HadmSoundingCbk_S));
         if (cbk == nullptr) {
             return;
@@ -183,9 +196,11 @@ namespace OHOS {
         (void)memcpy_s(&(soundingParam.addr), sizeof(SLE_Addr_S), &g_addr, sizeof(SLE_Addr_S));
         HadmUserStartSounding(&soundingParam);
 
-        HadmUserOperate_E operate = (HadmUserOperate_E)(data[FUZZ_ZERO] % HADM_USER_STOP_SOUNDING);
+        HadmUserOperate_E operate = static_cast<HadmUserOperate_E>(
+            fdp.ConsumeIntegral<uint8_t>() % HADM_USER_STOP_SOUNDING);
         HadmCacheUserOperate(&g_addr, operate);
-        HadmSoundingState_E state = (HadmSoundingState_E)(data[FUZZ_ONE] % HADM_SOUNDING_STATE_INVALID);
+        HadmSoundingState_E state = static_cast<HadmSoundingState_E>(
+            fdp.ConsumeIntegral<uint8_t>() % HADM_SOUNDING_STATE_INVALID);
         HadmSetSoundingState(&g_addr, state);
 
         HadmSoundingStateParam_S stateParam = {{0}};

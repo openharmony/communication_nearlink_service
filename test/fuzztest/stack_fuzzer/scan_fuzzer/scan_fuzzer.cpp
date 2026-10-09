@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  */
  
 #include "scan_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
@@ -42,37 +43,24 @@ typedef enum {
 
 namespace OHOS {
 
-    void FuzzSetScan(const uint8_t* fuzzData, size_t size)
+    void FuzzScanApi(const uint8_t* fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdSleScanParams_S) + FUZZ_SIX) {
-            return;
-        }
-        NLSTK_DevdSleScanParams_S *sle_scan_params;
-        int ii = 0;
-        sle_scan_params = (NLSTK_DevdSleScanParams_S *)SDF_MemAlloc(
-            sizeof(NLSTK_DevdSleScanParams_S) + 1 * sizeof(NLSTK_DevdSleScanParamsNoPhy_S));
+        FuzzedDataProvider fdp(fuzzData, size);
+        size_t allocSize = sizeof(NLSTK_DevdSleScanParams_S) + 1 * sizeof(NLSTK_DevdSleScanParamsNoPhy_S);
+        NLSTK_DevdSleScanParams_S *sle_scan_params = (NLSTK_DevdSleScanParams_S *)SDF_MemAlloc(allocSize);
         if (sle_scan_params == NULL) {
             NAI_LOG_ERROR("sle_scan_params new fail");
             return;
         }
-
-        sle_scan_params->scanFilterPolicy = fuzzData[ii++];
+        (void)memset_s(sle_scan_params, allocSize, 0, allocSize);
+        sle_scan_params->scanFilterPolicy = fdp.ConsumeIntegral<uint8_t>();
         for (uint8_t idx = 0; idx < 1; idx++) {
-            sle_scan_params->params[idx].scanType = fuzzData[ii++];
-            // 读取 scanInterval（两个字节）
-            sle_scan_params->params[idx].scanInterval = (uint16_t)(fuzzData[ii] | (fuzzData[ii+1] << 8));
-            ii += 2;
-
-            // 读取 scanWindow（两个字节）
-            sle_scan_params->params[idx].scanWindow = (uint16_t)(fuzzData[ii] | (fuzzData[ii+1] << 8));
+            sle_scan_params->params[idx].scanType = fdp.ConsumeIntegral<uint8_t>();
+            sle_scan_params->params[idx].scanInterval = fdp.ConsumeIntegral<uint16_t>();
+            sle_scan_params->params[idx].scanWindow = fdp.ConsumeIntegral<uint16_t>();
         }
         DevdSleSetScanParam(sle_scan_params);
-        free(sle_scan_params);
-    }
-
-    void FuzzScanApi(const uint8_t *fuzzData, size_t size)
-    {
-        FuzzSetScan(fuzzData, size);
+        SDF_MemFree(sle_scan_params);
     }
 }
 

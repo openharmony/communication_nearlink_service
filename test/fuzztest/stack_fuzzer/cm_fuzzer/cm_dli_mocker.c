@@ -95,6 +95,16 @@ bool DLI_IsSupportConnBypassAdv(void)
     return true;
 }
 
+bool DLI_IsSupportNewDisMeasure(void)
+{
+    return false;
+}
+
+uint32_t DLI_ReadLocalMeasureCaps(void)
+{
+    return 0;
+}
+
 uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
 {
     return 0;

@@ -14,6 +14,7 @@
  */
 #include "disserver_fuzzer.h"
 #include <thread>
+#include "fuzzer/FuzzedDataProvider.h"
 #include "../nl_utils/fuzztest_utils.h"
 #include "DisServerStackAdapter.h"
 #include "log.h"
@@ -28,13 +29,12 @@ constexpr int DIS_SERVER_PROFILE_FUZZ_DELAY_MS = 5000;
 
 void DoSomethingDisServerWithMyAPI(const uint8_t* fuzzData, size_t size)
 {
-    (void) fuzzData;
-    (void) size;
+    FuzzedDataProvider fdp(fuzzData, size);
     DisServerInfo info;
-    info.appearanceId_ = DIS_DEVICE_SMARTPHONE;
-    info.manufactureInfo_ = "manufactureInfo_";
-    info.nameInfo_ = "nameInfo_";
-    info.versionInfo_ = "0";
+    info.appearanceId_ = fdp.ConsumeIntegral<uint32_t>();
+    info.manufactureInfo_ = fdp.ConsumeRandomLengthString(64);
+    info.nameInfo_ = fdp.ConsumeRandomLengthString(64);
+    info.versionInfo_ = fdp.ConsumeRandomLengthString(16);
     DisServerStackAdapter disServer;
     disServer.CreateServerInfo(info);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::DIS_SERVER_PROFILE_FUZZ_DELAY_MS));

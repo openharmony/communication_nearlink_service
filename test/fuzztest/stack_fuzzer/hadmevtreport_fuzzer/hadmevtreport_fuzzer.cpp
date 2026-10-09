@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "hadmevtreport_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
@@ -52,15 +53,10 @@ namespace OHOS {
 
     void FuzzEvtReportSetCsEnable(const uint8_t* fuzzData, size_t size)
     {
-        if (size < sizeof(DLI_SetMeasureEnableParam)) {
-            return;
-        }
-        size_t pos = 0;
-
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_SetMeasureEnableParam fuzzInput = {0};
-        (void)memcpy_s(&fuzzInput.connHandle, sizeof(fuzzInput.connHandle), fuzzData, sizeof(fuzzInput.connHandle));
-        pos += sizeof(fuzzInput.connHandle);
-        (void)memcpy_s(&fuzzInput.enable, sizeof(fuzzInput.enable), fuzzData + pos, sizeof(fuzzInput.enable));
+        fuzzInput.connHandle = fdp.ConsumeIntegral<uint16_t>();
+        fuzzInput.enable = fdp.ConsumeIntegral<uint8_t>();
         DLI_SetMeasureEnable(&fuzzInput);
     }
 
@@ -71,43 +67,56 @@ namespace OHOS {
 
     void FuzzEvtReportSetCsConfig(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(DLI_SetMeasureConfigParam)) {
-            return;
-        }
-
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_SetMeasureConfigParam fuzzInput = {0};
-        (void)memcpy_s(&fuzzInput, sizeof(DLI_SetMeasureConfigParam), fuzzData, sizeof(DLI_SetMeasureConfigParam));
+        fuzzInput.connHandle = fdp.ConsumeIntegral<uint16_t>();
+        fuzzInput.configId = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.measureConfigDirect = fdp.ConsumeIntegral<uint32_t>();
+        fuzzInput.occurrenceGroupPeriod = fdp.ConsumeIntegral<uint32_t>();
+        fuzzInput.schedulingTimeslot = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.rttPhy = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.freqHoppingMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.fmFreq = fdp.ConsumeIntegral<uint16_t>();
+        fuzzInput.sendDirect = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.antennaOrderConfig = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.firstAntennaTypeConfig = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.secondAntennaTypeConfig = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.eventsCount = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.bitWidth = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.pmInitAntCount = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.pmInitSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.firstNodeInterval = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.pmReflAntCount = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.pmReflSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.secondNodeInterval = fdp.ConsumeIntegral<uint8_t>();
+        fuzzInput.channelBandwidth = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_MEASURE_PM_24G_BAND_LEN; i++) {
+            fuzzInput.pm2400mBand[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         DLI_SetMeasureParam(&fuzzInput);
     }
 
     void FuzzEvtReportReadRemoteCsCaps(const uint8_t *fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_ExecuteCmdCbk EvtReportReadRemoteCsCaps = g_hadmCbkList[FUZZ_ZERO];
-        if (size < sizeof(uint16_t) + sizeof(DLI_ReadRemoteCsCapsEvt)) {
-            return;
-        }
-        size_t pos = 0;
-
-        uint16_t fuzzStatus = 0;
+        uint16_t fuzzStatus = fdp.ConsumeIntegral<uint16_t>();
 
         DLI_ExecuteCmdRetParam *fuzzCmdRes = (DLI_ExecuteCmdRetParam *)SDF_MemAlloc(sizeof(DLI_ExecuteCmdRetParam));
         if (fuzzCmdRes == nullptr) {
             return;
         }
-        (void)memcpy_s(&fuzzCmdRes->cmdOpcode, sizeof(fuzzCmdRes->cmdOpcode), fuzzData, sizeof(fuzzCmdRes->cmdOpcode));
-        pos += sizeof(fuzzCmdRes->cmdOpcode);
-
+        fuzzCmdRes->cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
         fuzzCmdRes->size = sizeof(DLI_ReadRemoteCsCapsEvt);
-
-        fuzzCmdRes->eventParameter = (void *)SDF_MemAlloc(fuzzCmdRes->size);
-        if (fuzzCmdRes->eventParameter == nullptr) {
-            SDF_MemFree(fuzzCmdRes);
-            return;
+        DLI_ReadRemoteCsCapsEvt evt = {0};
+        evt.status = fdp.ConsumeIntegral<uint8_t>();
+        evt.connHandle = fdp.ConsumeIntegral<uint16_t>();
+        for (uint8_t i = 0; i < SLE_MEASURE_LEN; i++) {
+            evt.caps[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        (void)memcpy_s(fuzzCmdRes->eventParameter, fuzzCmdRes->size, fuzzData + pos, fuzzCmdRes->size);
+        fuzzCmdRes->eventParameter = &evt;
 
         EvtReportReadRemoteCsCaps(&fuzzStatus, fuzzStatus, fuzzCmdRes);
-        SDF_MemFree(fuzzCmdRes->eventParameter);
         SDF_MemFree(fuzzCmdRes);
     }
 
@@ -115,34 +124,33 @@ namespace OHOS {
     {
         /* 在原来基础上加了3个多音管道，每个管道3B，还有1B的指示符 */
         uint32_t fuzzLen = HADM_MEASURE_IQ_REPORT_DATA_LEN + 79 * 3 * 3 + 1;
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_ExecuteCmdCbk EvtReportSlemIQ = g_hadmCbkList[FUZZ_THREE];
-        if (size < sizeof(uint16_t) + fuzzLen +
-            sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S)) {
-            return;
-        }
-        size_t pos = 0;
-
-        uint16_t fuzzStatus = 0;
+        uint16_t fuzzStatus = fdp.ConsumeIntegral<uint16_t>();
 
         DLI_ExecuteCmdRetParam *fuzzCmdRes = (DLI_ExecuteCmdRetParam *)SDF_MemAlloc(sizeof(DLI_ExecuteCmdRetParam));
         if (fuzzCmdRes == nullptr) {
             return;
         }
-        (void)memcpy_s(&fuzzCmdRes->cmdOpcode, sizeof(fuzzCmdRes->cmdOpcode),
-            fuzzData + pos, sizeof(fuzzCmdRes->cmdOpcode));
-        pos += sizeof(fuzzCmdRes->cmdOpcode);
-
+        fuzzCmdRes->cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
         fuzzCmdRes->size = fuzzLen;
-
-        fuzzCmdRes->eventParameter = (void *)SDF_MemAlloc(fuzzCmdRes->size +
-            sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S));
+        uint32_t blobSize = fuzzLen + sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S);
+        fuzzCmdRes->eventParameter = (void *)SDF_MemAlloc(blobSize);
         if (fuzzCmdRes->eventParameter == nullptr) {
             SDF_MemFree(fuzzCmdRes);
             return;
         }
-        (void)memcpy_s(fuzzCmdRes->eventParameter, fuzzLen +
-            sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S), fuzzData + pos,
-            fuzzLen + sizeof(DLI_CsIqReportEvt) + sizeof(HadmSlemChmap_S));
+        uint8_t *blob = (uint8_t *)fuzzCmdRes->eventParameter;
+        DLI_CsIqReportEvt *iqEvt = (DLI_CsIqReportEvt *)blob;
+        iqEvt->status = fdp.ConsumeIntegral<uint8_t>();
+        iqEvt->connHandle = fdp.ConsumeIntegral<uint16_t>();
+        iqEvt->slemIdx = fdp.ConsumeIntegral<uint8_t>();
+        uint16_t slemInfo = fdp.ConsumeIntegral<uint16_t>();
+        (void)memcpy_s(&iqEvt->slemInfoType, sizeof(DLI_SlemInfoType), &slemInfo, sizeof(DLI_SlemInfoType));
+        iqEvt->timestampSn = fdp.ConsumeIntegral<uint32_t>();
+        for (uint32_t i = sizeof(DLI_CsIqReportEvt); i < blobSize; i++) {
+            blob[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         EvtReportSlemIQ(&fuzzStatus, fuzzStatus, fuzzCmdRes);
         SDF_MemFree(fuzzCmdRes->eventParameter);
@@ -151,33 +159,23 @@ namespace OHOS {
 
     void FuzzEvtReportMeasureState(const uint8_t *fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_ExecuteCmdCbk EvtReportMeasureState = g_hadmCbkList[FUZZ_FOUR];
-        if (size < sizeof(uint16_t) + sizeof(HadmSoundingStateInfo_S)) {
-            return;
-        }
-        size_t pos = 0;
-
-        uint16_t fuzzStatus = 0;
+        uint16_t fuzzStatus = fdp.ConsumeIntegral<uint16_t>();
 
         DLI_ExecuteCmdRetParam *fuzzCmdRes = (DLI_ExecuteCmdRetParam *)SDF_MemAlloc(sizeof(DLI_ExecuteCmdRetParam));
         if (fuzzCmdRes == nullptr) {
             return;
         }
-
-        (void)memcpy_s(&fuzzCmdRes->cmdOpcode, sizeof(fuzzCmdRes->cmdOpcode), fuzzData, sizeof(fuzzCmdRes->cmdOpcode));
-        pos += sizeof(fuzzCmdRes->cmdOpcode);
-
+        fuzzCmdRes->cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
         fuzzCmdRes->size = sizeof(HadmSoundingStateInfo_S);
-
-        fuzzCmdRes->eventParameter = (void *)SDF_MemAlloc(fuzzCmdRes->size);
-        if (fuzzCmdRes->eventParameter == nullptr) {
-            SDF_MemFree(fuzzCmdRes);
-            return;
-        }
-        (void)memcpy_s(fuzzCmdRes->eventParameter, fuzzCmdRes->size, fuzzData + pos, fuzzCmdRes->size);
+        HadmSoundingStateInfo_S evt = {0};
+        evt.status = fdp.ConsumeIntegral<uint8_t>();
+        evt.posMeasureSigConfigIdx = fdp.ConsumeIntegral<uint8_t>();
+        evt.measureState = fdp.ConsumeIntegral<uint8_t>();
+        fuzzCmdRes->eventParameter = &evt;
 
         EvtReportMeasureState(&fuzzStatus, fuzzStatus, fuzzCmdRes);
-        SDF_MemFree(fuzzCmdRes->eventParameter);
         SDF_MemFree(fuzzCmdRes);
     }
 
@@ -212,12 +210,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 /* Fuzzer entry point */
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    uint8_t *fuzzData = (uint8_t*)malloc(size);
-    if (fuzzData == nullptr) {
-        return 0;
-    }
-    (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzEvt(fuzzData, size);
-    SDF_MemFree(fuzzData);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    OHOS::FuzzEvt(fuzzData, fuzzSize);
     return 0;
 }

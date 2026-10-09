@@ -15,6 +15,7 @@
 
 #include "stackapi_fuzzer.h"
 #include "securec.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 #include "nai_log.h"
 #include "nlstk_log.h"
@@ -87,13 +88,10 @@ namespace OHOS {
     // fuzz func
     void FuzzUapiGleDevd(uint8_t* data, size_t size)
     {
-        if (size < FUZZ_ONE) {
-            return;
-        }
-        uint8_t index = 0;
-        uint8_t len = data[index++];
-        if (size - index < len) {
-            return;
+        FuzzedDataProvider fdp(data, size);
+        uint8_t len = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < len; i++) {
+            (void)fdp.ConsumeIntegral<uint8_t>();
         }
 
         SLE_Addr_S addr = {0};
@@ -119,11 +117,12 @@ namespace OHOS {
 
     void FuzzCfgdb(uint8_t* data, size_t size)
     {
-        if (size < FUZZ_TWO) {
-            return;
-        }
-        (void)NLSTK_CfgdbRegisterConfigListener(fuzz_cfgdb_listern_cbk, (NLSTK_CfgdbModule_E)(data[0] % (NLSTK_CFGDB_MODULE_MAX + 1)),
-             (NLSTK_CfgdbConfig_E)(data[1] % (NLSTK_CFGDB_CONFIG_MAX + 1)));
+        FuzzedDataProvider fdp(data, size);
+        NLSTK_CfgdbModule_E module = static_cast<NLSTK_CfgdbModule_E>(
+            fdp.ConsumeIntegral<uint8_t>() % (NLSTK_CFGDB_MODULE_MAX + 1));
+        NLSTK_CfgdbConfig_E config = static_cast<NLSTK_CfgdbConfig_E>(
+            fdp.ConsumeIntegral<uint8_t>() % (NLSTK_CFGDB_CONFIG_MAX + 1));
+        (void)NLSTK_CfgdbRegisterConfigListener(fuzz_cfgdb_listern_cbk, module, config);
         (void)CfgdbGetLocalVersion();
         CfgdbLocalCsCaps_S caps = {0};
         (void)CfgdbReadLocalCsCaps(&caps);

@@ -24,6 +24,7 @@
 #include "securec.h"
 
 #include "qosm_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 #include "qosm_uevent.h"
 #include "sdf_mem.h"
@@ -103,23 +104,22 @@ uint32_t SDF_ModifyEventArgs(int eventHandle, SDF_EvcEventModifyFunc func)
 namespace OHOS {
     void FuzzQosmUeventApi(const uint8_t* data, size_t size)
     {
-        g_fuzzDataSize = size;
-        uint8_t* fuzzData = static_cast<uint8_t*>(std::malloc(size));
-        if (fuzzData == nullptr) {
-            return;
-        }
-        (void)memcpy_s(fuzzData, size, data, size);
-        g_fuzzData = fuzzData;
+        FuzzedDataProvider fdp(data, size);
+        std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+        g_fuzzDataSize = fuzzVec.size();
+        g_fuzzData = fuzzVec.data();
         QOSM_UeventInit(FuzzAudioDfxProcessDspData);
         QOSM_UeventDeinit();
-        free(fuzzData);
     }
 }  // namespace OHOS
 
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
+extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
+    static uint8_t initBuf[1] = {0};
+    g_fuzzData = initBuf;
+    g_fuzzDataSize = 0;
     return 0;
 }
 

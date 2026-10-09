@@ -14,6 +14,7 @@
  */
 
 #include "port_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 
 #include "nai_log.h"
@@ -49,50 +50,62 @@ typedef enum {
 } FUZZ_NUM_E;
 
 namespace OHOS {
-    void FuzzPortClientApi(uint8_t* data, size_t size)
+    static void PortStateChangeCbkStub(SLE_Addr_S *addr, NLSTK_PortConnectState_E curState,
+        NLSTK_PortConnectState_E preState, NLSTK_Errcode_E ret)
     {
-        if (size > sizeof(NLSTK_PortClientCallBack_S)) {
-            NLSTK_PortClientCallBack_S clientCallback = {0};
-            (void)memcpy_s(&clientCallback, sizeof(NLSTK_PortClientCallBack_S), data, sizeof(NLSTK_PortClientCallBack_S));
-            NLSTK_PortClientRegCbk(&clientCallback);
-            NLSTK_PortClientDeregCbk();
-        }
-        if (size > sizeof(NLSTK_SsapUuid_S)) {
-            SLE_Addr_S addr = {0};
-            (void)memcpy_s(&addr, sizeof(SLE_Addr_S), data, sizeof(SLE_Addr_S));
-            NLSTK_ConnParam_S connParam = { 0 };
-            NLSTK_PortConnect(&addr, &connParam);
-            sleep(1);
-            PortInfoCache_S *portInfoCache = PortFindInfoCacheByAddr(&addr);
-            if (portInfoCache != NULL && portInfoCache->appId >= 0) {
-                PortConnStateMsg_S connStateMsg = { .state = SSAP_CONNECT_STATE_CONNECTED, .ret = NLSTK_ERRCODE_SUCCESS,
-                    .reason = 0 };
-                PortStmParam_S msg = { .what = PORT_ON_STATE_CHANGED, .extData = (void *)&connStateMsg };
-                PortStateMachineCall(portInfoCache, msg);
-            }
-            int state = 0;
-            NLSTK_PortGetConnectState(&addr, &state);
-            NLSTK_SsapUuid_S uuid = {0};
-            (void)memcpy_s(&uuid, sizeof(NLSTK_SsapUuid_S), data, sizeof(NLSTK_SsapUuid_S));
-            uint16_t portId = 0;
-            NLSTK_PortGetDevicePortIdByUuid(&addr, &uuid, &portId);
-            int portConnectNum = 0;
-            NLSTK_PortGetConnectDeviceNum(&addr, &portConnectNum);
-            NLSTK_PortDisconnect(&addr);
-        }
+        (void)addr;
+        (void)curState;
+        (void)preState;
+        (void)ret;
     }
-    void FuzzPortServerApi(uint8_t* data, size_t size)
+
+    void FuzzPortClientApi(uint8_t *data, size_t size)
     {
-        if (size > sizeof(NLSTK_SsapUuid_S)) {
-            NLSTK_SsapUuid_S uuid = {0};
-            (void)memcpy_s(&uuid, sizeof(NLSTK_SsapUuid_S), data, sizeof(NLSTK_SsapUuid_S));
-            uint16_t manufactureId = 0;
-            uint16_t portId = 0;
-            (void)memcpy_s(&manufactureId, sizeof(uint16_t), data, sizeof(uint16_t));
-            (void)memcpy_s(&manufactureId, sizeof(uint16_t), data + sizeof(uint16_t), sizeof(uint16_t));
-            NLSTK_PortAddByUuid(&uuid, manufactureId, portId);
-            NLSTK_PortDeleteByUuid(&uuid);
+        FuzzedDataProvider fdp(data, size);
+        NLSTK_PortClientCallBack_S clientCallback = {0};
+        clientCallback.connectStateChangeCbk = PortStateChangeCbkStub;
+        NLSTK_PortClientRegCbk(&clientCallback);
+        NLSTK_PortClientDeregCbk();
+
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
+        NLSTK_ConnParam_S connParam = {0};
+        connParam.frameType = fdp.ConsumeIntegral<uint8_t>();
+        NLSTK_PortConnect(&addr, &connParam);
+        sleep(1);
+        PortInfoCache_S *portInfoCache = PortFindInfoCacheByAddr(&addr);
+        if (portInfoCache != NULL && portInfoCache->appId >= 0) {
+            PortConnStateMsg_S connStateMsg = { .state = SSAP_CONNECT_STATE_CONNECTED, .ret = NLSTK_ERRCODE_SUCCESS,
+                .reason = 0 };
+            PortStmParam_S msg = { .what = PORT_ON_STATE_CHANGED, .extData = (void *)&connStateMsg };
+            PortStateMachineCall(portInfoCache, msg);
+        }
+        int state = 0;
+        NLSTK_PortGetConnectState(&addr, &state);
+        NLSTK_SsapUuid_S uuid = {0};
+        for (uint8_t i = 0; i < SSAP_UUID128_LEN; i++) {
+            uuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint16_t portId = 0;
+        NLSTK_PortGetDevicePortIdByUuid(&addr, &uuid, &portId);
+        int portConnectNum = 0;
+        NLSTK_PortGetConnectDeviceNum(&addr, &portConnectNum);
+        NLSTK_PortDisconnect(&addr);
+    }
+    void FuzzPortServerApi(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+        NLSTK_SsapUuid_S uuid = {0};
+        for (uint8_t i = 0; i < SSAP_UUID128_LEN; i++) {
+            uuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint16_t manufactureId = fdp.ConsumeIntegral<uint16_t>();
+        uint16_t portId = fdp.ConsumeIntegral<uint16_t>();
+        NLSTK_PortAddByUuid(&uuid, manufactureId, portId);
+        NLSTK_PortDeleteByUuid(&uuid);
     }
 
     void FuzzPortApi(uint8_t *data, size_t size)

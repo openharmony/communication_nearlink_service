@@ -16,6 +16,7 @@
 #include "cmicb_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
 #include "cm_icb_api.h"
+#include "cm_icb_inner_api.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
 #include "sdf_evc.h"
@@ -61,7 +62,7 @@ static void FreqBandListenerImpl(CM_FreqBandSwitchParam *param)
 
 static CM_ICBType ConsumeIcbType(FuzzedDataProvider &fdp)
 {
-    return static_cast<CM_ICBType>(fdp.ConsumeIntegral<uint8_t>() % 2);
+    return static_cast<CM_ICBType>(fdp.ConsumeIntegral<uint8_t>());
 }
 
 void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
@@ -74,7 +75,7 @@ void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
     uint8_t paramCnt = fdp.ConsumeIntegral<uint8_t>() % FUZZ_ICB_MAX_CNT;
     for (uint8_t i = 0; i < paramCnt; i++) {
         icbParam[i].id = fdp.ConsumeIntegral<uint8_t>();
-        uint8_t innerCnt = fdp.ConsumeIntegral<uint8_t>() % 2;
+        uint8_t innerCnt = fdp.ConsumeIntegral<uint8_t>();
         for (uint8_t j = 0; j < innerCnt; j++) {
             icbInner[i][j].maxSduG2T = fdp.ConsumeIntegral<uint16_t>();
             icbInner[i][j].maxSduT2G = fdp.ConsumeIntegral<uint16_t>();
@@ -250,6 +251,20 @@ void FuzzFreqBandSwitchEvent(const uint8_t *fuzzData, size_t size)
     (void)CM_UnlistenFreqBandSwitchEvent(FreqBandListenerImpl);
 }
 
+static void IcbConnectionStatusCbkImpl(ICBConnectionType type, CM_TransChan_S *trans)
+{
+    (void)type;
+    (void)trans;
+}
+
+void FuzzIcbRegisterConnectionCbk(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider fdp(fuzzData, size);
+    (void)fdp;
+    (void)CM_RegisterICBConnectionCbk(IcbConnectionStatusCbkImpl);
+    (void)CM_UnregisterICBConnectionCbk();
+}
+
 }  // namespace OHOS
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -288,6 +303,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::FuzzIcbSetupDataPath(fuzzData, size);
     OHOS::FuzzIcbRemoveDataPath(fuzzData, size);
     OHOS::FuzzFreqBandSwitchEvent(fuzzData, size);
+    OHOS::FuzzIcbRegisterConnectionCbk(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

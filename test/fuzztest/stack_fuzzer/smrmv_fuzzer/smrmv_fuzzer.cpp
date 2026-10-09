@@ -14,6 +14,7 @@
  */
 
 #include "smrmv_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_algos.h"
 #include "nai_log.h"
 #include "securec.h"
@@ -61,23 +62,17 @@ namespace OHOS {
 
     void FuzzUapiRmvParing(const uint8_t* fuzzData, size_t size)
     {
-        if (size < sizeof(SLE_Addr_S)) {
-            return;
-        }
-
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S *params = (SLE_Addr_S *)malloc(sizeof(SLE_Addr_S));
         if (params == NULL) {
             NAI_LOG_ERROR("malloc failed");
             return;
         }
-        int ii = 0;
-
-        params->type = fuzzData[ii++];
-        
-        for (int i = 0; i < SLE_ADDR_LEN; i ++) {
-            params->addr[i] = fuzzData[ii++];
+        (void)memset_s(params, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        params->type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            params->addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-
         NLSTK_SmRemovePairing(params);
         free(params);
     }

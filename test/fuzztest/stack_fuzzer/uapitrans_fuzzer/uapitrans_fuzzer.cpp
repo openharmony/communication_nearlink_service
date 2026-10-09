@@ -15,6 +15,7 @@
  
 #include "uapitrans_fuzzer.h"
 #include "securec.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
 #include "nlstk_init_api.h"
@@ -34,25 +35,30 @@ namespace OHOS {
 
     void FuzzUapiSleTransportSendData(const uint8_t* Data, size_t size)
     {
-        if (size < sizeof(TRANS_Addr_S) + sizeof(uint8_t) + sizeof(uint8_t)) {
-            return;
-        }
-        uint8_t pos = 0;
+        FuzzedDataProvider fdp(Data, size);
         uint16_t fuzzLen = FUZZ_TWO;
 
         TRANS_Addr_S* fuzzAddr = (TRANS_Addr_S *)SDF_MemZalloc(sizeof(TRANS_Addr_S));
         if (fuzzAddr == nullptr) {
             return;
         }
-        (void)memcpy_s(fuzzAddr, sizeof(TRANS_Addr_S), Data, sizeof(TRANS_Addr_S));
-        pos += sizeof(TRANS_Addr_S);
+        fuzzAddr->devAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            fuzzAddr->devAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        fuzzAddr->tcid = fdp.ConsumeIntegral<uint8_t>();
+        fuzzAddr->proto = static_cast<TRANS_Protocol_E>(fdp.ConsumeIntegral<uint8_t>());
+        fuzzAddr->srcPort = fdp.ConsumeIntegral<uint16_t>();
+        fuzzAddr->dstPort = fdp.ConsumeIntegral<uint16_t>();
 
         uint8_t* fuzzData = (uint8_t *)SDF_MemZalloc(sizeof(uint8_t) * FUZZ_TWO);
         if (fuzzData == nullptr) {
             SDF_MemFree(fuzzAddr);
             return;
         }
-        (void)memcpy_s(fuzzData, sizeof(uint8_t) * FUZZ_TWO, Data + pos, sizeof(uint8_t) * FUZZ_TWO);
+        for (uint8_t i = 0; i < FUZZ_TWO; i++) {
+            fuzzData[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         TRANS_SendData(fuzzAddr, fuzzData, fuzzLen);
         SDF_MemFree(fuzzData);
@@ -61,16 +67,24 @@ namespace OHOS {
 
     void FuzzUapiTransportChannelCreate(const uint8_t* Data, size_t size)
     {
-        if (size < sizeof(QOSM_TransChannelParams_S)) {
-            return;
-        }
+        FuzzedDataProvider fdp(Data, size);
 
         QOSM_TransChannelParams_S *fuzzParams = (QOSM_TransChannelParams_S *)SDF_MemZalloc(
             sizeof(QOSM_TransChannelParams_S));
         if (fuzzParams == nullptr) {
             return;
         }
-        (void)memcpy_s(fuzzParams, sizeof(QOSM_TransChannelParams_S), Data, sizeof(QOSM_TransChannelParams_S));
+        fuzzParams->addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            fuzzParams->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        fuzzParams->linkMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->accessTransMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->srcPort = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->dstPort = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->slqi = static_cast<QOSM_TransChannelSlqi_E>(fdp.ConsumeIntegral<uint8_t>());
+        fuzzParams->tcConf.mode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->frameType = static_cast<QOSM_TransConnFrameType_E>(fdp.ConsumeIntegral<uint8_t>());
 
         QOSM_TransChannelCreate(fuzzParams);
         SDF_MemFree(fuzzParams);
@@ -78,17 +92,18 @@ namespace OHOS {
 
     void FuzzUapiTransportChannelDestroy(const uint8_t* Data, size_t size)
     {
-        if (size < sizeof(QOSM_TransChannelReleaseParams_S)) {
-            return;
-        }
+        FuzzedDataProvider fdp(Data, size);
 
         QOSM_TransChannelReleaseParams_S *fuzzParams = (QOSM_TransChannelReleaseParams_S *)SDF_MemZalloc(
             sizeof(QOSM_TransChannelReleaseParams_S));
         if (fuzzParams == nullptr) {
             return;
         }
-        (void)memcpy_s(fuzzParams, sizeof(QOSM_TransChannelReleaseParams_S), Data,
-            sizeof(QOSM_TransChannelReleaseParams_S));
+        fuzzParams->addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            fuzzParams->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        fuzzParams->tcid = fdp.ConsumeIntegral<uint8_t>();
 
         QOSM_TransChannelDestroy(fuzzParams);
         SDF_MemFree(fuzzParams);
@@ -96,23 +111,21 @@ namespace OHOS {
 
     void FuzzUapiTrnspChannelParamsCheck(const uint8_t* Data, size_t size)
     {
-        if (size < sizeof(SLE_Addr_S) + sizeof(uint16_t) + sizeof(uint16_t)) {
-            return;
-        }
+        FuzzedDataProvider fdp(Data, size);
         QOSM_TransChannelParams_S *fuzzInput = (QOSM_TransChannelParams_S *)SDF_MemZalloc(
             sizeof(QOSM_TransChannelParams_S));
         if (fuzzInput == nullptr) {
             return;
         }
-        uint8_t pos = 0;
 
-        (void)memcpy_s(&fuzzInput->addr, sizeof(SLE_Addr_S), Data, sizeof(SLE_Addr_S));
-        pos += sizeof(SLE_Addr_S);
+        fuzzInput->addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            fuzzInput->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        (void)memcpy_s(&fuzzInput->srcPort, sizeof(uint16_t), Data + pos, sizeof(uint16_t));
-        pos += sizeof(uint16_t);
+        fuzzInput->srcPort = fdp.ConsumeIntegral<uint16_t>();
 
-        (void)memcpy_s(&fuzzInput->dstPort, sizeof(uint16_t), Data + pos, sizeof(uint16_t));
+        fuzzInput->dstPort = fdp.ConsumeIntegral<uint16_t>();
 
         fuzzInput->linkMode = SLE_MODE_ACB;
         fuzzInput->accessTransMode = ACCESS_TRANS_MODE_UNICAST;

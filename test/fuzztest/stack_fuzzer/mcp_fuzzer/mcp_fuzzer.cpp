@@ -143,7 +143,7 @@ void FuzzMcpMediaAuthorizeResult(const uint8_t *fuzzData, size_t size)
     uint16_t requestId = fdp.ConsumeIntegral<uint16_t>();
     int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
     NLSTK_McpPropertyType_E property = static_cast<NLSTK_McpPropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
+        fdp.ConsumeIntegral<uint8_t>());
     uint8_t errorCode = fdp.ConsumeIntegral<uint8_t>();
     (void)NLSTK_McpMediaAuthorizeResult(requestId, instanceId, property, errorCode);
 }
@@ -153,7 +153,7 @@ void FuzzMcpUpdateMediaProperty(const uint8_t *fuzzData, size_t size)
     FuzzedDataProvider fdp(fuzzData, size);
     int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
     NLSTK_McpPropertyType_E property = static_cast<NLSTK_McpPropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
+        fdp.ConsumeIntegral<uint8_t>());
     uint8_t value[FUZZ_MCP_VALUE_BUF_LEN] = {0};
     for (int i = 0; i < FUZZ_MCP_VALUE_BUF_LEN; i++) {
         value[i] = fdp.ConsumeIntegral<uint8_t>();
@@ -183,7 +183,7 @@ void FuzzMcpGetVolume(const uint8_t *fuzzData, size_t size)
     SLE_Addr_S addr = {0};
     FillAddr(fdp, addr);
     NLSTK_McpVolumePropertyType_E property = static_cast<NLSTK_McpVolumePropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MAX_PROPERTY);
+        fdp.ConsumeIntegral<uint8_t>());
     (void)NLSTK_McpGetVolume(&addr, property);
 }
 
@@ -205,7 +205,7 @@ void FuzzMcpSetStreamVolume(const uint8_t *fuzzData, size_t size)
     NLSTK_McpSetStreamVolume_S volumeArray[FUZZ_MCP_STREAM_VOLUME_MAX_NUM] = {};
     for (uint8_t i = 0; i < num; i++) {
         volumeArray[i].volume = fdp.ConsumeIntegral<uint8_t>();
-        volumeArray[i].streamType = static_cast<NLSTK_McpSetStreamVolume_E>(fdp.ConsumeIntegral<uint8_t>() % 2);
+        volumeArray[i].streamType = static_cast<NLSTK_McpSetStreamVolume_E>(fdp.ConsumeIntegral<uint8_t>());
     }
     (void)NLSTK_McpSetStreamVolume(&addr, volumeArray, num);
 }

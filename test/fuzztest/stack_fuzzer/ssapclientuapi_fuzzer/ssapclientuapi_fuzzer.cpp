@@ -71,13 +71,6 @@ void SleLogicLinkRemove_stub(void *param)
 
 namespace OHOS {
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % 16;
-        return hex_digits[random_byte];
-    }
-
     void SsapClientFreeFuncCb (NLSTK_SsapServ_S *service, uint16_t serviceNum)
     {
         return;
@@ -227,6 +220,43 @@ namespace OHOS {
         SsapcCacheFreeServices(serv, num);
     }
 
+    void FuzzSsapClientAsyncApi(uint8_t *data, size_t size)
+    {
+        if (size < SLE_ADDR_LEN) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        SLE_Addr_S addr = {0};
+        memcpy_s(addr.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        NLSTK_ConnParam_S connParam = {0};
+        connParam.frameType = provider.ConsumeIntegral<uint8_t>();
+        NLSTK_SsapAppClientCb_S cb = {0};
+        (void)NLSTK_SsapClientRegAppAsyn(&addr, &connParam, &cb);
+
+        int32_t appId = provider.ConsumeIntegral<int32_t>();
+        NLSTK_SsapClientDeregAppAsync(appId);
+
+        int64_t timeout = provider.ConsumeIntegral<int64_t>();
+        (void)NLSTK_SsapClientSetInteractionTimeout(appId, timeout);
+
+        (void)NLSTK_SsapClientGetServicesAsyn(appId);
+
+        (void)NLSTK_SsapClientGetServicesByUuidAsyn(appId, &g_uuid1);
+
+        uint8_t num = provider.ConsumeIntegral<uint8_t>() % FUZZ_EIGHT;
+        uint16_t handles[FUZZ_EIGHT] = {0};
+        for (uint8_t i = 0; i < num; i++) {
+            handles[i] = provider.ConsumeIntegral<uint16_t>();
+        }
+        (void)NLSTK_SsapClientReadProperties(appId, handles, num);
+
+        bool multiProcessing = false;
+        (void)NLSTK_SsapGetMultiProcessing(appId, &multiProcessing);
+
+        (void)NLSTK_SsapClientConnect(appId);
+        (void)NLSTK_SsapClientDisconnect(appId);
+    }
+
     void FuzzSsapClientApi(uint8_t* data, size_t size)
     {
         if (data == nullptr || size < 1) {
@@ -235,6 +265,7 @@ namespace OHOS {
         FuzzSsapClientUapi(data, size);
         FuzzSsapClientUapi2(data, size);
         FuzzSsapClientUapi3();
+        FuzzSsapClientAsyncApi(data, size);
     }
 }
 

@@ -23,6 +23,7 @@
 #include "sm_slink.h"
 #include "sm_errcode.h"
 #include "smstm_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 extern SDF_Map *g_slinkMap;
 
@@ -44,22 +45,16 @@ typedef enum {
 
 namespace OHOS {
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        return hex_digits[random_byte];
-    }
-
     void FuzzStmInitEncpParamReqReply(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -70,13 +65,14 @@ namespace OHOS {
 
     void FuzzStmInitRemovePair(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -87,13 +83,14 @@ namespace OHOS {
 
     void FuzzStmNegoSuccess(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -104,13 +101,14 @@ namespace OHOS {
 
     void FuzzStmNegoTimeout(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -122,13 +120,14 @@ namespace OHOS {
 
     void FuzzStmNegoRemovePair(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -140,13 +139,14 @@ namespace OHOS {
 
     void FuzzStmNegoEncpParamReqReply(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -157,13 +157,14 @@ namespace OHOS {
 
     void FuzzStmAuthSuccess(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -174,13 +175,14 @@ namespace OHOS {
 
     void FuzzStmAuthTimeout(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -192,13 +194,14 @@ namespace OHOS {
 
     void FuzzStmAuthRemovePair(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -210,13 +213,14 @@ namespace OHOS {
 
     void FuzzStmEncpActiveStart(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -227,13 +231,14 @@ namespace OHOS {
 
     void FuzzStmEncpSuccess(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -244,13 +249,14 @@ namespace OHOS {
 
     void FuzzStmEncpParamReqReply(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -261,13 +267,14 @@ namespace OHOS {
 
     void FuzzStmEncpInternalError(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -279,13 +286,14 @@ namespace OHOS {
 
     void FuzzStmEncpExternalError(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -297,13 +305,14 @@ namespace OHOS {
 
     void FuzzStmEncpRemovePair(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -315,13 +324,14 @@ namespace OHOS {
 
     void FuzzStmFullDisconnect(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -332,13 +342,14 @@ namespace OHOS {
 
     void FuzzStmFullRemovePair(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);

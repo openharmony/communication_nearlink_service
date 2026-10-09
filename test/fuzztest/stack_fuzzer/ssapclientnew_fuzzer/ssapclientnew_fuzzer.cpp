@@ -15,6 +15,7 @@
 
 #include "ssapclientnew_fuzzer.h"
 #include "securec.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 #include "ssapc_client.h"
 #include "ssapc_client_api.h"
@@ -50,9 +51,14 @@ namespace OHOS {
     }
     void FuzzSsapClientHandle(uint8_t* data, size_t size)
     {
+        FuzzedDataProvider fdp(data, size);
         SLE_Addr_S sleAddr = {0};
-        sleAddr.type = PUBLIC_ADDRESS;
-        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, data[0], SendCb);
+        sleAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            sleAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint8_t lcid = fdp.ConsumeIntegral<uint8_t>();
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, lcid, SendCb);
         if (link == nullptr) {
             return;
         }
@@ -62,7 +68,9 @@ namespace OHOS {
             SDF_BuffFree(sdfBuff);
             return;
         }
-        memcpy_s(buf, size, data, size);
+        for (size_t i = 0; i < size; i++) {
+            buf[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SSAPC_ExchangeInfoRspHandle(link, sdfBuff);
         SSAPC_ReadRspHandle(link, sdfBuff);
         SSAPC_ReadByUuidRspHandle(link, sdfBuff);
@@ -74,9 +82,11 @@ namespace OHOS {
 
     void FuzzSsapClientPkt(uint8_t* data, size_t size)
     {
+        FuzzedDataProvider fdp(data, size);
         SLE_Addr_S sleAddr = {0};
         sleAddr.addr[0] = SSAP_FUZZ_IDX1;
-        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, data[0], SendCb);
+        uint8_t lcid = fdp.ConsumeIntegral<uint8_t>();
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, lcid, SendCb);
         if (link == nullptr) {
             return;
         }
@@ -86,54 +96,95 @@ namespace OHOS {
             SDF_BuffFree(sdfBuff);
             return;
         }
-        memcpy_s(buf, size, data, size);
+        for (size_t i = 0; i < size; i++) {
+            buf[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         link->curTask.buff = sdfBuff;
 
         if (size >= sizeof(SSAP_ParamFind_S)) {
             SSAP_ParamFind_S *testData = (SSAP_ParamFind_S *)SDF_MemZalloc(sizeof(SSAP_ParamFind_S));
-            memcpy_s(testData, sizeof(SSAP_ParamFind_S), data, sizeof(SSAP_ParamFind_S));
+            testData->appId = fdp.ConsumeIntegral<int32_t>();
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->type = static_cast<SSAP_FindType_E>(fdp.ConsumeIntegral<uint8_t>());
+            testData->startHandle = fdp.ConsumeIntegral<uint16_t>();
+            testData->endHandle = fdp.ConsumeIntegral<uint16_t>();
             SSAPC_FindReq(link, (void*)testData);
             SDF_MemFree(testData);
         }
 
         if (size >= sizeof(SSAP_WriteCmdInfo_S)) {
             SSAP_WriteCmdInfo_S *testData = (SSAP_WriteCmdInfo_S *)SDF_MemZalloc(sizeof(SSAP_WriteCmdInfo_S) + size);
-            memcpy_s(testData, sizeof(SSAP_WriteCmdInfo_S), data, sizeof(SSAP_WriteCmdInfo_S));
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->handle = fdp.ConsumeIntegral<uint16_t>();
+            testData->type = fdp.ConsumeIntegral<uint8_t>();
             testData->value.len = size;
-            memcpy_s(testData->value.value, size, data, size);
+            for (size_t i = 0; i < size; i++) {
+                testData->value.value[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
             SSAPC_WriteCmd(link, (void*)testData);
             SDF_MemFree(testData);
         }
 
         if (size >= sizeof(SSAP_WriteReqInfo_S)) {
             SSAP_WriteReqInfo_S *testData = (SSAP_WriteReqInfo_S *)SDF_MemZalloc(sizeof(SSAP_WriteReqInfo_S) + size);
-            memcpy_s(testData, sizeof(SSAP_WriteReqInfo_S), data, sizeof(SSAP_WriteReqInfo_S));
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->handle = fdp.ConsumeIntegral<uint16_t>();
+            testData->type = fdp.ConsumeIntegral<uint8_t>();
             testData->value.len = size;
-            memcpy_s(testData->value.value, size, data, size);
+            for (size_t i = 0; i < size; i++) {
+                testData->value.value[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
             SSAPC_WriteReq(link, (void*)testData);
             SDF_MemFree(testData);
         }
 
         if (size >= sizeof(SSAP_ValueAckInfo_S)) {
             SSAP_ValueAckInfo_S *testData = (SSAP_ValueAckInfo_S *)SDF_MemZalloc(sizeof(SSAP_ValueAckInfo_S) + size);
-            memcpy_s(testData, sizeof(SSAP_ValueAckInfo_S), data, sizeof(SSAP_ValueAckInfo_S));
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
             testData->value.len = size;
-            memcpy_s(testData->value.value, size, data, size);
+            for (size_t i = 0; i < size; i++) {
+                testData->value.value[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
             SSAPC_ValueAck(link, (void*)testData);
             SDF_MemFree(testData);
         }
 
         SSAP_ParamFindByUuid_S *testData = (SSAP_ParamFindByUuid_S *)SDF_MemZalloc(sizeof(SSAP_ParamFindByUuid_S));
-        memcpy_s(testData, sizeof(SSAP_ParamFindByUuid_S), data, size);
+        testData->appId = fdp.ConsumeIntegral<int32_t>();
+        testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        testData->type = static_cast<SSAP_FindType_E>(fdp.ConsumeIntegral<uint8_t>());
+        for (uint8_t i = 0; i < SSAP_UUID128_LEN; i++) {
+            testData->uuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        testData->startHandle = fdp.ConsumeIntegral<uint16_t>();
+        testData->endHandle = fdp.ConsumeIntegral<uint16_t>();
         SSAPC_FindByUuidReq(link, (void*)testData);
+        SDF_MemFree(testData);
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
     }
 
     void FuzzSsapClientPktOther(uint8_t* data, size_t size)
     {
+        FuzzedDataProvider fdp(data, size);
         SLE_Addr_S sleAddr = {0};
         sleAddr.addr[0] = SSAP_FUZZ_IDX2;
-        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, data[0], SendCb);
+        uint8_t lcid = fdp.ConsumeIntegral<uint8_t>();
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, lcid, SendCb);
         if (link == nullptr) {
             return;
         }
@@ -143,19 +194,54 @@ namespace OHOS {
             SDF_BuffFree(sdfBuff);
             return;
         }
-        memcpy_s(buf, size, data, size);
+        for (size_t i = 0; i < size; i++) {
+            buf[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         link->curTask.buff = sdfBuff;
 
         if (size >= sizeof(SSAP_ExchangeInfoReqInfo_S)) {
-            SSAPC_ExchangeInfoReq(link, (void*)data);
+            SSAP_ExchangeInfoReqInfo_S *testData =
+                (SSAP_ExchangeInfoReqInfo_S *)SDF_MemZalloc(sizeof(SSAP_ExchangeInfoReqInfo_S));
+            testData->appId = fdp.ConsumeIntegral<int32_t>();
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->mtu = fdp.ConsumeIntegral<uint16_t>();
+            testData->version = fdp.ConsumeIntegral<uint16_t>();
+            SSAPC_ExchangeInfoReq(link, (void*)testData);
+            SDF_MemFree(testData);
         }
 
         if (size >= sizeof(SSAP_ReadReqInfo_S)) {
-            SSAPC_ReadReq(link, (void*)data);
+            SSAP_ReadReqInfo_S *testData = (SSAP_ReadReqInfo_S *)SDF_MemZalloc(sizeof(SSAP_ReadReqInfo_S));
+            testData->appId = fdp.ConsumeIntegral<int32_t>();
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->handle = fdp.ConsumeIntegral<uint16_t>();
+            testData->type = fdp.ConsumeIntegral<uint8_t>();
+            SSAPC_ReadReq(link, (void*)testData);
+            SDF_MemFree(testData);
         }
 
         if (size >= sizeof(SSAP_ReadByUuidReqInfo_S)) {
-            SSAPC_ReadByUuidReq(link, (void*)data);
+            SSAP_ReadByUuidReqInfo_S *testData =
+                (SSAP_ReadByUuidReqInfo_S *)SDF_MemZalloc(sizeof(SSAP_ReadByUuidReqInfo_S));
+            testData->appId = fdp.ConsumeIntegral<int32_t>();
+            testData->addr.type = fdp.ConsumeIntegral<uint8_t>();
+            for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+                testData->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            for (uint8_t i = 0; i < SSAP_UUID128_LEN; i++) {
+                testData->uuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            testData->handleStart = fdp.ConsumeIntegral<uint16_t>();
+            testData->handleEnd = fdp.ConsumeIntegral<uint16_t>();
+            testData->dataType = fdp.ConsumeIntegral<uint8_t>();
+            SSAPC_ReadByUuidReq(link, (void*)testData);
+            SDF_MemFree(testData);
         }
 
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
@@ -201,12 +287,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 /* Fuzzer entry point */
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    uint8_t *fuzzData = (uint8_t*)malloc(size);
-    if (fuzzData == nullptr) {
-        return 0;
-    }
-    memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzSsapClientApi(static_cast<uint8_t *>(fuzzData), size);
-    SDF_MemFree(fuzzData);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    OHOS::FuzzSsapClientApi(fuzzData, fuzzSize);
     return 0;
 }

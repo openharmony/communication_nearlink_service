@@ -17,6 +17,7 @@
 #include "cm_def.h"
 
 #include "ssap_server_find_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "ssaps_server.h"
 #include "ssaps_server_api.h"
 #include "ssaps_service.h"
@@ -111,19 +112,21 @@ namespace OHOS {
 
     void FuzzDliSsapRecvPkt(uint8_t* data, size_t size)
     {
-        if (size < 2) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
 
         SSAP_LinkInit();
         SSAPS_ServiceInit();
         AddService1();
         AddService2();
 
-        SLE_Addr_S sleAddr = {.type = PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
+        SLE_Addr_S sleAddr = {0};
+        sleAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            sleAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         (void)SSAP_CreateSsapLink(&sleAddr, 0, SendFunc);
 
-        if (rand() %2 == 0) {
+        if (fdp.ConsumeBool()) {
             CM_StubDeviceType(CM_DEVTYPE_NEW);
         } else {
             CM_StubDeviceType(CM_DEVTYPE_OLD);
@@ -131,9 +134,11 @@ namespace OHOS {
 
         SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(size + 1);
         uint8_t *buf = SDF_BuffAppend(sdfBuff, size + 1);
-        uint8_t reqOpcode = rand() % 2 == 0 ? SSAP_FIND_STRUCTURE_REQ : SSAP_FIND_STRUCTURE_BY_UUID_REQ;
+        uint8_t reqOpcode = fdp.ConsumeBool() ? SSAP_FIND_STRUCTURE_REQ : SSAP_FIND_STRUCTURE_BY_UUID_REQ;
         buf[0] = reqOpcode;
-        (void)memcpy_s(buf + 1, size, data, size);
+        for (size_t i = 0; i < size; i++) {
+            buf[i + 1] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         DTAP_Data_Info_S info = {0};
         SSAP_Recv(&info, sdfBuff);
@@ -156,12 +161,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 /* Fuzzer entry point */
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    uint8_t *fuzzData = (uint8_t*)malloc(size);
-    if (fuzzData == nullptr) {
-        return 0;
-    }
-    memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzDliSsapRecvPkt(static_cast<uint8_t *>(fuzzData), size);
-    SDF_MemFree(fuzzData);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    OHOS::FuzzDliSsapRecvPkt(fuzzData, fuzzSize);
     return 0;
 }

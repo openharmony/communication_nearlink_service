@@ -16,6 +16,7 @@
 #include "qosmautorate_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
 #include "qosm_autorate.h"
+#include "qosm_trans_channel.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
 #include "sdf_evc.h"
@@ -74,7 +75,7 @@ static void AutoRateSendMsgCbkImpl(const QOSM_AutoRateSendMsgCb *param)
 
 static QOSM_QosIndex ConsumeQosIndex(FuzzedDataProvider &fdp)
 {
-    return static_cast<QOSM_QosIndex>(fdp.ConsumeIntegral<uint8_t>() % QOSM_QOSINDEX_MAX);
+    return static_cast<QOSM_QosIndex>(fdp.ConsumeIntegral<uint8_t>());
 }
 
 void FuzzQosmSetParam(const uint8_t *fuzzData, size_t size)
@@ -125,7 +126,7 @@ void FuzzQosmAddDataPath(const uint8_t *fuzzData, size_t size)
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.connHandle = fdp.ConsumeIntegral<uint16_t>();
     param.direction = fdp.ConsumeIntegral<uint8_t>();
-    param.pathId = static_cast<QOSM_PathId>(fdp.ConsumeIntegral<uint8_t>() % 3);
+    param.pathId = static_cast<QOSM_PathId>(fdp.ConsumeIntegral<uint8_t>());
     param.codec.codecId = fdp.ConsumeIntegral<uint8_t>();
     param.codec.vendorId = fdp.ConsumeIntegral<uint16_t>();
     param.codec.vendorCodecId = fdp.ConsumeIntegral<uint16_t>();
@@ -182,13 +183,34 @@ void FuzzQosmGetIcbParam(const uint8_t *fuzzData, size_t size)
 void FuzzQosmRecvAutoRateMsg(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    QOSM_AutoRateRecvMsgParam param = {};
+    QOSM_AutoRateRecvMsgParam param = {0};
     param.qosId = fdp.ConsumeIntegral<uint8_t>();
     param.qosIndex = ConsumeQosIndex(fdp);
     param.labelId = fdp.ConsumeIntegral<uint8_t>();
     param.msgType = fdp.ConsumeIntegral<uint8_t>();
     param.result = fdp.ConsumeIntegral<uint32_t>();
     (void)QOSM_RecvAutoRateMsg(&param);
+}
+
+static void TransChannelStatusCbkImpl(const QOSM_TransChannelRspParams_S *respParams)
+{
+    (void)respParams;
+}
+
+static bool TransChannelEstablishedCheckCbkImpl(uint16_t srcPort)
+{
+    (void)srcPort;
+    return true;
+}
+
+void FuzzQosmTransChannelCbksRegister(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider fdp(fuzzData, size);
+    (void)fdp;
+    QOSM_TransChannelCbks_S cbks = {0};
+    cbks.statusCbk = TransChannelStatusCbkImpl;
+    cbks.establishedCheck = TransChannelEstablishedCheckCbkImpl;
+    (void)QOSM_TransChannelCbksRegister(&cbks);
 }
 
 }  // namespace OHOS
@@ -233,6 +255,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::FuzzQosmCoexistSuggestion(fuzzData, size);
     OHOS::FuzzQosmGetIcbParam(fuzzData, size);
     OHOS::FuzzQosmRecvAutoRateMsg(fuzzData, size);
+    OHOS::FuzzQosmTransChannelCbksRegister(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

@@ -17,6 +17,7 @@
 #include "cm_common_fuzzer.h"
 #include "cm_concurrent_conn_fuzzer.h"
 #include <cstdint>
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -30,19 +31,17 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     FuzzCmLinkInit();
-    uint8_t *fuzzData = (uint8_t *)malloc(size);
-    if (fuzzData == nullptr) {
-        return 0;
-    }
-    (void)memcpy_s(fuzzData, size, data, size);
-    FuzzCmLinkApi(fuzzData, size);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    FuzzCmLinkApi(fuzzData, fuzzSize);
     FuzzCmLinkDeInit();
 
     FuzzCmConcurrentConnInit();
-    FuzzCmConcurrentConnApi(fuzzData, size);
+    FuzzCmConcurrentConnApi(fuzzData, fuzzSize);
     FuzzCmConcurrentConnDeInit();
     
-    FuzzCmDliAdaptor(fuzzData, size);
-    free(fuzzData);
+    FuzzCmDliAdaptor(fuzzData, fuzzSize);
     return 0;
 }

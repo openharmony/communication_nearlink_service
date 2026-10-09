@@ -14,6 +14,7 @@
  */
  
 #include "advuapi_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
@@ -64,16 +65,13 @@ namespace OHOS {
     void MockAdvCbk(NLSTK_DevdAdvCbkParam_S *param) {}
     void FuzzEnableAdv(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdSetAdvEnable_S)) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
         NLSTK_DevdSetAdvEnable_S *advEnable =
             (NLSTK_DevdSetAdvEnable_S *)SDF_MemZalloc(sizeof(NLSTK_DevdSetAdvEnable_S));
         CP_CHECK_LOG_RETURN_VOID(advEnable != nullptr, "advEnable new fail");
         uint8_t handle = FUZZ_ONE;
-        
-        (void)memcpy_s(advEnable, sizeof(NLSTK_DevdSetAdvEnable_S), fuzzData, sizeof(NLSTK_DevdSetAdvEnable_S));
+
         advEnable->advHandle = handle;
         advEnable->enable = ADV_ENABLED;
 
@@ -98,11 +96,13 @@ namespace OHOS {
         nodeParam->event = FUZZ_TWO;
         DevdAdvNode_S *fuzzNode = DevdGetAdvNode(handle, list);
         if (fuzzNode == nullptr) {
-            fuzzNode = DevdCreateAdvNode(handle, cbk, list);
+            uint8_t createHandle = fdp.ConsumeIntegral<uint8_t>();
+            fuzzNode = DevdCreateAdvNode(createHandle, cbk, list);
         }
 
         // 确保解析16位的数据
-        advEnable->duration = fuzzData[FUZZ_TWO] | (fuzzData[FUZZ_THREE] << FUZZ_EIGHT);
+        advEnable->duration = fdp.ConsumeIntegral<uint16_t>();
+        advEnable->maxAdvEvent = fdp.ConsumeIntegral<uint8_t>();
         advEnable->advHandle = handle;
 
         NLSTK_DevdEnableAdv(advEnable);
@@ -115,52 +115,36 @@ namespace OHOS {
 
     void FuzzUapiSetAdv(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdSetAdvParams_S)) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
         NLSTK_DevdSetAdvParams_S advParams;
         NLSTK_DevdAdvParam_S advParam = {0};
         NLSTK_DevdAdvData_S advData;
-        size_t ii = 0;
 
         advParam.advHandle = 1;
-        advParam.advIntervalMin = (fuzzData[ii] << FUZZ_EIGHT) | fuzzData[ii + FUZZ_ONE];
+        advParam.advIntervalMin = fdp.ConsumeIntegral<uint32_t>();
+        advParam.advIntervalMax = fdp.ConsumeIntegral<uint32_t>();
+        advParam.advChannelMap = fdp.ConsumeIntegral<uint8_t>() % FUZZ_THREE;
+        advParam.ownAddr.type = fdp.ConsumeIntegral<uint8_t>();
 
-        advParam.advIntervalMax = (fuzzData[ii + FUZZ_TWO] << FUZZ_EIGHT) | fuzzData[ii + FUZZ_THREE];
-        ii += FUZZ_FOUR;
-
-        advParam.advChannelMap = fuzzData[ii++] % FUZZ_THREE;
-
-        CP_CHECK_LOG_RETURN_VOID(ii + SLE_ADDR_LEN + FUZZ_ONE <= size, "SLE_ADDR_LEN != FUZZ_SIX");
-
-        for (int i = 0; i < SLE_ADDR_LEN; i++) {
-            advParam.ownAddr.addr[i] = fuzzData[ii++];
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            advParam.ownAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
-        CP_CHECK_LOG_RETURN_VOID(ii + FUZZ_FOUR <= size, "fuzzsize error");
         uint8_t *advDataBuf = (uint8_t *)malloc(FUZZ_TWOHUNDREDFIFTYSIX);
         uint8_t *scanRspDataBuf = (uint8_t *)malloc(FUZZ_TWOHUNDREDFIFTYSIX);
         CP_CHECK_LOG_RETURN_VOID(advDataBuf != nullptr && scanRspDataBuf != nullptr, "[Fuzz]memory alloc error");
 
-        advData.advDataLen = (fuzzData[ii] << FUZZ_EIGHT) | (fuzzData[ii + FUZZ_ONE]);
-        advData.scanRspDataLen = (fuzzData[ii + FUZZ_TWO] << FUZZ_EIGHT) | (fuzzData[ii + FUZZ_THREE]);
-        ii += FUZZ_FOUR;
+        uint8_t advDataLen = fdp.ConsumeIntegral<uint8_t>();
+        uint8_t scanRspDataLen = fdp.ConsumeIntegral<uint8_t>();
+        advData.advDataLen = advDataLen;
+        advData.scanRspDataLen = scanRspDataLen;
 
-        if (ii + advData.advDataLen + advData.scanRspDataLen <= size &&
-            advData.advDataLen <= FUZZ_TWOHUNDREDFIFTYSIX && advData.scanRspDataLen <= FUZZ_TWOHUNDREDFIFTYSIX) {
-            if (memcpy_s(advDataBuf, FUZZ_TWOHUNDREDFIFTYSIX, fuzzData + ii, advData.advDataLen) != 0) {
-                free(advDataBuf);
-                free(scanRspDataBuf);
-                return;
-            }
-            ii += advData.advDataLen;
-            if (memcpy_s(scanRspDataBuf, FUZZ_TWOHUNDREDFIFTYSIX, fuzzData + ii, advData.scanRspDataLen) != 0) {
-                free(advDataBuf);
-                free(scanRspDataBuf);
-                return;
-            }
-            ii += advData.scanRspDataLen;
+        for (uint8_t i = 0; i < advDataLen; i++) {
+            advDataBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        for (uint8_t i = 0; i < scanRspDataLen; i++) {
+            scanRspDataBuf[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
         // Set adv_data and scan_rsp_data
@@ -171,14 +155,18 @@ namespace OHOS {
         advParams.param = advParam;
         advParams.data = advData;
         advParams.param.extParam = nullptr; // Assuming ext_param is not used in this test
-        if (memcpy_s(advParams.param.connParam, sizeof(NLSTK_DevdConnParam_S),
-            fuzzData, sizeof(NLSTK_DevdConnParam_S)) != 0) {
-            free(advDataBuf);
-            free(scanRspDataBuf);
-            return;
-        }
+        NLSTK_DevdConnParam_S *connParam = (NLSTK_DevdConnParam_S *)SDF_MemZalloc(sizeof(NLSTK_DevdConnParam_S));
+        CP_CHECK_LOG_RETURN_VOID(connParam != nullptr, "[Fuzz]memory alloc error");
+        connParam->intervalMin = fdp.ConsumeIntegral<uint16_t>();
+        connParam->intervalMax = fdp.ConsumeIntegral<uint16_t>();
+        connParam->maxLatency = fdp.ConsumeIntegral<uint16_t>();
+        connParam->supervisionTimeout = fdp.ConsumeIntegral<uint16_t>();
+        connParam->minCeLength = fdp.ConsumeIntegral<uint16_t>();
+        connParam->maxCeLength = fdp.ConsumeIntegral<uint16_t>();
+        advParams.param.connParam = connParam;
 
         NLSTK_DevdStartAdv(&advParams);
+        SDF_MemFree(connParam);
         free(advDataBuf);
         free(scanRspDataBuf);
     }
@@ -191,37 +179,26 @@ namespace OHOS {
 
     void FuzzUpdateAdvData(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdSetAdvData_S)) {
-            return;
-        }
-        int ii = 0;
+        FuzzedDataProvider fdp(fuzzData, size);
         uint8_t handle = 1;
 
         NLSTK_DevdSetAdvData_S setData;
         setData.advHandle = handle;
-        setData.data.advDataLen = (fuzzData[ii] << FUZZ_EIGHT) | (fuzzData[ii + FUZZ_ONE]);
-        setData.data.scanRspDataLen = (fuzzData[ii + FUZZ_TWO] << FUZZ_EIGHT) | (fuzzData[ii + FUZZ_THREE]);
-        ii += sizeof(uint16_t) * FUZZ_TWO;
+        uint8_t advDataLen = fdp.ConsumeIntegral<uint8_t>();
+        uint8_t scanRspDataLen = fdp.ConsumeIntegral<uint8_t>();
+        setData.data.advDataLen = advDataLen;
+        setData.data.scanRspDataLen = scanRspDataLen;
 
-        setData.data.advData = (uint8_t *)SDF_MemZalloc(setData.data.advDataLen);
+        setData.data.advData = (uint8_t *)SDF_MemZalloc(advDataLen);
         CP_CHECK_LOG_RETURN_VOID(setData.data.advData != nullptr, "[Fuzz]memory alloc error");
-        setData.data.scanRspData = (uint8_t *)SDF_MemZalloc(setData.data.scanRspDataLen);
+        setData.data.scanRspData = (uint8_t *)SDF_MemZalloc(scanRspDataLen);
         CP_CHECK_LOG_RETURN_VOID(setData.data.scanRspData != nullptr, "[Fuzz]memory alloc error");
 
-        if (size >= setData.data.advDataLen + ii) {
-            (void)memcpy_s(setData.data.advData, setData.data.advDataLen, fuzzData + ii, setData.data.advDataLen);
-        } else {
-            SDF_MemFree(setData.data.advData);
-            SDF_MemFree(setData.data.scanRspData);
-            return;
+        for (uint8_t i = 0; i < advDataLen; i++) {
+            setData.data.advData[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        if (size >= setData.data.advDataLen + setData.data.scanRspDataLen + ii) {
-            (void)memcpy_s(setData.data.scanRspData, setData.data.scanRspDataLen, fuzzData + ii +
-                setData.data.advDataLen, setData.data.scanRspDataLen);
-        } else {
-            SDF_MemFree(setData.data.advData);
-            SDF_MemFree(setData.data.scanRspData);
-            return;
+        for (uint8_t i = 0; i < scanRspDataLen; i++) {
+            setData.data.scanRspData[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
         NLSTK_DevdSetAdvData(&setData);

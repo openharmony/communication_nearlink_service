@@ -15,6 +15,7 @@
 #include "cm_concurrent_conn_fuzzer.h"
 #include <cstddef>
 #include <type_traits>
+#include "fuzzer/FuzzedDataProvider.h"
 #include "cm.h"
 #include "securec.h"
 #include "sdf_buff.h"
@@ -44,12 +45,15 @@ extern "C" void CP_TimerDel(int handle)
 namespace OHOS {
     void FuzzCmCCDirectConnAddApi(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(uint8_t) + sizeof(SLE_Addr_S)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint8_t moduleId = 0;
         CM_DirectConnAddrParam_S param = {};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(moduleId, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.addr, data, offset);
+        moduleId = provider.ConsumeIntegral<uint8_t>();
+        param.addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        param.frameType = provider.ConsumeIntegral<uint8_t>();
         uint32_t ret = CM_DirectConnectAdd(moduleId, &param);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_DirectConnectAdd failed, ret:%d", ret);
@@ -59,14 +63,16 @@ namespace OHOS {
 
     void FuzzCmCCDirectConnRmvApi(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(uint8_t) + sizeof(SLE_Addr_S) + sizeof(uint8_t)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint8_t moduleId = 0;
         uint8_t discReason = 0;
-        uint32_t offset = 0;
         CM_DirectConnAddrParam_S param = {};
-        CM_FUZZER_DATA_OFFSET(moduleId, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.addr, data, offset);
-        CM_FUZZER_DATA_OFFSET(discReason, data, offset);
+        moduleId = provider.ConsumeIntegral<uint8_t>();
+        param.addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        discReason = provider.ConsumeIntegral<uint8_t>();
         CM_DirectConnectAdd(moduleId, &param);
         moduleId = (moduleId % 2 == 0 ? 0x10 : 0x21);
         CM_DirectConnectRemove(moduleId, &param.addr, discReason);
@@ -74,19 +80,23 @@ namespace OHOS {
 
     void FuzzCmCCBgConnAddApi(uint8_t *data, size_t size)
     {
+        FuzzedDataProvider provider(data, size);
         const uint8_t testMaxAddrArrCount = 255;
-        CM_CHECK_RETURN(size >= (sizeof(uint8_t) + sizeof(CM_BgConnAddrParam_S) * testMaxAddrArrCount), "Input size error.");
         uint8_t moduleId = 0;
         uint8_t addrArrCount = 0;
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(moduleId, data, offset);
-        CM_FUZZER_DATA_OFFSET(addrArrCount, data, offset);
+        moduleId = provider.ConsumeIntegral<uint8_t>();
+        addrArrCount = provider.ConsumeIntegral<uint8_t>() % testMaxAddrArrCount;
         CM_BgConnAddrParam_S *addrArr = (CM_BgConnAddrParam_S *)SDF_MemZalloc(addrArrCount * sizeof(CM_BgConnAddrParam_S));
         CM_CHECK_RETURN(addrArr != NULL, "malloc failed");
         for (uint8_t i = 0; i < addrArrCount; i++) {
-            CM_FUZZER_DATA_OFFSET(*(addrArr + i), data, offset);
+            (addrArr + i)->addr.type = provider.ConsumeIntegral<uint8_t>();
+            for (uint8_t j = 0; j < SLE_ADDR_LEN; j++) {
+                (addrArr + i)->addr.addr[j] = provider.ConsumeIntegral<uint8_t>();
+            }
+            (addrArr + i)->isBypass = provider.ConsumeBool();
         }
         uint32_t ret = CM_BackgroundConnectAdd(moduleId, addrArrCount, addrArr);
+        SDF_MemFree(addrArr);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_BackgroundConnectAdd failed, ret:%d", ret);
             return;
@@ -95,12 +105,14 @@ namespace OHOS {
 
     void FuzzCmCCBgConnRmvApi(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(uint8_t) + sizeof(SLE_Addr_S)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint8_t moduleId = 0;
         SLE_Addr_S addr = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(moduleId, data, offset);
-        CM_FUZZER_DATA_OFFSET(addr, data, offset);
+        moduleId = provider.ConsumeIntegral<uint8_t>();
+        addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         uint32_t ret = CM_BackgroundConnectRemove(moduleId, &addr);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_BackgroundConnectRemove failed, ret:%d", ret);
@@ -110,10 +122,9 @@ namespace OHOS {
 
     void FuzzCmCCBgConnClearApi(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(uint8_t), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint8_t moduleId = 0;
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(moduleId, data, offset);
+        moduleId = provider.ConsumeIntegral<uint8_t>();
         uint32_t ret = CM_BackgroundConnectClear(moduleId);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_BackgroundConnectClear failed, ret:%d", ret);
