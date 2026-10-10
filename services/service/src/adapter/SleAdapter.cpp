@@ -2129,6 +2129,7 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
     int pairState, int reason, bool isNeedBgConn) const
 {
     uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
+    // ACB正在连接时无后续profile断连事件时不拦截
     if (profileConnectState > SLE_ADAPTER_PROF_CONN_STATE_ACB_CONNECTING) {
         int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
         if(saveReason == 0) {
@@ -2138,7 +2139,7 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
         "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
         return;
     }
-    if(!isNeedBgConn) {
+    if (!isNeedBgConn) {
         int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
         if(saveReason !=0 && saveReason != reason) {
             isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
