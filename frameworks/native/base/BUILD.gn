@@ -34,7 +34,6 @@ BaseIpcSrc = [
 
 config("nearlink_base_public") {
     include_dirs = [
-        ".",
         "$NEARLINK_ROOT/interfaces/inner_api/include",
         "$NEARLINK_ROOT/interfaces/inner_api/include/base",
         "$NEARLINK_ROOT/interfaces/def",

@@ -153,16 +153,6 @@
                     "name": "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework"
                 },
                 {
-                    "header": {
-                        "header_base": "//foundation/communication/nearlink_service/interfaces/inner_api/include",
-                        "header_files": [
-                            "base/nearlink_base_api.h",
-                            "base/nearlink_base_host.h",
-                            "base/nearlink_base_remote_device.h",
-                            "base/nearlink_base_sa_manager.h",
-                            "base/nearlink_base_sle_controller.h"
-                        ]
-                    },
                     "name": "//foundation/communication/nearlink_service/frameworks/native/base:nearlink_framework_base"
                 },
                 {
