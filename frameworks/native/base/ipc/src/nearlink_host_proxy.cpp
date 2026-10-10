@@ -653,8 +653,7 @@ NlErrCode NearlinkHostProxy::SetPairingPassCode(int32_t transport, const std::st
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::IsBondedFromLocal(int32_t transport, const std::string &address,
-    bool &isBondedFromLocal)
+NlErrCode NearlinkHostProxy::IsBondedFromLocal(int32_t transport, const std::string &address, bool &isBondedFromLocal)
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkHostProxy::GetDescriptor()),
@@ -913,8 +912,7 @@ NlErrCode NearlinkHostProxy::GetDeviceModel(const std::string &address, Nearlink
     return exception;
 }
 
-NlErrCode NearlinkHostProxy::GetDeviceInformation(const std::string &address,
-    NearlinkDeviceInformation &information)
+NlErrCode NearlinkHostProxy::GetDeviceInformation(const std::string &address, NearlinkDeviceInformation &information)
 {
     HILOGI("enter");
     MessageParcel data;
@@ -995,8 +993,7 @@ NlErrCode NearlinkHostProxy::SetFreqHopping(const std::vector<uint8_t> &freq)
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkHostProxy::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid,
-    const int64_t refuseTime)
+NlErrCode NearlinkHostProxy::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
 {
     HILOGI("enter");
     MessageParcel data;

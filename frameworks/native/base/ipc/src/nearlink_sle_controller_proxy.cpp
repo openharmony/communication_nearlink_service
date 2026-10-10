@@ -109,4 +109,4 @@ ErrCode NearlinkSleControllerProxy::InnerTransact(
         }
     }
 }
-}
+}  // namespace OHOS::Nearlink

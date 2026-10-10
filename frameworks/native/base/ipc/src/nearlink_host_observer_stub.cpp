@@ -25,16 +25,13 @@ NearlinkHostObserverStub::NearlinkHostObserverStub()
         &NearlinkHostObserverStub::OnStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_PAIR_CONFIRMED)] =
         &NearlinkHostObserverStub::OnPairConfirmedInner;
-    memberFuncMap_[static_cast<uint32_t>(
-        NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_NAME_CHANGED)] =
+    memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_NAME_CHANGED)] =
         &NearlinkHostObserverStub::OnDeviceNameChangedInner;
-    memberFuncMap_[static_cast<uint32_t>(
-        NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_ADDR_CHANGED)] =
+    memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_ADDR_CHANGED)] =
         &NearlinkHostObserverStub::OnDeviceAddrChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_FULL_STATE_CHANGE)] =
         &NearlinkHostObserverStub::OnFullStateChangedInner;
-    memberFuncMap_[static_cast<uint32_t>(
-        NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_SWITCH_STATE_CHANGED)] =
+    memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_SWITCH_STATE_CHANGED)] =
         &NearlinkHostObserverStub::OnSwitchStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DISABLE_RESPONSE)] =
         &NearlinkHostObserverStub::OnDisableResponseInner;
