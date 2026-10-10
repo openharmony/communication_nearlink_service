@@ -82,6 +82,7 @@ typedef struct {
     SLE_Addr_S addr;
     int32_t appId;
     uint16_t groupId;
+    uint16_t configGid;
     uint8_t mebId;
     uint8_t curStreamId;
     uint8_t lastErr;
