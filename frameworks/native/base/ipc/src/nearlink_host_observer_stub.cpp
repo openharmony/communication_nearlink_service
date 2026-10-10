@@ -13,44 +13,44 @@
  * limitations under the License.
  */
 
-#include "nearlink_base_host_observer_stub.h"
+#include "nearlink_host_observer_stub.h"
 #include "log.h"
 
 namespace OHOS {
 namespace Nearlink {
-NearlinkBaseHostObserverStub::NearlinkBaseHostObserverStub()
+NearlinkHostObserverStub::NearlinkHostObserverStub()
 {
     HILOGD("enter");
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_STATE_CHANGE)] =
-        &NearlinkBaseHostObserverStub::OnStateChangedInner;
+        &NearlinkHostObserverStub::OnStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_PAIR_CONFIRMED)] =
-        &NearlinkBaseHostObserverStub::OnPairConfirmedInner;
+        &NearlinkHostObserverStub::OnPairConfirmedInner;
     memberFuncMap_[static_cast<uint32_t>(
         NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_NAME_CHANGED)] =
-        &NearlinkBaseHostObserverStub::OnDeviceNameChangedInner;
+        &NearlinkHostObserverStub::OnDeviceNameChangedInner;
     memberFuncMap_[static_cast<uint32_t>(
         NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DEVICE_ADDR_CHANGED)] =
-        &NearlinkBaseHostObserverStub::OnDeviceAddrChangedInner;
+        &NearlinkHostObserverStub::OnDeviceAddrChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_FULL_STATE_CHANGE)] =
-        &NearlinkBaseHostObserverStub::OnFullStateChangedInner;
+        &NearlinkHostObserverStub::OnFullStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(
         NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_SWITCH_STATE_CHANGED)] =
-        &NearlinkBaseHostObserverStub::OnSwitchStateChangedInner;
+        &NearlinkHostObserverStub::OnSwitchStateChangedInner;
     memberFuncMap_[static_cast<uint32_t>(NearlinkHostObserverInterfaceCode::NL_HOST_OBSERVER_DISABLE_RESPONSE)] =
-        &NearlinkBaseHostObserverStub::OnDisableResponseInner;
+        &NearlinkHostObserverStub::OnDisableResponseInner;
 }
 
-NearlinkBaseHostObserverStub::~NearlinkBaseHostObserverStub()
+NearlinkHostObserverStub::~NearlinkHostObserverStub()
 {
     HILOGD("enter");
     memberFuncMap_.clear();
 }
 
-int32_t NearlinkBaseHostObserverStub::OnRemoteRequest(
+int32_t NearlinkHostObserverStub::OnRemoteRequest(
     uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option)
 {
     HILOGD("transaction of code: %{public}d is received", code);
-    if (NearlinkBaseHostObserverStub::GetDescriptor() != data.ReadInterfaceToken()) {
+    if (NearlinkHostObserverStub::GetDescriptor() != data.ReadInterfaceToken()) {
         HILOGE("local descriptor is not equal to remote");
         return ERR_INVALID_STATE;
     }
@@ -67,7 +67,7 @@ int32_t NearlinkBaseHostObserverStub::OnRemoteRequest(
     return IPCObjectStub::OnRemoteRequest(code, data, reply, option);
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnStateChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     int32_t transport = data.ReadInt32();
     int32_t state = data.ReadInt32();
@@ -78,7 +78,7 @@ ErrCode NearlinkBaseHostObserverStub::OnStateChangedInner(MessageParcel &data, M
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnFullStateChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnFullStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     int32_t transport = data.ReadInt32();
     int32_t state = data.ReadInt32();
@@ -89,7 +89,7 @@ ErrCode NearlinkBaseHostObserverStub::OnFullStateChangedInner(MessageParcel &dat
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnSwitchStateChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnSwitchStateChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     int32_t state = data.ReadInt32();
 
@@ -99,7 +99,7 @@ ErrCode NearlinkBaseHostObserverStub::OnSwitchStateChangedInner(MessageParcel &d
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnDisableResponseInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnDisableResponseInner(MessageParcel &data, MessageParcel &reply)
 {
     bool isHalfDisable = data.ReadBool();
 
@@ -109,7 +109,7 @@ ErrCode NearlinkBaseHostObserverStub::OnDisableResponseInner(MessageParcel &data
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnPairConfirmedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnPairConfirmedInner(MessageParcel &data, MessageParcel &reply)
 {
     int32_t transport = data.ReadInt32();
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
@@ -125,7 +125,7 @@ ErrCode NearlinkBaseHostObserverStub::OnPairConfirmedInner(MessageParcel &data, 
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnDeviceNameChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnDeviceNameChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::string deviceName = data.ReadString();
 
@@ -135,7 +135,7 @@ ErrCode NearlinkBaseHostObserverStub::OnDeviceNameChangedInner(MessageParcel &da
     return NO_ERROR;
 }
 
-ErrCode NearlinkBaseHostObserverStub::OnDeviceAddrChangedInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkHostObserverStub::OnDeviceAddrChangedInner(MessageParcel &data, MessageParcel &reply)
 {
     std::string address = data.ReadString();
 

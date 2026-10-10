@@ -13,33 +13,35 @@
  * limitations under the License.
  */
 
-#include "nearlink_base_device_rssi_observer_stub.h"
+#include "nearlink_device_battery_observer_stub.h"
 #include "log.h"
 #include "ipc_types.h"
 #include "string_ex.h"
 
 namespace OHOS {
 namespace Nearlink {
-NearlinkBaseDeviceRssiObserverStub::NearlinkBaseDeviceRssiObserverStub()
+NearlinkDeviceBatteryObserverStub::NearlinkDeviceBatteryObserverStub()
 {
     HILOGD("start.");
     memberFuncMap_ = {
-        {static_cast<uint32_t>(NearlinkDeviceRssiObserverInterfaceCode::NL_SLE_GET_RSSI_EVENT),
-         &NearlinkBaseDeviceRssiObserverStub::OnReadRemoteRssiEventInner},
+        {static_cast<uint32_t>(NearlinkDeviceBatteryObserverInterfaceCode::NL_SLE_GET_BATTERYLEVEL_EVENT),
+            &NearlinkDeviceBatteryObserverStub::OnGetBatteryLevelEventInner},
+        {static_cast<uint32_t>(NearlinkDeviceBatteryObserverInterfaceCode::NL_SLE_BATTERYLEVEL_CHANGED),
+            &NearlinkDeviceBatteryObserverStub::OnBatteryLevelChangedInner},
     };
 }
 
-NearlinkBaseDeviceRssiObserverStub::~NearlinkBaseDeviceRssiObserverStub()
+NearlinkDeviceBatteryObserverStub::~NearlinkDeviceBatteryObserverStub()
 {
     HILOGD("start.");
     memberFuncMap_.clear();
 }
 
-int NearlinkBaseDeviceRssiObserverStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
-                                                    MessageOption &option)
+int NearlinkDeviceBatteryObserverStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
+    MessageOption &option)
 {
     HILOGD("cmd=%{public}d, flags=%{public}d", code, option.GetFlags());
-    if (NearlinkBaseDeviceRssiObserverStub::GetDescriptor() != data.ReadInterfaceToken()) {
+    if (NearlinkDeviceBatteryObserverStub::GetDescriptor() != data.ReadInterfaceToken()) {
         HILOGI("local descriptor is not equal to remote");
         return ERR_INVALID_STATE;
     }
@@ -55,15 +57,28 @@ int NearlinkBaseDeviceRssiObserverStub::OnRemoteRequest(uint32_t code, MessagePa
     return IPCObjectStub::OnRemoteRequest(code, data, reply, option);
 }
 
-ErrCode NearlinkBaseDeviceRssiObserverStub::OnReadRemoteRssiEventInner(MessageParcel &data, MessageParcel &reply)
+ErrCode NearlinkDeviceBatteryObserverStub::OnGetBatteryLevelEventInner(MessageParcel &data, MessageParcel &reply)
 {
     std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
     NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device transaction wrong.");
 
-    int32_t rssi = data.ReadInt32();
-    int32_t status = data.ReadInt32();
+    int32_t batteryLevel = data.ReadInt32();
 
-    OnReadRemoteRssiEvent(*device, rssi, status);
+    HILOGI("starts");
+    OnGetBatteryLevelEvent(*device, batteryLevel);
+
+    return NO_ERROR;
+}
+
+ErrCode NearlinkDeviceBatteryObserverStub::OnBatteryLevelChangedInner(MessageParcel &data, MessageParcel &reply)
+{
+    std::shared_ptr<NearlinkRawAddress> device(data.ReadParcelable<NearlinkRawAddress>());
+    NL_CHECK_RETURN_RET(device, TRANSACTION_ERR, "device transaction wrong.");
+
+    int32_t batteryLevel = data.ReadInt32();
+
+    HILOGI("starts");
+    OnBatteryLevelChanged(*device, batteryLevel);
 
     return NO_ERROR;
 }

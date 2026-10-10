@@ -22,10 +22,10 @@
 #include "i_nearlink_host.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_base_host_load_callback.h"
-#include "nearlink_base_host_observer_stub.h"
-#include "nearlink_base_sle_peripheral_observer_stub.h"
-#include "nearlink_base_device_battery_observer_stub.h"
-#include "nearlink_base_device_rssi_observer_stub.h"
+#include "nearlink_host_observer_stub.h"
+#include "nearlink_sle_peripheral_observer_stub.h"
+#include "nearlink_device_battery_observer_stub.h"
+#include "nearlink_device_rssi_observer_stub.h"
 #include "nearlink_base_switch_module.h"
 #include "nearlink_utils.h"
 #include "ffrt_inner.h"
@@ -124,7 +124,7 @@ private:
     std::weak_ptr<NearlinkBaseHost::impl> slefHostImplWeak_;
 };
 
-class NearlinkBaseHost::impl::NearlinkHostObserverImp : public NearlinkBaseHostObserverStub {
+class NearlinkBaseHost::impl::NearlinkHostObserverImp : public NearlinkHostObserverStub {
 public:
     explicit NearlinkHostObserverImp(std::weak_ptr<NearlinkBaseHost::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkHostObserverImp() override{};
@@ -223,7 +223,7 @@ private:
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkHostObserverImp);
 };
 
-class NearlinkBaseHost::impl::NearlinkSlePeripheralCallbackImp : public NearlinkBaseSlePeripheralObserverStub {
+class NearlinkBaseHost::impl::NearlinkSlePeripheralCallbackImp : public NearlinkSlePeripheralObserverStub {
 public:
     explicit NearlinkSlePeripheralCallbackImp(std::weak_ptr<NearlinkBaseHost::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkSlePeripheralCallbackImp() override = default;
@@ -310,7 +310,7 @@ private:
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSlePeripheralCallbackImp);
 };
 
-class NearlinkBaseHost::impl::NearlinkDeviceBatteryObserverImp : public NearlinkBaseDeviceBatteryObserverStub {
+class NearlinkBaseHost::impl::NearlinkDeviceBatteryObserverImp : public NearlinkDeviceBatteryObserverStub {
 public:
     explicit NearlinkDeviceBatteryObserverImp(std::weak_ptr<NearlinkBaseHost::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkDeviceBatteryObserverImp() override{};
@@ -344,7 +344,7 @@ private:
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkDeviceBatteryObserverImp);
 };
 
-class NearlinkBaseHost::impl::NearlinkDeviceRssiObserverImp : public NearlinkBaseDeviceRssiObserverStub {
+class NearlinkBaseHost::impl::NearlinkDeviceRssiObserverImp : public NearlinkDeviceRssiObserverStub {
 public:
     explicit NearlinkDeviceRssiObserverImp(std::weak_ptr<NearlinkBaseHost::impl> hostImpl) : hostImpl_(hostImpl){};
     ~NearlinkDeviceRssiObserverImp() override{};

@@ -24,12 +24,12 @@ BaseSrc = [
 ]
 
 BaseIpcSrc = [
-    "ipc/src/nearlink_base_host_proxy.cpp",
-    "ipc/src/nearlink_base_sle_controller_proxy.cpp",
-    "ipc/src/nearlink_base_host_observer_stub.cpp",
-    "ipc/src/nearlink_base_sle_peripheral_observer_stub.cpp",
-    "ipc/src/nearlink_base_device_battery_observer_stub.cpp",
-    "ipc/src/nearlink_base_device_rssi_observer_stub.cpp",
+    "ipc/src/nearlink_host_proxy.cpp",
+    "ipc/src/nearlink_sle_controller_proxy.cpp",
+    "ipc/src/nearlink_host_observer_stub.cpp",
+    "ipc/src/nearlink_sle_peripheral_observer_stub.cpp",
+    "ipc/src/nearlink_device_battery_observer_stub.cpp",
+    "ipc/src/nearlink_device_rssi_observer_stub.cpp",
 ]
 
 config("nearlink_base_public") {

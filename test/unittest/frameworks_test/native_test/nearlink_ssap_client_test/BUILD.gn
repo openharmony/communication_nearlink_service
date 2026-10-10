@@ -25,6 +25,7 @@ config("native_ssap_client_test_config") {
     "$NEARLINK_ROOT/frameworks/native",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
     "$NEARLINK_ROOT/frameworks/ipc/include/",
+    "$NEARLINK_ROOT/frameworks/native/base/include",
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/services/server/include",

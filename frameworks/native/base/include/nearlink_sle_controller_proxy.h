@@ -34,7 +34,7 @@ public:
 
 private:
     ErrCode InnerTransact(uint32_t code, MessageOption &flags, MessageParcel &data, MessageParcel &reply);
-    static BrokerDelegator<NearlinkSleControllerProxy> delegator_;
+    static inline BrokerDelegator<NearlinkSleControllerProxy> delegator_;
 };
 }  // namespace OHOS::Nearlink
 
