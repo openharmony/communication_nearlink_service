@@ -19,38 +19,33 @@
 namespace OHOS {
 namespace Nearlink {
 
-namespace {
-inline NearlinkBaseSaManager *ToBase(NearlinkSaManager *self)
-{
-    return reinterpret_cast<NearlinkBaseSaManager *>(self);
-}
-}
 NearlinkSaManager &NearlinkSaManager::GetInstance()
 {
-    return reinterpret_cast<NearlinkSaManager&>(NearlinkBaseSaManager::GetInstance());
+    static NearlinkSaManager instance;
+    return instance;
 }
 
 sptr<IRemoteObject> NearlinkSaManager::GetRemoteProfile(const std::string &profileName)
 {
-    return ToBase(this)->GetRemoteProfile(profileName);
+    return impl_.GetRemoteProfile(profileName);
 }
 
 int32_t NearlinkSaManager::RegisterFunc(std::shared_ptr<NearlinkRegisterInfo> info)
 {
-    return ToBase(this)->RegisterFunc(info);
+    return impl_.RegisterFunc(info);
 }
 
 void NearlinkSaManager::DeregisterFunc(int32_t profileId)
 {
-    ToBase(this)->DeregisterFunc(profileId);
+    impl_.DeregisterFunc(profileId);
 }
 
 void NearlinkSaManager::OnStateChanged(const int transport, const int status)
 {
-    ToBase(this)->OnStateChanged(transport, status);
+    impl_.OnStateChanged(transport, status);
 }
 
-NearlinkSaManager::NearlinkSaManager()
+NearlinkSaManager::NearlinkSaManager() : impl_(NearlinkBaseSaManager::GetInstance())
 {
 }
 

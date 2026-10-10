@@ -20,268 +20,259 @@
 namespace OHOS {
 namespace Nearlink {
 
-namespace {
-inline NearlinkBaseHost *ToBase(NearlinkHost *self)
-{
-    return reinterpret_cast<NearlinkBaseHost *>(self);
-}
-inline const NearlinkBaseHost *ToBase(const NearlinkHost *self)
-{
-    return reinterpret_cast<const NearlinkBaseHost *>(self);
-}
-}
 NearlinkHost& NearlinkHost::GetInstance()
 {
-    return reinterpret_cast<NearlinkHost&>(NearlinkBaseHost::GetInstance());
+    static NearlinkHost instance;
+    return instance;
 }
 
 NlErrCode NearlinkHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
-    return ToBase(this)->RegisterObserver(observer);
+    return impl_.RegisterObserver(observer);
 }
 
 NlErrCode NearlinkHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
-    return ToBase(this)->DeregisterObserver(observer);
+    return impl_.DeregisterObserver(observer);
 }
 
 NlErrCode NearlinkHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
-    return ToBase(this)->RegisterBatteryObserver(observer);
+    return impl_.RegisterBatteryObserver(observer);
 }
 
 NlErrCode NearlinkHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
-    return ToBase(this)->DeregisterBatteryObserver(observer);
+    return impl_.DeregisterBatteryObserver(observer);
 }
 
 NlErrCode NearlinkHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
-    return ToBase(this)->RegisterRssiObserver(observer);
+    return impl_.RegisterRssiObserver(observer);
 }
 
 NlErrCode NearlinkHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
-    return ToBase(this)->DeregisterRssiObserver(observer);
+    return impl_.DeregisterRssiObserver(observer);
 }
 
 NlErrCode NearlinkHost::LoadNearlinkSa()
 {
-    return ToBase(this)->LoadNearlinkSa();
+    return impl_.LoadNearlinkSa();
 }
 
 NlErrCode NearlinkHost::EnableNl(const SleAutoConnectPolicy autoConnPolicy)
 {
-    return ToBase(this)->EnableNl(autoConnPolicy);
+    return impl_.EnableNl(autoConnPolicy);
 }
 
 NlErrCode NearlinkHost::EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy)
 {
-    return ToBase(this)->EnableNlAsync(autoConnPolicy);
+    return impl_.EnableNlAsync(autoConnPolicy);
 }
 
 NlErrCode NearlinkHost::DisableNl()
 {
-    return ToBase(this)->DisableNl();
+    return impl_.DisableNl();
 }
 
 NlErrCode NearlinkHost::DisableNlToOff()
 {
-    return ToBase(this)->DisableNlToOff();
+    return impl_.DisableNlToOff();
 }
 
 NlErrCode NearlinkHost::EnableNlToHalf()
 {
-    return ToBase(this)->EnableNlToHalf();
+    return impl_.EnableNlToHalf();
 }
 
 NlErrCode NearlinkHost::EnableNlToHalfAsync()
 {
-    return ToBase(this)->EnableNlToHalfAsync();
+    return impl_.EnableNlToHalfAsync();
 }
 
 SleStateID NearlinkHost::GetSleFullState()
 {
-    return ToBase(this)->GetSleFullState();
+    return impl_.GetSleFullState();
 }
 
 bool NearlinkHost::IsSleEnabled() const
 {
-    return ToBase(this)->IsSleEnabled();
+    return impl_.IsSleEnabled();
 }
 
 bool NearlinkHost::IsSleHalfDisabled() const
 {
-    return ToBase(this)->IsSleHalfDisabled();
+    return impl_.IsSleHalfDisabled();
 }
 
 bool NearlinkHost::IsSleDisabled() const
 {
-    return ToBase(this)->IsSleDisabled();
+    return impl_.IsSleDisabled();
 }
 
 bool NearlinkHost::IsSleAvailableToCaller() const
 {
-    return ToBase(this)->IsSleAvailableToCaller();
+    return impl_.IsSleAvailableToCaller();
 }
 
 bool NearlinkHost::IsNearlinkSupport() const
 {
-    return ToBase(this)->IsNearlinkSupport();
+    return impl_.IsNearlinkSupport();
 }
 
 bool NearlinkHost::IsNearlinkSupportFrame4() const
 {
-    return ToBase(this)->IsNearlinkSupportFrame4();
+    return impl_.IsNearlinkSupportFrame4();
 }
 
 bool NearlinkHost::IsNearlinkAudioSupport() const
 {
-    return ToBase(this)->IsNearlinkAudioSupport();
+    return impl_.IsNearlinkAudioSupport();
 }
 
 NlErrCode NearlinkHost::NearlinkFactoryReset()
 {
-    return ToBase(this)->NearlinkFactoryReset();
+    return impl_.NearlinkFactoryReset();
 }
 
 NlErrCode NearlinkHost::SetFreqHopping(const std::vector<uint8_t> &freq)
 {
-    return ToBase(this)->SetFreqHopping(freq);
+    return impl_.SetFreqHopping(freq);
 }
 
 NlErrCode NearlinkHost::GetAdapterConnectState(int &state) const
 {
-    return ToBase(this)->GetAdapterConnectState(state);
+    return impl_.GetAdapterConnectState(state);
 }
 
 NlErrCode NearlinkHost::GetProfileConnState(const std::string &remoteAddr, int &connState) const
 {
-    return ToBase(this)->GetProfileConnState(remoteAddr, connState);
+    return impl_.GetProfileConnState(remoteAddr, connState);
 }
 
 NlErrCode NearlinkHost::GetLocalAddress(std::string &localDeviceAddres) const
 {
-    return ToBase(this)->GetLocalAddress(localDeviceAddres);
+    return impl_.GetLocalAddress(localDeviceAddres);
 }
 
 NlErrCode NearlinkHost::GetLocalName(std::string &localDeviceName) const
 {
-    return ToBase(this)->GetLocalName(localDeviceName);
+    return impl_.GetLocalName(localDeviceName);
 }
 
 NlErrCode NearlinkHost::SetLocalName(const std::string &name)
 {
-    return ToBase(this)->SetLocalName(name);
+    return impl_.SetLocalName(name);
 }
 
 NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
 {
-    return ToBase(this)->GetPairedDevices(transport,
+    return impl_.GetPairedDevices(transport,
     reinterpret_cast<std::vector<NearlinkBaseRemoteDevice>&>(pairedDevices));
 }
 
 NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t duration)
 {
-    return ToBase(this)->SetConnectionMode(connectionMode, duration);
+    return impl_.SetConnectionMode(connectionMode, duration);
 }
 
 NlErrCode NearlinkHost::RemovePair(const NearlinkRemoteDevice &device)
 {
-    return ToBase(this)->RemovePair(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device));
+    return impl_.RemovePair(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device));
 }
 
 NlErrCode NearlinkHost::RemoveAllPairs()
 {
-    return ToBase(this)->RemoveAllPairs();
+    return impl_.RemoveAllPairs();
 }
 
 NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t &role) const
 {
-    return ToBase(this)->GetLinkRole(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device), role);
+    return impl_.GetLinkRole(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device), role);
 }
 
 NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
-    return ToBase(this)->RegisterRemoteDeviceObserver(observer);
+    return impl_.RegisterRemoteDeviceObserver(observer);
 }
 
 NlErrCode NearlinkHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
-    return ToBase(this)->DeregisterRemoteDeviceObserver(observer);
+    return impl_.DeregisterRemoteDeviceObserver(observer);
 }
 
 NlErrCode NearlinkHost::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const
 {
-    return ToBase(this)->GetSleMaxAdvertisingDataLength(maxAdvDataLen);
+    return impl_.GetSleMaxAdvertisingDataLength(maxAdvDataLen);
 }
 
 void NearlinkHost::LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject)
 {
-    ToBase(this)->LoadSystemAbilitySuccess(remoteObject);
+    impl_.LoadSystemAbilitySuccess(remoteObject);
 }
 
 void NearlinkHost::LoadSystemAbilityFail()
 {
-    ToBase(this)->LoadSystemAbilityFail();
+    impl_.LoadSystemAbilityFail();
 }
 
 NlErrCode NearlinkHost::ConnectAllowedProfiles(const std::string &remoteAddr) const
 {
-    return ToBase(this)->ConnectAllowedProfiles(remoteAddr);
+    return impl_.ConnectAllowedProfiles(remoteAddr);
 }
 
 NlErrCode NearlinkHost::DisconnectAllowedProfiles(const std::string &remoteAddr) const
 {
-    return ToBase(this)->DisconnectAllowedProfiles(remoteAddr);
+    return impl_.DisconnectAllowedProfiles(remoteAddr);
 }
 
 NlErrCode NearlinkHost::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
 {
-    return ToBase(this)->UpdateSleVirtualDevice(cmd, address);
+    return impl_.UpdateSleVirtualDevice(cmd, address);
 }
 
 NlErrCode NearlinkHost::UpdateRefusePolicy(const int32_t protocolType, const int32_t pid, const int64_t refuseTime)
 {
-    return ToBase(this)->UpdateRefusePolicy(protocolType, pid, refuseTime);
+    return impl_.UpdateRefusePolicy(protocolType, pid, refuseTime);
 }
 
 NlErrCode NearlinkHost::CheckPermissionForNapi(const std::string &permission, bool &isGranted)
 {
-    return ToBase(this)->CheckPermissionForNapi(permission, isGranted);
+    return impl_.CheckPermissionForNapi(permission, isGranted);
 }
 
 NlErrCode NearlinkHost::GetSleAddrByBtAddr(const std::string &btAddr, std::string &sleAddr)
 {
-    return ToBase(this)->GetSleAddrByBtAddr(btAddr, sleAddr);
+    return impl_.GetSleAddrByBtAddr(btAddr, sleAddr);
 }
 
 NlErrCode NearlinkHost::GetBtAddrBySleAddr(const std::string &sleAddr, std::string &btAddr)
 {
-    return ToBase(this)->GetBtAddrBySleAddr(sleAddr, btAddr);
+    return impl_.GetBtAddrBySleAddr(sleAddr, btAddr);
 }
 
 NlErrCode NearlinkHost::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
 {
-    return ToBase(this)->SetBtAddrBySleAddr(sleAddr, btAddr);
+    return impl_.SetBtAddrBySleAddr(sleAddr, btAddr);
 }
 
 bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)
 {
-    return ToBase(this)->IsFeatureSupported(feature);
+    return impl_.IsFeatureSupported(feature);
 }
 
 bool NearlinkHost::IsConnectionExist()
 {
-    return ToBase(this)->IsConnectionExist();
+    return impl_.IsConnectionExist();
 }
 
 bool NearlinkHost::IsBasSupported()
 {
-    return ToBase(this)->IsBasSupported();
+    return impl_.IsBasSupported();
 }
 
-NearlinkHost::NearlinkHost()
+NearlinkHost::NearlinkHost() : impl_(NearlinkBaseHost::GetInstance())
 {
 }
 

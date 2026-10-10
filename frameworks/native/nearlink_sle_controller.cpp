@@ -19,39 +19,30 @@
 namespace OHOS {
 namespace Nearlink {
 
-namespace {
-inline NearlinkBaseSleController *ToBase(NearlinkSleController *self)
-{
-    return reinterpret_cast<NearlinkBaseSleController *>(self);
-}
-inline const NearlinkBaseSleController *ToBase(const NearlinkSleController *self)
-{
-    return reinterpret_cast<const NearlinkBaseSleController *>(self);
-}
-}
 NearlinkSleController &NearlinkSleController::GetInstance()
 {
-    return reinterpret_cast<NearlinkSleController&>(NearlinkBaseSleController::GetInstance());
+    static NearlinkSleController instance;
+    return instance;
 }
 
 NlErrCode NearlinkSleController::SetSleCoexParam(SLEBitRate maxBitRate, SledutyCycle dutyCycle)
 {
-    return ToBase(this)->SetSleCoexParam(maxBitRate, dutyCycle);
+    return impl_.SetSleCoexParam(maxBitRate, dutyCycle);
 }
 
 NlErrCode NearlinkSleController::UpdateConnectInterval(
     const std::string &device, ConnectionInterval intervalType) const
 {
-    return ToBase(this)->UpdateConnectInterval(device, intervalType);
+    return impl_.UpdateConnectInterval(device, intervalType);
 }
 
 NlErrCode NearlinkSleController::SetSleCoexMode(SleCoexMode mode, const std::vector<std::string> &deviceList,
     const std::vector<ConnectionInterval> &paramList)
 {
-    return ToBase(this)->SetSleCoexMode(mode, deviceList, paramList);
+    return impl_.SetSleCoexMode(mode, deviceList, paramList);
 }
 
-NearlinkSleController::NearlinkSleController()
+NearlinkSleController::NearlinkSleController() : impl_(NearlinkBaseSleController::GetInstance())
 {
 }
 

@@ -262,6 +262,7 @@ public:
  * 
  * @since 6
  */
+class NearlinkBaseHost;
 class NEARLINK_API NearlinkHost {
 public:
     /**
@@ -660,8 +661,7 @@ private:
     NearlinkHost();
     ~NearlinkHost();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkHost);
-    struct impl;
-    std::shared_ptr<impl> pimpl;
+    NearlinkBaseHost &impl_;
 };
 
 } // namespace Nearlink
