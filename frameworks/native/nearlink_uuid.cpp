@@ -114,7 +114,7 @@ UUID UUID::FromString(const std::string &name)
     uint8_t tmpUuid = 0;
     for (std::size_t i = 0; (i + 1) < len; i += SIZE_STRING_TO_INT) {
         std::from_chars_result res =
-            std::from_chars(tmp.data() + i, tmp.data() + i + SIZE_STRING_TO_INT, tmpUuid, 16);
+            std::from_chars(tmp.data() + i, tmp.data() + i + SIZE_STRING_TO_INT, tmpUuid, 16); // 16进制
         if (res.ec != std::errc{} || res.ptr != tmp.data() + i + SIZE_STRING_TO_INT) {
             HILOGE("FromString failed, string:%{public}s", tmp.c_str());
             return ret;
