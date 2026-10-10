@@ -24,6 +24,7 @@
 #include "nearlink_errorcode.h"
 #include "nearlink_device_model.h"
 #include "nearlink_device_information.h"
+#include "nearlink_base_remote_device.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -31,10 +32,13 @@ namespace Nearlink {
 /**
  * @brief Represents framework remote device.
  *
+ * Derives from NearlinkBaseRemoteDevice in base.so; all implementations are
+ * shared from the base class without any cast.
+ *
  * 说明：仅声明未实现（无任何定义）的接口（如 GetDeviceBatteryLevel）不建立桥接转发
  * （拆分前框架亦未导出）。
  */
-class NEARLINK_API NearlinkRemoteDevice {
+class NEARLINK_API NearlinkRemoteDevice : public NearlinkBaseRemoteDevice {
 public:
     /**
      * @brief A structor used to create the <b>NearlinkRemoteDevice</b> instance.
@@ -65,7 +69,7 @@ public:
      */
     std::string GetDeviceAddr() const
     {
-        return address_;
+        return NearlinkBaseRemoteDevice::GetDeviceAddr();
     };
 
     /**
@@ -264,13 +268,6 @@ public:
      * @since 6
      */
     NlErrCode GetBatteryLevel();
-
-private:
-
-    bool IsValidPassCode(const std::string& passCode);
-
-    std::string address_ = "00:00:00:00:00:00"; // address is little endian order
-    int transport_ = 0;
 };
 }  // namespace Nearlink
 } // namespace OHOS

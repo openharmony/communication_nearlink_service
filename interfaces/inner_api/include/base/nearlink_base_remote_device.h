@@ -16,15 +16,26 @@
 #ifndef NEARLINK_REMOTE_DEVICE_BASE_H
 #define NEARLINK_REMOTE_DEVICE_BASE_H
 
-#include "nearlink_remote_device.h"
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "nearlink_def.h"
+#include "nearlink_types.h"
+#include "nearlink_errorcode.h"
+#include "nearlink_device_model.h"
+#include "nearlink_device_information.h"
 
 namespace OHOS {
 namespace Nearlink {
 
+class NearlinkRemoteDevice;
+
 /**
  * @brief base.so implementation class of framework remote device.
  *
- * Kept in sync with NearlinkRemoteDevice declared in nearlink_remote_device.h.
+ * NearlinkRemoteDevice derives from this class, so framework-side mirror methods
+ * share this implementation without any cast.
  */
 class NEARLINK_API NearlinkBaseRemoteDevice {
 public:
