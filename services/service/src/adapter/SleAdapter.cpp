@@ -2129,14 +2129,13 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
     int pairState, int reason, bool isNeedBgConn) const
 {
     uint8_t profileConnectState = pimpl->sleProfileConnectManager_.GetProfileConnectState(peerAddr);
-    // ACB正在连接时无后续profile断连事件时不拦截
-    if (profileConnectState > SLE_ADAPTER_PROF_CONN_STATE_ACB_CONNECTING) {
+    if (profileConnectState != SLE_ADAPTER_PROF_CONN_STATE_UNUSED) {
         int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
         if(saveReason == 0) {
             SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
         }
         HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d, "
-        "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
+            "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
         return;
     }
     if (!isNeedBgConn) {
@@ -2144,7 +2143,7 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
         if(saveReason !=0 && saveReason != reason) {
             isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
             HILOGI("[SleAdapter] recheck bgConn saveReason:%{public}d, isNeedBgConn:%{public}d",
-            saveReason, isNeedBgConn);
+                saveReason, isNeedBgConn);
         }
     }
     if (isNeedBgConn) {
