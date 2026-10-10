@@ -31,6 +31,7 @@
 #include "nearlink_datatransfer_parcel.h"
 #include "SleFeature.h"
 #include <future>
+#include <set>
 #include "nearlink_timer.h"
 #include "nearlink_verification_manager.h"
 #ifdef RES_SCHED_SUPPORT
@@ -617,11 +618,13 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     HILOGI("port: %{public}d", port);
     NL_CHECK_RETURN(!uuid.empty(), "uuid empty when DestroyPort");
     std::vector<AppConnectParamMapping> tempVec;
-    auto getConnects = [&tempVec](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
+    std::set<std::string> notifyAddrSet;
+    auto getConnects = [&tempVec, &notifyAddrSet](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
         for (const auto &val : value->GetPortConnects()) {
             if (val.state == static_cast<int>(SleConnectState::CONNECTED) ||
                 val.state == static_cast<int>(SleConnectState::CONNECTING)) {
                 tempVec.push_back(val);
+                notifyAddrSet.insert(val.address);
             }
         }
     };
@@ -643,6 +646,14 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     }
     ports_.erase(port);
     pimpl->DeleteAppConnectParamMapping(port);
+    if (uuid != STANDARD_UUID_ICCE) {
+        // 销毁通道动作的协议栈回调晚于映射删除到达,HandleConnectEvent 中
+        // UpdateAppConnectParamMapping 查不到映射会提前返回,NotifyDisconnect 被吞掉;
+        // 此处在映射删除后按构造时收集的去重地址补执行,保证无其他连接占用时及时断开底层链路
+        for (const auto &addr : notifyAddrSet) {
+            NotifyDisconnect(addr);
+        }
+    }
     HILOGI("current active port count: %{public}zu", ports_.size());
     DftReportDtfrStatisPortInfo(NearLinkPermissionManager::GetCallingName(), DTFR_DESTROY_PORT);
 }
