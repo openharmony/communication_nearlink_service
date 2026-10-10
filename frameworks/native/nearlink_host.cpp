@@ -170,7 +170,7 @@ NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemo
 {
     // Layout contract asserted in nearlink_remote_device.h.
     return impl_.GetPairedDevices(transport,
-    reinterpret_cast<std::vector<NearlinkBaseRemoteDevice>&>(pairedDevices));
+        reinterpret_cast<std::vector<NearlinkBaseRemoteDevice>&>(pairedDevices));
 }
 
 NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t duration)
