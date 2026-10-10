@@ -16,16 +16,58 @@
 #ifndef NEARLINK_SWITCH_MODULE_BASE_H
 #define NEARLINK_SWITCH_MODULE_BASE_H
 
-#include "nearlink_switch_module.h"
+#include <atomic>
+#include <functional>
+#include <memory>
+#include <vector>
+#include "nearlink_def.h"
+#include "nearlink_errorcode.h"
+#include "ffrt_inner.h"
 
 namespace OHOS {
 namespace Nearlink {
+// 动作有效性校验器：返回 true 表示该动作仍是当前正在执行的动作（未超时、未被新动作取代）；
+// 由开关模块注入、内部持模块弱引用：即使被保存到接口返回后调用也安全（模块已销毁则返回 false）
+using NearlinkSwitchActionValidChecker = std::function<bool(void)>;
+
+class INearlinkSwitchAction {
+public:
+    INearlinkSwitchAction() = default;
+    virtual ~INearlinkSwitchAction() = default;
+
+    virtual NlErrCode EnableNearlink(SleAutoConnectPolicy, int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &actionValidChecker) = 0;
+    virtual NlErrCode DisableNearlink() = 0;
+    virtual NlErrCode DisableNearlinkToOff() = 0;
+    virtual NlErrCode EnableNearlinkToHalf(int32_t loadSaTimeoutMs,
+        const NearlinkSwitchActionValidChecker &actionValidChecker) = 0;
+};
+
+enum class NearlinkSwitchEvent : int {
+    NONE_EVENT = -1,
+    ENABLE_NEARLINK = 0, // 开关操作事件，开启星闪
+    DISABLE_NEARLINK, // 开关操作事件，关闭星闪
+    DISABLE_NEARLINK_TO_OFF, // 开关操作事件，关闭星闪至全关
+    ENABLE_NEARLINK_TO_HALF, // 开关操作事件，开启星闪至半关
+
+    NEARLINK_ON, // 状态变化事件，星闪开启
+    NEARLINK_OFF, // 状态变化事件，星闪全关
+    NEARLINK_HALF, // 状态变化事件，星闪半关
+
+    DISABLE_TO_HALF_RESPONSE, // 关星闪响应事件，星闪需要半关
+    DISABLE_TO_OFF_RESPONSE, // 关星闪响应事件，星闪需要全关
+};
+
+enum class NearlinkDisableStatus : int {
+    STANDING_BY = -1,
+    DISABLING_TO_HALF,
+    DISABLING_TO_OFF,
+};
 
 /**
  * @brief base.so implementation class of framework switch module.
  *
- * Kept in sync with NearlinkSwitchModule declared in nearlink_switch_module.h;
- * INearlinkSwitchAction and switch enums are reused from that header.
+ * INearlinkSwitchAction and switch enums are reused from this header.
  */
 class NearlinkBaseSwitchModule : public std::enable_shared_from_this<NearlinkBaseSwitchModule> {
 public:

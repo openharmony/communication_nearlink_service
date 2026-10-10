@@ -16,15 +16,16 @@
 #ifndef NEARLINK_HOST_LOAD_CALLBACK_BASE_H
 #define NEARLINK_HOST_LOAD_CALLBACK_BASE_H
 
-#include "nearlink_host_load_callback.h"
+#include <cstdint>
+
+#include "refbase.h"
+#include "system_ability_load_callback_stub.h"
 
 namespace OHOS {
 namespace Nearlink {
 
 /**
- * @brief base.so implementation class of framework host load callback.
- *
- * Kept in sync with NearlinkHostLoadCallBack declared in nearlink_host_load_callback.h.
+ * @brief base.so implementation class of host load callback.
  */
 class NearlinkBaseHostLoadCallBack : public SystemAbilityLoadCallbackStub {
 public:

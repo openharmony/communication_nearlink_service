@@ -16,7 +16,6 @@ import("../../nearlink_config.gni")
 
 
 FwkSrc = [
-    "nearlink_host_load_callback.cpp",
     "nearlink_host.cpp",
     "nearlink_hid_host.cpp",
     "nearlink_sa_manager.cpp",
@@ -31,7 +30,6 @@ FwkSrc = [
     "nearlink_ssap_property.cpp",
     "nearlink_ssap_service.cpp",
     "nearlink_ssap_server.cpp",
-    "nearlink_switch_module.cpp",
     "nearlink_sle_ranging.cpp",
     "nearlink_uuid.cpp",
     "nearlink_ASC_source.cpp",
