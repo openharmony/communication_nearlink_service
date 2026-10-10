@@ -84,8 +84,9 @@ private:
 /**
  * @brief Convert base device to framework device reference for observer callbacks.
  *
- * The two classes share identical memory layout; the cast is the inverse of the
- * ToBase cast.
+ * NearlinkRemoteDevice derives from this class without adding members, so both
+ * classes share identical memory layout (asserted in nearlink_remote_device.h);
+ * the cast is the inverse of the derived-to-base conversion.
  */
 inline const NearlinkRemoteDevice &ToFrameworkDevice(const NearlinkBaseRemoteDevice &device)
 {

@@ -168,6 +168,7 @@ NlErrCode NearlinkHost::SetLocalName(const std::string &name)
 
 NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
 {
+    // Layout contract asserted in nearlink_remote_device.h.
     return impl_.GetPairedDevices(transport,
     reinterpret_cast<std::vector<NearlinkBaseRemoteDevice>&>(pairedDevices));
 }
@@ -179,7 +180,7 @@ NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t durati
 
 NlErrCode NearlinkHost::RemovePair(const NearlinkRemoteDevice &device)
 {
-    return impl_.RemovePair(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device));
+    return impl_.RemovePair(device);
 }
 
 NlErrCode NearlinkHost::RemoveAllPairs()
@@ -189,7 +190,7 @@ NlErrCode NearlinkHost::RemoveAllPairs()
 
 NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t &role) const
 {
-    return impl_.GetLinkRole(reinterpret_cast<const NearlinkBaseRemoteDevice&>(device), role);
+    return impl_.GetLinkRole(device, role);
 }
 
 NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)

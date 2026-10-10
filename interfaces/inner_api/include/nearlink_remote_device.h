@@ -269,6 +269,10 @@ public:
      */
     NlErrCode GetBatteryLevel();
 };
+
+// Layout contract of the vector cast in GetPairedDevices and the ToFrameworkDevice cast.
+static_assert(sizeof(NearlinkRemoteDevice) == sizeof(NearlinkBaseRemoteDevice),
+    "NearlinkRemoteDevice and NearlinkBaseRemoteDevice must keep identical layout");
 }  // namespace Nearlink
 } // namespace OHOS
 
