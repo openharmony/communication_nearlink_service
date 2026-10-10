@@ -16,6 +16,7 @@ import("//build/ohos.gni")
 ohos_shared_headers("nearlink_inner_api_headers") {
   include_dirs = [
     "inner_api/include",
+    "inner_api/include/base",
     "def",
   ]
 
