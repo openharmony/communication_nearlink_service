@@ -168,9 +168,18 @@ NlErrCode NearlinkHost::SetLocalName(const std::string &name)
 
 NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
 {
-    // Layout contract asserted in nearlink_remote_device.h.
-    return impl_.GetPairedDevices(transport,
-        reinterpret_cast<std::vector<NearlinkBaseRemoteDevice>&>(pairedDevices));
+    std::vector<NearlinkBaseRemoteDevice> baseDevices;
+    NlErrCode ret = impl_.GetPairedDevices(transport, baseDevices);
+    if (ret != NL_NO_ERROR) {
+        return ret;
+    }
+
+    for (auto &device : baseDevices) {
+        NearlinkRemoteDevice mirrorDevice;
+        static_cast<NearlinkBaseRemoteDevice&>(mirrorDevice) = device;
+        pairedDevices.push_back(std::move(mirrorDevice));
+    }
+    return NL_NO_ERROR;
 }
 
 NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t duration)
