@@ -168,6 +168,8 @@ NlErrCode NearlinkHost::SetLocalName(const std::string &name)
 
 NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
 {
+    // Layout contract asserted in nearlink_remote_device.h is no longer relied on; the vector cast
+    // was replaced by element-wise static_cast.
     std::vector<NearlinkBaseRemoteDevice> baseDevices;
     NlErrCode ret = impl_.GetPairedDevices(transport, baseDevices);
     if (ret != NL_NO_ERROR) {

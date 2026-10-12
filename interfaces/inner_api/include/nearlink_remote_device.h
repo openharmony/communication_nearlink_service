@@ -270,7 +270,8 @@ public:
     NlErrCode GetBatteryLevel();
 };
 
-// Layout contract of the ToFrameworkDevice cast.
+// Layout contract of the vector cast in GetPairedDevices and the ToFrameworkDevice cast; the vector
+// cast in GetPairedDevices was removed, replaced by element-wise static_cast.
 static_assert(sizeof(NearlinkRemoteDevice) == sizeof(NearlinkBaseRemoteDevice),
     "NearlinkRemoteDevice and NearlinkBaseRemoteDevice must keep identical layout");
 }  // namespace Nearlink

@@ -77,7 +77,7 @@ public:
 
     NlErrCode ProcessNearlinkSwitchEvent(NearlinkSwitchEvent event,
         const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL,
-        int32_t loadSaTimeoutMs = 0);
+        int32_t loadSaTimeoutMs = 0);  // loadSaTimeoutMs: SA 加载超时(ms)，<=0 时由开关动作使用默认超时；该时长会计入动作的超时时间
     void SetNoAutoConnect(bool noAutoConnect);
 
 private:
@@ -91,6 +91,9 @@ private:
     NlErrCode ProcessNearlinkHalfEvent(void);
     NlErrCode ProcessDisableResponseHalfEvent(void);
     NlErrCode ProcessDisableResponseOffEvent(void);
+    // loadSaTimeoutMs: 动作内 SA 加载超时(ms)，-1 表示动作不加载 SA，0 表示使用默认值；
+    // 开启/半开接口返回前（内部会等 SA 加载），超时时间 = SA 加载超时 + taskTimeout_；
+    // 接口返回后按 taskTimeout_ 重新计时，避免 SA 加载耗时长时，等待状态变化的超时时间也被一并拉长
     NlErrCode ProcessNearlinkSwitchAction(
         std::function<NlErrCode(const NearlinkSwitchActionValidChecker &)> action,
         NearlinkSwitchEvent cachedEvent, int32_t loadSaTimeoutMs = -1);
@@ -102,15 +105,22 @@ private:
     void RemoveIgnoredCachedEvent(size_t ignoredCnt);
     void LogNearlinkSwitchEvent(NearlinkSwitchEvent event);
     void OnTaskTimeout(uint32_t actionSeq);
+    // 设置动作超时任务（已有旧任务则先取消），调用方须持有 nearlinkSwitchEventMutex_ 锁
     void SetTaskTimeout(uint32_t actionSeq, uint64_t delayUs);
 
     const uint64_t DEFAULT_TASK_TIMEOUT = 8000000;  // 8s
     uint64_t taskTimeout_ = DEFAULT_TASK_TIMEOUT;
+    // SA 加载默认超时（与 nearlink_base_host.cpp 的 LOAD_NEARLINK_SA_TIMEOUT_MS 对齐），
+    // 加载入参 <=0（含处理缓存事件）时按此值计算动作的超时时间
     const int32_t DEFAULT_SA_LOAD_TIMEOUT_MS = 30000;
-    const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;
+    const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;  // 连续超时达到该次数后清空缓存队列
+    // 连续超时次数：动作正常完成、动作立即失败、超时且无缓存事件三处清零；
+    // 上限仅在“每次超时都命中非空缓存且期间无动作正常完成”时可达
     uint32_t consecutiveTimeoutCnt_ = 0;
     ffrt::task_handle taskTimeoutHandle_;
     ffrt::queue ffrtQueue_;
+    // 最新动作序号：动作启动、结束时 +1；超时任务和接口返回结果都携带发起时的序号，
+    // 与最新序号不一致说明该动作已结束或被新动作取代，不再处理
     uint32_t latestActionSeq_ = 0;
 
     std::unique_ptr<INearlinkSwitchAction> switchAction_ { nullptr };
@@ -118,7 +128,7 @@ private:
     NearlinkDisableStatus disableStatus_ = NearlinkDisableStatus::STANDING_BY;
     std::atomic_bool isNlSwitchProcessing_ { false };
     std::vector<NearlinkSwitchEvent> cachedEventVec_ {};
-    ffrt::mutex nearlinkSwitchEventMutex_ {};
+    ffrt::mutex nearlinkSwitchEventMutex_ {};  // Used for ProcessNearlinkSwitchEvent function
 };
 }  // namespace Nearlink
 }  // namespace OHOS
