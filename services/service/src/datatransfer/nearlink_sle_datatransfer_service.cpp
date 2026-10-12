@@ -649,7 +649,8 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     if (uuid != STANDARD_UUID_ICCE) {
         // 销毁通道动作的协议栈回调晚于映射删除到达,HandleConnectEvent 中
         // UpdateAppConnectParamMapping 查不到映射会提前返回,NotifyDisconnect 被吞掉;
-        // 此处在映射删除后按构造时收集的去重地址补执行,保证无其他连接占用时及时断开底层链路
+        // 此处在映射删除后按构造时收集的去重地址补执行,
+        // 保证无其他连接占用时及时断开底层链路
         for (const auto &addr : notifyAddrSet) {
             NotifyDisconnect(addr);
         }
