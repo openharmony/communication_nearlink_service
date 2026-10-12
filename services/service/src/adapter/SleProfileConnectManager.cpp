@@ -860,11 +860,8 @@ void SleProfileConnectManager::NotifyAcbDisconnected(const RawAddress &device)
             funcs_.notifyConnectionStateChanged(device, connChangedParam);
             if (SleRemoteDeviceManager::GetInstance()->IsAudioDevice(device.GetAddress())) {
                 // 音频设备ACB连接过程中异常断连需要触发profile断开处理
-                auto onAllProfileDisconnected = funcs_.onAllProfileDisconnected;
-                NL_CHECK_RETURN(onAllProfileDisconnected, "funcs_.onAllProfileDisconnected is nullptr");
-                DoInAdapterThread([onAllProfileDisconnected, device]() -> void {
-                    onAllProfileDisconnected(device);
-                });
+                NL_CHECK_RETURN(funcs_.onAllProfileDisconnected, "funcs_.onAllProfileDisconnected is nullptr");
+                funcs_.onAllProfileDisconnected(device);
             }
         }
     } else {

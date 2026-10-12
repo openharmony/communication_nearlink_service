@@ -2140,7 +2140,7 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
     }
     if (!isNeedBgConn) {
         int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
-        if(saveReason !=0 && saveReason != reason) {
+        if (saveReason != 0 && saveReason != reason) {
             isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
             HILOGI("[SleAdapter] recheck bgConn saveReason:%{public}d, isNeedBgConn:%{public}d",
                 saveReason, isNeedBgConn);
