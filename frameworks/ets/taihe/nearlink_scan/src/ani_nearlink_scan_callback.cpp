@@ -34,8 +34,9 @@ std::shared_ptr<AniNearlinkScanCallback> AniNearlinkScanCallback::GetInstance()
     auto& r = const_cast<SleScanResult&>(result);
     const std::vector<uint8_t> payload = r.GetPayload();
 
-    // 内部帧型(0x00帧1/0x01帧4)映射为 FrameType 枚举,与扫描入参 frameType 值域一致
-    ::ohos::nearlink::scan::FrameType frameType((r.GetFrameType() == 0x01) ?
+    // inner_api 帧型为 SleScanFrameType(0x01/0x02),出口映射为 FrameType 枚举,与扫描入参值域一致
+    ::ohos::nearlink::scan::FrameType frameType((r.GetFrameType() ==
+        static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) ?
         ::ohos::nearlink::scan::FrameType::key_t::FRAME_TYPE_4 :
         ::ohos::nearlink::scan::FrameType::key_t::FRAME_TYPE_1);
     ::ohos::nearlink::scan::ScanResults scanResults {

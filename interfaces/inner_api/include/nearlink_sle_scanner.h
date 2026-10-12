@@ -206,7 +206,8 @@ public:
     /**
      * @brief Set frame type of the advertising device.
      *
-     * @param frameType Frame type, refer to NLSTK_DevdAdvFrameType_E(0x00 frame1 / 0x01 frame4).
+     * @param frameType Frame type, refer to SleScanFrameType(0x01 frame1 / 0x02 frame4),
+     *                  same value domain as SleScanSettings::GetFrameType.
      * @since 6
      */
     void SetFrameType(uint8_t frameType);
@@ -214,7 +215,8 @@ public:
     /**
      * @brief Get frame type of the advertising device.
      *
-     * @return Returns frame type(0x00 frame1 / 0x01 frame4).
+     * @return Returns frame type, refer to SleScanFrameType(0x01 frame1 / 0x02 frame4),
+     *         comparable with SleScanSettings::GetFrameType().
      * @since 6
      */
     uint8_t GetFrameType() const;
@@ -230,7 +232,7 @@ private:
     std::vector<uint8_t> payload_ {};
     std::string name_ {};
     uint32_t deviceClass_ {};
-    uint8_t frameType_ = 0; // 0x00 frame1 / 0x01 frame4, refer to NLSTK_DevdAdvFrameType_E
+    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1); // 与设置侧同值域
 };
 /**
  * @brief Represents central manager callback.
