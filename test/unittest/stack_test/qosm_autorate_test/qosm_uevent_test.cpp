@@ -85,6 +85,7 @@ ssize_t recvmsg(int fd, struct msghdr *msg, int flags)
         return 0;
     }
     g_msgControl.cmsg_type = SCM_CREDENTIALS;
+    g_msgControl.cmsg_len = CMSG_LEN(sizeof(struct ucred));
     msg->msg_control = (void *)&g_msgControl;
     msg->msg_controllen = g_isHdrNull ? 0 : sizeof(g_msgControl);
     return sizeof(data);
