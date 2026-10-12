@@ -32,7 +32,7 @@
 typedef struct {
     SLE_Addr_S addr;
     int32_t appId;
-    uint32_t groupId;
+    uint16_t groupId;
 } ReadProp_S;
 
 typedef struct {
@@ -126,6 +126,7 @@ uint32_t NLSTK_ActmReadRemoteProp(SLE_Addr_S *addr)
     NLSTK_CHECK_RETURN(readIn != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[ACTM] read malloc error");
     (void)memcpy_s(&readIn->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     int32_t appId = 0;
+    uint32_t groupId = 0;
     uint32_t ret = RegisterSsapApp(&readIn->addr, &appId);
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         SDF_MemFree(readIn);
@@ -137,7 +138,13 @@ uint32_t NLSTK_ActmReadRemoteProp(SLE_Addr_S *addr)
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     readIn->appId = appId;
-    readIn->groupId = NLSTK_CdsmCreateSet(addr);
+    groupId = NLSTK_CdsmCreateSet(addr);
+    if (groupId > UINT16_MAX) {
+        SDF_MemFree(readIn);
+        NLSTK_SsapClientDeregApp(appId);
+        return NLSTK_ERRCODE_FAIL;
+    }
+    readIn->groupId = (uint16_t)groupId;
     if (SchedulePostTask(ActmReadRemotePropInner, readIn, SDF_MemFree) != NLSTK_OK) {
         NLSTK_SsapClientDeregApp(appId);
         return NLSTK_ERRCODE_TASK_FAIL;
