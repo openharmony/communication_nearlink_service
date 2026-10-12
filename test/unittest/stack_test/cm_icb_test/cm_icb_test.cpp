@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -180,12 +180,15 @@ TEST_F(UT_CM_ICB_TEST, CM_ICGRemoveParam)
     DLI_ICGCbkParam context = { 0 };
     DLI_ExecuteCmdRetParam cmdRes = { 0 };
     DLI_SetIOGParamEvt *eventParameter1 =
-        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+        (DLI_SetIOGParamEvt *)SDF_MemZalloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     EXPECT_NE(CM_ICGRemoveParam(&icgParam), CM_SUCCESS);
@@ -197,14 +200,17 @@ TEST_F(UT_CM_ICB_TEST, CM_ICGSetLabel)
     DLI_ICGCbkParam context = { 0 };
     DLI_ExecuteCmdRetParam cmdRes = { 0 };
     DLI_SetIOGParamEvt *eventParameter1 =
-        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+        (DLI_SetIOGParamEvt *)SDF_MemZalloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
 
-    CM_ICGLabelParam icgLabel;
+    CM_ICGLabelParam icgLabel = {};
     icgLabel.type = CM_IOB;
     icgLabel.id = 0;
     CM_ICBChannel icg = { 0 };
@@ -223,12 +229,15 @@ TEST_F(UT_CM_ICB_TEST, CM_ICBAddConnection)
     DLI_ICGCbkParam context = { 0 };
     DLI_ExecuteCmdRetParam cmdRes = { 0 };
     DLI_SetIOGParamEvt *eventParameter1 =
-        (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
+        (DLI_SetIOGParamEvt *)SDF_MemZalloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam icgLabel = {};
@@ -664,10 +673,13 @@ TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_RegisteredFuncCalled)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -701,10 +713,13 @@ TEST_F(UT_CM_ICB_TEST, ICMgrSetLabel_SupportSubrateFalse)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -777,10 +792,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_RegisteredFuncReceivesCorrectParams)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -817,10 +835,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_SupportSubrateTrueTriggersFunc)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -855,10 +876,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_SupportSubrateFalseSkipsFunc)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -893,10 +917,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_DeinitPathNullFuncSafe)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -932,10 +959,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_ReRegisterAfterClear)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -970,11 +1000,14 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_MultipleIcbAllTriggerFunc)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t) * 2);
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
-    eventParameter1->connHandle[1] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 2;
+    eventParameter1->connHandle[0] = 0;
+    eventParameter1->connHandle[1] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t) * 2;
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 2;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -1012,10 +1045,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_LcidParamVerified)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
@@ -1052,10 +1088,13 @@ TEST_F(UT_CM_ICB_TEST, ACBSubrate_E2E_ZeroIcbCntWithSubrateNoCrash)
     DLI_SetIOGParamEvt *eventParameter1 =
         (DLI_SetIOGParamEvt *)SDF_MemAlloc(sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t));
     EXPECT_NE(eventParameter1, nullptr);
-    eventParameter1->connHandle[0] = { 0 };
+    eventParameter1->id = 0x00;
+    eventParameter1->paramCnt = 1;
+    eventParameter1->connHandle[0] = 0;
+    cmdRes.size = sizeof(DLI_SetIOGParamEvt) + sizeof(uint16_t);
     cmdRes.eventParameter = eventParameter1;
     DLI_ExecuteCmdCbk cbk1 = DLI_GetCbk(DLI_CBK_SET_IOG_PARAM);
-    eventParameter1->paramCnt = 1;
+    EXPECT_NE(cbk1, nullptr);
     cbk1(&context, 0x00, &cmdRes);
 
     CM_ICBConnectionParam connParam = {};
