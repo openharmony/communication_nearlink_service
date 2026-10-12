@@ -36,7 +36,7 @@ bool NearlinkSleScanFilter::Marshalling(Parcel &parcel) const
     NL_CHECK_RETURN_RET(parcel.WriteUInt8Vector(manufactureData_), false, "WriteUInt8Vector wrong");
     NL_CHECK_RETURN_RET(parcel.WriteUInt8Vector(manufactureDataMask_), false, "WriteUInt8Vector wrong");
     NL_CHECK_RETURN_RET(parcel.WriteBool(isSensorHubChannel_), false, "WriteBool wrong");
-    NL_CHECK_RETURN_RET(parcel.WriteBool(advIndReport_), false, "WriteBool wrong");
+    NL_CHECK_RETURN_RET(parcel.WriteUint8(frameType_), false, "WriteUint8 wrong");
     NL_CHECK_RETURN_RET(parcel.WriteInt8(rssiThreshold_), false, "WriteInt8 wrong");
     NL_CHECK_RETURN_RET(parcel.WriteBool(hasRssiThreshold_), false, "WriteBool wrong");
     return true;
@@ -74,7 +74,7 @@ bool NearlinkSleScanFilter::ReadFromParcel(Parcel &parcel)
     NL_CHECK_RETURN_RET(parcel.ReadUInt8Vector(&manufactureData_), false, "ReadUInt8Vector wrong");
     NL_CHECK_RETURN_RET(parcel.ReadUInt8Vector(&manufactureDataMask_), false, "ReadUInt8Vector wrong");
     NL_CHECK_RETURN_RET(parcel.ReadBool(isSensorHubChannel_), false, "ReadBool wrong");
-    NL_CHECK_RETURN_RET(parcel.ReadBool(advIndReport_), false, "ReadBool wrong");
+    NL_CHECK_RETURN_RET(parcel.ReadUint8(frameType_), false, "ReadUint8 wrong");
     NL_CHECK_RETURN_RET(parcel.ReadInt8(rssiThreshold_), false, "ReadInt8 wrong");
     NL_CHECK_RETURN_RET(parcel.ReadBool(hasRssiThreshold_), false, "ReadBool wrong");
 

@@ -89,6 +89,7 @@ public:
         scanResult.SetName(tempResult.GetName());
         
         scanResult.SetDeviceClass(tempResult.GetDeviceClass());
+        scanResult.SetFrameType(tempResult.GetFrameType());
         callbackSptr->OnScanCallback(scanResult);
     }
 
@@ -235,9 +236,10 @@ NlErrCode SleCentralManager::StartScanWithFilter(const SleScanSettings &settings
 
     std::vector<NearlinkSleScanFilter> scanFilters;
     pimpl->ConvertSleScanFilter(filters, scanFilters);
+    // 过滤器帧型由扫描设置派生:帧四扫描时所有过滤器只要帧四广播结果(栈侧按帧型路由)
     if (settings.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) {
         for (auto& filter : scanFilters) {
-            filter.SetAdvIndReport(true);
+            filter.SetFrameType(static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4));
         }
     }
 
@@ -382,6 +384,16 @@ void SleScanResult::SetDeviceClass(uint32_t deviceClass)
 uint32_t SleScanResult::GetDeviceClass() const
 {
     return deviceClass_;
+}
+
+void SleScanResult::SetFrameType(uint8_t frameType)
+{
+    frameType_ = frameType;
+}
+
+uint8_t SleScanResult::GetFrameType() const
+{
+    return frameType_;
 }
 
 void SleScanResult::SetName(const std::string &name)

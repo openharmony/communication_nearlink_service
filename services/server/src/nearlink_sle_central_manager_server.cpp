@@ -180,13 +180,13 @@ public:
                 isUseRealAddrFlag, realAddr, randomAddr, false);
             NearlinkSleScanResult sleScanResult(result);
             sleScanResult.SetPeripheralDevice(randomAddr);
-            sleScanResult.SetPrimFrameType(result.GetPrimFrameType());
+            sleScanResult.SetFrameType(result.GetFrameType());
             int status = SleInterfaceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE);
             if (status != SleStateID::STATE_TURN_ON && status != SleStateID::STATE_TURN_HALF) {
                 HILOGI("nearlink is not turn on, stop uploading scan result");
                 return;
             }
-            HILOGD("frameType:%{public}d", sleScanResult.GetPrimFrameType());
+            HILOGD("frameType:%{public}d", sleScanResult.GetFrameType());
             observer->OnScanCallback(sleScanResult);
         });
     }
@@ -361,7 +361,7 @@ void NearlinkSleCentralManagerServer::ConvertToScanFilterImpl(const std::vector<
         filterImpl.SetManufactureData(filter.GetManufactureData());
         filterImpl.SetManufactureDataMask(filter.GetManufactureDataMask());
         filterImpl.SetSensorHubChannel(filter.IsSensorHubChannel());
-        filterImpl.SetAdvIndReport(filter.GetAdvIndReport());
+        filterImpl.SetFrameType(filter.GetFrameType());
         filterImpls.push_back(filterImpl);
     }
 }

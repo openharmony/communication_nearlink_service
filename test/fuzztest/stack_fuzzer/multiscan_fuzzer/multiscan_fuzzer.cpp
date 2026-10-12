@@ -513,7 +513,7 @@ namespace OHOS {
         }
 
         filter.isSensorHubChannel = fdp.ConsumeBool();
-        filter.advIndReport = fdp.ConsumeBool();
+        filter.frameType = static_cast<uint8_t>(fdp.ConsumeBool());
         filter.meshInfoReport = fdp.ConsumeBool();
         bool enableFilter = fdp.ConsumeBool();
         NLSTK_DevdScanFilter_S *filterPtr = enableFilter ? &filter : NULL;

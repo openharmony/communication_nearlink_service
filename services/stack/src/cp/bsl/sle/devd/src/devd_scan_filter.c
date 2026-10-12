@@ -217,15 +217,14 @@ bool DevdIsMatchFilters(NLSTK_DevdAdvResult_S *result, SDF_Vector_S *filters)
     }
     for (size_t i = 0; i < filters->size; i++) {
         NLSTK_DevdScanFilter_S *filter = SDF_VectorElementAt(filters, i);
+        // 帧类型路由:过滤器帧型与结果帧型不一致直接丢弃;通配过滤器由扫描设置
+        // 继承帧型(DevdConvertFiltersToVector),无过滤扫描者同样按帧型收结果,
+        // 避免双帧共存扫描时跨帧串扰
+        if (result->frameType != filter->frameType) {
+            return false;
+        }
         if (filter->isNoFilter) {
             return true;
-        }
-        bool flag = filter->advIndReport;
-        if (flag && result->frameType != ADV_FRAME_TYPE_4) {
-            return false;
-        }
-        if (!flag && result->frameType != ADV_FRAME_TYPE_1) {
-            return false;
         }
         if (IsMatchFilter(result, filter)) {
             return true;

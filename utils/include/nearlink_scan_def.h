@@ -231,14 +231,14 @@ public:
         return deviceClass_;
     }
 
-    void SetPrimFrameType(uint8_t primFrameType)
+    void SetFrameType(uint8_t frameType)
     {
-        primFrameType_ = primFrameType;
+        frameType_ = frameType;
     }
 
-    uint8_t GetPrimFrameType() const
+    uint8_t GetFrameType() const
     {
-        return primFrameType_;
+        return frameType_;
     }
 
 public:
@@ -252,7 +252,7 @@ public:
     std::string payload_ {};
     std::string name_ {};
     uint32_t deviceClass_ {};
-    uint8_t primFrameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
+    uint8_t frameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
 };
 
 /**
@@ -585,14 +585,14 @@ public:
         return isSensorHubChannel_;
     }
 
-    void SetAdvIndReport(bool advIndReport)
+    void SetFrameType(uint8_t frameType)
     {
-        advIndReport_ = advIndReport;
+        frameType_ = frameType;
     }
 
-    bool GetAdvIndReport() const
+    uint8_t GetFrameType() const
     {
-        return advIndReport_;
+        return frameType_;
     }
 
     void SetRssiThreshold(int8_t rssi)
@@ -634,7 +634,7 @@ public:
     std::vector<uint8_t> manufactureDataMask_;
     int8_t rssiThreshold_ = RSSI_DEFAULT_THRESHOLD;
     bool isSensorHubChannel_ = false;
-    bool advIndReport_ = false;
+    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
     bool hasRssiThreshold_ = false;
 };
 }  // namespace Nearlink

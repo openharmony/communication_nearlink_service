@@ -1427,14 +1427,14 @@ public:
         advertiseFlag_ = flag;
     }
 
-    void SetPrimFrameType(uint8_t primFrameType)
+    void SetFrameType(uint8_t frameType)
     {
-        primFrameType_ = primFrameType;
+        frameType_ = frameType;
     }
 
-    uint8_t GetPrimFrameType() const
+    uint8_t GetFrameType() const
     {
-        return primFrameType_;
+        return frameType_;
     }
 
 private:
@@ -1447,7 +1447,7 @@ private:
     int8_t rssi_ {};
     bool connectable_ {};
     uint8_t advertiseFlag_ {};
-    uint8_t primFrameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
+    uint8_t frameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
 };
 }  // namespace Sle
 }  // namespace OHOS
