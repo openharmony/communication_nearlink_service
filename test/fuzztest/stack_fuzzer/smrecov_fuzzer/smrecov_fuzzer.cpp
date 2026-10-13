@@ -14,6 +14,7 @@
  */
 
 #include "smrecov_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_algos.h"
 #include "nai_log.h"
 #include "securec.h"
@@ -62,32 +63,24 @@ namespace OHOS {
 
     void FuzzUapiRecoverKey(const uint8_t* fuzzData, size_t size)
     {
-        if (size < (sizeof(NLSTK_SmRecoverKeyParam_S))) {
-            return;
-        }
-
+        FuzzedDataProvider fdp(fuzzData, size);
         NLSTK_SmRecoverKeyParam_S *recover_key_in =
             (NLSTK_SmRecoverKeyParam_S *)malloc(sizeof(NLSTK_SmRecoverKeyParam_S));
         if (recover_key_in == NULL) {
             NAI_LOG_ERROR("malloc failed");
             return;
         }
-
-        int ii = 0;
-
-        recover_key_in->addr.type = fuzzData[ii++];
-        for (int i = 0; i < SLE_ADDR_LEN; i ++) {
-            recover_key_in->addr.addr[i] = fuzzData[ii++];
+        (void)memset_s(recover_key_in, sizeof(NLSTK_SmRecoverKeyParam_S), 0, sizeof(NLSTK_SmRecoverKeyParam_S));
+        recover_key_in->addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            recover_key_in->addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-
-        for (int i = 0; i < SM_LINK_KEY_LEN; i ++) {
-            recover_key_in->linkKey[i] = fuzzData[ii++];
+        for (int i = 0; i < SM_LINK_KEY_LEN; i++) {
+            recover_key_in->linkKey[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-
-        recover_key_in->cryptoAlgo = fuzzData[ii++];
-        recover_key_in->keyDerivAlgo = fuzzData[ii++];
-        recover_key_in->intgChkInd = fuzzData[ii++];
-
+        recover_key_in->cryptoAlgo = fdp.ConsumeIntegral<uint8_t>();
+        recover_key_in->keyDerivAlgo = fdp.ConsumeIntegral<uint8_t>();
+        recover_key_in->intgChkInd = fdp.ConsumeIntegral<uint8_t>();
         NLSTK_SmRecoverKey(recover_key_in, 1);
         free(recover_key_in);
     }

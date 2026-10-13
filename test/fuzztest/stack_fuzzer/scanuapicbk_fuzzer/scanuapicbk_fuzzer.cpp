@@ -14,6 +14,7 @@
  */
  
 #include "scanuapicbk_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
@@ -63,9 +64,7 @@ namespace OHOS {
 
     void FuzzSetScanParamCbk(const uint8_t* fuzzData, size_t size)
     {
-        if (size == 0) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
         NLSTK_DevdSleScanExterCbk_S *param = (NLSTK_DevdSleScanExterCbk_S *)SDF_MemZalloc(
             sizeof(NLSTK_DevdSleScanExterCbk_S));
         if (param == NULL) {
@@ -80,7 +79,8 @@ namespace OHOS {
             return;
         }
 
-        size_t advReportSize = sizeof(DLI_AdvReportEvt) + size;
+        uint8_t dataLength = fdp.ConsumeIntegral<uint8_t>();
+        size_t advReportSize = sizeof(DLI_AdvReportEvt) + dataLength;
         cfm_par->eventParameter = SDF_MemZalloc(advReportSize);
         if (cfm_par->eventParameter == NULL) {
             SDF_MemFree(cfm_par);
@@ -91,10 +91,10 @@ namespace OHOS {
         cfm_par->size = advReportSize;
 
         struct DLI_AdvReportEvt *par = (struct DLI_AdvReportEvt *)cfm_par->eventParameter;
-        par->dataLength = size;
+        par->dataLength = dataLength;
 
-        if (size > 0) {
-            memcpy_s(par->data, size, fuzzData, size);
+        for (uint8_t i = 0; i < dataLength; i++) {
+            par->data[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
         // 调用回调函数

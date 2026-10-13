@@ -32,6 +32,7 @@
 #include "cm_signaling_version.h"
 #include "SleDliLayerAdapter.h"
 #include "ssap_type.h"
+#include "nlstk_ssap_app_server.h"
 #include "fuzzer/FuzzedDataProvider.h"
 
 int SleSendDliPacket(const SlePacket *packet)
@@ -451,6 +452,39 @@ namespace OHOS {
         (void)arg;
     }
 
+    void SsapServerRegisterAppImpl(int32_t appId, NLSTK_Errcode_E ret)
+    {
+        (void)appId;
+        (void)ret;
+    }
+
+    void SsapServerCleanAppResultCbImpl(void)
+    {
+        return;
+    }
+
+    void FuzzSsapServerAsyncApi(uint8_t *data, size_t size)
+    {
+        if (data == nullptr || size < 1) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        NLSTK_SsapAppServerCb_S cb = {0};
+        cb.onRegisterApp = SsapServerRegisterAppImpl;
+        (void)NLSTK_SsapServerRegAppAsyn(&cb);
+
+        int32_t appId = provider.ConsumeIntegral<int32_t>();
+        NLSTK_SsapServerDeregisterApplicationAsync(appId);
+
+        NLSTK_ServiceParam_S *service =
+            (NLSTK_ServiceParam_S *)SDF_MemZalloc(sizeof(NLSTK_ServiceParam_S));
+        if (service != nullptr) {
+            NLSTK_SsapFreeServiceParam(service);
+        }
+
+        (void)NLSTK_SsapCleanServerApp(SsapServerCleanAppResultCbImpl);
+    }
+
     void FuzzSsapLinkApi(uint8_t *data, size_t size)
     {
         SLE_Addr_S sleAddr;
@@ -487,6 +521,7 @@ namespace OHOS {
         FuzzSsapServerHandle2(data, size);
         FuzzSsapSendAndRecvPkt(data, size);
         FuzzSsapServerApi(data, size);
+        FuzzSsapServerAsyncApi(data, size);
         SSAP_LinkDeInit();
     }
 }

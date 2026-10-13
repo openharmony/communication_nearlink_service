@@ -14,6 +14,7 @@
  */
 
 #include "smdisp_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_algos.h"
 #include "nai_log.h"
 #include "securec.h"
@@ -56,25 +57,23 @@ extern SDF_Map *g_slinkMap;
 
 namespace OHOS {
 
-    uint16_t get_random_opcode()
-    {
-        uint16_t opcodes[] = {0x0133, 0x0134, 0x0135};
-        int num_opcodes = sizeof(opcodes) / sizeof(opcodes[0]);
-
-        int random_index = rand() % num_opcodes;
-
-        return opcodes[random_index];
-    }
-
     void FuzzSMPkgDispatcher(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S g_gNodeAddr = { .type = PUBLIC_ADDRESS, .addr = { 0x18, 0xda, 0x8f, 0x00, 0x01, 0x00, }, };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S g_gNodeAddr;
+        (void)memset_s(&g_gNodeAddr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_gNodeAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_gNodeAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         uint8_t *msg = (uint8_t*)malloc(size);
 
         memcpy_s(msg, size, fuzzData, size);
 
-        int opcode1 = get_random_opcode();
+        uint16_t opcodes[] = {0x0133, 0x0134, 0x0135};
+        int opcode1 = opcodes[fdp.ConsumeIntegral<uint8_t>() % FUZZ_3];
 
         SmPkgDispatcher(opcode1, &g_gNodeAddr, msg, size);
 

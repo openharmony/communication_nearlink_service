@@ -32,6 +32,7 @@
 #include "dli_layer_utils.h"
 #include "dpfwk_log.h"
 #include "dtap.h"
+#include "dtap_frame.h"
 #include "dtap_scheduler.h"
 #include "dtap_tcid.h"
 #include "dtap_trans.h"
@@ -706,12 +707,80 @@ namespace OHOS {
         FuzzDtapOperateChannel(castMode++, 0, 0, transMode++, CM_TRANS_CHANNEL_STATE_RELEASED);
     }
 
+    void FuzzDtapFrameApi(uint8_t* data, size_t size)
+    {
+        if (data == nullptr || size < 1) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        DTAP_RegisterBasicFrameCtx();
+        DTAP_RegisterEnhanceFrameCtx();
+
+        uint8_t frameType = provider.ConsumeIntegral<uint8_t>();
+        SDF_Buff_S *buff = FuzzDtapCreateBuff(data, size);
+        if (buff != nullptr) {
+            DTAP_Frame_S dtapFrame = {};
+            (void)DTAP_ParseFrame(frameType, buff, &dtapFrame);
+            SDF_BuffFree(buff);
+        }
+
+        DTAP_Channel_S *transChan = DTAP_ChannelSearch(0, TCID_SLE_SMTC);
+        if (transChan == nullptr) {
+            FuzzDtapOperateChannel(0, 0, TCID_SLE_SMTC, CM_TRANS_MODE_BASIC,
+                CM_TRANS_CHANNEL_STATE_ACTIVATED);
+            transChan = DTAP_ChannelSearch(0, TCID_SLE_SMTC);
+        }
+        if (transChan != nullptr) {
+            SDF_Buff_S *sendBuff = FuzzDtapCreateBuff(data, size);
+            if (sendBuff != nullptr) {
+                // 发送成功后 buff 所有权移交给调度器，仅失败时由本侧释放
+                if (DTAP_SendFrame(transChan, sendBuff) != DTAP_SUCCESS) {
+                    SDF_BuffFree(sendBuff);
+                }
+            }
+            DTAP_RecvBasicFrameContinue(transChan);
+            FuzzDtapOperateChannel(0, 0, TCID_SLE_SMTC, CM_TRANS_MODE_BASIC,
+                CM_TRANS_CHANNEL_STATE_RELEASED);
+        }
+
+        DTAP_Frame_S *frame = FuzzDtapGenFrame(data, size, DTAP_FRAME_BASIC);
+        if (frame != nullptr) {
+            DTAP_Frame_S *copyFrame = DTAP_CopyFrame(frame);
+            if (copyFrame != nullptr) {
+                (void)DTAP_ParseExtension(copyFrame);
+                DTAP_DestroyFrame(copyFrame);
+            }
+            DTAP_DestroyFrame(frame);
+        }
+
+        SDF_Buff_S *fragBuff = FuzzDtapCreateBuff(data, size);
+        if (fragBuff != nullptr) {
+            uint16_t mps = (provider.ConsumeIntegral<uint16_t>() % 1500) + 1;
+            DTAP_Frame_S *outFrames[DTAP_MAX_FRAGMENT_NUM] = {nullptr};
+            uint16_t outCnt = 0;
+            DTAP_FragmentFrame(fragBuff, mps, DTAP_FRAME_SIMPLEX_FRAG, outFrames, &outCnt);
+            for (uint16_t i = 0; i < outCnt; i++) {
+                if (outFrames[i] != nullptr) {
+                    DTAP_DestroyFrame(outFrames[i]);
+                }
+            }
+            SDF_BuffFree(fragBuff);
+        }
+
+        DTAP_BasicHeader_S frameHeader = {0};
+        frameHeader.tcid = provider.ConsumeIntegral<uint8_t>();
+        frameHeader.typeBits = provider.ConsumeIntegral<uint8_t>();
+        frameHeader.length = provider.ConsumeIntegral<uint16_t>();
+        (void)DTAP_SetFrameBit(&frameHeader, provider.ConsumeIntegral<uint8_t>());
+    }
+
     void FuzzDtapTransApi(uint8_t* data, size_t size)
     {
         // dtap trans fuzz
         FuzzDtapTransModeApi(data, size);
 
         // dtap frame fuzz
+        FuzzDtapFrameApi(data, size);
         FuzzDtapRecvAggregateFrame(data, size);
         FuzzDtapRecvFragmentFrame(data, size);
 

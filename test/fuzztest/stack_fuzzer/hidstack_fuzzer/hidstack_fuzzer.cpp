@@ -21,6 +21,7 @@
 #include "hid_client_api.h"
 #include "hidstack_fuzzer.h"
 #include "SleDliThreadUtil.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 typedef enum {
     FUZZ_ZERO    = 0,
@@ -41,13 +42,6 @@ typedef enum {
 namespace OHOS {
     SleDliThreadUtil &g_dliThreadUtil = SleDliThreadUtil::GetInstance();
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % FUZZ_SIXTEEN;
-        return hex_digits[random_byte];
-    }
-
     void FuzzHidRegClientCbk(uint8_t* fuzzData, size_t size)
     {
         HidClientCallBack_S cbk = {0};
@@ -56,37 +50,34 @@ namespace OHOS {
 
     void FuzzHidConnect(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HidConnect(&addr);
     }
 
     void FuzzHidDisconnect(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HidDisconnect(&addr);
     }
 
     void FuzzHidGetInformation(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HidInformation_S *info = NULL;
         HidFreeFunc freeFunc = NULL;
         HidGetInformation(&addr, &info, &freeFunc);
@@ -97,58 +88,58 @@ namespace OHOS {
 
     void FuzzHidReadProperty(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
-        HidPropertyType_E type = (HidPropertyType_E)(rand() % HID_PROPERTY_TYPE_BUFF);
-        HidReportIdAndType_S reportIdAndType = {
-            .reportId = rand() % FUZZ_EIGHT,
-            .reportType = rand() % FUZZ_EIGHT,
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        HidPropertyType_E type = static_cast<HidPropertyType_E>(
+            fdp.ConsumeIntegral<uint8_t>() % HID_PROPERTY_TYPE_BUFF);
+        HidReportIdAndType_S reportIdAndType = {0};
+        reportIdAndType.reportId = fdp.ConsumeIntegral<uint8_t>() % FUZZ_EIGHT;
+        reportIdAndType.reportType = fdp.ConsumeIntegral<uint8_t>() % FUZZ_EIGHT;
         HidReadProperty(&addr, type, &reportIdAndType);
     }
 
     void FuzzHidWriteProperty(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HidPropertyType_E type = HID_TYPE_AND_FORMAT_DESC;
         HidTypeAndFormatDesc_S value1 = {0};
-        value1.descLen = size;
-        value1.desc = fuzzData;
-        value1.type = rand() % FUZZ_EIGHT;
+        std::vector<uint8_t> descBuf = fdp.ConsumeBytes<uint8_t>(FUZZ_TWOHUNDREDFIFTYSIX);
+        value1.descLen = static_cast<uint16_t>(descBuf.size());
+        value1.desc = descBuf.data();
+        value1.type = fdp.ConsumeIntegral<uint8_t>();
         HidWriteProperty(&addr, type, &value1);
 
         type = HID_WORK_STATUS_INDICATION;
-        uint8_t value2 = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
+        uint8_t value2 = fdp.ConsumeIntegral<uint8_t>();
         HidWriteProperty(&addr, type, &value2);
 
-        type = (HidPropertyType_E)(rand() % FUZZ_THREE + FUZZ_THREE);
-        HidReportInfo_S value3 = {
-            .reportIdAndType = { .reportId = rand() % FUZZ_EIGHT, .reportType = rand() % FUZZ_EIGHT, },
-            .reportInfoValue = { .len = size, .data = fuzzData, }
-        };
+        type = static_cast<HidPropertyType_E>(fdp.ConsumeIntegral<uint8_t>() % FUZZ_THREE + FUZZ_THREE);
+        HidReportInfo_S value3 = {};
+        value3.reportIdAndType.reportId = fdp.ConsumeIntegral<uint8_t>() % FUZZ_EIGHT;
+        value3.reportIdAndType.reportType = fdp.ConsumeIntegral<uint8_t>() % FUZZ_EIGHT;
+        std::vector<uint8_t> reportBuf = fdp.ConsumeBytes<uint8_t>(FUZZ_TWOHUNDREDFIFTYSIX);
+        value3.reportInfoValue.len = static_cast<uint16_t>(reportBuf.size());
+        value3.reportInfoValue.data = reportBuf.data();
         HidWriteProperty(&addr, type, &value3);
     }
 
     void FuzzHidGetConnectState(uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         uint8_t state = 0;
         HidGetConnectState(&addr, &state);
     }

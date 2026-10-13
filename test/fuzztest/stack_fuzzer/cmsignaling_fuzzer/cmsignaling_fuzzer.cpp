@@ -221,6 +221,15 @@ namespace OHOS {
         CM_SignalingGet(OHOS::TEST_CAP_REQ);
         CM_SignalingGet(OHOS::TEST_CAP_RSP);
         CM_SignalingGet(code);
+        (void)CM_GetDeviceLinkDeviceType(0);
+        (void)CM_GetDeviceLinkDeviceType(connId);
+        CM_SetLinkRxWindow(connId, provider.ConsumeIntegral<uint8_t>());
+        CM_TransMode mode = {0};
+        mode.reliableMode = provider.ConsumeBool();
+        mode.flowMode = provider.ConsumeBool();
+        mode.byPassMode = provider.ConsumeBool();
+        CM_SetLinkTransMode(connId, mode);
+        CM_SetLinkMtu(connId, provider.ConsumeIntegral<uint16_t>());
     }
 
     void FuzzCMSignalingTransChanCbksRegister()

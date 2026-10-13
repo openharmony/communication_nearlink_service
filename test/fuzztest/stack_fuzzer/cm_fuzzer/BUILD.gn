@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -67,6 +67,8 @@ ohos_fuzztest("CmFuzzTest") {
     "$NEARLINK_ROOT/services/stack/src/nai/slem/include",
     "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/icb/include",
     "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/link/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/dyntrans/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/signaling/include",
     "$NEARLINK_ROOT/services/stack/src/nai/nlm/cfg/include",
     "$NEARLINK_ROOT/services/stack/src/dli/common",
     "$NEARLINK_ROOT/services/stack/src/dli/layer/include",
@@ -115,6 +117,15 @@ ohos_fuzztest("CmFuzzTest") {
     "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_api.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_concurrent_conn.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_link_collab_func.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_channel_mgr.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_chan_state_mgr.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_tcid.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_trans_channel.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_manage.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_cap.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_internal.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/signaling/src/cm_signaling_version.c",
+    "$STACK_DIR/src/cp/nlstkfwk/cfgdb/src/nlstk_cfgdb.c",
     "$STACK_DIR/src/sdf/sdffwk/src/sdf_util.c",
     "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_vector.c",
     "$STACK_DIR/src/sdf/bsl/dsl/src/sdf_buff.c",

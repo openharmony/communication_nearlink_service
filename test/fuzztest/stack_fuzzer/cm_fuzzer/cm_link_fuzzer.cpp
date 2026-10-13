@@ -16,11 +16,13 @@
 #include <cstddef>
 #include <type_traits>
 #include "securec.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sdf_buff.h"
 #include "sdf_mem.h"
 #include "sdf_worker.h"
 #include "cm_errno.h"
 #include "cm_trans_channel_api.h"
+#include "cm_dyn_trans_channel_api.h"
 #include "cm_logic_link_api.h"
 #include "cm_api.h"
 #include "cm_inner_api.h"
@@ -39,30 +41,30 @@ typedef struct {
 namespace OHOS {
     void CM_ConnectReadLocalFeaturesFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(DLI_ReadLocalFeatsEvt)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         DLI_ReadLocalFeatsEvt fevt = { 0 };
-        uint32_t offset = 0;
         for (uint8_t i = 0; i < sizeof(fevt.feats) / sizeof(fevt.feats[0]); i++) {
-            CM_FUZZER_DATA_OFFSET(fevt.feats[i], data, offset);
+            fevt.feats[i] = provider.ConsumeIntegral<uint8_t>();
         }
         CmFuzzerSleCompleteEvt(DLI_READ_LOCAL_SUPPORT_FEATS, DLI_CBK_READ_LOCAL_FEATURE, fevt);
     }
 
     void CM_ConnectEstablishReqFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(CM_ConnectParamReq_S) + sizeof(uint16_t)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         CM_ConnectParamReq_S param = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(param.version, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.localIndex, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.addr, data, offset);
+        param.version = provider.ConsumeIntegral<uint8_t>();
+        param.localIndex = provider.ConsumeIntegral<uint16_t>();
+        param.addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         uint32_t ret = CM_ConnectEstablishReq(&param);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_ConnectEstablishReq failed, ret:%d", ret);
             return;
         }
-        uint16_t handle;
-        CM_FUZZER_DATA_OFFSET(handle, data, offset);
+        uint16_t handle = provider.ConsumeIntegral<uint16_t>();
         CmFuzzerSleConnectCompleteEvt(handle);
         ret = CM_ConnectEstablishReq(&param);
         if (ret != CM_SUCCESS) {
@@ -74,42 +76,41 @@ namespace OHOS {
 
     void CM_ConnectReadRemoteFeturesAndVersionFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(DLI_ReadRemoteVersionEvt) + sizeof(DLI_ReadRemoteFeatsEvt) +
-            sizeof(DLI_DataLenChangeEvt)), "Input size error.");
-        uint32_t offset = 0;
+        FuzzedDataProvider provider(data, size);
         DLI_ReadRemoteVersionEvt evt = { 0 };
-        CM_FUZZER_DATA_OFFSET(evt.status, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.connHandle, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.version, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.companyIdentifier, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.subversion, data, offset);
+        evt.status = provider.ConsumeIntegral<uint8_t>();
+        evt.connHandle = provider.ConsumeIntegral<uint16_t>();
+        evt.version = provider.ConsumeIntegral<uint8_t>();
+        evt.companyIdentifier = provider.ConsumeIntegral<uint16_t>();
+        evt.subversion = provider.ConsumeIntegral<uint16_t>();
         CmFuzzerReadRemoteVersionCompleteEvt(&evt);
         DLI_ReadRemoteFeatsEvt fevt = { 0 };
-        CM_FUZZER_DATA_OFFSET(fevt.status, data, offset);
-        CM_FUZZER_DATA_OFFSET(fevt.connHandle, data, offset);
+        fevt.status = provider.ConsumeIntegral<uint8_t>();
+        fevt.connHandle = provider.ConsumeIntegral<uint16_t>();
         for (uint32_t i = 0; i < (sizeof(fevt.feats) / sizeof(fevt.feats[0])); i++) {
-            CM_FUZZER_DATA_OFFSET(fevt.feats[i], data, offset);
+            fevt.feats[i] = provider.ConsumeIntegral<uint8_t>();
         }
         CmFuzzerReadRemoteFeaturesCompleteEvt(&fevt);
         DLI_DataLenChangeEvt devt = { 0 };
-        CM_FUZZER_DATA_OFFSET(devt.connHandle, data, offset);
-        CM_FUZZER_DATA_OFFSET(devt.maxTxOctets, data, offset);
-        CM_FUZZER_DATA_OFFSET(devt.maxRxOctets, data, offset);
+        devt.connHandle = provider.ConsumeIntegral<uint16_t>();
+        devt.maxTxOctets = provider.ConsumeIntegral<uint16_t>();
+        devt.maxRxOctets = provider.ConsumeIntegral<uint16_t>();
         CmFuzzerSleCompleteEvt(DLI_SET_DATA_LEN, DLI_CBK_SET_DATA_LEN, devt);
     }
 
     void CM_ConnectSetParamReqFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(CM_ConnectSetParamReq_S), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         CM_ConnectSetParamReq_S param = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(param.enableFilterPolicy, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.gtNegotiate, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.scanInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.scanWindow, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.minInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.maxInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.timeout, data, offset);
+        param.bitFrameType = provider.ConsumeIntegral<uint8_t>();
+        param.enableFilterPolicy = provider.ConsumeIntegral<uint8_t>();
+        param.initiatingPhys = provider.ConsumeIntegral<uint8_t>();
+        param.gtNegotiate = provider.ConsumeIntegral<uint8_t>();
+        param.scanInterval = provider.ConsumeIntegral<uint16_t>();
+        param.scanWindow = provider.ConsumeIntegral<uint16_t>();
+        param.minInterval = provider.ConsumeIntegral<uint16_t>();
+        param.maxInterval = provider.ConsumeIntegral<uint16_t>();
+        param.timeout = provider.ConsumeIntegral<uint16_t>();
         uint32_t ret = CM_ConnectSetParamReq(&param);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_ConnectSetParamReq failed, ret:%d", ret);
@@ -119,18 +120,17 @@ namespace OHOS {
 
     void CM_ConnectRemoteUpdateParamReqFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(DLI_RemoteConnParamReqEvt)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         DLI_RemoteConnParamReqEvt revt = { 0 };
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(revt.connHandle, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.connIntervalMin, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.connIntervalMax, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.txRxInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.eventInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.maxLatency, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.supervisionTimeout, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.systemTimeUnit, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.txRxFlag, data, offset);
+        revt.connHandle = provider.ConsumeIntegral<uint16_t>();
+        revt.connIntervalMin = provider.ConsumeIntegral<uint16_t>();
+        revt.connIntervalMax = provider.ConsumeIntegral<uint16_t>();
+        revt.txRxInterval = provider.ConsumeIntegral<uint8_t>();
+        revt.eventInterval = provider.ConsumeIntegral<uint16_t>();
+        revt.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        revt.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        revt.systemTimeUnit = provider.ConsumeIntegral<uint8_t>();
+        revt.txRxFlag = provider.ConsumeIntegral<uint8_t>();
         CmFuzzerSleConnectRemoteParamUpdateReqEvt(&revt);
     }
 
@@ -141,68 +141,67 @@ namespace OHOS {
 
     void CM_ConnectRemoteConnectionParamRequestsReplyFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(DLI_RemoteConnParamReqReplyReturnParam)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         DLI_RemoteConnParamReqReplyReturnParam revt = { 0 };
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(revt.status, data, offset);
-        CM_FUZZER_DATA_OFFSET(revt.connHandle, data, offset);
+        revt.status = provider.ConsumeIntegral<uint8_t>();
+        revt.connHandle = provider.ConsumeIntegral<uint16_t>();
         CmFuzzerSleCompleteEvt(DLI_CONNECTION_PARAM_REQ_REPLY, DLI_CBK_REMOTE_CONNECT_PARAM_REQ_REPLY, revt);
     }
 
     void CM_ConnectUpdateParamReqFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(CM_ConnectUpdateParamReq_S) + sizeof(DLI_ConnectionUpdateCmpEvt)),
-            "Input size error.");
+        FuzzedDataProvider provider(data, size);
         CM_ConnectUpdateParamReq_S param = {0};
-        uint32_t offset = 0;
-
-        CM_FUZZER_DATA_OFFSET(param.localIndex, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.addr, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.intervalMin, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.intervalMax, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.txRxInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.eventInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.maxLatency, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.supervisionTimeout, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.systemTimeUnit, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.txRxFlag, data, offset);
+        param.version = provider.ConsumeIntegral<uint8_t>();
+        param.localIndex = provider.ConsumeIntegral<uint16_t>();
+        param.addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        param.intervalMin = provider.ConsumeIntegral<uint16_t>();
+        param.intervalMax = provider.ConsumeIntegral<uint16_t>();
+        param.txRxInterval = provider.ConsumeIntegral<uint8_t>();
+        param.eventInterval = provider.ConsumeIntegral<uint16_t>();
+        param.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        param.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        param.systemTimeUnit = provider.ConsumeIntegral<uint8_t>();
+        param.txRxFlag = provider.ConsumeIntegral<uint8_t>();
         uint32_t ret = CM_ConnectUpdateParamReq(&param);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_ConnectSetParamReq failed, ret:%d", ret);
             return;
         }
         DLI_ConnectionUpdateCmpEvt evt = { 0 };
-        CM_FUZZER_DATA_OFFSET(evt.status, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.connHandle, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.connInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.txRxInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.eventInterval, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.maxLatency, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.supervisionTimeout, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.systemTimeUnit, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.txRxFlag, data, offset);
+        evt.status = provider.ConsumeIntegral<uint8_t>();
+        evt.connHandle = provider.ConsumeIntegral<uint16_t>();
+        evt.connInterval = provider.ConsumeIntegral<uint16_t>();
+        evt.txRxInterval = provider.ConsumeIntegral<uint8_t>();
+        evt.eventInterval = provider.ConsumeIntegral<uint16_t>();
+        evt.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        evt.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        evt.systemTimeUnit = provider.ConsumeIntegral<uint8_t>();
+        evt.txRxFlag = provider.ConsumeIntegral<uint8_t>();
         CmFuzzerSleConnectParamUpdateEvt(&evt);
     }
 
     void CM_ConnectReleaseReqFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(CM_DisconnectParamReq_S) +
-            sizeof(uint16_t) + sizeof(uint8_t), "Input size error.");
-        uint32_t offset = 0;
+        FuzzedDataProvider provider(data, size);
         CM_DisconnectParamReq_S param = {};
-        CM_FUZZER_DATA_OFFSET(param.addr, data, offset);
+        param.addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S addr = {0};
         (void)memcpy_s(&param.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        CM_FUZZER_DATA_OFFSET(param.discReason, data, offset);
+        param.discReason = provider.ConsumeIntegral<uint8_t>();
         uint32_t ret = CM_ConnectReleaseReq(&param);
         if (ret != CM_SUCCESS) {
             CM_LOGE("CM_ConnectReleaseReq failed, ret:%d", ret);
             return;
         }
-        uint16_t handle;
-        uint16_t reason;
-        CM_FUZZER_DATA_OFFSET(handle, data, offset);
-        CM_FUZZER_DATA_OFFSET(reason, data, offset);
+        uint16_t handle = provider.ConsumeIntegral<uint16_t>();
+        uint16_t reason = provider.ConsumeIntegral<uint16_t>();
         CmFuzzerSleDisconnectEvt(handle, reason);
     }
 
@@ -227,23 +226,24 @@ namespace OHOS {
 
     void CM_ReadAcceptFilterListSizeFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(DLI_ReadBufSizeEvt), "Input size error.");
-        uint32_t offset = 0;
+        FuzzedDataProvider provider(data, size);
         CM_ReadAcceptFilterListSize();
         DLI_ReadBufSizeEvt evt = { 0 };
-        CM_FUZZER_DATA_OFFSET(evt.acbTxDataLen, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.acbTxDataNum, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.icbTxDataLen, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.icbTxDataNum, data, offset);
+        evt.acbTxDataLen = provider.ConsumeIntegral<uint16_t>();
+        evt.acbTxDataNum = provider.ConsumeIntegral<uint8_t>();
+        evt.icbTxDataLen = provider.ConsumeIntegral<uint16_t>();
+        evt.icbTxDataNum = provider.ConsumeIntegral<uint8_t>();
         CmFuzzerSleCompleteEvt(DLI_READ_ACCESS_FILTER_LIST_SIZE, DLI_CBK_READ_ACCESS_FLT_LIST_SIZE, evt);
     }
 
     void CM_AddDeviceToAcceptFilterListFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(SLE_Addr_S), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         SLE_Addr_S addr = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(addr, data, offset);
+        addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         uint32_t ret = CM_AddDeviceToAcceptFilterList(&addr, false);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_AddDeviceToAcceptFilterList failed, ret:%d", ret);
         std::nullptr_t evt = nullptr;
@@ -252,10 +252,12 @@ namespace OHOS {
 
     void CM_RemoveDeviceFromAcceptFilterListFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(SLE_Addr_S), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         SLE_Addr_S addr = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(addr, data, offset);
+        addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         uint32_t ret = CM_RemoveDeviceFromAcceptFilterList(&addr);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_RemoveDeviceFromAcceptFilterList failed, ret:%d", ret);
         std::nullptr_t evt = nullptr;
@@ -264,41 +266,39 @@ namespace OHOS {
 
     void CM_SetPhyFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= (sizeof(CM_SetPhyReq_S) + sizeof(DLI_SetPhyEvt)), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         CM_SetPhyReq_S param = {0};
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(param.lcid, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.txFormat, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.rxFormat, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.txPhy, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.rxPhy, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.txPilotDensity, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.rxPilotDensity, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.gFeedback, data, offset);
-        CM_FUZZER_DATA_OFFSET(param.tFeedback, data, offset);
+        param.lcid = provider.ConsumeIntegral<uint16_t>();
+        param.txFormat = provider.ConsumeIntegral<uint8_t>();
+        param.rxFormat = provider.ConsumeIntegral<uint8_t>();
+        param.txPhy = provider.ConsumeIntegral<uint8_t>();
+        param.rxPhy = provider.ConsumeIntegral<uint8_t>();
+        param.txPilotDensity = provider.ConsumeIntegral<uint8_t>();
+        param.rxPilotDensity = provider.ConsumeIntegral<uint8_t>();
+        param.gFeedback = provider.ConsumeIntegral<uint8_t>();
+        param.tFeedback = provider.ConsumeIntegral<uint8_t>();
         uint32_t ret = CM_SetPhy(&param);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_SetPhy failed, ret:%d", ret);
         DLI_SetPhyEvt evt = { 0 };
-        CM_FUZZER_DATA_OFFSET(evt.status, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.connHandle, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.txFormat, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.rxFormat, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.txPhy, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.rxPhy, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.txPilotDensity, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.rxPilotDensity, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.gFeedback, data, offset);
-        CM_FUZZER_DATA_OFFSET(evt.tFeedback, data, offset);
+        evt.status = provider.ConsumeIntegral<uint8_t>();
+        evt.connHandle = provider.ConsumeIntegral<uint16_t>();
+        evt.txFormat = provider.ConsumeIntegral<uint8_t>();
+        evt.rxFormat = provider.ConsumeIntegral<uint8_t>();
+        evt.txPhy = provider.ConsumeIntegral<uint8_t>();
+        evt.rxPhy = provider.ConsumeIntegral<uint8_t>();
+        evt.txPilotDensity = provider.ConsumeIntegral<uint8_t>();
+        evt.rxPilotDensity = provider.ConsumeIntegral<uint8_t>();
+        evt.gFeedback = provider.ConsumeIntegral<uint8_t>();
+        evt.tFeedback = provider.ConsumeIntegral<uint8_t>();
         CmFuzzerSetPhyEvt(&evt);
     }
 
     void CM_SetHostChannelClassificationFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(CM_SetChannelMapReq_S), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         CM_SetChannelMapReq_S param = {0};
-        uint32_t offset = 0;
         for (uint32_t i = 0; i < (sizeof(param.channelMap) / sizeof(param.channelMap[0])); i++) {
-            CM_FUZZER_DATA_OFFSET(param.channelMap[i], data, offset);
+            param.channelMap[i] = provider.ConsumeIntegral<uint8_t>();
         }
         uint32_t ret = CM_SetHostChannelClassification(&param);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_SetHostChannelClassification failed, ret:%d", ret);
@@ -308,44 +308,175 @@ namespace OHOS {
 
     void CM_GetLogicLinkByAddrFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(SLE_Addr_S), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         SLE_Addr_S addr = { 0 };
         CM_LogicLink_S logicLink = { 0 };
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(addr, data, offset);
+        addr.type = provider.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
         uint32_t ret = CM_GetLogicLinkByAddr(&addr, &logicLink);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_GetLogicLinkByAddr failed, ret:%d", ret);
     }
 
     void CM_GetLogicLinkByLcidFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(uint16_t), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint16_t lcid = 0;
         CM_LogicLink_S logicLink = { 0 };
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(lcid, data, offset);
+        lcid = provider.ConsumeIntegral<uint16_t>();
         uint32_t ret = CM_GetLogicLinkByLcid(lcid, &logicLink);
         CM_CHECK_RETURN(ret == CM_SUCCESS, "CM_GetLogicLinkByLcid failed, ret:%d", ret);
     }
 
     void CM_SetLogicLinkDeviceTypeFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(uint16_t) + sizeof(uint8_t), "Input size error.");
+        FuzzedDataProvider provider(data, size);
         uint16_t lcid = 0;
         uint8_t deviceType = 0;
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(lcid, data, offset);
-        CM_FUZZER_DATA_OFFSET(deviceType, data, offset);
+        lcid = provider.ConsumeIntegral<uint16_t>();
+        deviceType = provider.ConsumeIntegral<uint8_t>();
         CM_SetLogicLinkDeviceType(lcid, deviceType);
     }
 
     void CM_SetACBSubrateFuzz(uint8_t *data, size_t size)
     {
-        CM_CHECK_RETURN(size >= sizeof(CM_SetACBSubrateInnerParam), "Input size error.");
-        CM_SetACBSubrateInnerParam param;
-        uint32_t offset = 0;
-        CM_FUZZER_DATA_OFFSET(param, data, offset);
+        FuzzedDataProvider provider(data, size);
+        CM_SetACBSubrateInnerParam param = {0};
+        param.lcid = provider.ConsumeIntegral<uint16_t>();
+        param.subrate = provider.ConsumeIntegral<uint16_t>();
         CM_InnerSetACBSubrate(&param);
+    }
+
+    static uint32_t FuzzEnableConnHighPowerImpl(DLI_EnableConnHighPowerParam *param)
+    {
+        (void)param;
+        return CM_SUCCESS;
+    }
+
+    static uint32_t FuzzSetACBSubrateImpl(DLI_ACBSubrateParam *dliParam)
+    {
+        (void)dliParam;
+        return CM_SUCCESS;
+    }
+
+    static void FuzzDynTransEstablishRspCbkImpl(const CM_DynTransChanEstablishParamRsp_S *param)
+    {
+        (void)param;
+    }
+
+    static void FuzzDynTransReleaseRspCbkImpl(const CM_DynTransChanReleaseParamRsp_S *param)
+    {
+        (void)param;
+    }
+
+    static void FuzzDynTransStatusIndicationCbkImpl(const CM_DynTransChanStatusIndicationRsp_S *param)
+    {
+        (void)param;
+    }
+
+    static bool FuzzDynTransEstablishedCheckCbkImpl(const CM_DynTransChanEstablishedCheckParam_S *param)
+    {
+        (void)param;
+        return true;
+    }
+
+    void CM_EnableRealConnHighPowerFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        CM_EnableConnHighPowerReq_S param = {0};
+        param.lcid = provider.ConsumeIntegral<uint16_t>();
+        param.enable = provider.ConsumeBool();
+        param.powerLevel = provider.ConsumeIntegral<uint8_t>();
+        (void)CM_EnableRealConnHighPower(&param, FuzzEnableConnHighPowerImpl);
+    }
+
+    void CM_SetRealACBSubrateFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        CM_SetACBSubrateParam param = {};
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        param.subrate = provider.ConsumeIntegral<uint16_t>();
+        param.onlySubrate = provider.ConsumeBool();
+        param.subrateMax = provider.ConsumeIntegral<uint16_t>();
+        param.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        param.continuationNum = provider.ConsumeIntegral<uint16_t>();
+        param.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        (void)CM_SetRealACBSubrate(&param, FuzzSetACBSubrateImpl);
+    }
+
+    void CM_GetRssiFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        CM_ReadRemoteRssiReq_S param = {0};
+        param.lcid = provider.ConsumeIntegral<uint16_t>();
+        (void)CM_GetRssi(&param);
+    }
+
+    void CM_GetLcidByConnHandleFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        uint16_t connHandle = provider.ConsumeIntegral<uint16_t>();
+        (void)CM_GetLcidByConnHandle(connHandle);
+    }
+
+    void CM_RegDynTransChannelCbksFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        (void)provider;
+        CM_DynTransChannelCbks_S cbks = {0};
+        cbks.establishRspCbk = FuzzDynTransEstablishRspCbkImpl;
+        cbks.releaseRspCbk = FuzzDynTransReleaseRspCbkImpl;
+        cbks.statusIndicationCbk = FuzzDynTransStatusIndicationCbkImpl;
+        cbks.establishedCheckCbk = FuzzDynTransEstablishedCheckCbkImpl;
+        (void)CM_RegDynTransChannelCbks(&cbks);
+    }
+
+    void CM_DynTransChannelEstablishReqFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        CM_DynTransChannelEstablishParamReq_S param = {0};
+        param.version = provider.ConsumeIntegral<uint8_t>();
+        param.localIndex = provider.ConsumeIntegral<uint16_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            param.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        param.srcPort = provider.ConsumeIntegral<uint16_t>();
+        param.dstPort = provider.ConsumeIntegral<uint16_t>();
+        param.slqi = provider.ConsumeIntegral<uint8_t>();
+        param.extension = nullptr;
+        param.expectedTransportMode = provider.ConsumeIntegral<uint8_t>();
+        param.exclusive = provider.ConsumeBool();
+        param.frameType = static_cast<CM_TransConnFrameType_E>(
+            provider.ConsumeIntegral<uint8_t>() % CM_RADIO_FRAME_TYPE_END);
+        (void)CM_DynTransChannelEstablishReq(&param);
+    }
+
+    void CM_SetRemoteFeatureFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        NLSTK_RemoteFeatureInfo_S info = {0};
+        info.lcid = provider.ConsumeIntegral<uint16_t>();
+        for (int i = 0; i < NLSTK_REMOTE_FEATURE_LEN; i++) {
+            info.features[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        (void)CM_SetRemoteFeature(&info);
+    }
+
+    void FuzzCmLinkSupplementApi(uint8_t *data, size_t size)
+    {
+        if (data == nullptr || size < 1) {
+            return;
+        }
+        CM_EnableRealConnHighPowerFuzz(data, size);
+        CM_SetRealACBSubrateFuzz(data, size);
+        CM_GetRssiFuzz(data, size);
+        CM_GetLcidByConnHandleFuzz(data, size);
+        CM_RegDynTransChannelCbksFuzz(data, size);
+        CM_DynTransChannelEstablishReqFuzz(data, size);
+        CM_SetRemoteFeatureFuzz(data, size);
     }
 
     void FuzzCmApi(uint8_t *data, size_t size)
@@ -468,6 +599,7 @@ uint32_t FuzzCmLinkInit(void)
 void FuzzCmLinkApi(uint8_t *data, size_t size)
 {
     OHOS::FuzzCmApi(static_cast<uint8_t *>(data), size);
+    OHOS::FuzzCmLinkSupplementApi(static_cast<uint8_t *>(data), size);
 }
 
 void FuzzCmLinkDeInit(void)

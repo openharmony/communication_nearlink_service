@@ -15,6 +15,7 @@
 
 #include "dis_fuzzer.h"
 #include "securec.h"
+#include "fuzzer/FuzzedDataProvider.h"
 
 #include "nai_log.h"
 #include "nlstk_log.h"
@@ -106,36 +107,37 @@ namespace OHOS {
 
     void FuzzDisClientApi(uint8_t* data, size_t size)
     {
-        if (size < sizeof(SLE_Addr_S) || size < FUZZ_FOUR) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
         NLSTK_DisClientCbk_S clientCallback = {0};
         clientCallback.stateChangeCbk = Mock_DisConnectStateChangeCbk;
         NLSTK_DisRegisterCallbBack(&clientCallback);
 
         SLE_Addr_S addr = {0};
-        (void)memcpy_s(&addr, sizeof(SLE_Addr_S), data, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         NLSTK_DisProfileConnect(&addr);
         NLSTK_DisProfileDisconnect(&addr);
 
-        NLSTK_DisInfoType_E type = (NLSTK_DisInfoType_E)(data[FUZZ_ZERO]);
+        NLSTK_DisInfoType_E type = static_cast<NLSTK_DisInfoType_E>(fdp.ConsumeIntegral<uint8_t>());
         NLSTK_VariableData_S outData = {0};
         outData.data = (uint8_t *)SDF_MemZalloc(DIS_MAX_VAR_LEN);
         if (outData.data == nullptr) {
             return;
         }
         NLSTK_DisReadInfo(&addr, type, &outData);
-        uint32_t appearance = (data[FUZZ_ZERO] << FUZZ_TWENTYFOUR) | (data[FUZZ_ONE] << FUZZ_SIXTEEN) |
-            (data[FUZZ_TWO] << FUZZ_EIGHT) | (data[FUZZ_THREE]);
+        uint32_t appearance = fdp.ConsumeIntegral<uint32_t>();
         NLSTK_DisReadAppearanceInfo(&addr, &appearance);
-        NLSTK_GetConnectedDeviceNum(data);
+        uint8_t connectedNum = fdp.ConsumeIntegral<uint8_t>();
+        NLSTK_GetConnectedDeviceNum(&connectedNum);
 
         SDF_MemFree(outData.data);
     }
 
-    void AllocAndFillDevInfo(NLSTK_VariableData_S *devInfoValue, uint8_t *data)
+    void AllocAndFillDevInfo(NLSTK_VariableData_S *devInfoValue, FuzzedDataProvider &fdp)
     {
-        if (devInfoValue == nullptr || data == nullptr) {
+        if (devInfoValue == nullptr) {
             return;
         }
         devInfoValue->len = FUZZ_ONE;
@@ -143,21 +145,18 @@ namespace OHOS {
         if (devInfoValue->data == nullptr) {
             return;
         }
-        if (memcpy_s(devInfoValue->data, FUZZ_ONE, data, FUZZ_ONE) != EOK) {
-            SDF_MemFree(devInfoValue->data);
-            return;
-        }
+        devInfoValue->data[0] = fdp.ConsumeIntegral<uint8_t>();
     }
 
-    void AllocDisDevInfo(NLSTK_DeviceInfo_S *devInfo, uint8_t *data)
+    void AllocDisDevInfo(NLSTK_DeviceInfo_S *devInfo, FuzzedDataProvider &fdp)
     {
-        AllocAndFillDevInfo(&(devInfo->manufacturerInfo), data);
-        AllocAndFillDevInfo(&(devInfo->deviceModel), data);
-        AllocAndFillDevInfo(&(devInfo->deviceSerialNumber), data);
-        AllocAndFillDevInfo(&(devInfo->hardwareVersion), data);
-        AllocAndFillDevInfo(&(devInfo->firmwareVersion), data);
-        AllocAndFillDevInfo(&(devInfo->softwareVersion), data);
-        AllocAndFillDevInfo(&(devInfo->deviceLocalAlias), data);
+        AllocAndFillDevInfo(&(devInfo->manufacturerInfo), fdp);
+        AllocAndFillDevInfo(&(devInfo->deviceModel), fdp);
+        AllocAndFillDevInfo(&(devInfo->deviceSerialNumber), fdp);
+        AllocAndFillDevInfo(&(devInfo->hardwareVersion), fdp);
+        AllocAndFillDevInfo(&(devInfo->firmwareVersion), fdp);
+        AllocAndFillDevInfo(&(devInfo->softwareVersion), fdp);
+        AllocAndFillDevInfo(&(devInfo->deviceLocalAlias), fdp);
     }
 
     void FreeDisDevInfo(NLSTK_DeviceInfo_S *devInfo)
@@ -190,11 +189,9 @@ namespace OHOS {
 
     void FuzzDisServerApi(uint8_t* data, size_t size)
     {
-        if (size < FUZZ_ONE) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
         NLSTK_DeviceInfo_S devInfo = {{0}};
-        AllocDisDevInfo(&devInfo, data);
+        AllocDisDevInfo(&devInfo, fdp);
         NLSTK_DisCreateInstance(&devInfo);
         NLSTK_VariableData_S name = {0};
         name.len = FUZZ_ONE;
@@ -203,11 +200,7 @@ namespace OHOS {
             FreeDisDevInfo(&devInfo);
             return;
         }
-        if (memcpy_s(name.data, FUZZ_ONE, data, FUZZ_ONE) != EOK) {
-            SDF_MemFree(name.data);
-            FreeDisDevInfo(&devInfo);
-            return;
-        }
+        name.data[0] = fdp.ConsumeIntegral<uint8_t>();
         NLSTK_DisUpdateLocalDeviceName(&name);
         NLSTK_DisDestroyInstance();
         SDF_MemFree(name.data);

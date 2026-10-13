@@ -22,6 +22,7 @@
 #include "nlstk_sm_api.h"
 #include "sm_struct.h"
 #include "smset_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_stm.h"
 #include "sm_slink.h"
 
@@ -45,38 +46,30 @@ typedef enum {
 
 namespace OHOS {
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        return hex_digits[random_byte];
-    }
-
     void FuzzSetSecuParams(const uint8_t* fuzzData, size_t size)
     {
-        if (size < FUZZ_TWENTY) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
         NLSTK_SmLocalParams_S *params = (NLSTK_SmLocalParams_S *)SDF_MemAlloc(sizeof(NLSTK_SmLocalParams_S));
         if (params == NULL) {
             NLSTK_LOG_ERROR("malloc failed");
             return;
         }
-        int ii = 0;
+        (void)memset_s(params, sizeof(NLSTK_SmLocalParams_S), 0, sizeof(NLSTK_SmLocalParams_S));
 
-        params->ioAbility = fuzzData[ii++];
-        params->authMethodMask = fuzzData[ii++];
-        params->oobDataFlag = fuzzData[ii++];
-        params->secKeyMaxLen = fuzzData[ii++];
-        params->distAddrFlag = fuzzData[ii++];
-        params->distIrkFlag = fuzzData[ii++];
-        params->pskFlag = fuzzData[ii++];
-        params->authReq.mitmDefend = fuzzData[ii++];
-        params->authReq.secAttribute = fuzzData[ii++];
-        params->authReq.kpressNotif = fuzzData[ii++];
-        uint8_t tempCap[SM_OCTETS_4] = {0x01, 0x02, 0x03, 0x04};
-        memcpy_s(params->codeAlgoCap, SM_OCTETS_4, tempCap, SM_OCTETS_4);
+        params->ioAbility = fdp.ConsumeIntegral<uint8_t>();
+        params->authMethodMask = fdp.ConsumeIntegral<uint8_t>();
+        params->oobDataFlag = fdp.ConsumeIntegral<uint8_t>();
+        params->secKeyMaxLen = fdp.ConsumeIntegral<uint8_t>();
+        params->distAddrFlag = fdp.ConsumeIntegral<uint8_t>();
+        params->distIrkFlag = fdp.ConsumeIntegral<uint8_t>();
+        params->pskFlag = fdp.ConsumeIntegral<uint8_t>();
+        params->authReq.mitmDefend = fdp.ConsumeIntegral<uint8_t>();
+        params->authReq.secAttribute = fdp.ConsumeIntegral<uint8_t>();
+        params->authReq.kpressNotif = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SM_OCTETS_4; i++) {
+            params->codeAlgoCap[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         if ((params->ioAbility >= SM_IO_RESERVED) ||
             (params->oobDataFlag > SM_WITH_OOB_DATA) ||
             (params->secKeyMaxLen < SM_MAX_KEY_MIN_LEN) ||
@@ -86,6 +79,7 @@ namespace OHOS {
             (params->authReq.secAttribute > SM_PAIRING_MODE_RESERVED) ||
             (params->authReq.mitmDefend > SM_MITM_DEFEND_SUPPORT) ||
             (params->authReq.kpressNotif > SM_KEYPRESS_NOTIF_USED)) {
+            SDF_MemFree(params);
             return;
         }
 
@@ -95,13 +89,14 @@ namespace OHOS {
 
     void FuzzSetStartParing(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -111,13 +106,14 @@ namespace OHOS {
 
     void FuzzSetConfirm(const uint8_t* fuzzData, size_t size)
     {
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -128,56 +124,54 @@ namespace OHOS {
 
     void FuzzSetPassCode(const uint8_t* fuzzData, size_t size)
     {
-        if (size == 0) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
         SDF_MapMoveInsert(g_slinkMap, key, slink);
         NLSTK_SmPassCode_S passCode = {
             .addr = addr,
-            .passCode = fuzzData[0]
+            .passCode = fdp.ConsumeIntegral<uint32_t>()
         };
         NLSTK_SmSetPassCode(&passCode);
     }
 
     void FuzzSetPassWord(const uint8_t* fuzzData, size_t size)
     {
-        if (size == 0) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
         SDF_MapMoveInsert(g_slinkMap, key, slink);
 
-        size_t totalSize = sizeof(NLSTK_SmPassWord_S) + size;
+        uint8_t passWordLen = fdp.ConsumeIntegral<uint8_t>();
+        if (passWordLen > FUZZ_ONEHUNDREDTWENTYEIGHT) {
+            passWordLen = FUZZ_ONEHUNDREDTWENTYEIGHT;
+        }
+        size_t totalSize = sizeof(NLSTK_SmPassWord_S) + passWordLen;
         NLSTK_SmPassWord_S *passWord = (NLSTK_SmPassWord_S *)SDF_MemAlloc(totalSize);
         if (passWord == NULL) {
             return;
         }
         passWord->addr = addr;
-        passWord->passWordLen = (uint8_t)size;
+        passWord->passWordLen = passWordLen;
 
-        for (size_t i = 0; i < size; i++) {
-            passWord->passWord[i] = (char)fuzzData[i];
+        for (uint8_t i = 0; i < passWordLen; i++) {
+            passWord->passWord[i] = (char)fdp.ConsumeIntegral<uint8_t>();
         }
         NLSTK_SmSetPassWord(passWord);
         SDF_MemFree(passWord);
@@ -185,17 +179,14 @@ namespace OHOS {
 
     void FuzzSetLocalPsk(const uint8_t* fuzzData, size_t size)
     {
-        if (size < SM_PSK_SEC_KEY_LEN) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
-        SLE_Addr_S addr = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
         SmSLink_S *slink = SmSLinkCtor(&addr);
@@ -203,7 +194,9 @@ namespace OHOS {
 
         NLSTK_SmPsk_S psk = {{0}};
         psk.addr = addr;
-        memcpy_s(psk.psk, SM_PSK_SEC_KEY_LEN, fuzzData, SM_PSK_SEC_KEY_LEN);
+        for (int i = 0; i < SM_PSK_SEC_KEY_LEN; i++) {
+            psk.psk[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         NLSTK_SmSetLocalPsk(&psk);
     }
 

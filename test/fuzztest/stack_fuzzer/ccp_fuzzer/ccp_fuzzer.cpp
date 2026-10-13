@@ -25,7 +25,7 @@
 #include "securec.h"
 
 #define FUZZ_CCP_VAR_DATA_MAX_LEN 16
-#define FUZZ_CCP_VALUE_BUF_LEN 64
+#define FUZZ_CCP_MAX_CALL_CNT 8
 
 typedef struct SlePkt {
     uint8_t *data;
@@ -66,15 +66,19 @@ static void VasStateAuthorizeImpl(SLE_Addr_S *addr, uint32_t requestId)
     (void)requestId;
 }
 
-static uint16_t FillVariableData(FuzzedDataProvider &fdp, NLSTK_VariableData_S &var, uint8_t *buf)
+static uint16_t FillBytes(FuzzedDataProvider &fdp, uint8_t *buf, uint16_t maxLen)
 {
-    uint16_t len = fdp.ConsumeIntegral<uint8_t>() % FUZZ_CCP_VAR_DATA_MAX_LEN;
+    uint16_t len = fdp.ConsumeIntegral<uint8_t>() % maxLen;
     for (uint16_t i = 0; i < len; i++) {
         buf[i] = fdp.ConsumeIntegral<uint8_t>();
     }
-    var.len = len;
-    var.data = buf;
     return len;
+}
+
+static void FillVariableData(FuzzedDataProvider &fdp, NLSTK_VariableData_S &var, uint8_t *buf)
+{
+    var.len = FillBytes(fdp, buf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+    var.data = buf;
 }
 
 void FuzzCcpCreateCcsInstance(const uint8_t *fuzzData, size_t size)
@@ -125,11 +129,75 @@ void FuzzCcpUpdateCcsProperty(const uint8_t *fuzzData, size_t size)
     int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
     NLSTK_CcpCcsPropertyType_E property = static_cast<NLSTK_CcpCcsPropertyType_E>(
         fdp.ConsumeIntegral<uint8_t>() % NLSTK_CCP_CCS_MAX_PROPERTY);
-    uint8_t value[FUZZ_CCP_VALUE_BUF_LEN] = {0};
-    for (int i = 0; i < FUZZ_CCP_VALUE_BUF_LEN; i++) {
-        value[i] = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t varBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t userBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t aliasBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t callIdBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t networkIdBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t callStatusBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t callFlagBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    switch (property) {
+        case NLSTK_CCP_CCS_INSTANCE_NAME:
+        case NLSTK_CCP_CCS_PROTOCOL_SUPPORT:
+        case NLSTK_CCP_CCS_NETWORK_SELECTION: {
+            NLSTK_VariableData_S var = {0};
+            FillVariableData(fdp, var, varBuf);
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &var);
+            break;
+        }
+        case NLSTK_CCP_CCS_INSTANCE_ICON: {
+            NLSTK_CcpInstanceIcon_S icon = {0};
+            icon.type = fdp.ConsumeIntegral<uint8_t>();
+            icon.len = FillBytes(fdp, varBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            icon.icon = varBuf;
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &icon);
+            break;
+        }
+        case NLSTK_CCP_CCS_FEATURE_STATUS:
+        case NLSTK_CCP_CCS_MEDIA_INSTANCE_ID: {
+            uint8_t value = fdp.ConsumeIntegral<uint8_t>();
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &value);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALLIN_OUT_INFO: {
+            NLSTK_CcpCallInOutInfo_S info = {0};
+            info.callId = fdp.ConsumeIntegral<uint8_t>();
+            info.networkId = fdp.ConsumeIntegral<uint8_t>();
+            info.callFlag = fdp.ConsumeIntegral<uint8_t>();
+            info.userInfo.len = FillBytes(fdp, userBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            info.userInfo.data = userBuf;
+            info.userAlias.len = FillBytes(fdp, aliasBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            info.userAlias.data = aliasBuf;
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &info);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALL_STATUS: {
+            NLSTK_CcpCallStatues_S status = {0};
+            status.callCount = fdp.ConsumeIntegral<uint8_t>() % FUZZ_CCP_MAX_CALL_CNT;
+            status.callId = callIdBuf;
+            status.networkId = networkIdBuf;
+            status.callStatus = callStatusBuf;
+            status.callFlag = callFlagBuf;
+            for (uint8_t i = 0; i < status.callCount; i++) {
+                callIdBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                networkIdBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                callStatusBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                callFlagBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &status);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALL_TERMINATION: {
+            NLSTK_CcpCallTermination_S term = {0};
+            term.callId = fdp.ConsumeIntegral<uint8_t>();
+            term.terminateReason = fdp.ConsumeIntegral<uint8_t>();
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &term);
+            break;
+        }
+        default:
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, nullptr);
+            break;
     }
-    (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, value);
 }
 
 void FuzzCcpDeleteCcsInstance(const uint8_t *fuzzData, size_t size)

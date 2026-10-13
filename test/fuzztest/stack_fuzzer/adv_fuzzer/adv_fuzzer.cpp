@@ -14,6 +14,7 @@
  */
 
 #include "adv_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "log.h"
@@ -67,15 +68,11 @@ namespace OHOS {
 
     void FuzzAdvDataCbk(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(DLI_ExecuteCmdRetParam)) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
         DLI_ExecuteCmdRetParam cmdRes;
-        
+
         uint8_t handle = 1;
-        cmdRes.cmdOpcode = (fuzzData[FUZZ_ZERO] << FUZZ_EIGHT) | (fuzzData[FUZZ_ONE]);
-        cmdRes.size = (fuzzData[FUZZ_TWO] << FUZZ_TWENTYFOUR) | (fuzzData[FUZZ_THREE] << FUZZ_SIXTEEN) |
-            (fuzzData[FUZZ_FOUR] << FUZZ_EIGHT) | (fuzzData[FUZZ_FIVE]);
+        cmdRes.cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
         cmdRes.size = sizeof(DevdAdvTerminatedEvent_S);
         cmdRes.eventParameter = (DevdAdvTerminatedEvent_S *)SDF_MemZalloc(sizeof(DevdAdvTerminatedEvent_S));
         CP_CHECK_LOG_RETURN_VOID(cmdRes.eventParameter != nullptr, "[Fuzz]memory alloc error");
@@ -107,27 +104,15 @@ namespace OHOS {
 
     void FuzzGetAdvNode(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(uint8_t) * FUZZ_TWO + sizeof(SDF_DListHead_S)) {
-            return;
-        }
-
-        uint8_t handle = 1;
-        SDF_DListHead_S *list = (SDF_DListHead_S *)malloc(sizeof(SDF_DListHead_S));
-        if (list == nullptr) {
-            return;
-        }
-        (void)memcpy_s(list, sizeof(SDF_DListHead_S), fuzzData + sizeof(uint8_t) * FUZZ_TWO, sizeof(SDF_DListHead_S));
+        FuzzedDataProvider fdp(fuzzData, size);
+        uint8_t handle = fdp.ConsumeIntegral<uint8_t>();
         DevdGetAdvNode(handle, &(DevdGetLocalDevice()->advList));
-        free(list);
         return;
     }
 
     void FuzzSetAdv(const uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(uint8_t) * FUZZ_THREE) {
-            return;
-        }
-        int ii = 0;
+        FuzzedDataProvider fdp(fuzzData, size);
         uint8_t handle = 1;
 
         SDF_DListHead_S *list = DEVD_ADV_LIST;
@@ -141,32 +126,36 @@ namespace OHOS {
         if (fuzzNode == nullptr) {
             fuzzNode = DevdCreateAdvNode(handle, cbk, list);
         }
-        
+
         DevdSetAdvParams_S *params = (DevdSetAdvParams_S *)SDF_MemZalloc(sizeof(DevdSetAdvParams_S));
         CP_CHECK_LOG_RETURN_VOID(params != nullptr, "[Fuzz]memory alloc error");
         params->param.handle = handle;
-        params->data.advDataLen = fuzzData[ii++];
-        params->data.advData = (uint8_t *)SDF_MemZalloc(params->data.advDataLen);
+        uint8_t advDataLen = fdp.ConsumeIntegral<uint8_t>();
+        params->data.advDataLen = advDataLen;
+        params->data.advData = (uint8_t *)SDF_MemZalloc(advDataLen);
         CP_CHECK_LOG_RETURN_VOID(params->data.advData != nullptr, "[Fuzz]memory alloc error");
+        for (uint8_t i = 0; i < advDataLen; i++) {
+            params->data.advData[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         DevdSetAdvParam(params);
 
         NLSTK_DevdSetAdvData_S *arg1 = (NLSTK_DevdSetAdvData_S *)SDF_MemZalloc(sizeof(NLSTK_DevdSetAdvData_S));
         CP_CHECK_LOG_RETURN_VOID(arg1 != nullptr, "[Fuzz]memory alloc error");
 
         arg1->advHandle = handle;
-        arg1->data.advDataLen = fuzzData[ii++];
-        arg1->data.scanRspDataLen = fuzzData[ii++];
-        arg1->data.advData = (uint8_t *)SDF_MemZalloc(arg1->data.advDataLen);
+        uint8_t setAdvDataLen = fdp.ConsumeIntegral<uint8_t>();
+        uint8_t setScanRspDataLen = fdp.ConsumeIntegral<uint8_t>();
+        arg1->data.advDataLen = setAdvDataLen;
+        arg1->data.scanRspDataLen = setScanRspDataLen;
+        arg1->data.advData = (uint8_t *)SDF_MemZalloc(setAdvDataLen);
         CP_CHECK_LOG_RETURN_VOID(arg1->data.advData != nullptr, "[Fuzz]memory alloc error");
-        arg1->data.scanRspData = (uint8_t *)SDF_MemZalloc(arg1->data.scanRspDataLen);
+        arg1->data.scanRspData = (uint8_t *)SDF_MemZalloc(setScanRspDataLen);
         CP_CHECK_LOG_RETURN_VOID(arg1->data.scanRspData != nullptr, "[Fuzz]memory alloc error");
-        if (size >= ii + arg1->data.advDataLen) {
-            (void)memcpy_s(arg1->data.advData, arg1->data.advDataLen, fuzzData + ii, arg1->data.advDataLen);
-            ii += arg1->data.advDataLen;
+        for (uint8_t i = 0; i < setAdvDataLen; i++) {
+            arg1->data.advData[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        if (size >= ii + arg1->data.scanRspDataLen) {
-            (void)memcpy_s(arg1->data.scanRspData, arg1->data.scanRspDataLen, fuzzData + ii, arg1->data.scanRspDataLen);
-            ii += arg1->data.scanRspDataLen;
+        for (uint8_t i = 0; i < setScanRspDataLen; i++) {
+            arg1->data.scanRspData[i] = fdp.ConsumeIntegral<uint8_t>();
         }
         DevdSetAdvData(arg1);
 
@@ -180,10 +169,8 @@ namespace OHOS {
 
     void FuzzDevdCbk(uint8_t *fuzzData, size_t size)
     {
-        if (size < sizeof(uint8_t) * FUZZ_THREE) {
-            return;
-        }
-        uint8_t handle = 1;
+        FuzzedDataProvider fdp(fuzzData, size);
+        uint8_t handle = fdp.ConsumeIntegral<uint8_t>();
         SDF_DListHead_S *list = DEVD_ADV_LIST;
         NLSTK_DevdAdvEventCbk cbk = MockAdvNodeCbk;
         
@@ -201,7 +188,8 @@ namespace OHOS {
 
         DevdAdvNode_S *fuzzNode2 = DevdGetAdvNode(handle, list);
         if (fuzzNode2 == nullptr) {
-            fuzzNode2 = DevdCreateAdvNode(handle, cbk, list);
+            uint8_t createHandle = fdp.ConsumeIntegral<uint8_t>();
+            fuzzNode2 = DevdCreateAdvNode(createHandle, cbk, list);
         }
 
         DevdSetAdvDataCbk(cbkContext, status, cmdRes);

@@ -47,3 +47,8 @@ void CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubratePtr func)
 {
     (void)func;
 }
+
+void CM_GetLcidByConnHandleInner(void *arg)
+{
+    (void)arg;
+}

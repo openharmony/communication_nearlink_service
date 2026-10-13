@@ -14,6 +14,7 @@
  */
  
 #include "scanuapi_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
@@ -56,22 +57,20 @@ namespace OHOS {
 
     void FuzzEnableScan(const uint8_t* fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdSleScanEnable_S)) {
-            return;
-        }
+        FuzzedDataProvider fdp(fuzzData, size);
 
-        NLSTK_DevdSleScanEnable_S *scanEnable = (NLSTK_DevdSleScanEnable_S *)malloc(sizeof(NLSTK_DevdSleScanEnable_S));
-        if (scanEnable == nullptr) {
+        NLSTK_DevdSleScanEnable_S *scanEnableParam =
+            (NLSTK_DevdSleScanEnable_S *)malloc(sizeof(NLSTK_DevdSleScanEnable_S));
+        if (scanEnableParam == nullptr) {
             NAI_LOG_INFO("Failed to allocate memory for scan_enable\n");
             return;
         }
+        (void)memset_s(scanEnableParam, sizeof(NLSTK_DevdSleScanEnable_S), 0, sizeof(NLSTK_DevdSleScanEnable_S));
+        scanEnableParam->scanEnable = fdp.ConsumeIntegral<uint8_t>();
+        scanEnableParam->scanFilterDuplicates = fdp.ConsumeIntegral<uint8_t>();
 
-        int ii = 0;
-        scanEnable->scanEnable = fuzzData[ii++];
-        scanEnable->scanFilterDuplicates = fuzzData[ii++];
-
-        NLSTK_DevdSleEnableScan(scanEnable);
-        free(scanEnable);
+        NLSTK_DevdSleEnableScan(scanEnableParam);
+        free(scanEnableParam);
     }
 
     void scanCallback(uint8_t event, uint8_t result)

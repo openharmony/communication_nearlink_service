@@ -14,6 +14,7 @@
  */
 
 #include "icce_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 
 #include "nai_log.h"
@@ -52,35 +53,37 @@ namespace OHOS {
     {
         return;
     }
-    void FuzzIcceClientApi(uint8_t* data, size_t size)
+    void FuzzIcceClientApi(uint8_t *data, size_t size)
     {
+        FuzzedDataProvider fdp(data, size);
         NLSTK_IcceClientCallBack_S cbs = {0};
         cbs.connectStateChangeCbk = &ConnectionStateChange;
         NLSTK_IcceRegisterReadInfoCallBack(&cbs);
-        if (size > sizeof(SLE_Addr_S)) {
-            SLE_Addr_S addr = {0};
-            (void)memcpy_s(&addr, sizeof(SLE_Addr_S), data, sizeof(SLE_Addr_S));
-            NLSTK_IcceConnect(&addr);
-            sleep(1);
-            IcceDevice_S *info = IcceFindDeviceByAddr(&addr);
-            if (info != NULL && info->appId >= 0) {
-                uint8_t state = SSAP_CONNECT_STATE_CONNECTED;
-                IcceStmParam param = {.what = ICCE_ON_LINK_STATE_CHANGE, .extData = (void *)&state};
-                IcceClientStmCall(info, param);
-            }
-            int32_t port = 0;
-            NLSTK_IcceGetPort(&addr, &port);
-            NLSTK_GetConnectionsDeviceNum();
-            NLSTK_IcceDisconnect(&addr);
+        SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
+        NLSTK_IcceConnect(&addr);
+        sleep(1);
+        IcceDevice_S *info = IcceFindDeviceByAddr(&addr);
+        if (info != NULL && info->appId >= 0) {
+            uint8_t state = SSAP_CONNECT_STATE_CONNECTED;
+            IcceStmParam param = {.what = ICCE_ON_LINK_STATE_CHANGE, .extData = (void *)&state};
+            IcceClientStmCall(info, param);
+        }
+        int32_t port = 0;
+        NLSTK_IcceGetPort(&addr, &port);
+        NLSTK_GetConnectionsDeviceNum();
+        NLSTK_IcceDisconnect(&addr);
     }
-    void FuzzIcceServerApi(uint8_t* data, size_t size)
+    void FuzzIcceServerApi(uint8_t *data, size_t size)
     {
-        if (size > sizeof(NLSTK_IcceServiceInfo_S)) {
-            NLSTK_IcceServiceInfo_S icceServiceInfo = {0};
-            (void)memcpy_s(&icceServiceInfo, sizeof(NLSTK_IcceServiceInfo_S), data, sizeof(NLSTK_IcceServiceInfo_S));
-            NLSTK_IcceCreateIcceInstance(&icceServiceInfo);
-        }
+        FuzzedDataProvider fdp(data, size);
+        NLSTK_IcceServiceInfo_S icceServiceInfo = {0};
+        icceServiceInfo.iccePort = fdp.ConsumeIntegral<uint16_t>();
+        icceServiceInfo.iccePortRight = fdp.ConsumeIntegral<uint8_t>();
+        NLSTK_IcceCreateIcceInstance(&icceServiceInfo);
         NLSTK_IcceDestroyIcceInstance();
     }
 

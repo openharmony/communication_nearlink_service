@@ -14,6 +14,7 @@
  */
  
 #include "scancbk_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
@@ -66,42 +67,42 @@ namespace OHOS {
 
     void FuzzScanRegCbk(const uint8_t* fuzzData, size_t size)
     {
-        if (size < sizeof(NLSTK_DevdAdvReportExtendParams_S)) {
-            return;
-        }
-        int ii = 0;
+        FuzzedDataProvider fdp(fuzzData, size);
         NLSTK_DevdSleScanExterCbk_S cbks;
         cbks.scanCbk = scanCallback;
         cbks.reportCbk = reportCallback;
 
-        NLSTK_DevdAdvReportInfo_S report;
-        report.addrType = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        for (int i = 0; i < SLE_ADDR_LEN; i++) {
-            report.addr[i] = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
+        uint8_t dataLength = fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX;
+        NLSTK_DevdAdvReportInfo_S *report = (NLSTK_DevdAdvReportInfo_S *)SDF_MemZalloc(
+            sizeof(NLSTK_DevdAdvReportInfo_S) + dataLength);
+        if (report == NULL) {
+            return;
         }
-        report.rssi = rand() % FUZZ_TWOHUNDREDFIFTYSIX - FUZZ_ONEHUNDREDTWENTYEIGHT;
-        if (report.rssi == 0x7F) {
-            report.rssi = 0;
+        report->addrType = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            report->addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        report.dataLength = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        for (int i = 0; i < report.dataLength; i++) {
-            report.data[i] = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
+        report->rssi = fdp.ConsumeIntegral<uint8_t>();
+        report->dataLength = dataLength;
+        for (uint8_t i = 0; i < dataLength; i++) {
+            report->data[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
-        NLSTK_DevdAdvReportExtendParams_S *extendParams = &report.extendParams;
-        extendParams->eventType = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        extendParams->dataStatus = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        extendParams->directAddrType = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
-        for (int i = 0; i < SLE_ADDR_LEN; i++) {
-            extendParams->directAddr[i] = rand() % FUZZ_TWOHUNDREDFIFTYSIX;
+        NLSTK_DevdAdvReportExtendParams_S *extendParams = &report->extendParams;
+        extendParams->eventType = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->dataStatus = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->directAddrType = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            extendParams->directAddr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        extendParams->primPhy = fuzzData[ii++];
-        extendParams->secondPhy = fuzzData[ii++];
-        extendParams->secondMod = fuzzData[ii++];
-        extendParams->secondPilotRatio = fuzzData[ii++];
-        extendParams->secondPolar = fuzzData[ii++];
+        extendParams->primPhy = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->secondPhy = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->secondMod = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->secondPilotRatio = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->secondPolar = fdp.ConsumeIntegral<uint8_t>();
 
         NLSTK_DevdRegScanEventCbk(&cbks);
+        SDF_MemFree(report);
     }
 
     void FuzzScanApi(const uint8_t *fuzzData, size_t size)

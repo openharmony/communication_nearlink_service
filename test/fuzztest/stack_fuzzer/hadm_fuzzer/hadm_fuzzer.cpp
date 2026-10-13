@@ -14,6 +14,7 @@
  */
 
 #include "hadm_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "hadm_dft.h"
 #include "securec.h"
 #include "cpfwk_log.h"
@@ -259,27 +260,52 @@ namespace OHOS {
 
     void FuzzSetMeasure(const uint8_t* data, size_t size)
     {
-        // 模拟一个有效的参数
-        if (size < sizeof(uint16_t) + sizeof(HadmSoundingParam_S) + sizeof(uint16_t) + sizeof(uint8_t)) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
         uint32_t ret = HadmInitDliCmdVec();
         CP_CHECK_LOG_RETURN_VOID(ret == NLSTK_ERRCODE_SUCCESS, "[FUZZ]HadmInitDliCmdVec error");
-        int8_t offset = 0;
-        uint16_t lcid = (data[FUZZ_ZERO] << FUZZ_EIGHT) | (data[FUZZ_ONE]);
-        offset += FUZZ_TWO;
+        uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
         HadmSoundingParam_S *fuzzParams = (HadmSoundingParam_S *)SDF_MemZalloc(
             sizeof(HadmSoundingParam_S));
-        (void)memcpy_s(fuzzParams, sizeof(HadmSoundingParam_S), data + offset, sizeof(HadmSoundingParam_S));
-        offset += sizeof(HadmSoundingParam_S);
+        if (fuzzParams == NULL) {
+            return;
+        }
+        fuzzParams->configId = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->schedulingTimeslot = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->rttPhy = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->freqHoppingMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->fmFreq = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->fmInteractionType = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->occurrenceGroupPeriod = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->fmOccurrenceGroupInterval = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->pmMeasureType1Interval = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->pmMeasureType2Interval = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->fmTIp1Time = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->pmTIp2Time = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->fmTGuard = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->fmSignal2Length = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->pmInitAntCount = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->pmInitSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->pmReflAntCount = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->pmReflSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->pmFreqHoppingBand = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < HADM_MEASURE_PM_BAND_24G_LEN; i++) {
+            fuzzParams->pm2400mBand[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        fuzzParams->glpMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->sleHadmMode = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->isCsParamChg = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->freqSpace = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->conAnchorNum = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->refreshRate = fdp.ConsumeIntegral<uint8_t>();
+        fuzzParams->acbInterval = fdp.ConsumeIntegral<uint16_t>();
+        fuzzParams->csInterval = fdp.ConsumeIntegral<uint16_t>();
         HadmSetMeasureParam(lcid, fuzzParams);
 
-        uint8_t csEnable = data[offset];
-        offset += FUZZ_ONE;
-        HadmSetMeasureEnable(lcid, csEnable);
+        uint8_t csEnable = fdp.ConsumeIntegral<uint8_t>();
+        uint16_t enableLcid = fdp.ConsumeIntegral<uint16_t>();
+        HadmSetMeasureEnable(enableLcid, csEnable);
 
-        uint16_t expectRspType = (data[offset] << FUZZ_EIGHT) | (data[offset + FUZZ_ONE]);
-        offset += FUZZ_TWO;
+        uint16_t expectRspType = fdp.ConsumeIntegral<uint16_t>();
         HadmPopLastDliCmd(&expectRspType);
         HadmDeInitDliCmdVec();
 
@@ -338,11 +364,7 @@ namespace OHOS {
 
     void FuzzTestHadmApi(const uint8_t* data, size_t size)
     {
-        // 模拟一个有效的参数
-        if (size < sizeof(HadmConnectionParam_S) + sizeof(HadmSoundingParam_S) + FUZZ_ONE + FUZZ_FOUR) {
-            return;
-        }
-        int8_t offset = FUZZ_ZERO;
+        FuzzedDataProvider fdp(data, size);
         HadmSoundingCbk_S cbk = {0};
         cbk.controlResultCbk = MockHadmSoundingControlResultCbk;
         cbk.reportIqDataCbk = MockHadmSoundingIqCbk;
@@ -352,23 +374,60 @@ namespace OHOS {
         HadmInitSoundingCbManager();
 
         SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HadmConnectionParam_S param = {0};
-        (void)memcpy_s(&param, sizeof(HadmConnectionParam_S), data + offset, sizeof(HadmConnectionParam_S));
-        offset += sizeof(HadmConnectionParam_S);
+        param.version = fdp.ConsumeIntegral<uint8_t>();
+        param.localIndex = fdp.ConsumeIntegral<uint16_t>();
+        param.intervalMin = fdp.ConsumeIntegral<uint16_t>();
+        param.intervalMax = fdp.ConsumeIntegral<uint16_t>();
+        param.eventIfs = fdp.ConsumeIntegral<uint8_t>();
+        param.eventEfs = fdp.ConsumeIntegral<uint16_t>();
+        param.maxLatency = fdp.ConsumeIntegral<uint16_t>();
+        param.supervisionTimeout = fdp.ConsumeIntegral<uint16_t>();
+        param.systemTimeUint = fdp.ConsumeIntegral<uint8_t>();
+        param.txRxFlag = fdp.ConsumeIntegral<uint8_t>();
         HadmSoundingParam_S soundParam = {0};
-        (void)memcpy_s(&soundParam, sizeof(HadmSoundingParam_S), data + offset, sizeof(HadmSoundingParam_S));
-        offset += sizeof(HadmSoundingParam_S);
+        soundParam.configId = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.schedulingTimeslot = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.rttPhy = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.freqHoppingMode = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.fmFreq = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.fmInteractionType = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.occurrenceGroupPeriod = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.fmOccurrenceGroupInterval = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.pmMeasureType1Interval = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.pmMeasureType2Interval = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.fmTIp1Time = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.pmTIp2Time = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.fmTGuard = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.fmSignal2Length = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.pmInitAntCount = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.pmInitSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.pmReflAntCount = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.pmReflSignal2Tone = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.pmFreqHoppingBand = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < HADM_MEASURE_PM_BAND_24G_LEN; i++) {
+            soundParam.pm2400mBand[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        soundParam.glpMode = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.sleHadmMode = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.isCsParamChg = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.freqSpace = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.conAnchorNum = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.refreshRate = fdp.ConsumeIntegral<uint8_t>();
+        soundParam.acbInterval = fdp.ConsumeIntegral<uint16_t>();
+        soundParam.csInterval = fdp.ConsumeIntegral<uint16_t>();
         HadmStartSounding(&addr, &param, &soundParam);
 
         HadmStopSounding(&addr);
 
-        uint8_t state = data[offset];
-        offset += FUZZ_ONE;
+        uint8_t state = fdp.ConsumeIntegral<uint8_t>();
         HadmGetSoundingState(&addr, &state);
 
-        uint32_t maxNum = (data[offset] << FUZZ_TWENTYFOUR) | (data[offset + FUZZ_ONE] << FUZZ_SIXTEEN) |
-            (data[offset + FUZZ_TWO] << FUZZ_EIGHT) | (data[offset + FUZZ_THREE]);
-        offset += FUZZ_FOUR;
+        uint32_t maxNum = fdp.ConsumeIntegral<uint32_t>();
         HadmGetSoundingAddrInfo(&addr, maxNum);
 
         HadmDeInitLinkCbManager();
@@ -376,19 +435,26 @@ namespace OHOS {
 
     void FuzzTestHadmConfig(const uint8_t* data, size_t size)
     {
-        // 模拟一个有效的参数
-        if (size < sizeof(HadmConnectionParam_S) + FUZZ_TWO) {
-            return;
-        }
-        int8_t offset = FUZZ_ZERO;
+        FuzzedDataProvider fdp(data, size);
         SLE_Addr_S addr = {0};
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         HadmConnectionParam_S param = {0};
-        (void)memcpy_s(&param, sizeof(HadmConnectionParam_S), data + offset, sizeof(HadmConnectionParam_S));
-        offset += sizeof(HadmConnectionParam_S);
+        param.version = fdp.ConsumeIntegral<uint8_t>();
+        param.localIndex = fdp.ConsumeIntegral<uint16_t>();
+        param.intervalMin = fdp.ConsumeIntegral<uint16_t>();
+        param.intervalMax = fdp.ConsumeIntegral<uint16_t>();
+        param.eventIfs = fdp.ConsumeIntegral<uint8_t>();
+        param.eventEfs = fdp.ConsumeIntegral<uint16_t>();
+        param.maxLatency = fdp.ConsumeIntegral<uint16_t>();
+        param.supervisionTimeout = fdp.ConsumeIntegral<uint16_t>();
+        param.systemTimeUint = fdp.ConsumeIntegral<uint8_t>();
+        param.txRxFlag = fdp.ConsumeIntegral<uint8_t>();
         HadmSetConnectionParamToCm(&addr, &param);
 
-        uint16_t lcid = (data[offset] << FUZZ_EIGHT) | (data[offset + FUZZ_ONE]);
-        offset += FUZZ_TWO;
+        uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
         HadmReadRemoteMeasureCaps(lcid);
     }
 }
@@ -404,14 +470,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 /* Fuzzer entry point */
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    uint8_t *fuzzData = (uint8_t*)SDF_MemAlloc(size);
-    CP_CHECK_LOG_RETURN(fuzzData != nullptr, 0, "Fuzz data memory alloc failed.");
-    (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzGeneralEvtRegisterCbks(static_cast<uint8_t *>(fuzzData), size);
-    OHOS::FuzzSetMeasure(fuzzData, size);
-    OHOS::FuzzTestHadmApi(fuzzData, size);
-    OHOS::FuzzTestHadmConfig(fuzzData, size);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    OHOS::FuzzGeneralEvtRegisterCbks(static_cast<uint8_t *>(fuzzData), fuzzSize);
+    OHOS::FuzzSetMeasure(fuzzData, fuzzSize);
+    OHOS::FuzzTestHadmApi(fuzzData, fuzzSize);
+    OHOS::FuzzTestHadmConfig(fuzzData, fuzzSize);
     HadmDeInit();
-    SDF_MemFree(fuzzData);
     return 0;
 }

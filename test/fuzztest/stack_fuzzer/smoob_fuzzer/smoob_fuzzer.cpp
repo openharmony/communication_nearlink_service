@@ -14,6 +14,7 @@
  */
 
 #include "smoob_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_algos.h"
 #include "nai_log.h"
 #include "securec.h"
@@ -54,44 +55,32 @@ typedef enum {
 namespace OHOS {
     SleDliThreadUtil &g_dliThreadUtil = SleDliThreadUtil::GetInstance();
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % FUZZ_TWOHUNDREDFIFTYSIX; // 0到255之间的随机数
-        return hex_digits[random_byte]; // 将随机数转换为16进制字符
-    }
-
     void FuzzSMOobAuth1(const uint8_t* fuzzData, size_t size)
     {
-        (void) fuzzData;
-        (void) size;
+        FuzzedDataProvider fdp(fuzzData, size);
 
-        SLE_Addr_S g_gNodeAddr1 = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S g_gNodeAddr1;
+        (void)memset_s(&g_gNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_gNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_gNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        SLE_Addr_S g_tNodeAddr1 = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S g_tNodeAddr1;
+        (void)memset_s(&g_tNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_tNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_tNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        };
-        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        };
+        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_gNodeRa1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_tNodeRb1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         SLE_Addr_S *newAddr = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         if (newAddr == nullptr) {
@@ -107,8 +96,7 @@ namespace OHOS {
         }
         slink->rmtAddr = g_tNodeAddr1;
         slink->localAddr = g_gNodeAddr1;
-        int random_number = rand() % FUZZ_TWO;
-        slink->role = random_number ? SM_T_NODE : SM_G_NODE;
+        slink->role = fdp.ConsumeBool() ? SM_T_NODE : SM_G_NODE;
 
         memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa1, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);
@@ -120,6 +108,8 @@ namespace OHOS {
     
     void FuzzSMOobAuth2(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
+
         NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
             .randNumFunc = Crypto_RandNumGenerate,
             .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
@@ -128,35 +118,28 @@ namespace OHOS {
         };
         NLSTK_SmRegAlgoFuncs(&algoFuncs);
 
-        (void) fuzzData;
-        (void) size;
+        SLE_Addr_S g_gNodeAddr1;
+        (void)memset_s(&g_gNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_gNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_gNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        SLE_Addr_S g_gNodeAddr1 = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
+        SLE_Addr_S g_tNodeAddr1;
+        (void)memset_s(&g_tNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_tNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_tNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        SLE_Addr_S g_tNodeAddr1 = {
-            .type = PUBLIC_ADDRESS,
-            .addr = {
-                random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-                random_hex_byte(), random_hex_byte(),
-            },
-        };
-
-        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        };
-        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        };
+        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_gNodeRa1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_tNodeRb1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
         SLE_Addr_S *newAddr = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         if (newAddr == nullptr) {
@@ -172,8 +155,7 @@ namespace OHOS {
         }
         slink->rmtAddr = g_tNodeAddr1;
         slink->localAddr = g_gNodeAddr1;
-        int random_number = rand() % FUZZ_TWO;
-        slink->role = random_number ? SM_T_NODE : SM_G_NODE;
+        slink->role = fdp.ConsumeBool() ? SM_T_NODE : SM_G_NODE;
 
         memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa1, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);
@@ -185,29 +167,30 @@ namespace OHOS {
 
     void FuzzSMDigit(const uint8_t* fuzzData, size_t size)
     {
-        if (size < FUZZ_SIXTEEN) {
-            return;
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S g_gNodeAddr1;
+        (void)memset_s(&g_gNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_gNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_gNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S g_gNodeAddr1 = {.type = PUBLIC_ADDRESS, .addr = { random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte()}
-        };
 
-        SLE_Addr_S g_tNodeAddr1 = {.type = PUBLIC_ADDRESS, .addr = {random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte()}
-        };
+        SLE_Addr_S g_tNodeAddr1;
+        (void)memset_s(&g_tNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_tNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_tNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(),
-        };
-        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(),
-        };
+        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_gNodeRa1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_tNodeRb1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *newAddr = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         if (newAddr == NULL) {
             CP_LOG_ERROR("[SM] Construct newAddr failed");
@@ -222,8 +205,7 @@ namespace OHOS {
         }
         slink->rmtAddr = g_tNodeAddr1;
         slink->localAddr = g_gNodeAddr1;
-        int random_number = rand() % FUZZ_TWO;
-        slink->role = random_number ? SM_T_NODE : SM_G_NODE;
+        slink->role = fdp.ConsumeBool() ? SM_T_NODE : SM_G_NODE;
 
         memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa1, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);

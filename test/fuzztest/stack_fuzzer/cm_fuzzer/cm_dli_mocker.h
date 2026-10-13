@@ -52,6 +52,10 @@ uint32_t DLI_ClearAcceptFilterList(void);
 
 bool DLI_IsSupportConnBypassAdv(void);
 
+bool DLI_IsSupportNewDisMeasure(void);
+
+uint32_t DLI_ReadLocalMeasureCaps(void);
+
 uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr);
 
 uint32_t DLI_RemoveDeviceFromAcceptFilterList(SLE_Addr_S *addr);

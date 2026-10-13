@@ -14,6 +14,7 @@
  */
 #include "securec.h"
 #include "ssap_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "ssaps_server.h"
 #include "ssaps_server_api.h"
 #include "ssaps_service.h"
@@ -122,29 +123,32 @@ namespace OHOS {
 
     void FuzzDliSsapRecvPkt(uint8_t* data, size_t size)
     {
-        if (size < 6) {
-            return;
-        }
+        FuzzedDataProvider fdp(data, size);
 
         SSAP_LinkInit();
         SSAPS_ServiceInit();
         AddService1();
         AddService2();
 
-        SLE_Addr_S sleAddr = {.type = PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
+        SLE_Addr_S sleAddr = {0};
+        sleAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            sleAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, 0, SendFunc);
 
         SDF_Buff_S *sdfBuff = SDF_BuffNewWithReserve(size);
         uint8_t *buf = SDF_BuffAppend(sdfBuff, size);
-        (void)memcpy_s(buf, size, data, size);
+        for (size_t i = 0; i < size; i++) {
+            buf[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        uint8_t *op = (uint8_t *)(SDF_DataOffset(sdfBuff));
-        link->curTask.opcode = op[0] - 1;
+        link->curTask.opcode = fdp.ConsumeIntegral<uint8_t>() - 1;
 
         int realSize = 0;
-        uint8_t *reqPkt;
+        uint8_t *reqPkt = reqPkt1;
         if (link->curTask.opcode == SSAP_FIND_STRUCTURE_REQ) {
-            if ((buf[1] & 0x03) == 3) {
+            if ((fdp.ConsumeIntegral<uint8_t>() & 0x03) == 3) {
                 reqPkt = reqPkt2;
             } else {
                 reqPkt = reqPkt1;
@@ -152,7 +156,7 @@ namespace OHOS {
         }
 
         if (link->curTask.opcode == SSAP_FIND_STRUCTURE_BY_UUID_REQ) {
-            if ((buf[1] & 0x03) == 3) {
+            if ((fdp.ConsumeIntegral<uint8_t>() & 0x03) == 3) {
                 reqPkt = reqPkt3;
             } else {
                 reqPkt = reqPkt4;
@@ -192,12 +196,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 /* Fuzzer entry point */
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
-    uint8_t *fuzzData = (uint8_t*)malloc(size);
-    if (fuzzData == nullptr) {
-        return 0;
-    }
-    memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzDliSsapRecvPkt(static_cast<uint8_t *>(fuzzData), size);
-    SDF_MemFree(fuzzData);
+    FuzzedDataProvider fdp(data, size);
+    std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
+    uint8_t *fuzzData = fuzzVec.data();
+    size_t fuzzSize = fuzzVec.size();
+    OHOS::FuzzDliSsapRecvPkt(fuzzData, fuzzSize);
     return 0;
 }

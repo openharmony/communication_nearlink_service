@@ -14,6 +14,7 @@
  */
 
 #include "sm_fuzzer.h"
+#include "fuzzer/FuzzedDataProvider.h"
 #include "sm_algos.h"
 #include "nai_log.h"
 #include "securec.h"
@@ -60,26 +61,17 @@ typedef enum {
 
 namespace OHOS {
 
-    char random_hex_byte()
-    {
-        const char* hex_digits = "0123456789abcdef";
-        int random_byte = rand() % FUZZ_TWOHUNDREDFIFTYSIX; // 0到255之间的随机数
-        return hex_digits[random_byte]; // 将随机数转换为16进制字符
-    }
-
     SLE_Addr_S g_gNodeAddr = {
         .type = PUBLIC_ADDRESS,
         .addr = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(),
+            0x18, 0xda, 0x8f, 0x00, 0x01, 0x00,
         },
     };
 
     SLE_Addr_S g_tNodeAddr = {
         .type = PUBLIC_ADDRESS,
         .addr = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(),
+            0x00, 0x01, 0x0c, 0xb3, 0x33, 0x47,
         },
     };
 
@@ -103,29 +95,20 @@ namespace OHOS {
     };
 
     uint8_t g_gNodeRa[SM_RANDOM_NUMBER_R_LEN] = {
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(),
+        0x2f, 0x18, 0x0c, 0x05, 0x68, 0x0c, 0xe0, 0x94, 0x5d, 0xe2, 0xe6, 0x66, 0x6e, 0xf5, 0xf8, 0x97,
     };
     uint8_t g_tNodeRb[SM_RANDOM_NUMBER_R_LEN] = {
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-        random_hex_byte(),
+        0x2f, 0xea, 0x58, 0x43, 0xa8, 0x73, 0xb2, 0x84, 0x8f, 0xab, 0x18, 0x04, 0xb9, 0xc5, 0x89, 0xd4,
     };
 
     void FuzzGenDhKeyAndLinkKey(const uint8_t* fuzzData, size_t size)
     {
-        (void) fuzzData;
-        (void) size;
-
-        int random_number = rand() % FUZZ_TWO;
+        FuzzedDataProvider fdp(fuzzData, size);
 
         SmSLink_S slink = {
             .rmtAddr = g_tNodeAddr,
             .localAddr = g_gNodeAddr,
-            .role = random_number ? SM_T_NODE : SM_G_NODE,
+            .role = fdp.ConsumeBool() ? SM_T_NODE : SM_G_NODE,
         };
         memcpy_s(&slink.gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(&slink.tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb, SM_RANDOM_NUMBER_R_LEN);
@@ -143,29 +126,30 @@ namespace OHOS {
 
     void FuzzSMDigit(const uint8_t* fuzzData, size_t size)
     {
-        if (size < FUZZ_SIXTEEN) {
-            return;
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S g_gNodeAddr1;
+        (void)memset_s(&g_gNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_gNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_gNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S g_gNodeAddr1 = {.type = PUBLIC_ADDRESS, .addr = { random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte()}
-        };
 
-        SLE_Addr_S g_tNodeAddr1 = {.type = PUBLIC_ADDRESS, .addr = {random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte()}
-        };
+        SLE_Addr_S g_tNodeAddr1;
+        (void)memset_s(&g_tNodeAddr1, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        g_tNodeAddr1.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            g_tNodeAddr1.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
 
-        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(),
-        };
-        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN] = {
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(), random_hex_byte(),
-            random_hex_byte(),
-        };
+        uint8_t g_gNodeRa1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_gNodeRa1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint8_t g_tNodeRb1[SM_RANDOM_NUMBER_R_LEN];
+        for (int i = 0; i < SM_RANDOM_NUMBER_R_LEN; i++) {
+            g_tNodeRb1[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
         SLE_Addr_S *newAddr = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
         if (newAddr == NULL) {
             CP_LOG_ERROR("[SM] Construct newAddr failed");
@@ -180,8 +164,7 @@ namespace OHOS {
         }
         slink->rmtAddr = g_tNodeAddr1;
         slink->localAddr = g_gNodeAddr1;
-        int random_number = rand() % FUZZ_TWO;
-        slink->role = random_number ? SM_T_NODE : SM_G_NODE;
+        slink->role = fdp.ConsumeBool() ? SM_T_NODE : SM_G_NODE;
 
         memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa1, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);
@@ -192,7 +175,8 @@ namespace OHOS {
 
         SmGenLinkKey(slink);
 
-        SmNoEntryAuthPkgDispatcher((int[]){1, 312, 313, 314, 321, 322}[rand() % FUZZ_SIX], slink, msg, size);
+        SmNoEntryAuthPkgDispatcher((int[]){1, 312, 313, 314, 321, 322}[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX],
+            slink, msg, size);
 
         SmSLinkDtor(slink);
         free(msg);
@@ -201,19 +185,23 @@ namespace OHOS {
 
     void FuzzSMRegDliCbk(const uint8_t* fuzzData, size_t size)
     {
-        if (size >= FUZZ_TWOHUNDREDFIFTYSIX) {
-            return;
+        FuzzedDataProvider fdp(fuzzData, size);
+        uint8_t dataLen = fdp.ConsumeIntegral<uint8_t>();
+        if (dataLen > FUZZ_ONEHUNDREDTWENTYEIGHT) {
+            dataLen = FUZZ_ONEHUNDREDTWENTYEIGHT;
         }
         DLI_ExecuteCmdRetParam param = {0};
-        DLI_ControllerDataEvt *evt = (DLI_ControllerDataEvt *)SDF_MemZalloc(sizeof(DLI_ControllerDataEvt) + size);
+        DLI_ControllerDataEvt *evt = (DLI_ControllerDataEvt *)SDF_MemZalloc(sizeof(DLI_ControllerDataEvt) + dataLen);
         if (evt == NULL) {
             return;
         }
         param.eventParameter = evt;
-        (void)memcpy_s(evt->data, size, fuzzData, size);
-        evt->len = size;
+        for (int i = 0; i < dataLen; i++) {
+            evt->data[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        evt->len = dataLen;
         for (int i = 0; i < g_smCbkFuncSize; i++) {
-            g_smCbkFunc[i](NULL, random_hex_byte(), &param);
+            g_smCbkFunc[i](NULL, fdp.ConsumeIntegral<uint8_t>(), &param);
         }
         SDF_MemFree(evt);
     }
