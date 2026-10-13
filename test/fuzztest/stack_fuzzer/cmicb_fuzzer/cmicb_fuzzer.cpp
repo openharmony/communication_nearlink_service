@@ -75,7 +75,7 @@ void FuzzIcgSetParam(const uint8_t *fuzzData, size_t size)
     uint8_t paramCnt = fdp.ConsumeIntegral<uint8_t>() % FUZZ_ICB_MAX_CNT;
     for (uint8_t i = 0; i < paramCnt; i++) {
         icbParam[i].id = fdp.ConsumeIntegral<uint8_t>();
-        uint8_t innerCnt = fdp.ConsumeIntegral<uint8_t>();
+        uint8_t innerCnt = fdp.ConsumeIntegral<uint8_t>() % 2;
         for (uint8_t j = 0; j < innerCnt; j++) {
             icbInner[i][j].maxSduG2T = fdp.ConsumeIntegral<uint16_t>();
             icbInner[i][j].maxSduT2G = fdp.ConsumeIntegral<uint16_t>();

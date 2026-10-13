@@ -25,7 +25,6 @@
 #include "securec.h"
 
 #define FUZZ_MCP_NAME_MAX_LEN 16
-#define FUZZ_MCP_VALUE_BUF_LEN 64
 #define FUZZ_MCP_STREAM_VOLUME_MAX_NUM 4
 
 typedef struct SlePkt {
@@ -148,17 +147,86 @@ void FuzzMcpMediaAuthorizeResult(const uint8_t *fuzzData, size_t size)
     (void)NLSTK_McpMediaAuthorizeResult(requestId, instanceId, property, errorCode);
 }
 
+static uint16_t FillBytes(FuzzedDataProvider &fdp, uint8_t *buf, uint16_t maxLen)
+{
+    uint16_t len = fdp.ConsumeIntegral<uint8_t>() % maxLen;
+    for (uint16_t i = 0; i < len; i++) {
+        buf[i] = fdp.ConsumeIntegral<uint8_t>();
+    }
+    return len;
+}
+
 void FuzzMcpUpdateMediaProperty(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
     NLSTK_McpPropertyType_E property = static_cast<NLSTK_McpPropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>());
-    uint8_t value[FUZZ_MCP_VALUE_BUF_LEN] = {0};
-    for (int i = 0; i < FUZZ_MCP_VALUE_BUF_LEN; i++) {
-        value[i] = fdp.ConsumeIntegral<uint8_t>();
+        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
+    uint8_t byteBuf[FUZZ_MCP_NAME_MAX_LEN] = {0};
+    switch (property) {
+        case NLSTK_MCP_MEDIA_INSTANCE_NAME:
+        case NLSTK_MCP_MEDIA_EXTENDED_INFO:
+        case NLSTK_MCP_MEDIA_SEGMENT_INFO: {
+            NLSTK_VariableData_S var = {0};
+            var.len = FillBytes(fdp, byteBuf, FUZZ_MCP_NAME_MAX_LEN);
+            var.data = byteBuf;
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &var);
+            break;
+        }
+        case NLSTK_MCP_MEDIA_INSTANCE_ICON: {
+            NLSTK_McpInstanceIcon_S icon = {0};
+            icon.iconType = fdp.ConsumeIntegral<uint8_t>();
+            icon.iconLen = FillBytes(fdp, byteBuf, FUZZ_MCP_NAME_MAX_LEN);
+            icon.iconValue = byteBuf;
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &icon);
+            break;
+        }
+        case NLSTK_MCP_MEDIA_BASIC_INFO: {
+            NLSTK_McpMediaBaseInfo_S baseInfo = {0};
+            baseInfo.mediaType = fdp.ConsumeIntegral<uint8_t>();
+            baseInfo.duration = fdp.ConsumeIntegral<uint32_t>();
+            baseInfo.mediaNameLen = FillBytes(fdp, byteBuf, FUZZ_MCP_NAME_MAX_LEN);
+            baseInfo.mediaName = byteBuf;
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &baseInfo);
+            break;
+        }
+        case NLSTK_MCP_MEDIA_IDENTIFIER_INFO: {
+            NLSTK_McpMediaIdInfo_S idInfo = {0};
+            idInfo.mediaId = fdp.ConsumeIntegral<uint32_t>();
+            idInfo.mediaGroupId = fdp.ConsumeIntegral<uint32_t>();
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &idInfo);
+            break;
+        }
+        case NLSTK_MCP_MEDIA_PLAYBACK_POSITION: {
+            uint32_t position = fdp.ConsumeIntegral<uint32_t>();
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &position);
+            break;
+        }
+        case NLSTK_MCP_PLAYBACK_SPEED:
+        case NLSTK_MCP_SEEK_SPEED: {
+            uint16_t speed = fdp.ConsumeIntegral<uint16_t>();
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &speed);
+            break;
+        }
+        case NLSTK_MCP_FEATURE_SUPPORT: {
+            NLSTK_McpFeaturesSupported_S features = {0};
+            features.FeatureType = fdp.ConsumeIntegral<uint8_t>();
+            features.playCtl = fdp.ConsumeIntegral<uint32_t>();
+            features.playMode = fdp.ConsumeIntegral<uint16_t>();
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &features);
+            break;
+        }
+        case NLSTK_MCP_PLAYBACK_ORDER:
+        case NLSTK_MCP_PLAYBACK_STATE:
+        case NLSTK_MCP_MEDIA_INSTANCE_ID: {
+            uint8_t value = fdp.ConsumeIntegral<uint8_t>();
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, &value);
+            break;
+        }
+        default:
+            (void)NLSTK_McpUpdateMediaProperty(instanceId, property, nullptr);
+            break;
     }
-    (void)NLSTK_McpUpdateMediaProperty(instanceId, property, value);
 }
 
 void FuzzMcpDeleteMediaInstance(const uint8_t *fuzzData, size_t size)

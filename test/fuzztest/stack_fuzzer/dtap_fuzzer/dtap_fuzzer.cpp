@@ -733,8 +733,10 @@ namespace OHOS {
         if (transChan != nullptr) {
             SDF_Buff_S *sendBuff = FuzzDtapCreateBuff(data, size);
             if (sendBuff != nullptr) {
-                (void)DTAP_SendFrame(transChan, sendBuff);
-                SDF_BuffFree(sendBuff);
+                // 发送成功后 buff 所有权移交给调度器，仅失败时由本侧释放
+                if (DTAP_SendFrame(transChan, sendBuff) != DTAP_SUCCESS) {
+                    SDF_BuffFree(sendBuff);
+                }
             }
             DTAP_RecvBasicFrameContinue(transChan);
             FuzzDtapOperateChannel(0, 0, TCID_SLE_SMTC, CM_TRANS_MODE_BASIC,
