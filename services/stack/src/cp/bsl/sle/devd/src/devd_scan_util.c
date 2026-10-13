@@ -202,7 +202,6 @@ SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16
             return NULL;
         }
         filter->isNoFilter = true;
-        // 通配过滤器继承扫描设置的帧类型,保证无过滤扫描者也按帧型路由结果
         filter->frameType = (scanFrameType == DEVD_SCAN_FRAME_TYPE_4) ? ADV_FRAME_TYPE_4 : ADV_FRAME_TYPE_1;
         if (!SDF_VectorEmplaceBack(filtersVector, filter)) {
             NLSTK_LOG_ERROR("[DEVDS] filtersVector emplace back fail");

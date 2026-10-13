@@ -55,8 +55,6 @@ void ConvertScanResult(const std::vector<SleScanResult> &results, const napi_env
         napi_set_named_property(env, result, "deviceClass", value);
         napi_get_boolean(env, sleScanResult.IsConnectable(), &value);
         napi_set_named_property(env, result, "isConnectable", value);
-        // inner_api 帧型为 SleScanFrameType(0x01/0x02),出口映射为 JS FrameType 枚举(1/4),
-        // 与扫描入参值域一致
         napi_create_int32(env, sleScanResult.GetFrameType() ==
             static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) ?
             static_cast<int32_t>(FrameType::FRAME_TYPE_4) : static_cast<int32_t>(FrameType::FRAME_TYPE_1), &value);

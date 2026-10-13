@@ -387,7 +387,6 @@ namespace OHOS {
         filters[2].hasRssiThreshold = true;
         filters[3].meshInfoReport = true;
         filters[4].isNoFilter = true;
-        // 扫描帧型参数:取合法值(帧1/帧四)参与 fuzz,通配过滤器将继承该帧型
         uint8_t fuzzScanFrameType = (rand() % 2 == 1) ? DEVD_SCAN_FRAME_TYPE_4 : DEVD_SCAN_FRAME_TYPE_1;
         SDF_Vector_S *filtersVec = DevdConvertFiltersToVector(filters, filtersNum, fuzzScanFrameType);
 

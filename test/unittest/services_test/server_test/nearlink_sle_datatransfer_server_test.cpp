@@ -192,7 +192,7 @@ HWTEST_F(NearlinkSleDataTransferStubTest, ConnectFrame4Gate001, TestSize.Level1)
     data.WriteParcelable(&param);
     int32_t ret = DataTransferOnRemoteRequest(NearlinkSleDataTransferInterfaceCode::SLE_CONNECT, data, reply);
     EXPECT_EQ(NO_ERROR, ret);
-    // 单测环境未建立帧四能力，门控应拒绝帧四连接请求而不是放行到服务层
+    // 门控应拒绝；错误码随单测环境取值，故用 EXPECT_NE 而非精确匹配
     NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
     EXPECT_NE(NL_NO_ERROR, result);
     HILOGI("NearlinkSleDataTransferStubTest:ConnectFrame4Gate001 end");

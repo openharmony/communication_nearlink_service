@@ -95,7 +95,7 @@ public:
         devdFilter->hasRssiThreshold = filter.HasRssiThreshold();
         devdFilter->rssiThreshold = filter.GetRssiThreshold();
         devdFilter->isSensorHubChannel = filter.IsSensorHubChannel();
-        // 上层 SleScanFrameType(0x01/0x02)与栈侧结果帧型 ADV_FRAME_TYPE(0x00/0x01)值域不同,此处映射
+        // 值域映射:SleScanFrameType(1/2) -> ADV_FRAME_TYPE(0/1)
         bool isFrame4Scan = filter.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4);
         devdFilter->frameType = isFrame4Scan ? static_cast<uint8_t>(ADV_FRAME_TYPE_4) :
             static_cast<uint8_t>(ADV_FRAME_TYPE_1);

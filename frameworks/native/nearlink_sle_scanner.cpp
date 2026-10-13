@@ -89,9 +89,7 @@ public:
         scanResult.SetName(tempResult.GetName());
         
         scanResult.SetDeviceClass(tempResult.GetDeviceClass());
-        // IPC 链路携带协议栈原始帧型(0x00帧1/0x01帧四);inner_api 与 SleScanSettings
-        // 同值域(SleScanFrameType),此处完成域转换,
-        // 保证 C++ 使用者可直接比较设置与结果的 frameType
+        // 域转换:原始帧型(0/1) -> SleScanFrameType,与设置侧同值域
         scanResult.SetFrameType(
             tempResult.GetFrameType() == static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) ?
             static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
@@ -242,8 +240,6 @@ NlErrCode SleCentralManager::StartScanWithFilter(const SleScanSettings &settings
 
     std::vector<NearlinkSleScanFilter> scanFilters;
     pimpl->ConvertSleScanFilter(filters, scanFilters);
-    // 过滤器帧型由扫描设置派生:帧四扫描时所有过滤器只要帧四广播结果
-    // (栈侧按帧型路由)
     if (settings.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) {
         for (auto& filter : scanFilters) {
             filter.SetFrameType(static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4));

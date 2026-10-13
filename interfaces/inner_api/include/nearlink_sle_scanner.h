@@ -232,7 +232,7 @@ private:
     std::vector<uint8_t> payload_ {};
     std::string name_ {};
     uint32_t deviceClass_ {};
-    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1); // 与设置侧同值域
+    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
 };
 /**
  * @brief Represents central manager callback.
