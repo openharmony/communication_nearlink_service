@@ -21,6 +21,9 @@
 #include "cm_api.h"
 #include "nearlink_def.h"
 #include "raw_address.h"
+#ifdef NEARLINK_POWER_MGR_ENABLE
+#include "power_mgr_client.h"
+#endif
 
 namespace OHOS {
 namespace Nearlink {
@@ -97,7 +100,12 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     RawAddress device = RawAddress::ConvertToString(param.addr.addr);
     appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
     ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
-    if ((manager->HasMultipleConnections() && isIntervalUnderThread) || isNeedCustomParam_) {
+    bool isScreenOn = true;
+#ifdef NEARLINK_POWER_MGR_ENABLE
+    isScreenOn = PowerMgr::PowerMgrClient::GetInstance().IsScreenOn();
+#endif
+    HILOGI("[SleCoexist] isScreen=%{public}d, isNeedCustomParam_=%{public}d", isScreenOn, isNeedCustomParam_);
+    if ((manager->HasMultipleConnections() && isIntervalUnderThread) || (isNeedCustomParam_ && isScreenOn)) {
         StartParamUpdateTimer();
     }
 }
