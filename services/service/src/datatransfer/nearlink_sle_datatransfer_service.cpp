@@ -621,16 +621,21 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     std::set<std::string> notifyAddrSet;
     auto getConnects = [&tempVec, &notifyAddrSet](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
         for (const auto &val : value->GetPortConnects()) {
+            if (val.state == static_cast<int>(SleConnectState::DISCONNECTED)) {
+                continue; // 已断开的条目无需补通知;断开中(回调未到)仍需补,否则链路无人释放
+            }
+            notifyAddrSet.insert(val.address);
             if (val.state == static_cast<int>(SleConnectState::CONNECTED) ||
                 val.state == static_cast<int>(SleConnectState::CONNECTING)) {
-                tempVec.push_back(val);
-                notifyAddrSet.insert(val.address);
+                tempVec.push_back(val); // 通道释放仅针对在连/连接中,避免对同一通道重复下发释放
             }
         }
     };
     bool has = pimpl->appConnectParamMap_.GetValueAndOpt(port, getConnects);
     NL_CHECK_RETURN(has, "no cache when DestroyPort");
-    if (uuid != STANDARD_UUID_ICCE) {
+    // 释放判据取服务侧注册的身份,不信任调用方入参
+    std::string registeredUuid = pimpl->FindUuidByPort(port);
+    if (registeredUuid != STANDARD_UUID_ICCE) {
         ClearConnectReqByPort(port);
         // 上层异常退出触发死亡监听，未及时调用 Disconnect
         HILOGI("connected device number:%{public}zu", tempVec.size());
@@ -642,11 +647,11 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
 
         PortService *portService = PortService::GetPortService();
         NL_CHECK_RETURN(portService, "PortService empty");
-        portService->DeletePortByUuid((Uuid::ConvertFromString(uuid)).Uuid::ConvertTo128Bits(), port);
+        portService->DeletePortByUuid((Uuid::ConvertFromString(registeredUuid)).Uuid::ConvertTo128Bits(), port);
     }
     ports_.erase(port);
     pimpl->DeleteAppConnectParamMapping(port);
-    if (uuid != STANDARD_UUID_ICCE) {
+    if (registeredUuid != STANDARD_UUID_ICCE) {
         // 须在 DeleteAppConnectParamMapping 之后调用(提前会被 IsDeviceConnectingOrConnected 拦截);
         // 销毁通道的栈回调晚于映射删除到达,NotifyDisconnect 由此处补执行
         for (const auto &addr : notifyAddrSet) {

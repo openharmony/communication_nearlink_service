@@ -97,7 +97,7 @@ public:
         devdFilter->isSensorHubChannel = filter.IsSensorHubChannel();
         // 值域映射:SleScanFrameType(1/2) -> ADV_FRAME_TYPE(0/1)
         bool isFrame4Scan = filter.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4);
-        devdFilter->frameType = isFrame4Scan ? static_cast<uint8_t>(ADV_FRAME_TYPE_4) :
+        devdFilter->advFrameType = isFrame4Scan ? static_cast<uint8_t>(ADV_FRAME_TYPE_4) :
             static_cast<uint8_t>(ADV_FRAME_TYPE_1);
     }
 

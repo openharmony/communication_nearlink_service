@@ -217,12 +217,11 @@ bool DevdIsMatchFilters(NLSTK_DevdAdvResult_S *result, SDF_Vector_S *filters)
     }
     for (size_t i = 0; i < filters->size; i++) {
         NLSTK_DevdScanFilter_S *filter = SDF_VectorElementAt(filters, i);
-        // 帧型检查须先于 isNoFilter 短路:通配过滤器同样按帧型路由
-        if (result->frameType != filter->frameType) {
-            return false;
-        }
         if (filter->isNoFilter) {
             return true;
+        }
+        if (result->frameType != filter->advFrameType) {
+            return false;
         }
         if (IsMatchFilter(result, filter)) {
             return true;

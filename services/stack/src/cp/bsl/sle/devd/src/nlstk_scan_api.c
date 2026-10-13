@@ -92,7 +92,7 @@ NLSTK_Errcode_E NLSTK_DevdStartScan(uint32_t scannerId, NLSTK_DevdScanSetting_S 
     NLSTK_CHECK_RETURN(CheckFiltersLegal(filters, filtersNum), NLSTK_ERRCODE_PARAM_ERR, "[DEVDS] filters illgal");
     DevdStartScanParam_S *param = (DevdStartScanParam_S *)SDF_MemZalloc(sizeof(DevdStartScanParam_S));
     NLSTK_CHECK_RETURN(param != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "param malloc fail");
-    SDF_Vector_S *filtersVector = DevdConvertFiltersToVector(filters, filtersNum, setting->frameType);
+    SDF_Vector_S *filtersVector = DevdConvertFiltersToVector(filters, filtersNum);
     param->scannerId = scannerId;
     (void)memcpy_s(&param->setting, sizeof(NLSTK_DevdScanSetting_S), setting, sizeof(NLSTK_DevdScanSetting_S));
     param->filters = filtersVector;

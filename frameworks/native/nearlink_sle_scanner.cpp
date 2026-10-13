@@ -91,7 +91,7 @@ public:
         scanResult.SetDeviceClass(tempResult.GetDeviceClass());
         // 域转换:原始帧型(0/1) -> SleScanFrameType,与设置侧同值域
         scanResult.SetFrameType(
-            tempResult.GetFrameType() == static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) ?
+            tempResult.GetPrimFrameType() == static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) ?
             static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
             static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1));
         callbackSptr->OnScanCallback(scanResult);

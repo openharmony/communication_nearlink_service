@@ -82,6 +82,10 @@ bool CheckFiltersLegal(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum)
         NLSTK_CHECK_RETURN(filters != NULL, false, "[DEVDS] filters is null");
     }
     for (uint16_t i = 0; i < filtersNum; i++) {
+        if (filters[i].advFrameType != ADV_FRAME_TYPE_1 && filters[i].advFrameType != ADV_FRAME_TYPE_4) {
+            NLSTK_LOG_ERROR("[DEVDS] filters i:%hu advFrameType:%hhu invalid", i, filters[i].advFrameType);
+            return false;
+        }
         if ((filters[i].name.len != 0) ^ (filters[i].name.data != NULL)) {
             NLSTK_LOG_ERROR("[DEVDS] filters i:%hu name.len:%hu", i, filters[i].name.len);
             return false;
@@ -187,7 +191,7 @@ FAIL:
     return NULL;
 }
 
-SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum, uint8_t scanFrameType)
+SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum)
 {
     SDF_Traits traits = {
         .dtor = DevdFreeFilter,
@@ -202,7 +206,6 @@ SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16
             return NULL;
         }
         filter->isNoFilter = true;
-        filter->frameType = (scanFrameType == DEVD_SCAN_FRAME_TYPE_4) ? ADV_FRAME_TYPE_4 : ADV_FRAME_TYPE_1;
         if (!SDF_VectorEmplaceBack(filtersVector, filter)) {
             NLSTK_LOG_ERROR("[DEVDS] filtersVector emplace back fail");
             DevdFreeFilter(filter);

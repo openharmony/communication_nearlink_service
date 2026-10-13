@@ -41,7 +41,7 @@ NLSTK_DevdScanSettingInner_S *FetchFrame4TargetScanSettings(SDF_Vector_S *scanne
 
 bool CheckFiltersLegal(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum);
 
-SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum, uint8_t scanFrameType);
+SDF_Vector_S *DevdConvertFiltersToVector(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum);
 
 SDF_Vector_S *DevdCloneFiltersVector(SDF_Vector_S *filters);
 

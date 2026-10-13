@@ -180,13 +180,13 @@ public:
                 isUseRealAddrFlag, realAddr, randomAddr, false);
             NearlinkSleScanResult sleScanResult(result);
             sleScanResult.SetPeripheralDevice(randomAddr);
-            sleScanResult.SetFrameType(result.GetFrameType());
+            sleScanResult.SetPrimFrameType(result.GetPrimFrameType());
             int status = SleInterfaceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE);
             if (status != SleStateID::STATE_TURN_ON && status != SleStateID::STATE_TURN_HALF) {
                 HILOGI("nearlink is not turn on, stop uploading scan result");
                 return;
             }
-            HILOGD("frameType:%{public}d", sleScanResult.GetFrameType());
+            HILOGD("frameType:%{public}d", sleScanResult.GetPrimFrameType());
             observer->OnScanCallback(sleScanResult);
         });
     }

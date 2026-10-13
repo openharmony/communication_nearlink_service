@@ -44,7 +44,7 @@ std::shared_ptr<AniNearlinkScanCallback> AniNearlinkScanCallback::GetInstance()
         ::taihe::array<uint8_t>(::taihe::copy_data_t{}, payload.data(), payload.size()),
         static_cast<::taihe::string>(r.GetName()),
         r.IsConnectable(),
-        {},
+        /* deviceClass(可选,保持默认) */ {},
         frameType
     };
     return scanResults;

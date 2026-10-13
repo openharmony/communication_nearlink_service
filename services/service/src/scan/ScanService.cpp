@@ -385,7 +385,7 @@ void ScanService::ParseAdvResult(NLSTK_DevdAdvResult_S *devdResult, std::vector<
         advertisedAddress = device.GetRawAddress();
     }
     scanResult.SetPeripheralDevice(device);
-    scanResult.SetFrameType(devdResult->frameType);
+    scanResult.SetPrimFrameType(devdResult->frameType);
 }
 
 void ScanService::ParseAdvData(NLSTK_DevdAdvResult_S *result, SlePeripheralDevice &device)

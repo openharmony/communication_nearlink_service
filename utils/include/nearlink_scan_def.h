@@ -231,14 +231,14 @@ public:
         return deviceClass_;
     }
 
-    void SetFrameType(uint8_t frameType)
+    void SetPrimFrameType(uint8_t primFrameType)
     {
-        frameType_ = frameType;
+        primFrameType_ = primFrameType;
     }
 
-    uint8_t GetFrameType() const
+    uint8_t GetPrimFrameType() const
     {
-        return frameType_;
+        return primFrameType_;
     }
 
 public:
@@ -252,7 +252,8 @@ public:
     std::string payload_ {};
     std::string name_ {};
     uint32_t deviceClass_ {};
-    uint8_t frameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
+    // 栈侧原始编码(NLSTK_DevdAdvFrameType_E:0x00帧1/0x01帧四),与过滤器字段的上层编码不同
+    uint8_t primFrameType_ = static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
 };
 
 /**

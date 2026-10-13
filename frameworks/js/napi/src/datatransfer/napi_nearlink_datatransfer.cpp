@@ -147,6 +147,7 @@ napi_status CheckDataTransferConnectionParamWith(napi_env env, napi_value object
         if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
             frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
             HILOGE("Invalid connection frameType: %{public}d", frameTypeValue);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_PARAM);
             return napi_invalid_arg;
         }
         uint8_t frameType = (frameTypeValue == static_cast<int32_t>(FrameType::FRAME_TYPE_4)) ?

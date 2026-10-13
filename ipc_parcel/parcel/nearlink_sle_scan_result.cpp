@@ -52,7 +52,7 @@ bool NearlinkSleScanResult::Marshalling(Parcel &parcel) const
     if (!parcel.WriteUint32(deviceClass_)) {
         return false;
     }
-    if (!parcel.WriteUint8(frameType_)) {
+    if (!parcel.WriteUint8(primFrameType_)) {
         return false;
     }
     return true;
@@ -108,7 +108,7 @@ bool NearlinkSleScanResult::ReadFromParcel(Parcel &parcel)
     if (!parcel.ReadUint32(deviceClass_)) {
         return false;
     }
-    if (!parcel.ReadUint8(frameType_)) {
+    if (!parcel.ReadUint8(primFrameType_)) {
         return false;
     }
     return true;

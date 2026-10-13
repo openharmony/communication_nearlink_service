@@ -387,8 +387,7 @@ namespace OHOS {
         filters[2].hasRssiThreshold = true;
         filters[3].meshInfoReport = true;
         filters[4].isNoFilter = true;
-        uint8_t fuzzScanFrameType = (rand() % 2 == 1) ? DEVD_SCAN_FRAME_TYPE_4 : DEVD_SCAN_FRAME_TYPE_1;
-        SDF_Vector_S *filtersVec = DevdConvertFiltersToVector(filters, filtersNum, fuzzScanFrameType);
+        SDF_Vector_S *filtersVec = DevdConvertFiltersToVector(filters, filtersNum);
 
         NLSTK_DevdAdvReportInfo_S *report = (NLSTK_DevdAdvReportInfo_S *)
             SDF_MemZalloc(sizeof(NLSTK_DevdAdvReportInfo_S) + advDataLen);
@@ -514,9 +513,9 @@ namespace OHOS {
         }
 
         filter.isSensorHubChannel = fdp.ConsumeBool();
-        filter.frameType = static_cast<uint8_t>(fdp.ConsumeBool());
+        filter.advFrameType = static_cast<uint8_t>(fdp.ConsumeBool());
         filter.meshInfoReport = fdp.ConsumeBool();
-        bool enableFilter = fdp.ConsumeBool();
+        bool enableFilter = fdp.ConsumeBool();)
         NLSTK_DevdScanFilter_S *filterPtr = enableFilter ? &filter : NULL;
         uint16_t filtersNum = enableFilter ? 1 : 0;
 

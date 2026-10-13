@@ -264,7 +264,11 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
-    if (params.GetFrameType() == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
+    uint8_t frameType = params.GetFrameType();
+    NL_CHECK_RETURN_RET(frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1) ||
+        frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4),
+        NL_ERR_INVALID_PARAM, "invalid frameType.");
+    if (frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
         SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
             (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
         NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
