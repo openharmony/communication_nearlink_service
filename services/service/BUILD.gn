@@ -376,6 +376,8 @@ if (nearlink_deps_device_manager_exist) {
   nearlink_service_defines += ["DEVICE_MANAGER"]
 }
 
+
+
 ########################### nearlink_service feature && 弱耦合部件依赖 && 其他 ###########################
 
 if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
