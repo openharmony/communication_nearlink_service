@@ -77,5 +77,6 @@ group("stackfuzz") {
     "micp_fuzzer:MicpFuzzTest",
     "cfgdb_fuzzer:CfgdbFuzzTest",
     "disclient_fuzzer:DisClientFuzzTest",
+    "smstm_fuzzer:SmStmFuzzTest",
   ]
 }
