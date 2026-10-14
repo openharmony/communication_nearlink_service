@@ -203,6 +203,86 @@ static bool TransChannelEstablishedCheckCbkImpl(uint16_t srcPort)
     return true;
 }
 
+/* 单输入内一致的 qosId/connHandle 全生命周期：
+ * SetParam → AddConnection → AddDataPath → 反馈/建议/消息 → DeleteDataPath
+ * → DeleteConnection → RemoveParam。原 driver 各函数独立取参且 Add 后立即
+ * Delete，状态无法在操作间保持。 */
+void FuzzQosmConsistentLifecycle(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider fdp(fuzzData, size);
+    uint8_t qosId = fdp.ConsumeIntegral<uint8_t>();
+    uint16_t connHandle = fdp.ConsumeIntegral<uint16_t>();
+    uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
+    QOSM_QosIndex qosIndex = ConsumeQosIndex(fdp);
+    uint8_t direction = fdp.ConsumeIntegral<uint8_t>();
+    QOSM_PathId pathId = static_cast<QOSM_PathId>(fdp.ConsumeIntegral<uint8_t>());
+    uint16_t bitrate = fdp.ConsumeIntegral<uint16_t>();
+    uint8_t msgType = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t labelId = fdp.ConsumeIntegral<uint8_t>();
+    uint32_t result = fdp.ConsumeIntegral<uint32_t>();
+    uint8_t invalidQosId = fdp.ConsumeIntegral<uint8_t>();
+
+    QOSM_AutoRateParam setParam = {};
+    setParam.qosId = qosId;
+    setParam.qosIndex = qosIndex;
+    setParam.supportedBitrateCnt = 1;
+    setParam.supportedBitrate[0] = bitrate;
+    setParam.bitrate = bitrate;
+    setParam.linkCnt = 1;
+    setParam.lcidCnt = 1;
+    setParam.lcid[0] = static_cast<uint8_t>(lcid);
+    (void)QOSM_AutoRateSetParam(&setParam);
+    (void)QOSM_AutoRateSetAutorateParam(&setParam);
+
+    QOSM_ConnParam link = {};
+    link.connHandle = connHandle;
+    link.lcid = lcid;
+    QOSM_AutoRateConnParam connParam = {};
+    connParam.qosId = qosId;
+    connParam.linkCnt = 1;
+    connParam.link = &link;
+    (void)QOSM_AutoRateAddConnection(&connParam);
+
+    QOSM_AutoRateDataPath dataPath = {};
+    dataPath.qosId = qosId;
+    dataPath.connHandle = connHandle;
+    dataPath.direction = direction;
+    dataPath.pathId = pathId;
+    dataPath.codecConfigLen = 0;
+    dataPath.codecConfigData = nullptr;
+    (void)QOSM_AutoRateAddDataPath(&dataPath);
+
+    QOSM_AutoRateEarphoneFeedbackParam feedback = {};
+    feedback.supportedBitrateCnt = 1;
+    feedback.supportedBitrate[0] = bitrate;
+    (void)QOSM_AutoRateSetEarphoneFeedback(&feedback);
+
+    QOSM_AutoRateCoexistSuggestionParam suggestion = {};
+    suggestion.maxBitrate = bitrate;
+    suggestion.dutyCycle = direction;
+    (void)QOSM_AutoRateSetCoexistSuggestion(&suggestion);
+
+    QOSM_AutoRateRecvMsgParam msg = {};
+    msg.qosId = qosId;
+    msg.qosIndex = qosIndex;
+    msg.labelId = labelId;
+    msg.msgType = msgType;
+    msg.result = result;
+    (void)QOSM_RecvAutoRateMsg(&msg);
+
+    QOSM_AutoRateDeletedDataPath delPath = {};
+    delPath.qosId = qosId;
+    delPath.connHandle = connHandle;
+    delPath.direction = direction;
+    (void)QOSM_AutoRateDeleteDataPath(&delPath);
+
+    (void)QOSM_AutoRateDeleteConnection(&connParam);
+    (void)QOSM_AutoRateRemoveParam(qosId);
+
+    /* 保留非法路径：未建立 qoS 的操作 */
+    (void)QOSM_AutoRateRemoveParam(invalidQosId);
+}
+
 void FuzzQosmTransChannelCbksRegister(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
@@ -246,6 +326,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
+    OHOS::FuzzQosmConsistentLifecycle(fuzzData, size);
     OHOS::FuzzQosmSetParam(fuzzData, size);
     OHOS::FuzzQosmRemoveParam(fuzzData, size);
     OHOS::FuzzQosmAddConnection(fuzzData, size);
