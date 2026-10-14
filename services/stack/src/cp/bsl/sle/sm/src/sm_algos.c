@@ -37,8 +37,7 @@ bool SmGenRandNum(uint8_t *out, uint8_t len)
     NLSTK_CHECK_RETURN(out != NULL && len != 0, false, "rand num params invalid");
     if (g_algoFuncs.randNumFunc != NULL) {
         NLSTK_LOG_DEBUG("[SM] Start to generate rand number.");
-        g_algoFuncs.randNumFunc(out, len);
-        return true;
+        return g_algoFuncs.randNumFunc(out, len);
     }
     return false;
 }
@@ -47,8 +46,7 @@ bool SmGenPubPriKey(NLSTK_SmKeyPair_S *keyPair)
 {
     if (g_algoFuncs.pubPriKeyFunc != NULL) {
         NLSTK_LOG_INFO("[SM] Start to generate pubkey and prikey, algo %d.", keyPair->algo);
-        g_algoFuncs.pubPriKeyFunc(keyPair);
-        return true;
+        return g_algoFuncs.pubPriKeyFunc(keyPair);
     }
     return false;
 }
@@ -58,8 +56,7 @@ bool SmGenDhKey(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
     NLSTK_CHECK_RETURN(keyPair != NULL && secKey != NULL, false, "[SM] Dh key params invalid.");
     if (g_algoFuncs.secKeyFunc != NULL) {
         NLSTK_LOG_INFO("[SM] Start to generate security key, algo %d.", keyPair->algo);
-        g_algoFuncs.secKeyFunc(keyPair, secKey, secKeyLen);
-        return true;
+        return g_algoFuncs.secKeyFunc(keyPair, secKey, secKeyLen);
     }
     return false;
 }

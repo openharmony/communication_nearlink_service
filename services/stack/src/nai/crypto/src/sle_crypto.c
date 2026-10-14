@@ -61,9 +61,9 @@ static EVP_PKEY *RawKeyPairToPkey(uint8_t pri[CRYPTO_PRIVATE_KEY_LEN], uint8_t p
 static EVP_PKEY *RawPubkeyTopkey(uint8_t pub[CRYPTO_PUBLIC_KEY_LEN]);
 static bool DeriveDhKey(EVP_PKEY *keyPair, EVP_PKEY *remoteKey, uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
 
-static void RandNumGenerate(uint8_t *out, uint8_t len);
-static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
-static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
+static bool RandNumGenerate(uint8_t *out, uint8_t len);
+static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
+static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
 static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac);
 static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
@@ -72,37 +72,37 @@ static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHa
                                     Interfaces
 *****************************************************************************************/
 
-void Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
+bool Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
 {
-    RandNumGenerate(out, len);
+    return RandNumGenerate(out, len);
 }
 
-void Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
+bool Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
 {
     switch (keyPair->algo) {
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE1:
-            break;
+            NAI_LOG_ERROR("Key negotiation algorithm KE1 is not supported.");
+            return false;
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2:
-            ECDH_PubPriKeyGenerate(keyPair->priKey, keyPair->localPubKey);
-            break;
+            return ECDH_PubPriKeyGenerate(keyPair->priKey, keyPair->localPubKey);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
-void Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
+bool Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
 {
-    NAI_CHECK_LOG_RETURN_VOID(secKeyLen == CRYPTO_SEC_KEY_LEN, "security key generate failed.");
+    NAI_CHECK_LOG_RETURN(secKeyLen == CRYPTO_SEC_KEY_LEN, false, "security key generate failed.");
     switch (keyPair->algo) {
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE1:
-            break;
+            NAI_LOG_ERROR("Key negotiation algorithm KE1 is not supported.");
+            return false;
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2:
-            ECDH_SecKeyGenerate(keyPair->priKey, keyPair->localPubKey, keyPair->remotePubKey, secKey);
-            break;
+            return ECDH_SecKeyGenerate(keyPair->priKey, keyPair->localPubKey, keyPair->remotePubKey, secKey);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
@@ -134,16 +134,18 @@ void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
  *  \param  out  指向输出缓冲区的指针，用于存放生成的随机数。
  *  \param  len  指定需要生成的随机数的长度（字节数）。
  */
-static void RandNumGenerate(uint8_t *out, uint8_t len)
+static bool RandNumGenerate(uint8_t *out, uint8_t len)
 {
     size_t left = len;
+    uint8_t *outStart = out;
     int fd;
     fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0) {
         fd = open("/dev/random", O_RDONLY);
         if (fd < 0) {
             NAI_LOG_ERROR("Failed to generate random num, fail to open file.");
-            return;
+            (void)memset_s(outStart, len, 0, len);
+            return false;
         }
     }
     while (left > 0) {
@@ -152,12 +154,14 @@ static void RandNumGenerate(uint8_t *out, uint8_t len)
         if (ret <= 0) {
             close(fd);
             NAI_LOG_ERROR("Failed to generate random num, fail to read file.");
-            return;
+            (void)memset_s(outStart, len, 0, len);
+            return false;
         }
         left -= (size_t)ret;
         out += ret;
     }
     close(fd);
+    return true;
 }
 
 /** 此函数用于生成一对公私钥，并将其分别存储到 priKey 和 pubKey 缓冲区。
@@ -165,8 +169,9 @@ static void RandNumGenerate(uint8_t *out, uint8_t len)
  *  \param  priKey  存储生成的私钥。
  *  \param  pubKey  存储生成的公钥。
  */
-static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN])
+static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN])
 {
+    bool ret = false;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     uint8_t findKey = 0;
@@ -191,20 +196,22 @@ static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
         /* 重复到达上限仍然没有找到符合要求的随机数，报错退出。（大概率原因是随机数异常） */
         if (findKey == 0) {
             NAI_LOG_ERROR("Fail to get proper key pair.");
-            EVP_PKEY_CTX_free(ctx);
-            EVP_PKEY_free(pkey);
-            return;
+            break;
         }
         /* 获取随机公私钥对公钥和私钥原文 */
         if (!GenKeyPairToBuff(pkey, priKey, pubKey)) {
             NAI_LOG_ERROR("Fail to generate proper key pair to buff.");
-            EVP_PKEY_CTX_free(ctx);
-            EVP_PKEY_free(pkey);
-            return;
+            break;
         }
+        ret = true;
     } while (0);
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(pkey);
+    if (!ret) {
+        (void)memset_s(priKey, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
+        (void)memset_s(pubKey, CRYPTO_PUBLIC_KEY_LEN, 0, CRYPTO_PUBLIC_KEY_LEN);
+    }
+    return true;
 }
 
 /** 此函数用于生成 Diffie-Hellman 密钥（dhKey），其中包含本地私钥和公钥、远程公钥的输入，并最终计算出共享的密钥。
@@ -214,7 +221,7 @@ static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
  *  \param  remotePubKey    对端公钥。
  *  \param  dhKey           最终生成的 Diffie-Hellman 共享密钥。
  */
-static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
+static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN])
 {
     uint8_t tempPri[CRYPTO_PRIVATE_KEY_LEN];
@@ -235,14 +242,16 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
     if (local == NULL) {
         NAI_LOG_ERROR("Raw local key pair error.");
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
     EVP_PKEY *remote = RawPubkeyTopkey(tempRemotePub);
     if (remote == NULL) {
         NAI_LOG_ERROR("remote pubkey to pkey error.");
         EVP_PKEY_free(local);
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
 
     uint8_t tempDhKey[CRYPTO_SEC_KEY_LEN] = {0};
@@ -252,7 +261,8 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
         EVP_PKEY_free(remote);
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
         (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
 
     EndianReverseOctets(tempDhKey, CRYPTO_SEC_KEY_LEN);
@@ -262,6 +272,7 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
     EVP_PKEY_free(remote);
     (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
     (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+    return true;
 }
 
 /** 该函数实现了基于 AES-CMAC (Cipher-based Message Authentication Code) 算法的消息认证码（MAC）计算。

@@ -171,14 +171,15 @@ void Test_ResetData()
     g_isRecvCbk = false;
 }
 
-void Test_CryptoRandNumGenerate(uint8_t *out, uint8_t len)
+bool Test_CryptoRandNumGenerate(uint8_t *out, uint8_t len)
 {
     for (int i = 0; i < len; i++) {
         out[i] = i;
     }
+    return true;
 }
 
-void Test_CryptoPubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
+bool Test_CryptoPubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
 {
     uint8_t priKey[SM_PRIVATE_KEY_LEN] = {
         0x72, 0x53, 0x01, 0x65, 0x9f, 0xe0, 0xdb, 0xf1, 0xdf, 0x65, 0x55, 0x1b, 0x00, 0x00, 0x00, 0x00,
@@ -202,9 +203,10 @@ void Test_CryptoPubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
     (void)memcpy_s(keyPair->priKey, SM_PRIVATE_KEY_LEN, priKey, SM_PRIVATE_KEY_LEN);
     (void)memcpy_s(keyPair->localPubKey, SM_PUBLIC_KEY_LEN, localPubKey, SM_PUBLIC_KEY_LEN);
     (void)memcpy_s(keyPair->remotePubKey, SM_PUBLIC_KEY_LEN, remotePubKey, SM_PUBLIC_KEY_LEN);
+    return true;
 }
 
-void Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
+bool Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
 {
     SDF_UNUSED(keyPair);
     uint8_t dhkey[SM_DHKEY_LEN] = {
@@ -212,6 +214,7 @@ void Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint
         0xdb, 0xeb, 0xfa, 0x26, 0x27, 0xd8, 0xe7, 0x99, 0xc2, 0x06, 0x09, 0x5b, 0x4f, 0x81, 0xb9, 0xd7,
     };
     (void)memcpy_s(secKey, secKeyLen, dhkey, SM_DHKEY_LEN);
+    return true;
 }
 
 void Test_CryptoDerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)

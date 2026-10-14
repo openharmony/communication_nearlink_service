@@ -94,14 +94,15 @@ void SendBuffer(DLI_ControllerDataEvt *buff)
     g_recvFunc(NULL, 0, &param);
 }
 
-void Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len)
+bool Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len)
 {
     for (int i = 0; i < len; i++) {
         out[i] = i;
     }
+    return true;
 }
 
-void Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair)
+bool Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair)
 {
     uint8_t priKey[SM_PRIVATE_KEY_LEN] = {
         0x72, 0x53, 0x01, 0x65, 0x9f, 0xe0, 0xdb, 0xf1, 0xdf, 0x65, 0x55, 0x1b, 0x00, 0x00, 0x00, 0x00,
@@ -118,9 +119,10 @@ void Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair)
     (void)memcpy_s(keyPair->priKey, SM_PRIVATE_KEY_LEN, priKey, SM_PRIVATE_KEY_LEN);
     (void)memcpy_s(keyPair->localPubKey, SM_PUBLIC_KEY_LEN, pubKey, SM_PUBLIC_KEY_LEN);
     (void)memcpy_s(keyPair->remotePubKey, SM_PUBLIC_KEY_LEN, pubKey, SM_PUBLIC_KEY_LEN);
+    return true;
 }
 
-void Crypto_SecKeyGenerateStub(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
+bool Crypto_SecKeyGenerateStub(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
 {
     SDF_UNUSED(keyPair);
     uint8_t dhkey[SM_DHKEY_LEN] = {
@@ -128,6 +130,7 @@ void Crypto_SecKeyGenerateStub(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint
         0xDC, 0x46, 0x39, 0x71, 0x71, 0xB7, 0xB3, 0x6C, 0x0E, 0xC9, 0x60, 0x11, 0x39, 0x4B, 0x9E, 0x7A,
     };
     (void)memcpy_s(secKey, secKeyLen, dhkey, SM_DHKEY_LEN);
+    return true;
 }
 
 void Crypto_DerivedKeyGenerateStub(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
