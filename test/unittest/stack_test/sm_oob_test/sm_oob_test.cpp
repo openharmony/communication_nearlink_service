@@ -100,7 +100,7 @@ TEST_F(SM_OOB_Test, TEST_SM_OOB_001)
         .randNumFunc = Crypto_RandNumGenerateStub,
         .pubPriKeyFunc = Crypto_PubPriKeyPairGenerateStub,
         .secKeyFunc = Crypto_SecKeyGenerateStub,
-        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerateStub,
     };
     ret = NLSTK_SmRegAlgoFuncs(&algoFuncs);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
@@ -135,7 +135,7 @@ TEST_F(SM_OOB_Test, TEST_SM_OOB_002)
         .randNumFunc = Crypto_RandNumGenerateStub,
         .pubPriKeyFunc = Crypto_PubPriKeyPairGenerateStub,
         .secKeyFunc = Crypto_SecKeyGenerateStub,
-        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerateStub,
     };
     ret = NLSTK_SmRegAlgoFuncs(&algoFuncs);
     EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);

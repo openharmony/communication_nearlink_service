@@ -65,8 +65,8 @@ static bool RandNumGenerate(uint8_t *out, uint8_t len);
 static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
 static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
-static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac);
-static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
+static bool AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac);
+static bool GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
 
 /*****************************************************************************************
                                     Interfaces
@@ -106,24 +106,24 @@ bool Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t 
     }
 }
 
-void Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
+bool Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
 {
-    NAI_CHECK_LOG_RETURN_VOID(outputLen == CRYPTO_AES_CMAC_KEY_LEN, "Derived key generate failed.");
+    NAI_CHECK_LOG_RETURN(outputLen == CRYPTO_AES_CMAC_KEY_LEN, false, "Derived key generate failed.");
     switch (input->algo) {
         case KEY_DERIVATION_ALGORITHM_ABILITY_HA1:
-            break;
+            NAI_LOG_ERROR("Key derivation algorithm HA1 is not supported.");
+            return false;
         case KEY_DERIVATION_ALGORITHM_ABILITY_HA2:
-            AES_CMAC_KeyGenerate(input->key, input->buff, input->buffSize, output);
-            break;
+            return AES_CMAC_KeyGenerate(input->key, input->buff, input->buffSize, output);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
-void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
+bool Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
 {
-    GenSha256Hash(value, shaHash);
+    return GenSha256Hash(value, shaHash);
 }
 
 /*****************************************************************************************
@@ -282,13 +282,13 @@ static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
  *  \param  buffSize    输入数据的大小（字节数）。
  *  \param  mac         输出的消息认证码，计算得到的 128 位结果。
  */
-static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac)
+static bool AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac)
 {
     uint8_t keyReversed[CRYPTO_AES_CMAC_KEY_LEN];
     uint8_t *inputReversed = malloc(buffSize);
     if (inputReversed == NULL) {
         NAI_LOG_ERROR("Memory allocation error.");
-        return;
+        return false;
     }
 
     (void)memcpy_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, key, CRYPTO_AES_CMAC_KEY_LEN);
@@ -302,21 +302,21 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
         NAI_LOG_ERROR("CMAC_CTX_new error.");
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     if (CMAC_Init(ctx, keyReversed, CRYPTO_AES_CMAC_KEY_LEN, EVP_aes_128_cbc(), NULL) != 1) {
         NAI_LOG_ERROR("CMAC_Init error.");
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     if (CMAC_Update(ctx, inputReversed, buffSize) != 1) {
         NAI_LOG_ERROR("EVP_CMAC_Update error.");
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     size_t macLen = 0;
     if (CMAC_Final(ctx, mac, &macLen) != 1) {
@@ -324,12 +324,13 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     EndianReverseOctets(mac, macLen);
     CMAC_CTX_free(ctx);
     (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
     free(inputReversed);
+    return true;
 }
 
 /*****************************************************************************************
@@ -575,21 +576,22 @@ static bool DeriveDhKey(EVP_PKEY *keyPair, EVP_PKEY *remoteKey, uint8_t dhKey[CR
     return ret;
 }
 
-static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
+static bool GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
 {
-    NAI_CHECK_LOG_RETURN_VOID(value != NULL && value->data != NULL && value->len != 0 && shaHash != NULL,
+    NAI_CHECK_LOG_RETURN(value != NULL && value->data != NULL && value->len != 0 && shaHash != NULL, false,
         "Gen Sha256 input invalid");
     SHA256_CTX sha256;
     if (SHA256_Init(&sha256) != 1) {
         NAI_LOG_ERROR("SHA256_Init failed.");
-        return;
+        return false;
     }
     if (SHA256_Update(&sha256, value->data, value->len) != 1) {
         NAI_LOG_ERROR("SHA256_Update failed.");
-        return;
+        return false;
     }
     if (SHA256_Final(shaHash->sha256Hash, &sha256) != 1) {
         NAI_LOG_ERROR("SHA256_Final failed.");
-        return;
+        return false;
     }
+    return true;
 }

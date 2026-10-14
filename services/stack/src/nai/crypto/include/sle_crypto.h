@@ -44,8 +44,8 @@ typedef enum {
 bool Crypto_RandNumGenerate(uint8_t *out, uint8_t len);
 bool Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
 bool Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
-void Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
-void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
+bool Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
+bool Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
 
 #ifdef __cplusplus
 }

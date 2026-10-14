@@ -217,8 +217,9 @@ bool Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint
     return true;
 }
 
-void Test_CryptoDerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
+bool Test_CryptoDerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
 {
     uint8_t key[SM_OCTETS_16] = {0};
     (void)memcpy_s(output, outputLen, key, SM_OCTETS_16);
+    return true;
 }

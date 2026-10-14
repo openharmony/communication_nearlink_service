@@ -60,7 +60,7 @@ void SendBuffer(DLI_ControllerDataEvt *buff);
 bool Crypto_RandNumGenerateStub(uint8_t *out, uint8_t len);
 bool Crypto_PubPriKeyPairGenerateStub(NLSTK_SmKeyPair_S *keyPair);
 bool Crypto_SecKeyGenerateStub(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
-void Crypto_DerivedKeyGenerateStub(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
+bool Crypto_DerivedKeyGenerateStub(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
 void WaitTimeoutCbk(void *slinkIn);
 
 #ifdef __cplusplus

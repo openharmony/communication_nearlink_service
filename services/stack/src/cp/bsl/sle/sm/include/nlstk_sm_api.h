@@ -379,8 +379,8 @@ typedef struct {
 typedef bool (*NLSTK_SmRandNumGenAlgo)(uint8_t *out, uint8_t len);
 typedef bool (*NLSTK_SmKeyPairGenAlgo)(NLSTK_SmKeyPair_S *keyPair);
 typedef bool (*NLSTK_SmSecKeyGenAlgo)(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
-typedef void (*NLSTK_SmDerivedKeyGenAlgo)(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
-typedef void (*NLSTK_SmSha256HashAlgo)(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
+typedef bool (*NLSTK_SmDerivedKeyGenAlgo)(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
+typedef bool (*NLSTK_SmSha256HashAlgo)(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
 
 /**
  * @brief  安全管理模块加密函数注册

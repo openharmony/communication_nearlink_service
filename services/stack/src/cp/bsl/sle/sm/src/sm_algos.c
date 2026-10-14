@@ -66,8 +66,7 @@ bool SmCmacGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t output
     NLSTK_CHECK_RETURN(input != NULL && output != NULL && outputLen != 0, false, "[SM] Cmac input invalid.");
     if (g_algoFuncs.derivedKeyFunc != NULL) {
         NLSTK_LOG_DEBUG("[SM] Start to generate derived key, algo %d.", input->algo);
-        g_algoFuncs.derivedKeyFunc(input, output, outputLen);
-        return true;
+        return g_algoFuncs.derivedKeyFunc(input, output, outputLen);
     }
     return false;
 }
@@ -78,8 +77,7 @@ bool SmGenSha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
         false, "[SM] Sha input invalid.");
     if (g_algoFuncs.sha256HashFunc != NULL) {
         NLSTK_LOG_INFO("[SM] Start to generate sha256.");
-        g_algoFuncs.sha256HashFunc(value, shaHash);
-        return true;
+        return g_algoFuncs.sha256HashFunc(value, shaHash);
     }
     return false;
 }
