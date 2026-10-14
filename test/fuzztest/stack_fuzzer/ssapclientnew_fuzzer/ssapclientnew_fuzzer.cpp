@@ -77,6 +77,41 @@ namespace OHOS {
         SSAPC_WriteRspHandle(link, sdfBuff);
         SSAPC_ValueNtfHandle(link, sdfBuff);
         SSAPC_ValueIndHandle(link, sdfBuff);
+
+        /* 合法响应模板族（取自产品客户端单测夹具，含边界/错误码变体）：
+         * 随机字节几乎全被报文守卫拦截，模板保证进入真实成功解析路径；
+         * 每个模板同时喂给全部 Rsp/Ntf/Ind 处理器，覆盖 opcode 交叉分支。 */
+        static const uint8_t rspTemplates[][13] = {
+            {0x03, 0x33, 0x00, 0x02, 0x01, 0x03},                                    /* exchange rsp */
+            {0x01, 0x00, 0x02, 0x00, 0x00, 0x01},                                    /* error rsp */
+            {0x09, 0x03, 0x01},                                                      /* read rsp 短 */
+            {0x09, 0x0b, 0x06, 0x00},                                                /* read rsp */
+            {0x09, 0x07, 0x81, 0x01, 0x81, 0x02},                                    /* read rsp 多项 */
+            {0x0b, 0x03, 0xFF, 0x00, 0x01},                                          /* read by uuid rsp */
+            {0x0b, 0x07, 0xEE, 0x00, 0x01, 0x80, 0x01, 0xFF, 0x00, 0x02, 0x80,
+                0x01, 0x02},                                                          /* read by uuid rsp 多项 */
+            {0x0b, 0x0F, 0xEE, 0x00, 0x01, 0x80, 0x01, 0xFF, 0x00, 0x06, 0x00},      /* 长度边界 */
+            {0x0e, 0x03, 0x11, 0x00, 0x00, 0x06},                                    /* write rsp */
+            {0x0f, 0x03, 0x11, 0x00, 0x01, 0x80, 0x01, 0xFF},                        /* value ntf */
+        };
+        static const size_t tplLens[] = {6, 6, 3, 4, 6, 5, 13, 11, 6, 8};
+        for (size_t t = 0; t < sizeof(rspTemplates) / sizeof(rspTemplates[0]); t++) {
+            SDF_Buff_S *tplBuff = SDF_BuffNew(tplLens[t]);
+            if (tplBuff == nullptr) {
+                continue;
+            }
+            uint8_t *tplBuf = SDF_BuffAppend(tplBuff, tplLens[t]);
+            if (tplBuf != nullptr) {
+                (void)memcpy_s(tplBuf, tplLens[t], rspTemplates[t], tplLens[t]);
+                SSAPC_ExchangeInfoRspHandle(link, tplBuff);
+                SSAPC_ReadRspHandle(link, tplBuff);
+                SSAPC_ReadByUuidRspHandle(link, tplBuff);
+                SSAPC_WriteRspHandle(link, tplBuff);
+                SSAPC_ValueNtfHandle(link, tplBuff);
+                SSAPC_ValueIndHandle(link, tplBuff);
+            }
+            SDF_BuffFree(tplBuff);
+        }
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
     }
 

@@ -38,6 +38,8 @@
 #include "nlstk_ssap_app_link.h"
 #include "nlstk_ssap_app_client.h"
 
+#include "ssapc_app.h"
+
 extern SDF_Map *g_slinkMap;
 
 typedef enum {
@@ -112,6 +114,24 @@ namespace OHOS {
         }
 
         NLSTK_SsapClientRegApp(&appId, &cb, &addr);
+
+        /* 链路状态机事件遍历：同一 appId 上按 建链→连接成功→断链→连接断开
+         * 顺序驱动 SsapClientLinkStateMachineCall（ssapc_app_link_sm.c 唯一
+         * 事件入口，此前无任何 fuzzer 调用），覆盖缓存操作与状态迁移分支；
+         * reason 取 fuzz 字节保留错误码路径。 */
+        {
+            static const NLSTK_SsapClientLinkChangeEvent_E events[] = {
+                SSAP_USER_CONNECT,
+                SSAP_LOGIC_LINK_CONNECTED,
+                SSAP_USER_DISCONNECT,
+                SSAP_LOGIC_LINK_DISCONNECTED,
+                SSAP_LINK_CHANGE_EVENT_BUTT,
+            };
+            uint8_t reason = provider.ConsumeIntegral<uint8_t>();
+            for (size_t i = 0; i < sizeof(events) / sizeof(events[0]); i++) {
+                SsapClientLinkStateMachineCall(appId, events[i], reason);
+            }
+        }
 
         uint16_t mtu = 128;
         NLSTK_SsapClientExchangeMtu(appId, mtu);
