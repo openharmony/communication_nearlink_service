@@ -57,9 +57,12 @@ public:
     NlErrCode SetFreqHopping(const std::vector<uint8_t> &freq);
     NlErrCode GetAdapterConnectState(int &state) const;
     NlErrCode GetProfileConnState(const std::string &remoteAddr, int &connState) const;
+    // Declared but never implemented, kept in sync with the pre-split framework surface;
+    // no bridge forwarding is established for them (see nearlink_host.h).
     NlErrCode GetLocalSupportedUuids(std::vector<UUID> &uuids);
     NlErrCode GetLocalDeviceAppearance(int &deviceAppearance) const;
     NlErrCode SetLocalDeviceAppearance(int appearance);
+    NlErrCode GetLocalProfileUuids(std::vector<std::string> &uuids);
     NlErrCode GetLocalAddress(std::string &localDeviceAddres) const;
     NlErrCode GetLocalName(std::string &localDeviceName) const;
     NlErrCode SetLocalName(const std::string &name);
@@ -75,7 +78,6 @@ public:
     void LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
     void LoadSystemAbilityFail();
 
-    NlErrCode GetLocalProfileUuids(std::vector<std::string> &uuids);
     NlErrCode ConnectAllowedProfiles(const std::string &remoteAddr) const;
     NlErrCode DisconnectAllowedProfiles(const std::string &remoteAddr) const;
     NlErrCode UpdateSleVirtualDevice(int32_t cmd, const std::string &address);

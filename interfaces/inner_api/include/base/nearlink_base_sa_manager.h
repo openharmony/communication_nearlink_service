@@ -23,8 +23,9 @@
 #include <string>
 
 #include "iremote_broker.h"
-#include "system_ability_status_change_stub.h"
+#include "nearlink_def.h"
 #include "nearlink_safe_map.h"
+#include "system_ability_status_change_stub.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -50,7 +51,7 @@ public:
  * Kept in sync with NearlinkSaManager declared in nearlink_sa_manager.h.
  * GetProxy binds to this class and is shared with the framework.
  */
-class NearlinkBaseSaManager {
+class NEARLINK_API NearlinkBaseSaManager {
 public:
     static NearlinkBaseSaManager &GetInstance();
 
