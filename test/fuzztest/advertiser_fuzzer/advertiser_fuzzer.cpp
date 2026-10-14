@@ -14,6 +14,7 @@
  */
 
 #include <thread>
+#include <atomic>
 #include "fuzzer/FuzzedDataProvider.h"
 #include "advertiser_fuzzer.h"
 #include "nearlink_native_token_mock.h"
@@ -30,15 +31,62 @@ using namespace std;
 using namespace OHOS::Nearlink;
 namespace OHOS {
 
+/* 广播句柄由实现侧异步经 OnStartResultEvent 交付：在此捕获，
+ * 供同一次输入内的 SetData/Enable/Disable/Stop 复用（句柄一致）。 */
+std::atomic<int32_t> g_advHandle { -1 };
+std::atomic<uint32_t> g_advEventSeq { 0 };
+
 class MockNearlinkSleAdvertiseCallbackStub : public IRemoteStub<INearlinkSleAdvertiseCallback> {
 public:
-    void OnAutoStopAdvEvent(int32_t advHandle) {}
-    void OnStartResultEvent(int32_t result, int32_t advHandle, int32_t opcode) {}
-    void OnEnableResultEvent(int32_t result, int32_t advHandle) {}
-    void OnDisableResultEvent(int32_t result, int32_t advHandle) {}
-    void OnStopResultEvent(int32_t result, int32_t advHandle) {}
-    void OnSetAdvDataEvent(int32_t result, int32_t advHandle) {}
+    void OnAutoStopAdvEvent(int32_t advHandle)
+    {
+        (void)advHandle;
+        g_advEventSeq.fetch_add(1);
+    }
+    void OnStartResultEvent(int32_t result, int32_t advHandle, int32_t opcode)
+    {
+        (void)result;
+        (void)opcode;
+        g_advHandle.store(advHandle);
+        g_advEventSeq.fetch_add(1);
+    }
+    void OnEnableResultEvent(int32_t result, int32_t advHandle)
+    {
+        (void)result;
+        (void)advHandle;
+        g_advEventSeq.fetch_add(1);
+    }
+    void OnDisableResultEvent(int32_t result, int32_t advHandle)
+    {
+        (void)result;
+        (void)advHandle;
+        g_advEventSeq.fetch_add(1);
+    }
+    void OnStopResultEvent(int32_t result, int32_t advHandle)
+    {
+        (void)result;
+        (void)advHandle;
+        g_advEventSeq.fetch_add(1);
+    }
+    void OnSetAdvDataEvent(int32_t result, int32_t advHandle)
+    {
+        (void)result;
+        (void)advHandle;
+        g_advEventSeq.fetch_add(1);
+    }
 };
+
+/* 广播结果事件异步派发：有界等待序号增长，等不到则用随机句柄走未命中分支 */
+bool WaitAdvEvent(uint32_t seqBefore)
+{
+    for (int waited = 0; waited < 100; waited++) {
+        if (g_advEventSeq.load() > seqBefore) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return g_advEventSeq.load() > seqBefore;
+}
 
 namespace {
 constexpr int HOST_FUZZ_DELAY_10_MS = 50;
@@ -114,9 +162,8 @@ void CreateAdvData(NearlinkSleAdvertiserData &advData, FuzzedDataProvider &provi
     advData.SetIncludeTxPower(provider.ConsumeBool()); // 1
 }
 
-void StartAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
+void StartAdvertisingFuzzTest(FuzzedDataProvider &provider)
 {
-    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
@@ -143,14 +190,12 @@ void StartAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
 }
 
-void StopAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
+void StopAdvertisingFuzzTest(int32_t advHandle)
 {
-    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkSleAdvertiserStub::GetDescriptor());
-    int32_t advHandle = provider.ConsumeIntegralInRange<int32_t>(0, 10);
     data.WriteInt32(advHandle);
 
     int32_t ret = SleAdvertiserOnRemoteRequest(
@@ -176,9 +221,8 @@ void GetAdvertiserHandleFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
 }
 
-void SetAdvertisingDataFuzzTest(const uint8_t *fuzzData, size_t size)
+void SetAdvertisingDataFuzzTest(FuzzedDataProvider &provider, int32_t advHandle)
 {
-    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
@@ -187,7 +231,6 @@ void SetAdvertisingDataFuzzTest(const uint8_t *fuzzData, size_t size)
     CreateAdvData(advData, provider);
     data.WriteParcelable(&advData);
     data.WriteParcelable(&advData);
-    int32_t advHandle = provider.ConsumeIntegralInRange<int32_t>(0, 10);
     data.WriteInt32(advHandle);
 
     int32_t ret = SleAdvertiserOnRemoteRequest(
@@ -219,15 +262,12 @@ void AdvertiserFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
 }
 
-void EnableAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
+void EnableAdvertisingFuzzTest(int32_t advHandle)
 {
-    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkSleAdvertiserStub::GetDescriptor());
-    int32_t advHandle = provider.ConsumeIntegralInRange<int32_t>(0, 10);
-
     data.WriteInt32(advHandle);
 
     int32_t ret = SleAdvertiserOnRemoteRequest(
@@ -238,14 +278,12 @@ void EnableAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
 }
 
-void DisableAdvertisingFuzzTest(const uint8_t *fuzzData, size_t size)
+void DisableAdvertisingFuzzTest(int32_t advHandle)
 {
-    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkSleAdvertiserStub::GetDescriptor());
-    int32_t advHandle = provider.ConsumeIntegralInRange<int32_t>(0, 10);
     data.WriteInt32(advHandle);
 
     int32_t ret = SleAdvertiserOnRemoteRequest(
@@ -287,15 +325,31 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     OHOS::g_threadUtil.InitThreadStateMap();
-    OHOS::RegisterSleAdvertiserCallbackFuzzTest();
-    OHOS::StartAdvertisingFuzzTest(data, size);
-    OHOS::GetAdvertiserHandleFuzzTest(data, size);
-    OHOS::SetAdvertisingDataFuzzTest(data, size);
-    OHOS::AdvertiserFuzzTest(data, size);
-    OHOS::DisableAdvertisingFuzzTest(data, size);
-    OHOS::EnableAdvertisingFuzzTest(data, size);
-    OHOS::StopAdvertisingFuzzTest(data, size);
-    OHOS::DeregisterSleAdvertiserCallbackFuzzTest();
+    {
+        FuzzedDataProvider provider(data, size);
+        OHOS::RegisterSleAdvertiserCallbackFuzzTest();
+        uint32_t seq = OHOS::g_advEventSeq.load();
+        OHOS::StartAdvertisingFuzzTest(provider);
+        int32_t advHandle = -1;
+        if (OHOS::WaitAdvEvent(seq)) {
+            advHandle = OHOS::g_advHandle.load();
+        }
+        if (advHandle < 0) {
+            /* 未等到开始结果：用随机句柄保留未命中分支 */
+            advHandle = provider.ConsumeIntegralInRange<int32_t>(0, 10);
+        }
+        OHOS::GetAdvertiserHandleFuzzTest(data, size);
+        OHOS::SetAdvertisingDataFuzzTest(provider, advHandle);
+        (void)OHOS::WaitAdvEvent(OHOS::g_advEventSeq.load());
+        OHOS::EnableAdvertisingFuzzTest(advHandle);
+        (void)OHOS::WaitAdvEvent(OHOS::g_advEventSeq.load());
+        OHOS::DisableAdvertisingFuzzTest(advHandle);
+        (void)OHOS::WaitAdvEvent(OHOS::g_advEventSeq.load());
+        OHOS::StopAdvertisingFuzzTest(advHandle);
+        (void)OHOS::WaitAdvEvent(OHOS::g_advEventSeq.load());
+        OHOS::AdvertiserFuzzTest(data, size);
+        OHOS::DeregisterSleAdvertiserCallbackFuzzTest();
+    }
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
