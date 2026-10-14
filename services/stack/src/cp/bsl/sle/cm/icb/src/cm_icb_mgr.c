@@ -19,6 +19,7 @@
 #include "byte_codec.h"
 #include "cm_dli_adapter.h"
 #include "cm_errno.h"
+#include "cm_icb_dft.h"
 #include "cm_icb_init.h"
 #include "cm_icb_inner_api.h"
 #include "cm_log.h"
@@ -224,6 +225,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     CM_LOGI("status=%u, id=%u", status, cbkParam->id);
     if (status != DLI_SUCCESS) {
         CM_LOGE("set param failed, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, status);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
     }
@@ -276,6 +278,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     CM_LOGI("status=%u, id=%u", status, cbkParam->id);
     if (status != DLI_SUCCESS) {
         CM_LOGE("set param failed, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, status);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
     }

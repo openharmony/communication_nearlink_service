@@ -397,4 +397,14 @@ NEARLINK_DISCOVERY_EXCEPTION:
   DISCOVERY_START_TIME: {type: STRING, desc: when start advertise or scan}
   DISCOVERY_PKG_NAME: {type: STRING, desc: who start advertise or scan}
   DISCOVERY_RESULT_CALLBACK_TIME: {type: STRING, desc: when scan result callback}
+
+NEARLINK_STACK_ICB_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack icb excep event}
+  TIME: {type: STRING, desc: the time when icb set param fail}
+  DEVICE_ADDR: {type: STRING, desc: device address}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: device appearance}
+  ICB_SCENE: {type: UINT16, desc: the scene of icb set param}
+  ICB_ID: {type: UINT16, desc: icb id}
+  ERROR_CODE: {type: INT32, desc: icb set param fail error code}
 # nearLink dft event end

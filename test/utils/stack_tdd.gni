@@ -201,6 +201,7 @@ shared_stack_source = [
     "$STACK_DIR/src/cp/bsl/sle/qosm/autorate/src/qosm_uevent.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/common/src/cm_dli_adapter.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/icb/src/cm_icb_api.c",
+    "$STACK_DIR/src/cp/bsl/sle/cm/icb/src/cm_icb_dft.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/icb/src/cm_icb_init.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/icb/src/cm_icb_mgr.c",
     "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_event_core.c",

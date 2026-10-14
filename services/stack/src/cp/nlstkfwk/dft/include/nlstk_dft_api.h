@@ -35,6 +35,8 @@ typedef enum {
     NLSTK_DFT_EVENT_SM_ENCP_EXCEP,
     // HADM模块主事件类型
     NLSTK_DFT_EVENT_HADM_EXCEP = 33,
+    // ICB模块主事件类型
+    NLSTK_DFT_EVENT_ICB_EXCEP = 36,
     NLSTK_DFT_EVENT_MAX,
 } NLSTK_DftEventId_E;
 

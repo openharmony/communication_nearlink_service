@@ -40,6 +40,7 @@ typedef enum {
 } DFT_PARAM_INDEX;
 
 typedef enum {
+    NAI_DFT_PARAM_SIZE_1 = 1,
     NAI_DFT_PARAM_SIZE_2 = 2,
     NAI_DFT_PARAM_SIZE_3,
 } DFT_PARAM_SIZE;
@@ -51,6 +52,7 @@ typedef enum TransType {
 
 void DftGetTimestamp(char *timestamp, uint16_t timelen);
 DftParamC CreateUi16ParamC(uint16_t paramId, uint16_t value);
+DftParamC CreateI32ParamC(uint16_t paramId, int32_t value);
 DftParamC CreateStrParamC(int paramId, uint16_t size, const char *addr);
 DftParamC CreateRefParamC(uint16_t paramId, DftSubEventRefC *ref);
 DftSubEventRefC *CreateSubEventRef(uint16_t paramId, DftParamC params[], size_t size);

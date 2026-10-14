@@ -595,6 +595,18 @@ static DftParamDB g_discoveryExcepParam[DISCOVERY_PARAM_BUTT] = {
     {"DISCOVERY_RESULT_CALLBACK_TIME", HISYSEVENT_STRING},
 };
 
+static DftParamDB g_stackIcbExcepParam[ICB_EXCEP_PARAM_BUTT] = {
+    {"", HISYSEVENT_INVALID},                           // ICB_EXCEP_INVALID
+    {"", HISYSEVENT_INVALID},                           // ICB_EXCEP_KEY_BUTT
+    {"TIME", HISYSEVENT_STRING},
+    {"DEVICE_ADDR", HISYSEVENT_STRING},
+    {"DEVICE_NAME", HISYSEVENT_STRING},
+    {"DEVICE_APPEARANCE", HISYSEVENT_INT32},
+    {"ICB_SCENE", HISYSEVENT_UINT16},
+    {"ICB_ID", HISYSEVENT_UINT16},
+    {"ERROR_CODE", HISYSEVENT_INT32},
+};
+
 /*******************************************************************************
  *  All events, including UE and Excep, are defined here.Note that the sequence is the same as that of DftEventEnum.
  ******************************************************************************/
@@ -635,6 +647,7 @@ static DftExcepTypeDB g_dftEventType[DFT_EXCEP_BUTT] = {
     {"NEARLINK_STACK_HADM_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_FIND_EXCEPTION", HISYSEVENT_STATISTIC},
     {"NEARLINK_DISCOVERY_EXCEPTION", HISYSEVENT_STATISTIC},
+    {"NEARLINK_STACK_ICB_EXCEP", HISYSEVENT_FAULT},
 };
 
 static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
@@ -684,6 +697,7 @@ static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
     {"NEARLINK_STACK_HADM_EXCEP", HADM_EXCEP_KEY_BUTT, HADM_EXCEP_PARAM_BUTT, g_stackHadmExcepParam},
     {"NEARLINK_FIND_EXCEPTION", FIND_EXCEP_KEY_BUTT, FIND_EXCEP_PARAM_BUTT, g_findExcepParam},
     {"NEARLINK_DISCOVERY_EXCEPTION", DISCOVERY_KEY_BUTT, DISCOVERY_PARAM_BUTT, g_discoveryExcepParam},
+    {"NEARLINK_STACK_ICB_EXCEP", ICB_EXCEP_KEY_BUTT, ICB_EXCEP_PARAM_BUTT, g_stackIcbExcepParam},
     {"", 0, 1, nullptr},                                // DFT_EXCEP_BUTT
     {"STATE_FLOW_INFO", STATE_FLOW_KEY_BUTT, STATE_FLOW_PARAM_BUTT, g_stateFlowParam},
     {"STATE_PEER_INFO", PEER_INFO_KEY_BUTT, PEER_INFO_PARAM_BUTT, g_peerInfoParam},

@@ -104,6 +104,7 @@ typedef enum DftEventEnum : int {
     DFT_STACK_HADM_EXCEP,
     DFT_FIND_EXCEP,
     DFT_DISCOVERY_EXCEP,
+    DFT_STACK_ICB_EXCEP,
     // add exception and ue event above this
     DFT_EXCEP_BUTT,
     // add sub event below this
@@ -636,6 +637,24 @@ typedef enum DftDiscoveryExcepParamEnum : int {
     // add normal param above this
     DISCOVERY_PARAM_BUTT,
 } DftDiscoveryExcepParamEnum;
+
+// NEARLINK_STACK_ICB_EXCEP param enum
+typedef enum DftStackIcbExcepParamEnum : int {
+    ICB_EXCEP_INVALID = 0,
+    // add key param below this
+    // add key param above this
+    ICB_EXCEP_KEY_BUTT,
+    // add normal param below this
+    ICB_EXCEP_TIME,
+    ICB_EXCEP_DEVICE_ADDR,
+    ICB_EXCEP_DEVICE_NAME,
+    ICB_EXCEP_DEVICE_APPEARANCE,
+    ICB_EXCEP_SCENE,
+    ICB_EXCEP_ID,
+    ICB_EXCEP_ERRORCODE,
+    // add normal param above this
+    ICB_EXCEP_PARAM_BUTT,
+} DftStackIcbExcepParamEnum;
 
  /*******************************************************************************
  *  Sub Event param index define below
