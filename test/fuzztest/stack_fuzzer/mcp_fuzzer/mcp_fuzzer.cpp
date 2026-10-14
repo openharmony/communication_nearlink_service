@@ -61,32 +61,29 @@ static void VolumeChangeEventImpl(SLE_Addr_S *addr, uint8_t volume)
     (void)volume;
 }
 
-static void MuteStatusChangeEventImpl(SLE_Addr_S *addr, uint8_t muteStatus)
+static void MuteStatusChangeEventImpl(SLE_Addr_S *addr, uint8_t mute)
 {
     (void)addr;
-    (void)muteStatus;
+    (void)mute;
 }
 
-static void NotifyVolumeChangeImpl(SLE_Addr_S *addr, NLSTK_McpVolumePropertyType_E property, void *value)
+static void NotifyVolumeChangeImpl(SLE_Addr_S *addr, uint8_t volume)
 {
     (void)addr;
-    (void)property;
-    (void)value;
+    (void)volume;
 }
 
-static void GetVolumeRspImpl(SLE_Addr_S *addr, NLSTK_McpVolumePropertyType_E property, uint8_t errorCode,
-    void *value)
+static void GetVolumeRspImpl(SLE_Addr_S *addr, uint8_t volume, NLSTK_Errcode_E ret)
 {
     (void)addr;
-    (void)property;
-    (void)errorCode;
-    (void)value;
+    (void)volume;
+    (void)ret;
 }
 
-static void SetVolumeRspImpl(SLE_Addr_S *addr, uint8_t errorCode)
+static void SetVolumeRspImpl(SLE_Addr_S *addr, NLSTK_Errcode_E ret)
 {
     (void)addr;
-    (void)errorCode;
+    (void)ret;
 }
 
 static void VolumeStateChangeImpl(SLE_Addr_S *addr, uint8_t state, uint8_t preState)
@@ -104,49 +101,6 @@ static void FillAddr(FuzzedDataProvider &fdp, SLE_Addr_S &addr)
     }
 }
 
-void FuzzMcpCreateMediaInstance(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    NLSTK_McpMediaInfo_S info;
-    (void)memset_s(&info, sizeof(info), 0, sizeof(info));
-    uint8_t nameBuf[FUZZ_MCP_NAME_MAX_LEN] = {0};
-    uint16_t nameLen = fdp.ConsumeIntegral<uint8_t>() % FUZZ_MCP_NAME_MAX_LEN;
-    for (uint16_t i = 0; i < nameLen; i++) {
-        nameBuf[i] = fdp.ConsumeIntegral<uint8_t>();
-    }
-    info.instanceName.len = nameLen;
-    info.instanceName.data = nameBuf;
-    info.playbackLocation = fdp.ConsumeIntegral<uint32_t>();
-    info.playbackState = fdp.ConsumeIntegral<uint8_t>();
-    info.mediaInstanceId = fdp.ConsumeIntegral<uint8_t>();
-    info.startMediaInst = StartMediaInstImpl;
-    info.authorize = MediaAuthorizeImpl;
-    for (int i = 0; i < NLSTK_MCP_MEDIA_MAX_PROPERTY; i++) {
-        info.propertyRights[i] = fdp.ConsumeIntegral<uint8_t>();
-    }
-    (void)NLSTK_McpCreateMediaInstance(&info);
-}
-
-void FuzzMcpPlayControlResult(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    uint16_t requestId = fdp.ConsumeIntegral<uint16_t>();
-    int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
-    uint8_t errorCode = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_McpPlayControlResult(requestId, instanceId, errorCode);
-}
-
-void FuzzMcpMediaAuthorizeResult(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    uint16_t requestId = fdp.ConsumeIntegral<uint16_t>();
-    int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
-    NLSTK_McpPropertyType_E property = static_cast<NLSTK_McpPropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>());
-    uint8_t errorCode = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_McpMediaAuthorizeResult(requestId, instanceId, property, errorCode);
-}
-
 static uint16_t FillBytes(FuzzedDataProvider &fdp, uint8_t *buf, uint16_t maxLen)
 {
     uint16_t len = fdp.ConsumeIntegral<uint8_t>() % maxLen;
@@ -156,12 +110,10 @@ static uint16_t FillBytes(FuzzedDataProvider &fdp, uint8_t *buf, uint16_t maxLen
     return len;
 }
 
-void FuzzMcpUpdateMediaProperty(const uint8_t *fuzzData, size_t size)
+/* 按合法 property 构造对应类型的载荷，供创建后的实例更新复用 */
+static void FillPropertyPayloadAndApply(FuzzedDataProvider &fdp, int32_t instanceId,
+    NLSTK_McpPropertyType_E property)
 {
-    FuzzedDataProvider fdp(fuzzData, size);
-    int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
-    NLSTK_McpPropertyType_E property = static_cast<NLSTK_McpPropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
     uint8_t byteBuf[FUZZ_MCP_NAME_MAX_LEN] = {0};
     switch (property) {
         case NLSTK_MCP_MEDIA_INSTANCE_NAME:
@@ -229,53 +181,67 @@ void FuzzMcpUpdateMediaProperty(const uint8_t *fuzzData, size_t size)
     }
 }
 
-void FuzzMcpDeleteMediaInstance(const uint8_t *fuzzData, size_t size)
+/* 单输入内状态一致性：instanceId 由调用方指定并贯穿 创建→播放结果→授权结果→
+ * 属性更新→删除；音量侧同地址 Connect→Get/Set→SetStream→Disconnect。 */
+void FuzzMcpConsistentSequence(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
-    int32_t instanceId = fdp.ConsumeIntegral<int32_t>();
+
+    /* 媒体实例：type 固定合法值，instanceId 保证非 0 */
+    NLSTK_McpMediaInfo_S info;
+    (void)memset_s(&info, sizeof(info), 0, sizeof(info));
+    uint8_t nameBuf[FUZZ_MCP_NAME_MAX_LEN] = {0};
+    uint16_t nameLen = fdp.ConsumeIntegral<uint8_t>() % FUZZ_MCP_NAME_MAX_LEN;
+    for (uint16_t i = 0; i < nameLen; i++) {
+        nameBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+    }
+    info.type = NLSTK_MCP_COMMON_SERVICE;
+    info.instanceName.len = nameLen;
+    info.instanceName.data = nameBuf;
+    info.playbackLocation = fdp.ConsumeIntegral<uint32_t>();
+    info.playbackState = fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY;
+    info.mediaInstanceId = static_cast<int32_t>(1 + fdp.ConsumeIntegral<uint8_t>() % 255);
+    info.startMediaInst = StartMediaInstImpl;
+    info.authorize = MediaAuthorizeImpl;
+    for (int i = 0; i < NLSTK_MCP_MEDIA_MAX_PROPERTY; i++) {
+        info.propertyRights[i] = fdp.ConsumeIntegral<uint8_t>();
+    }
+    int32_t instanceId = info.mediaInstanceId;
+    uint16_t requestId = fdp.ConsumeIntegral<uint16_t>();
+    uint8_t errorCode = fdp.ConsumeIntegral<uint8_t>();
+    NLSTK_McpPropertyType_E authorizeProperty = static_cast<NLSTK_McpPropertyType_E>(
+        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
+    NLSTK_McpPropertyType_E updateProperty = static_cast<NLSTK_McpPropertyType_E>(
+        fdp.ConsumeIntegral<uint8_t>() % NLSTK_MCP_MEDIA_MAX_PROPERTY);
+
+    (void)NLSTK_McpCreateMediaInstance(&info);
+    (void)NLSTK_McpPlayControlResult(requestId, instanceId, errorCode);
+    (void)NLSTK_McpMediaAuthorizeResult(requestId, instanceId, authorizeProperty, errorCode);
+    FillPropertyPayloadAndApply(fdp, instanceId, updateProperty);
     (void)NLSTK_McpDeleteMediaInstance(instanceId);
-}
 
-void FuzzMcpVolumeConnect(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
-    (void)NLSTK_McpVolumeConnect(&addr);
-    (void)NLSTK_McpVolumeDisconnect(&addr);
-}
-
-void FuzzMcpGetVolume(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
-    NLSTK_McpVolumePropertyType_E property = static_cast<NLSTK_McpVolumePropertyType_E>(
-        fdp.ConsumeIntegral<uint8_t>());
-    (void)NLSTK_McpGetVolume(&addr, property);
-}
-
-void FuzzMcpSetVolume(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
+    /* 音量：同一地址上先建链再查询/设置，最后确定性断开 */
+    SLE_Addr_S volAddr = {0};
+    FillAddr(fdp, volAddr);
     uint8_t volume = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_McpSetVolume(&addr, volume);
-}
-
-void FuzzMcpSetStreamVolume(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
+    NLSTK_McpVolumePropertyType_E volumeProperty =
+        (fdp.ConsumeIntegral<uint8_t>() % 2 == 0) ? NLSTK_MCP_VOLUME_STATUS
+                                                  : NLSTK_MCP_STREAM_VOLUME_STATUS;
     uint8_t num = fdp.ConsumeIntegral<uint8_t>() % FUZZ_MCP_STREAM_VOLUME_MAX_NUM;
     NLSTK_McpSetStreamVolume_S volumeArray[FUZZ_MCP_STREAM_VOLUME_MAX_NUM] = {};
     for (uint8_t i = 0; i < num; i++) {
         volumeArray[i].volume = fdp.ConsumeIntegral<uint8_t>();
         volumeArray[i].streamType = static_cast<NLSTK_McpSetStreamVolume_E>(fdp.ConsumeIntegral<uint8_t>());
     }
-    (void)NLSTK_McpSetStreamVolume(&addr, volumeArray, num);
+    (void)NLSTK_McpVolumeConnect(&volAddr);
+    (void)NLSTK_McpGetVolume(&volAddr, volumeProperty);
+    (void)NLSTK_McpSetVolume(&volAddr, volume);
+    (void)NLSTK_McpSetStreamVolume(&volAddr, volumeArray, num);
+    (void)NLSTK_McpVolumeDisconnect(&volAddr);
+
+    /* 保留非法参数路径：instanceId=0（产品侧判非法）与断开后的查询 */
+    (void)NLSTK_McpUpdateMediaProperty(0, updateProperty, nullptr);
+    (void)NLSTK_McpGetVolume(&volAddr, volumeProperty);
 }
 
 }  // namespace OHOS
@@ -310,15 +276,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzMcpCreateMediaInstance(fuzzData, size);
-    OHOS::FuzzMcpPlayControlResult(fuzzData, size);
-    OHOS::FuzzMcpMediaAuthorizeResult(fuzzData, size);
-    OHOS::FuzzMcpUpdateMediaProperty(fuzzData, size);
-    OHOS::FuzzMcpDeleteMediaInstance(fuzzData, size);
-    OHOS::FuzzMcpVolumeConnect(fuzzData, size);
-    OHOS::FuzzMcpGetVolume(fuzzData, size);
-    OHOS::FuzzMcpSetVolume(fuzzData, size);
-    OHOS::FuzzMcpSetStreamVolume(fuzzData, size);
+    OHOS::FuzzMcpConsistentSequence(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

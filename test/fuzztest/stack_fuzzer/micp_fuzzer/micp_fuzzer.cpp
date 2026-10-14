@@ -22,6 +22,9 @@
 #include "sdf_mem.h"
 #include "sdf_thread.h"
 #include "securec.h"
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 typedef struct SlePkt {
     uint8_t *data;
@@ -36,6 +39,8 @@ int SleSendDliPacket(const SlePkt *packet)
 
 namespace OHOS {
 
+static std::atomic<uint32_t> g_micpEventSeq { 0 };
+
 static void MicpConnectEventCbkImpl(SLE_Addr_S *addr, NLSTK_MicpConnectState_E curState,
     NLSTK_MicpConnectState_E preState, uint8_t errorCode)
 {
@@ -43,6 +48,19 @@ static void MicpConnectEventCbkImpl(SLE_Addr_S *addr, NLSTK_MicpConnectState_E c
     (void)curState;
     (void)preState;
     (void)errorCode;
+    g_micpEventSeq.fetch_add(1);
+}
+
+/* 连接状态事件在调度线程内同步触发：等待序号增长即等待该步任务完成（有界） */
+static bool WaitMicpEvent(uint32_t seqBefore)
+{
+    for (int waited = 0; waited < 100; waited++) {
+        if (g_micpEventSeq.load() > seqBefore) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return g_micpEventSeq.load() > seqBefore;
 }
 
 static void MicpMicStateCbkImpl(SLE_Addr_S *addr, uint8_t micState)
@@ -59,13 +77,22 @@ static void FillAddr(FuzzedDataProvider &fdp, SLE_Addr_S &addr)
     }
 }
 
+/* 同一地址：连接 → 等连接状态事件 → 触发后续断开 → 等断开事件，
+ * 不再「连上立即断开」；另保留一条未连接地址的断开（未找到设备分支）。 */
 void FuzzMicpConnect(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     SLE_Addr_S addr = {0};
+    SLE_Addr_S unknownAddr = {0};
     FillAddr(fdp, addr);
+    FillAddr(fdp, unknownAddr);
+    uint32_t seq = g_micpEventSeq.load();
     (void)NLSTK_MicpConnect(&addr);
+    (void)WaitMicpEvent(seq);
+    seq = g_micpEventSeq.load();
     (void)NLSTK_MicpDisconnect(&addr);
+    (void)WaitMicpEvent(seq);
+    (void)NLSTK_MicpDisconnect(&unknownAddr);
 }
 
 }  // namespace OHOS
