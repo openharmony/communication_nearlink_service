@@ -78,5 +78,6 @@ group("stackfuzz") {
     "cfgdb_fuzzer:CfgdbFuzzTest",
     "disclient_fuzzer:DisClientFuzzTest",
     "smstm_fuzzer:SmStmFuzzTest",
+    "ssape2e_fuzzer:SsapE2eFuzzTest",
   ]
 }
