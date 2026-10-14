@@ -46,6 +46,24 @@ static uint8_t reqPkt2[] = {0x04, 0x13, 0x01, 0x00, 0xFF, 0x00};
 static uint8_t reqPkt3[] = {0x06, 0x11, 0x01, 0x00, 0xFF, 0x00, 0x02, 0x01};
 static uint8_t reqPkt4[] = {0x06, 0x13, 0x01, 0x00, 0xFF, 0x00, 0x03, 0x02};
 static uint8_t reqPkt5[] = {0x0a, 0x00, 0x01, 0x00, 0xFF, 0x00, 0x00, 0x02, 0x01};
+/* 读/写族合法报文与长度边界模板（取自产品单测夹具，保证字段合法） */
+static uint8_t readReqPkts[][5] = {
+    {0x08, 0x03, 0x11, 0x00, 0x00},
+    {0x08, 0x03, 0x12, 0x00, 0x00},
+    {0x08, 0x03, 0x11, 0x00, 0x01},
+};
+static uint8_t writeReqPkts[][6] = {
+    {0x0d, 0x03, 0x11, 0x00, 0x00, 0x06},
+    {0x0d, 0x03, 0x11, 0x00, 0x01, 0x07},
+    {0x0d, 0x03, 0x12, 0x00, 0x00, 0x06},
+    {0x0d, 0x03, 0x12, 0x00, 0x00},
+};
+static uint8_t writeCmdPkts[][6] = {
+    {0x0C, 0x07, 0x11, 0x00, 0x00, 0x06},
+    {0x0C, 0x13, 0x11, 0x00, 0x00, 0x06},
+    {0x0C, 0x00, 0x11, 0x00, 0x00, 0x06},
+    {0x0C, 0x03, 0x11, 0x00, 0x00, 0x06},
+};
 
 static void AddService1()
 {
@@ -130,6 +148,10 @@ namespace OHOS {
         AddService1();
         AddService2();
 
+        /* 先取 opcode 再解析地址/报文：ConsumeIntegral 从尾部消费，
+         * 若放在 buf 循环之后会因 FDP 耗尽恒取 0（模板选择变死代码） */
+        uint8_t fuzzOpcode = fdp.ConsumeIntegral<uint8_t>();
+
         SLE_Addr_S sleAddr = {0};
         sleAddr.type = fdp.ConsumeIntegral<uint8_t>();
         for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
@@ -143,31 +165,50 @@ namespace OHOS {
             buf[i] = fdp.ConsumeIntegral<uint8_t>();
         }
 
-        link->curTask.opcode = fdp.ConsumeIntegral<uint8_t>() - 1;
+        link->curTask.opcode = static_cast<uint8_t>(fuzzOpcode - 1);
 
-        int realSize = 0;
+        int realSize = sizeof(reqPkt1);
         uint8_t *reqPkt = reqPkt1;
         if (link->curTask.opcode == SSAP_FIND_STRUCTURE_REQ) {
             if ((fdp.ConsumeIntegral<uint8_t>() & 0x03) == 3) {
                 reqPkt = reqPkt2;
+                realSize = sizeof(reqPkt2);
             } else {
                 reqPkt = reqPkt1;
+                realSize = sizeof(reqPkt1);
             }
         }
 
         if (link->curTask.opcode == SSAP_FIND_STRUCTURE_BY_UUID_REQ) {
             if ((fdp.ConsumeIntegral<uint8_t>() & 0x03) == 3) {
                 reqPkt = reqPkt3;
+                realSize = sizeof(reqPkt3);
             } else {
                 reqPkt = reqPkt4;
+                realSize = sizeof(reqPkt4);
             }
         }
 
         if (link->curTask.opcode == SSAP_READ_BY_UUID_REQ) {
             reqPkt = reqPkt5;
+            realSize = sizeof(reqPkt5);
+        } else if (link->curTask.opcode == SSAP_READ_REQ) {
+            uint8_t variant = fdp.ConsumeIntegral<uint8_t>() %
+                (sizeof(readReqPkts) / sizeof(readReqPkts[0]));
+            reqPkt = readReqPkts[variant];
+            realSize = sizeof(readReqPkts[variant]);
+        } else if (link->curTask.opcode == SSAP_WRITE_REQ) {
+            uint8_t variant = fdp.ConsumeIntegral<uint8_t>() %
+                (sizeof(writeReqPkts) / sizeof(writeReqPkts[0]));
+            reqPkt = writeReqPkts[variant];
+            realSize = sizeof(writeReqPkts[variant]);
+        } else if (link->curTask.opcode == SSAP_WRITE_CMD) {
+            uint8_t variant = fdp.ConsumeIntegral<uint8_t>() %
+                (sizeof(writeCmdPkts) / sizeof(writeCmdPkts[0]));
+            reqPkt = writeCmdPkts[variant];
+            realSize = sizeof(writeCmdPkts[variant]);
         }
 
-        realSize = sizeof(reqPkt);
         SDF_Buff_S *lastbuff = (SDF_Buff_S *)malloc(sizeof(SDF_Buff_S) + realSize);
         lastbuff->dataOff = 0;
         lastbuff->dataLen = realSize;
