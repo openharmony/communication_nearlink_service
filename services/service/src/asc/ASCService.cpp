@@ -4382,7 +4382,7 @@ void ASCService::CbkReconfigStopping(const RawAddress& device, uint8_t result, A
     // 清除码率
     SetAutoRateBps(device, 0);
     // 通话 Autorate 还原帧格式为帧1
-    RecoverFrameTypeWhenReleaseStream(device, result);
+    RecoverFrameTypeWhenReleaseStream(device);
     // 重配置音频流
     AudioStreamType reconfigStreamType = GetReconfigStream(device);
     int ret = ConfigStream(device, reconfigStreamType, NL_SLE_ASC_RECONFIGURING);
@@ -4445,7 +4445,7 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
         // 通知DSP断链的connhandle
         SetAudioDisconnInfo(device, connHandle);
         // 通话 Autorate 还原帧格式为帧1
-        RecoverFrameTypeWhenReleaseStream(device, result);
+        RecoverFrameTypeWhenReleaseStream(device);
         ClearWhenDisconnect(device);
         // 断连接场景会上报deleteDevice，音频框架会清空状态，不用上报流状态
         return;
@@ -4474,7 +4474,7 @@ void ASCService::CbkReleaseStream(const RawAddress& device, uint8_t result, uint
     // 删除Qos配置信息
     QosM::GetInstance().ClearQosM(device);
     // 通话 Autorate 还原帧格式为帧1
-    RecoverFrameTypeWhenReleaseStream(device, result);
+    RecoverFrameTypeWhenReleaseStream(device);
     // 取出缓存的关闭流任务进行处理
     ProcStopBuff(device, NL_SLE_ASC_RELEASED);
 
