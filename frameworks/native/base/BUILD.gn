@@ -20,7 +20,6 @@ BaseSrc = [
     "nearlink_base_sa_manager.cpp",
     "nearlink_base_sle_controller.cpp",
     "nearlink_base_switch_module.cpp",
-    "nearlink_base_uuid.cpp",
 ]
 
 BaseIpcSrc = [
