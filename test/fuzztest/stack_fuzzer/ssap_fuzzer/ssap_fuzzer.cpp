@@ -209,7 +209,16 @@ namespace OHOS {
             realSize = sizeof(writeCmdPkts[variant]);
         }
 
-        SDF_Buff_S *lastbuff = (SDF_Buff_S *)malloc(sizeof(SDF_Buff_S) + realSize);
+        /* 用 SDF 分配器构造：链路删除时产品侧以 SDF_BuffFree 释放 curTask.buff，
+         * 原实现 malloc 与之不匹配（分配器混用） */
+        SDF_Buff_S *lastbuff = SDF_BuffNew(realSize);
+        if (lastbuff == nullptr) {
+            SDF_BuffFree(sdfBuff);
+            SSAP_DeleteSsapLinkByAddr(&sleAddr);
+            SSAP_LinkDeInit();
+            SSAPS_ServiceDeInit();
+            return;
+        }
         lastbuff->dataOff = 0;
         lastbuff->dataLen = realSize;
         lastbuff->buffLen = realSize;
