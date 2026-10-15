@@ -55,12 +55,8 @@ void ConvertScanResult(const std::vector<SleScanResult> &results, const napi_env
         napi_set_named_property(env, result, "deviceClass", value);
         napi_get_boolean(env, sleScanResult.IsConnectable(), &value);
         napi_set_named_property(env, result, "isConnectable", value);
-        uint8_t innerFrameType = sleScanResult.GetFrameType();
-        if (innerFrameType != static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1) &&
-            innerFrameType != static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) {
-            HILOGW("unexpected scan result frameType: %{public}u", innerFrameType);
-        }
-        napi_create_int32(env, innerFrameType == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) ?
+        napi_create_int32(env, sleScanResult.GetFrameType() ==
+            static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) ?
             static_cast<int32_t>(FrameType::FRAME_TYPE_4) : static_cast<int32_t>(FrameType::FRAME_TYPE_1), &value);
         napi_set_named_property(env, result, "frameType", value);
         napi_set_element(env, scanResultArray, count, result);

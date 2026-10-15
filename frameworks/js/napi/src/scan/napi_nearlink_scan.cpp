@@ -449,16 +449,8 @@ napi_value NapiNearlinkScan::PropertyInit(napi_env env, napi_value exports)
     SetNamedPropertyByInteger(
         env, scanDutyObj, static_cast<int32_t>(ScanDuty::SCAN_MODE_LOW_POWER), "SCAN_MODE_LOW_POWER");
 
-    napi_value frameTypeObj = nullptr;
-    napi_create_object(env, &frameTypeObj);
-    SetNamedPropertyByInteger(env, frameTypeObj,
-        static_cast<int32_t>(FrameType::FRAME_TYPE_1), "FRAME_TYPE_1");
-    SetNamedPropertyByInteger(env, frameTypeObj,
-        static_cast<int32_t>(FrameType::FRAME_TYPE_4), "FRAME_TYPE_4");
-
     napi_property_descriptor exportFuncs[] = {
         DECLARE_NAPI_PROPERTY("ScanMode", scanDutyObj),
-        DECLARE_NAPI_PROPERTY("FrameType", frameTypeObj),
     };
     napi_define_properties(env, exports, sizeof(exportFuncs) / sizeof(*exportFuncs), exportFuncs);
     return exports;

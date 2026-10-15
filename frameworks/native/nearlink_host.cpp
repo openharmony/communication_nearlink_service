@@ -15,6 +15,7 @@
 
 #include "nearlink_host.h"
 
+#include <cinttypes>
 #include <mutex>
 #include "nearlink_sa_manager.h"
 #include "nearlink_safe_weak_list.h"
@@ -112,13 +113,11 @@ struct NearlinkHost::impl : public std::enable_shared_from_this<impl> {
 
     std::mutex loadServiceMutex_;
     std::mutex isNearlinkEnableMutex_;
-    std::mutex isNearlinkSupportFrame4Mutex_;
     std::mutex isNearlinkAudioEnableMutex_;
     std::string stagingRealAddr_;
     std::string stagingRandomAddr_;
     int32_t profileRegisterId_{0};
     int isNearlinkEnable_ = NEARLINK_UNKNOWN;
-    int32_t isNearlinkSupportFrame4_ = NEARLINK_UNKNOWN;
     int32_t isNearlinkAudioEnable_ = NEARLINK_UNKNOWN;
 
 private:
@@ -202,7 +201,7 @@ public:
 
     void OnDeviceNameChanged(const std::string &deviceName) override
     {
-        HILOGI("enter, deviceName length: %{public}lu", deviceName.length());
+        HILOGI("enter, deviceName length: %{public}zu", deviceName.length());
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         hostImpl->hostObserverList.IterateAsync([deviceName](std::shared_ptr<NearlinkHostObserver> observer) -> void {
@@ -1084,7 +1083,7 @@ NlErrCode NearlinkHost::UpdateRefusePolicy(const int32_t protocolType, const int
 {
     NlErrCode result = NL_ERR_API_NOT_SUPPORT;
 #ifdef NEARLINK_KIA_ENABLE
-    HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}ld", protocolType, pid, refuseTime);
+    HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}" PRId64, protocolType, pid, refuseTime);
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
@@ -1141,15 +1140,7 @@ NlErrCode NearlinkHost::SetBtAddrBySleAddr(const std::string &sleAddr, const std
 bool NearlinkHost::IsNearlinkSupportFrame4() const
 {
     HILOGD("enter");
-    NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(pimpl != nullptr, false, "piml is nullptr");
-
-    std::unique_lock<std::mutex> lock(pimpl->isNearlinkSupportFrame4Mutex_);
-    if (pimpl->isNearlinkSupportFrame4_ == NEARLINK_UNKNOWN) {
-        pimpl->isNearlinkSupportFrame4_ = OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false) ?
-            NEARLINK_SUPPORTED : NEARLINK_NOT_SUPPORTED;
-    }
-    return pimpl->isNearlinkSupportFrame4_ == NEARLINK_SUPPORTED;
+    return OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false);
 }
 
 bool NearlinkHost::IsFeatureSupported(SleFeatureSupported feature)

@@ -90,7 +90,12 @@ public:
         
         scanResult.SetDeviceClass(tempResult.GetDeviceClass());
         // 域转换:原始帧型(0/1) -> SleScanFrameType,与设置侧同值域
-        bool isFrame4 = tempResult.GetPrimFrameType() ==
+        uint8_t primFrameType = tempResult.GetPrimFrameType();
+        if (primFrameType != static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1) &&
+            primFrameType != static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4)) {
+            HILOGW("unexpected scan result primFrameType: %{public}u", primFrameType);
+        }
+        bool isFrame4 = primFrameType ==
             static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4);
         scanResult.SetFrameType(isFrame4 ? static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
             static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1));

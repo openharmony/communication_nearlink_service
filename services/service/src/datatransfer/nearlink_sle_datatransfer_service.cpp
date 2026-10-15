@@ -619,7 +619,10 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     NL_CHECK_RETURN(!uuid.empty(), "uuid empty when DestroyPort");
     std::vector<AppConnectParamMapping> tempVec;
     std::set<std::string> notifyAddrSet;
-    auto getConnects = [&tempVec, &notifyAddrSet](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
+    std::string registeredUuid;
+    auto getConnects = [&tempVec, &notifyAddrSet, &registeredUuid](
+        uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
+        registeredUuid = value->GetUuid();
         for (const auto &val : value->GetPortConnects()) {
             if (val.state == static_cast<int>(SleConnectState::DISCONNECTED)) {
                 continue;
@@ -633,7 +636,6 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     };
     bool has = pimpl->appConnectParamMap_.GetValueAndOpt(port, getConnects);
     NL_CHECK_RETURN(has, "no cache when DestroyPort");
-    std::string registeredUuid = pimpl->FindUuidByPort(port);
     if (registeredUuid != STANDARD_UUID_ICCE) {
         ClearConnectReqByPort(port);
         // 上层异常退出触发死亡监听，未及时调用 Disconnect

@@ -14,6 +14,8 @@
  */
 
 
+from ohos.nearlink.constant use FrameType;
+
 @!namespace("@ohos.nearlink.advertising", "advertising")
 @!sts_inject("""
 static { loadLibrary("nearlinkAdvertisingTaihe_native.z") }
@@ -68,9 +70,4 @@ struct AdvertisingStateChangeInfo {
 enum AdvertisingState: i32 {
     STARTED = 1,
     STOPPED = 2
-}
-
-enum FrameType: i32 {
-    FRAME_TYPE_1 = 1,
-    FRAME_TYPE_4 = 4
 }

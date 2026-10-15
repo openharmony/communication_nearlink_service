@@ -14,6 +14,7 @@
  */
 
 from ohos.nearlink.constant use DeviceClass;
+from ohos.nearlink.constant use FrameType;
 
 @!namespace("@ohos.nearlink.scan", "scan")
 @!sts_inject("""
@@ -60,9 +61,4 @@ enum ScanMode: i32 {
     SCAN_MODE_LOW_POWER = 0,
     SCAN_MODE_BALANCED = 1,
     SCAN_MODE_LOW_LATENCY = 2
-}
-
-enum FrameType: i32 {
-    FRAME_TYPE_1 = 1,
-    FRAME_TYPE_4 = 4
 }
