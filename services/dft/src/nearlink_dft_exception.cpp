@@ -83,11 +83,6 @@ static NearlinkSafeMap<uint32_t, std::string> g_scanPkgMap;     // <scannerId, p
 constexpr const uint16_t CDSM_AUDIO_DEVICE_NUM = 2;
 static uint16_t g_streamCountSuccess = 0;
 static bool g_airplaneModeFlag = false;
-struct ConnTimeoutRecord {
-    uint32_t failCount = 0;     // 距上次上报以来的建链超时失败次数
-    std::string firstFailTime;  // 距上次上报以来首次失败时间
-    int64_t lastReportMs = 0;   // 上次上报时间(毫秒)，0表示尚未上报过
-};
 static NearlinkSafeMap<std::string, ConnTimeoutRecord> g_connTimeoutRecords; // <addr, 建链超时失败限频统计>
 
 void DftCacheAcbStartConn(const std::string &addr)
