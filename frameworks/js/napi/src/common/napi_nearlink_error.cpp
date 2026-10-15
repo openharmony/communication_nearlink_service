@@ -41,7 +41,8 @@ std::set<int32_t> napiErrInvalidParameterSet = {
 };
 
 std::map<int32_t, std::string> napiErrCommonMsgMap {
-    { NlErrCode::NL_ERR_PERMISSION_FAILED, "Permission verification failed." },
+    { NlErrCode::NL_ERR_PERMISSION_FAILED,
+        "Permission verification failed. The application does not have the permission required to call the API." },
     { NlErrCode::NL_ERR_SYSTEM_PERMISSION_FAILED,
         "Permission verification failed. A non-system application calls a system API."},
     { NlErrCode::NL_ERR_PROHIBITED_BY_EDM,
