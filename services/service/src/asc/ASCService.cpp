@@ -4383,7 +4383,8 @@ void ASCService::CbkReconfigStopping(const RawAddress& device, uint8_t result, A
     SetAudioParameter(NL_SLE_ASC_CONTROL_CMD_STOP, "", channelInfo);
     // 清除码率
     SetAutoRateBps(device, 0);
-
+    // 通话 Autorate 还原帧格式为帧1
+    RecoverFrameTypeWhenReleaseStream(device);
     // 重配置音频流
     AudioStreamType reconfigStreamType = GetReconfigStream(device);
     int ret = ConfigStream(device, reconfigStreamType, NL_SLE_ASC_RECONFIGURING);
