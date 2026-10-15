@@ -34,19 +34,16 @@ std::shared_ptr<AniNearlinkScanCallback> AniNearlinkScanCallback::GetInstance()
     auto& r = const_cast<SleScanResult&>(result);
     const std::vector<uint8_t> payload = r.GetPayload();
 
-    ::ohos::nearlink::scan::FrameType frameType((r.GetFrameType() ==
-        static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) ?
+    ::ohos::nearlink::scan::ScanResults scanResults = {};
+    scanResults.address = static_cast<::taihe::string>(r.GetPeripheralDevice().GetDeviceAddr());
+    scanResults.rssi = r.GetRssi();
+    scanResults.deviceName = static_cast<::taihe::string>(r.GetName());
+    scanResults.isConnectable = r.IsConnectable();
+    scanResults.data = ::taihe::array<uint8_t>(::taihe::copy_data_t{}, payload.data(), payload.size());
+    scanResults.frameType.emplace(r.GetFrameType() ==
+        static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) ?
         ::ohos::nearlink::scan::FrameType::key_t::FRAME_TYPE_4 :
         ::ohos::nearlink::scan::FrameType::key_t::FRAME_TYPE_1);
-    ::ohos::nearlink::scan::ScanResults scanResults {
-        static_cast<::taihe::string>(r.GetPeripheralDevice().GetDeviceAddr()),
-        r.GetRssi(),
-        ::taihe::array<uint8_t>(::taihe::copy_data_t{}, payload.data(), payload.size()),
-        static_cast<::taihe::string>(r.GetName()),
-        r.IsConnectable(),
-        /* deviceClass(可选,保持默认) */ {},
-        frameType
-    };
     return scanResults;
 }
 

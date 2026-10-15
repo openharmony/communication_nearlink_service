@@ -38,7 +38,7 @@ struct ScanResults {
     deviceName: String;
     isConnectable: bool;
     deviceClass: Optional<DeviceClass>;
-    frameType: FrameType;
+    frameType: Optional<FrameType>;
 }
 
 struct ScanFilters {
