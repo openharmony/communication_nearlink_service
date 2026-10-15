@@ -17,7 +17,6 @@
 #define NEARLINK_REMOTE_DEVICE_H
 
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "nearlink_def.h"
@@ -35,9 +34,6 @@ namespace Nearlink {
  *
  * Derives from NearlinkBaseRemoteDevice in base.so; all implementations are
  * shared from the base class without any cast.
- * NearlinkRemoteDevice must not add data members or virtual functions beyond
- * the base class; the ToFrameworkDevice cast in nearlink_base_remote_device.h
- * relies on the identical layout.
  *
  * 说明：仅声明未实现（无任何定义）的接口（如 GetDeviceBatteryLevel）不建立桥接转发
  * （拆分前框架亦未导出）。
@@ -273,17 +269,6 @@ public:
      */
     NlErrCode GetBatteryLevel();
 };
-
-// Layout contract of the vector cast in GetPairedDevices and the ToFrameworkDevice cast; the vector
-// cast in GetPairedDevices was removed, replaced by element-wise static_cast.
-static_assert(sizeof(NearlinkRemoteDevice) == sizeof(NearlinkBaseRemoteDevice),
-    "NearlinkRemoteDevice and NearlinkBaseRemoteDevice must keep identical layout");
-static_assert(std::is_base_of_v<NearlinkBaseRemoteDevice, NearlinkRemoteDevice>,
-    "NearlinkRemoteDevice must derive from NearlinkBaseRemoteDevice");
-static_assert(std::has_virtual_destructor_v<NearlinkBaseRemoteDevice>,
-    "NearlinkBaseRemoteDevice must keep a virtual destructor");
-static_assert(std::has_virtual_destructor_v<NearlinkRemoteDevice>,
-    "NearlinkRemoteDevice must keep a virtual destructor");
 }  // namespace Nearlink
 } // namespace OHOS
 

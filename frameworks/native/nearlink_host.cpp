@@ -16,6 +16,7 @@
 #include "nearlink_host.h"
 #include "nearlink_base_host.h"
 #include "nearlink_base_remote_device.h"
+#include "nearlink_observer_adapter.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -28,32 +29,62 @@ NearlinkHost& NearlinkHost::GetInstance()
 
 NlErrCode NearlinkHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
-    return impl_.RegisterObserver(observer);
+    auto adapter = WrapHostObserver(observer);
+    NlErrCode ret = impl_.RegisterObserver(adapter);
+    if (ret != NL_NO_ERROR) {
+        std::shared_ptr<NearlinkBaseHostObserver> unused;
+        UnwrapHostObserver(observer, unused);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
-    return impl_.DeregisterObserver(observer);
+    std::shared_ptr<NearlinkBaseHostObserver> adapter;
+    if (!UnwrapHostObserver(observer, adapter)) {
+        return NL_NO_ERROR;
+    }
+    return impl_.DeregisterObserver(adapter);
 }
 
 NlErrCode NearlinkHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
-    return impl_.RegisterBatteryObserver(observer);
+    auto adapter = WrapBatteryObserver(observer);
+    NlErrCode ret = impl_.RegisterBatteryObserver(adapter);
+    if (ret != NL_NO_ERROR) {
+        std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> unused;
+        UnwrapBatteryObserver(observer, unused);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
-    return impl_.DeregisterBatteryObserver(observer);
+    std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> adapter;
+    if (!UnwrapBatteryObserver(observer, adapter)) {
+        return NL_NO_ERROR;
+    }
+    return impl_.DeregisterBatteryObserver(adapter);
 }
 
 NlErrCode NearlinkHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
-    return impl_.RegisterRssiObserver(observer);
+    auto adapter = WrapRssiObserver(observer);
+    NlErrCode ret = impl_.RegisterRssiObserver(adapter);
+    if (ret != NL_NO_ERROR) {
+        std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> unused;
+        UnwrapRssiObserver(observer, unused);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
-    return impl_.DeregisterRssiObserver(observer);
+    std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> adapter;
+    if (!UnwrapRssiObserver(observer, adapter)) {
+        return NL_NO_ERROR;
+    }
+    return impl_.DeregisterRssiObserver(adapter);
 }
 
 NlErrCode NearlinkHost::LoadNearlinkSa()
@@ -168,8 +199,6 @@ NlErrCode NearlinkHost::SetLocalName(const std::string &name)
 
 NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemoteDevice> &pairedDevices) const
 {
-    // Layout contract asserted in nearlink_remote_device.h is no longer relied on; the vector cast
-    // was replaced by element-wise static_cast.
     std::vector<NearlinkBaseRemoteDevice> baseDevices;
     NlErrCode ret = impl_.GetPairedDevices(transport, baseDevices);
     if (ret != NL_NO_ERROR) {
@@ -206,12 +235,22 @@ NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t 
 
 NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
-    return impl_.RegisterRemoteDeviceObserver(observer);
+    auto adapter = WrapRemoteDeviceObserver(observer);
+    NlErrCode ret = impl_.RegisterRemoteDeviceObserver(adapter);
+    if (ret != NL_NO_ERROR) {
+        std::shared_ptr<NearlinkBaseRemoteDeviceObserver> unused;
+        UnwrapRemoteDeviceObserver(observer, unused);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
-    return impl_.DeregisterRemoteDeviceObserver(observer);
+    std::shared_ptr<NearlinkBaseRemoteDeviceObserver> adapter;
+    if (!UnwrapRemoteDeviceObserver(observer, adapter)) {
+        return NL_NO_ERROR;
+    }
+    return impl_.DeregisterRemoteDeviceObserver(adapter);
 }
 
 NlErrCode NearlinkHost::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const

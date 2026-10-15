@@ -20,6 +20,7 @@ FwkSrc = [
     "nearlink_hid_host.cpp",
     "nearlink_sa_manager.cpp",
     "nearlink_remote_device.cpp",
+    "nearlink_observer_adapter.cpp",
     "nearlink_sle_advertiser.cpp",
     "nearlink_sle_scanner.cpp",
     "nearlink_sle_datatransfer.cpp",

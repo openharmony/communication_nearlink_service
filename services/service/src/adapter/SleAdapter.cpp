@@ -3306,6 +3306,10 @@ bool SleAdapter::IsFeatureSupported(int32_t feature) const
     if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)) {
         return NearlinkSystemConfig::IsFrame4Supported();
     }
+    // 测距能力以芯片上报的本地能力位为准（SleFeature::IsRangSupported）
+    if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RANGING)) {
+        return SleFeature::GetInstance().IsRangSupported();
+    }
     return false;
 }
 

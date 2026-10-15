@@ -89,16 +89,16 @@ struct NearlinkBaseHost::impl : public std::enable_shared_from_this<impl> {
     sptr<NearlinkDeviceRssiObserverImp> deviceRssiObserverImp_ = nullptr;
 
     // Stores the observers registered by the application.
-    NearlinkSafeWeakList<NearlinkHostObserver> hostObserverList;
+    NearlinkSafeWeakList<NearlinkBaseHostObserver> hostObserverList;
 
     // Stores the remote device observers registered by the application.
-    NearlinkSafeWeakList<NearlinkRemoteDeviceObserver> remoteObserverList;
+    NearlinkSafeWeakList<NearlinkBaseRemoteDeviceObserver> remoteObserverList;
 
     // Stores the remote device battery observers registered by the application.
-    NearlinkSafeWeakList<NearlinkRemoteDeviceBatteryObserver> remoteBatteryObserverList;
+    NearlinkSafeWeakList<NearlinkBaseRemoteDeviceBatteryObserver> remoteBatteryObserverList;
 
     // Stores the remote device rssi observers registered by the application.
-    NearlinkSafeWeakList<NearlinkRemoteDeviceRssiObserver> rssiObserverList;
+    NearlinkSafeWeakList<NearlinkBaseRemoteDeviceRssiObserver> rssiObserverList;
 
     class NearlinkSwitchAction;
     std::shared_ptr<NearlinkBaseSwitchModule> switchModule_ { nullptr };
@@ -140,7 +140,7 @@ public:
         }
         NearlinkBaseSaManager::GetInstance().OnStateChanged(transport, status);
         hostImpl->hostObserverList.IterateAsync([transport, status](
-            std::shared_ptr<NearlinkHostObserver> observer) -> void {
+            std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnStateChanged(transport, status);
         });
     }
@@ -152,7 +152,7 @@ public:
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         hostImpl->hostObserverList.IterateAsync([transport, status](
-            std::shared_ptr<NearlinkHostObserver> observer) -> void {
+            std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnFullStateChanged(transport, status);
         });
     }
@@ -193,8 +193,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), transport);
         hostImpl->hostObserverList.IterateAsync(
-            [remoteDevice, reqType, number](std::shared_ptr<NearlinkHostObserver> observer) -> void {
-            observer->OnPairConfirmed(ToFrameworkDevice(remoteDevice), reqType, number);
+            [remoteDevice, reqType, number](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
+            observer->OnPairConfirmed(remoteDevice, reqType, number);
         });
     }
 
@@ -203,7 +203,7 @@ public:
         HILOGI("enter, deviceName length: %{public}lu", deviceName.length());
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        hostImpl->hostObserverList.IterateAsync([deviceName](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+        hostImpl->hostObserverList.IterateAsync([deviceName](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnDeviceNameChanged(deviceName);
         });
     }
@@ -213,7 +213,7 @@ public:
         HILOGD("enter");
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        hostImpl->hostObserverList.IterateAsync([address](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+        hostImpl->hostObserverList.IterateAsync([address](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnDeviceAddrChanged(address);
         });
     }
@@ -236,8 +236,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnAcbStateChanged(ToFrameworkDevice(remoteDevice), state, reason);
+            [remoteDevice, state, reason](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+                observer->OnAcbStateChanged(remoteDevice, state, reason);
         });
     }
 
@@ -249,8 +249,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, passkey, type](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-            observer->OnPairingRequest(ToFrameworkDevice(remoteDevice), passkey, type);
+            [remoteDevice, passkey, type](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+            observer->OnPairingRequest(remoteDevice, passkey, type);
         });
     }
 
@@ -262,8 +262,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnConnectionStateChanged(ToFrameworkDevice(remoteDevice), preState, state, reason);
+            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+                observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
         });
     }
 
@@ -275,8 +275,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnPairStatusChanged(ToFrameworkDevice(remoteDevice), preState, state, reason);
+            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+                observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
         });
     }
 
@@ -288,8 +288,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnReadRemoteRssiEvent(ToFrameworkDevice(remoteDevice), rssi, status);
+            [remoteDevice, rssi, status](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+                observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
         });
     }
 
@@ -300,8 +300,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, freqBand](std::shared_ptr<NearlinkRemoteDeviceObserver> observer) -> void {
-                observer->OnLinkFreqBandChanged(ToFrameworkDevice(remoteDevice), freqBand);
+            [remoteDevice, freqBand](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+                observer->OnLinkFreqBandChanged(remoteDevice, freqBand);
         });
     }
 
@@ -321,8 +321,8 @@ public:
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-        auto func = [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
-            observer->OnGetBatteryLevelEvent(ToFrameworkDevice(remoteDevice), batteryLevel);
+        auto func = [remoteDevice, batteryLevel](std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer) {
+            observer->OnGetBatteryLevelEvent(remoteDevice, batteryLevel);
         };
         hostImpl->remoteBatteryObserverList.IterateAsync(func);
     }
@@ -334,8 +334,8 @@ public:
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
         hostImpl->remoteBatteryObserverList.IterateAsync(
-            [remoteDevice, batteryLevel](std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer) {
-                observer->OnBatteryLevelChanged(ToFrameworkDevice(remoteDevice), batteryLevel);
+            [remoteDevice, batteryLevel](std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer) {
+                observer->OnBatteryLevelChanged(remoteDevice, batteryLevel);
             });
     }
 
@@ -355,8 +355,8 @@ public:
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-        auto func = [remoteDevice, rssi, status](std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer) {
-            observer->OnReadRemoteRssiEvent(ToFrameworkDevice(remoteDevice), rssi, status);
+        auto func = [remoteDevice, rssi, status](std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> observer) {
+            observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
         };
         hostImpl->rssiObserverList.IterateAsync(func);
     }
@@ -509,7 +509,7 @@ void NearlinkBaseHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
     NL_CHECK_RETURN(ret == NL_NO_ERROR, "IsSleEnabled failed, error code: %{public}d", ret);
     if (isSleEnabled) {
         HILOGW("execute OnServiceStarted, sle is enabled, maybe app is freezed before.");
-        hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+        hostObserverList.IterateAsync([](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
             observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
         });
@@ -518,7 +518,7 @@ void NearlinkBaseHost::impl::OnServiceStarted(const sptr<IRemoteObject> &remote)
 
 void NearlinkBaseHost::impl::OnServiceStopped()
 {
-    hostObserverList.IterateAsync([](std::shared_ptr<NearlinkHostObserver> observer) -> void {
+    hostObserverList.IterateAsync([](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
         observer->OnStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
         observer->OnFullStateChanged(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
     });
@@ -633,7 +633,7 @@ NearlinkBaseHost &NearlinkBaseHost::GetInstance()
     return host;
 }
 
-NlErrCode NearlinkBaseHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
+NlErrCode NearlinkBaseHost::RegisterObserver(std::shared_ptr<NearlinkBaseHostObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_IMPL_ERROR, "piml is nullptr");
@@ -641,7 +641,7 @@ NlErrCode NearlinkBaseHost::RegisterObserver(std::shared_ptr<NearlinkHostObserve
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
+NlErrCode NearlinkBaseHost::DeregisterObserver(std::shared_ptr<NearlinkBaseHostObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_IMPL_ERROR, "piml is nullptr");
@@ -953,7 +953,7 @@ NlErrCode NearlinkBaseHost::GetLinkRole(const NearlinkBaseRemoteDevice &device, 
     return proxy->GetLinkRole(device.GetTransportType(), device.GetDeviceAddr(), role);
 }
 
-NlErrCode NearlinkBaseHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
+NlErrCode NearlinkBaseHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -962,7 +962,7 @@ NlErrCode NearlinkBaseHost::RegisterRemoteDeviceObserver(std::shared_ptr<Nearlin
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
+NlErrCode NearlinkBaseHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer)
 {
     HILOGD("enter");
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
@@ -971,7 +971,7 @@ NlErrCode NearlinkBaseHost::DeregisterRemoteDeviceObserver(std::shared_ptr<Nearl
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
+NlErrCode NearlinkBaseHost::RegisterBatteryObserver(std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
 
@@ -982,7 +982,7 @@ NlErrCode NearlinkBaseHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemo
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
+NlErrCode NearlinkBaseHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IsBasSupported(), NL_ERR_FEATURE_NOT_SUPPORT, "Battery service is not supported.");
@@ -991,7 +991,7 @@ NlErrCode NearlinkBaseHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRe
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
+NlErrCode NearlinkBaseHost::RegisterRssiObserver(std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");
@@ -1000,7 +1000,7 @@ NlErrCode NearlinkBaseHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteD
     return NL_NO_ERROR;
 }
 
-NlErrCode NearlinkBaseHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
+NlErrCode NearlinkBaseHost::DeregisterRssiObserver(std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> observer)
 {
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is nullptr");

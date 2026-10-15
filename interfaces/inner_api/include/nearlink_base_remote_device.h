@@ -29,8 +29,6 @@
 namespace OHOS {
 namespace Nearlink {
 
-class NearlinkRemoteDevice;
-
 /**
  * @brief base.so implementation class of framework remote device.
  *
@@ -80,18 +78,6 @@ private:
     std::string address_ = "00:00:00:00:00:00"; // address is little endian order
     int transport_ = 0;
 };
-
-/**
- * @brief Convert base device to framework device reference for observer callbacks.
- *
- * NearlinkRemoteDevice derives from this class without adding members, so both
- * classes share identical memory layout (asserted in nearlink_remote_device.h);
- * the cast is the inverse of the derived-to-base conversion.
- */
-inline const NearlinkRemoteDevice &ToFrameworkDevice(const NearlinkBaseRemoteDevice &device)
-{
-    return reinterpret_cast<const NearlinkRemoteDevice &>(device);
-}
 }  // namespace Nearlink
 } // namespace OHOS
 

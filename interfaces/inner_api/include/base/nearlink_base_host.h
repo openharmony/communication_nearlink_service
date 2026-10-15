@@ -16,28 +16,79 @@
 #ifndef NEARLINK_HOST_BASE_H
 #define NEARLINK_HOST_BASE_H
 
-#include "nearlink_host.h"
-#include "nearlink_base_remote_device.h"
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
+#include "nearlink_def.h"
+#include "nearlink_def_types.h"
+#include "nearlink_errorcode.h"
+#include "nearlink_uuid.h"
+#include "nearlink_base_remote_device.h"
+#include "refbase.h"
+
+namespace OHOS { class IRemoteObject; }
 namespace OHOS {
 namespace Nearlink {
+
+class NearlinkBaseHostObserver {
+public:
+    virtual ~NearlinkBaseHostObserver() = default;
+
+    virtual void OnStateChanged(const int transport, const int status) = 0;
+    virtual void OnFullStateChanged(const int transport, const int status){};
+    virtual void OnPairConfirmed(const NearlinkBaseRemoteDevice &device, int reqType, int number){};
+    virtual void OnDeviceNameChanged(const std::string &deviceName){};
+    virtual void OnDeviceAddrChanged(const std::string &address){};
+};
+
+class NearlinkBaseRemoteDeviceObserver {
+public:
+    virtual ~NearlinkBaseRemoteDeviceObserver() = default;
+
+    virtual void OnAcbStateChanged(const NearlinkBaseRemoteDevice &device, int state, int reason) = 0;
+    virtual void OnPairingRequest(const NearlinkBaseRemoteDevice &device, const std::string &passkey, int type) = 0;
+    virtual void OnPairStatusChanged(
+        const NearlinkBaseRemoteDevice &device, int preState, int state, int reason) = 0;
+    virtual void OnConnectionStateChanged(
+        const NearlinkBaseRemoteDevice &device, int preState, int state, int reason) = 0;
+    virtual void OnRemoteUuidChanged(const NearlinkBaseRemoteDevice &device, const std::vector<UUID> &uuids) = 0;
+    virtual void OnRemoteNameChanged(
+        const NearlinkBaseRemoteDevice &device, const std::string &deviceName) = 0;
+    virtual void OnRemoteAliasChanged(const NearlinkBaseRemoteDevice &device, const std::string &alias) = 0;
+    virtual void OnReadRemoteRssiEvent(const NearlinkBaseRemoteDevice &device, int rssi, int status) = 0;
+    virtual void OnLinkFreqBandChanged(const NearlinkBaseRemoteDevice &device, int32_t freqBand){};
+};
+
+class NearlinkBaseRemoteDeviceBatteryObserver {
+public:
+    virtual void OnGetBatteryLevelEvent(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel){};
+    virtual void OnBatteryLevelChanged(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel){};
+};
+
+class NearlinkBaseRemoteDeviceRssiObserver {
+public:
+    virtual ~NearlinkBaseRemoteDeviceRssiObserver() = default;
+
+    virtual void OnReadRemoteRssiEvent(const NearlinkBaseRemoteDevice &device, int rssi, int status){};
+};
 
 /**
  * @brief base.so implementation class of framework host device.
  *
- * Kept in sync with NearlinkHost declared in nearlink_host.h; observers and
- * shared types are reused from that header.
+ * Kept in sync with NearlinkHost declared in nearlink_host.h.
  */
 class NEARLINK_API NearlinkBaseHost {
 public:
     static NearlinkBaseHost &GetInstance();
 
-    NlErrCode RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer);
-    NlErrCode DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer);
-    NlErrCode RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer);
-    NlErrCode DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer);
-    NlErrCode RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer);
-    NlErrCode DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer);
+    NlErrCode RegisterObserver(std::shared_ptr<NearlinkBaseHostObserver> observer);
+    NlErrCode DeregisterObserver(std::shared_ptr<NearlinkBaseHostObserver> observer);
+    NlErrCode RegisterBatteryObserver(std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer);
+    NlErrCode DeregisterBatteryObserver(std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> observer);
+    NlErrCode RegisterRssiObserver(std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> observer);
+    NlErrCode DeregisterRssiObserver(std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> observer);
     NlErrCode LoadNearlinkSa();
     NlErrCode EnableNl(const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL);
     NlErrCode EnableNlAsync(const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL);
@@ -71,8 +122,8 @@ public:
     NlErrCode RemovePair(const NearlinkBaseRemoteDevice &device);
     NlErrCode RemoveAllPairs();
     NlErrCode GetLinkRole(const NearlinkBaseRemoteDevice &device, uint8_t &role) const;
-    NlErrCode RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer);
-    NlErrCode DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer);
+    NlErrCode RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer);
+    NlErrCode DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer);
     NlErrCode GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const;
 
     void LoadSystemAbilitySuccess(const sptr<IRemoteObject> &remoteObject);
