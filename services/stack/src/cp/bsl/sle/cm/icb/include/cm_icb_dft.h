@@ -42,7 +42,7 @@ typedef enum {
  * @brief ICB打点异常场景
  */
 typedef enum {
-    ICB_DFT_SCENE_IOG_SET_PARAM = 1,
+    ICB_DFT_SCENE_IOG_SET_PARAM = 0,
     ICB_DFT_SCENE_IMG_SET_PARAM,
 } CMIcbDftScene_E;
 
