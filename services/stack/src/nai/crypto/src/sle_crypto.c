@@ -211,7 +211,7 @@ static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
         (void)memset_s(priKey, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
         (void)memset_s(pubKey, CRYPTO_PUBLIC_KEY_LEN, 0, CRYPTO_PUBLIC_KEY_LEN);
     }
-    return true;
+    return ret;
 }
 
 /** 此函数用于生成 Diffie-Hellman 密钥（dhKey），其中包含本地私钥和公钥、远程公钥的输入，并最终计算出共享的密钥。
