@@ -652,7 +652,6 @@ public:
      */
     bool IsBasSupported();
 private:
-    // 帧四能力判据唯一对外入口为 IsFeatureSupported(SLE_RADIO_FRAME_TYPE_4),本方法仅类内使用
     bool IsNearlinkSupportFrame4() const;
 
     NearlinkHost();

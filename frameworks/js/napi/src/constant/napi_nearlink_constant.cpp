@@ -38,7 +38,6 @@ napi_value NapiNearlinkConstant::ConstantPropertyValueInit(napi_env env, napi_va
     napi_value acbState = AcbStateInit(env);
     napi_value connectionInterval = ConnectionIntervalInit(env);
     napi_value deviceClass = DeviceClassInit(env);
-    // d.ts 将 FrameType 声明在 nearlinkConstant 模块(interface_sdk-js),运行时需同路径导出
     napi_value frameTypeObj = nullptr;
     napi_create_object(env, &frameTypeObj);
     SetNamedPropertyByInteger(env, frameTypeObj, static_cast<int32_t>(FrameType::FRAME_TYPE_1), "FRAME_TYPE_1");

@@ -39,7 +39,6 @@ std::shared_ptr<SleAdvertiser> SleAdvertiserGetInstance(void)
     return instance;
 }
 
-// 入参帧类型取值(NAPI 公共枚举同值,本文件自持,不依赖回调头)
 enum class FrameType {
     FRAME_TYPE_1 = 1,
     FRAME_TYPE_4 = 4
