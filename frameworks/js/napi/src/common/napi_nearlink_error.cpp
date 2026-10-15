@@ -48,7 +48,9 @@ std::map<int32_t, std::string> napiErrCommonMsgMap {
     { NlErrCode::NL_ERR_PROHIBITED_BY_EDM,
         "This function is prohibited by enterprise management policies."},
     { NlErrCode::NL_ERR_INVALID_PARAM, "Invalid parameter." },
-    { NlErrCode::NL_ERR_API_NOT_SUPPORT, "Capability not supported." },
+    { NlErrCode::NL_ERR_API_NOT_SUPPORT,
+        "Capability not supported. Possible causes: 1. The hardware does not support the capability; "
+        "2. The chip does not support the capability; 3. A dependent service feature is not supported." },
     { NlErrCode::NL_ERR_SLE_OFF, "NearLink disabled." },
     { NlErrCode::NL_ERR_DATATRANSFER_DUPLICATE_REGISTER, "The UUID is already registered." },
     { NlErrCode::NL_ERR_DATATRANSFER_LIMITED, "Port exceeds the upper limit." },
