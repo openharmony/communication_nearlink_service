@@ -21,6 +21,7 @@
 #include "nearlink_dft_manager.h"
 #include <mutex>
 #include <chrono>
+#include <map>
 #include "nearlink_safe_map.h"
 #include "nearlink_def.h"
 #include "log.h"
@@ -63,6 +64,8 @@ constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
 constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该默认值进行大数据上报
+// 建链超时失败上报限频间隔：同一设备一小时内最多上报一次，限频期内失败仅累计次数
+constexpr const int64_t CONN_TIMEOUT_REPORT_INTERVAL_MS = 3600000;
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
 static NearlinkSafeMap<std::string, std::string> g_dftTaskMap;
@@ -81,6 +84,13 @@ static NearlinkSafeMap<uint32_t, std::string> g_scanPkgMap;     // <scannerId, p
 constexpr const uint16_t CDSM_AUDIO_DEVICE_NUM = 2;
 static uint16_t g_streamCountSuccess = 0;
 static bool g_airplaneModeFlag = false;
+struct ConnTimeoutRecord {
+    uint32_t failCount = 0;     // 距上次上报以来的建链超时失败次数
+    std::string firstFailTime;  // 距上次上报以来首次失败时间
+    int64_t lastReportMs = 0;   // 上次上报时间(毫秒)，0表示尚未上报过
+};
+static std::mutex g_connTimeoutMutex;
+static std::map<std::string, ConnTimeoutRecord> g_connTimeoutRecords; // <addr, 建链超时失败限频统计>
 
 void DftCacheAcbStartConn(const std::string &addr)
 {
@@ -100,11 +110,16 @@ void DftCacheAcbDisConn(const std::string &addr, const std::string &callingName)
 void DftCacheAcbFinishConn(const std::string &addr, uint32_t result, int32_t reason, uint32_t count, uint16_t lcid)
 {
     if (result == CM_STATE_DISCONNECTED && lcid == DFT_INVALID_LCID && reason == DFT_CONNECTION_TIMEOUT) {
-        DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-        DftCacheDisconnInfoMsg(addr, DFT_DISCONN_CONNTIMEOUT);
+        // 建链超时失败(0x07且RSSI=-255)：同一设备一小时内最多上报一次，限频期内仅累计失败次数
+        DftDealConnTimeoutExcep(addr, reason);
+    } else {
+        DftConnStateChange(addr, result, reason);
+        if (result == CM_STATE_DISCONNECTED) {
+            // 同地址出现其它原因的异常断连：提前完成挂起的建链超时聚合上报，无需等待限频满1小时
+            DftFlushConnTimeoutExcep(addr);
+        }
     }
 
-    DftConnStateChange(addr, result, reason);
     DftDealAccurateSearchConnInfo(addr, result, reason);
     DftCachePairAcbFinish(addr, result, reason, count);
     DftDealMultideviceInfo(addr, result);
@@ -255,7 +270,7 @@ void DftCacheConnInfoTime(const std::string &addr, DftConnInfoParamEnum paramId)
     DftManagerCache(DFT_CONN_INFO, params.data(), params.size());
 }
 
-static void DftReportDisconn(const std::string &addr, int32_t reason)
+static void DftReportDisconn(const std::string &addr, int32_t reason, const std::string &disconnTime = "")
 {
     std::vector<DftParamC> refKeys;
     refKeys.emplace_back(CreateStrParamC(PEER_INFO_ADDR, addr));
@@ -263,7 +278,7 @@ static void DftReportDisconn(const std::string &addr, int32_t reason)
     DftSubEventRefC peerInfoRef = {DFT_PEER_INFO, refKeys.data(), refKeys.size()};
     DftSubEventRefC connInfoRef = {DFT_CONN_INFO, refKeys.data(), refKeys.size()};
 
-    std::string time = GetMillTime(true);
+    std::string time = disconnTime.empty() ? GetMillTime(true) : disconnTime;
     std::vector<DftParamC> params;
     params.emplace_back(CreateStrParamC(DISCONN_PEER_ADDR, addr));
     params.emplace_back(CreateUi16ParamC(DISCONN_PEER_TYPE, static_cast<int>(NlTransportType::NL_TRANSPORT_SLE)));
@@ -280,6 +295,62 @@ static void DftReportDisconn(const std::string &addr, int32_t reason)
         g_sceneFlag = false;
     }
     DftManagerReport(DFT_DISCONN_EXCEP, params.data(), params.size());
+}
+
+// 建链超时失败(0x07且RSSI=-255)限频上报：同一设备一小时内最多上报一次，限频期内仅累计失败次数；
+// 允许上报时DISCONN_TIME取统计周期内首次失败时间，DISCONN_INFO_MSG带上周期内累计失败次数
+void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
+{
+    int64_t nowMs = GetTimestamp();
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    {
+        std::lock_guard<std::mutex> lock(g_connTimeoutMutex);
+        ConnTimeoutRecord &record = g_connTimeoutRecords[addr];
+        if (record.failCount == 0) {
+            record.firstFailTime = GetMillTime(true);
+        }
+        record.failCount++;
+        if (record.lastReportMs != 0 && (nowMs - record.lastReportMs) < CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            HILOGI("conn timeout excep report limited, device:%{public}s, failCount=%{public}u",
+                GetEncryptAddr(addr).c_str(), record.failCount);
+            return;
+        }
+        failCount = record.failCount;
+        firstFailTime = record.firstFailTime;
+        record.lastReportMs = nowMs;
+        record.failCount = 0;
+        record.firstFailTime.clear();
+    }
+    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
+    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
+    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
+    DftReportDisconn(addr, reason, firstFailTime);
+}
+
+// 同地址出现其它原因的异常断连时提前完成挂起的建链超时聚合上报（本次上报同样计入限频）
+void DftFlushConnTimeoutExcep(const std::string &addr)
+{
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    {
+        std::lock_guard<std::mutex> lock(g_connTimeoutMutex);
+        auto it = g_connTimeoutRecords.find(addr);
+        if (it == g_connTimeoutRecords.end() || it->second.failCount == 0) {
+            return;
+        }
+        failCount = it->second.failCount;
+        firstFailTime = it->second.firstFailTime;
+        it->second.failCount = 0;
+        it->second.firstFailTime.clear();
+        it->second.lastReportMs = GetTimestamp();
+    }
+    HILOGI("flush conn timeout excep report, device:%{public}s, failCount=%{public}u",
+        GetEncryptAddr(addr).c_str(), failCount);
+    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
+    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
+    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
+    DftReportDisconn(addr, DFT_CONNECTION_TIMEOUT, firstFailTime);
 }
 
 void DftConnStateChange(const std::string &addr, uint8_t state, uint32_t resaon)

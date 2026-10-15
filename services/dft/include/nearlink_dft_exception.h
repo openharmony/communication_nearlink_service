@@ -362,6 +362,8 @@ void DftConnStateChange(const std::string &addr, uint8_t state, uint32_t resaon)
 // NEARLINK_DISCONN_EXCEPTION
 void DftCacheDisconnRssi(const std::string &addr, int32_t rssi);
 void DftCacheDisconnInfoMsg(const std::string &addr, const std::string &infoMsg, uint16_t secne = DISCONN_EXCEP);
+void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason);
+void DftFlushConnTimeoutExcep(const std::string &addr);
 
 // NEARLINK_ACCURATESEARCH
 void DftSetMeasureResultMap(const std::string &addr, bool value);
