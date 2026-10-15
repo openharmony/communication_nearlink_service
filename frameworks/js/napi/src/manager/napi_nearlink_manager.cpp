@@ -237,7 +237,8 @@ napi_value NapiNearlinkManager::IsFrameType4Supported(napi_env env, napi_callbac
 {
     int64_t beginTime = NapiHaManager::GetCurrentTimestamp();
     HILOGI("enter");
-    bool isFrameType4Supported = NearlinkHost::GetInstance().IsNearlinkSupportFrame4();
+    bool isFrameType4Supported = NearlinkHost::GetInstance().IsFeatureSupported(
+        SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4);
     NapiNativeBool object(isFrameType4Supported);
     NapiHaManager::GetInstance().ReportEvent("isFrameType4Supported", beginTime, NL_NO_ERROR);
     return object.ToNapiValue(env);

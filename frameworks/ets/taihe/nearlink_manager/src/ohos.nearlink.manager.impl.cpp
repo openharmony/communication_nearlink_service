@@ -98,7 +98,7 @@ bool isNearLinkSupported()
 bool isFrameType4Supported()
 {
     HILOGI("enter");
-    return NearlinkHost::GetInstance().IsNearlinkSupportFrame4();
+    return NearlinkHost::GetInstance().IsFeatureSupported(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4);
 }
 
 void setConnectionMode(::ohos::nearlink::manager::ConnectionMode mode, int duration)
