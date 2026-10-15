@@ -105,7 +105,7 @@ static napi_status ParseAdvertisingSettingsParameters(
         if (intervalInSlot < static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MIN) ||
             intervalInSlot > static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MAX)) {
             HILOGE("Invalid interval: %{public}d", intervalInSlot);
-            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
             return napi_invalid_arg;
         }
         HILOGI("interval: %{public}u", intervalInSlot);

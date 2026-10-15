@@ -67,7 +67,7 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
         if (interval < static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MIN) ||
             interval > static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MAX)) {
             HILOGE("Invalid interval: %{public}d", interval);
-            HandleSyncErr(NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(NL_ERR_INVALID_INTEGER);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
         HILOGI("interval: %{public}d", interval);

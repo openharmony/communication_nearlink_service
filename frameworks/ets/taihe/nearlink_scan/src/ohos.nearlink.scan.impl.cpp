@@ -144,7 +144,7 @@ static TaiheStatus ParseScanFilterRssiParameters(::ohos::nearlink::scan::ScanFil
         auto rssiValue = filter.rssi.value();
         if (rssiValue < SCAN_RSSI_MIN || rssiValue > SCAN_RSSI_MAX) {
             HILOGE("rssi should in range of -128 to 127, inclusive.");
-            HandleSyncErr(NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(NL_ERR_INVALID_INTEGER);
             return TAIHE_INVALID_ARG;
         }
         sleScanFilter.SetRssiThreshold(static_cast<int8_t>(rssiValue));
@@ -209,7 +209,7 @@ static TaiheStatus CheckFilterScanParams(::ohos::nearlink::scan::Filters const& 
         if (scanOptions.duration.has_value()) {
             int32_t duration = scanOptions.duration.value();
             if (duration < SCAN_DURATION_MIN || duration > SCAN_DURATION_MAX) {
-                HandleSyncErr(NL_ERR_INVALID_INTERGER);
+                HandleSyncErr(NL_ERR_INVALID_INTEGER);
                 HILOGE("duration should in range of 10 to 60 (sec), inclusive.");
                 return TAIHE_INVALID_ARG;
             }

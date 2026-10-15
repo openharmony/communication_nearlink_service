@@ -188,13 +188,13 @@ napi_value NapiNearlinkManager::SetConnectionMode(napi_env env, napi_callback_in
     int32_t connectionMode = 0;
     NAPI_NL_ASSERT_RETURN_FALSE(env, ParseInt32(env, connectionMode, argv[PARAM0]), NL_ERR_INVALID_PARAM);
     if (connectionMode < 0 || connectionMode > 1) {
-        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
         return NapiGetUndefinedRet(env);
     }
     int32_t duration = 0;
     NAPI_NL_ASSERT_RETURN_FALSE(env, ParseInt32(env, duration, argv[PARAM1]), NL_ERR_INVALID_PARAM);
     if (duration < 0) {
-        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+        HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
         return NapiGetUndefinedRet(env);
     }
 
