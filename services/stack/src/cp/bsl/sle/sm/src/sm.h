@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 void SmStartPairing(void *addrIn);
-void SmForceStartPairing(void *addrIn);
+void SmRequestSecurity(void *addrIn);
 void SmRemovePairing(void *addrIn);
 void SmSetConfirm(void *addrIn);
 void SmSetPassCode(void *passCodeIn);

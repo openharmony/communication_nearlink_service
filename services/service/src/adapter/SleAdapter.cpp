@@ -935,7 +935,7 @@ bool SleAdapter::StartPairTask(const RawAddress &device)
     if (IsAcbConnectedTask(realAddr)) {
         uint8_t peerAddrType = adapterProperties_->GetPeerDeviceAddrType(realAddr);
         LOG_INFO("acb connected");
-        bool ret = pimpl->sleSecurity_.ForceStartPair(realAddr, peerAddrType);
+        bool ret = pimpl->sleSecurity_.StartPair(realAddr, peerAddrType);
         NL_CHECK_RETURN_RET(ret, false, "[SleAdapter]:failed");
         adapterProperties_->SetConnDirect(realAddr, static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE));
         PairingStatus(realAddr);
@@ -1958,7 +1958,7 @@ bool SleAdapter::ConnectionCompleteTaskInner(int pairState, uint16_t lcid,
         }
         pimpl->sleSecurity_.GapSleRequestSecurity(lcid, addr, SLE_CONNECTION_ROLE_PRIMARY);
     } else if (pairState == static_cast<int>(SlePairState::SLE_PAIR_PAIRING)) {
-        pimpl->sleSecurity_.ForceStartPair(peerAddr, addr.type);
+        pimpl->sleSecurity_.StartPair(peerAddr, addr.type);
         DftCacheSecurityPairType(peerAddr.GetAddress(), true);
     } else {
         bool pairStateNone = pairState == static_cast<int>(SlePairState::SLE_PAIR_NONE);
@@ -1967,7 +1967,7 @@ bool SleAdapter::ConnectionCompleteTaskInner(int pairState, uint16_t lcid,
             HILOGI("[SleAdapter]device: %{public}s, pair state is none but has cache link key, need start pair.",
                 GET_ENCRYPT_ADDR(peerAddr));
             PairingStatus(peerAddr);    // 设置配对状态从NONE->PAIRING
-            pimpl->sleSecurity_.ForceStartPair(peerAddr, addr.type);
+            pimpl->sleSecurity_.StartPair(peerAddr, addr.type);
             DftCacheSecurityPairType(peerAddr.GetAddress(), true);
         }
     }
@@ -2000,7 +2000,7 @@ void SleAdapter::CreateNewPeripheralDevice(const SLE_Addr_S &addr, uint16_t lcid
         adapterProperties_->HandleCdsmMemberFirstPairing(peerAddr);
         /* 合作集成员地址主动发起配对 */
         HILOGI("cdsm member first pairing enter,addr:%{public}s", GetEncryptAddr(peerAddr.GetAddress()).c_str());
-        pimpl->sleSecurity_.ForceStartPair(peerAddr, addr.type);
+        pimpl->sleSecurity_.StartPair(peerAddr, addr.type);
         PairingStatus(peerAddr);
     }
 }

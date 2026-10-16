@@ -379,7 +379,7 @@ int SleSecurity::GapSleRequestSecurity(uint16_t connectionHandle, const SLE_Addr
     LOG_DEBUG("[SleSecurity]");
     SLE_Addr_S paramAdd = {};
     (void)memcpy_s(&paramAdd, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-    return NLSTK_SmStartPairing(&paramAdd);
+    return NLSTK_SmRequestSecurity(&paramAdd);
 }
 
 bool SleSecurity::PairRequestReply(const RawAddress &addr, uint8_t addrType, bool accept) const
@@ -397,20 +397,10 @@ bool SleSecurity::PairRequestReply(const RawAddress &addr, uint8_t addrType, boo
 bool SleSecurity::StartPair(const RawAddress &device, uint8_t peerAddrType)
 {
     DftCachePairConnPath(device.GetAddress(), PAIR_CONN_PATH_AUTH);
-    LOG_INFO("[SleSecurity] addr: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+    LOG_INFO("[SleSecurity] start pair addr: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
     SLE_Addr_S stackAddr = {peerAddrType, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
     device.ConvertToUint8(stackAddr.addr, SLE_ADDR_LEN);
     int ret = NLSTK_SmStartPairing(&stackAddr);
-    return (ret == NLSTK_ERRCODE_SUCCESS);
-}
-
-bool SleSecurity::ForceStartPair(const RawAddress &device, uint8_t peerAddrType)
-{
-    DftCachePairConnPath(device.GetAddress(), PAIR_CONN_PATH_AUTH);
-    LOG_INFO("[SleSecurity] force pair addr: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
-    SLE_Addr_S stackAddr = {peerAddrType, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-    device.ConvertToUint8(stackAddr.addr, SLE_ADDR_LEN);
-    int ret = NLSTK_SmForceStartPairing(&stackAddr);
     return (ret == NLSTK_ERRCODE_SUCCESS);
 }
 

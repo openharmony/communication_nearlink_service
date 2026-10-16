@@ -80,7 +80,7 @@ ohos_unittest("nl_stack_sm_test") {
     "sm_stub_test.c",
     "sm_api_test.cpp",
     "sm_dispatch_test.cpp",
-    "sm_force_pair_test.cpp",
+    "sm_start_pairing_test.cpp",
     "sm_crypto_test.cpp",
     "sm_cmn_test.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_mock.cpp",

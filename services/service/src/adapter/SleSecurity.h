@@ -45,10 +45,9 @@ public:
      */
     virtual ~SleSecurity();
 
+    // 配对: 无论对端是否已配对, 均重走完整配对流程, 用于应用主动发起配对;
+    // 回连请求加密请使用GapSleRequestSecurity
     static bool StartPair(const RawAddress &device, uint8_t peerAddrType =
-        static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
-    // 强制配对: 无论对端是否已配对, 均重走完整配对流程, 用于应用主动发起配对
-    static bool ForceStartPair(const RawAddress &device, uint8_t peerAddrType =
         static_cast<int>(SLE_ADDR_TYPE::SLE_PUBLIC_ADDRESS_TYPE));
     int GapSleRequestSecurity(uint16_t connectionHandle, const SLE_Addr_S &addr, uint8_t role);
     bool CancelPairing(const RawAddress &device, uint8_t peerAddrType) const;

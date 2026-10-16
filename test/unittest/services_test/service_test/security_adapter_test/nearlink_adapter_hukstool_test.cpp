@@ -2707,16 +2707,16 @@ TEST_F(SleAdapterSecurityTest, ConnectionCompleteNoneWithLinkKey001)
 }
 
 /**
- * @tc.name: SleSecurityForceStartPair001
- * @tc.desc: 验证强制配对封装接口ForceStartPair正常投递
+ * @tc.name: SleSecurityStartPair001
+ * @tc.desc: 验证配对封装接口StartPair正常投递(无论是否已配对均重走配对)
  * @tc.type: FUNC
  */
-HWTEST_F(SleAdapterSecurityTest, SleSecurityForceStartPair001, TestSize.Level1)
+HWTEST_F(SleAdapterSecurityTest, SleSecurityStartPair001, TestSize.Level1)
 {
-    HILOGI("SleAdapterSecurityTest: SleSecurityForceStartPair001 start");
+    HILOGI("SleAdapterSecurityTest: SleSecurityStartPair001 start");
     RawAddress device("00:11:22:33:44:55");
-    EXPECT_EQ(true, SleSecurity::ForceStartPair(device));
-    HILOGI("SleAdapterSecurityTest: SleSecurityForceStartPair001 end");
+    EXPECT_EQ(true, SleSecurity::StartPair(device));
+    HILOGI("SleAdapterSecurityTest: SleSecurityStartPair001 end");
 }
 
 /**

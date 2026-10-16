@@ -395,7 +395,11 @@ typedef struct {
 /* SM Api interface functions */
 
 /**
- * @brief 启动配对
+ * @brief 启动配对，无论对端是否已配对，均重新走完整配对流程
+ *
+ * 忽略已保存的配对密钥与安全管理模块当前状态，复位后重新执行
+ * 协商/鉴权/加密流程；适用于应用主动发起配对及已配对记录异常
+ * 需要重新配对恢复的场景
  *
  * 异步调用，返回异步队列添加结果
  *
@@ -408,10 +412,11 @@ typedef struct {
 NLSTK_Errcode_E NLSTK_SmStartPairing(SLE_Addr_S *addrIn);
 
 /**
- * @brief 强制启动配对，无论对端是否已配对，均重新走完整配对流程
+ * @brief 请求安全，用于设备回连场景
  *
- * 忽略已保存的配对密钥与安全管理模块当前状态，复位后重新执行
- * 协商/鉴权/加密流程；适用于已配对记录异常需要重新配对恢复的场景
+ * 由安全管理模块按当前状态决定行为：已配对且持有密钥时使用已保存
+ * 的配对密钥加密链路（FULL态短路返回成功），未配对时兜底走配对流程；
+ * 仅应在回连/请求加密场景调用，应用主动配对请使用NLSTK_SmStartPairing
  *
  * 异步调用，返回异步队列添加结果
  *
@@ -421,7 +426,7 @@ NLSTK_Errcode_E NLSTK_SmStartPairing(SLE_Addr_S *addrIn);
  * - NLSTK_ERRCODE_SUCCESS: 成功
  * - 其他值: 错误码，查看NLSTK_Errorcode_E
  */
-NLSTK_Errcode_E NLSTK_SmForceStartPairing(SLE_Addr_S *addrIn);
+NLSTK_Errcode_E NLSTK_SmRequestSecurity(SLE_Addr_S *addrIn);
 
 /**
  * @brief 移除配对

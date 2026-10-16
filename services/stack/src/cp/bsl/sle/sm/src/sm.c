@@ -201,13 +201,15 @@ void SmPkgDispatcher(uint16_t opcode, SLE_Addr_S *addr, const uint8_t *pkg, size
                             uapi interface functions
 *****************************************************************************************/
 
-void SmStartPairing(void *addrIn)
+/* 请求安全(回连场景): 由状态机按当前状态决定行为,
+ * ENCP态使用已保存的linkKey加密, FULL态短路返回, 未配对时兜底走配对流程. */
+void SmRequestSecurity(void *addrIn)
 {
-    NLSTK_LOG_INFO("[SM] Start pairing.");
+    NLSTK_LOG_INFO("[SM] Request security.");
     SLE_Addr_S *addr = (SLE_Addr_S *)addrIn;
     SmSLink_S *slink = SmFindOrCreateSLink(addr);
     if (slink == NULL) {
-        NLSTK_LOG_ERROR("[SM] Find or create slink failed on start pairing.");
+        NLSTK_LOG_ERROR("[SM] Find or create slink failed on request security.");
         SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
             .addr = *addr, .authStatus = SM_PAIR_ERROR });
         return;
@@ -216,15 +218,15 @@ void SmStartPairing(void *addrIn)
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
 }
 
-/* 强制配对: 无论slink当前处于何种状态, 均复位回INIT后重走完整配对流程,
+/* 启动配对: 无论slink当前处于何种状态, 均复位回INIT后重走完整配对流程,
  * 不改变各状态既有的事件处理逻辑. */
-void SmForceStartPairing(void *addrIn)
+void SmStartPairing(void *addrIn)
 {
-    NLSTK_LOG_INFO("[SM] Force start pairing.");
+    NLSTK_LOG_INFO("[SM] Start pairing.");
     SLE_Addr_S *addr = (SLE_Addr_S *)addrIn;
     SmSLink_S *slink = SmFindOrCreateSLink(addr);
     if (slink == NULL) {
-        NLSTK_LOG_ERROR("[SM] Find or create slink failed on force start pairing.");
+        NLSTK_LOG_ERROR("[SM] Find or create slink failed on start pairing.");
         SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
             .addr = *addr, .authStatus = SM_PAIR_ERROR });
         return;
