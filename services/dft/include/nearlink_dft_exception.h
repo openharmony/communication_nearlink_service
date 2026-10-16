@@ -337,9 +337,9 @@ typedef struct {
 } DftAudioStreamInfo;
 
 typedef struct {
-    uint32_t failCount = 0;     // 距上次上报以来的建链超时失败次数
+    uint32_t failCount;         // 距上次上报以来的失败次数
     std::string firstFailTime;  // 距上次上报以来首次失败时间
-    int64_t lastReportMs = 0;   // 上次上报时间(毫秒)，0表示尚未上报过
+    int64_t lastReportMs;       // 上次上报时间，0表示尚未上报过
 } ConnTimeoutRecord;
 
 void DftCacheAcbStartConn(const std::string &addr);
