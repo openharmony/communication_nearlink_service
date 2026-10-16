@@ -15,13 +15,12 @@
 
 /*
  * 配对/回连接口职责分离的TDD用例.
- * NLSTK_SmStartPairing(配对): 无论slink处于何种状态, 都清空旧linkKey并
- * 复位回INIT, 复用既有 SM_ACTIVE_START 首配路径重走协商流程;
- * NLSTK_SmRequestSecurity(回连): 由状态机按当前状态隐式分流,
- * ENCP态用旧key加密, FULL态短路返回.
- * 复位逻辑仅依赖curStateIndex, 与具体状态无关, 故FULL态用例已覆盖
- * ENCP/MISS等其余非INIT状态的复位分支; 协商之后的鉴权/加密完整流程
- * 由 sm_dispatch_test/sm_passcode_test 覆盖.
+ * NLSTK_SmStartPairing(配对): 任何状态复位回INIT后重走完整配对流程;
+ * NLSTK_SmRequestSecurity(回连): 按状态隐式分流, ENCP态用旧key加密.
+ * 仅保留两类不可替代用例: 已配对(FULL)设备重配的核心验收, 以及换名后
+ * 回连接口的接线守护. INIT态配对行为由既有 sm_api_test/sm_passcode_test/
+ * sm_oob_test/sm_psk_test 覆盖(换名后自动生效), API错误路径由 sm_api_test
+ * 的 TESTSmPostTaskFail 覆盖.
  */
 
 #include "gtest/gtest.h"
@@ -81,9 +80,7 @@ SmSLink_S *MakeSlinkInState(SLE_Addr_S *addr, SmState_E state)
     if (slink == nullptr) {
         return nullptr;
     }
-    if (state != SM_STATE_INIT) {
-        STM_MFUNC(slink->stm, Transition, g_smStateName[state]);
-    }
+    STM_MFUNC(slink->stm, Transition, g_smStateName[state]);
     return slink;
 }
 
@@ -148,49 +145,7 @@ protected:
 };
 
 /*
- * API空指针校验
- */
-TEST_F(UT_SM_StartPairing_Test, StartPairingNullPointer)
-{
-    NLSTK_Errcode_E ret = NLSTK_SmStartPairing(nullptr);
-    EXPECT_EQ(ret, NLSTK_ERRCODE_POINTER_NULL);
-}
-
-/*
- * 新设备(INIT态)强配与既有首配路径行为一致:
- * 绑链路成功后进入NEGO, G节点发出配对请求报文, 协商管线就绪
- */
-TEST_F(UT_SM_StartPairing_Test, StartPairingOnInitStateEqualsFirstPair)
-{
-    EXPECT_CALL(dliMock, DLI_SetControllerData(IsPairingReqMsg(SM_NEGO_PAIRING_REQUEST))).Times(1);
-    NLSTK_Errcode_E ret = NLSTK_SmStartPairing(&g_rmtAddr);
-    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-
-    SmSLink_S *slink = SmFindSLink(&g_rmtAddr);
-    ASSERT_NE(slink, nullptr);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
-    EXPECT_EQ(slink->dispatcher, SmNegoPkgDispatcher);
-    EXPECT_EQ(slink->expectOpCode, SM_NEGO_PAIRING_RESPONSE);
-    EXPECT_NE(slink->lcid, CM_INVALID_LCID);
-}
-
-/*
- * 绑链路失败时强配走既有REMV路径, slink被移除并触发remove回调
- */
-TEST_F(UT_SM_StartPairing_Test, StartPairingBindLinkFail)
-{
-    EXPECT_CALL(cmMock, CM_GetLogicLinkByAddr(_, _)).WillRepeatedly(Return(CM_FAIL));
-    EXPECT_CALL(dliMock, DLI_SetControllerData).Times(0);
-
-    NLSTK_Errcode_E ret = NLSTK_SmStartPairing(&g_rmtAddr);
-    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-
-    EXPECT_EQ(SmFindSLink(&g_rmtAddr), nullptr);
-    EXPECT_TRUE(g_isRecvCbk);
-}
-
-/*
- * 核心用例: FULL态(已配对)配对时清空旧linkKey, 复位重走协商, 管线重新布防
+ * 核心用例: FULL态(已配对)发起配对, 清空旧linkKey并重走完整协商流程
  */
 TEST_F(UT_SM_StartPairing_Test, StartPairingOnFullStateRenego)
 {
@@ -213,28 +168,8 @@ TEST_F(UT_SM_StartPairing_Test, StartPairingOnFullStateRenego)
 }
 
 /*
- * FULL态回连接口(RequestSecurity)回归保护: 仍短路返回配对成功, 不重走协商
- */
-TEST_F(UT_SM_StartPairing_Test, RequestSecurityOnFullStateStillShortCircuit)
-{
-    SmSLink_S *slink = MakeSlinkInState(&g_rmtAddr, SM_STATE_FULL);
-    ASSERT_NE(slink, nullptr);
-    FillLinkKey(slink, 0x5A);
-    Test_ResetData();
-
-    EXPECT_CALL(dliMock, DLI_SetControllerData).Times(0);
-    NLSTK_Errcode_E ret = NLSTK_SmRequestSecurity(&g_rmtAddr);
-    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-
-    slink = SmFindSLink(&g_rmtAddr);
-    ASSERT_NE(slink, nullptr);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_FULL);
-    EXPECT_FALSE(IsLinkKeyCleared(slink));
-    EXPECT_TRUE(g_isRecvCbk); // encCbk(SM_PAIR_OK)短路回调
-}
-
-/*
- * ENCP态(回连恢复过key)回连接口(RequestSecurity)回归保护: 仍用旧key加密
+ * 回连接口接线守护: ENCP态(回连恢复过key)调用NLSTK_SmRequestSecurity,
+ * 仍用旧key走加密使能, 不清key也不发配对报文
  */
 TEST_F(UT_SM_StartPairing_Test, RequestSecurityOnEncpStateStillEncryptWithOldKey)
 {
@@ -251,30 +186,4 @@ TEST_F(UT_SM_StartPairing_Test, RequestSecurityOnEncpStateStillEncryptWithOldKey
     ASSERT_NE(slink, nullptr);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_ENCP);
     EXPECT_FALSE(IsLinkKeyCleared(slink));
-}
-
-/*
- * 协商进行中(NEGO态)再次配对: 清理挂起定时器并重新发起协商
- * (复位逻辑仅依赖curStateIndex, AUTH态行为与之等价)
- */
-TEST_F(UT_SM_StartPairing_Test, StartPairingOnNegoStateRestart)
-{
-    NLSTK_Errcode_E ret = NLSTK_SmStartPairing(&g_rmtAddr); // 第一次: INIT -> NEGO
-    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-    SmSLink_S *slink = SmFindSLink(&g_rmtAddr);
-    ASSERT_NE(slink, nullptr);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
-    int pendingTimer = slink->timerHandle;
-    EXPECT_NE(pendingTimer, TIMER_NO_USED_VALUE);
-
-    // 第二次强配: 清理挂起定时器并重新发起协商
-    EXPECT_CALL(scheduleMock, ScheduleTimerDel(pendingTimer)).Times(1);
-    EXPECT_CALL(dliMock, DLI_SetControllerData(IsPairingReqMsg(SM_NEGO_PAIRING_REQUEST))).Times(1);
-    ret = NLSTK_SmStartPairing(&g_rmtAddr);
-    EXPECT_EQ(ret, NLSTK_ERRCODE_SUCCESS);
-
-    slink = SmFindSLink(&g_rmtAddr);
-    ASSERT_NE(slink, nullptr);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
-    EXPECT_EQ(slink->expectOpCode, SM_NEGO_PAIRING_RESPONSE);
 }

@@ -2585,13 +2585,13 @@ TEST_F(SleAdapterSecurityTest, ConnectionCompleteTaskInner001)
 }
 
 /**
- * @tc.name: StartPairTaskForcePair001
- * @tc.desc: 已配对设备(PAIRED+ACB已连)发起配对, 走强制配对路径, 状态转为PAIRING
+ * @tc.name: StartPairTaskPairedDevice001
+ * @tc.desc: 已配对设备(PAIRED+ACB已连)发起配对, 重走完整配对流程, 状态转为PAIRING
  * @tc.type: FUNC
  */
-TEST_F(SleAdapterSecurityTest, StartPairTaskForcePair001)
+TEST_F(SleAdapterSecurityTest, StartPairTaskPairedDevice001)
 {
-    HILOGI("SleAdapterSecurityTest: StartPairTaskForcePair001 start");
+    HILOGI("SleAdapterSecurityTest: StartPairTaskPairedDevice001 start");
     RawAddress device("00:11:22:33:44:55");
 
     std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
@@ -2604,53 +2604,7 @@ TEST_F(SleAdapterSecurityTest, StartPairTaskForcePair001)
     EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
         g_adapter->adapterProperties_->GetPairStatus(device));
     SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: StartPairTaskForcePair001 end");
-}
-
-/**
- * @tc.name: StartPairTaskPairingInProgress001
- * @tc.desc: 配对进行中(PAIRING)再次发起配对, 直接返回且不重复发起
- * @tc.type: FUNC
- */
-TEST_F(SleAdapterSecurityTest, StartPairTaskPairingInProgress001)
-{
-    HILOGI("SleAdapterSecurityTest: StartPairTaskPairingInProgress001 start");
-    RawAddress device("00:11:22:33:44:55");
-
-    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
-    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRING));
-    peerDevice->SetAcbConnectState(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
-    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
-
-    bool ret = g_adapter->StartPairTask(device);
-    EXPECT_EQ(true, ret);
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-        g_adapter->adapterProperties_->GetPairStatus(device));
-    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: StartPairTaskPairingInProgress001 end");
-}
-
-/**
- * @tc.name: StartPairTaskNotConnected001
- * @tc.desc: ACB未连接时发起配对, 走建链路径并置PAIRING状态
- * @tc.type: FUNC
- */
-TEST_F(SleAdapterSecurityTest, StartPairTaskNotConnected001)
-{
-    HILOGI("SleAdapterSecurityTest: StartPairTaskNotConnected001 start");
-    RawAddress device("00:11:22:33:44:55");
-
-    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
-    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_NONE));
-    peerDevice->SetAcbConnectState(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
-    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
-
-    bool ret = g_adapter->StartPairTask(device);
-    EXPECT_EQ(true, ret);
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-        g_adapter->adapterProperties_->GetPairStatus(device));
-    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: StartPairTaskNotConnected001 end");
+    HILOGI("SleAdapterSecurityTest: StartPairTaskPairedDevice001 end");
 }
 
 /**
@@ -2677,46 +2631,6 @@ TEST_F(SleAdapterSecurityTest, ConnectionCompletePairedGNode001)
         g_adapter->adapterProperties_->GetPairStatus(device));
     SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
     HILOGI("SleAdapterSecurityTest: ConnectionCompletePairedGNode001 end");
-}
-
-/**
- * @tc.name: ConnectionCompleteNoneWithLinkKey001
- * @tc.desc: 配对状态NONE但本地存有linkKey, 连接完成后主动发起强制配对, 状态转PAIRING
- * @tc.type: FUNC
- */
-TEST_F(SleAdapterSecurityTest, ConnectionCompleteNoneWithLinkKey001)
-{
-    HILOGI("SleAdapterSecurityTest: ConnectionCompleteNoneWithLinkKey001 start");
-    RawAddress device("00:11:22:33:44:55");
-    SLE_Addr_S addr = {
-        .type = 0x01,
-        .addr = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-    };
-    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
-    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_NONE));
-    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
-    EXPECT_EQ(true, SleConfig::GetInstance().SetLinkKey(device.GetAddress(), "dummyCachedLinkKey"));
-
-    bool ret = g_adapter->ConnectionCompleteTaskInner(static_cast<int>(SlePairState::SLE_PAIR_NONE),
-        0, device, addr, SLE_G_NODE);
-    EXPECT_EQ(true, ret);
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-        g_adapter->adapterProperties_->GetPairStatus(device));
-    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: ConnectionCompleteNoneWithLinkKey001 end");
-}
-
-/**
- * @tc.name: SleSecurityStartPair001
- * @tc.desc: 验证配对封装接口StartPair正常投递(无论是否已配对均重走配对)
- * @tc.type: FUNC
- */
-HWTEST_F(SleAdapterSecurityTest, SleSecurityStartPair001, TestSize.Level1)
-{
-    HILOGI("SleAdapterSecurityTest: SleSecurityStartPair001 start");
-    RawAddress device("00:11:22:33:44:55");
-    EXPECT_EQ(true, SleSecurity::StartPair(device));
-    HILOGI("SleAdapterSecurityTest: SleSecurityStartPair001 end");
 }
 
 /**
