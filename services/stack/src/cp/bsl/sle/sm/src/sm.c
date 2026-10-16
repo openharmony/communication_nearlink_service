@@ -216,6 +216,30 @@ void SmStartPairing(void *addrIn)
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
 }
 
+/* 强制配对: 无论slink当前处于何种状态, 均复位回INIT后重走完整配对流程,
+ * 不改变各状态既有的事件处理逻辑. */
+void SmForceStartPairing(void *addrIn)
+{
+    NLSTK_LOG_INFO("[SM] Force start pairing.");
+    SLE_Addr_S *addr = (SLE_Addr_S *)addrIn;
+    SmSLink_S *slink = SmFindOrCreateSLink(addr);
+    if (slink == NULL) {
+        NLSTK_LOG_ERROR("[SM] Find or create slink failed on force start pairing.");
+        SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
+            .addr = *addr, .authStatus = SM_PAIR_ERROR });
+        return;
+    }
+    NLSTK_LOG_INFO("[SM] Find slink with addr = %s, lcid = %d, state index: %d.",
+        GET_ENC_ADDR(&slink->rmtAddr), slink->lcid, slink->curStateIndex);
+    if (slink->curStateIndex != SM_STATE_INIT) {
+        SmSLinkWaitDelTimer(slink);
+        SmSLinkWaitDelUapiTimer(slink);
+        (void)memset_s(slink->linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+        STM_MFUNC(slink->stm, Transition, g_smStateName[SM_STATE_INIT]);
+    }
+    STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
+}
+
 void SmRemovePairing(void *addrIn)
 {
     SLE_Addr_S *addr = (SLE_Addr_S *)addrIn;

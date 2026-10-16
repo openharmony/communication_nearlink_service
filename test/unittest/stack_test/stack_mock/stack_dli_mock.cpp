@@ -80,7 +80,7 @@ uint32_t DLI_EnableEncryption(DLI_EnableEncryptParam *param)
 
 uint32_t DLI_SetControllerData(DLI_ControllerData *data)
 {
-    return 0;
+    return DliMock()->DLI_SetControllerData(data);
 }
 
 uint32_t DLI_EncryptionParamReqNegativeReply(DLI_ConnHandleStru *param)

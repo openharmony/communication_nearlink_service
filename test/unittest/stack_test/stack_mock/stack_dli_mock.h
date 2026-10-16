@@ -35,6 +35,7 @@ public:
     virtual uint32_t DLI_ReadRemoteMeasureCaps(DLI_ReadRemoteMeasureCapsParam *param) = 0;
     virtual uint32_t DLI_EnableIMGEncryption(DLI_IMGEncryptParam *param) = 0;
     virtual uint32_t DLI_EnableEncryption(DLI_EnableEncryptParam *param) = 0;
+    virtual uint32_t DLI_SetControllerData(DLI_ControllerData *data) = 0;
 };
 
 class DliMock : public DliMockInterface {
@@ -50,6 +51,7 @@ public:
     MOCK_METHOD(uint32_t, DLI_ReadRemoteMeasureCaps, (DLI_ReadRemoteMeasureCapsParam *param), (override));
     MOCK_METHOD(uint32_t, DLI_EnableIMGEncryption, (DLI_IMGEncryptParam *param), (override));
     MOCK_METHOD(uint32_t, DLI_EnableEncryption, (DLI_EnableEncryptParam *param), (override));
+    MOCK_METHOD(uint32_t, DLI_SetControllerData, (DLI_ControllerData *data), (override));
     static DliMock& GetMock();
 
 private:

@@ -404,6 +404,16 @@ bool SleSecurity::StartPair(const RawAddress &device, uint8_t peerAddrType)
     return (ret == NLSTK_ERRCODE_SUCCESS);
 }
 
+bool SleSecurity::ForceStartPair(const RawAddress &device, uint8_t peerAddrType)
+{
+    DftCachePairConnPath(device.GetAddress(), PAIR_CONN_PATH_AUTH);
+    LOG_INFO("[SleSecurity] force pair addr: %{public}s", GetEncryptAddr(device.GetAddress()).c_str());
+    SLE_Addr_S stackAddr = {peerAddrType, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+    device.ConvertToUint8(stackAddr.addr, SLE_ADDR_LEN);
+    int ret = NLSTK_SmForceStartPairing(&stackAddr);
+    return (ret == NLSTK_ERRCODE_SUCCESS);
+}
+
 bool SleSecurity::CancelPairing(const RawAddress &device, uint8_t peerAddrType) const
 {
     HILOGI("[SleSecurity] addr: %{public}s", GET_ENCRYPT_ADDR(device));

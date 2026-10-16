@@ -408,6 +408,22 @@ typedef struct {
 NLSTK_Errcode_E NLSTK_SmStartPairing(SLE_Addr_S *addrIn);
 
 /**
+ * @brief 强制启动配对，无论对端是否已配对，均重新走完整配对流程
+ *
+ * 忽略已保存的配对密钥与安全管理模块当前状态，复位后重新执行
+ * 协商/鉴权/加密流程；适用于已配对记录异常需要重新配对恢复的场景
+ *
+ * 异步调用，返回异步队列添加结果
+ *
+ * @param addrIn 对端设备地址
+ *
+ * @return NLSTK_Errorcode_E
+ * - NLSTK_ERRCODE_SUCCESS: 成功
+ * - 其他值: 错误码，查看NLSTK_Errorcode_E
+ */
+NLSTK_Errcode_E NLSTK_SmForceStartPairing(SLE_Addr_S *addrIn);
+
+/**
  * @brief 移除配对
  *
  * 异步调用，返回异步队列添加结果

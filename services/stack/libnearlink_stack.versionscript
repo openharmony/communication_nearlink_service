@@ -37,6 +37,7 @@
       "*NLSTK_SmRegExternalCbks*";
       "*NLSTK_SmRegAlgoFuncs*";
       "*NLSTK_SmRemovePairing*";
+      "*NLSTK_SmForceStartPairing*";
       "*NLSTK_SmStartPairing*";
       "*NLSTK_SmSendImgSecuConfig*";
       "*NLSTK_DevdRemoveAdv*";
