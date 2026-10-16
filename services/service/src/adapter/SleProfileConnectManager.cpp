@@ -858,7 +858,6 @@ void SleProfileConnectManager::NotifyAcbDisconnected(const RawAddress &device)
             SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED), preState);
             funcs_.notifyConnectionStateChanged(device, connChangedParam);
         }
-        profConnInst->SetSilentPortFlag(false);
     } else {
         LOG_INFO("device:%{public}s profConnInst has already cleared", GetEncryptAddr(device.GetAddress()).c_str());
         SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED),
