@@ -1254,7 +1254,7 @@ bool SleProfileConnectManager::GetSilentPortState(const RawAddress &device) cons
     return profConnInst->GetSilentPortFlag();
 }
 
-void SleProfileConnectManager::SetSilentPortFlag(const RawAddress &device, bool isSilentPort) const
+void SleProfileConnectManager::SetSilentPortState(const RawAddress &device, bool isSilentPort) const
 {
     std::shared_ptr<SleProfileConnectInst> profConnInst = nullptr;
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
