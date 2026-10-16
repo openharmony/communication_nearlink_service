@@ -45,9 +45,13 @@ void BNL_ProxyRecvMsg(NLSTK_BnlSendMsg_S *msg)
 uint32_t BNL_ProxyInit(NLSTK_BnlProxyFunc_S *func)
 {
     BNL_ExtFuncList *funcList = BNL_GetExtFuncList();
-    if (funcList == NULL || funcList->init == NULL) {
+    if (funcList == NULL) {
         ADAPTER_LOGW("get func bnl init failed");
         return NLSTK_ERRCODE_FAIL;
+    }
+    if (funcList->init == NULL) {
+        ADAPTER_LOGW("bnl proxy not supported");
+        return NLSTK_ERRCODE_SUCCESS;
     }
 
     funcList->init(func);
