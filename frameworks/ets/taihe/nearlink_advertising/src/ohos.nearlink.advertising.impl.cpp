@@ -39,10 +39,7 @@ std::shared_ptr<SleAdvertiser> SleAdvertiserGetInstance(void)
     return instance;
 }
 
-enum class FrameType {
-    FRAME_TYPE_1 = 1,
-    FRAME_TYPE_4 = 4
-};
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
 
 uint8_t ConvertPowerMode(int32_t powerParam)
 {
@@ -97,12 +94,12 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
     if (input.frameType.has_value()) {
         int32_t frameTypeValue = static_cast<int32_t>(input.frameType.value());
         HILOGI("frameType: %{public}d", frameTypeValue);
-        if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
-            frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+        if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
+            frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
             HILOGE("Invalid frameType: %{public}d", frameTypeValue);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
-        uint8_t frameType = (frameTypeValue == static_cast<int32_t>(FrameType::FRAME_TYPE_4)) ?
+        uint8_t frameType = (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) ?
             static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) :
             static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
         outSettings.SetPrimaryFrameType(frameType);

@@ -231,6 +231,7 @@ public:
         return deviceClass_;
     }
 
+    // 取值域:栈侧原始编码 NLSTK_DevdAdvFrameType_E(0x00帧1/0x01帧四),非上层 SleScanFrameType 域
     void SetPrimFrameType(uint8_t primFrameType)
     {
         primFrameType_ = primFrameType;

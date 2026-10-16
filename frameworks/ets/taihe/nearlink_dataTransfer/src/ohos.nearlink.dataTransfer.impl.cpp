@@ -38,10 +38,7 @@ enum class TransferMode {
     RELIABLE = 1,      // datatransfer reliable mode
 };
 
-enum class FrameType {
-    FRAME_TYPE_1 = 1,  // 无线帧类型 1
-    FRAME_TYPE_4 = 4   // 无线帧类型 4
-};
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
 
 std::shared_ptr<SleDataTransfer> SleDataTransferGetInstance(void)
 {
@@ -121,13 +118,13 @@ static TaiheStatus ParseFrameType(const ::ohos::nearlink::dataTransfer::Connecti
     }
     int32_t frameTypeValue = static_cast<int32_t>(params.frameType.value());
     HILOGI("frameType: %{public}d", frameTypeValue);
-    if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
-        frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+    if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
+        frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
         HILOGE("Invalid frameType: %{public}d", frameTypeValue);
         HandleSyncErr(NL_ERR_INVALID_PARAM);
         return TaiheStatus::TAIHE_INVALID_ARG;
     }
-    if (frameTypeValue == static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+    if (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
         outFrameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4);
     }
     return TaiheStatus::TAIHE_OK;
