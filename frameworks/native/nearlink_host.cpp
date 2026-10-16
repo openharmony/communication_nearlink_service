@@ -15,7 +15,6 @@
 
 #include "nearlink_host.h"
 
-#include <cinttypes>
 #include <mutex>
 #include "nearlink_sa_manager.h"
 #include "nearlink_safe_weak_list.h"
@@ -201,7 +200,7 @@ public:
 
     void OnDeviceNameChanged(const std::string &deviceName) override
     {
-        HILOGI("enter, deviceName length: %{public}zu", deviceName.length());
+        HILOGI("enter, deviceName length: %{public}lu", deviceName.length());
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         hostImpl->hostObserverList.IterateAsync([deviceName](std::shared_ptr<NearlinkHostObserver> observer) -> void {
@@ -1083,7 +1082,7 @@ NlErrCode NearlinkHost::UpdateRefusePolicy(const int32_t protocolType, const int
 {
     NlErrCode result = NL_ERR_API_NOT_SUPPORT;
 #ifdef NEARLINK_KIA_ENABLE
-    HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}" PRId64, protocolType, pid, refuseTime);
+    HILOGI("enter, protocolType:%{public}d, pid:%{public}d, refuseTime:%{public}ld", protocolType, pid, refuseTime);
     NL_CHECK_RETURN_RET(IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
     sptr<INearlinkHost> proxy = GetProxy<INearlinkHost>(NEARLINK_HOST);
