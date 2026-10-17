@@ -188,6 +188,7 @@ private:
     void CdsmDeleteGroupInner(const RawAddress &devAddr);
     bool IsVendorDevice(const RawAddress &device);
     void SetPeerDeviceTypeToControllerInner(const RawAddress &device);
+    void SetPeerDeviceTypeToControllerByVendor(const CdsmCallBackData &dataBlock, const RawAddress &reportAddr);
 }; /* CdsmService */
 
 } // namespace Sle

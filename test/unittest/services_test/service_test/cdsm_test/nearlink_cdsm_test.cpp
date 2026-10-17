@@ -29,6 +29,12 @@
 
 namespace OHOS {
 namespace Nearlink {
+
+extern void SetMockVendorBusinessTypeDevice(const std::string &addr);
+extern void ClearMockVendorBusinessTypeDevice();
+extern int GetMockSetPeerDeviceTypeCount();
+extern void ClearMockSetPeerDeviceTypeCount();
+
 namespace TEST {
 using namespace testing;
 using namespace testing::ext;
@@ -754,6 +760,77 @@ HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerInner_001, TestSize.Leve
     cdsmService.SetPeerDeviceTypeToControllerInner(device);
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 end");
+}
+
+/**
+ * @tc.name: SetPeerDeviceTypeToControllerByVendor_001
+ * @tc.desc: Test SetPeerDeviceTypeToControllerByVendor with a mixed group (one vendor device),
+ *           no member should be set to controller
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_001 start");
+    MockCdsmService cdsmService;
+    RawAddress vendorReportAddr("11:22:33:44:55:66");
+    RawAddress commonColabAddr("11:22:33:44:55:77");
+
+    CdsmCallBackData dataBlock;
+    dataBlock.event = CDSM_EVENT_CONNECT;
+    dataBlock.cdmsGroupId = 1;
+    dataBlock.memberNum = 2;
+    dataBlock.currentAddr = vendorReportAddr;
+    CdsmCallBackDataMemInfo memInfo;
+    memInfo.memberState = 1;
+    memInfo.memberAddr = vendorReportAddr;
+    dataBlock.memberInfo.push_back(memInfo);
+    memInfo.memberAddr = commonColabAddr;
+    dataBlock.memberInfo.push_back(memInfo);
+
+    SetMockVendorBusinessTypeDevice(vendorReportAddr.GetAddress());
+    ClearMockSetPeerDeviceTypeCount();
+    cdsmService.SetPeerDeviceTypeToControllerByVendor(dataBlock, vendorReportAddr);
+    EXPECT_EQ(GetMockSetPeerDeviceTypeCount(), 0);
+    ClearMockSetPeerDeviceTypeCount();
+    ClearMockVendorBusinessTypeDevice();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_001 end");
+}
+
+/**
+ * @tc.name: SetPeerDeviceTypeToControllerByVendor_002
+ * @tc.desc: Test SetPeerDeviceTypeToControllerByVendor with an all-common group,
+ *           the member except the report address should be set to controller
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_002 start");
+    MockCdsmService cdsmService;
+    RawAddress commonReportAddr("11:22:33:44:55:66");
+    RawAddress commonColabAddr("11:22:33:44:55:77");
+
+    CdsmCallBackData dataBlock;
+    dataBlock.event = CDSM_EVENT_CONNECT;
+    dataBlock.cdmsGroupId = 1;
+    dataBlock.memberNum = 2;
+    dataBlock.currentAddr = commonReportAddr;
+    CdsmCallBackDataMemInfo memInfo;
+    memInfo.memberState = 1;
+    memInfo.memberAddr = commonReportAddr;
+    dataBlock.memberInfo.push_back(memInfo);
+    memInfo.memberAddr = commonColabAddr;
+    dataBlock.memberInfo.push_back(memInfo);
+
+    ClearMockVendorBusinessTypeDevice();
+    ClearMockSetPeerDeviceTypeCount();
+    cdsmService.SetPeerDeviceTypeToControllerByVendor(dataBlock, commonReportAddr);
+    EXPECT_EQ(GetMockSetPeerDeviceTypeCount(), 1);
+    ClearMockSetPeerDeviceTypeCount();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_002 end");
 }
 
 } // namespace TEST
