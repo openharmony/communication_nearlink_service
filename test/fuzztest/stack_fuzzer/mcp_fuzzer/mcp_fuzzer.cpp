@@ -67,23 +67,26 @@ static void MuteStatusChangeEventImpl(SLE_Addr_S *addr, uint8_t mute)
     (void)mute;
 }
 
-static void NotifyVolumeChangeImpl(SLE_Addr_S *addr, uint8_t volume)
+static void NotifyVolumeChangeImpl(SLE_Addr_S *addr, NLSTK_McpVolumePropertyType_E property, void *value)
 {
     (void)addr;
-    (void)volume;
+    (void)property;
+    (void)value;
 }
 
-static void GetVolumeRspImpl(SLE_Addr_S *addr, uint8_t volume, NLSTK_Errcode_E ret)
+static void GetVolumeRspImpl(SLE_Addr_S *addr, NLSTK_McpVolumePropertyType_E property, uint8_t errorCode,
+    void *value)
 {
     (void)addr;
-    (void)volume;
-    (void)ret;
+    (void)property;
+    (void)errorCode;
+    (void)value;
 }
 
-static void SetVolumeRspImpl(SLE_Addr_S *addr, NLSTK_Errcode_E ret)
+static void SetVolumeRspImpl(SLE_Addr_S *addr, uint8_t errorCode)
 {
     (void)addr;
-    (void)ret;
+    (void)errorCode;
 }
 
 static void VolumeStateChangeImpl(SLE_Addr_S *addr, uint8_t state, uint8_t preState)

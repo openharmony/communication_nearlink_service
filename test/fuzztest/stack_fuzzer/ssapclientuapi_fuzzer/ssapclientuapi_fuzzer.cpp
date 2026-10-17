@@ -39,6 +39,7 @@
 #include "nlstk_ssap_app_client.h"
 
 #include "ssapc_app.h"
+#include "ssapc_app_link_sm.h"
 
 extern SDF_Map *g_slinkMap;
 
