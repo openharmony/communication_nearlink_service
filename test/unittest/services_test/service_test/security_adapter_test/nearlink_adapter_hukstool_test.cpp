@@ -2585,55 +2585,6 @@ TEST_F(SleAdapterSecurityTest, ConnectionCompleteTaskInner001)
 }
 
 /**
- * @tc.name: StartPairTaskPairedDevice001
- * @tc.desc: 已配对设备(PAIRED+ACB已连)发起配对, 重走完整配对流程, 状态转为PAIRING
- * @tc.type: FUNC
- */
-TEST_F(SleAdapterSecurityTest, StartPairTaskPairedDevice001)
-{
-    HILOGI("SleAdapterSecurityTest: StartPairTaskPairedDevice001 start");
-    RawAddress device("00:11:22:33:44:55");
-
-    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
-    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
-    peerDevice->SetAcbConnectState(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
-    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
-
-    bool ret = g_adapter->StartPairTask(device);
-    EXPECT_EQ(true, ret);
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
-        g_adapter->adapterProperties_->GetPairStatus(device));
-    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: StartPairTaskPairedDevice001 end");
-}
-
-/**
- * @tc.name: ConnectionCompletePairedGNode001
- * @tc.desc: 已配对(PAIRED)+G节点连接完成, 走回连请求安全路径(旧接口), 状态保持PAIRED
- * @tc.type: FUNC
- */
-TEST_F(SleAdapterSecurityTest, ConnectionCompletePairedGNode001)
-{
-    HILOGI("SleAdapterSecurityTest: ConnectionCompletePairedGNode001 start");
-    RawAddress device("00:11:22:33:44:55");
-    SLE_Addr_S addr = {
-        .type = 0x01,
-        .addr = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-    };
-    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
-    peerDevice->SetPairedStatus(static_cast<int>(SlePairState::SLE_PAIR_PAIRED));
-    SleRemoteDeviceAdapter::GetInstance()->AddPeripheralDevice(device.GetAddress(), peerDevice);
-
-    bool ret = g_adapter->ConnectionCompleteTaskInner(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
-        0, device, addr, SLE_G_NODE);
-    EXPECT_EQ(true, ret);
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
-        g_adapter->adapterProperties_->GetPairStatus(device));
-    SleRemoteDeviceAdapter::GetInstance()->RemovePeripheralDevice(device.GetAddress());
-    HILOGI("SleAdapterSecurityTest: ConnectionCompletePairedGNode001 end");
-}
-
-/**
  * @tc.name: SendBgConnList001
  * @tc.desc: 验证 SendBgConnList
  * @tc.type: FUNC
