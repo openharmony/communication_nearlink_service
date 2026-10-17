@@ -39,6 +39,7 @@
 #include "DisService.h"
 #include "SleInterfaceProfileMic.h"
 #include "SleRemoteDeviceAdapter.h"
+#include "SleRemoteDeviceManager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -857,6 +858,11 @@ void SleProfileConnectManager::NotifyAcbDisconnected(const RawAddress &device)
             profConnInst->SetState(SLE_ADAPTER_PROF_CONN_STATE_UNUSED);
             SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::DISCONNECTED), preState);
             funcs_.notifyConnectionStateChanged(device, connChangedParam);
+            if (SleRemoteDeviceManager::GetInstance()->IsAudioDevice(device.GetAddress())) {
+                // 音频设备ACB连接过程中异常断连需要触发profile断开处理
+                NL_CHECK_RETURN(funcs_.onAllProfileDisconnected, "funcs_.onAllProfileDisconnected is nullptr");
+                funcs_.onAllProfileDisconnected(device);
+            }
         }
     } else {
         LOG_INFO("device:%{public}s profConnInst has already cleared", GetEncryptAddr(device.GetAddress()).c_str());

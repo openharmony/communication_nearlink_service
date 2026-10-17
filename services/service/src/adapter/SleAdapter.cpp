@@ -2135,15 +2135,15 @@ void SleAdapter::HandleProfileDisconnectState(const RawAddress &peerAddr, int ac
             SetAcbDisConnReasonTask(peerAddr.GetAddress(), reason);
         }
         HILOGI("[SleAdapter] profile not all disconnected, defer reconnect check, state:%{public}d, "
-        "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
+            "saveReason:%{public}d, curReason:%{public}d", profileConnectState, saveReason, reason);
         return;
-    } 
-    if(!isNeedBgConn) {
+    }
+    if (!isNeedBgConn) {
         int saveReason = GetAcbDisConnReasonTask(peerAddr.GetAddress());
-        if(saveReason !=0 && saveReason != reason) {
+        if (saveReason != 0 && saveReason != reason) {
             isNeedBgConn = NeedBgConn(acbConnState, pairState, peerAddr, saveReason);
             HILOGI("[SleAdapter] recheck bgConn saveReason:%{public}d, isNeedBgConn:%{public}d",
-            saveReason, isNeedBgConn);
+                saveReason, isNeedBgConn);
         }
     }
     if (isNeedBgConn) {

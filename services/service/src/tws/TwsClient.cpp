@@ -304,9 +304,9 @@ TwsClient::TwsClientCallback::TwsClientCallback(
 void TwsClient::TwsClientCallback::OnPropertyChanged(const Property &property)
 {
     HILOGD("[Tws Client]:ssap client service property change callback.");
-    /* 这里的property必须拷贝赋值 */
-    DoInTwsThread([this, property]() {
-        std::shared_ptr<TwsClient> twsClientPtr = twsClient_.lock();
+    /* 这里的property必须拷贝赋值；跨线程异步执行，捕获weak_ptr副本而非this，避免回调对象析构后访问悬空指针 */
+    DoInTwsThread([twsClient = twsClient_, property]() {
+        std::shared_ptr<TwsClient> twsClientPtr = twsClient.lock();
         NL_CHECK_RETURN(twsClientPtr, "[Tws Client]:ssap client service property callback,client instance invalid.");
         twsClientPtr->OnPropertyChangedTask(property);
     });
@@ -316,8 +316,9 @@ void TwsClient::TwsClientCallback::OnPropertyChanged(const Property &property)
 void TwsClient::TwsClientCallback::OnConnectionStateChanged(uint8_t state, int ret)
 {
     HILOGI("[Tws Client]:ssap client service state callback,state:%{public}u,ret:%{public}d", state, ret);
-    DoInTwsThread([this, state]() {
-        std::shared_ptr<TwsClient> twsClientPtr = twsClient_.lock();
+    /* 跨线程异步执行，捕获weak_ptr副本而非this，避免回调对象析构后访问悬空指针 */
+    DoInTwsThread([twsClient = twsClient_, state]() {
+        std::shared_ptr<TwsClient> twsClientPtr = twsClient.lock();
         NL_CHECK_RETURN(twsClientPtr,
             "[Tws Client]:ssap client service connect state callback,client instance invalid.");
         twsClientPtr->OnConnectionStateChangedTask(state);
