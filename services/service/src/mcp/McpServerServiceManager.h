@@ -16,6 +16,9 @@
 #define MCP_SERVER_SERVICE_MANAGER_H
 
 #include <cstdint>
+#include <vector>
+#include <memory>
+#include "audio_routing_manager.h"
 #include "nearlink_types.h"
 #include "McpMessage.h"
 #include "raw_address.h"
@@ -130,6 +133,16 @@ public:
     virtual void RendererStreamStateChange(int state) = 0;
 
     /**
+     * @brief Notifies the renderer state change with the audio pipe streams info.
+     *
+     * @param audioRendererChangeInfos The renderer change infos converted from audio pipe streams.
+     *
+     * @since 6
+     */
+    virtual void OnRendererStateChange(
+        const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &audioRendererChangeInfos) = 0;
+
+    /**
      * @brief Checks if the AV playback state is playing.
      *
      * @return True if the AV playback state is playing, false otherwise.
@@ -170,6 +183,8 @@ public:
     void InitMediaListener() override;
     void SendKeyEventToAvSession(const RawAddress &device, uint8_t key) override;
     void RendererStreamStateChange(int state) override;
+    void OnRendererStateChange(
+        const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &audioRendererChangeInfos) override;
     bool IsAVPlaybackStatePlay() override;
     void PostEvent(const McpMessage &event) override;
     McpRenderState GetMcpRealTimeRenderState() override;

@@ -40,6 +40,8 @@ public:
     bool IsAVPlaybackStatePlay();
     void PostEvent(const McpMessage &event);
     void RendererStreamStateChange(int state);
+    void OnRendererStateChange(
+        const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &audioRendererChangeInfos);
     McpRenderState GetMcpRealTimeRenderState();
 
     /**

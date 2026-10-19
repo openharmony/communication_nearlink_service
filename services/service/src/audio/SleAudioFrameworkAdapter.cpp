@@ -255,10 +255,30 @@ void SleAudioFrameworkAdapter::HandleAudioPipeStatusChangeInner(const AudioStand
     if (changeType == AudioStandard::PIPE_CHANGE_TYPE_PIPE_STATUS &&
         pipeStatus == AudioStandard::PIPE_STATUS_CLOSE) {
         ClearRouteFlagList();
+        NotifyMcpRendererStateChange({});
         return;
     }
     UpdateRouteFlagList(routeFlag, rendererStreams);
+    NotifyMcpRendererStateChange(rendererStreams);
     JudgeEmptyStreamByRendererState(device);
+}
+
+void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange(
+    const std::map<uint32_t, AudioStandard::RendererStreamInfo> &rendererStreams)
+{
+    HILOGD("[SleAudioFrameworkAdapter] enter");
+    std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> audioRendererChangeInfos;
+    for (const auto &rendererStream : rendererStreams) {
+        const auto &info = rendererStream.second;
+        auto changeInfo = std::make_shared<AudioStandard::AudioRendererChangeInfo>();
+        changeInfo->sessionId = info.streamId_;
+        changeInfo->rendererState = info.state_;
+        changeInfo->rendererInfo.streamUsage = static_cast<AudioStandard::StreamUsage>(info.usage_);
+        audioRendererChangeInfos.push_back(changeInfo);
+    }
+    McpServerService *mcpService = McpServerService::GetService();
+    NL_CHECK_RETURN(mcpService != nullptr, "[SleAudioFrameworkAdapter] mcpService is null!");
+    mcpService->GetMediaLoader()->OnRendererStateChange(audioRendererChangeInfos);
 }
 
 SleAudioFrameworkAdapter &SleAudioFrameworkAdapter::GetInstance()

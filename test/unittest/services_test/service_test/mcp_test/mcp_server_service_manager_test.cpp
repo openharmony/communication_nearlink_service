@@ -282,8 +282,8 @@ HWTEST_F(McpServerServiceManagerTest, OnRendererStateChange001, TestSize.Level1)
     rendererChangeInfo->rendererState = AudioStandard::RendererState::RENDERER_RUNNING;
     audioRendererChangeInfos.push_back(rendererChangeInfo);
 
-    g_McpManager->pimpl->rendererStateCallback_->OnRendererStateChange(audioRendererChangeInfos);
-    g_McpManager->pimpl->rendererStateCallback_->OnRendererStateChange(audioRendererChangeInfos); // repeat
+    g_McpManager->OnRendererStateChange(audioRendererChangeInfos);
+    g_McpManager->OnRendererStateChange(audioRendererChangeInfos); // repeat
 
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::MCP_SERVICE_UT_DELAY_1200_MS));
     HILOGI("OnRendererStateChange001 end");
@@ -305,8 +305,8 @@ HWTEST_F(McpServerServiceManagerTest, OnRendererStateChange002, TestSize.Level1)
     rendererChangeInfo->rendererState = AudioStandard::RendererState::RENDERER_PAUSED;
     audioRendererChangeInfos.push_back(rendererChangeInfo);
 
-    g_McpManager->pimpl->rendererStateCallback_->OnRendererStateChange(audioRendererChangeInfos);
-    g_McpManager->pimpl->rendererStateCallback_->OnRendererStateChange(audioRendererChangeInfos); // repeat
+    g_McpManager->OnRendererStateChange(audioRendererChangeInfos);
+    g_McpManager->OnRendererStateChange(audioRendererChangeInfos); // repeat
 
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::MCP_SERVICE_UT_DELAY_1200_MS));
     HILOGI("OnRendererStateChange002 end");

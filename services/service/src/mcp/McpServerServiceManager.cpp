@@ -18,7 +18,6 @@
 #include <cstring>
 #include <cmath>
 #include <unordered_map>
-#include "ipc_skeleton.h"
 #include "SleInterfaceProfileManager.h"
 #include "ClassCreator.h"
 #include "ThreadUtil.h"
@@ -28,7 +27,6 @@
 #include "avsession_controller.h"
 #include "avplayback_state.h"
 #include "nlstk_mcp_media_server.h"
-#include "audio_stream_client_policy.h"
 #include "nearlink_dft_ue.h"
 #include "nearlink_dft_exception.h"
 #include "nearlink_timer.h"
@@ -154,30 +152,6 @@ public:
         std::weak_ptr<McpServerServiceManager::impl> pimpl_;
     };
 
-    class NearlinkAudioRendererStateListener : public AudioStandard::AudioRendererStateChangeCallback {
-    public:
-        explicit NearlinkAudioRendererStateListener(std::weak_ptr<impl> implPtr) : pimpl_(implPtr) {}
-        ~NearlinkAudioRendererStateListener() override = default;
-
-    private:
-        void OnRendererStateChange(const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>>
-            &audioRendererChangeInfos) override
-        {
-            HILOGD("[McpServer]OnRendererStateChange");
-            auto ptr = pimpl_.lock();
-            if (ptr) {
-                NL_CHECK_RETURN_LOGD(ptr->CheckNowHasDeviceConnected(), "current connect nearlink device is empty");
-                auto func = [ptr](const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &infos) {
-                    ptr->OnRendererStateChange(infos);
-                };
-                DoInMcpThread([func, audioRendererChangeInfos]() { func(audioRendererChangeInfos); });
-            }
-        }
-
-    private:
-        std::weak_ptr<impl> pimpl_;
-    };
-
 private:
     /* 消息处理 */
     bool IsActiveDevice(std::string &addr);
@@ -190,7 +164,6 @@ private:
     void CreateMcpInstance(uint8_t instanceId);
     /* 初始化AvSession相关 */
     void RegisterAvSessionListener();
-    void RegisterAudioRendererEventListener();
     void AttemptCreateAvSessionController();
     void CreateAvSessionController(const AVSession::AVSessionDescriptor &descriptor);
     void SetAVSessionFilter();
@@ -210,7 +183,6 @@ private:
     std::shared_ptr<AVSession::AVSessionController> avSessionController_{ nullptr };
     std::shared_ptr<AVControllerObserverImpl> avControllerObserver_{ nullptr };
     std::shared_ptr<AVSessionObserverImpl> avSessionObserver_{ nullptr };
-    std::shared_ptr<NearlinkAudioRendererStateListener> rendererStateCallback_{ nullptr };
     GetTwsFunc getTwsProfileFunc_ = nullptr;
     GetCdsmFunc getCdsmProfileFunc_ = nullptr;
     GetAscFunc getAscProfileFunc_ = nullptr;
@@ -265,7 +237,6 @@ void McpServerServiceManager::impl::Init(std::weak_ptr<McpServerServiceManager::
     // 创建通用媒体播放控制实例
     avSessionObserver_ = std::make_shared<AVSessionObserverImpl>(impl);
     avControllerObserver_ = std::make_shared<AVControllerObserverImpl>(impl);
-    rendererStateCallback_ = std::make_shared<NearlinkAudioRendererStateListener>(impl);
 }
 
 void McpServerServiceManager::impl::CleanUp()
@@ -277,7 +248,6 @@ void McpServerServiceManager::impl::CleanUp()
     }
     avSessionObserver_ = nullptr;
     avControllerObserver_ = nullptr;
-    rendererStateCallback_ = nullptr;
     isCreatedAVSession = false;
 }
 
@@ -291,7 +261,6 @@ void McpServerServiceManager::impl::InitMediaListener()
     // 注册AVSession相关监听
     RegisterAvSessionListener();
     AttemptCreateAvSessionController();
-    RegisterAudioRendererEventListener();
     isCreatedAVSession = true;
 }
 
@@ -439,20 +408,6 @@ void McpServerServiceManager::impl::OnPlaybackStateChange(const AVSession::AVPla
 {
     HILOGI("[McpServer]enter");
     ProcessMediaStateChange();
-}
-
-void McpServerServiceManager::impl::RegisterAudioRendererEventListener()
-{
-    HILOGD("[McpServer]enter");
-    const int32_t clientPid = IPCSkeleton::GetCallingPid();
-    int32_t result = AudioStandard::AudioStreamPolicyClient::GetInstance().RegisterAudioRendererEventListener(
-        clientPid, rendererStateCallback_);
-    if (result != AVSession::AVSESSION_SUCCESS) {
-        DftReportAudioError("", ERROR_AUDIO_FWK, SUB_ERRCODE_CASE1);
-        HILOGE("[McpServer]McpServerService RegisterAudioRendererEventListener fail");
-        return;
-    }
-    HILOGI("[McpServer]McpServerService RegisterAudioRendererEventListener success, result=%{public}d", result);
 }
 
 void McpServerServiceManager::impl::RegisterAvSessionListener()
@@ -1036,6 +991,17 @@ void McpServerServiceManager::RendererStreamStateChange(int state)
         pimpl->UpdateMediaPlaybackState(avState);
     });
     return;
+}
+
+void McpServerServiceManager::OnRendererStateChange(
+    const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &audioRendererChangeInfos)
+{
+    HILOGD("[McpServer]OnRendererStateChange");
+    NL_CHECK_RETURN_LOGD(pimpl->CheckNowHasDeviceConnected(), "[McpServer]current connect nearlink device is empty");
+    auto func = [ptr = pimpl](const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &infos) {
+        ptr->OnRendererStateChange(infos);
+    };
+    DoInMcpThread([func, audioRendererChangeInfos]() { func(audioRendererChangeInfos); });
 }
 
 extern "C" {

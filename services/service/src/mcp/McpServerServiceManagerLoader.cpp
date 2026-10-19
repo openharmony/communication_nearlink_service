@@ -95,6 +95,12 @@ void McpServerServiceManagerLoader::RendererStreamStateChange(int state)
     CALL_FUNC_IF_AVSESSION_MEDIA_LIB_LOADED(RendererStreamStateChange, state);
 }
 
+void McpServerServiceManagerLoader::OnRendererStateChange(
+    const std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> &audioRendererChangeInfos)
+{
+    CALL_FUNC_IF_AVSESSION_MEDIA_LIB_LOADED(OnRendererStateChange, audioRendererChangeInfos);
+}
+
 McpRenderState McpServerServiceManagerLoader::GetMcpRealTimeRenderState()
 {
     auto mcpServerServiceManager = loader_.GetLibInstance();
