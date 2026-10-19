@@ -177,8 +177,13 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
         g_valueBuf[i] = fdp.ConsumeIntegral<uint8_t>();
     }
     NLSTK_SsapUuid_S findUuid = {0};
-    for (size_t i = 0; i < sizeof(findUuid.uuid); i++) {
-        findUuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+    if (fdp.ConsumeIntegral<uint8_t>() % 2 == 0) {
+        /* 半数用已缓存服务 UUID：驱动按 UUID 发现的匹配命中路径（全随机永远 miss） */
+        (void)memcpy_s(&findUuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
+    } else {
+        for (size_t i = 0; i < sizeof(findUuid.uuid); i++) {
+            findUuid.uuid[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
     }
 
     SSAP_LinkInit();
