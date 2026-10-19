@@ -213,7 +213,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             req->appId = 1;
             (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
             req->type = static_cast<SSAP_FindType_E>(findType);
-            req->startHandle = 0;
+            req->startHandle = 1; /* 产品守卫拒绝 startHandle==0 */
             req->endHandle = 0xFFFF;
             RunRequestTask(clientLink, SSAPC_FindReq, req);
         }
@@ -227,7 +227,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
             req->type = static_cast<SSAP_FindType_E>(findType);
             (void)memcpy_s(&req->uuid, sizeof(NLSTK_SsapUuid_S), &findUuid, sizeof(NLSTK_SsapUuid_S));
-            req->startHandle = 0;
+            req->startHandle = 1; /* 同上 */
             req->endHandle = 0xFFFF;
             RunRequestTask(clientLink, SSAPC_FindByUuidReq, req);
         }

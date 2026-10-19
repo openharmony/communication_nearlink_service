@@ -295,6 +295,9 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argc;
     (void) argv;
     NLSTK_InitStack();
+    NLSTK_EnableStack();
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
     return 0;
 }
 
