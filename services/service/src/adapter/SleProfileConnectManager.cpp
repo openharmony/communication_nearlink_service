@@ -1260,7 +1260,7 @@ void SleProfileConnectManager::SetSilentPortState(const RawAddress &device, bool
     if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
         LOG_DEBUG("device:%{public}s, not find SleProfileConnectInst!",
                   GetEncryptAddr(device.GetAddress()).c_str());
-        return false;
+        return;
     }
     profConnInst->SetSilentPortFlag(isSilentPort);
 }
