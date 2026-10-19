@@ -39,6 +39,8 @@
 #include "nlstk_ssap_app_client.h"
 
 #include "ssapc_app.h"
+#include "dli_callback.h"
+#include "cp_worker.h"
 #include "ssapc_app_link_sm.h"
 
 extern SDF_Map *g_slinkMap;
@@ -290,10 +292,22 @@ namespace OHOS {
     }
 }
 
+static void UapiRecvAcbStub(uint16_t lcid, SDF_Buff_S *buf)
+{
+    (void)lcid;
+    (void)buf;
+}
+
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void) argc;
     (void) argv;
+    ScheduleEnable();
+    DLI_Callback dliCallback = {0};
+    dliCallback.postOtherThread = CP_PostTask;
+    dliCallback.postOtherBlockedThread = CP_PostTaskBlocked;
+    dliCallback.recvAcbHandler = UapiRecvAcbStub; /* DLI_SetCallback 守卫要求非空 */
+    (void)DLI_SetCallback(&dliCallback);
     NLSTK_InitStack();
     NLSTK_EnableStack();
     (void)SDF_ThreadInit(10);
