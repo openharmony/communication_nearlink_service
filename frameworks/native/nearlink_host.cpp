@@ -1139,6 +1139,7 @@ NlErrCode NearlinkHost::SetBtAddrBySleAddr(const std::string &sleAddr, const std
 bool NearlinkHost::IsNearlinkSupportFrame4() const
 {
     HILOGD("enter");
+    NL_CHECK_RETURN_RET(IsNearlinkSupport(), false, "nearlink is not support.");
     return OHOS::system::GetBoolParameter("const.nearlink.support_frame4", false);
 }
 
