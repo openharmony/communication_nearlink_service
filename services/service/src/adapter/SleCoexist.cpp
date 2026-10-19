@@ -15,7 +15,7 @@
 #include "SleCoexist.h"
 #include "IServiceManagerPlugin.h"
 #include "SleCoexistManager.h"
-#include "SleRemoteDeviceAdapter.h"
+#include "SleRemoteDeviceManager.h"
 #include "SleUtils.h"
 #include "ThreadUtil.h"
 #include "cm_api.h"
@@ -98,7 +98,7 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
 
     // 检查是否有多个连接
     RawAddress device = RawAddress::ConvertToString(param.addr.addr);
-    appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+    appearance_ = SleRemoteDeviceManager::GetInstance()->GetDeviceAppearance(device);
     ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
     bool isScreenOn = true;
 #ifdef NEARLINK_POWER_MGR_ENABLE
@@ -135,7 +135,7 @@ void SleCoexist::UpdateConnParam()
     manager->IterateConnInfo([sleCoexist = selfWeak_.lock()](const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
         RawAddress device = RawAddress::ConvertToString(info.addr.addr);
-        sleCoexist->appearance_ = SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(device);
+        sleCoexist->appearance_ = SleRemoteDeviceManager::GetInstance()->GetDeviceAppearance(device);
         ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(sleCoexist->isNeedCustomParam_,
             sleCoexist->appearance_, info.interval);
         if ((info.interval < CM_CONN_COEXIST_INTERAL_THRED) || sleCoexist->isNeedCustomParam_) {
