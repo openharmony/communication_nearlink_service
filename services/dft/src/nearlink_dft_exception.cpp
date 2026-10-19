@@ -84,6 +84,8 @@ constexpr const uint16_t CDSM_AUDIO_DEVICE_NUM = 2;
 static uint16_t g_streamCountSuccess = 0;
 static bool g_airplaneModeFlag = false;
 static NearlinkSafeMap<std::string, ConnTimeoutRecord> g_connTimeoutRecords; // <addr, 建链超时失败限频统计>
+static void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason);
+static void DftFlushConnTimeoutExcep(const std::string &addr);
 
 void DftCacheAcbStartConn(const std::string &addr)
 {
@@ -291,6 +293,16 @@ static void DftReportDisconn(const std::string &addr, int32_t reason, const std:
 void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 {
     int64_t nowMs = GetTimestamp();
+    std::vector<std::string> expiredAddrs;
+    g_connTimeoutRecords.Iterate([&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            expiredAddrs.push_back(key);
+        }
+    });
+    for (const auto &expiredAddr : expiredAddrs) {
+        g_connTimeoutRecords.Erase(expiredAddr);
+    }
     uint32_t failCount = 0;
     std::string firstFailTime;
     bool needReport = false;
@@ -325,6 +337,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 
 void DftFlushConnTimeoutExcep(const std::string &addr)
 {
+    int64_t nowMs = GetTimestamp();
     uint32_t failCount = 0;
     std::string firstFailTime;
     bool needReport = false;
@@ -332,12 +345,15 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
         if (record.failCount == 0) {
             return;
         }
+        if (record.lastReportMs != 0 && (nowMs - record.lastReportMs) < CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            return;
+        }
         needReport = true;
         failCount = record.failCount;
         firstFailTime = record.firstFailTime;
         record.failCount = 0;
         record.firstFailTime.clear();
-        record.lastReportMs = GetTimestamp();
+        record.lastReportMs = nowMs;
     });
     if (!needReport) {
         return;
@@ -826,6 +842,7 @@ void DftReportUnPairFailInfo(const std::string &addr, int32_t status, uint16_t r
 
 void DftReportUnPairSuccessInfo(const std::string &addr, int32_t status, uint16_t result)
 {
+    g_connTimeoutRecords.Erase(addr);
     if (DftUnpairTaskFind(addr)) {
         std::string time = GetMillTime(true);
         std::vector<DftParamC> params;
