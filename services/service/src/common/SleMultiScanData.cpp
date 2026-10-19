@@ -283,14 +283,14 @@ bool SleScanFilterImpl::IsSensorHubChannel() const
     return isSensorHubChannel_;
 }
 
-void SleScanFilterImpl::SetAdvIndReport(bool advIndReport)
+void SleScanFilterImpl::SetFrameType(uint8_t frameType)
 {
-    advIndReport_ = advIndReport;
+    frameType_ = frameType;
 }
 
-bool SleScanFilterImpl::GetAdvIndReport() const
+uint8_t SleScanFilterImpl::GetFrameType() const
 {
-    return advIndReport_;
+    return frameType_;
 }
 
 void SleScanFilterImpl::SetRssiThreshold(int8_t rssi)

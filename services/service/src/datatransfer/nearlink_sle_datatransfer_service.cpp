@@ -31,6 +31,7 @@
 #include "nearlink_datatransfer_parcel.h"
 #include "SleFeature.h"
 #include <future>
+#include <set>
 #include "nearlink_timer.h"
 #include "nearlink_verification_manager.h"
 #ifdef RES_SCHED_SUPPORT
@@ -617,8 +618,16 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     HILOGI("port: %{public}d", port);
     NL_CHECK_RETURN(!uuid.empty(), "uuid empty when DestroyPort");
     std::vector<AppConnectParamMapping> tempVec;
-    auto getConnects = [&tempVec](uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
+    std::set<std::string> notifyAddrSet;
+    std::string registeredUuid;
+    auto getConnects = [&tempVec, &notifyAddrSet, &registeredUuid](
+        uint16_t key, std::shared_ptr<SleDataTransferCache> value) -> void {
+        registeredUuid = value->GetUuid();
         for (const auto &val : value->GetPortConnects()) {
+            if (val.state == static_cast<int>(SleConnectState::DISCONNECTED)) {
+                continue;
+            }
+            notifyAddrSet.insert(val.address);
             if (val.state == static_cast<int>(SleConnectState::CONNECTED) ||
                 val.state == static_cast<int>(SleConnectState::CONNECTING)) {
                 tempVec.push_back(val);
@@ -627,7 +636,7 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
     };
     bool has = pimpl->appConnectParamMap_.GetValueAndOpt(port, getConnects);
     NL_CHECK_RETURN(has, "no cache when DestroyPort");
-    if (uuid != STANDARD_UUID_ICCE) {
+    if (registeredUuid != STANDARD_UUID_ICCE) {
         ClearConnectReqByPort(port);
         // 上层异常退出触发死亡监听，未及时调用 Disconnect
         HILOGI("connected device number:%{public}zu", tempVec.size());
@@ -639,10 +648,17 @@ void SleDataTransferService::DestroyPortInner(const std::string &uuid, uint16_t 
 
         PortService *portService = PortService::GetPortService();
         NL_CHECK_RETURN(portService, "PortService empty");
-        portService->DeletePortByUuid((Uuid::ConvertFromString(uuid)).Uuid::ConvertTo128Bits(), port);
+        portService->DeletePortByUuid((Uuid::ConvertFromString(registeredUuid)).Uuid::ConvertTo128Bits(), port);
     }
     ports_.erase(port);
     pimpl->DeleteAppConnectParamMapping(port);
+    if (registeredUuid != STANDARD_UUID_ICCE) {
+        // 须在 DeleteAppConnectParamMapping 之后调用(提前会被 IsDeviceConnectingOrConnected 拦截);
+        // 销毁通道的栈回调晚于映射删除到达,NotifyDisconnect 由此处补执行
+        for (const auto &addr : notifyAddrSet) {
+            NotifyDisconnect(addr);
+        }
+    }
     HILOGI("current active port count: %{public}zu", ports_.size());
     DftReportDtfrStatisPortInfo(NearLinkPermissionManager::GetCallingName(), DTFR_DESTROY_PORT);
 }

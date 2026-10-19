@@ -203,6 +203,24 @@ public:
      */
     uint32_t GetDeviceClass() const;
 
+    /**
+     * @brief Set frame type of the advertising device.
+     *
+     * @param frameType Frame type, refer to SleScanFrameType(0x01 frame1 / 0x02 frame4),
+     *                  same value domain as SleScanSettings::GetFrameType.
+     * @since 6
+     */
+    void SetFrameType(uint8_t frameType);
+
+    /**
+     * @brief Get frame type of the advertising device.
+     *
+     * @return Returns frame type, refer to SleScanFrameType(0x01 frame1 / 0x02 frame4),
+     *         comparable with SleScanSettings::GetFrameType().
+     * @since 6
+     */
+    uint8_t GetFrameType() const;
+
 private:
     std::vector<UUID> serviceUuids_ {}; // uuid is big endian order.
     std::map<uint16_t, std::string> manufacturerSpecificData_ {};
@@ -214,6 +232,7 @@ private:
     std::vector<uint8_t> payload_ {};
     std::string name_ {};
     uint32_t deviceClass_ {};
+    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
 };
 /**
  * @brief Represents central manager callback.

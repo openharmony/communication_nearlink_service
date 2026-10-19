@@ -21,6 +21,7 @@
 #include "SleInterfaceDataTransfer.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceAdapterSub.h"
+#include "nearlink_system_config.h"
 #include "log.h"
 #include "ipc_skeleton.h"
 #include "nearlink_remote_container.h"
@@ -264,6 +265,14 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
+    uint8_t frameType = params.GetFrameType();
+    NL_CHECK_RETURN_RET(frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1) ||
+        frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4),
+        NL_ERR_INVALID_PARAM, "invalid frameType.");
+    if (frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
+        NL_CHECK_RETURN_RET(NearlinkSystemConfig::IsFrame4Supported(), NL_ERR_API_NOT_SUPPORT,
+            "frame4 port connection is not supported.");
+    }
 #ifdef NEARLINK_KIA_ENABLE
     NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pid),
         NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");

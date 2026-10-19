@@ -48,5 +48,7 @@ function factoryReset(): void;
 
 function isNearLinkSupported(): bool;
 
+function isFrameType4Supported(): bool;
+
 function OnStateChange(callback: (data: NearlinkState) => void): void;
 function OffStateChange(callback: Optional<(data: NearlinkState) => void>): void;

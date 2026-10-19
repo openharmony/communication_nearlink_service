@@ -43,6 +43,8 @@ enum class ScanDuty {
     SCAN_MODE_LOW_LATENCY = 2  // Scan using highest duty cycle
 };
 
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
+
 std::shared_ptr<SleCentralManager> SleCentralManagerGetInstance(void)
 {
     static std::shared_ptr<SleCentralManager> instance =
@@ -214,6 +216,19 @@ static TaiheStatus CheckFilterScanParams(::ohos::nearlink::scan::Filters const& 
                 return TAIHE_INVALID_ARG;
             }
             outSettings.SetDuration(duration);
+        }
+        if (scanOptions.frameType.has_value()) {
+            int32_t frameTypeValue = static_cast<int32_t>(scanOptions.frameType.value().get_value());
+            HILOGI("frameType: %{public}d", frameTypeValue);
+            if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
+                frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
+                HILOGE("Invalid frameType: %{public}d", frameTypeValue);
+                return TAIHE_INVALID_ARG;
+            }
+            uint8_t frameType = (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) ?
+                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
+                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
+            outSettings.SetFrameType(frameType);
         }
     }
     return TAIHE_OK;

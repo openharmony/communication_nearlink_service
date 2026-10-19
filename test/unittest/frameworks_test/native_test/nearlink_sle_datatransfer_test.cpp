@@ -163,6 +163,28 @@ HWTEST_F(SleDataTransferTest, Connect001, TestSize.Level1)
     HILOGI("Connect001 end");
 }
 
+/**
+ * @tc.number: ConnectFrameTypeInvalid001
+ * @tc.name: Connect
+ * @tc.desc: Connect with invalid frame type
+ */
+HWTEST_F(SleDataTransferTest, ConnectFrameTypeInvalid001, TestSize.Level1)
+{
+    HILOGI("ConnectFrameTypeInvalid001 start");
+    std::string uuid = "060D";
+    std::string address = "00:00:00:00:00:00";
+    std::shared_ptr<SleDataTransferCallbackTest> callback = std::make_shared<SleDataTransferCallbackTest>();
+    std::shared_ptr<SleDataTransfer> instance = SleDataTransfer::CreateSleDataTransfer();
+    ConnectionParams param;
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    param.SetTransMode(static_cast<uint8_t>(ConnectionParams::PortTransMode::TRANSPORT_MODE_BASIC));
+    param.SetFrameType(static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_INVALID));
+    NlErrCode ret = instance->Connect(param);
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, ret);
+    HILOGI("ConnectFrameTypeInvalid001 end");
+}
+
 
 /**
  * @tc.number: Disconnect001

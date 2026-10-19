@@ -361,7 +361,7 @@ void NearlinkSleCentralManagerServer::ConvertToScanFilterImpl(const std::vector<
         filterImpl.SetManufactureData(filter.GetManufactureData());
         filterImpl.SetManufactureDataMask(filter.GetManufactureDataMask());
         filterImpl.SetSensorHubChannel(filter.IsSensorHubChannel());
-        filterImpl.SetAdvIndReport(filter.GetAdvIndReport());
+        filterImpl.SetFrameType(filter.GetFrameType());
         filterImpls.push_back(filterImpl);
     }
 }

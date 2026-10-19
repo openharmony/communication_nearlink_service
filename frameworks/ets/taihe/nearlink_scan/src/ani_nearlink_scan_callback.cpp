@@ -40,6 +40,10 @@ std::shared_ptr<AniNearlinkScanCallback> AniNearlinkScanCallback::GetInstance()
     scanResults.deviceName = static_cast<::taihe::string>(r.GetName());
     scanResults.isConnectable = r.IsConnectable();
     scanResults.data = ::taihe::array<uint8_t>(::taihe::copy_data_t{}, payload.data(), payload.size());
+    scanResults.frameType.emplace(r.GetFrameType() ==
+        static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) ?
+        ::ohos::nearlink::constant::FrameType::key_t::FRAME_TYPE_4 :
+        ::ohos::nearlink::constant::FrameType::key_t::FRAME_TYPE_1);
     return scanResults;
 }
 

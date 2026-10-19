@@ -89,6 +89,16 @@ public:
         scanResult.SetName(tempResult.GetName());
         
         scanResult.SetDeviceClass(tempResult.GetDeviceClass());
+        // 域转换:原始帧型(0/1) -> SleScanFrameType,与设置侧同值域
+        uint8_t primFrameType = tempResult.GetPrimFrameType();
+        if (primFrameType != static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1) &&
+            primFrameType != static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4)) {
+            HILOGW("unexpected scan result primFrameType: %{public}u", primFrameType);
+        }
+        bool isFrame4 = primFrameType ==
+            static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4);
+        scanResult.SetFrameType(isFrame4 ? static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
+            static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1));
         callbackSptr->OnScanCallback(scanResult);
     }
 
@@ -237,7 +247,7 @@ NlErrCode SleCentralManager::StartScanWithFilter(const SleScanSettings &settings
     pimpl->ConvertSleScanFilter(filters, scanFilters);
     if (settings.GetFrameType() == static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4)) {
         for (auto& filter : scanFilters) {
-            filter.SetAdvIndReport(true);
+            filter.SetFrameType(static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4));
         }
     }
 
@@ -382,6 +392,16 @@ void SleScanResult::SetDeviceClass(uint32_t deviceClass)
 uint32_t SleScanResult::GetDeviceClass() const
 {
     return deviceClass_;
+}
+
+void SleScanResult::SetFrameType(uint8_t frameType)
+{
+    frameType_ = frameType;
+}
+
+uint8_t SleScanResult::GetFrameType() const
+{
+    return frameType_;
 }
 
 void SleScanResult::SetName(const std::string &name)

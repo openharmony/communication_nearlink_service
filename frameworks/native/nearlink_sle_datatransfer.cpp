@@ -312,7 +312,8 @@ NlErrCode SleDataTransfer::Connect(const ConnectionParams &params)
     NL_CHECK_RETURN_RET(
         params.GetTransMode() < static_cast<uint8_t>(ConnectionParams::PortTransMode::TRANSPORT_MODE_MAX),
         NL_ERR_INVALID_PARAM, "transMode invalid");
-    NL_CHECK_RETURN_RET(params.GetFrameType() < static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_INVALID),
+    NL_CHECK_RETURN_RET(params.GetFrameType() == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1) ||
+        params.GetFrameType() == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4),
         NL_ERR_INVALID_PARAM, "frameType invalid");
 
     // 2. 如果已经连接，返回
