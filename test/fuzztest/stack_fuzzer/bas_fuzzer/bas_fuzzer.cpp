@@ -22,6 +22,9 @@
 #include "sdf_mem.h"
 #include "sdf_thread.h"
 #include "securec.h"
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 typedef struct SlePkt {
     uint8_t *data;
@@ -44,6 +47,8 @@ static void BasReadPropertyCbkImpl(SLE_Addr_S *addr, BasPropertyType_E type, voi
     (void)ret;
 }
 
+static std::atomic<uint32_t> g_basEventSeq { 0 };
+
 static void BasConnectStateChangeCbkImpl(SLE_Addr_S *addr, NLSTK_BasConnectState_E curState,
     NLSTK_BasConnectState_E prevState, NLSTK_Errcode_E errNumb)
 {
@@ -51,6 +56,19 @@ static void BasConnectStateChangeCbkImpl(SLE_Addr_S *addr, NLSTK_BasConnectState
     (void)curState;
     (void)prevState;
     (void)errNumb;
+    g_basEventSeq.fetch_add(1);
+}
+
+/* 状态事件在调度线程任务内同步触发：序号增长即该步任务已完成（有界等待） */
+static bool WaitBasEvent(uint32_t seqBefore)
+{
+    for (int waited = 0; waited < 100; waited++) {
+        if (g_basEventSeq.load() > seqBefore) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return g_basEventSeq.load() > seqBefore;
 }
 
 static void BasPropertyChangedCbkImpl(SLE_Addr_S *addr, BasPropertyType_E type, void *value)
@@ -68,29 +86,26 @@ static void FillAddr(FuzzedDataProvider &fdp, SLE_Addr_S &addr)
     }
 }
 
-void FuzzBasProfileConnect(const uint8_t *fuzzData, size_t size)
+/* 同一地址：连接 → 等状态事件 → 查电量/查连接数 → 最后断开。
+ * 原顺序 Connect→Disconnect→Get 使查询必然发生在断开之后（提前返回）。 */
+void FuzzBasConsistentSequence(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     SLE_Addr_S addr = {0};
+    SLE_Addr_S unknownAddr = {0};
     FillAddr(fdp, addr);
+    FillAddr(fdp, unknownAddr);
+    uint32_t seq = g_basEventSeq.load();
     (void)NLSTK_BasProfileConnect(&addr);
-    (void)NLSTK_BasProfileDisconnect(&addr);
-}
-
-void FuzzBasGetBatteryLevel(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
+    (void)WaitBasEvent(seq);
     (void)NLSTK_GetBatteryLevel(&addr);
-}
-
-void FuzzBasGetConnectedDeviceNum(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    (void)fdp;
     uint8_t num = 0;
     (void)NLSTK_GetConnectedBasDeviceNum(&num);
+    seq = g_basEventSeq.load();
+    (void)NLSTK_BasProfileDisconnect(&addr);
+    (void)WaitBasEvent(seq);
+    /* 保留非法路径：未连接地址查询（未找到设备分支） */
+    (void)NLSTK_GetBatteryLevel(&unknownAddr);
 }
 
 }  // namespace OHOS
@@ -122,9 +137,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzBasProfileConnect(fuzzData, size);
-    OHOS::FuzzBasGetBatteryLevel(fuzzData, size);
-    OHOS::FuzzBasGetConnectedDeviceNum(fuzzData, size);
+    OHOS::FuzzBasConsistentSequence(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

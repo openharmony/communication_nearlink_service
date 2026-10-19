@@ -214,6 +214,49 @@ void FuzzRecvEventProc(uint8_t *data, size_t size)
     DLI_LOGI("FuzzRecvEventProc exit");
 }
 
+/* DEVD 报告解析确定性序列：同地址 ADV_IND + SCAN_RSP 两帧驱动缓存合并；
+ * 帧载荷携带铅笔广播签名（g_pencilAdvertstingData1/2），触发旧解析识别分支；
+ * 末尾补一帧 dataLength=0 的长度边界帧。地址取自 fuzz 输入保持可变异。 */
+void FuzzAdvReportSameAddrFrames(uint8_t *data, size_t size)
+{
+    static const uint8_t pencilSig1[] = {0x03, 0x19, 0xC7, 0x03, 0x0F, 0x16, 0xEE, 0xFD};
+    static const uint8_t pencilSig2[] = {0x12, 0x09, 0x48, 0x55, 0x41, 0x57, 0x45, 0x49,
+        0x20, 0x4D, 0x2D, 0x50, 0x65, 0x6E, 0x63, 0x69, 0x6C, 0x20, 0x33};
+    if (size < SLE_ADDR_LEN) {
+        return;
+    }
+    const struct {
+        uint8_t eventType;
+        const uint8_t *payload;
+        uint16_t payloadLen;
+    } frames[] = {
+        {0x03, pencilSig1, sizeof(pencilSig1)},   /* connectable+scannable，完整广播帧 */
+        {0x08, pencilSig2, sizeof(pencilSig2)},   /* scan response，完整响应帧 */
+        {0x03, nullptr, 0},                        /* 长度边界：空载荷帧 */
+    };
+    for (size_t f = 0; f < sizeof(frames) / sizeof(frames[0]); f++) {
+        size_t evtSize = sizeof(DLI_AdvReportEvt) + frames[f].payloadLen;
+        DLI_AdvReportEvt *evt = (DLI_AdvReportEvt *)SDF_MemZalloc(evtSize);
+        if (evt == nullptr) {
+            continue;
+        }
+        evt->eventType = frames[f].eventType;
+        evt->addrType = data[0] % 2;
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            evt->addr[i] = data[i]; /* 同地址：三帧一致，驱动缓存合并 */
+        }
+        evt->primFrameType = 0;
+        evt->secondPhy = 0;
+        evt->rssi = static_cast<uint8_t>(0xC0); /* -64dBm 合法值 */
+        evt->dataLength = static_cast<uint8_t>(frames[f].payloadLen);
+        if (frames[f].payloadLen != 0) {
+            (void)memcpy_s(evt->data, frames[f].payloadLen, frames[f].payload, frames[f].payloadLen);
+        }
+        RecvEventHandler(DLI_ADVERTISING_REPORT_EVT, nullptr, (uint8_t *)evt, evtSize);
+        SDF_MemFree(evt);
+    }
+}
+
 void FuzzReadRemoteMeasureCaps(uint8_t *data, size_t size)
 {
     if (size >= sizeof(DLI_ReadRemoteMeasureCapsParam)) {
@@ -612,6 +655,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     for (uint16_t i = 0; i < LEN_EXTEND_MUL; i++) {
         (void)memcpy_s(fuzzData + size * i, size, data, size);
     }
+    OHOS::FuzzAdvReportSameAddrFrames(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzReadRemoteMeasureCaps(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzEnableEncryption(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzReadRemoteVersion(static_cast<uint8_t *>(fuzzData), inputLen);

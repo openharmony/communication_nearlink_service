@@ -15,6 +15,66 @@
 
 #include "dli_cmd.h"
 
+/* dli_cmd.c 被本工程 exclusion，以下定义补齐其对外符号（集合=dli_cmd.c 定义集
+ * − dli_ext_func_wrapper.c 定义集，两集合随 master 演进需重算） */
+uint32_t DLI_DisconnectICB(DLI_DisconnectParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    (void)param;
+    (void)cbkParam;
+    return 0;
+}
+
+uint32_t DLI_EnableIMGEncryption(DLI_IMGEncryptParam *param)
+{
+    (void)param;
+    return 0;
+}
+
+uint16_t DLI_GetAcbDataLen(void)
+{
+    return 0;
+}
+
+uint8_t DLI_GetPhyCountByFrameType(uint8_t frameType)
+{
+    (void)frameType;
+    return 0;
+}
+
+uint32_t DLI_RemoveICBDataPath(DLI_RemoveICBDataPathParam *dataPath, DLI_ICGCbkParam *cbkParam)
+{
+    (void)dataPath;
+    (void)cbkParam;
+    return 0;
+}
+
+uint32_t DLI_RemoveICGParam(DLI_CmdOpcode opCode, DLI_ICGCbkParam *cbkParam)
+{
+    (void)opCode;
+    (void)cbkParam;
+    return 0;
+}
+
+uint32_t DLI_SetCmd(DLI_CmdParams *params)
+{
+    (void)params;
+    return 0;
+}
+
+uint32_t DLI_SetICGAutorateParam(DLI_ICGAutorateParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    (void)param;
+    (void)cbkParam;
+    return 0;
+}
+
+uint32_t DLI_SetICGParam(DLI_ICGParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    (void)param;
+    (void)cbkParam;
+    return 0;
+}
+
 uint32_t DLI_GetPublicAddress(DLI_PublicAddrParam *param)
 {
     return 0;
@@ -34,10 +94,6 @@ uint32_t DLI_ReadLocalFeatures(void)
     return 0;
 }
 
-uint32_t DLI_ReadLocalPrivateFeatures(void)
-{
-    return 0;
-}
 
 uint32_t DLI_ReadBufferSize(void)
 {
@@ -263,42 +319,14 @@ uint32_t DLI_RejectICBReq(DLI_RejectICBReqParam *param)
     return 0;
 }
 
-uint32_t DLI_ACBSetSubrate(DLI_ACBSubrateParam *param)
-{
-    return 0;
-}
 
-uint32_t DLI_ACBEnableSubrate(DLI_ACBEnableSubrateParam *param)
-{
-    return 0;
-}
 
-uint32_t DLI_SetLocalPrivateFeatures(DLI_LocalPrivateFeatures *features)
-{
-    return 0;
-}
 
 uint32_t DLI_ReadRemotePrivateFeatures(DLI_ConnHandleStru *param)
 {
     return 0;
 }
 
-uint32_t DLI_SetICGAutorateParamExt(DLI_ICGAutorateParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
-{
-    return 0;
-}
 
-uint32_t DLI_SetICGLabelExt(DLI_ICGLabelParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
-{
-    return 0;
-}
 
-uint32_t DLI_CreateICBExt(DLI_ICBConnectionParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
-{
-    return 0;
-}
 
-uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
-{
-    return 0;
-}

@@ -54,7 +54,9 @@ void UpdateCloudDeviceInfoListFuzzTest(const uint8_t *fuzzData, size_t size)
     MessageParcel reply;
 
     std::vector<NearlinkCloudPairDevice> cloudDeviceInfos {};
-    for (size_t i = 0; i < FUZZ_CLOUD_PAIR_LIST_SIZE; i++) {
+    /* 设备数可变异（0~FUZZ_CLOUD_PAIR_LIST_SIZE），配套空/单/多语义种子 */
+    size_t devCount = provider.ConsumeIntegral<uint8_t>() % (FUZZ_CLOUD_PAIR_LIST_SIZE + 1);
+    for (size_t i = 0; i < devCount; i++) {
         NearlinkCloudPairDevice dev;
         dev.SetBtAddr(BuildAddressString(provider));
         dev.SetDeviceName(BuildAddressString(provider));
