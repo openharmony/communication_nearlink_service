@@ -308,10 +308,13 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     dliCallback.postOtherBlockedThread = CP_PostTaskBlocked;
     dliCallback.recvAcbHandler = UapiRecvAcbStub; /* DLI_SetCallback 守卫要求非空 */
     (void)DLI_SetCallback(&dliCallback);
-    NLSTK_InitStack();
-    NLSTK_EnableStack();
-    (void)SDF_ThreadInit(10);
-    (void)SDF_EvcInit();
+    (void)NLSTK_InitStack();
+    (void)NLSTK_EnableStack();
+    /* 设备实证（hilog pid 过滤）：手机固件 /system/lib64 ext so 的
+     * STK_ExtModuleInit 在 fuzzer 进程内 DLI 事件注册失败 → InitStack
+     * 回滚销毁调度器 → 全部 UAPI post task fail。ScheduleEnable 幂等，
+     * 末尾重建保证调度器无论 ext 成败都存活（test-only，不涉产品码）。 */
+    ScheduleEnable();
     return 0;
 }
 
