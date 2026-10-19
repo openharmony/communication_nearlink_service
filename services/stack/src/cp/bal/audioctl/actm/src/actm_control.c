@@ -54,6 +54,8 @@
 
 #define MAX_POINT_NUM 2
 
+#define QOSM_LINK_NUM 2
+
 void NotifyAudioProp(ActmRemoteDevice_S *device)
 {
     uint8_t pointNum = (uint8_t)device->points->size;
@@ -76,6 +78,7 @@ void NotifyAudioProp(ActmRemoteDevice_S *device)
     if (device->info.locationHandle != 0) {
         ActmLocationCbk(&device->addr, device->isLeft);
     }
+    AddDeviceToGroup(device, device->configGid);
     SDF_MemFree(props);
 }
 
@@ -677,4 +680,14 @@ void ActmDeviceOffline(ActmRemoteDevice_S *device, bool remove)
         return;
     }
     SDF_VectorRemove(group->devices, index);
+}
+
+void AddDeviceToGroup(ActmRemoteDevice_S *device, uint16_t groupId)
+{
+    if (device->groupId != groupId) {
+        device->groupId = groupId;
+        device->mebId = ActmCountGroupSize(device->groupId);
+        ActmCreateQosmGroup(device->groupId, QOSM_LINK_NUM);
+    }
+    ActmQosmAddDevice(device->groupId, &device->addr);
 }

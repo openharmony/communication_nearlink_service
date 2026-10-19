@@ -27,12 +27,12 @@
 #include "cdsm_api.h"
 #include "securec.h"
 
-#define QOSM_LINK_NUM 2
 #define ACTM_SSAP_TIMEOUT 4000
 
 typedef struct {
     SLE_Addr_S addr;
     int32_t appId;
+    uint16_t groupId;
 } ReadProp_S;
 
 typedef struct {
@@ -105,6 +105,7 @@ static void ActmReadRemotePropInner(void *arg)
         NLSTK_SsapClientDeregAppAsync(device->appId);
     }
     device->appId = param->appId;
+    device->configGid = param->groupId;
     NLSTK_Errcode_E ret = NLSTK_SsapClientConnect(device->appId);
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         ActmEventCbk(&device->addr, NLSTK_ACTM_EVENT_READ, NLSTK_ACTM_SSAP_ERROR, NULL);
@@ -125,6 +126,7 @@ uint32_t NLSTK_ActmReadRemoteProp(SLE_Addr_S *addr)
     NLSTK_CHECK_RETURN(readIn != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[ACTM] read malloc error");
     (void)memcpy_s(&readIn->addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
     int32_t appId = 0;
+    uint32_t groupId = 0;
     uint32_t ret = RegisterSsapApp(&readIn->addr, &appId);
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         SDF_MemFree(readIn);
@@ -136,6 +138,13 @@ uint32_t NLSTK_ActmReadRemoteProp(SLE_Addr_S *addr)
         return NLSTK_ERRCODE_TASK_FAIL;
     }
     readIn->appId = appId;
+    groupId = NLSTK_CdsmCreateSet(addr);
+    if (groupId > UINT16_MAX) {
+        SDF_MemFree(readIn);
+        NLSTK_SsapClientDeregApp(appId);
+        return NLSTK_ERRCODE_FAIL;
+    }
+    readIn->groupId = (uint16_t)groupId;
     if (SchedulePostTask(ActmReadRemotePropInner, readIn, SDF_MemFree) != NLSTK_OK) {
         NLSTK_SsapClientDeregApp(appId);
         return NLSTK_ERRCODE_TASK_FAIL;
@@ -282,16 +291,6 @@ static uint8_t GetConfigPointNum(ActmStream_S *stream)
         pointNum++;
     }
     return pointNum;
-}
-
-static void AddDeviceToGroup(ActmRemoteDevice_S *device, uint16_t groupId)
-{
-    if (device->groupId != groupId) {
-        device->groupId = groupId;
-        device->mebId = ActmCountGroupSize(device->groupId);
-        ActmCreateQosmGroup(device->groupId, QOSM_LINK_NUM);
-    }
-    ActmQosmAddDevice(device->groupId, &device->addr);
 }
 
 static void FreeControlReq(ActmControlReq_S *req)
