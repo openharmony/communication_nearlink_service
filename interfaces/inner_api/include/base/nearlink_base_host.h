@@ -63,6 +63,8 @@ public:
 
 class NearlinkBaseRemoteDeviceBatteryObserver {
 public:
+    virtual ~NearlinkBaseRemoteDeviceBatteryObserver() = default;
+
     virtual void OnGetBatteryLevelEvent(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel){};
     virtual void OnBatteryLevelChanged(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel){};
 };

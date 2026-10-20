@@ -191,6 +191,7 @@ class NearlinkRemoteDeviceBatteryObserverAdapter : public NearlinkBaseRemoteDevi
 public:
     explicit NearlinkRemoteDeviceBatteryObserverAdapter(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
         : observer_(observer){};
+    ~NearlinkRemoteDeviceBatteryObserverAdapter() override = default;
 
     void OnGetBatteryLevelEvent(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel) override
     {
