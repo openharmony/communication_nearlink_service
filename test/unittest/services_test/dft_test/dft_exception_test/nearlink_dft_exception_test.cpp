@@ -30,6 +30,9 @@ constexpr const int32_t DEVICE_INT32_INVALID = 0;
 constexpr const uint32_t DEVICE_UINT32_INVALID = 0;
 constexpr const uint16_t DEVICE_UINT16_INVALID = 0;
 constexpr const int32_t DEVICE_PAIRED_STATE = 3;
+constexpr const uint32_t DEVICE_CONN_DISCONNECTED = 2;
+constexpr const int32_t DEVICE_CONN_TIMEOUT_REASON = 0x07;
+constexpr const uint16_t DEVICE_INVALID_LCID = 0xFFFF;
 
 class NearlinkDftExceptionTest : public testing::Test {
 public:
@@ -177,6 +180,23 @@ HWTEST_F(NearlinkDftExceptionTest, DFT_AUDIO_STREAM_EXCEP_TEST, TestSize.Level1)
     QOSM_DftAudioCodecExcep excep;
     DftReportAudioCodecExcep(&excep);
     HILOGI("NearlinkDftExceptionTest: DFT_AUDIO_STREAM_EXCEP_TEST end");
+}
+
+/**
+ * @tc.name: NearlinkDftExceptionTest008
+ * @tc.desc: DFT_DISCONN_EXCEP 建链超时失败(0x07)限频上报
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkDftExceptionTest, DFT_DISCONN_EXCEP_TIMEOUT_TEST, TestSize.Level1)
+{
+    HILOGI("NearlinkDftExceptionTest: DFT_DISCONN_EXCEP_TIMEOUT_TEST start");
+    DftCacheAcbFinishConn(DEVICE_ADDR, DEVICE_CONN_DISCONNECTED, DEVICE_CONN_TIMEOUT_REASON, DEVICE_UINT32_INVALID,
+        DEVICE_INVALID_LCID);
+    DftCacheAcbFinishConn(DEVICE_ADDR, DEVICE_CONN_DISCONNECTED, DEVICE_CONN_TIMEOUT_REASON, DEVICE_UINT32_INVALID,
+        DEVICE_INVALID_LCID);
+    DftCacheAcbFinishConn(DEVICE_ADDR, DEVICE_CONN_DISCONNECTED, DEVICE_INT32_INVALID, DEVICE_UINT32_INVALID,
+        DEVICE_INVALID_LCID);
+    HILOGI("NearlinkDftExceptionTest: DFT_DISCONN_EXCEP_TIMEOUT_TEST end");
 }
 
 } // namespace TEST
