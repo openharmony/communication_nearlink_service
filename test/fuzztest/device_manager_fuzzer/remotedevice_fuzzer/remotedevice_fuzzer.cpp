@@ -138,7 +138,8 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void)argc;
     (void)argv;
     std::filesystem::create_directories(OHOS::Nearlink::SLE_CONFIG_DIR);
-    OHOS::Nearlink::AdapterDeviceConfig *cfg = static_cast<OHOS::Nearlink::AdapterDeviceConfig *>(OHOS::Nearlink::AdapterDeviceConfig::GetInstance());
+    OHOS::Nearlink::AdapterDeviceConfig *cfg =
+        static_cast<OHOS::Nearlink::AdapterDeviceConfig *>(OHOS::Nearlink::AdapterDeviceConfig::GetInstance());
     cfg->pimpl->filePath_ = OHOS::Nearlink::SLE_CONFIG_DIR + cfg->pimpl->fileName_;
     return 0;
 }

@@ -203,7 +203,8 @@ public:
         HILOGI("enter, deviceName length: %{public}lu", deviceName.length());
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
-        hostImpl->hostObserverList.IterateAsync([deviceName](std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
+        hostImpl->hostObserverList.IterateAsync([deviceName](
+            std::shared_ptr<NearlinkBaseHostObserver> observer) -> void {
             observer->OnDeviceNameChanged(deviceName);
         });
     }
@@ -261,9 +262,9 @@ public:
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-        hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
-                observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
+        hostImpl->remoteObserverList.IterateAsync([remoteDevice, preState, state, reason](
+            std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+            observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
         });
     }
 
@@ -274,9 +275,9 @@ public:
         auto hostImpl = hostImpl_.lock();
         NL_CHECK_RETURN(hostImpl, "hostImpl has been destroyed");
         NearlinkBaseRemoteDevice remoteDevice(device.GetAddress(), static_cast<int>(NlTransportType::NL_TRANSPORT_SLE));
-        hostImpl->remoteObserverList.IterateAsync(
-            [remoteDevice, preState, state, reason](std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
-                observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
+        hostImpl->remoteObserverList.IterateAsync([remoteDevice, preState, state, reason](
+            std::shared_ptr<NearlinkBaseRemoteDeviceObserver> observer) -> void {
+            observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
         });
     }
 
