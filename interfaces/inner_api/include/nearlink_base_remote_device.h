@@ -32,8 +32,8 @@ namespace Nearlink {
 /**
  * @brief base.so implementation class of framework remote device.
  *
- * NearlinkRemoteDevice derives from this class, so framework-side mirror methods
- * share this implementation without any cast.
+ * NearlinkRemoteDevice embeds this class, so framework-side mirror methods
+ * share this implementation by forwarding without any cast.
  */
 class NEARLINK_API NearlinkBaseRemoteDevice {
 public:

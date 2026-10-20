@@ -25,7 +25,7 @@ namespace {
 
 NearlinkRemoteDevice ToFrameworkDevice(const NearlinkBaseRemoteDevice &device)
 {
-    return NearlinkRemoteDevice(device.GetDeviceAddr(), device.GetTransportType());
+    return NearlinkRemoteDevice(device);
 }
 
 class NearlinkHostObserverAdapter : public NearlinkBaseHostObserver {

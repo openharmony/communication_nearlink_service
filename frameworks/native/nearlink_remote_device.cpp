@@ -19,134 +19,145 @@
 namespace OHOS {
 namespace Nearlink {
 
-NearlinkRemoteDevice::NearlinkRemoteDevice(const std::string &addr, const int transport)
-    : NearlinkBaseRemoteDevice(addr, transport)
+NearlinkRemoteDevice::NearlinkRemoteDevice() : base_()
 {
 }
 
+NearlinkRemoteDevice::NearlinkRemoteDevice(const std::string &addr, const int transport)
+    : base_(addr, transport)
+{
+}
+
+NearlinkRemoteDevice::NearlinkRemoteDevice(const NearlinkBaseRemoteDevice &base)
+    : base_(base)
+{
+}
+
+NearlinkRemoteDevice::~NearlinkRemoteDevice() = default;
+
 NlErrCode NearlinkRemoteDevice::GetDeviceName(std::string &name) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceName(name);
+    return base_.GetDeviceName(name);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceAlias(std::string &alias) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceAlias(alias);
+    return base_.GetDeviceAlias(alias);
 }
 
 NlErrCode NearlinkRemoteDevice::SetDeviceAlias(const std::string &aliasName)
 {
-    return NearlinkBaseRemoteDevice::SetDeviceAlias(aliasName);
+    return base_.SetDeviceAlias(aliasName);
 }
 
 NlErrCode NearlinkRemoteDevice::GetPairState(int &pairState) const
 {
-    return NearlinkBaseRemoteDevice::GetPairState(pairState);
+    return base_.GetPairState(pairState);
 }
 
 NlErrCode NearlinkRemoteDevice::StartPair()
 {
-    return NearlinkBaseRemoteDevice::StartPair();
+    return base_.StartPair();
 }
 
 NlErrCode NearlinkRemoteDevice::StartCrediblePair()
 {
-    return NearlinkBaseRemoteDevice::StartCrediblePair();
+    return base_.StartCrediblePair();
 }
 
 NlErrCode NearlinkRemoteDevice::CancelDevicePairing()
 {
-    return NearlinkBaseRemoteDevice::CancelDevicePairing();
+    return base_.CancelDevicePairing();
 }
 
 NlErrCode NearlinkRemoteDevice::SetPairingConfirmation(bool cfm)
 {
-    return NearlinkBaseRemoteDevice::SetPairingConfirmation(cfm);
+    return base_.SetPairingConfirmation(cfm);
 }
 
 NlErrCode NearlinkRemoteDevice::SetPairingPassCode(const std::string &passCode)
 {
-    return NearlinkBaseRemoteDevice::SetPairingPassCode(passCode);
+    return base_.SetPairingPassCode(passCode);
 }
 
 NlErrCode NearlinkRemoteDevice::IsBondedFromLocal(bool &isBondedFromLocal) const
 {
-    return NearlinkBaseRemoteDevice::IsBondedFromLocal(isBondedFromLocal);
+    return base_.IsBondedFromLocal(isBondedFromLocal);
 }
 
 NlErrCode NearlinkRemoteDevice::IsAcbConnected(bool &isAcbConnected) const
 {
-    return NearlinkBaseRemoteDevice::IsAcbConnected(isAcbConnected);
+    return base_.IsAcbConnected(isAcbConnected);
 }
 
 NlErrCode NearlinkRemoteDevice::IsAcbEncrypted(bool &isAcbEncrypted) const
 {
-    return NearlinkBaseRemoteDevice::IsAcbEncrypted(isAcbEncrypted);
+    return base_.IsAcbEncrypted(isAcbEncrypted);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceProductId(uint16_t &productId) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceProductId(productId);
+    return base_.GetDeviceProductId(productId);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceVendorId(uint16_t &vendorId) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceVendorId(vendorId);
+    return base_.GetDeviceVendorId(vendorId);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceModel(DeviceModel &model) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceModel(model);
+    return base_.GetDeviceModel(model);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceInformation(DeviceInformation &information) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceInformation(information);
+    return base_.GetDeviceInformation(information);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceUuids(std::vector<std::string> &uuids) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceUuids(uuids);
+    return base_.GetDeviceUuids(uuids);
 }
 
 NlErrCode NearlinkRemoteDevice::PairRequestReply(bool accept)
 {
-    return NearlinkBaseRemoteDevice::PairRequestReply(accept);
+    return base_.PairRequestReply(accept);
 }
 
 int NearlinkRemoteDevice::GetTransportType() const
 {
-    return NearlinkBaseRemoteDevice::GetTransportType();
+    return base_.GetTransportType();
 }
 
 NlErrCode NearlinkRemoteDevice::UpdateConnectInterval(ConnectionInterval interval) const
 {
-    return NearlinkBaseRemoteDevice::UpdateConnectInterval(interval);
+    return base_.UpdateConnectInterval(interval);
 }
 
 NlErrCode NearlinkRemoteDevice::ReadRemoteRssiValue()
 {
-    return NearlinkBaseRemoteDevice::ReadRemoteRssiValue();
+    return base_.ReadRemoteRssiValue();
 }
 
 bool NearlinkRemoteDevice::IsValidNearlinkRemoteDevice() const
 {
-    return NearlinkBaseRemoteDevice::IsValidNearlinkRemoteDevice();
+    return base_.IsValidNearlinkRemoteDevice();
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceAppearance(int &appearance) const
 {
-    return NearlinkBaseRemoteDevice::GetDeviceAppearance(appearance);
+    return base_.GetDeviceAppearance(appearance);
 }
 
 NlErrCode NearlinkRemoteDevice::GetAcbState(int &acbState) const
 {
-    return NearlinkBaseRemoteDevice::GetAcbState(acbState);
+    return base_.GetAcbState(acbState);
 }
 
 NlErrCode NearlinkRemoteDevice::GetBatteryLevel()
 {
-    return NearlinkBaseRemoteDevice::GetBatteryLevel();
+    return base_.GetBatteryLevel();
 }
 
 }  // namespace Nearlink

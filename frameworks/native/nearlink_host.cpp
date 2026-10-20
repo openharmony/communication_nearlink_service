@@ -232,8 +232,7 @@ NlErrCode NearlinkHost::GetPairedDevices(int transport, std::vector<NearlinkRemo
     }
 
     for (auto &device : baseDevices) {
-        NearlinkRemoteDevice mirrorDevice;
-        static_cast<NearlinkBaseRemoteDevice&>(mirrorDevice) = device;
+        NearlinkRemoteDevice mirrorDevice(device);
         pairedDevices.push_back(std::move(mirrorDevice));
     }
     return NL_NO_ERROR;
@@ -246,7 +245,7 @@ NlErrCode NearlinkHost::SetConnectionMode(int32_t connectionMode, int32_t durati
 
 NlErrCode NearlinkHost::RemovePair(const NearlinkRemoteDevice &device)
 {
-    return impl_.RemovePair(device);
+    return impl_.RemovePair(device.GetBaseDevice());
 }
 
 NlErrCode NearlinkHost::RemoveAllPairs()
@@ -256,7 +255,7 @@ NlErrCode NearlinkHost::RemoveAllPairs()
 
 NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t &role) const
 {
-    return impl_.GetLinkRole(device, role);
+    return impl_.GetLinkRole(device.GetBaseDevice(), role);
 }
 
 NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
