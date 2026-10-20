@@ -201,8 +201,8 @@ void SmPkgDispatcher(uint16_t opcode, SLE_Addr_S *addr, const uint8_t *pkg, size
                             uapi interface functions
 *****************************************************************************************/
 
-/* 请求安全(回连场景): 由状态机按当前状态决定行为,
- * ENCP态使用已保存的linkKey加密, FULL态短路返回, 未配对时兜底走配对流程. */
+/* 回连场景: 由状态机按当前状态决定行为,
+ * ENCP态使用已保存的linkKey加密, 未配对时兜底走配对流程. */
 void SmRequestSecurity(void *addrIn)
 {
     NLSTK_LOG_INFO("[SM] Request security.");

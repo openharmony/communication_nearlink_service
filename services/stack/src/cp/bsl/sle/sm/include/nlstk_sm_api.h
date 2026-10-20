@@ -412,7 +412,7 @@ typedef struct {
 NLSTK_Errcode_E NLSTK_SmStartPairing(SLE_Addr_S *addrIn);
 
 /**
- * @brief 请求安全，用于设备回连场景
+ * @brief 用于设备回连场景
  *
  * 由安全管理模块按当前状态决定行为：已配对且持有密钥时使用已保存
  * 的配对密钥加密链路（FULL态短路返回成功），未配对时兜底走配对流程；
