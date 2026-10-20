@@ -38,7 +38,7 @@ uint32_t CDSM_GenCoopSetId(uint8_t *key, uint8_t keyLen, uint8_t type, uint16_t 
             macLen = HMAC_SM3_MAC_LEN;
             algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA1;
             break;
-        case CDSM_AES_CMAC:
+        case CDSM_AES_CMAC: // 当前本端仅支持AES-CMAC算法
             macLen = AES_CMAC_MAC_LEN;
             algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
             break;

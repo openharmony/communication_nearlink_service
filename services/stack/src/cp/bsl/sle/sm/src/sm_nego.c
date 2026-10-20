@@ -41,7 +41,7 @@ static void SendPairingRsp(SmSLink_S *slink);
 static void RecvPairingRsp(SmSLink_S *slink, const uint8_t *pkg, size_t size);
 static void SendPairingCfm(SmSLink_S *slink);
 static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size);
-static void SendPairingInitInfo(SmSLink_S *slink);
+static bool SendPairingInitInfo(SmSLink_S *slink);
 static void RecvPairingInitInfo(SmSLink_S *slink, const uint8_t *pkg, size_t size);
 //LCOV_EXCL_START
 void SmNegoPkgDispatcher(uint16_t opcode, SmSLink_S *slink, const uint8_t *pkg, size_t size)
@@ -142,7 +142,7 @@ static void RecvPairingReq(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     slink->tNode.pskFlag = localParams->pskFlag;
     uint32_t ret = PairingNego(msg, gMitmDefend, tMitmDefend, slink);
     if (ret != SM_OK) {
-        NLSTK_LOG_ERROR("[SM] Pairing negotiation fail.");
+        NLSTK_LOG_ERROR("[SM] Pairing negotiation fail, ret 0x%x.", ret);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_AUTHENTICATION_REQUIREMENTS });
         return;
@@ -187,7 +187,7 @@ static void RecvPairingRsp(SmSLink_S *slink, const uint8_t *pkg, size_t size)
     slink->tNode.pskFlag = msg->pskFlag;
     uint32_t ret = PairingNego(msg, gMitmDefend, tMitmDefend, slink);
     if (ret != SM_OK) {
-        NLSTK_LOG_ERROR("[SM] Pairing negotiation fail.");
+        NLSTK_LOG_ERROR("[SM] Pairing negotiation fail, ret 0x%x.", ret);
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_AUTHENTICATION_REQUIREMENTS });
         return;
@@ -253,12 +253,15 @@ static void RecvPairingCfm(SmSLink_S *slink, const uint8_t *pkg, size_t size)
         slink->negoParams.codeAlgoCap[i] = msg->codeAlgoCap[i];
     }
     (void)memcpy_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, msg->gNodePubKey, SM_PUBLIC_KEY_LEN);
-    SendPairingInitInfo(slink);
+    if (!SendPairingInitInfo(slink)) {
+        NLSTK_LOG_ERROR("[SM] Send pairing init info error.");
+        return;
+    }
     SmDftCacheTimestamp(&slink->rmtAddr, NLSTK_DFT_EVENT_SM_T_NEGO_EXCEP, SM_DFT_T_NEGO_SEND_PAIR_INIT_TIME);
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_NEGO_SUCCESS });
 }
 
-static void SendPairingInitInfo(SmSLink_S *slink)
+static bool SendPairingInitInfo(SmSLink_S *slink)
 {
     NLSTK_LOG_DEBUG("[SM] Start to send pairing init info.");
     SmPairInitInfoMsg_S msg = {0};
@@ -271,7 +274,7 @@ static void SendPairingInitInfo(SmSLink_S *slink)
         STM_MFUNC(slink->stm, ProcessMessage, (Message) {
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
-        return;
+        return false;
     }
     (void)memcpy_s(slink->priKey, SM_PRIVATE_KEY_LEN, keyPair.priKey, SM_PRIVATE_KEY_LEN);
     (void)memcpy_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, keyPair.localPubKey, SM_PUBLIC_KEY_LEN);
@@ -279,6 +282,7 @@ static void SendPairingInitInfo(SmSLink_S *slink)
     (void)memcpy_s(msg.tNodePubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
     SmSendMessage(slink, SM_NEGO_PAIRING_INIT_INFO, (const uint8_t *)&msg, sizeof(SmPairInitInfoMsg_S));
     (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+    return true;
 }
 
 static void RecvPairingInitInfo(SmSLink_S *slink, const uint8_t *pkg, size_t size)
@@ -378,6 +382,11 @@ static uint32_t NegoEncAlgo(SmPairReqRspMsg_S *msg, SmSLink_S *slink)
             negoAlgo[SM_KEY_DERIV_ALGO_ABILITY] = (uint8_t)(i + 1);
             break;
         }
+    }
+    if (negoAlgo[SM_ENC_ALGO_ABILITY] == 0 || negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY] == 0 ||
+        negoAlgo[SM_KEY_DERIV_ALGO_ABILITY] == 0) {
+        NLSTK_LOG_ERROR("[SM] Encrypt or integrity or key derive algorithm negotiate fail.");
+        return SM_ERR_AUTHENTICATION_REQUIREMENTS;
     }
 
     /* 密钥协商算法优先选择ECDH-P256（比特位2） */

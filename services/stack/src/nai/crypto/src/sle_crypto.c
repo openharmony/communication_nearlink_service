@@ -191,6 +191,7 @@ static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
             } else {
                 // 不满足压缩格式要求，删除密钥
                 EVP_PKEY_free(pkey);
+                pkey = NULL;
             }
         }
         /* 重复到达上限仍然没有找到符合要求的随机数，报错退出。（大概率原因是随机数异常） */

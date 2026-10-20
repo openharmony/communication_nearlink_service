@@ -30,7 +30,7 @@ static void PassWordRecvGNodeCfmWithRa(SmSLink_S *slink, const uint8_t *pkg, siz
 static void PassWordSendTNodeCfmWithRb(SmSLink_S *slink);
 static void PassWordRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, size_t size);
 
-static void GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8_t *mixWord, uint8_t wordLen);
+static bool GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8_t *mixWord, uint8_t wordLen);
 static bool GenPassWordConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink,
                                   uint8_t *mixWord, uint8_t wordLen, SmConfirmNum_S *confirm);
 static bool CheckPassWordConfirm(SmSLink_S *slink, uint8_t *confirmRecv, uint8_t *randomNum, uint8_t randLen,
@@ -91,7 +91,12 @@ void SmPassWordSetGPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord)
 {
     NLSTK_LOG_DEBUG("[SM][PASSWORD] Set G Password.");
     /* 生成混淆后的口令码 */
-    GenMixPassWord(slink, passWord, slink->gNode.mixWord, SM_MIX_PASSWORD_LEN);
+    if (!GenMixPassWord(slink, passWord, slink->gNode.mixWord, SM_MIX_PASSWORD_LEN)) {
+        NLSTK_LOG_ERROR("[SM][PASSWORD] G mix password generate failed.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        return;
+    }
     /* 生成G节点确认码 */
     SmConfirmNum_S confirm = {0};
     if (!GenPassWordConfirmNum(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
@@ -109,7 +114,12 @@ void SmPassWordSetTPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord)
 {
     NLSTK_LOG_DEBUG("[SM][PASSWORD] Set T Password.");
     /* 生成混淆后的口令码 */
-    GenMixPassWord(slink, passWord, slink->tNode.mixWord, SM_MIX_PASSWORD_LEN);
+    if (!GenMixPassWord(slink, passWord, slink->tNode.mixWord, SM_MIX_PASSWORD_LEN)) {
+        NLSTK_LOG_ERROR("[SM][PASSWORD] T mix password generate failed.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        return;
+    }
     /* 生成T节点确认码 */
     SmConfirmNum_S confirm = {0};
     if (!GenPassWordConfirmNum(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
@@ -259,7 +269,7 @@ static void PassWordRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, siz
                                     Helper Functions
 *****************************************************************************************/
 
-static void GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8_t *mixWord, uint8_t wordLen)
+static bool GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8_t *mixWord, uint8_t wordLen)
 {
     NLSTK_SmDerivedMac_S input = {
         .algo = slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY],
@@ -268,16 +278,24 @@ static void GenMixPassWord(SmSLink_S *slink, NLSTK_SmPassWord_S *passWord, uint8
     (void)memcpy_s(input.key, SM_OCTETS_16, slink->gNode.pubKey, SM_OCTETS_16);
     uint8_t size = passWord->passWordLen;
     uint8_t *buffM = (uint8_t *)SDF_MemZalloc(sizeof(uint8_t) * size);
-    NLSTK_CHECK_RETURN_VOID(buffM != NULL, "[SM][PASSWORD] Generate mix password malloc error.");
+    NLSTK_CHECK_RETURN(buffM != NULL, false, "[SM][PASSWORD] Generate mix password malloc error.");
     for (int i = 0; i < size; i++) {
         buffM[i] = (uint8_t)(passWord->passWord[i]);
     }
     input.buff = buffM;
     input.buffSize = size;
-    SmCmacGenerate(&input, mixWord, wordLen);
+    if (!SmCmacGenerate(&input, mixWord, wordLen)) {
+        NLSTK_LOG_ERROR("[SM][PASSWORD] Generate mix password error.");
+        (void)memset_s(mixWord, wordLen, 0, wordLen);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        (void)memset_s(buffM, size, 0, size);
+        SDF_MemFree(buffM);
+        return false;
+    }
     (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
     (void)memset_s(buffM, size, 0, size);
     SDF_MemFree(buffM);
+    return true;
 }
 
 static bool GenPassWordConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink,
