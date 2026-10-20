@@ -17,6 +17,7 @@
 #include "nearlink_base_host.h"
 #include "nearlink_base_remote_device.h"
 #include "nearlink_observer_adapter.h"
+#include "log.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -30,61 +31,86 @@ NearlinkHost& NearlinkHost::GetInstance()
 NlErrCode NearlinkHost::RegisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
     auto adapter = WrapHostObserver(observer);
+    if (adapter == nullptr) {
+        return NL_ERR_INVALID_PARAM;
+    }
     NlErrCode ret = impl_.RegisterObserver(adapter);
     if (ret != NL_NO_ERROR) {
-        std::shared_ptr<NearlinkBaseHostObserver> unused;
-        UnwrapHostObserver(observer, unused);
+        EraseHostObserver(observer);
     }
     return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
+    NL_CHECK_RETURN_RET(impl_.IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     std::shared_ptr<NearlinkBaseHostObserver> adapter;
     if (!UnwrapHostObserver(observer, adapter)) {
+        HILOGW("observer has not been registered");
         return NL_NO_ERROR;
     }
-    return impl_.DeregisterObserver(adapter);
+    NlErrCode ret = impl_.DeregisterObserver(adapter);
+    if (ret == NL_NO_ERROR) {
+        EraseHostObserver(observer);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::RegisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
     auto adapter = WrapBatteryObserver(observer);
+    if (adapter == nullptr) {
+        return NL_ERR_INVALID_PARAM;
+    }
     NlErrCode ret = impl_.RegisterBatteryObserver(adapter);
     if (ret != NL_NO_ERROR) {
-        std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> unused;
-        UnwrapBatteryObserver(observer, unused);
+        EraseBatteryObserver(observer);
     }
     return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
+    NL_CHECK_RETURN_RET(impl_.IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
+    NL_CHECK_RETURN_RET(impl_.IsBasSupported(), NL_ERR_FEATURE_NOT_SUPPORT, "Battery service is not supported.");
     std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> adapter;
     if (!UnwrapBatteryObserver(observer, adapter)) {
+        HILOGW("battery observer has not been registered");
         return NL_NO_ERROR;
     }
-    return impl_.DeregisterBatteryObserver(adapter);
+    NlErrCode ret = impl_.DeregisterBatteryObserver(adapter);
+    if (ret == NL_NO_ERROR) {
+        EraseBatteryObserver(observer);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::RegisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
     auto adapter = WrapRssiObserver(observer);
+    if (adapter == nullptr) {
+        return NL_ERR_INVALID_PARAM;
+    }
     NlErrCode ret = impl_.RegisterRssiObserver(adapter);
     if (ret != NL_NO_ERROR) {
-        std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> unused;
-        UnwrapRssiObserver(observer, unused);
+        EraseRssiObserver(observer);
     }
     return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
+    NL_CHECK_RETURN_RET(impl_.IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> adapter;
     if (!UnwrapRssiObserver(observer, adapter)) {
+        HILOGW("rssi observer has not been registered");
         return NL_NO_ERROR;
     }
-    return impl_.DeregisterRssiObserver(adapter);
+    NlErrCode ret = impl_.DeregisterRssiObserver(adapter);
+    if (ret == NL_NO_ERROR) {
+        EraseRssiObserver(observer);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::LoadNearlinkSa()
@@ -236,21 +262,29 @@ NlErrCode NearlinkHost::GetLinkRole(const NearlinkRemoteDevice &device, uint8_t 
 NlErrCode NearlinkHost::RegisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
     auto adapter = WrapRemoteDeviceObserver(observer);
+    if (adapter == nullptr) {
+        return NL_ERR_INVALID_PARAM;
+    }
     NlErrCode ret = impl_.RegisterRemoteDeviceObserver(adapter);
     if (ret != NL_NO_ERROR) {
-        std::shared_ptr<NearlinkBaseRemoteDeviceObserver> unused;
-        UnwrapRemoteDeviceObserver(observer, unused);
+        EraseRemoteDeviceObserver(observer);
     }
     return ret;
 }
 
 NlErrCode NearlinkHost::DeregisterRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
+    NL_CHECK_RETURN_RET(impl_.IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> adapter;
     if (!UnwrapRemoteDeviceObserver(observer, adapter)) {
+        HILOGW("remote device observer has not been registered");
         return NL_NO_ERROR;
     }
-    return impl_.DeregisterRemoteDeviceObserver(adapter);
+    NlErrCode ret = impl_.DeregisterRemoteDeviceObserver(adapter);
+    if (ret == NL_NO_ERROR) {
+        EraseRemoteDeviceObserver(observer);
+    }
+    return ret;
 }
 
 NlErrCode NearlinkHost::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDataLen) const

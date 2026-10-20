@@ -27,21 +27,25 @@ namespace Nearlink {
 std::shared_ptr<NearlinkBaseHostObserver> WrapHostObserver(std::shared_ptr<NearlinkHostObserver> observer);
 bool UnwrapHostObserver(
     std::shared_ptr<NearlinkHostObserver> observer, std::shared_ptr<NearlinkBaseHostObserver> &adapter);
+void EraseHostObserver(std::weak_ptr<NearlinkHostObserver> observer);
 
 std::shared_ptr<NearlinkBaseRemoteDeviceObserver> WrapRemoteDeviceObserver(
     std::shared_ptr<NearlinkRemoteDeviceObserver> observer);
 bool UnwrapRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> &adapter);
+void EraseRemoteDeviceObserver(std::weak_ptr<NearlinkRemoteDeviceObserver> observer);
 
 std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> WrapBatteryObserver(
     std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer);
 bool UnwrapBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> &adapter);
+void EraseBatteryObserver(std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> observer);
 
 std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> WrapRssiObserver(
     std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer);
 bool UnwrapRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> &adapter);
+void EraseRssiObserver(std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer);
 
 } // namespace Nearlink
 } // namespace OHOS

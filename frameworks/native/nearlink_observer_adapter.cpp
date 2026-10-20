@@ -15,6 +15,7 @@
 
 #include "nearlink_observer_adapter.h"
 
+#include "log.h"
 #include "nearlink_remote_device.h"
 #include "nearlink_safe_map.h"
 
@@ -34,28 +35,53 @@ public:
 
     void OnStateChanged(const int transport, const int status) override
     {
-        observer_->OnStateChanged(transport, status);
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseHostObserver(observer_);
+            return;
+        }
+        observer->OnStateChanged(transport, status);
     }
     void OnFullStateChanged(const int transport, const int status) override
     {
-        observer_->OnFullStateChanged(transport, status);
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseHostObserver(observer_);
+            return;
+        }
+        observer->OnFullStateChanged(transport, status);
     }
     void OnPairConfirmed(const NearlinkBaseRemoteDevice &device, int reqType, int number) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseHostObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnPairConfirmed(remoteDevice, reqType, number);
+        observer->OnPairConfirmed(remoteDevice, reqType, number);
     }
     void OnDeviceNameChanged(const std::string &deviceName) override
     {
-        observer_->OnDeviceNameChanged(deviceName);
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseHostObserver(observer_);
+            return;
+        }
+        observer->OnDeviceNameChanged(deviceName);
     }
     void OnDeviceAddrChanged(const std::string &address) override
     {
-        observer_->OnDeviceAddrChanged(address);
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseHostObserver(observer_);
+            return;
+        }
+        observer->OnDeviceAddrChanged(address);
     }
 
 private:
-    std::shared_ptr<NearlinkHostObserver> observer_;
+    std::weak_ptr<NearlinkHostObserver> observer_;
 };
 
 class NearlinkRemoteDeviceObserverAdapter : public NearlinkBaseRemoteDeviceObserver {
@@ -66,54 +92,99 @@ public:
 
     void OnAcbStateChanged(const NearlinkBaseRemoteDevice &device, int state, int reason) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnAcbStateChanged(remoteDevice, state, reason);
+        observer->OnAcbStateChanged(remoteDevice, state, reason);
     }
     void OnPairingRequest(const NearlinkBaseRemoteDevice &device, const std::string &passkey, int type) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnPairingRequest(remoteDevice, passkey, type);
+        observer->OnPairingRequest(remoteDevice, passkey, type);
     }
     void OnPairStatusChanged(
         const NearlinkBaseRemoteDevice &device, int preState, int state, int reason) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnPairStatusChanged(remoteDevice, preState, state, reason);
+        observer->OnPairStatusChanged(remoteDevice, preState, state, reason);
     }
     void OnConnectionStateChanged(
         const NearlinkBaseRemoteDevice &device, int preState, int state, int reason) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnConnectionStateChanged(remoteDevice, preState, state, reason);
+        observer->OnConnectionStateChanged(remoteDevice, preState, state, reason);
     }
     void OnRemoteUuidChanged(const NearlinkBaseRemoteDevice &device, const std::vector<UUID> &uuids) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnRemoteUuidChanged(remoteDevice, uuids);
+        observer->OnRemoteUuidChanged(remoteDevice, uuids);
     }
     void OnRemoteNameChanged(const NearlinkBaseRemoteDevice &device, const std::string &deviceName) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnRemoteNameChanged(remoteDevice, deviceName);
+        observer->OnRemoteNameChanged(remoteDevice, deviceName);
     }
     void OnRemoteAliasChanged(const NearlinkBaseRemoteDevice &device, const std::string &alias) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnRemoteAliasChanged(remoteDevice, alias);
+        observer->OnRemoteAliasChanged(remoteDevice, alias);
     }
     void OnReadRemoteRssiEvent(const NearlinkBaseRemoteDevice &device, int rssi, int status) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
+        observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
     }
     void OnLinkFreqBandChanged(const NearlinkBaseRemoteDevice &device, int32_t freqBand) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRemoteDeviceObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnLinkFreqBandChanged(remoteDevice, freqBand);
+        observer->OnLinkFreqBandChanged(remoteDevice, freqBand);
     }
 
 private:
-    std::shared_ptr<NearlinkRemoteDeviceObserver> observer_;
+    std::weak_ptr<NearlinkRemoteDeviceObserver> observer_;
 };
 
 class NearlinkRemoteDeviceBatteryObserverAdapter : public NearlinkBaseRemoteDeviceBatteryObserver {
@@ -123,17 +194,27 @@ public:
 
     void OnGetBatteryLevelEvent(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseBatteryObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnGetBatteryLevelEvent(remoteDevice, batteryLevel);
+        observer->OnGetBatteryLevelEvent(remoteDevice, batteryLevel);
     }
     void OnBatteryLevelChanged(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseBatteryObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnBatteryLevelChanged(remoteDevice, batteryLevel);
+        observer->OnBatteryLevelChanged(remoteDevice, batteryLevel);
     }
 
 private:
-    std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer_;
+    std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> observer_;
 };
 
 class NearlinkRemoteDeviceRssiObserverAdapter : public NearlinkBaseRemoteDeviceRssiObserver {
@@ -143,92 +224,117 @@ public:
 
     void OnReadRemoteRssiEvent(const NearlinkBaseRemoteDevice &device, int rssi, int status) override
     {
+        auto observer = observer_.lock();
+        if (observer == nullptr) {
+            EraseRssiObserver(observer_);
+            return;
+        }
         NearlinkRemoteDevice remoteDevice = ToFrameworkDevice(device);
-        observer_->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
+        observer->OnReadRemoteRssiEvent(remoteDevice, rssi, status);
     }
 
 private:
-    std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer_;
+    std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer_;
 };
 
-NearlinkSafeMap<std::shared_ptr<NearlinkHostObserver>, std::shared_ptr<NearlinkBaseHostObserver>> g_hostObserverMap;
-NearlinkSafeMap<std::shared_ptr<NearlinkRemoteDeviceObserver>, std::shared_ptr<NearlinkBaseRemoteDeviceObserver>>
-    g_remoteDeviceObserverMap;
-NearlinkSafeMap<std::shared_ptr<NearlinkRemoteDeviceBatteryObserver>,
-    std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver>> g_batteryObserverMap;
-NearlinkSafeMap<std::shared_ptr<NearlinkRemoteDeviceRssiObserver>,
-    std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver>> g_rssiObserverMap;
+NearlinkSafeMap<std::weak_ptr<NearlinkHostObserver>, std::shared_ptr<NearlinkBaseHostObserver>,
+    std::owner_less<std::weak_ptr<NearlinkHostObserver>>> g_hostObserverMap;
+NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceObserver>,
+    std::shared_ptr<NearlinkBaseRemoteDeviceObserver>,
+    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceObserver>>> g_remoteDeviceObserverMap;
+NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceBatteryObserver>,
+    std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver>,
+    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceBatteryObserver>>> g_batteryObserverMap;
+NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceRssiObserver>,
+    std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver>,
+    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceRssiObserver>>> g_rssiObserverMap;
 } // namespace
 
 std::shared_ptr<NearlinkBaseHostObserver> WrapHostObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkHostObserverAdapter>(observer);
-    g_hostObserverMap.Insert(observer, adapter);
+    if (!g_hostObserverMap.Insert(observer, adapter)) {
+        HILOGW("observer has been registered");
+        return nullptr;
+    }
     return adapter;
 }
 
 bool UnwrapHostObserver(
     std::shared_ptr<NearlinkHostObserver> observer, std::shared_ptr<NearlinkBaseHostObserver> &adapter)
 {
-    bool found = g_hostObserverMap.GetValue(observer, adapter);
-    if (found) {
-        g_hostObserverMap.Erase(observer);
-    }
-    return found;
+    return g_hostObserverMap.GetValue(observer, adapter);
+}
+
+void EraseHostObserver(std::weak_ptr<NearlinkHostObserver> observer)
+{
+    g_hostObserverMap.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceObserver> WrapRemoteDeviceObserver(
     std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceObserverAdapter>(observer);
-    g_remoteDeviceObserverMap.Insert(observer, adapter);
+    if (!g_remoteDeviceObserverMap.Insert(observer, adapter)) {
+        HILOGW("remote device observer has been registered");
+        return nullptr;
+    }
     return adapter;
 }
 
 bool UnwrapRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> &adapter)
 {
-    bool found = g_remoteDeviceObserverMap.GetValue(observer, adapter);
-    if (found) {
-        g_remoteDeviceObserverMap.Erase(observer);
-    }
-    return found;
+    return g_remoteDeviceObserverMap.GetValue(observer, adapter);
+}
+
+void EraseRemoteDeviceObserver(std::weak_ptr<NearlinkRemoteDeviceObserver> observer)
+{
+    g_remoteDeviceObserverMap.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> WrapBatteryObserver(
     std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceBatteryObserverAdapter>(observer);
-    g_batteryObserverMap.Insert(observer, adapter);
+    if (!g_batteryObserverMap.Insert(observer, adapter)) {
+        HILOGW("battery observer has been registered");
+        return nullptr;
+    }
     return adapter;
 }
 
 bool UnwrapBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> &adapter)
 {
-    bool found = g_batteryObserverMap.GetValue(observer, adapter);
-    if (found) {
-        g_batteryObserverMap.Erase(observer);
-    }
-    return found;
+    return g_batteryObserverMap.GetValue(observer, adapter);
+}
+
+void EraseBatteryObserver(std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
+{
+    g_batteryObserverMap.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> WrapRssiObserver(
     std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceRssiObserverAdapter>(observer);
-    g_rssiObserverMap.Insert(observer, adapter);
+    if (!g_rssiObserverMap.Insert(observer, adapter)) {
+        HILOGW("rssi observer has been registered");
+        return nullptr;
+    }
     return adapter;
 }
 
 bool UnwrapRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> &adapter)
 {
-    bool found = g_rssiObserverMap.GetValue(observer, adapter);
-    if (found) {
-        g_rssiObserverMap.Erase(observer);
-    }
-    return found;
+    return g_rssiObserverMap.GetValue(observer, adapter);
+}
+
+void EraseRssiObserver(std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer)
+{
+    g_rssiObserverMap.Erase(observer);
 }
 
 } // namespace Nearlink
