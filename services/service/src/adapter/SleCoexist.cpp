@@ -19,7 +19,7 @@
 #include "SleUtils.h"
 #include "ThreadUtil.h"
 #include "cm_api.h"
-#include "interface_scan_service"
+#include "interface_scan_service.h"
 #include "nearlink_def.h"
 #include "raw_address.h"
 #ifdef NEARLINK_POWER_MGR_ENABLE
