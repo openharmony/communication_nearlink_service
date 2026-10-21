@@ -52,6 +52,10 @@
 
 #define TEST_DEFAULT_NUM 30
 #define MAX_LCID 2
+/* PR#331 编译修复：定义在调用点之后，补前向声明 */
+void FuzzDtapSchedulerFire(uint8_t* data, size_t size);
+void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
+
 #define MAX_TCID 5
 
 #define TEST_DEFAULT_ACB_NUM 100

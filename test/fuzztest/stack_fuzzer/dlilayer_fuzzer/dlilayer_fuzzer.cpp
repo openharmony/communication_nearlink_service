@@ -35,6 +35,9 @@
 #include "dli_sapi.h"
 #include "SleDliLayerAdapter.h"
 
+/* PR#331 编译修复：定义在调用点之后，补前向声明 */
+void FuzzDliLayerFragmentSeq(uint8_t* data, size_t size);
+
 #define DLI_TEST_SEND_MAX_LEN 100
 static SleDliCallbackFunc g_func = {NULL, NULL};
 extern "C" int SleHalInit(SleDliCallbackFunc *func)
@@ -273,7 +276,7 @@ namespace OHOS {
             }
             if (g_func.dliPacketReceived != NULL) {
                 SlePacket packet = {frame, frameLen};
-                g_func.dliPacketReceived(DLI_DATATYPE_ACB, &packet);
+                g_func.dliPacketReceived(static_cast<SlePacketType>(DLI_DATATYPE_ACB), &packet);
             }
         }
 
@@ -285,7 +288,7 @@ namespace OHOS {
             DLI_ENCODE2BYTE(evtFrame, DLI_CMD_STATUS_EVT);
             DLI_ENCODE2BYTE(evtFrame + DLI_HEADER, cmdOpcode);
             SlePacket evtPacket = {evtFrame, (uint32_t)sizeof(evtFrame)};
-            g_func.dliPacketReceived(DLI_DATATYPE_EVENT, &evtPacket);
+            g_func.dliPacketReceived(static_cast<SlePacketType>(DLI_DATATYPE_EVENT), &evtPacket);
         }
 
         /* SplitData 直调（公开 API，dli_layer.h:61；红蓝对抗确认 DataSend 链不触发

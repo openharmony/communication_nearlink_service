@@ -256,7 +256,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
     uint8_t cnt = cntTable[provider.ConsumeIntegral<uint8_t>() % sizeof(cntTable)];
 
     DLI_ICBParam icbParams[SLE_ICB_MAX_NUM] = {{0}};
-    struct DLI_ICB icbInners[SLE_ICB_MAX_NUM] = {{0}}; /* DLI_ICBParam.param 指向的内层结构 */
+    DLI_ICBParam::DLI_ICB icbInners[SLE_ICB_MAX_NUM] = {{0}}; /* DLI_ICBParam.param 指向的内层结构 */
     DLI_ICBChannel channels[SLE_ICB_MAX_NUM] = {{0}};
     for (uint8_t i = 0; i < SLE_ICB_MAX_NUM; i++) {
         icbParams[i].id = provider.ConsumeIntegral<uint8_t>();
@@ -279,7 +279,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     DLI_ICGParam icgParam = {0};
     icgParam.type = provider.ConsumeIntegral<uint8_t>();
-    icgParam.opCode = provider.ConsumeIntegral<uint16_t>();
+    icgParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
     icgParam.id = provider.ConsumeIntegral<uint8_t>();
     icgParam.sduIntervalG2T = provider.ConsumeIntegral<uint32_t>();
     icgParam.sduIntervalT2G = provider.ConsumeIntegral<uint32_t>();
@@ -295,7 +295,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     DLI_ICGAutorateParam autorate = {0};
     autorate.type = provider.ConsumeIntegral<uint8_t>();
-    autorate.opCode = provider.ConsumeIntegral<uint16_t>();
+    autorate.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
     autorate.id = provider.ConsumeIntegral<uint8_t>();
     autorate.labelId = provider.ConsumeIntegral<uint8_t>();
     autorate.icbInterval = provider.ConsumeIntegral<uint16_t>();
@@ -313,7 +313,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     DLI_ICBConnectionParam connParam = {0};
     connParam.type = provider.ConsumeIntegral<uint8_t>();
-    connParam.opCode = provider.ConsumeIntegral<uint16_t>();
+    connParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
     connParam.id = provider.ConsumeIntegral<uint8_t>();
     connParam.labelId = provider.ConsumeIntegral<uint8_t>();
     connParam.channelCnt = cnt;
@@ -331,14 +331,14 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     DLI_AcceptICBReqParam acceptParam = {0};
     acceptParam.type = provider.ConsumeIntegral<uint8_t>();
-    acceptParam.opCode = provider.ConsumeIntegral<uint16_t>();
+    acceptParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
     acceptParam.connHandle = channels[0].connHandle;
     g_fuzzLastCmdOpcode = acceptParam.opCode;
     (void)DLI_AcceptICBReq(&acceptParam);
     (void)DLI_AcceptICBReq(nullptr);
 
-    DLI_RejectICBReqParam rejectParam = {0};
-    rejectParam.opCode = provider.ConsumeIntegral<uint16_t>();
+    DLI_RejectICBReqParam rejectParam = {};
+    rejectParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
     rejectParam.regOpCode = provider.ConsumeIntegral<uint8_t>();
     rejectParam.id = provider.ConsumeIntegral<uint8_t>();
     rejectParam.connHandle = channels[0].connHandle;
