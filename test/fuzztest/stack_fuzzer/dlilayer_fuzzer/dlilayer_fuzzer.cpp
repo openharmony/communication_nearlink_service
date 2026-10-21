@@ -35,8 +35,6 @@
 #include "dli_sapi.h"
 #include "SleDliLayerAdapter.h"
 
-/* PR#331 编译修复：定义在调用点之后，补前向声明 */
-void FuzzDliLayerFragmentSeq(uint8_t* data, size_t size);
 
 #define DLI_TEST_SEND_MAX_LEN 100
 static SleDliCallbackFunc g_func = {NULL, NULL};
@@ -74,6 +72,9 @@ extern "C" void SleHalClose(void)
 }
 
 namespace OHOS {
+/* PR#331 编译修复（二轮）：定义在调用点之后，OHOS 作用域内补前向声明 */
+void FuzzDliLayerFragmentSeq(uint8_t* data, size_t size);
+
     const uint16_t MIN_ACB_LEN = 3;
     const uint16_t TEST_DEFAULT_NUM = 10;
     const uint32_t DLI_FUZZ_TEST_SLEEP_TIME = 100;

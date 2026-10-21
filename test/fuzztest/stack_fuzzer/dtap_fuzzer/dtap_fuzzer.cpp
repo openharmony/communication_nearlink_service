@@ -52,9 +52,6 @@
 
 #define TEST_DEFAULT_NUM 30
 #define MAX_LCID 2
-/* PR#331 编译修复：定义在调用点之后，补前向声明 */
-void FuzzDtapSchedulerFire(uint8_t* data, size_t size);
-void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
 
 #define MAX_TCID 5
 
@@ -296,6 +293,10 @@ extern "C" uint32_t DLI_SplitData(DLI_DataStru *data, SDF_Buff_S *fragmentBuf[],
 }
 
 namespace OHOS {
+/* PR#331 编译修复（二轮）：定义在调用点之后，OHOS 作用域内补前向声明 */
+void FuzzDtapSchedulerFire(uint8_t* data, size_t size);
+void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
+
     SDF_Buff_S *FuzzDtapCreateBuff(uint8_t* data, size_t size)
     {
         SDF_Buff_S *buff = SDF_BuffNewWithReserve(static_cast<uint32_t>(size));

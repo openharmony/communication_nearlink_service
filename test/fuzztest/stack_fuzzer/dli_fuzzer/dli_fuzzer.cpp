@@ -339,7 +339,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     DLI_RejectICBReqParam rejectParam = {};
     rejectParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
-    rejectParam.regOpCode = provider.ConsumeIntegral<uint8_t>();
+    rejectParam.regOpCode = static_cast<DLI_RegOpcode>(provider.ConsumeIntegral<uint8_t>());
     rejectParam.id = provider.ConsumeIntegral<uint8_t>();
     rejectParam.connHandle = channels[0].connHandle;
     rejectParam.reason = provider.ConsumeIntegral<uint8_t>();
@@ -373,8 +373,8 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 
     uint16_t removeOp = provider.ConsumeIntegral<uint16_t>();
     g_fuzzLastCmdOpcode = removeOp;
-    (void)DLI_RemoveICGParam(removeOp, &cbkParam);
-    (void)DLI_RemoveICGParam(removeOp, nullptr);
+    (void)DLI_RemoveICGParam(static_cast<DLI_CmdOpcode>(removeOp), &cbkParam);
+    (void)DLI_RemoveICGParam(static_cast<DLI_CmdOpcode>(removeOp), nullptr);
 
     DLI_CmdParams cmdParams = {0};
     cmdParams.cmd = provider.ConsumeIntegral<uint16_t>();
@@ -407,7 +407,7 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 void FuzzDliExtWrapperApi(uint8_t *data, size_t size)
 {
     FuzzedDataProvider provider(data, size);
-    DLI_AddrExtStru addrExt = {0};
+    DLI_AddrExtStru addrExt = {};
     for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
         addrExt.addr[i] = provider.ConsumeIntegral<uint8_t>();
     }
