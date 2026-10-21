@@ -139,6 +139,7 @@ ohos_fuzztest("DliFuzzTest") {
 
     "$NEW_STACK_DIR/utils/src/crc16.c",
     "$NEW_STACK_DIR/utils/src/time_utils.c",
+    "$NEW_STACK_DIR/utils/src/parameter_wrapper.c",
 
     "$NEARLINK_ROOT/services/hardware/src/SleDliSnoop.cpp",
     "$NEARLINK_ROOT/services/hardware/src/SleDliThreadUtil.cpp",
