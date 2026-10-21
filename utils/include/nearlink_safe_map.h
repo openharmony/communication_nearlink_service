@@ -16,9 +16,7 @@
 #ifndef NEARLINK_SAFE_MAP_H
 #define NEARLINK_SAFE_MAP_H
 
-#include <functional>
 #include <map>
-#include <memory>
 #include <mutex>
 
 namespace OHOS {
@@ -27,7 +25,7 @@ namespace Nearlink {
 /**
  * @brief A thread-safe map.
  */
-template <typename K, typename V, typename Compare = std::less<K>>
+template <typename K, typename V>
 class NearlinkSafeMap {
 public:
     NearlinkSafeMap() {}
@@ -215,7 +213,7 @@ public:
 
 private:
     std::mutex mutex_;
-    std::map<K, V, Compare> map_;
+    std::map<K, V> map_;
 };
 } // namespace Nearlink
 } // namespace OHOS
