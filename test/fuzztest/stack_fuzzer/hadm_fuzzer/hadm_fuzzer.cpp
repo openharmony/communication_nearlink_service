@@ -340,7 +340,12 @@ namespace OHOS {
 
     void FuzzHADMEvtReportSetConfig(void)
     {
+        /* g_hadmCbkList 由 mock DLI_CmdCbkReg 在 HadmInit 时按
+         * hadm_listen_dli.c 注册表填充；未注册时跳过避免空指针。 */
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_CONFIG_PARAM];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -353,6 +358,9 @@ namespace OHOS {
     void FuzzHADMEvtReportSetEnable(void)
     {
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_EN];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -429,6 +437,11 @@ namespace OHOS {
 
         uint32_t maxNum = fdp.ConsumeIntegral<uint32_t>();
         HadmGetSoundingAddrInfo(&addr, maxNum);
+
+        /* 量测配置/使能命令完成上报（原死代码接入）：走
+         * hadm_listen_dli.c EvtReportSetCsConfig/EvtReportSetCsEnable 路径。 */
+        FuzzHADMEvtReportSetConfig();
+        FuzzHADMEvtReportSetEnable();
 
         HadmDeInitLinkCbManager();
     }

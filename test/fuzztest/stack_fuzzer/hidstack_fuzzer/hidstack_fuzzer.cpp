@@ -19,6 +19,7 @@
 #include "nlstk_log.h"
 #include "nlstk_init_api.h"
 #include "hid_client_api.h"
+#include "hid_client_init.h"
 #include "hidstack_fuzzer.h"
 #include "SleDliThreadUtil.h"
 #include "fuzzer/FuzzedDataProvider.h"
@@ -176,8 +177,13 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argc;
     (void) argv;
 
-    NLSTK_InitStack();
-    NLSTK_EnableStack();
+    /* HidEnable→HidDeviceInit 初始化设备向量（主栈路径 nlstk_init.c:614 会调，
+     * fuzzer 内 ext 失败回退后需自行补）；返回值检查避免静默半初始化。 */
+    if (NLSTK_InitStack() != NLSTK_ERRCODE_SUCCESS) {
+        (void)HidEnable();
+    } else {
+        (void)NLSTK_EnableStack();
+    }
     NLSTK_LOG_INFO("hidstack_fuzzer init success");
     return 0;
 }

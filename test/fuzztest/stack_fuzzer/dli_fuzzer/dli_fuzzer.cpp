@@ -535,6 +535,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         advData->advHandle = provider.ConsumeIntegral<uint8_t>();
         advData->operation = provider.ConsumeIntegral<uint8_t>();
         advData->selection = 0;
+        advData->advDataLen = (uint8_t)remainData.size();
         (void)memcpy_s(advData->advData, remainData.size(), remainData.data(), remainData.size());
         DLI_SetAdvData(advData);
         SDF_MemFree(advData);
@@ -547,6 +548,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         scanRspData->advHandle = provider.ConsumeIntegral<uint8_t>();
         scanRspData->operation = provider.ConsumeIntegral<uint8_t>();
         scanRspData->selection = 0;
+        scanRspData->scanRspDataLen = (uint8_t)remainData.size();
         (void)memcpy_s(scanRspData->scanRspData, remainData.size(), remainData.data(), remainData.size());
         DLI_SetScanRspData(scanRspData);
         SDF_MemFree(scanRspData);

@@ -15,6 +15,7 @@
 
 #include "cmicb_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
+#include "cm_api.h"
 #include "cm_icb_api.h"
 #include "cm_icb_inner_api.h"
 #include "nai_log.h"
@@ -271,8 +272,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
-    NLSTK_InitStack();
-    NLSTK_EnableStack();
+    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚（nlstk_init.c:520）后
+     * CM_ICBIsInited 恒 false；模块级 Init/Enable 不依赖 ext，回退后 ICB API 可达。 */
+    if (NLSTK_InitStack() != NLSTK_ERRCODE_SUCCESS) {
+        (void)CM_Init();
+        (void)CM_Enable();
+    } else {
+        (void)NLSTK_EnableStack();
+    }
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
     CM_ICBCallback cb = {0};

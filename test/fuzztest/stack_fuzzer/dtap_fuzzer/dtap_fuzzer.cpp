@@ -276,19 +276,19 @@ namespace OHOS {
             case DTAP_FRAME_SIMPLEX_AGGR:
             case DTAP_FRAME_SIMPLEX_FRAG:
                 simFragHeader = (DTAP_SimplexFragFrameHeader_S *)dtapFrame->header;
-                simFragHeader->txSeq = provider.ConsumeIntegral<uint16_t>() & 0xFFFC;
+                simFragHeader->txSeq = provider.ConsumeIntegral<uint16_t>();
                 simFragHeader->sar = provider.ConsumeIntegral<uint16_t>() & 0x0003;
                 break;
             case DTAP_FRAME_DUPLEX_AGGR:
             case DTAP_FRAME_DUPLEX_FRAG:
                 dupFragHeader = (DTAP_DuplexFragFrameHeader_S *)dtapFrame->header;
-                dupFragHeader->txSeq = provider.ConsumeIntegral<uint16_t>() & 0xFFFC;
+                dupFragHeader->txSeq = provider.ConsumeIntegral<uint16_t>();
                 dupFragHeader->sar = provider.ConsumeIntegral<uint16_t>() & 0x0003;
-                dupFragHeader->reqSeq = provider.ConsumeIntegral<uint16_t>() & 0xFFFC;
+                dupFragHeader->reqSeq = provider.ConsumeIntegral<uint16_t>();
                 break;
             case DTAP_FRAME_ACK:
                 ackHeader = (DTAP_AckFrameHeader_S *)dtapFrame->header;
-                ackHeader->reqSeq = provider.ConsumeIntegral<uint16_t>() & 0xFFFC;
+                ackHeader->reqSeq = provider.ConsumeIntegral<uint16_t>();
                 ackHeader->sBit = provider.ConsumeIntegral<uint16_t>() & 0x0001;
                 break;
             default:
