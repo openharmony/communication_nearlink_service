@@ -15,6 +15,7 @@
 
 #include "nearlink_observer_adapter.h"
 
+#include <functional>
 #include <list>
 #include <mutex>
 
@@ -266,9 +267,7 @@ bool ObserverOwnerEquals(const std::weak_ptr<Observer> &lhs, const std::weak_ptr
     return !lhs.owner_before(rhs) && !rhs.owner_before(lhs);
 }
 
-// A thread-safe list holding observer adapters, replacing the previous
-// key-value map; lookups and erases walk the list comparing the embedded
-// weak observer of each adapter.
+// A thread-safe list holding observer adapters, replacing the key-value map.
 template <typename Adapter, typename Observer>
 class ObserverAdapterList {
 public:
@@ -285,13 +284,15 @@ public:
         return true;
     }
 
-    bool GetValue(const std::shared_ptr<Observer> &observer, std::shared_ptr<Adapter> &adapter)
+    // Takes the matched adapter out via func, like NearlinkSafeList::Find.
+    bool Find(const std::shared_ptr<Observer> &observer,
+        const std::function<void(const std::shared_ptr<Adapter> &)> &func)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         std::weak_ptr<Observer> key = observer;
         for (const auto &item : list_) {
             if (ObserverOwnerEquals(item->GetObserver(), key)) {
-                adapter = item;
+                func(item);
                 return true;
             }
         }
@@ -334,7 +335,8 @@ std::shared_ptr<NearlinkBaseHostObserver> WrapHostObserver(std::shared_ptr<Nearl
 bool UnwrapHostObserver(
     std::shared_ptr<NearlinkHostObserver> observer, std::shared_ptr<NearlinkBaseHostObserver> &adapter)
 {
-    return g_hostObserverList.GetValue(observer, adapter);
+    return g_hostObserverList.Find(observer,
+        [&adapter](const std::shared_ptr<NearlinkHostObserverAdapter> &item) { adapter = item; });
 }
 
 void EraseHostObserver(std::weak_ptr<NearlinkHostObserver> observer)
@@ -356,7 +358,8 @@ std::shared_ptr<NearlinkBaseRemoteDeviceObserver> WrapRemoteDeviceObserver(
 bool UnwrapRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> &adapter)
 {
-    return g_remoteDeviceObserverList.GetValue(observer, adapter);
+    return g_remoteDeviceObserverList.Find(observer,
+        [&adapter](const std::shared_ptr<NearlinkRemoteDeviceObserverAdapter> &item) { adapter = item; });
 }
 
 void EraseRemoteDeviceObserver(std::weak_ptr<NearlinkRemoteDeviceObserver> observer)
@@ -378,7 +381,8 @@ std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> WrapBatteryObserver(
 bool UnwrapBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> &adapter)
 {
-    return g_batteryObserverList.GetValue(observer, adapter);
+    return g_batteryObserverList.Find(observer,
+        [&adapter](const std::shared_ptr<NearlinkRemoteDeviceBatteryObserverAdapter> &item) { adapter = item; });
 }
 
 void EraseBatteryObserver(std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
@@ -400,7 +404,8 @@ std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> WrapRssiObserver(
 bool UnwrapRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> &adapter)
 {
-    return g_rssiObserverList.GetValue(observer, adapter);
+    return g_rssiObserverList.Find(observer,
+        [&adapter](const std::shared_ptr<NearlinkRemoteDeviceRssiObserverAdapter> &item) { adapter = item; });
 }
 
 void EraseRssiObserver(std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer)
