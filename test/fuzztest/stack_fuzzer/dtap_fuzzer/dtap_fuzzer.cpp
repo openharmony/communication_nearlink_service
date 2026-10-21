@@ -25,6 +25,7 @@
 #include "cm_trans_channel_mgr.h"
 #include "cp_worker.h"
 #include "dli_errno.h"
+#include "dli_event.h"
 #include "dli_layer.h"
 #include "dli_layer_callback.h"
 #include "dli_layer_config.h"
@@ -125,10 +126,14 @@ DLI_RecvAcbHandlerPtr g_FuzzDtapDataRecv = DTAP_DataRecv;
 CM_TransChannelCbk g_FuzzTransChannelCbk = nullptr;
 uint8_t g_headerLen = 0;
 uint8_t g_frameType = 0;
+int g_fuzzRecvCbRet = 0;
 
 extern "C" int DTAP_DataRecvCbStub(DTAP_Data_Info_S *info, SDF_Buff_S *buff)
 {
-    return 0;
+    (void)info;
+    (void)buff;
+    /* FUZZ-017(C3): recvCb 可控返回——非零（通道满）驱动可靠模式拒收/重传路径。 */
+    return g_fuzzRecvCbRet;
 }
 
 extern "C" void CM_UnRegTransChannelListener(void)
@@ -193,17 +198,82 @@ extern "C" uint16_t DLI_DataLenGet(DLI_DataType type)
     return TEST_DEFAULT_ACB_LEN;
 }
 
+/* FUZZ-016: 原两个 stub 空吞注册——产品侧（dtap_scheduler.c:438/:443/:446）注册的
+ * 连接/断开/配额回调全部丢失，调度器 lcid 节点与配额路径整块不可达。改为保存回调，
+ * 由 FuzzFire* 构造事件点火真实 DTAP_DLIConnectCbk/DisconnectCbk/DataNumChangecbk。 */
+static CM_DliCbk g_dliAdapterCbks[CM_DLI_ADAPTER_MODULE_MAX][CM_DLI_ADAPTER_TYPE_MAX] = {{nullptr}};
+static DLI_DataNumChangecbk g_fuzzDataNumChangeCbk = nullptr;
+
 extern "C" void DLI_DataNumChangeRegister(DLI_DataNumChangecbk cbk)
-{}
+{
+    g_fuzzDataNumChangeCbk = cbk;
+}
 
 extern "C" uint32_t CM_RegisterDliAdapterCbk(CM_DLI_ADAPTER_MODULE module, CM_DLI_ADAPTER_TYPE type, CM_DliCbk cbk)
 {
+    if (module < CM_DLI_ADAPTER_MODULE_MAX && type < CM_DLI_ADAPTER_TYPE_MAX && cbk != nullptr) {
+        g_dliAdapterCbks[module][type] = cbk;
+    }
     return 0;
 }
 
 extern "C" uint32_t CM_UnregisterDliAdapterCbk(CM_DLI_ADAPTER_MODULE module, CM_DLI_ADAPTER_TYPE type)
 {
+    if (module < CM_DLI_ADAPTER_MODULE_MAX && type < CM_DLI_ADAPTER_TYPE_MAX) {
+        g_dliAdapterCbks[module][type] = nullptr;
+    }
     return 0;
+}
+
+/* 点火：连接完成事件 → 真实 DTAP_DLIConnectCbk → DTAP_AddLcidBufferNode + 配额重算。 */
+static void FuzzFireDliConnect(uint16_t connHandle)
+{
+    CM_DliCbk cbk = g_dliAdapterCbks[CM_DLI_ADAPTER_DTAP][CM_DLI_ADAPTER_CONNECT];
+    if (cbk == nullptr) {
+        return;
+    }
+    DLI_ConnectionCompleteEvt evt = {0};
+    evt.status = 0;
+    ENCODE2BYTE_LITTLE((uint8_t *)&evt.connHandle, connHandle);
+    DLI_ExecuteCmdRetParam cmdRes = {0};
+    cmdRes.eventParameter = &evt;
+    cmdRes.size = (uint32_t)sizeof(evt);
+    cbk(nullptr, DLI_SUCCESS, &cmdRes);
+}
+
+/* 点火：断开事件 → DTAP_DLIDisconnectCbk → 删 lcid 节点并回吐未确认计数。 */
+static void FuzzFireDliDisconnect(uint16_t connHandle)
+{
+    CM_DliCbk cbk = g_dliAdapterCbks[CM_DLI_ADAPTER_DTAP][CM_DLI_ADAPTER_DISCONNECT];
+    if (cbk == nullptr) {
+        return;
+    }
+    DLI_DisconnectEvt evt = {0};
+    evt.status = 0;
+    evt.reason = 0;
+    ENCODE2BYTE_LITTLE((uint8_t *)&evt.connHandle, connHandle);
+    DLI_ExecuteCmdRetParam cmdRes = {0};
+    cmdRes.eventParameter = &evt;
+    cmdRes.size = (uint32_t)sizeof(evt);
+    cbk(nullptr, DLI_SUCCESS, &cmdRes);
+}
+
+/* 点火：ACB 配额变更 → 真实 DTAP_DLIDataNumChangecbk（g_apBufferNum 更新+重算）。 */
+static void FuzzFireDataNumChange(uint16_t dataNum)
+{
+    if (g_fuzzDataNumChangeCbk != nullptr) {
+        g_fuzzDataNumChangeCbk(ACB_DATA_TYPE, dataNum);
+    }
+}
+
+/* 点火：NOCP 完成包数事件，经真实注册表（DLI_RegNOCPEventCbk/dli_event.c）驱
+ * DTAP_SendCompleteCbk（connHandle/num 字段为本地值，NotifySendComplete 不再解码）。 */
+static void FuzzFireNocp(uint16_t connHandle, uint8_t numCompletedPackets)
+{
+    DLI_NumberOfCompletedPacketsEvt evt = {0};
+    evt.connHandle = connHandle;
+    evt.numCompletedPackets = numCompletedPackets;
+    DLI_NumberOfCompletedPacketsCbk(nullptr, &evt, (uint32_t)sizeof(evt), DLI_NUMBER_OF_COMPLETED_PACKETS_EVT);
 }
 
 extern "C" uint32_t DLI_GetDataFragmentNums(SDF_Buff_S *buf)
@@ -387,6 +457,8 @@ namespace OHOS {
     {
         FuzzedDataProvider provider(data, size);
         uint8_t tcid = provider.ConsumeIntegral<uint8_t>();
+        /* FUZZ-017(C3): 两档 recvCb 返回——0（正常）/ TRANS_CHANNEL_FULL（通道满）。 */
+        g_fuzzRecvCbRet = provider.ConsumeBool() ? DTAP_TRANS_RELIABLE_TRANS_CHANNEL_FULL : 0;
         DTAP_Data_Send_Cbks_S cbks = {0};
 
         DTAP_UnregisterDataRecvCb(tcid);
@@ -793,6 +865,96 @@ namespace OHOS {
         FuzzDtapChannelSetStatus(data, size);
         FuzzDtapDataSend(data, size);
         FuzzDtapDataRecv(data, size);
+
+        // dtap scheduler fuzz（FUZZ-016/017）
+        FuzzDtapSchedulerFire(data, size);
+        FuzzDtapDataPathLifecycle(data, size);
+    }
+
+    /* FUZZ-016: 调度器点火——connect/配额/NOCP/disconnect 驱动 lcid buffer 节点
+     * 全生命周期；差异化句柄保证 ≥2 节点共存与配额重算分支。 */
+    void FuzzDtapSchedulerFire(uint8_t* data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        uint16_t lcid1 = provider.ConsumeIntegral<uint16_t>();
+        uint16_t lcid2 = (uint16_t)((lcid1 ^ provider.ConsumeIntegral<uint16_t>()) | 1u);
+        FuzzFireDliConnect(lcid1);
+        FuzzFireDliConnect(lcid1); /* 重复连接：AddLcidBufferNode 去重分支 */
+        FuzzFireDliConnect(lcid2);
+        FuzzFireDataNumChange(provider.ConsumeIntegral<uint16_t>());
+        FuzzFireNocp(lcid1, provider.ConsumeIntegral<uint8_t>());
+        FuzzFireNocp(lcid2, provider.ConsumeIntegral<uint8_t>());
+        FuzzFireNocp(lcid1, 0); /* 零完成数边界 */
+        FuzzFireDliDisconnect(lcid1);
+        FuzzFireDliDisconnect(lcid2);
+        FuzzFireDliDisconnect(lcid2); /* 重复断开：空表分支 */
+    }
+
+    /* FUZZ-017(C2): 连接态全链——三模式建通道→点火连接/配额→多包 DataSend（真实
+     * 入队/出队/发送计数）→NOCP 完成回执→通道释放→断链。FuzzDtapOperateChannel
+     * 既有参数域为 UINT16_MAX，本序列补小值域（mps/mtu/超时）互补覆盖。 */
+    void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
+        uint8_t tcid = provider.ConsumeIntegral<uint8_t>();
+        uint8_t castMode = provider.ConsumeIntegral<uint8_t>();
+        uint8_t pi = provider.ConsumeIntegral<uint8_t>();
+        static const uint8_t modes[] = {
+            CM_TRANS_MODE_BASIC, CM_TRANS_MODE_TRANSPARENT, CM_TRANS_MODE_STREAM, CM_TRANS_MODE_RELIABLE,
+        };
+        for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+            FuzzDtapOperateChannel(castMode, lcid, tcid, modes[i], CM_TRANS_CHANNEL_STATE_ACTIVATED);
+        }
+        /* FUZZ-017(C3): 小值域通道——mps/mtu=10、可靠模式 txWindow=0、
+         * reorder/retrans/rspTimeout=1-10ms（与 OperateChannel 的 UINT16_MAX 大值域互补）。 */
+        if (g_FuzzTransChannelCbk != nullptr) {
+            SDF_Traits traits = { .dtor = nullptr };
+            SDF_Vector_S *smallVec = SDF_CreateVector(traits);
+            CM_TransChan_S smallChan = {0};
+            if (smallVec != nullptr) {
+                smallChan.castMode = castMode;
+                smallChan.lcid = lcid;
+                smallChan.srcTcid = tcid;
+                smallChan.dstTcid = tcid;
+                smallChan.config.transMode = CM_TRANS_MODE_RELIABLE;
+                smallChan.config.mps = 10;
+                smallChan.config.mtu = 10;
+                smallChan.config.reliableMode.reorderTimeout = (uint16_t)(1 + (pi % 10));
+                smallChan.config.reliableMode.crcInit = TEST_CRC16_INIT;
+                smallChan.config.reliableMode.retransTimeout = (uint16_t)(1 + (pi % 10));
+                smallChan.config.reliableMode.rspTimeout = (uint16_t)(1 + (pi % 10));
+                smallChan.config.reliableMode.txWindow = 0;
+                smallChan.config.reliableMode.maxTxThreshold = 1; /* 达上限即断链分支 */
+                SDF_VectorEmplaceBack(smallVec, &smallChan);
+                CM_TransChannelStateList_S smallParam = {0};
+                smallParam.channelVector = smallVec;
+                smallParam.result = CM_TRANS_CHANNEL_STATE_ACTIVATED;
+                g_FuzzTransChannelCbk(&smallParam);
+                SDF_DestroyVector(smallVec);
+            }
+        }
+        FuzzFireDliConnect(lcid);
+        FuzzFireDataNumChange((uint16_t)(provider.ConsumeIntegral<uint8_t>() % TEST_DEFAULT_ACB_NUM));
+        for (uint8_t i = 0; i < 4; i++) { /* 多包：驱动配额扣减/队列上限分支 */
+            DTAP_Data_S dtapData = {0};
+            dtapData.pi = pi;
+            dtapData.lcid = lcid;
+            dtapData.tcid = tcid;
+            dtapData.buff = FuzzDtapCreateBuff(data, size);
+            if (dtapData.buff == nullptr) {
+                continue;
+            }
+            uint32_t ret = DTAP_DataSend(&dtapData);
+            if (ret != DTAP_SUCCESS) {
+                SDF_BuffFree(dtapData.buff);
+            }
+        }
+        FuzzFireNocp(lcid, provider.ConsumeIntegral<uint8_t>());
+        for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+            FuzzDtapOperateChannel(castMode, lcid, tcid, modes[i], CM_TRANS_CHANNEL_STATE_RELEASED);
+        }
+        FuzzFireDliDisconnect(lcid);
     }
 }
 

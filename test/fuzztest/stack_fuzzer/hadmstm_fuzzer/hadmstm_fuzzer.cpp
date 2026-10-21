@@ -36,6 +36,7 @@
 #include "cm_api.h"
 #include "hadm_config_cm.h"
 #include "hadm_link_manager.h"
+#include "cm_logic_link_listener_mgr.h"
 #include "sdf_worker.h"
 #include "cm_logic_link_listener_mgr.h"
 #include "hadm_user_proc.h"
@@ -113,6 +114,32 @@ extern "C" void ScheduleTimerDel(int handle)
 }
 
 namespace OHOS {
+    /* FUZZ-014: CM 公共分发器直调——RemoteFeatures/ConnUpdateParam 两分发器
+     * （cm_logic_link_listener_mgr.c:88-107 真实现，遍历 g_logicLinkCbks 静态
+     * 数组）此前零调用，各模块注册的能力/参数回调无真实分发。 */
+    void FuzzHadmStmPublicDispatchers(uint8_t* data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+        CM_LogicLinkRemoteFeatures_S rf = {0};
+        rf.lcid = fdp.ConsumeIntegral<uint16_t>();
+        rf.addr = g_addr;
+        rf.features[8] = 0x4; /* 对端支持测距能力位（hadm_listen_cm.c:74-77） */
+        CM_ExecLogicLinkRemoteFeaturesCbks(&rf);
+
+        CM_LogicLinkRemoteFeatures_S rfZero = {0};
+        rfZero.lcid = fdp.ConsumeIntegral<uint16_t>();
+        rfZero.addr = g_addr; /* features 全零变体 */
+        CM_ExecLogicLinkRemoteFeaturesCbks(&rfZero);
+
+        CM_LogicLinkConnUpdateParam_S cu = {0};
+        cu.lcid = fdp.ConsumeIntegral<uint16_t>();
+        cu.addr = g_addr;
+        CM_ExecLogicLinkConnUpdateParamCbks(&cu);
+
+        CM_ExecLogicLinkRemoteFeaturesCbks(nullptr);
+        CM_ExecLogicLinkConnUpdateParamCbks(nullptr);
+    }
+
     void FuzzHadmStm(uint8_t* data, size_t size)
     {
         FuzzedDataProvider fdp(data, size);
@@ -244,6 +271,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     memcpy_s(fuzzData, size, data, size);
+    OHOS::FuzzHadmStmPublicDispatchers(fuzzData, size);
     OHOS::FuzzHadmStmApi(fuzzData, size);
     free(fuzzData);
     return 0;
