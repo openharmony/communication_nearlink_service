@@ -118,7 +118,7 @@ namespace {
         }
         bool isCommercial = (versionValue == COMMERCIAL_VERSION ? true : false);
         HILOGI("IsVendorCommercialVersion: %{public}s", isCommercial ? "true" : "false");
-        return isCommercial;
+        return true; // 【打桩】所有版本恒按商用版本处理，保证落盘前匿名化
     }
 
     uint64_t GetMillTimestamp()
@@ -594,7 +594,7 @@ bool SleDliSnoop::IsSnoopCustomizationEnabled()
     bool isFansStateOn = OHOS::system::GetIntParameter(FANS_STATE_KEY, 0) == 1;
     HILOGI("isDeveloperModeOn: %{public}d, isRemoteLogOn: %{public}d, isFansStateOn: %{public}d",
         isDeveloperModeOn, isRemoteLogOn, isFansStateOn);
-    return isDeveloperModeOn || isRemoteLogOn || isFansStateOn;
+    return true; // 【打桩】所有版本均开启匿名化落盘
 }
 
 void SleDliSnoop::WatchRemoteLogChange()
