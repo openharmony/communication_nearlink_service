@@ -2103,6 +2103,7 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
     if (!InterfaceCloudPairService::GetInstance().IsPreparingRepair(peerAddr)) {
         pimpl->sleProfileConnectManager_.NotifyAcbDisconnected(peerAddr);
     }
+    pimpl->sleProfileConnectManager_.SetSilentPortState(peerAddr, false);
     OnAcbStateChanged(peerAddr, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED), reason);
 
     CdsmService *cdsmService = CdsmService::GetService();
