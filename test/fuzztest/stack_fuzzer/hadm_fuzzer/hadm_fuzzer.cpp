@@ -394,7 +394,10 @@ namespace OHOS {
         uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
         uint8_t variant = fdp.ConsumeIntegral<uint8_t>() % 4;
 
-        HadmInitSoundingCbManager();
+        /* 注：TestOneInput 开头 HadmInit 已建 g_hadmLinkCbVec（hadm_init.c:52）；
+         * 此处不得再 InitSoundingCbManager（直接覆盖 vector 确定性泄漏），
+         * 也不得中途 DeInit（置 NULL 后同输入后续 FuzzSetMeasure/FuzzTestHadmApi
+         * 深路径全部早退）。 */
 
         if (variant == 3) {
             CM_LogicLinkRemoteFeatures_S pf = {0};
@@ -432,7 +435,8 @@ namespace OHOS {
         HadmSetMeasureEnable(lcid, 1);
         uint8_t state = 0;
         HadmGetSoundingState(&addr, &state);
-        HadmGetSoundingAddrInfo(&addr, 4);
+        SLE_Addr_S soundingAddrs[4] = {{0}}; /* 出参数组（variant 2 时最多 2 条链路） */
+        HadmGetSoundingAddrInfo(soundingAddrs, 4);
         HadmStopSounding(&addr);
 
         CM_LogicLinkState_S disc = {0};
@@ -440,8 +444,6 @@ namespace OHOS {
         disc.lcid = lcid;
         disc.addr = addr;
         MockCMExecLogicLinkCbks(&disc); /* 清 pending → 状态机 → HadmFreeLinkCb */
-
-        HadmDeInitLinkCbManager();
     }
 
     /* FUZZ-015: 错误分支族——NULL/边界参数直调产品校验分支

@@ -90,24 +90,17 @@ void FuzzSdfEvcEvent(const uint8_t *data, size_t size)
     (void)SDF_EvcInstanceCreate(nullptr, nullptr); /* 非法参数 */
     int handle = -1;
     if (SDF_EvcInstanceCreate(&handle, "fuzz_ev") == 0 && handle >= 0) {
+        /* ListenEvent 直调需要有效 fd（eventHandle 由调用方提供，传 -1 必 EBADF），
+         * 真实成功路径经 SDF_EventAdd 内部创建 eventfd 后 Listen（sdf_event.c:66）。
+         * Modify/Cancel 用 EventAdd 返回的真实句柄驱动。 */
         SDF_EvcEvent evt = {};
         evt.type = SDF_EVC_EVENT;
         evt.callback = FuzzEvcCb;
         evt.args = nullptr;
         evt.freeFunc = nullptr;
-        (void)SDF_EvcListenEvent(handle, &evt);
+        evt.eventHandle = -1;
+        (void)SDF_EvcListenEvent(handle, &evt);   /* 非法 fd → 失败分支 */
         (void)SDF_EvcListenEvent(handle, nullptr); /* 非法参数 */
-        /* 重复监听至超上限（sdf_evc.c:358-361 eventVector->size >= 128） */
-        for (int i = 0; i < SDF_EVC_MAX_EVENT_NUM + 1; i++) {
-            evt.eventHandle = -1;
-            (void)SDF_EvcListenEvent(handle, &evt);
-        }
-        if (evt.eventHandle >= 0) {
-            (void)SDF_ModifyEventArgs(evt.eventHandle, FuzzModifyCb);
-            (void)SDF_ModifyEventArgs(-1, FuzzModifyCb); /* 非法句柄 */
-            SDF_EvcCancelEvent(evt.eventHandle);
-            SDF_EvcCancelEvent(evt.eventHandle); /* 重复取消 */
-        }
         int evHandle = -1;
         SDF_EventParam param = {};
         param.handle = handle;
@@ -117,7 +110,11 @@ void FuzzSdfEvcEvent(const uint8_t *data, size_t size)
         (void)SDF_EventAdd(nullptr, nullptr); /* 非法参数 */
         (void)SDF_EventPost(-1); /* 错误句柄 */
         if (evHandle >= 0) {
+            (void)SDF_ModifyEventArgs(evHandle, FuzzModifyCb);
+            (void)SDF_ModifyEventArgs(-1, FuzzModifyCb); /* 非法句柄 */
             (void)SDF_EventPost(evHandle);
+            SDF_EvcCancelEvent(evHandle);
+            SDF_EvcCancelEvent(evHandle); /* 重复取消 */
             SDF_EventDel(evHandle);
         }
         SDF_EvcInstanceClose(handle);
@@ -202,10 +199,8 @@ void FuzzSdfDsl(const uint8_t *data, size_t size)
         SDF_SListHeadInsert(&sHead, &sNodes[i]);
     }
     (void)SDF_SListIsEmpty(&sHead);
-    SDF_SListEntry_S *iter = nullptr;
-    SDF_SListElmForeach(iter, &sHead)
-    {
-        (void)iter;
+    for (SDF_SListEntry_S *iter = sHead.next; iter != &sHead; iter = iter->next) {
+        (void)iter; /* entry 级遍历（容器宏 SDF_SListElmForeach 不适用于裸 entry） */
     }
     (void)SDF_SListHeadDel(&sHead);
     (void)SDF_SListDel(&sNodes[1]);
@@ -297,7 +292,8 @@ void FuzzSdfDfx(const uint8_t *data, size_t size)
     (void)SDF_LogHookReg(nullptr);
     SDF_LogLevelSet(SDF_LOG_LEVEL_DEBUG);
     (void)SDF_LogLevelGet();
-    SDF_LogLevelSet(static_cast<SDF_LogLevel_E>(0xFF)); /* 越界级别 */
+    SDF_LogLevelSet(static_cast<SDF_LogLevel_E>(0xFF)); /* 越界级别（无校验直写） */
+    SDF_LogLevelSet(SDF_LOG_LEVEL_INFO); /* 恢复，避免进程级格式化开销 */
     uint32_t err = (uint32_t)0x12345678;
     (void)SDF_ErrGetCompId(err);
     (void)SDF_ErrGetModId(err);

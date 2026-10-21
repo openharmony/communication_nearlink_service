@@ -175,6 +175,15 @@ static const DLI_EventCallbackInfo EventCbks[] = {
 
 namespace OHOS {
 SleDliThreadUtil &g_dliThreadUtil = SleDliThreadUtil::GetInstance();
+/* FUZZ-009 维护：最近直调命令的 opcode，供 FUZZ-011 CMD_STATUS/ERROR 结构化回执联动。 */
+static uint16_t g_fuzzLastCmdOpcode = 0;
+
+/* DLI 投递回调（recvAcbHandler）：消费并释放 buff（真实场景由 DTAP_DataRecv 消费）。 */
+void FuzzDliRecvAcbHandler(uint16_t lcid, SDF_Buff_S *buf)
+{
+    (void)lcid;
+    SDF_BuffFree(buf);
+}
 
 void FuzzRecvEventProc(uint8_t *data, size_t size)
 {
@@ -221,7 +230,8 @@ void FuzzRecvEventProc(uint8_t *data, size_t size)
         }
         if (event[idx] == DLI_NUMBER_OF_COMPLETED_PACKETS_EVT &&
             size >= sizeof(DLI_NumberOfCompletedPacketsEvt)) {
-            /* FUZZ-011: NOCP 结构化——完成包数事件驱动命令节点回收与配额路径。 */
+            /* FUZZ-011: NOCP 结构化——经 DLI_RunCmdCbk 分发注册回调（配额消费方
+             * DTAP 未在本进程 Init，配额路径在 dtap_fuzzer 的 FuzzFireNocp 生效）。 */
             DLI_NumberOfCompletedPacketsEvt evt = {0};
             evt.connHandle = provider.ConsumeIntegral<uint16_t>();
             evt.numCompletedPackets = provider.ConsumeIntegral<uint8_t>();
@@ -239,8 +249,6 @@ void FuzzRecvEventProc(uint8_t *data, size_t size)
  * 计数字段 icbCnt/paramCnt/channelCnt 按 0/1/2/SLE_ICB_MAX_NUM 四档驱动双重循环；
  * 每 API 配 (NULL,cbk)/(param,NULL) 变体；opcode 记入 g_fuzzLastCmdOpcode 供
  * FUZZ-011 的 CMD_STATUS/ERROR 结构化回执联动。 */
-static uint16_t g_fuzzLastCmdOpcode = 0;
-
 void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
 {
     FuzzedDataProvider provider(data, size);
@@ -248,13 +256,15 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
     uint8_t cnt = cntTable[provider.ConsumeIntegral<uint8_t>() % sizeof(cntTable)];
 
     DLI_ICBParam icbParams[SLE_ICB_MAX_NUM] = {{0}};
+    struct DLI_ICB icbInners[SLE_ICB_MAX_NUM] = {{0}}; /* DLI_ICBParam.param 指向的内层结构 */
     DLI_ICBChannel channels[SLE_ICB_MAX_NUM] = {{0}};
     for (uint8_t i = 0; i < SLE_ICB_MAX_NUM; i++) {
         icbParams[i].id = provider.ConsumeIntegral<uint8_t>();
-        icbParams[i].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
-        icbParams[i].maxSduT2G = provider.ConsumeIntegral<uint16_t>();
-        icbParams[i].rtnG2T = provider.ConsumeIntegral<uint8_t>();
-        icbParams[i].rtnT2G = provider.ConsumeIntegral<uint8_t>();
+        icbParams[i].param = &icbInners[i]; /* 产品侧 dli_cmd.c:1130 直接解引用，必须真实构造 */
+        icbInners[i].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i].maxSduT2G = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i].rtnG2T = provider.ConsumeIntegral<uint8_t>();
+        icbInners[i].rtnT2G = provider.ConsumeIntegral<uint8_t>();
         channels[i].connHandle = provider.ConsumeIntegral<uint16_t>();
         channels[i].lcid = provider.ConsumeIntegral<uint16_t>();
     }
@@ -920,7 +930,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     dliCallback.postOtherThread = CP_PostTask;
     dliCallback.postOtherBlockedThread = CP_PostTaskBlocked;
     dliCallback.dftReportKill = NULL;
-    dliCallback.recvAcbHandler = NULL;
+    /* recvAcbHandler 必须非空：DLI_SetCallback 三必选字段任一 NULL 即拒绝（dli_layer_
+     * callback.c:58-63），DLI_Init/事件注册表（g_commInnerCbkList/g_cmInnerCbkList）
+     * 随之失效，RecvEventHandler 分发空转。no-op 消费并释放投递 buff。 */
+    dliCallback.recvAcbHandler = OHOS::FuzzDliRecvAcbHandler;
     DLI_SetCallback(&dliCallback);
     DLI_Init();
 

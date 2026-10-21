@@ -38,7 +38,6 @@
 #include "hadm_link_manager.h"
 #include "cm_logic_link_listener_mgr.h"
 #include "sdf_worker.h"
-#include "cm_logic_link_listener_mgr.h"
 #include "hadm_user_proc.h"
 #include "sdf_timer.h"
 

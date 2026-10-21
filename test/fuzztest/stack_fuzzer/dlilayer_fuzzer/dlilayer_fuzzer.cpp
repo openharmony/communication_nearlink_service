@@ -23,6 +23,8 @@
 #include "dli_thread.h"
 #include "dli_layer_utils.h"
 #include "dli_layer_callback.h"
+#include "dli_callback.h"
+#include "sdf_worker.h"
 #include "dli_def.h"
 #include "dli_event.h"
 #include "dli_event_struct.h"
@@ -72,6 +74,28 @@ namespace OHOS {
     const uint16_t MIN_ACB_LEN = 3;
     const uint16_t TEST_DEFAULT_NUM = 10;
     const uint32_t DLI_FUZZ_TEST_SLEEP_TIME = 100;
+    /* DLI_SetCallback 三必选回调的同步桩：本工程 sources 无 cp_worker.c，直接执行
+     * 任务与释放（照 hadm_fuzzer SchedulePostTask 同步 mock 模式）。注册后
+     * DLI_PacketReceived 的 ACB/EVENT 包分发（DLI_PostOtherThread/DLI_PostTask）
+     * 才能真正进入重组/命令节点路径（此前全进程未注册，全部空转）。 */
+    static uint32_t FuzzDliPostOtherThreadSync(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
+    {
+        if (cb != NULL) {
+            cb(arg);
+        }
+        if (freeCb != NULL) {
+            freeCb(arg);
+        }
+        return 0;
+    }
+
+    static uint32_t FuzzDliPostOtherBlockedThreadSync(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb,
+        int timeout)
+    {
+        (void)timeout;
+        return FuzzDliPostOtherThreadSync(cb, arg, freeCb);
+    }
+
     void FuzzWriteLog(uint16_t type, const uint8_t *data, uint32_t len, int result)
     {
     }
@@ -87,7 +111,7 @@ namespace OHOS {
     void FuzzDliAcbRecvHander(uint16_t lcid, SDF_Buff_S *buf)
     {
         (void)lcid;
-        (void)buf;
+        SDF_BuffFree(buf); /* 投递后所有权移交消费者 */
     }
 
     void FuzzDliRecvEventHandler(uint16_t event, void *context, const uint8_t *data, uint32_t len)
@@ -202,6 +226,11 @@ namespace OHOS {
         DLI_LOGE("FuzzDliLayerAllApi enter");
         DLI_LayerInit();
         DLI_LayerEnable();
+        DLI_Callback dliCb = {0};
+        dliCb.postOtherThread = OHOS::FuzzDliPostOtherThreadSync;
+        dliCb.postOtherBlockedThread = OHOS::FuzzDliPostOtherBlockedThreadSync;
+        dliCb.recvAcbHandler = OHOS::FuzzDliAcbRecvHander;
+        (void)DLI_SetCallback(&dliCb);
         FuzzDliLayerApi(data, size);
         FuzzDliLayerCallbackApi(data, size);
         FuzzDliLayerFragmentSeq(data, size);
@@ -221,36 +250,47 @@ namespace OHOS {
         FuzzedDataProvider provider(data, size);
         uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
         uint8_t fragType = provider.ConsumeIntegral<uint8_t>();
+        uint16_t cmdOpcode = provider.ConsumeIntegral<uint16_t>(); /* EVENT 帧回执 opcode */
 
+        /* ACB 帧走真实收包入口 g_func.dliPacketReceived（SleHalInit 桩保存的
+         * DLI_PacketReceived）：解析帧头 → AcbPacketReceived → 重组状态机
+         * DLI_ReceiveDataNodeUpdate（dli_layer.c:472/:475）→ 投递 recvAcbHandler。 */
         static const DLI_PbFlag pbStages[] = {
             DLI_FIRST_FRAGMENT, DLI_MIDDLE_FRAGMENT, DLI_LAST_FRAGMENT,
         };
         for (size_t s = 0; s < sizeof(pbStages) / sizeof(pbStages[0]); s++) {
             uint16_t payloadLen = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1);
-            SDF_Buff_S *buf = SDF_BuffNewWithReserve((uint32_t)(DLI_HEADER + payloadLen));
-            if (buf == nullptr) {
-                continue;
-            }
-            uint8_t *p = SDF_BuffAppend(buf, (uint32_t)(DLI_HEADER + payloadLen));
-            if (p == nullptr) {
-                SDF_BuffFree(buf);
-                continue;
-            }
-            /* 帧头照 DLI_SplitData 写入格式：type(1) + lcid|pb<<12|ts<<14|prio<<15(2)
+            uint8_t frame[UINT8_MAX + 1] = {0};
+            uint32_t frameLen = (uint32_t)(DLI_HEADER + payloadLen);
+            /* 帧格式照 DLI_SplitData 写入：type(1) + lcid|pb<<12|ts<<14|prio<<15(2)
              * + length(2)，DLI_ENCODE2BYTE 为小端。 */
-            p[0] = fragType;
+            frame[0] = fragType;
             uint16_t flags = (uint16_t)(lcid | ((uint16_t)pbStages[s] << 12));
-            DLI_ENCODE2BYTE(p + 1, flags);
-            DLI_ENCODE2BYTE(p + 3, payloadLen);
+            DLI_ENCODE2BYTE(frame + 1, flags);
+            DLI_ENCODE2BYTE(frame + 3, payloadLen);
             for (uint16_t i = 0; i < payloadLen; i++) {
-                p[DLI_HEADER + i] = provider.ConsumeIntegral<uint8_t>();
+                frame[DLI_HEADER + i] = provider.ConsumeIntegral<uint8_t>();
             }
-            DLI_AcbRecvHander(lcid, buf);
-            SDF_BuffFree(buf);
+            if (g_func.dliPacketReceived != NULL) {
+                SlePacket packet = {frame, frameLen};
+                g_func.dliPacketReceived(DLI_DATATYPE_ACB, &packet);
+            }
         }
 
-        /* 超限 DataSend → SplitData 真实分片（SleSendDliPacket 桩 >100B 拒发，
-         * 分片与 DLI_TrySend 重试路径均已执行；buff 由 DataSendInner 接管）。 */
+        /* EVENT 帧（STATUS/COMPLETE）同入口 → DLI_EventPacketReceived →
+         * DLI_CmdNodeRemove（dli_layer.c:597，红蓝对抗确认唯一真实触发路径）：
+         * 前 2 字节事件码 + 4 字节头 + 2 字节 opcode。 */
+        if (g_func.dliPacketReceived != NULL) {
+            uint8_t evtFrame[DLI_HEADER + 2] = {0};
+            DLI_ENCODE2BYTE(evtFrame, DLI_CMD_STATUS_EVT);
+            DLI_ENCODE2BYTE(evtFrame + DLI_HEADER, cmdOpcode);
+            SlePacket evtPacket = {evtFrame, (uint32_t)sizeof(evtFrame)};
+            g_func.dliPacketReceived(DLI_DATATYPE_EVENT, &evtPacket);
+        }
+
+        /* SplitData 直调（公开 API，dli_layer.h:61；红蓝对抗确认 DataSend 链不触发
+         * 分片，全仓唯一直调点在 dtap_scheduler——本工程自行构造 fragmentBuf 驱动）。
+         * buf 由 DLI_DataStruDestroy 释放，fragmentBuf 自行释放。 */
         uint16_t bigLen = (uint16_t)(DLI_GetFragmentMaxLen() + DLI_HEADER + 64);
         SDF_Buff_S *bigBuf = SDF_BuffNewWithReserve(bigLen);
         if (bigBuf != nullptr) {
@@ -259,29 +299,24 @@ namespace OHOS {
                 for (uint16_t i = 0; i < bigLen; i++) {
                     bp[i] = provider.ConsumeIntegral<uint8_t>();
                 }
+                SDF_Buff_S *fragBufs[2] = {
+                    SDF_BuffNewWithReserve(DLI_GetFragmentMaxLen() + DLI_HEADER),
+                    SDF_BuffNewWithReserve(DLI_GetFragmentMaxLen() + DLI_HEADER),
+                };
                 DLI_DataStru *bigData = DLI_DefaultDataStruCreate(lcid, DLI_DATATYPE_ACB, 0, 0, bigBuf);
                 if (bigData != nullptr) {
-                    (void)DLI_DataSend(bigData);
-                    SDF_ThreadSleep(DLI_FUZZ_TEST_SLEEP_TIME);
+                    if (fragBufs[0] != nullptr && fragBufs[1] != nullptr) {
+                        (void)DLI_SplitData(bigData, fragBufs, 2);
+                    }
+                    DLI_DataStruDestroy(bigData);
                 } else {
                     SDF_BuffFree(bigBuf);
                 }
+                SDF_BuffFree(fragBufs[0]);
+                SDF_BuffFree(fragBufs[1]);
             } else {
                 SDF_BuffFree(bigBuf);
             }
-        }
-
-        /* 命令节点回收：发送命令后喂结构化 CMD_STATUS（opcode 对齐所发命令）。 */
-        uint16_t cmdOpcode = provider.ConsumeIntegral<uint16_t>();
-        DLI_CmdStru *cmd = DLI_DefaultCmdStruCreate(cmdOpcode, 0, data, size);
-        if (cmd != nullptr) {
-            (void)DLI_CmdSend(cmd);
-            SDF_ThreadSleep(DLI_FUZZ_TEST_SLEEP_TIME);
-            DLI_CommandStatus evt = {0};
-            evt.cmdOpcode = cmdOpcode;
-            evt.numDliCommandPackets = 1;
-            evt.status = 0;
-            RecvEventHandler(DLI_CMD_STATUS_EVT, nullptr, (uint8_t *)&evt, sizeof(evt));
         }
     }
 }
