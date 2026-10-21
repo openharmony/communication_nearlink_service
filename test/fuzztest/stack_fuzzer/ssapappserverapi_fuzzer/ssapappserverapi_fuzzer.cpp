@@ -77,13 +77,13 @@ namespace OHOS {
          * SSAP_HANDLE_MIN(0x10) 起确定：0x10=服务 0x11=属性 0x12=方法
          * （事件不分配句柄，ssaps_service.c 注释"当前仅有Property,method"）。 */
         static uint16_t cccdValue = 0x0001;
-        NLSTK_SsapServiceDescriptorParam_S descriptor = {0};
+        NLSTK_SsapServiceDescriptorParam_S descriptor = {};
         descriptor.type = DESC_TYPE_CLIENT_CONFIG;
         descriptor.operation.operationValue = SSAP_OPERATE_INDICATION_DESCRIPTOR_CLIENT_CONFIGURATION_WRITE;
         descriptor.val.data = (uint8_t *)&cccdValue;
         descriptor.val.len = sizeof(cccdValue);
 
-        NLSTK_SsapServicePropertyParam_S property = {0};
+        NLSTK_SsapServicePropertyParam_S property = {};
         property.type = ITEM_TYPE_STD_PROPERTY;
         (void)memcpy_s(property.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
         property.operation.operationValue = SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE |
@@ -92,16 +92,16 @@ namespace OHOS {
         property.descriptorNum = 1;
         property.descriptors = &descriptor;
 
-        NLSTK_SsapServiceMethodParam_S method = {0};
+        NLSTK_SsapServiceMethodParam_S method = {};
         method.type = ITEM_TYPE_STD_METHOD;
         (void)memcpy_s(method.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
         method.permission.permissionValue = SSAP_PERMISSION_NO_NEED;
 
-        NLSTK_SsapServiceEventParam_S event = {0};
+        NLSTK_SsapServiceEventParam_S event = {};
         event.type = ITEM_TYPE_STD_EVENT;
         (void)memcpy_s(event.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
 
-        NLSTK_ServiceParam_S service = {0};
+        NLSTK_ServiceParam_S service = {};
         (void)memcpy_s(service.serviceStatement.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
         service.serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
         service.servicePropertyNum = 1;
