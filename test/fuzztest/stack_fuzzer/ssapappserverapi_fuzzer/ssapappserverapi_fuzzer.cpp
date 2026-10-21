@@ -20,6 +20,7 @@
 #include "nlstk_init_api.h"
 #include "nlstk_schedule.h"
 #include "nlstk_ssap_app_server.h"
+#include "ssaps_service.h"
 #include "ssap_handle.h"
 #include "ssapappserverapi_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
@@ -73,7 +74,8 @@ namespace OHOS {
         /* 参数填实：全零参数（无 uuid/operation/permission/descriptor）时属性
          * 生成与句柄分配路径浅层即返。描述符带 CLIENT_CONFIG+可写指示，
          * property/method 各带 uuid+permission。首个服务句柄从
-         * SSAP_HANDLE_MIN(0x10) 起确定：0x10=服务 0x11=属性 0x12=方法 0x13=事件。 */
+         * SSAP_HANDLE_MIN(0x10) 起确定：0x10=服务 0x11=属性 0x12=方法
+         * （事件不分配句柄，ssaps_service.c 注释"当前仅有Property,method"）。 */
         static uint16_t cccdValue = 0x0001;
         NLSTK_SsapServiceDescriptorParam_S descriptor = {0};
         descriptor.type = DESC_TYPE_CLIENT_CONFIG;
@@ -211,12 +213,19 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argv;
     /* 补调度三件套：RegApp 走 SchedulePostTaskBlocked、AddService 走
      * SchedulePostTask，调度器不活则 appId 无效、全部 UAPI 直接失败；
-     * InitStack 回滚会销毁调度器，末尾 ScheduleEnable 幂等重建（照 uapi 模式）。 */
-    (void)NLSTK_InitStack();
-    (void)NLSTK_EnableStack();
+     * InitStack 回滚会销毁调度器，须重建（照 uapi 模式）。ext 失败时
+     * SSAP_Init（ssap_manager.c:686）未运行：句柄分配器/服务向量缺失，
+     * AddService 恒走无句柄异常分支（红蓝对抗实证）——照
+     * ssape2e_fuzzer.cpp:190 显式初始化。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
     (void)ScheduleEnable();
+    if (stackInited) {
+        (void)NLSTK_EnableStack();
+    } else {
+        (void)SSAPS_ServiceInit();
+    }
     return 0;
 }
 

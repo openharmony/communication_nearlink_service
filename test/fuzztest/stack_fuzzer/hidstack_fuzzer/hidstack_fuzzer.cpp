@@ -16,8 +16,11 @@
 #include "securec.h"
 #include "sdf_mem.h"
 #include "sdf_addr.h"
+#include "sdf_thread.h"
+#include "sdf_evc.h"
 #include "nlstk_log.h"
 #include "nlstk_init_api.h"
+#include "nlstk_schedule.h"
 #include "hid_client_api.h"
 #include "hid_client_init.h"
 #include "hidstack_fuzzer.h"
@@ -177,12 +180,20 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argc;
     (void) argv;
 
-    /* HidEnable→HidDeviceInit 初始化设备向量（主栈路径 nlstk_init.c:614 会调，
-     * fuzzer 内 ext 失败回退后需自行补）；返回值检查避免静默半初始化。 */
-    if (NLSTK_InitStack() != NLSTK_ERRCODE_SUCCESS) {
-        (void)HidEnable();
-    } else {
+    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚（ScheduleDisable→
+     * g_schedule=NULL）。HidEnable→HidDeviceInit 只建设备向量（不经调度器），
+     * 但 HID UAPI 全部经 SchedulePostTask 投递：必须先重建调度器，否则设备向量
+     * 无消费者（红蓝对抗实证）。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
+    if (stackInited) {
         (void)NLSTK_EnableStack();
+    } else {
+        (void)ScheduleEnable();
+        if (HidEnable() != NLSTK_ERRCODE_SUCCESS) {
+            NLSTK_LOG_INFO("hidstack_fuzzer HidEnable fallback failed");
+        }
     }
     NLSTK_LOG_INFO("hidstack_fuzzer init success");
     return 0;

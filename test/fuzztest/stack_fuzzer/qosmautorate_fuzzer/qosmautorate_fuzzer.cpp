@@ -15,6 +15,7 @@
 
 #include "qosmautorate_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
+#include "cm_api.h"
 #include "qosm_autorate.h"
 #include "qosm.h"
 #include "qosm_trans_channel.h"
@@ -301,22 +302,27 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
-    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚后 QOSM 模块未
-     * Init/Enable，autorate API 全灭；模块级 Init/Enable 不依赖 ext。
+    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚（ScheduleDisable→
+     * g_schedule=NULL）。QOSM_Init/Enable 内部经 CP_PostTask 投递，必须先重建
+     * 调度器（红蓝对抗实证）；CM 回退解锁 RegisterCallback 路径的
+     * CM_ICBRegisterCbk（CM_ICBIsInited 守卫）。
      * ponytail: 超时路径（qosm_autorate_timeout_process.c:150 CP_TimerAdd，
-     * 1~5s 定时）走真实调度器，300s 复测内必然触发，故不做 CP_TimerAdd 桩
-     * （shared_stack_source 已含 cp_worker.c，本地强符号桩会重复定义）；
-     * 若未来需要输入字节级确定性触发，再改显式源列表排除 cp_worker.c。 */
-    if (NLSTK_InitStack() != NLSTK_ERRCODE_SUCCESS) {
-        (void)QOSM_Init();
-        (void)QOSM_Enable();
-    } else {
-        (void)NLSTK_EnableStack();
-    }
+     * 1~5s 定时）走真实调度器，经 SetParam→档位变更流程后可触发（机制真实，
+     * 非每输入必达），故不做 CP_TimerAdd 桩（shared_stack_source 已含
+     * cp_worker.c，本地强符号桩会重复定义）；若未来需要输入字节级确定性
+     * 触发，再改显式源列表排除 cp_worker.c。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
-    /* InitStack 回滚会销毁调度器，ScheduleEnable 幂等，末尾重建（照 babcbed8 模式）。 */
-    (void)ScheduleEnable();
+    if (stackInited) {
+        (void)NLSTK_EnableStack();
+    } else {
+        (void)ScheduleEnable();
+        (void)CM_Init();
+        (void)CM_Enable();
+        (void)QOSM_Init();
+        (void)QOSM_Enable();
+    }
     QOSM_AutoRateCallback callback = {};
     callback.paramChangedCbk = OHOS::ParamChangedCbkImpl;
     callback.connChangedCbk = OHOS::ConnChangedCbkImpl;
