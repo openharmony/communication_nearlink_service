@@ -97,6 +97,7 @@ ohos_fuzztest("DliFuzzTest") {
     "$NEW_STACK_DIR/adapter/src/collab_ext_func_wrapper.c",
     "$NEW_STACK_DIR/adapter/src/collab_reg_ext_func.c",
     "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/dli_ext_func_wrapper.c",
     "$NEW_STACK_DIR/dli/event/src/dli_connect_event.c",
     "$NEW_STACK_DIR/dli/event/src/dli_dev_discovery_event.c",
     "$NEW_STACK_DIR/dli/event/src/dli_hadm_event.c",
