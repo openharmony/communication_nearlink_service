@@ -280,8 +280,9 @@ static bool SendPairingInitInfo(SmSLink_S *slink)
     (void)memcpy_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, keyPair.localPubKey, SM_PUBLIC_KEY_LEN);
     /* 发送公钥 */
     (void)memcpy_s(msg.tNodePubKey, SM_PUBLIC_KEY_LEN, slink->tNode.pubKey, SM_PUBLIC_KEY_LEN);
-    SmSendMessage(slink, SM_NEGO_PAIRING_INIT_INFO, (const uint8_t *)&msg, sizeof(SmPairInitInfoMsg_S));
+    bool ret = SmSendMessage(slink, SM_NEGO_PAIRING_INIT_INFO, (const uint8_t *)&msg, sizeof(SmPairInitInfoMsg_S));
     (void)memset_s(&keyPair, sizeof(keyPair), 0, sizeof(keyPair));
+    NLSTK_CHECK_RETURN(ret == true, false, "[SM] Send Message failed.");
     return true;
 }
 
@@ -383,8 +384,8 @@ static uint32_t NegoEncAlgo(SmPairReqRspMsg_S *msg, SmSLink_S *slink)
             break;
         }
     }
-    if (negoAlgo[SM_ENC_ALGO_ABILITY] == 0 || negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY] == 0 ||
-        negoAlgo[SM_KEY_DERIV_ALGO_ABILITY] == 0) {
+    if ((negoAlgo[SM_ENC_ALGO_ABILITY] & negoAlgo[SM_INTG_PROTECT_ALGO_ABILITY] &
+        negoAlgo[SM_KEY_DERIV_ALGO_ABILITY]) == 0) {
         NLSTK_LOG_ERROR("[SM] Encrypt or integrity or key derive algorithm negotiate fail.");
         return SM_ERR_AUTHENTICATION_REQUIREMENTS;
     }

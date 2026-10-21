@@ -34,18 +34,14 @@ uint32_t CDSM_GenCoopSetId(uint8_t *key, uint8_t keyLen, uint8_t type, uint16_t 
     uint8_t macLen = 0;
     uint8_t algo = 0;
     switch (type) {
-        case CDSM_HMAC_SM3:
-            macLen = HMAC_SM3_MAC_LEN;
-            algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA1;
-            break;
-        case CDSM_AES_CMAC: // 当前本端仅支持AES-CMAC算法
+        case CDSM_AES_CMAC: // 当前产品配置只使用AES-CMAC、HMAC-SM3算法底层未实现
             macLen = AES_CMAC_MAC_LEN;
             algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
             break;
         default:
             break;
     }
-    CP_CHECK_LOG_RETURN(macLen != 0, NLSTK_ERR, "[CDSM] unsupport type: %u", type);
+    CP_CHECK_LOG_RETURN(macLen != 0, NLSTK_ERR, "[CDSM] unsupport algo id: %u", type);
 
     uint8_t randIn[RANDOM_LEN] = {0};
     if (!SmGenRandNum(randIn, RANDOM_LEN)) {
