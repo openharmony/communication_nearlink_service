@@ -42,6 +42,7 @@ private:
     static int32_t DiscoveryServicesInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t DiscoverServiceByUuidInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t ReadPropertyInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
+    static int32_t ReadPropertyByUuidInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t CallMethodInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t WritePropertyInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);
     static int32_t ReadDescriptorInner(NearlinkSsapClientStub *stub, MessageParcel &data, MessageParcel &reply);

@@ -47,6 +47,7 @@ public:
     virtual NlErrCode DiscoveryServices(int32_t appId) = 0;
     virtual NlErrCode DiscoverServiceByUuid(int32_t appId, const Uuid &uuid) = 0;
     virtual NlErrCode ReadProperty(int32_t appId, const NearlinkSsapPropertyParcel &property) = 0;
+    virtual NlErrCode ReadPropertyByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property) = 0;
     virtual NlErrCode CallMethod(int32_t appId, NearlinkSsapMethodParcel *method, bool withoutRespond) = 0;
     virtual NlErrCode WriteProperty(
         int32_t appId, NearlinkSsapPropertyParcel *property, bool withoutRespond) = 0;

@@ -186,6 +186,25 @@ NlErrCode NearlinkSsapClientProxy::ReadProperty(int32_t appId, const NearlinkSsa
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
+NlErrCode NearlinkSsapClientProxy::ReadPropertyByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
+{
+    HILOGI("start");
+    MessageParcel data;
+    NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkSsapClientProxy::GetDescriptor()),
+        NL_ERR_INTERNAL_ERROR, "Write Token error");
+    NL_CHECK_RETURN_RET(data.WriteInt32(appId), NL_ERR_INTERNAL_ERROR, "Write appId error");
+    NL_CHECK_RETURN_RET(data.WriteParcelable(&property), NL_ERR_INTERNAL_ERROR, "Write property error");
+
+    MessageParcel reply;
+    MessageOption option {
+        MessageOption::TF_SYNC
+    };
+    ErrCode error = InnerTransact(
+        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_READ_PROPERTY_BY_UUID, option, data, reply);
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", error);
+    return static_cast<NlErrCode>(reply.ReadInt32());
+}
+
 NlErrCode NearlinkSsapClientProxy::CallMethod(int32_t appId, NearlinkSsapMethodParcel *method, bool withoutRespond)
 {
     HILOGI("start");

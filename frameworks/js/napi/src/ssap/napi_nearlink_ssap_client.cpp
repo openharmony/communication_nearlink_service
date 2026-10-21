@@ -116,7 +116,7 @@ void NapiNearlinkSsapClient::DefineSsapClientJSClass(napi_env env, napi_value ex
         DECLARE_NAPI_FUNCTION("requestMtuSize", RequestMtuSize),
         DECLARE_NAPI_FUNCTION("readProperty", ReadProperty),
         DECLARE_NAPI_FUNCTION("callMethod", CallMethod),
-        DECLARE_NAPI_FUNCTION("readPropertyByUuid", ReadPropertyByUuid),
+        DECLARE_NAPI_FUNCTION("readPropertiesByUuid", ReadPropertiesByUuid),
         DECLARE_NAPI_FUNCTION("writeProperty", WriteProperty),
         DECLARE_NAPI_FUNCTION("readDescriptor", ReadDescriptor),
         DECLARE_NAPI_FUNCTION("writeDescriptor", WriteDescriptor),
@@ -566,10 +566,10 @@ napi_value NapiNearlinkSsapClient::CallMethod(napi_env env, napi_callback_info i
     return asyncWork->GetRet();
 }
 
-napi_value NapiNearlinkSsapClient::ReadPropertyByUuid(napi_env env, napi_callback_info info)
+napi_value NapiNearlinkSsapClient::ReadPropertiesByUuid(napi_env env, napi_callback_info info)
 {
     HILOGI("enter");
-    std::shared_ptr<AsyncWorkContext> context = std::make_shared<AsyncWorkContext>("ReadPropertyByUuid", 0, false);
+    std::shared_ptr<AsyncWorkContext> context = std::make_shared<AsyncWorkContext>("ReadPropertiesByUuid", 0, false);
     NapiNearlinkSsapClient *client = nullptr;
     size_t argc = ARGS_SIZE_ONE;
     napi_value argv[ARGS_SIZE_ONE] = {};
@@ -584,14 +584,9 @@ napi_value NapiNearlinkSsapClient::ReadPropertyByUuid(napi_env env, napi_callbac
     SsapProperty property(0, napiSsapProperty.propertyUuid_, napiSsapProperty.operation_, 0);
 
     auto func = [ssapClient, property]() mutable {
-        HILOGI("start read property");
+        HILOGI("start read properties by uuid");
         NlErrCode err = ssapClient->ReadPropertyByUuid(property);
-        if (err != NL_NO_ERROR) {
-            return NapiAsyncWorkRet(err, nullptr);
-        }
-        std::vector<SsapProperty> properties;
-        auto object = std::make_shared<NapiNativeSsapPropertyArray>(properties);
-        return NapiAsyncWorkRet(err, object);
+        return NapiAsyncWorkRet(err, nullptr);
     };
 
     auto asyncWork = NapiAsyncWorkFactory::CreateAsyncWork(env, info, func, context, ASYNC_WORK_NEED_CALLBACK);

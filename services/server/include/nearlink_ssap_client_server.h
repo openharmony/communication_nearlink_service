@@ -42,6 +42,7 @@ public:
     NlErrCode DiscoveryServices(int32_t appId) override;
     NlErrCode DiscoverServiceByUuid(int32_t appId, const Uuid &uuid) override;
     NlErrCode ReadProperty(int32_t appId, const NearlinkSsapPropertyParcel &property) override;
+    NlErrCode ReadPropertyByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property) override;
     NlErrCode CallMethod(int32_t appId, NearlinkSsapMethodParcel *method, bool withoutRespond) override;
     NlErrCode WriteProperty(int32_t appId, NearlinkSsapPropertyParcel *property, bool withoutRespond) override;
     NlErrCode ReadDescriptor(int32_t appId, const NearlinkSsapDescriptorParcel &descriptor) override;
