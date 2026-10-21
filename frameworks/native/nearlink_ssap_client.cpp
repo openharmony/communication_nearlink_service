@@ -233,22 +233,30 @@ public:
     void OnReadPropertiesByUuid(int32_t ret, const std::vector<NearlinkSsapPropertyParcel> &properties) override
     {
         HILOGI("ret:%{public}d, size:%{public}zu", ret, properties.size());
-        NL_CHECK_RETURN(ret == static_cast<int32_t>(SsapStatus::SSAP_SUCCESS), "OnReadPropertiesByUuid error");
-        NL_CHECK_RETURN(!properties.empty(), "OnReadPropertiesByUuid properties empty");
         std::shared_ptr<SsapClient> clientSptr = (client_).lock();
         NL_CHECK_RETURN(clientSptr, "callback client is nullptr");
+        // 失败或空结果必须透传, 由回调把错误码带回调用方, 避免promise挂起直到超时
+        if (ret != static_cast<int32_t>(SsapStatus::SSAP_SUCCESS) || properties.empty()) {
+            WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, std::vector<SsapProperty> {}, ret);
+            return;
+        }
         std::shared_ptr<SsapService> setService;
         bool isFindService = clientSptr->pimpl->ssapServices_.Find([&properties, &setService](const uint16_t handle,
             std::shared_ptr<SsapService> &service) -> bool {
-                for (auto &sp : service->GetProperty()) {
-                    if (sp.GetUuid().Equals(UUID::FromString(properties[0].uuid_.ToString()))) {
-                        setService = service;
-                        return true;
-                    }
+            for (auto &sp : service->GetProperty()) {
+                if (sp.GetUuid().Equals(UUID::FromString(properties[0].uuid_.ToString()))) {
+                    setService = service;
+                    return true;
                 }
-                return false;
+            }
+            return false;
         });
-        NL_CHECK_RETURN(isFindService && setService, "not find service!");
+        if (!isFindService || !setService) {
+            HILOGE("not find service!");
+            WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, std::vector<SsapProperty> {},
+                NL_ERR_INTERNAL_ERROR);
+            return;
+        }
         std::vector<SsapProperty> onReadProperties;
         for (uint32_t i = 0; i < properties.size(); i++) {
             SsapProperty onReadProp(0, 0, UUID::FromString(properties[i].uuid_.ToString()), properties[i].opInd_, 0);
@@ -859,6 +867,40 @@ std::shared_ptr<SsapService> SsapClient::GetService(const UUID &uuid)
         pimpl->ssapServices_.EnsureInsert(service->GetHandle(), service);
     }
     return service;
+}
+
+NlErrCode SsapClient::GetServicesByUuid(const UUID &uuid, std::vector<SsapService> &services)
+{
+    HILOGI("enter");
+    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(pimpl->isRegisterSucceeded_, NL_ERR_INTERNAL_ERROR, "isRegisterSucceeded_ is false.");
+
+    {
+        std::unique_lock<std::mutex> lock(pimpl->findInformation_.clientMutex);
+        while (pimpl->findInformation_.isFinding) {
+            auto ret = pimpl->findInformation_.condition.wait_for(lock, std::chrono::seconds(WAIT_TIMEOUT));
+            if (ret == std::cv_status::timeout) {
+                HILOGE("timeout");
+                return NL_ERR_INTERNAL_ERROR;
+            }
+        }
+    }
+
+    std::vector<NearlinkSsapServiceParcel> result;
+    sptr<INearlinkSsapClient> proxy = GetProxy<INearlinkSsapClient>(PROFILE_SSAP_CLIENT);
+    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
+    Uuid pUuid = Uuid::ConvertFromString(uuid.ToString());
+    NlErrCode status = proxy->GetServicesByUuid(pimpl->applicationId_, pUuid, result);
+    NL_CHECK_RETURN_RET(status == NL_NO_ERROR, status, "get services failed, status(%{public}d).", status);
+
+    for (auto &parcel : result) {
+        std::shared_ptr<SsapService> service = pimpl->BuildService(parcel);
+        if (service) {
+            pimpl->ssapServices_.EnsureInsert(service->GetHandle(), service);
+            services.push_back(*service);
+        }
+    }
+    return NL_NO_ERROR;
 }
 
 NlErrCode SsapClient::GetService(std::vector<SsapService> &services)

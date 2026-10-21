@@ -19,6 +19,7 @@
 #include "nearlink_errorcode.h"
 #include "nearlink_host.h"
 #include "nearlink_remote_device.h"
+#include "nearlink_utils.h"
 #include "ani_nearlink_utils.h"
 #include "ani_nearlink_error.h"
 #include "ani_nearlink_ssap_utils.h"
@@ -76,17 +77,24 @@ bool SsapClientImpl::Close()
     HILOGI("enter");
     ::taihe::array<::ohos::nearlink::ssap::Service> result {};
     ANI_NL_ASSERT_RETURN(client_ != nullptr, NL_ERR_INTERNAL_ERROR, result);
-    AniSsapService aniService;
-    int32_t ret = ConvertServiceToNative(service, aniService);
-    ANI_NL_ASSERT_RETURN(ret == NL_NO_ERROR, ret, result);
-    NlErrCode err = client_->FindStructureByUuid(aniService.uuid_);
+    // 仅解析并校验serviceUuid, 规格定义其余字段不参与定位, 避免误报参数错误
+    std::string serviceUuid = std::string(service.serviceUuid);
+    ANI_NL_ASSERT_RETURN(IsValidUuid(serviceUuid), NL_ERR_INVALID_UUID, result);
+    ConvertUuidToUpperCase(serviceUuid);
+    UUID uuid = UUID::FromString(serviceUuid);
+    NlErrCode err = client_->FindStructureByUuid(uuid);
     ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
-    std::shared_ptr<SsapService> foundService = client_->GetService(aniService.uuid_);
-    ANI_NL_ASSERT_RETURN(foundService != nullptr, NL_ERR_INVALID_PARAM, result);
+    std::vector<SsapService> foundServices;
+    err = client_->GetServicesByUuid(uuid, foundServices);
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
     std::vector<::ohos::nearlink::ssap::Service> taiheServices;
-    taiheServices.emplace_back(ConvertServiceToTaihe(*foundService));
-    result = ::taihe::array<::ohos::nearlink::ssap::Service>(
-        ::taihe::copy_data_t{}, taiheServices.data(), taiheServices.size());
+    for (const auto &found : foundServices) {
+        taiheServices.emplace_back(ConvertServiceToTaihe(found));
+    }
+    if (!taiheServices.empty()) {
+        result = ::taihe::array<::ohos::nearlink::ssap::Service>(
+            ::taihe::copy_data_t{}, taiheServices.data(), taiheServices.size());
+    }
     return result;
 }
 

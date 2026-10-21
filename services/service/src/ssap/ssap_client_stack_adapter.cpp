@@ -187,10 +187,14 @@ void SsapClientStackAdapter::OnReadPropertiesByUuid(int appId, NLSTK_SsapClientR
     uint8_t propertyNum, NLSTK_Errcode_E ret)
 {
     SSAP_LOGI("appId=%{public}d", appId);
-    NL_CHECK_RETURN(property != nullptr, "property is nullptr");
     std::list<Property> ssapProperties;
-    for (uint8_t i = 0; i < propertyNum; i++) {
-        ssapProperties.emplace_back(g_ssapClientStackAdapter->BuildPropertyByStackProperty(&property[i]));
+    if (property == nullptr) {
+        // 失败场景栈可能回传空指针, 仍需上报错误码, 避免调用方等待超时
+        SSAP_LOGE("property is nullptr, propertyNum=%{public}u, ret=%{public}d", propertyNum, ret);
+    } else {
+        for (uint8_t i = 0; i < propertyNum; i++) {
+            ssapProperties.emplace_back(g_ssapClientStackAdapter->BuildPropertyByStackProperty(&property[i]));
+        }
     }
 
     DoInSsapThread([clientStackAdapter = g_ssapClientStackAdapter,
