@@ -144,6 +144,7 @@ ohos_unittest("nl_asc_service_test") {
   sources = [
     "$NL_UNIT_TEST_DIR/service_test/asc_test/nearlink_asc_service_test.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_cdsm_service.cpp",
+    "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_profile_service_manager.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_sle_adapter.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_tws_service.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_audio_spatialization_manager.cpp",
@@ -168,6 +169,7 @@ ohos_unittest("nl_asc_service_test") {
     "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
     "$NEARLINK_ROOT/services/service/src/audio/SleAudioFrameworkAdapter.cpp",
     "$NEARLINK_ROOT/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps

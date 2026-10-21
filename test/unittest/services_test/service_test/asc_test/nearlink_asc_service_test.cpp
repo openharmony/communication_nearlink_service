@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <stdio.h>
+#include <unistd.h>
 #include <gtest/gtest.h>
 #include <thread>
 #include <string>
@@ -63,6 +65,19 @@ extern void SetMockBtOut(bool isBtOut);
 extern void ClearMockVendorAudioDevice();
 extern void ClearMockAudioFwkState();
 
+// 测试目的：跑完所有用例后干净退出。先 fflush stdout/stderr 保住管道缓冲里的汇总行，
+// 再按失败用例数 _exit（保留原退出码语义），跳过静态对象析构，避开 ffrt worker
+// 在进程退出阶段回调已析构对象导致的环境级竞态崩溃。
+class CleanExitListener : public testing::EmptyTestEventListener {
+public:
+    void OnTestProgramEnd(const testing::UnitTest &) override
+    {
+        fflush(stdout);
+        fflush(stderr);
+        _exit(testing::UnitTest::GetInstance()->failed_test_count() > 0 ? 1 : 0);
+    }
+};
+
 class ASCServiceTest : public testing::Test {
 public:
     ASCServiceTest() = default;
@@ -80,6 +95,8 @@ void ASCServiceTest::SetUpTestCase()
     OHOS::Nearlink::NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::HOST_SERVER_TDD_DELAY_1000_MS));
+    // 注册干净退出监听器：汇总输出刷出后直接按失败数退出，避开 ffrt 退出竞态
+    testing::UnitTest::GetInstance()->listeners().Append(new CleanExitListener());
 }
 
 void ASCServiceTest::TearDownTestCase()
@@ -98,6 +115,8 @@ void ASCServiceTest::TearDown()
     // 无论断言成败均清理
     ClearMockVendorAudioDevice();
     ClearMockAudioFwkState();
+    // 排空用例触发的异步回调（50ms），错开 ffrt worker 退出窗口，缓解收尾竞态
+    usleep(50000);
 }
 
 /**
@@ -4195,6 +4214,8 @@ HWTEST_F(ASCServiceTest, OnSpatializationEnabledChangeForAnyDevice_001, TestSize
     audioDeviceDescriptor = nullptr;
     callback_->OnSpatializationEnabledChangeForAnyDevice(audioDeviceDescriptor, true);
     HILOGI("OnSpatializationEnabledChangeForAnyDevice_001 end");
+    // spatial 回调有异步收尾，等 50ms 错开 ffrt worker 退出窗口
+    usleep(50000);
 }
 
 /**
@@ -4237,6 +4258,8 @@ HWTEST_F(ASCServiceTest, OnHeadTrackingEnabledChangeForAnyDevice_001, TestSize.L
     audioDeviceDescriptor = nullptr;
     callback_->OnHeadTrackingEnabledChangeForAnyDevice(audioDeviceDescriptor, true);
     HILOGI("OnHeadTrackingEnabledChangeForAnyDevice_001 end");
+    // spatial 回调有异步收尾，等 50ms 错开 ffrt worker 退出窗口
+    usleep(50000);
 }
 
 /**
