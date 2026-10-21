@@ -15,9 +15,11 @@
 
 #include "nearlink_observer_adapter.h"
 
+#include <list>
+#include <mutex>
+
 #include "log.h"
 #include "nearlink_remote_device.h"
-#include "nearlink_safe_map.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -32,6 +34,11 @@ class NearlinkHostObserverAdapter : public NearlinkBaseHostObserver {
 public:
     explicit NearlinkHostObserverAdapter(std::shared_ptr<NearlinkHostObserver> observer) : observer_(observer){};
     ~NearlinkHostObserverAdapter() override = default;
+
+    std::weak_ptr<NearlinkHostObserver> GetObserver() const
+    {
+        return observer_;
+    }
 
     void OnStateChanged(const int transport, const int status) override
     {
@@ -89,6 +96,11 @@ public:
     explicit NearlinkRemoteDeviceObserverAdapter(std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
         : observer_(observer){};
     ~NearlinkRemoteDeviceObserverAdapter() override = default;
+
+    std::weak_ptr<NearlinkRemoteDeviceObserver> GetObserver() const
+    {
+        return observer_;
+    }
 
     void OnAcbStateChanged(const NearlinkBaseRemoteDevice &device, int state, int reason) override
     {
@@ -193,6 +205,11 @@ public:
         : observer_(observer){};
     ~NearlinkRemoteDeviceBatteryObserverAdapter() override = default;
 
+    std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> GetObserver() const
+    {
+        return observer_;
+    }
+
     void OnGetBatteryLevelEvent(const NearlinkBaseRemoteDevice &device, int32_t batteryLevel) override
     {
         auto observer = observer_.lock();
@@ -223,6 +240,11 @@ public:
     explicit NearlinkRemoteDeviceRssiObserverAdapter(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
         : observer_(observer){};
 
+    std::weak_ptr<NearlinkRemoteDeviceRssiObserver> GetObserver() const
+    {
+        return observer_;
+    }
+
     void OnReadRemoteRssiEvent(const NearlinkBaseRemoteDevice &device, int rssi, int status) override
     {
         auto observer = observer_.lock();
@@ -238,23 +260,71 @@ private:
     std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer_;
 };
 
-NearlinkSafeMap<std::weak_ptr<NearlinkHostObserver>, std::shared_ptr<NearlinkBaseHostObserver>,
-    std::owner_less<std::weak_ptr<NearlinkHostObserver>>> g_hostObserverMap;
-NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceObserver>,
-    std::shared_ptr<NearlinkBaseRemoteDeviceObserver>,
-    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceObserver>>> g_remoteDeviceObserverMap;
-NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceBatteryObserver>,
-    std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver>,
-    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceBatteryObserver>>> g_batteryObserverMap;
-NearlinkSafeMap<std::weak_ptr<NearlinkRemoteDeviceRssiObserver>,
-    std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver>,
-    std::owner_less<std::weak_ptr<NearlinkRemoteDeviceRssiObserver>>> g_rssiObserverMap;
+template <typename Observer>
+bool ObserverOwnerEquals(const std::weak_ptr<Observer> &lhs, const std::weak_ptr<Observer> &rhs)
+{
+    return !lhs.owner_before(rhs) && !rhs.owner_before(lhs);
+}
+
+// A thread-safe list holding observer adapters, replacing the previous
+// key-value map; lookups and erases walk the list comparing the embedded
+// weak observer of each adapter.
+template <typename Adapter, typename Observer>
+class ObserverAdapterList {
+public:
+    bool Insert(const std::shared_ptr<Observer> &observer, const std::shared_ptr<Adapter> &adapter)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::weak_ptr<Observer> key = observer;
+        for (const auto &item : list_) {
+            if (ObserverOwnerEquals(item->GetObserver(), key)) {
+                return false;
+            }
+        }
+        list_.push_back(adapter);
+        return true;
+    }
+
+    bool GetValue(const std::shared_ptr<Observer> &observer, std::shared_ptr<Adapter> &adapter)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::weak_ptr<Observer> key = observer;
+        for (const auto &item : list_) {
+            if (ObserverOwnerEquals(item->GetObserver(), key)) {
+                adapter = item;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void Erase(const std::weak_ptr<Observer> &observer)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto iter = list_.begin(); iter != list_.end(); iter++) {
+            if (ObserverOwnerEquals((*iter)->GetObserver(), observer)) {
+                list_.erase(iter);
+                return;
+            }
+        }
+    }
+
+private:
+    std::mutex mutex_;
+    std::list<std::shared_ptr<Adapter>> list_;
+};
+
+ObserverAdapterList<NearlinkHostObserverAdapter, NearlinkHostObserver> g_hostObserverList;
+ObserverAdapterList<NearlinkRemoteDeviceObserverAdapter, NearlinkRemoteDeviceObserver> g_remoteDeviceObserverList;
+ObserverAdapterList<NearlinkRemoteDeviceBatteryObserverAdapter, NearlinkRemoteDeviceBatteryObserver>
+    g_batteryObserverList;
+ObserverAdapterList<NearlinkRemoteDeviceRssiObserverAdapter, NearlinkRemoteDeviceRssiObserver> g_rssiObserverList;
 } // namespace
 
 std::shared_ptr<NearlinkBaseHostObserver> WrapHostObserver(std::shared_ptr<NearlinkHostObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkHostObserverAdapter>(observer);
-    if (!g_hostObserverMap.Insert(observer, adapter)) {
+    if (!g_hostObserverList.Insert(observer, adapter)) {
         HILOGW("observer has been registered");
         return nullptr;
     }
@@ -264,19 +334,19 @@ std::shared_ptr<NearlinkBaseHostObserver> WrapHostObserver(std::shared_ptr<Nearl
 bool UnwrapHostObserver(
     std::shared_ptr<NearlinkHostObserver> observer, std::shared_ptr<NearlinkBaseHostObserver> &adapter)
 {
-    return g_hostObserverMap.GetValue(observer, adapter);
+    return g_hostObserverList.GetValue(observer, adapter);
 }
 
 void EraseHostObserver(std::weak_ptr<NearlinkHostObserver> observer)
 {
-    g_hostObserverMap.Erase(observer);
+    g_hostObserverList.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceObserver> WrapRemoteDeviceObserver(
     std::shared_ptr<NearlinkRemoteDeviceObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceObserverAdapter>(observer);
-    if (!g_remoteDeviceObserverMap.Insert(observer, adapter)) {
+    if (!g_remoteDeviceObserverList.Insert(observer, adapter)) {
         HILOGW("remote device observer has been registered");
         return nullptr;
     }
@@ -286,19 +356,19 @@ std::shared_ptr<NearlinkBaseRemoteDeviceObserver> WrapRemoteDeviceObserver(
 bool UnwrapRemoteDeviceObserver(std::shared_ptr<NearlinkRemoteDeviceObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> &adapter)
 {
-    return g_remoteDeviceObserverMap.GetValue(observer, adapter);
+    return g_remoteDeviceObserverList.GetValue(observer, adapter);
 }
 
 void EraseRemoteDeviceObserver(std::weak_ptr<NearlinkRemoteDeviceObserver> observer)
 {
-    g_remoteDeviceObserverMap.Erase(observer);
+    g_remoteDeviceObserverList.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> WrapBatteryObserver(
     std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceBatteryObserverAdapter>(observer);
-    if (!g_batteryObserverMap.Insert(observer, adapter)) {
+    if (!g_batteryObserverList.Insert(observer, adapter)) {
         HILOGW("battery observer has been registered");
         return nullptr;
     }
@@ -308,19 +378,19 @@ std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> WrapBatteryObserver(
 bool UnwrapBatteryObserver(std::shared_ptr<NearlinkRemoteDeviceBatteryObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceBatteryObserver> &adapter)
 {
-    return g_batteryObserverMap.GetValue(observer, adapter);
+    return g_batteryObserverList.GetValue(observer, adapter);
 }
 
 void EraseBatteryObserver(std::weak_ptr<NearlinkRemoteDeviceBatteryObserver> observer)
 {
-    g_batteryObserverMap.Erase(observer);
+    g_batteryObserverList.Erase(observer);
 }
 
 std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> WrapRssiObserver(
     std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
     auto adapter = std::make_shared<NearlinkRemoteDeviceRssiObserverAdapter>(observer);
-    if (!g_rssiObserverMap.Insert(observer, adapter)) {
+    if (!g_rssiObserverList.Insert(observer, adapter)) {
         HILOGW("rssi observer has been registered");
         return nullptr;
     }
@@ -330,12 +400,12 @@ std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> WrapRssiObserver(
 bool UnwrapRssiObserver(std::shared_ptr<NearlinkRemoteDeviceRssiObserver> observer,
     std::shared_ptr<NearlinkBaseRemoteDeviceRssiObserver> &adapter)
 {
-    return g_rssiObserverMap.GetValue(observer, adapter);
+    return g_rssiObserverList.GetValue(observer, adapter);
 }
 
 void EraseRssiObserver(std::weak_ptr<NearlinkRemoteDeviceRssiObserver> observer)
 {
-    g_rssiObserverMap.Erase(observer);
+    g_rssiObserverList.Erase(observer);
 }
 
 } // namespace Nearlink
