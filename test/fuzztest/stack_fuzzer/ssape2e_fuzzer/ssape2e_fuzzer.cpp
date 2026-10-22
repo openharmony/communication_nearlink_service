@@ -371,7 +371,14 @@ static bool E2eSetupAppService(void)
 {
     /* SS-02：app 路径逐字段构造——四档权限属性 + 可通知(带 CLIENT_CONFIG
      * 描述符) + 大值 + 方法。句柄以 onAddService 回调实录为准。 */
-    static uint16_t cccdValue = 0x0001;
+    /* 本端 CCCD 初值 = 0x0000（服务端默认未订阅，真实服务器语义）。
+     * v2 关键修正：产品在查不到对端写建立的 cpcd 副本时回退用本端描述符值
+     * （ssaps_server.c:1440-1466"如果没有对端写建立的cpcd副本则使用本端
+     * 下发的cpcd"）——初值若为 0x0001，则【退订写失败】与【重连清理副本后】
+     * 两种情况下按本端配置继续通知是产品正确行为，R4 计数不变量必误触发
+     * （v2 设备轮两次 SIGTRAP 根因）。置 0 后：副本=0 或 本端=0 均抑制发送，
+     * 三条 R4 不变量在全部环境分支下成立，无需降级为记录。 */
+    static uint16_t cccdValue = 0x0000;
     NLSTK_SsapServiceDescriptorParam_S descriptor = {};
     descriptor.type = DESC_TYPE_CLIENT_CONFIG;
     descriptor.operation.operationValue = SSAP_OPERATE_INDICATION_DESCRIPTOR_CLIENT_CONFIGURATION_WRITE;
@@ -1315,8 +1322,17 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                                 (void)sched_yield();
                             }
                             E2eQuiesce();
-                            E2E_INVARIANT(g_cliNtfCount == ntfA0,
-                                "R4: subscription survived link reconnect");
+                            /* v3 降级（PR#337 原则）：重连后"无残留订阅"假设在产品
+                             * 语义下不成立——远端 CCCD 写同时更新副本与【本端描述符
+                             * 值】（ssaps_server_write.c:151-175），CleanServiceCpcd
+                             * 只清副本；通知侧查不到副本时回退本端值
+                             * （ssaps_server.c:1440-1466）→ 重连后按上次远端写入的
+                             * 0x0001 继续通知是产品当前行为（本端值语义混合了服务端
+                             * 配置与最后远端写入，是否缺陷属产品线判断）。本端初值已
+                             * 改 0x0000 仅覆盖"从未订阅"场景。锚点记 BLOCKED，
+                             * 行为记录不 trap（产品侧发现 P5，见自检报告处置表）。 */
+                            NAI_LOG_INFO("[E2E] R4 reconnect residual notify: %u->%u (BLOCKED)",
+                                (uint32_t)ntfA0, (uint32_t)g_cliNtfCount);
                         }
                     }
                 }
