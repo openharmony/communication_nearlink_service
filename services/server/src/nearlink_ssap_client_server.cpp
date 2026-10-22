@@ -209,7 +209,8 @@ public:
     void OnReadPropertiesByUuid(std::list<Property> &list, int ret) override
     {
         HILOGI("Enter");
-        if (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_)) {
+        if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
+            (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
@@ -266,7 +267,8 @@ public:
     void OnReadDescriptorsByUuid(std::list<Descriptor> &list, int ret) override
     {
         HILOGI("Enter");
-        if (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_)) {
+        if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
+            (!NearLinkPermissionManager::VerifyPermission(MANAGE_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
@@ -306,7 +308,8 @@ public:
     void OnDiscoverByUuidComplete(const Uuid &uuid, int status) override
     {
         HILOGI("status: %{public}d", status);
-        if (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_)) {
+        if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
+            (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
@@ -316,7 +319,8 @@ public:
     void OnServicesRediscovered(std::vector<Service> &services) override
     {
         HILOGI("serviceNum: %{public}lu", services.size());
-        if (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_)) {
+        if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
+            (!NearLinkPermissionManager::VerifyPermission(MANAGE_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }

@@ -872,6 +872,8 @@ std::shared_ptr<SsapService> SsapClient::GetService(const UUID &uuid)
 NlErrCode SsapClient::GetServicesByUuid(const UUID &uuid, std::vector<SsapService> &services)
 {
     HILOGI("enter");
+    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
+        "nearlink is not support.");
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->isRegisterSucceeded_, NL_ERR_INTERNAL_ERROR, "isRegisterSucceeded_ is false.");
 
@@ -881,7 +883,7 @@ NlErrCode SsapClient::GetServicesByUuid(const UUID &uuid, std::vector<SsapServic
             auto ret = pimpl->findInformation_.condition.wait_for(lock, std::chrono::seconds(WAIT_TIMEOUT));
             if (ret == std::cv_status::timeout) {
                 HILOGE("timeout");
-                return NL_ERR_INTERNAL_ERROR;
+                return NL_ERR_TIMEOUT;
             }
         }
     }
@@ -1012,7 +1014,7 @@ NlErrCode SsapClient::CallMethod(SsapMethod &method, std::vector<uint8_t> value)
     return result;
 }
 
-NlErrCode SsapClient::ReadPropertyByUuid(SsapProperty &property)
+NlErrCode SsapClient::ReadPropertiesByUuid(SsapProperty &property)
 {
     HILOGI("enter");
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,

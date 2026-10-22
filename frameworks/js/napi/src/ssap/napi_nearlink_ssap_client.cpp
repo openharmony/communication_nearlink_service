@@ -589,7 +589,7 @@ napi_value NapiNearlinkSsapClient::ReadPropertiesByUuid(napi_env env, napi_callb
 
     auto func = [ssapClient, property]() mutable {
         HILOGI("start read properties by uuid");
-        NlErrCode err = ssapClient->ReadPropertyByUuid(property);
+        NlErrCode err = ssapClient->ReadPropertiesByUuid(property);
         return NapiAsyncWorkRet(err, nullptr);
     };
 

@@ -81,6 +81,7 @@ bool SsapClientImpl::Close()
     std::string serviceUuid = std::string(service.serviceUuid);
     ANI_NL_ASSERT_RETURN(IsValidUuid(serviceUuid), NL_ERR_INVALID_UUID, result);
     ConvertUuidToUpperCase(serviceUuid);
+    ANI_NL_ASSERT_RETURN(!CheckBaseUuid(serviceUuid), NL_ERR_STANDARD_UUID_NOT_ALLOWED, result);
     UUID uuid = UUID::FromString(serviceUuid);
     NlErrCode err = client_->FindStructureByUuid(uuid);
     ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
@@ -133,7 +134,7 @@ uintptr_t SsapClientImpl::ReadPropertiesByUuid(const ::ohos::nearlink::ssap::Pro
     SsapProperty nativeProperty(0, aniProperty.propertyUuid_, aniProperty.operation_, 0);
     auto func = [ssapClient = client_, nativeProperty]() mutable {
         HILOGI("start read properties by uuid");
-        NlErrCode err = ssapClient->ReadPropertyByUuid(nativeProperty);
+        NlErrCode err = ssapClient->ReadPropertiesByUuid(nativeProperty);
         return TaiheAsyncWorkRet(err);
     };
 

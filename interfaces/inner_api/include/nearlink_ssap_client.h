@@ -398,7 +398,7 @@ public:
      * @param property Property object.
      * @return Returns the status code for this function called.
      */
-    NlErrCode ReadPropertyByUuid(SsapProperty &property);
+    NlErrCode ReadPropertiesByUuid(SsapProperty &property);
 
     /**
      * @brief The function to read descriptor.
