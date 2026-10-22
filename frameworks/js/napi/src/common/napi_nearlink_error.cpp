@@ -44,9 +44,9 @@ std::map<int32_t, std::string> napiErrCommonMsgMap {
     { NlErrCode::NL_ERR_PERMISSION_FAILED,
         "Permission verification failed. The application does not have the permission required to call the API." },
     { NlErrCode::NL_ERR_SYSTEM_PERMISSION_FAILED,
-        "Permission verification failed. A non-system application calls a system API."},
+        "Permission verification failed. A non-system application calls a system API." },
     { NlErrCode::NL_ERR_PROHIBITED_BY_EDM,
-        "This function is prohibited by enterprise management policies."},
+        "This function is prohibited by enterprise management policies." },
     { NlErrCode::NL_ERR_INVALID_PARAM, "Invalid parameter." },
     { NlErrCode::NL_ERR_API_NOT_SUPPORT,
         "Capability not supported. Possible causes: 1. The hardware does not support the capability; "
