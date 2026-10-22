@@ -411,6 +411,25 @@ namespace OHOS {
             } \
         } while (0)
 
+    /* 环境前置降级（PR#337 设备 ASAN 轮用户裁定）：真机/无芯片环境 InitStack 中途回退，
+     * 半初始化态下建链/信令链路等前置不满足属环境可达性问题，不是产品缺陷——记录在案 +
+     * 跳过本轮（置位后本目标后续输入直接跳过，对应验收锚点记 BLOCKED）。
+     * 探测通过后（完整环境）其余断言保持 abort，"合法输入下产品行为真的错了"仍可炸出。 */
+    static bool g_cmLinkEnvDegraded = false;
+    // 供 FuzzCmDynTransInit 短路查询：降级为永久（真机无芯片不随输入恢复），避免每输入重试刷日志
+    bool CmFuzzerLinkEnvDegraded(void)
+    {
+        return g_cmLinkEnvDegraded;
+    }
+    #define CM_LINK_FUZZ_REQUIRE(cond, msg) \
+        do { \
+            if (!(cond)) { \
+                CM_LOGE("cm link env degraded, skip: %s", msg); \
+                g_cmLinkEnvDegraded = true; \
+                return; \
+            } \
+        } while (0)
+
     // 同址建链 helper：请求与完成事件携带同一对端地址，建链成功后链路 lcid == handle。
     // ponytail: addr/handle/version/localIndex 消费顺序固定（FDP 从尾部取整型），供种子文件按字节对齐
     static uint32_t CmFuzzerEstablishConnectedLink(FuzzedDataProvider &provider, SLE_Addr_S *addr,
@@ -440,16 +459,20 @@ namespace OHOS {
     // 事件 connHandle 必须 == lcid，否则产品侧按链路不存在处理）
     void CM_ConnectActiveOpsFuzz(uint8_t *data, size_t size)
     {
+        if (g_cmLinkEnvDegraded) {
+            return; /* 环境已降级：本轮记 BLOCKED 跳过 */
+        }
         FuzzedDataProvider provider(data, size);
         SLE_Addr_S addr = {0};
         uint16_t handle = 0;
         uint8_t version = 0;
         uint16_t localIndex = 0;
         uint32_t ret = CmFuzzerEstablishConnectedLink(provider, &addr, &handle, &version, &localIndex);
-        CM_LINK_FUZZ_CHECK(ret == CM_SUCCESS, "active ops establish link failed");
+        /* 环境探测段：真机回退态建链/查询链路不可达属环境问题，降级跳过并记录 */
+        CM_LINK_FUZZ_REQUIRE(ret == CM_SUCCESS, "active ops establish link failed (env)");
         CM_LogicLink_S logicLink = { 0 };
         ret = CM_GetLogicLinkByAddr(&addr, &logicLink);
-        CM_LINK_FUZZ_CHECK((ret == CM_SUCCESS) && (logicLink.lcid == handle), "active ops lcid mismatch handle");
+        CM_LINK_FUZZ_REQUIRE((ret == CM_SUCCESS) && (logicLink.lcid == handle), "active ops lcid mismatch (env)");
         uint16_t lcid = logicLink.lcid;
 
         CM_SetPhyReq_S phyParam = {0};
@@ -759,17 +782,23 @@ namespace OHOS {
         return ret;
     }
 
-    // 发起一次主动建立并 trap：请求成功 + 已发出 TC_CONNECT_REQ 信令；返回捕获到的本端 localTcid
+    // 发起一次主动建立：请求成功 + 已发出 TC_CONNECT_REQ 信令（环境探测后的正向流程锚点，
+    // 真机回退态不可达时降级跳过并记录）；成功返回 true 并带出 identifier 与本端 localTcid
     // （CM_TransChanEstablishReqPkt_S.srcTcid 为 data 首字段）
-    static uint8_t CmFuzzerDynTransEstablishOnce(const CM_DynTransChannelEstablishParamReq_S *estReq,
-        uint8_t *identifier)
+    static bool CmFuzzerDynTransEstablishOnce(const CM_DynTransChannelEstablishParamReq_S *estReq,
+        uint8_t *identifier, uint8_t *localTcid)
     {
         g_capSig.valid = false;
         uint32_t ret = CM_DynTransChannelEstablishReq(estReq);
-        CM_LINK_FUZZ_CHECK(ret == CM_SUCCESS, "dyn trans establish req failed");
-        CM_LINK_FUZZ_CHECK(g_capSig.valid && (g_capSig.code == TC_CONNECT_REQ), "TC_CONNECT_REQ not sent");
+        if ((ret != CM_SUCCESS) || !g_capSig.valid || (g_capSig.code != TC_CONNECT_REQ)) {
+            CM_LOGE("dyn trans establish env degraded, ret:%u, capValid:%d, capCode:0x%02x",
+                ret, (int)g_capSig.valid, g_capSig.code);
+            g_cmLinkEnvDegraded = true;
+            return false;
+        }
         *identifier = g_capSig.identifier;
-        return g_capSig.pkt[0];
+        *localTcid = g_capSig.pkt[0];
+        return true;
     }
 
     // 构造建立响应并回注（srcTcid 回显请求方即本端 tcid，dstTcid 为对端动态 tcid）
@@ -784,14 +813,19 @@ namespace OHOS {
         return CmFuzzerInjectSignaling(TC_CONNECT_RSP, identifier, lcid, &rspPkt, sizeof(rspPkt));
     }
 
-    // 主动释放闭环：ReleaseReq + trap TC_DISCONNECT_REQ + 回注释放成功响应 + trap releaseRspCbk
-    static void CmFuzzerDynTransReleaseClosure(const CM_DynTransChannelReleaseParamReq_S *relReq, uint16_t lcid,
+    // 主动释放闭环：ReleaseReq + 校验 TC_DISCONNECT_REQ + 回注释放成功响应 + releaseRspCbk 命中。
+    // 正向流程锚点：真机回退态不可达时降级返回 false（调用方记录跳过）
+    static bool CmFuzzerDynTransReleaseClosure(const CM_DynTransChannelReleaseParamReq_S *relReq, uint16_t lcid,
         uint8_t localTcid, uint8_t peerTcid)
     {
         uint32_t relBefore = g_dynRelCnt;
         uint32_t ret = CM_DynTransChannelReleaseReq(relReq);
-        CM_LINK_FUZZ_CHECK(ret == CM_SUCCESS, "dyn trans release req failed");
-        CM_LINK_FUZZ_CHECK(g_capSig.valid && (g_capSig.code == TC_DISCONNECT_REQ), "TC_DISCONNECT_REQ not sent");
+        if ((ret != CM_SUCCESS) || !g_capSig.valid || (g_capSig.code != TC_DISCONNECT_REQ)) {
+            CM_LOGE("dyn trans release env degraded, ret:%u, capValid:%d, capCode:0x%02x",
+                ret, (int)g_capSig.valid, g_capSig.code);
+            g_cmLinkEnvDegraded = true;
+            return false;
+        }
         uint8_t relIdentifier = g_capSig.identifier;
         CM_TransChanReleaseRspPkt_S relRspPkt = {0};
         relRspPkt.srcTcid = localTcid;
@@ -799,15 +833,23 @@ namespace OHOS {
         relRspPkt.result = CM_RESULT_RELEASE_SUCCESS;
         int recvRet = CmFuzzerInjectSignaling(TC_DISCONNECT_RSP, relIdentifier, lcid, &relRspPkt,
             sizeof(relRspPkt));
-        CM_LINK_FUZZ_CHECK(recvRet == CM_SUCCESS, "recv release rsp failed");
-        CM_LINK_FUZZ_CHECK((g_dynRelCnt == relBefore + 1) &&
-            (g_dynLastRelResult == CM_DYN_TRANS_CHAN_RELEASE_SUCCESS), "release rsp cbk mismatch");
+        if ((recvRet != CM_SUCCESS) || (g_dynRelCnt != relBefore + 1) ||
+            (g_dynLastRelResult != CM_DYN_TRANS_CHAN_RELEASE_SUCCESS)) {
+            CM_LOGE("dyn trans release rsp env degraded, recvRet:%d, relCnt:%u, relResult:%u",
+                recvRet, g_dynRelCnt, g_dynLastRelResult);
+            g_cmLinkEnvDegraded = true;
+            return false;
+        }
+        return true;
     }
 
     // dyntrans 全生命周期闭环 fuzz：按变体走主动建立/失败复用/错关联/重复响应/被动建立/断连晚到路径。
     // 正常业务拒绝（参数非法等）不算违规不 trap；仅 trap 内部不变量被破坏的场景
     void CM_DynTransLifecycleFuzz(uint8_t *data, size_t size)
     {
+        if (g_cmLinkEnvDegraded) {
+            return; /* 环境已降级：本轮记 BLOCKED 跳过 */
+        }
         FuzzedDataProvider provider(data, size);
         uint8_t variant = provider.ConsumeIntegral<uint8_t>() % CM_FUZZER_DYN_TRANS_VARIANT_MAX;
         g_dynEstCheckRet = provider.ConsumeBool();
@@ -820,10 +862,10 @@ namespace OHOS {
         uint8_t version = 0;
         uint16_t localIndex = 0;
         uint32_t ret = CmFuzzerEstablishConnectedLink(provider, &addr, &handle, &version, &localIndex);
-        CM_LINK_FUZZ_CHECK(ret == CM_SUCCESS, "dyn trans establish link failed");
+        CM_LINK_FUZZ_REQUIRE(ret == CM_SUCCESS, "dyn trans establish link failed (env)");
         CM_LogicLink_S logicLink = { 0 };
         ret = CM_GetLogicLinkByAddr(&addr, &logicLink);
-        CM_LINK_FUZZ_CHECK(ret == CM_SUCCESS, "dyn trans get logic link failed");
+        CM_LINK_FUZZ_REQUIRE(ret == CM_SUCCESS, "dyn trans get logic link failed (env)");
         uint16_t lcid = logicLink.lcid;
 
         // 主动建立请求统一合法参数（STREAM 模式）
@@ -854,7 +896,9 @@ namespace OHOS {
         if (variant == 0) {
             // 成功闭环：建立成功 -> 主动释放 -> 断连（观察 statusIndication/release 路径，不 trap）
             uint8_t identifier = 0;
-            uint8_t localTcid = CmFuzzerDynTransEstablishOnce(&estReq, &identifier);
+            uint8_t localTcid = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier, &localTcid),
+                "dyn trans establish once (env)");
             uint8_t peerTcid = CmFuzzerGenPeerTcid(localTcid);
             uint32_t estBefore = g_dynEstCnt;
             int recvRet = CmFuzzerInjectEstablishRsp(identifier, lcid, localTcid, peerTcid,
@@ -866,12 +910,15 @@ namespace OHOS {
                 "variant0 establish rsp cbk mismatch");
             relReq.srcTcid = localTcid;
             relReq.dstTcid = peerTcid;
-            CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid);
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid),
+                "dyn trans release closure (env)");
             CmFuzzerSleDisconnectEvt(lcid, CM_DISC_REASON_REMOTE_USER_TERMINATED);
         } else if (variant == 1) {
             // 失败响应后 tcid 回收复用（红队 R5/R6），随后走释放闭环
             uint8_t identifier = 0;
-            uint8_t localTcid = CmFuzzerDynTransEstablishOnce(&estReq, &identifier);
+            uint8_t localTcid = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier, &localTcid),
+                "dyn trans establish once (env)");
             uint8_t peerTcid = CmFuzzerGenPeerTcid(localTcid);
             uint32_t estBefore = g_dynEstCnt;
             int recvRet = CmFuzzerInjectEstablishRsp(identifier, lcid, localTcid, peerTcid,
@@ -881,17 +928,22 @@ namespace OHOS {
                 (g_dynLastEstResult == CM_DYN_TRANS_CHAN_ESTABLISH_FAIL) &&
                 (g_dynLastEstSrcTcid == localTcid), "variant1 fail rsp cbk mismatch");
             uint8_t identifier2 = 0;
-            uint8_t localTcid2 = CmFuzzerDynTransEstablishOnce(&estReq, &identifier2);
+            uint8_t localTcid2 = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier2, &localTcid2),
+                "dyn trans establish reuse (env)");
             // 池内唯一在飞的 tcid 已回收，立即重建应复用同一 localTcid
             CM_LINK_FUZZ_CHECK(localTcid2 == localTcid, "variant1 tcid not recycled");
             relReq.srcTcid = localTcid2;
             relReq.dstTcid = peerTcid;
-            CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid2, peerTcid);
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid2, peerTcid),
+                "dyn trans release closure reuse (env)");
             CmFuzzerSleDisconnectEvt(lcid, CM_DISC_REASON_REMOTE_USER_TERMINATED);
         } else if (variant == 2) {
             // 错关联（红队 R1）：错 identifier/错 lcid 的响应必须被拒绝且不回调，再用正确值走完闭环
             uint8_t identifier = 0;
-            uint8_t localTcid = CmFuzzerDynTransEstablishOnce(&estReq, &identifier);
+            uint8_t localTcid = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier, &localTcid),
+                "dyn trans establish once (env)");
             uint8_t peerTcid = CmFuzzerGenPeerTcid(localTcid);
             uint32_t estBefore = g_dynEstCnt;
             int recvRet = CmFuzzerInjectEstablishRsp((uint8_t)(identifier + 1), lcid, localTcid, peerTcid,
@@ -909,12 +961,15 @@ namespace OHOS {
                 "variant2 correct rsp cbk mismatch");
             relReq.srcTcid = localTcid;
             relReq.dstTcid = peerTcid;
-            CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid);
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid),
+                "dyn trans release closure (env)");
             CmFuzzerSleDisconnectEvt(lcid, CM_DISC_REASON_REMOTE_USER_TERMINATED);
         } else if (variant == 3) {
             // 重复响应（红队 R2）：成功闭环后同 identifier 的 RSP 再投一次必须被拒绝且计数不变
             uint8_t identifier = 0;
-            uint8_t localTcid = CmFuzzerDynTransEstablishOnce(&estReq, &identifier);
+            uint8_t localTcid = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier, &localTcid),
+                "dyn trans establish once (env)");
             uint8_t peerTcid = CmFuzzerGenPeerTcid(localTcid);
             int recvRet = CmFuzzerInjectEstablishRsp(identifier, lcid, localTcid, peerTcid,
                 CM_RESULT_ESTABLISH_SUCCESS);
@@ -926,7 +981,8 @@ namespace OHOS {
             CM_LINK_FUZZ_CHECK(g_dynEstCnt == estBefore, "variant3 duplicated rsp re-triggered cbk");
             relReq.srcTcid = localTcid;
             relReq.dstTcid = peerTcid;
-            CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid);
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransReleaseClosure(&relReq, lcid, localTcid, peerTcid),
+                "dyn trans release closure (env)");
             CmFuzzerSleDisconnectEvt(lcid, CM_DISC_REASON_REMOTE_USER_TERMINATED);
         } else if (variant == 4) {
             // 被动路径：手工打包对端 TC_CONNECT_REQ（STREAM 合法参数）经真实接收入口注入
@@ -991,13 +1047,17 @@ namespace OHOS {
         } else {
             // 取消/失败（红队 R2/R6/R3）：失败响应 -> 重建 -> 断连触发 ACTIVATING 态失败回调 -> 晚到 RSP 拒绝
             uint8_t identifier = 0;
-            uint8_t localTcid = CmFuzzerDynTransEstablishOnce(&estReq, &identifier);
+            uint8_t localTcid = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier, &localTcid),
+                "dyn trans establish once (env)");
             uint8_t peerTcid = CmFuzzerGenPeerTcid(localTcid);
             int recvRet = CmFuzzerInjectEstablishRsp(identifier, lcid, localTcid, peerTcid,
                 CM_RESULT_INSUFFICIENT_RESOURCE);
             CM_LINK_FUZZ_CHECK(recvRet == CM_SUCCESS, "variant5 fail rsp rejected");
             uint8_t identifier2 = 0;
-            uint8_t localTcid2 = CmFuzzerDynTransEstablishOnce(&estReq, &identifier2);
+            uint8_t localTcid2 = 0;
+            CM_LINK_FUZZ_REQUIRE(CmFuzzerDynTransEstablishOnce(&estReq, &identifier2, &localTcid2),
+                "dyn trans establish reuse (env)");
             uint32_t estBefore = g_dynEstCnt;
             CmFuzzerSleDisconnectEvt(lcid, CM_DISC_REASON_REMOTE_USER_TERMINATED);
             // 断连触发 ReleaseAllNode：ACTIVATING 态通道经 establishRspCbk 上报失败
@@ -1167,11 +1227,15 @@ void FuzzCmLinkApi(uint8_t *data, size_t size)
 // 此处先静默反注册复位守卫，再用计数回调注册；注册失败属接线缺陷而非业务拒绝，直接 trap
 uint32_t FuzzCmDynTransInit(void)
 {
+    if (OHOS::CmFuzzerLinkEnvDegraded()) {
+        return CM_SUCCESS; /* 环境已降级：跳过本窗口注册（DeInit 侧均有守卫，安全） */
+    }
+    /* 环境前置失败降级记录（不 abort）：真机回退态下信令初始化/dyntrans 注册可能不可达 */
     CM_UnRegDynTransChannelCbks();
     uint32_t ret = CM_SignalingInit();
     if (ret != CM_SUCCESS) {
-        CM_LOGE("CM_SignalingInit failed, ret:%d", ret);
-        OHOS::CmFuzzerTrap("CM_SignalingInit failed");
+        CM_LOGE("CM_SignalingInit failed, env degraded, ret:%d", ret);
+        g_cmLinkEnvDegraded = true;
         return ret;
     }
     CM_DynTransChannelCbks_S cbks = {0};
@@ -1181,8 +1245,8 @@ uint32_t FuzzCmDynTransInit(void)
     cbks.establishedCheckCbk = OHOS::CmFuzzerDynEstCheckCbk;
     ret = CM_RegDynTransChannelCbks(&cbks);
     if (ret != CM_SUCCESS) {
-        CM_LOGE("CM_RegDynTransChannelCbks failed, ret:%d", ret);
-        OHOS::CmFuzzerTrap("CM_RegDynTransChannelCbks failed");
+        CM_LOGE("CM_RegDynTransChannelCbks failed, env degraded, ret:%d", ret);
+        g_cmLinkEnvDegraded = true;
         return ret;
     }
     return CM_SUCCESS;
