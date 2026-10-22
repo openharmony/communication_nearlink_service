@@ -47,6 +47,11 @@ void DftHiviewUeStateChanged(bool isHiviewUeOn)
     g_hiviewUeFlag.store(isHiviewUeOn);
 }
 
+bool DftHiviewUeStateIsOn(void)
+{
+    return g_hiviewUeFlag.load();
+}
+
 void DftManagerReport(DftEventEnum eventId, const DftParamC params[], size_t size)
 {
     if (!IsValidExcep(eventId) || size > OHOS::HiviewDFX::MAX_PARAM_NUMBER) {

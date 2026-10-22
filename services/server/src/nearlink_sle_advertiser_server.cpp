@@ -25,6 +25,7 @@
 #include "remote_observer_list.h"
 #include "nearlink_remote_container.h"
 #include "nearlink_def.h"
+#include "nearlink_app_wakeup_ue.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -443,6 +444,7 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
     }
     sleAdvertiserData.SetTxPowerFlag(advData.GetIncludeTxPower());
     SleAdvertiserDataImpl sleScanResponse = pimpl->ConvertAdvertisingData(scanResponse);
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::ADVERTISER_TRANSFER);
     InterfaceAdvertiserService::GetInstance().StartAdvertising(
         settingsImpl, sleAdvertiserData, sleScanResponse, advHandle);
     return NL_NO_ERROR;

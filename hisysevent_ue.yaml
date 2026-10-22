@@ -90,3 +90,11 @@ NEARLINK_AUDIO_MUTE_STREAM_UE:
   MUTE_CHECK_TIME: {type: INT32, desc: mute check time}
   DEBOUNCE_TIME: {type: INT32, desc: debounce time when synchronization is paused}
   APP_NAME: {type: STRING, desc: calling app name}
+
+NEARLINK_APP_WAKEUP_UE:
+  __BASE: {type: BEHAVIOR, level: CRITICAL, desc: app wakeup ue event-counting unit is one app wakeup in traced paths}
+  APP_NAME: {type: STRING, arrsize: 100, desc: calling app name}
+  APP_UID: {type: INT64, arrsize: 100, desc: calling app uid}
+  APP_PID: {type: INT64, arrsize: 100, desc: calling app pid}
+  BUSINESS_TYPE: {type: INT64, arrsize: 100, desc: type-0 ssap api-1 port api-2 scan cb-3 adv api-4 ssap cb-5 port cb}
+  TRIGGER_COUNT: {type: INT64, arrsize: 100, desc: trigger count of the app in statistic period}

@@ -15,6 +15,7 @@
 
 #include "nearlink_sle_central_manager_server.h"
 #include "nearlink_sle_central_manager_stub.h"
+#include <set>
 #include "nearlink_utils_server.h"
 #include "SleInterfaceManager.h"
 #include "interface_scan_service.h"
@@ -32,6 +33,7 @@
 #include "nearlink_system_config.h"
 #include "nearlink_raw_address.h"
 #include "nearlink_def.h"
+#include "nearlink_app_wakeup_ue.h"
 namespace OHOS {
 namespace Nearlink {
 namespace {
@@ -64,10 +66,10 @@ struct NearlinkSleCentralManagerServer::impl {
 
 struct NearlinkSleCentralManagerServer::impl::SleCentralManagerRemoteInfo {
     SleCentralManagerRemoteInfo () : pid(0), uid(0), tokenId(0), scannerId(SLE_SCAN_INVALID_ID) { }
-    SleCentralManagerRemoteInfo (int32_t pid, int32_t uid, uint64_t tokenId, uint32_t scannerId)
+    SleCentralManagerRemoteInfo (int64_t pid, int64_t uid, uint64_t tokenId, uint32_t scannerId)
         : pid(pid), uid(uid), tokenId(tokenId), scannerId(scannerId) {}
-    int32_t pid;
-    int32_t uid;
+    int64_t pid;
+    int64_t uid;
     uint64_t tokenId;
     uint32_t scannerId;
 };
@@ -118,8 +120,8 @@ public:
     bool IsRemoteScannerId(uint32_t scannerId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
-        int32_t pid = IPCSkeleton::GetCallingPid();
-        int32_t uid = IPCSkeleton::GetCallingUid();
+        int64_t pid = IPCSkeleton::GetCallingPid();
+        int64_t uid = IPCSkeleton::GetCallingUid();
         auto it = std::find_if(vec_.begin(), vec_.end(), [scannerId](const auto &obj) {
             return obj.second.scannerId == scannerId; });
         if (it == vec_.end()) {
@@ -128,7 +130,7 @@ public:
         }
         bool ret = (it->second.pid == pid && it->second.uid == uid);
         if (!ret) {
-            HILOGE("scannerId: %{public}d, pid: %{public}d, uid: %{public}d", scannerId, pid, uid);
+            HILOGE("scannerId: %{public}d, pid: %{public}ld, uid: %{public}ld", scannerId, pid, uid);
         }
         return ret;
     }
@@ -155,7 +157,10 @@ public:
         HILOGD("Address: %{public}s",
             GetEncryptAddr(result.GetPeripheralDevice().GetRawAddress().GetAddress()).c_str());
         DftSetAccurateSearchTaskMap(result.GetPeripheralDevice().GetRawAddress().GetAddress());
-        observers_->ForEach([this, scannerIds, result](INearlinkSleCentralManagerCallback *observer) {
+        // one scan result may match multiple observers of the same app, count once per app
+        std::set<uint64_t> recordedTokenIds;
+        observers_->ForEach([this, scannerIds, result,
+            &recordedTokenIds](INearlinkSleCentralManagerCallback *observer) {
             uint32_t scannerId = GetScannerId(observer->AsObject());
             NL_CHECK_RETURN(scannerId != SLE_SCAN_INVALID_ID, "cannot retrieve remote info");
             auto it = std::find(scannerIds.begin(), scannerIds.end(), scannerId);
@@ -187,6 +192,12 @@ public:
                 return;
             }
             HILOGD("frameType:%{public}d", sleScanResult.GetPrimFrameType());
+            if (recordedTokenIds.count(info.tokenId) == 0) {
+                // count once per app per scan result
+                NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(info.tokenId), info.uid,
+                    info.pid, AppBehaviorType::SCAN_TRANSFER);
+                recordedTokenIds.insert(info.tokenId);
+            }
             observer->OnScanCallback(sleScanResult);
         });
     }
@@ -379,9 +390,9 @@ NlErrCode NearlinkSleCentralManagerServer::StopScan(uint32_t scannerId)
 NlErrCode NearlinkSleCentralManagerServer::RegisterSleCentralManagerCallback(uint32_t &scannerId,
     bool enableRandomAddrMode, const sptr<INearlinkSleCentralManagerCallback> &callback)
 {
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
-    HILOGI("pid: %{public}d, uid: %{public}d", pid, uid);
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
+    HILOGI("pid: %{public}ld, uid: %{public}ld", pid, uid);
 
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "callback is null");
     // 注册/注销互斥：串行化同 remote 的注册与注销，消除并发交错窗口

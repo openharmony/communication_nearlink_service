@@ -62,6 +62,11 @@ void DftManagerStop(void);
 void DftHiviewUeStateChanged(bool isHiviewUeOn);
 
 /**
+ * Check whether HiviewUe state is on
+ */
+bool DftHiviewUeStateIsOn(void);
+
+/**
  * report dft event
  * Will finds the corresponding event cache
  * based on the key param in the params
