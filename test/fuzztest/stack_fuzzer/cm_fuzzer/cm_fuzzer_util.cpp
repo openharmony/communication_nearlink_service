@@ -20,6 +20,7 @@
 #include "cm_log.h"
 #include "cm_def.h"
 #include "cm_util.h"
+#include "cm_api.h"
 
 static const DLI_CbkLineStru *g_cmdCbk = NULL;
 static uint8_t g_cmdCbkSize = 0;
@@ -113,6 +114,43 @@ void CmFuzzerSleConnectCompleteEvt(uint16_t handle)
         .eventParameter = &connCompleteEvt,
     };
     MockDliCmdExecuteCbk(&cmdParam);
+}
+
+void CmFuzzerSleConnectCompleteEvtWithAddr(uint16_t handle, const SLE_Addr_S *addr, uint8_t status)
+{
+    if (addr == NULL) {
+        CM_LOGE("addr is null");
+        return;
+    }
+    DLI_ConnectionCompleteEvt connCompleteEvt = {0};
+    connCompleteEvt.connHandle = handle;
+    connCompleteEvt.role = CM_T_NODE;
+    connCompleteEvt.connCompleteType = CM_CONN_COMPLETE_SCAN; // 主动扫描直连
+    connCompleteEvt.advHandle = 0x00;
+    connCompleteEvt.status = status;
+    (void)memcpy_s(connCompleteEvt.peerAddress, SLE_ADDR_LEN, addr->addr, SLE_ADDR_LEN);
+    DLI_ExecuteCmdRetParam cmdParam = {
+        .cmdOpcode = DLI_CBK_CONNECT,
+        .size = sizeof(connCompleteEvt),
+        .eventParameter = &connCompleteEvt,
+    };
+    MockDliCmdExecuteCbk(&cmdParam);
+}
+
+void CmFuzzerSetMcsEvt(uint16_t connHandle, uint8_t status)
+{
+    for (size_t i = 0; i < g_cmdCbkSize; i++) {
+        if ((g_cmdCbk[i].opcode == DLI_CBK_SET_MCS) && (g_cmdCbk[i].func != NULL)) {
+            // CM_SleSetMcsProc 不读 cmdRes（SetMcs 无返回参数），lcid 取自 context->connHandle
+            DLI_ConnCbkContext cbkContext = {0};
+            cbkContext.versionAndLocalIndex = CM_PackVersionLocalIndex(CM_CONNECT_LOCAL_INDEX_0,
+                CM_CONNECT_VERSION_1_0);
+            cbkContext.connHandle = connHandle;
+            DLI_ExecuteCmdRetParam cmdRes = { 0 };
+            g_cmdCbk[i].func(&cbkContext, status, &cmdRes);
+            break;
+        }
+    }
 }
 
 void CmFuzzerReadRemoteVersionCompleteEvt(DLI_ReadRemoteVersionEvt *evt)
