@@ -70,6 +70,7 @@ group("stackfuzz") {
     "qosmautorate_fuzzer:QosmAutorateFuzzTest",
     "mcp_fuzzer:McpFuzzTest",
     "cmicb_fuzzer:CmIcbFuzzTest",
+    "sdf_fuzzer:SdfFuzzTest",
     "cdsmstack_fuzzer:CdsmStackFuzzTest",
     "ccp_fuzzer:CcpFuzzTest",
     "bas_fuzzer:BasFuzzTest",

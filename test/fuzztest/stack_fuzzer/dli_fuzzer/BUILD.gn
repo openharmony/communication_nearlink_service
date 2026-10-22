@@ -97,6 +97,7 @@ ohos_fuzztest("DliFuzzTest") {
     "$NEW_STACK_DIR/adapter/src/collab_ext_func_wrapper.c",
     "$NEW_STACK_DIR/adapter/src/collab_reg_ext_func.c",
     "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/dli_ext_func_wrapper.c",
     "$NEW_STACK_DIR/dli/event/src/dli_connect_event.c",
     "$NEW_STACK_DIR/dli/event/src/dli_dev_discovery_event.c",
     "$NEW_STACK_DIR/dli/event/src/dli_hadm_event.c",
@@ -138,6 +139,7 @@ ohos_fuzztest("DliFuzzTest") {
 
     "$NEW_STACK_DIR/utils/src/crc16.c",
     "$NEW_STACK_DIR/utils/src/time_utils.c",
+    "$NEW_STACK_DIR/utils/src/parameter_wrapper.c",
 
     "$NEARLINK_ROOT/services/hardware/src/SleDliSnoop.cpp",
     "$NEARLINK_ROOT/services/hardware/src/SleDliThreadUtil.cpp",
