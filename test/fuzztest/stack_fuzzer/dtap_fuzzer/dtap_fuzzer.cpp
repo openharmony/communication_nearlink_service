@@ -326,9 +326,9 @@ static void FuzzDtapPostTask(void (*run)(uint8_t *data, size_t size), uint8_t *d
     task->run = run;
     task->data = data;
     task->size = size;
-    if (SchedulePostTaskBlocked(FuzzDtapTaskTrampoline, task, FuzzDtapTaskFree, 10000) != 0) {
-        free(task); /* post 失败自释放 */
-    }
+    /* lib 侧 SchedulePostTaskBlocked 失败路径已经由 freeCb 释放 arg（nlstk_schedule.c:95-98），
+     * 此处任何返回都不得再 free，否则双释放 */
+    (void)SchedulePostTaskBlocked(FuzzDtapTaskTrampoline, task, FuzzDtapTaskFree, 10000);
 }
 void FuzzDtapSchedulerFire(uint8_t* data, size_t size)
 {
