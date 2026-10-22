@@ -96,36 +96,69 @@ namespace OHOS {
 
     void FuzzSsapClientUapi(uint8_t* data, size_t size)
     {
-        if (size < SLE_ADDR_LEN) {
+        /* addrB 需要第二段地址字节：data[SLE_ADDR_LEN .. 2*SLE_ADDR_LEN] */
+        if (size < 2 * SLE_ADDR_LEN) {
             return;
         }
         FuzzedDataProvider provider(data, size);
-        int32_t appId = -1;
+        int32_t appIdA1 = -1;
+        int32_t appIdA2 = -1;
+        int32_t appIdB = -1;
         NLSTK_SsapAppClientCb_S cb = {0};
-        SLE_Addr_S addr = {0};
-        memcpy_s(addr.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        SLE_Addr_S addrA = {0};
+        SLE_Addr_S addrB = {0};
+        memcpy_s(addrA.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        /* addrB（第二设备）地址取 data 偏移 [SLE_ADDR_LEN .. 2*SLE_ADDR_LEN] 的稳定
+         * 字节（直接切片，非 FDP 消费，不影响尾部取数序列）；首字节强制与 addrA
+         * 互补，保证双设备地址恒不同，隔离语义稳定成立 */
+        memcpy_s(addrB.addr, SLE_ADDR_LEN, data + SLE_ADDR_LEN, SLE_ADDR_LEN);
+        addrB.addr[0] = (uint8_t)(addrA.addr[0] ^ 0xFF);
         SleLogicLinkInit();
-        SleLogicLink_S *node = SleLogicLinkAdd(&addr);
-        if (node == nullptr) {
+        SleLogicLink_S *nodeA = SleLogicLinkAdd(&addrA);
+        if (nodeA == nullptr) {
             return;
         }
         SSAP_LinkInit();
-        node->lcid = provider.ConsumeIntegral<uint16_t>();
-        SSAP_Link_S *link = SSAP_CreateSsapLink(&addr, provider.ConsumeIntegral<uint16_t>(), SendFunc);
-        if (link == nullptr) {
-            SleLogicLinkRemove(node);
+        nodeA->lcid = provider.ConsumeIntegral<uint16_t>();
+        uint16_t lcidA = provider.ConsumeIntegral<uint16_t>();
+        SSAP_Link_S *linkA = SSAP_CreateSsapLink(&addrA, lcidA, SendFunc);
+        if (linkA == nullptr) {
+            SleLogicLinkRemove(nodeA);
+            return;
+        }
+        /* addrB 独立逻辑链路 + SSAP 链路，lcid 由 addrA 侧确定性派生保证互异
+         * （不新增 FDP 消费：新随机源只允许追加在既有消费序列尾部） */
+        SleLogicLink_S *nodeB = SleLogicLinkAdd(&addrB);
+        if (nodeB == nullptr) {
+            return; /* ponytail: 仅 OOM 可能失败，addrA 侧残留不清理 */
+        }
+        nodeB->lcid = (uint16_t)(nodeA->lcid ^ 0x4000);
+        SSAP_Link_S *linkB = SSAP_CreateSsapLink(&addrB, (uint16_t)(lcidA ^ 0x8000), SendFunc);
+        if (linkB == nullptr) {
+            SleLogicLinkRemove(nodeB); /* ponytail: 同上，仅 OOM 可能 */
             return;
         }
 
-        NLSTK_SsapClientRegApp(&appId, &cb, &addr);
+        /* addrA 同址双 app + addrB 单 app 共用 SSAP 链路环境：RegApp 深拷贝 cb 后
+         * 经 SchedulePostTaskBlocked 注册（nlstk_ssap_app_client.c:56-84），cb 全零
+         * 即回调全部为空，产品侧回调下发处已判空 */
+        NLSTK_SsapClientRegApp(&appIdA1, &cb, &addrA);
+        NLSTK_SsapClientRegApp(&appIdA2, &cb, &addrA);
+        NLSTK_SsapClientRegApp(&appIdB, &cb, &addrB);
 
-        /* 链路状态机事件遍历：同一 appId 上按 建链→连接成功→断链→连接断开
-         * 顺序驱动 SsapClientLinkStateMachineCall（ssapc_app_link_sm.c 唯一
-         * 事件入口，此前无任何 fuzzer 调用），覆盖缓存操作与状态迁移分支；
-         * reason 取 fuzz 字节保留错误码路径。先经
-         * SsapLinkHandleRecordLinkStateFromCm 铺底已连接态，USER_CONNECT
-         * 才能从 IDLE 走 UserConnectInIdleState 真实迁移。 */
-        SsapLinkHandleRecordLinkStateFromCm(&addr, SSAP_CONNECT_STATE_CONNECTED);
+        /* 铺底 addrA 实际链路已连接（app 状态仍为 IDLE），USER_CONNECT 才能从
+         * IDLE 走 UserConnectInIdleState 真实迁移；reason 取 fuzz 字节保留错误码
+         * 路径（既有消费位次不变，下方 addrA/addrB 事件共用） */
+        SsapLinkHandleRecordLinkStateFromCm(&addrA, SSAP_CONNECT_STATE_CONNECTED);
+        uint8_t reason = provider.ConsumeIntegral<uint8_t>();
+        /* addrA 双 app 事件交错驱动（保留原事件枚举遍历，同事件先 appA1 后 appA2）：
+         * USER_CONNECT 使两 app 均迁入 CONNECTED（ssapc_app_link_sm.c:156-160）；
+         * appA1 的 USER_DISCONNECT 先到，SsapcAppClientDisconnectCmLinkCheck
+         * （ssapc_app_link_sm.c:95-126）发现同址 appA2 仍为 CONNECTED/CONNECTING
+         * （:119-121）→ 拒绝 CM_DirectConnectRemove，仅改状态上报（:410-414）；
+         * 轮到 appA2 同事件时 appA1 已 DISCONNECTED，检查放行 → 真实 CM 断链
+         * （:397-408），随后 LOGIC_LINK_DISCONNECTED 走 Disconnecting→Disconnected
+         * 迁移（:544-556） */
         {
             static const NLSTK_SsapClientLinkChangeEvent_E events[] = {
                 SSAP_USER_CONNECT,
@@ -134,48 +167,96 @@ namespace OHOS {
                 SSAP_LOGIC_LINK_DISCONNECTED,
                 SSAP_LINK_CHANGE_EVENT_BUTT,
             };
-            uint8_t reason = provider.ConsumeIntegral<uint8_t>();
             for (size_t i = 0; i < sizeof(events) / sizeof(events[0]); i++) {
-                SsapClientLinkStateMachineCall(appId, events[i], reason);
+                SsapClientLinkStateMachineCall(appIdA1, events[i], reason);
+                SsapClientLinkStateMachineCall(appIdA2, events[i], reason);
             }
         }
 
         uint16_t mtu = 128;
-        NLSTK_SsapClientExchangeMtu(appId, mtu);
+        NLSTK_SsapClientExchangeMtu(appIdA1, mtu);
 
-        NLSTK_SsapClientDiscoverServices(appId, 0, 0, provider.ConsumeIntegral<uint8_t>());
+        NLSTK_SsapClientDiscoverServices(appIdA1, 0, 0, provider.ConsumeIntegral<uint8_t>());
 
-        NLSTK_SsapClientDiscoverServicesByUuid(appId, &g_uuid1, provider.ConsumeIntegral<uint16_t>(),
+        NLSTK_SsapClientDiscoverServicesByUuid(appIdA1, &g_uuid1, provider.ConsumeIntegral<uint16_t>(),
             provider.ConsumeIntegral<uint16_t>(), provider.ConsumeIntegral<uint8_t>());
 
         NLSTK_SsapServ_S *service;
         uint16_t serviceNum = 0;
         NLSTK_SsapClientFreeFunc func = &SsapClientFreeFuncCb;
-        NLSTK_SsapClientGetServices(appId, &service, &serviceNum, &func);
+        NLSTK_SsapClientGetServices(appIdA1, &service, &serviceNum, &func);
 
-        NLSTK_SsapClientGetServicesByUuid(appId, &g_uuid1, &service, &serviceNum, &func);
+        NLSTK_SsapClientGetServicesByUuid(appIdA1, &g_uuid1, &service, &serviceNum, &func);
 
-        NLSTK_SsapClientReadProperty(appId, provider.ConsumeIntegral<uint16_t>());
+        NLSTK_SsapClientReadProperty(appIdA1, provider.ConsumeIntegral<uint16_t>());
 
-        NLSTK_SsapClientGetPropertyNtf(appId, provider.ConsumeIntegral<uint16_t>());
+        NLSTK_SsapClientGetPropertyNtf(appIdA1, provider.ConsumeIntegral<uint16_t>());
 
-        NLSTK_SsapClientSetPropertyNtf(appId, provider.ConsumeIntegral<uint16_t>(), true);
+        NLSTK_SsapClientSetPropertyNtf(appIdA1, provider.ConsumeIntegral<uint16_t>(), true);
 
         NLSTK_VariableData_S value = {0};
         value.len = size;
         value.data = data;
-        NLSTK_SsapClientWriteProperty(appId, provider.ConsumeIntegral<uint16_t>(), &value, true);
-        NLSTK_SsapClientWriteProperty(appId, provider.ConsumeIntegral<uint16_t>(), &value, false);
+        NLSTK_SsapClientWriteProperty(appIdA1, provider.ConsumeIntegral<uint16_t>(), &value, true);
+        NLSTK_SsapClientWriteProperty(appIdA1, provider.ConsumeIntegral<uint16_t>(), &value, false);
 
-        NLSTK_SsapClientCallMethod(appId, provider.ConsumeIntegral<uint16_t>(), &value, true);
-        NLSTK_SsapClientCallMethod(appId, provider.ConsumeIntegral<uint16_t>(), &value, false);
+        NLSTK_SsapClientCallMethod(appIdA1, provider.ConsumeIntegral<uint16_t>(), &value, true);
+        NLSTK_SsapClientCallMethod(appIdA1, provider.ConsumeIntegral<uint16_t>(), &value, false);
+
+        /* —— 以下均为尾部新增消费（追加在既有消费序列末尾，旧 corpus 既有取值
+         * 不变，数据耗尽时 FDP 返回 0）—— addrB 三变体驱动，variant 取 fuzz 字节 %3：
+         * 变体0：铺底 addrB 已连接后完整走 USER_CONNECT→LOGIC_LINK_CONNECTED→
+         *   USER_DISCONNECT→LOGIC_LINK_DISCONNECTED（单 app 放行断链，与旧单 app
+         *   遍历语义对齐）；
+         * 变体1（未连接）：不铺底直接 USER_CONNECT，IDLE 态经
+         *   SsapLinkHandleUserConnect 真实发起 CM_DirectConnectAdd
+         *   （ssap_link_state.c:88-95），fuzzer 进程内无对端，覆盖 CM 受理进
+         *   CONNECTING（:94）与失败回 DISCONNECTED+CONN_FAIL 上报（:91）两路；
+         * 变体2（连接中）：USER_CONNECT 进入 CONNECTING 后再投 USER_DISCONNECT
+         *   （经 SsapcCacheLinkOper 缓存断链，ssapc_app_link_sm.c:293-307）与
+         *   USER_CONNECT（缓存抵消清除，:263-280）；若 CM 未受理则落到
+         *   Disconnected 态韧性分支 */
+        uint8_t variant = provider.ConsumeIntegral<uint8_t>() % FUZZ_THREE;
+        if (variant == 0) {
+            SsapLinkHandleRecordLinkStateFromCm(&addrB, SSAP_CONNECT_STATE_CONNECTED);
+            static const NLSTK_SsapClientLinkChangeEvent_E eventsB[] = {
+                SSAP_USER_CONNECT,
+                SSAP_LOGIC_LINK_CONNECTED,
+                SSAP_USER_DISCONNECT,
+                SSAP_LOGIC_LINK_DISCONNECTED,
+                SSAP_LINK_CHANGE_EVENT_BUTT,
+            };
+            for (size_t i = 0; i < sizeof(eventsB) / sizeof(eventsB[0]); i++) {
+                SsapClientLinkStateMachineCall(appIdB, eventsB[i], reason);
+            }
+        } else if (variant == 1) {
+            SsapClientLinkStateMachineCall(appIdB, SSAP_USER_CONNECT, reason);
+        } else {
+            SsapClientLinkStateMachineCall(appIdB, SSAP_USER_CONNECT, reason);
+            SsapClientLinkStateMachineCall(appIdB, SSAP_USER_DISCONNECT, reason);
+            SsapClientLinkStateMachineCall(appIdB, SSAP_USER_CONNECT, reason);
+        }
+
+        /* 多 app 独立缓存覆盖：ReadProperty/SetPropertyNtf/WriteProperty 在 appA2/appB 上各打一次 */
+        NLSTK_SsapClientReadProperty(appIdA2, provider.ConsumeIntegral<uint16_t>());
+        NLSTK_SsapClientSetPropertyNtf(appIdA2, provider.ConsumeIntegral<uint16_t>(), true);
+        NLSTK_SsapClientWriteProperty(appIdA2, provider.ConsumeIntegral<uint16_t>(), &value, true);
+        NLSTK_SsapClientReadProperty(appIdB, provider.ConsumeIntegral<uint16_t>());
+        NLSTK_SsapClientSetPropertyNtf(appIdB, provider.ConsumeIntegral<uint16_t>(), true);
+        NLSTK_SsapClientWriteProperty(appIdB, provider.ConsumeIntegral<uint16_t>(), &value, true);
 
         NLSTK_SsapCleanClientApp(SsapClientCleanAppResultCb);
 
-        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addr, NULL);
-        SchedulePostTask(SleLogicLinkRemove_stub, (void *)node, NULL);
+        /* 收尾顺序沿用既有"先调度删链后 Dereg"模式，每 addr 成对一致；DeregApp 经
+         * SsapcAppDeregister 清缓存并按 appId 清残留任务（ssapc_app.c:197-210） */
+        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addrA, NULL);
+        SchedulePostTask(SleLogicLinkRemove_stub, (void *)nodeA, NULL);
+        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addrB, NULL);
+        SchedulePostTask(SleLogicLinkRemove_stub, (void *)nodeB, NULL);
 
-        NLSTK_SsapClientDeregApp(appId);
+        NLSTK_SsapClientDeregApp(appIdA1);
+        NLSTK_SsapClientDeregApp(appIdA2);
+        NLSTK_SsapClientDeregApp(appIdB);
     }
 
     void FuzzSsapClientUapi2(uint8_t* data, size_t size)
