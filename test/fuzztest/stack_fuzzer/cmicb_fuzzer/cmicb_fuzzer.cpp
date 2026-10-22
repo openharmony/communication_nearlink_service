@@ -267,6 +267,10 @@ void FuzzIcbRegisterConnectionCbk(const uint8_t *fuzzData, size_t size)
     (void)CM_UnregisterICBConnectionCbk();
 }
 
+/* PR-3 批次A（CM-10/11/12）：事件闭环与边界组入口，实现见 cmicb_evt_fuzzer.cpp */
+void FuzzIcbEventLoop(const uint8_t *fuzzData, size_t size);
+void FuzzIcgBoundaryParams(const uint8_t *fuzzData, size_t size);
+
 }  // namespace OHOS
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -305,6 +309,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
+    /* 批次A：先跑事件闭环与边界组（自带节点清理）。若其建节点后旧的 FuzzIcgSetParam
+     * 偶发"icg channel has been set"拒绝，属真实合法拒绝，无需处理。 */
+    OHOS::FuzzIcbEventLoop(fuzzData, size);
+    OHOS::FuzzIcgBoundaryParams(fuzzData, size);
     OHOS::FuzzIcgSetParam(fuzzData, size);
     OHOS::FuzzIcgSetAutorateParam(fuzzData, size);
     OHOS::FuzzIcgRemoveParam(fuzzData, size);
