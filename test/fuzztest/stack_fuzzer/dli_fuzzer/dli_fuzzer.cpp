@@ -256,15 +256,15 @@ void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
     uint8_t cnt = cntTable[provider.ConsumeIntegral<uint8_t>() % sizeof(cntTable)];
 
     DLI_ICBParam icbParams[SLE_ICB_MAX_NUM] = {{0}};
-    DLI_ICBParam::DLI_ICB icbInners[SLE_ICB_MAX_NUM] = {{0}}; /* DLI_ICBParam.param 指向的内层结构 */
+    DLI_ICBParam::DLI_ICB icbInners[SLE_ICB_MAX_NUM][SLE_ICB_MAX_NUM] = {}; /* PR331 修复：产品按 paramCnt 把 param 当数组遍历（dli_cmd.c:1130），须每链路 paramCnt 个连续结构 */
     DLI_ICBChannel channels[SLE_ICB_MAX_NUM] = {{0}};
     for (uint8_t i = 0; i < SLE_ICB_MAX_NUM; i++) {
         icbParams[i].id = provider.ConsumeIntegral<uint8_t>();
-        icbParams[i].param = &icbInners[i]; /* 产品侧 dli_cmd.c:1130 直接解引用，必须真实构造 */
-        icbInners[i].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
-        icbInners[i].maxSduT2G = provider.ConsumeIntegral<uint16_t>();
-        icbInners[i].rtnG2T = provider.ConsumeIntegral<uint8_t>();
-        icbInners[i].rtnT2G = provider.ConsumeIntegral<uint8_t>();
+        icbParams[i].param = icbInners[i]; /* 行首即 paramCnt 个连续内层结构（dli_cmd.c:1130 按 param[j] 索引） */
+        icbInners[i][0].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i][0].maxSduT2G = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i][0].rtnG2T = provider.ConsumeIntegral<uint8_t>();
+        icbInners[i][0].rtnT2G = provider.ConsumeIntegral<uint8_t>();
         channels[i].connHandle = provider.ConsumeIntegral<uint16_t>();
         channels[i].lcid = provider.ConsumeIntegral<uint16_t>();
     }

@@ -911,6 +911,28 @@ void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
         for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
             FuzzDtapOperateChannel(castMode, lcid, tcid, modes[i], CM_TRANS_CHANNEL_STATE_ACTIVATED);
         }
+        FuzzFireDliConnect(lcid);
+        FuzzFireDataNumChange((uint16_t)(provider.ConsumeIntegral<uint8_t>() % TEST_DEFAULT_ACB_NUM));
+        for (uint8_t i = 0; i < 4; i++) { /* 多包：驱动配额扣减/队列上限分支 */
+            DTAP_Data_S dtapData = {0};
+            dtapData.pi = pi;
+            dtapData.lcid = lcid;
+            dtapData.tcid = tcid;
+            dtapData.buff = FuzzDtapCreateBuff(data, size);
+            if (dtapData.buff == nullptr) {
+                continue;
+            }
+            uint32_t ret = DTAP_DataSend(&dtapData);
+            if (ret != DTAP_SUCCESS) {
+                SDF_BuffFree(dtapData.buff);
+            }
+        }
+        FuzzFireNocp(lcid, provider.ConsumeIntegral<uint8_t>());
+        for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+            FuzzDtapOperateChannel(castMode, lcid, tcid, modes[i], CM_TRANS_CHANNEL_STATE_RELEASED);
+        }
+        FuzzFireDliDisconnect(lcid);
+
         /* FUZZ-017(C3): 小值域通道——mps/mtu=10、可靠模式 txWindow=0、
          * reorder/retrans/rspTimeout=1-10ms（与 OperateChannel 的 UINT16_MAX 大值域互补）。 */
         if (g_FuzzTransChannelCbk != nullptr) {
@@ -939,27 +961,6 @@ void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
                 SDF_DestroyVector(smallVec);
             }
         }
-        FuzzFireDliConnect(lcid);
-        FuzzFireDataNumChange((uint16_t)(provider.ConsumeIntegral<uint8_t>() % TEST_DEFAULT_ACB_NUM));
-        for (uint8_t i = 0; i < 4; i++) { /* 多包：驱动配额扣减/队列上限分支 */
-            DTAP_Data_S dtapData = {0};
-            dtapData.pi = pi;
-            dtapData.lcid = lcid;
-            dtapData.tcid = tcid;
-            dtapData.buff = FuzzDtapCreateBuff(data, size);
-            if (dtapData.buff == nullptr) {
-                continue;
-            }
-            uint32_t ret = DTAP_DataSend(&dtapData);
-            if (ret != DTAP_SUCCESS) {
-                SDF_BuffFree(dtapData.buff);
-            }
-        }
-        FuzzFireNocp(lcid, provider.ConsumeIntegral<uint8_t>());
-        for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
-            FuzzDtapOperateChannel(castMode, lcid, tcid, modes[i], CM_TRANS_CHANNEL_STATE_RELEASED);
-        }
-        FuzzFireDliDisconnect(lcid);
     }
 }
 

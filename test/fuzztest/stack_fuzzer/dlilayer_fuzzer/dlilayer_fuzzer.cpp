@@ -264,7 +264,7 @@ void FuzzDliLayerFragmentSeq(uint8_t* data, size_t size);
         };
         for (size_t s = 0; s < sizeof(pbStages) / sizeof(pbStages[0]); s++) {
             uint16_t payloadLen = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1);
-            uint8_t frame[UINT8_MAX + 1] = {0};
+            uint8_t frame[UINT8_MAX + 1 + DLI_HEADER] = {0}; /* PR331 修复：payloadLen≤256 另有 DLI_HEADER 帧头 */
             uint32_t frameLen = (uint32_t)(DLI_HEADER + payloadLen);
             /* 帧格式照 DLI_SplitData 写入：type(1) + lcid|pb<<12|ts<<14|prio<<15(2)
              * + length(2)，DLI_ENCODE2BYTE 为小端。 */

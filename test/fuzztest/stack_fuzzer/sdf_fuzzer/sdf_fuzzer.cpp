@@ -152,14 +152,18 @@ void FuzzSdfThreadWorker(const uint8_t *data, size_t size)
     uint32_t tid = SDF_THREAD_INVALID_ID;
     (void)SDF_ThreadCreate(&tid, &param);
     (void)SDF_ThreadCreate(nullptr, nullptr); /* 非法参数 */
-    uint32_t extra = SDF_THREAD_INVALID_ID;
+    uint32_t extras[3] = {SDF_THREAD_INVALID_ID, SDF_THREAD_INVALID_ID, SDF_THREAD_INVALID_ID};
     for (int i = 0; i < 3; i++) { /* freelist 耗尽（sdf_thread.c:231-244） */
-        (void)SDF_ThreadCreate(&extra, &param);
+        (void)SDF_ThreadCreate(&extras[i], &param);
     }
     (void)SDF_ThreadSelfId();
     SDF_ThreadYield();
     SDF_ThreadSleep(1);
     (void)SDF_ThreadJoin(tid);
+    /* PR331 修复：Deinit 前回收全部 extra 线程（sdf_thread.h:126 契约，避免读已释放 desc 调 NULL hook） */
+    for (int i = 0; i < 3; i++) {
+        (void)SDF_ThreadJoin(extras[i]);
+    }
     (void)SDF_ThreadJoin(SDF_THREAD_INVALID_ID); /* 非法 id */
 
     SDF_ThreadLocalKey key;
