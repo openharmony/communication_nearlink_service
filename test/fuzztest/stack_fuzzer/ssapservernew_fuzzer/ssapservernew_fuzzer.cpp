@@ -77,10 +77,8 @@ static NLSTK_SsapUuid_S g_uuid4Net = {0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x00, 0x01, 
  * （ssap_manager.c:698），本工程每输入只跑 SSAP_LinkInit/LinkDeInit 不复位 → 下列布局对首个
  * 输入精确（AddService1: 0x10~0x12；AddService2: 0x13~0x14），后续输入游标每输入前移
  * +15（Handle1/3/4 各消费 5 句柄），常量退化为确定性扰动范围；以实施 SHA 为准。 */
-static const uint16_t SVC1_HANDLE = 0x10;       /* AddService1 服务声明（end=0x12） */
-static const uint16_t SVC1_PROP1_HANDLE = 0x11; /* AddService1 属性1 */
-static const uint16_t SVC1_PROP2_HANDLE = 0x12; /* AddService1 属性2 */
-static const uint16_t SVC2_HANDLE = 0x13;       /* AddService2 服务声明 */
+static const uint16_t SVC1_HANDLE = 0x10;       /* AddService1 服务声明；属性2=0x12（未单列常量） */
+static const uint16_t SVC1_PROP1_HANDLE = 0x11; /* AddService1 属性1；AddService2 服务声明=0x13（未单列常量） */
 static const uint16_t SVC2_PROP1_HANDLE = 0x14; /* AddService2 属性（end=0x14） */
 
 namespace OHOS {

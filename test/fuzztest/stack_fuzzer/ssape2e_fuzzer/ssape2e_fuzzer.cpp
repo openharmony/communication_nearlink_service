@@ -17,6 +17,7 @@
 #include "ssape2e_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
 #include <string.h>
+#include <sched.h>
 #include "ssaps_server.h"
 #include "ssaps_server_api.h"
 #include "ssaps_service.h"
@@ -182,9 +183,22 @@ static void E2eTaskCallback(int32_t appId, void *arg)
 /* 有界自旋等待观测到达：同步腿在调用栈内已完成（立即通过），异步腿
  * （worker 上构建响应→回喂→回调）通常微秒级；超时返回 false 由调用方
  * 记录并跳过依赖段，不冒充成功路径。 */
+static void E2eQuiesce(void);
+
+/* 有界自旋等待观测到达：同步腿在调用栈内已完成（立即通过），异步腿
+ * （worker 上构建响应→回喂→回调）通常微秒级；超时返回 false 由调用方
+ * 记录并跳过依赖段，不冒充成功路径。回调到达≠级联结束——异步腿完成
+ * 请求后会同步级联排空队列，主线程必须等全部链路回到 IDLE 再继续
+ * （UAF 根治：PR#336 设备 ASAN 轮实锤 worker 在 DeliverToPeer 读到主
+ * 线程已释放的 buff，与 PR#331 Dtap 同族——主/worker 不得并发触碰
+ * SSAP 状态与分配器）。sched_yield 让核使真机等待高效。 */
 static bool E2eWaitObs(void)
 {
-    for (volatile int32_t i = 0; i < 2000000 && !g_obs.cbArrived; i++) {
+    for (volatile int32_t i = 0; i < 8000000 && !g_obs.cbArrived; i++) {
+        (void)sched_yield();
+    }
+    if (g_obs.cbArrived) {
+        E2eQuiesce();
     }
     return g_obs.cbArrived;
 }
@@ -402,8 +416,10 @@ static bool E2eSetupAppService(void)
     g_appSvcCbSeen = false;
     g_appSvcOk = false;
     (void)NLSTK_SsapServerAddService(g_srvAppId, &service);
-    for (volatile int32_t i = 0; i < 2000000 && !g_appSvcCbSeen; i++) {
+    for (volatile int32_t i = 0; i < 8000000 && !g_appSvcCbSeen; i++) {
+        (void)sched_yield();
     }
+    E2eQuiesce(); /* AddService 尾部 UpdateHash→ServiceChangeNtf 会在链路上排通知任务，等收尾 */
     return g_appSvcOk;
 }
 
@@ -464,6 +480,35 @@ static DTAP_Data_Info_S g_clientInfo = {0};
 static DTAP_Data_Info_S g_serverInfoB = {0};
 static DTAP_Data_Info_S g_clientInfoB = {0};
 static SSAP_Link_S *g_clientLink = nullptr;
+static SSAP_Link_S *g_serverLink = nullptr;   /* 链路指针文件域化：静默屏障/统一清理需跨函数访问 */
+static SSAP_Link_S *g_serverLinkB = nullptr;
+static SSAP_Link_S *g_clientLinkB = nullptr;
+
+/* 主/worker 串行化屏障：等所有在活链路回 IDLE（有界）。队列级联必终态
+ * IDLE（无新请求则不再自续），故 IDLE 即 worker 侧收尾。 */
+static bool E2eAllLinksIdle(void)
+{
+    if (g_clientLink != nullptr && g_clientLink->status != SSAP_LINK_IDLE) {
+        return false;
+    }
+    if (g_serverLink != nullptr && g_serverLink->status != SSAP_LINK_IDLE) {
+        return false;
+    }
+    if (g_clientLinkB != nullptr && g_clientLinkB->status != SSAP_LINK_IDLE) {
+        return false;
+    }
+    if (g_serverLinkB != nullptr && g_serverLinkB->status != SSAP_LINK_IDLE) {
+        return false;
+    }
+    return true;
+}
+
+static void E2eQuiesce(void)
+{
+    for (volatile int32_t i = 0; i < 8000000 && !E2eAllLinksIdle(); i++) {
+        (void)sched_yield();
+    }
+}
 
 static NLSTK_SsapUuid_S g_uuid1 = {0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0xB7, 0x20,
     0xEA, 0x11, 0xFC, 0x70, 0x80, 0xA8, 0xBE, 0x37};
@@ -724,10 +769,59 @@ static void RunMultiItemWrite(SSAP_Link_S *serverLink, uint16_t okHandle, uint16
  * 回调按 kind=NONE 计数（arg 为栈上完成结构，只计数不解引用）。 */
 static void E2eFlushBusyTask(SSAP_Link_S *link)
 {
-    if (link != nullptr && link->status == SSAP_LINK_BUSY) {
+    if (link == nullptr) {
+        return;
+    }
+    E2eQuiesce(); /* 先等 worker 级联收尾，避免与异步完成并发清同一任务（双完成=UAF） */
+    if (link->status == SSAP_LINK_BUSY) {
         E2eObsReset(E2E_KNONE);
         SSAP_TimeoutCbk(link);
     }
+}
+
+/* 统一收尾（编译修复：原 goto CLEANUP 跨越 600 行变量初始化，C++ 禁止
+ * ——改为就地调用；早退路径与正常路径同一清理面）。顺序：真实注销（内含
+ * CleanTaskByAppId/cpcd 缓存清）→ 让注销腿在 worker 上先行 → 链路静默 →
+ * 扣留缓冲/夹具释放 → 按 addr 删链路（B 客户端/B 服务端/A 服务端/A 客户端）
+ * → 逆序 DeInit（ServiceDeInit 复位 g_curHandle/分配器，下轮布局确定）。 */
+static void E2eTeardown(const SLE_Addr_S *serverAddr, const SLE_Addr_S *clientAddr,
+    const SLE_Addr_S *clientAddrB, const SLE_Addr_S *serverAddrB2)
+{
+    if (g_cliAppId >= 0) {
+        NLSTK_SsapClientDeregApp(g_cliAppId);
+        g_cliAppId = -1;
+    }
+    if (g_srvAppId >= 0) {
+        NLSTK_SsapServerDeregisterApplication(g_srvAppId);
+        g_srvAppId = -1;
+    }
+    for (volatile int32_t i = 0; i < 1000000; i++) {
+        (void)sched_yield();
+    } /* 注销腿经调度：CleanTaskByAppId 遍历链路表，主线程待其先行后再删链路 */
+    E2eQuiesce();
+    if (g_holdBuff != nullptr) {
+        SDF_BuffFree(g_holdBuff);
+        g_holdBuff = nullptr;
+    }
+    SlinkFixtureClear();
+    if (g_clientLinkB != nullptr) {
+        SSAP_DeleteSsapLinkByAddr(const_cast<SLE_Addr_S *>(serverAddrB2));
+        g_clientLinkB = nullptr;
+    }
+    if (g_serverLinkB != nullptr) {
+        SSAP_DeleteSsapLinkByAddr(const_cast<SLE_Addr_S *>(clientAddrB));
+        g_serverLinkB = nullptr;
+    }
+    if (g_serverLink != nullptr) {
+        SSAP_DeleteSsapLinkByAddr(const_cast<SLE_Addr_S *>(serverAddr));
+        g_serverLink = nullptr;
+    }
+    if (g_clientLink != nullptr) {
+        SSAP_DeleteSsapLinkByAddr(const_cast<SLE_Addr_S *>(clientAddr));
+        g_clientLink = nullptr;
+    }
+    SSAPS_ServiceDeInit();
+    SSAP_LinkDeInit();
 }
 
 void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
@@ -780,12 +874,17 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
         AddService2();
     }
 
-    SSAP_Link_S *serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
-    SSAP_Link_S *clientLink = SSAP_CreateSsapLink(&clientAddr, clientLcid, ClientSendCb);
-    if (serverLink == nullptr || clientLink == nullptr) {
-        goto CLEANUP;
+    /* 链路指针登记文件域（静默屏障/统一清理跨函数访问）；B 端地址与 appOk
+     * 声明前置，配合下方就地清理+提前 return 消除 goto 跨初始化（编译修复） */
+    SLE_Addr_S clientAddrB = {0};
+    SLE_Addr_S serverAddrB2 = {0};
+    bool appOk = false;
+    g_serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
+    g_clientLink = SSAP_CreateSsapLink(&clientAddr, clientLcid, ClientSendCb);
+    if (g_serverLink == nullptr || g_clientLink == nullptr) {
+        E2eTeardown(&serverAddr, &clientAddr, &clientAddrB, &serverAddrB2);
+        return;
     }
-    g_clientLink = clientLink;
     g_serverInfo.lcid = serverLcid;
     g_clientInfo.lcid = clientLcid;
     g_cliNtfCount = 0;
@@ -800,10 +899,6 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
      * &link->addr；ssaps_server.c:1420 FindSsapLinkByAddr），故 A 的身份
      * 标签=serverAddr、B 的=clientAddrB；B 客户端链路用独立标签
      * serverAddrB2，避免与 serverAddr 撞导致 ByAddr 查找歧义。 */
-    SLE_Addr_S clientAddrB = {0};
-    SLE_Addr_S serverAddrB2 = {0};
-    SSAP_Link_S *serverLinkB = nullptr;
-    SSAP_Link_S *clientLinkB = nullptr;
     if (modeB != 0) {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             clientAddrB.addr[i] = (uint8_t)(clientAddr.addr[i] ^ 0x55);
@@ -813,9 +908,9 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
         serverAddrB2.type = serverAddr.type;
         uint16_t serverLcidB = static_cast<uint16_t>(serverLcid ^ 0x4000);
         uint16_t clientLcidB = static_cast<uint16_t>(clientLcid ^ 0x4000);
-        serverLinkB = SSAP_CreateSsapLink(&clientAddrB, serverLcidB, ServerSendCbB);
-        clientLinkB = SSAP_CreateSsapLink(&serverAddrB2, clientLcidB, ClientSendCbB);
-        if (serverLinkB != nullptr && clientLinkB != nullptr) {
+        g_serverLinkB = SSAP_CreateSsapLink(&clientAddrB, serverLcidB, ServerSendCbB);
+        g_clientLinkB = SSAP_CreateSsapLink(&serverAddrB2, clientLcidB, ClientSendCbB);
+        if (g_serverLinkB != nullptr && g_clientLinkB != nullptr) {
             g_serverInfoB.lcid = serverLcidB;
             g_clientInfoB.lcid = clientLcidB;
         }
@@ -823,7 +918,6 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
 
     /* SS-00：真实注册 + app 路径服务（失败则 appMode 相关段全部跳过） */
     E2eRegisterApps(&serverAddr);
-    bool appOk = false;
     for (int i = 0; i < TIER_NUM; i++) {
         g_propHandle[i] = 0;
     }
@@ -843,7 +937,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             }
             req->version = 0x0103;
             (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
-            RunRequestTask(clientLink, SSAPC_ExchangeInfoReq, req, E2E_EXCHANGE);
+            RunRequestTask(g_clientLink, SSAPC_ExchangeInfoReq, req, E2E_EXCHANGE);
             (void)E2eWaitObs();
         }
     }
@@ -857,7 +951,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             req->type = static_cast<SSAP_FindType_E>(findType);
             req->startHandle = 1; /* 产品守卫拒绝 startHandle==0 */
             req->endHandle = 0xFFFF;
-            RunRequestTask(clientLink, SSAPC_FindReq, req, E2E_FIND);
+            RunRequestTask(g_clientLink, SSAPC_FindReq, req, E2E_FIND);
             (void)E2eWaitObs();
         }
     }
@@ -872,7 +966,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             (void)memcpy_s(&req->uuid, sizeof(NLSTK_SsapUuid_S), &findUuid, sizeof(NLSTK_SsapUuid_S));
             req->startHandle = 1; /* 同上 */
             req->endHandle = 0xFFFF;
-            RunRequestTask(clientLink, SSAPC_FindByUuidReq, req, E2E_FINDUUID);
+            RunRequestTask(g_clientLink, SSAPC_FindByUuidReq, req, E2E_FINDUUID);
             (void)E2eWaitObs();
         }
     }
@@ -893,7 +987,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             for (uint8_t i = 0; i < valueLen; i++) {
                 req->value.value[i] = g_valueBuf[i];
             }
-            RunRequestTask(clientLink, SSAPC_WriteReq, req, E2E_WRITE_REQ);
+            RunRequestTask(g_clientLink, SSAPC_WriteReq, req, E2E_WRITE_REQ);
             (void)E2eWaitObs();
         }
         SSAP_WriteCmdInfo_S *cmd = (SSAP_WriteCmdInfo_S *)SDF_MemZalloc(
@@ -906,7 +1000,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
             for (uint8_t i = 0; i < valueLen; i++) {
                 cmd->value.value[i] = g_valueBuf[i];
             }
-            RunRequestTask(clientLink, SSAPC_WriteCmd, cmd, E2E_WRITE_CMD);
+            RunRequestTask(g_clientLink, SSAPC_WriteCmd, cmd, E2E_WRITE_CMD);
         }
     }
 
@@ -920,7 +1014,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
                 req->handle = g_propHandle[TIER_FREE];
                 req->type = SSAP_TYPE_DATA;
-                RunRequestTask(clientLink, SSAPC_ReadReq, req, E2E_READ);
+                RunRequestTask(g_clientLink, SSAPC_ReadReq, req, E2E_READ);
                 if (E2eWaitObs()) {
                     NAI_LOG_INFO("[E2E] read rsp err=%u len=%u v0=%u v1=%u", g_obs.errCode,
                         g_obs.valLen, g_obs.valFirst[0], g_obs.valFirst[1]);
@@ -936,7 +1030,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 multi->handles[0] = g_propHandle[TIER_FREE];
                 multi->handles[1] = g_propHandle[TIER_BIG];
                 multi->handles[2] = 0x0F0F; /* 无效句柄：逐 item 状态 */
-                RunRequestTask(clientLink, SSAPC_ReadProps, multi, E2E_READ_MULTI);
+                RunRequestTask(g_clientLink, SSAPC_ReadProps, multi, E2E_READ_MULTI);
                 (void)E2eWaitObs();
             }
             SSAP_ReadByUuidReqInfo_S *byUuid = (SSAP_ReadByUuidReqInfo_S *)SDF_MemZalloc(
@@ -949,7 +1043,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 byUuid->handleStart = g_appSvcStart;
                 byUuid->handleEnd = g_appSvcEnd;
                 byUuid->dataType = SSAP_TYPE_DATA;
-                RunRequestTask(clientLink, SSAPC_ReadByUuidReq, byUuid, E2E_READ_UUID);
+                RunRequestTask(g_clientLink, SSAPC_ReadByUuidReq, byUuid, E2E_READ_UUID);
                 (void)E2eWaitObs();
             }
         }
@@ -967,7 +1061,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 req->value.value[1] = 0xAD;
                 req->value.value[2] = 0xBE;
                 req->value.value[3] = 0xEF;
-                RunRequestTask(clientLink, SSAPC_CallMethodReq, req, E2E_METHOD_REQ);
+                RunRequestTask(g_clientLink, SSAPC_CallMethodReq, req, E2E_METHOD_REQ);
                 (void)E2eWaitObs(); /* 回包经 SendMethodCallRes 异步腿 */
             }
             SSAP_CallMethodCmdInfo_S *cmd = (SSAP_CallMethodCmdInfo_S *)SDF_MemZalloc(
@@ -980,7 +1074,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 cmd->value.value[1] = 0x22;
                 cmd->value.value[2] = 0x33;
                 cmd->value.value[3] = 0x44;
-                RunRequestTask(clientLink, SSAPC_CallMethodCmd, cmd, E2E_METHOD_CMD);
+                RunRequestTask(g_clientLink, SSAPC_CallMethodCmd, cmd, E2E_METHOD_CMD);
             }
             SSAP_CallMethodReqInfo_S *badReq = (SSAP_CallMethodReqInfo_S *)SDF_MemZalloc(
                 sizeof(SSAP_CallMethodReqInfo_S) + 2);
@@ -990,7 +1084,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 badReq->value.len = 2;
                 badReq->value.value[0] = 0x00;
                 badReq->value.value[1] = 0x01;
-                RunRequestTask(clientLink, SSAPC_CallMethodReq, badReq, E2E_METHOD_REQ);
+                RunRequestTask(g_clientLink, SSAPC_CallMethodReq, badReq, E2E_METHOD_REQ);
                 (void)E2eWaitObs();
             }
         }
@@ -1012,7 +1106,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     w->value.len = 2;
                     w->value.value[0] = 0x77;
                     w->value.value[1] = 0x88;
-                    RunRequestTask(clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
+                    RunRequestTask(g_clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
                     bool denied = E2eWaitObs() && g_obs.errCode != 0;
                     if (denied && permCase != 0) {
                         SlinkFixtureSet(&clientAddr, serverLcid);
@@ -1024,7 +1118,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                                 sizeof(SLE_Addr_S));
                             r->handle = guardHandle;
                             r->type = SSAP_TYPE_DATA;
-                            RunRequestTask(clientLink, SSAPC_ReadReq, r, E2E_READ);
+                            RunRequestTask(g_clientLink, SSAPC_ReadReq, r, E2E_READ);
                             if (E2eWaitObs() && g_obs.errCode == 0 && g_obs.valLen >= 2) {
                                 E2E_INVARIANT(!(g_obs.valFirst[0] == 0x77 && g_obs.valFirst[1] == 0x88),
                                     "R1: denied write leaked into guarded value");
@@ -1040,7 +1134,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                             w2->value.len = 2;
                             w2->value.value[0] = 0x34;
                             w2->value.value[1] = 0x12;
-                            RunRequestTask(clientLink, SSAPC_WriteReq, w2, E2E_WRITE_REQ);
+                            RunRequestTask(g_clientLink, SSAPC_WriteReq, w2, E2E_WRITE_REQ);
                             (void)E2eWaitObs();
                         }
                         SlinkFixtureClear();
@@ -1064,7 +1158,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     w->value.len = 2;
                     w->value.value[0] = 0x99;
                     w->value.value[1] = 0xAA;
-                    RunRequestTask(clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
+                    RunRequestTask(g_clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
                     /* 挂起（无立即回包）；授权请求回调在服务端处理栈内同步到达 */
                     if (g_authReqSeen && authzAllow == 0) {
                         (void)NLSTK_SsapServerAuthorizeResult(g_srvAppId, g_authReqId, true);
@@ -1080,7 +1174,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                             w2->value.len = 2;
                             w2->value.value[0] = 0xBC;
                             w2->value.value[1] = 0xDE;
-                            RunRequestTask(clientLink, SSAPC_WriteReq, w2, E2E_WRITE_REQ);
+                            RunRequestTask(g_clientLink, SSAPC_WriteReq, w2, E2E_WRITE_REQ);
                             if (g_authReqSeen) {
                                 (void)NLSTK_SsapServerAuthorizeResult(g_srvAppId, g_authReqId, false);
                                 if (E2eWaitObs()) {
@@ -1095,7 +1189,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                                             sizeof(SLE_Addr_S));
                                         r->handle = g_propHandle[TIER_AUTHZ];
                                         r->type = SSAP_TYPE_DATA;
-                                        RunRequestTask(clientLink, SSAPC_ReadReq, r, E2E_READ);
+                                        RunRequestTask(g_clientLink, SSAPC_ReadReq, r, E2E_READ);
                                         if (g_authReqSeen) {
                                             (void)NLSTK_SsapServerAuthorizeResult(g_srvAppId,
                                                 g_authReqId, true);
@@ -1118,7 +1212,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     }
                 }
             }
-            E2eFlushBusyTask(clientLink); /* 授权挂起未完成的写不得阻塞后续段 */
+            E2eFlushBusyTask(g_clientLink); /* 授权挂起未完成的写不得阻塞后续段 */
         }
 
         /* 9. SS-R3：授权错配（错 appId/重放/无关 id/断链后晚到），单一扰动；
@@ -1135,7 +1229,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     w->value.len = 2;
                     w->value.value[0] = 0x0F;
                     w->value.value[1] = 0xF0;
-                    RunRequestTask(clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
+                    RunRequestTask(g_clientLink, SSAPC_WriteReq, w, E2E_WRITE_REQ);
                     if (g_authReqSeen) {
                         uint16_t rid = g_authReqId;
                         uint8_t cbBefore = g_obs.cbCount;
@@ -1156,7 +1250,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                                 (uint16_t)(rid + 100), false);
                         } else {
                             SSAP_DeleteSsapLinkByAddr(&serverAddr);
-                            serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
+                            g_serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
                             (void)NLSTK_SsapServerAuthorizeResult(g_srvAppId, rid, true);
                         }
                         NAI_LOG_INFO("[E2E] R3 mis=%u rid=%u cb=%u->%u", authzMis, rid, cbBefore,
@@ -1164,7 +1258,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     }
                 }
             }
-            E2eFlushBusyTask(clientLink); /* 错配路径未完成的授权写同上冲刷 */
+            E2eFlushBusyTask(g_clientLink); /* 错配路径未完成的授权写同上冲刷 */
         }
 
         /* 10. SS-R4：订阅对抗。A 写 CCCD(0x0001 订阅/0x0000 取消) → 服务端
@@ -1180,18 +1274,20 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     sub->value.len = 2;
                     sub->value.value[0] = (subCase == 1) ? 0x00 : 0x01;
                     sub->value.value[1] = 0x00;
-                    RunRequestTask(clientLink, SSAPC_WriteReq, sub, E2E_WRITE_REQ);
+                    RunRequestTask(g_clientLink, SSAPC_WriteReq, sub, E2E_WRITE_REQ);
                     (void)E2eWaitObs();
                     uint32_t ntfA0 = g_cliNtfCount;
                     uint32_t ntfB0 = g_cliNtfCountB;
                     static uint8_t ntfVal[4] = {0x4E, 0x54, 0x46, 0x21};
                     NLSTK_VariableData_S value = {.len = sizeof(ntfVal), .data = ntfVal};
                     /* cpcd 副本键 = 服务端链路 link->addr（=serverAddr），ByAddr
-                     * 通知必须用同一 addr 才能查到 serverLink（ssaps_server.c:1420） */
+                     * 通知必须用同一 addr 才能查到 g_serverLink（ssaps_server.c:1420） */
                     (void)NLSTK_SsapServerUpdateAndNotifyProperty(g_srvAppId, g_propHandle[TIER_NTF],
                         &serverAddr, &value);
-                    for (volatile int32_t i = 0; i < 2000000 && g_cliNtfCount == ntfA0; i++) {
+                    for (volatile int32_t i = 0; i < 8000000 && g_cliNtfCount == ntfA0; i++) {
+                        (void)sched_yield();
                     }
+                    E2eQuiesce(); /* 通知链尾（ValueNtf 任务/对端解码）收尾后再比对计数 */
                     if (subCase == 0) {
                         E2E_INVARIANT(g_cliNtfCountB == ntfB0,
                             "R4: notification leaked to non-subscriber");
@@ -1202,17 +1298,23 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     NAI_LOG_INFO("[E2E] R4 sub=%u ntfA=%u ntfB=%u", subCase,
                         (uint32_t)g_cliNtfCount, (uint32_t)g_cliNtfCountB);
                     if (subCase == 2) {
-                        /* 断链重连（同 lcid 复用）：CleanServiceCpcd 清副本后
-                         * 未重新订阅不得再收通知 */
+                        /* 断链重连（同 lcid 复用）。M1 修复（自检报告）：直删 SSAP 链路
+                         * 不触发 cpcd 清理——产品仅在 CM 断链事件分支调用
+                         * SSAPS_CleanServiceCpcd（ssap_manager.c:662-666），此处补调
+                         * 代入 CM 语义，否则残留副本使重连通知照发、不变量必误触发 */
+                        E2eQuiesce();
                         SSAP_DeleteSsapLinkByAddr(&serverAddr);
-                        serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
-                        if (serverLink != nullptr) {
+                        SSAPS_CleanServiceCpcd(&serverAddr);
+                        g_serverLink = SSAP_CreateSsapLink(&serverAddr, serverLcid, ServerSendCb);
+                        if (g_serverLink != nullptr) {
                             ntfA0 = g_cliNtfCount;
                             (void)NLSTK_SsapServerUpdateAndNotifyProperty(g_srvAppId,
                                 g_propHandle[TIER_NTF], &serverAddr, &value);
-                            for (volatile int32_t i = 0; i < 2000000 && g_cliNtfCount == ntfA0;
+                            for (volatile int32_t i = 0; i < 8000000 && g_cliNtfCount == ntfA0;
                                 i++) {
+                                (void)sched_yield();
                             }
+                            E2eQuiesce();
                             E2E_INVARIANT(g_cliNtfCount == ntfA0,
                                 "R4: subscription survived link reconnect");
                         }
@@ -1231,8 +1333,8 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 badHandle = g_propHandle[TIER_AUTHN]; /* 需认证（无 slink 时拒） */
             }
             if (g_propHandle[TIER_FREE] != 0 && badHandle != 0) {
-                RunMultiItemWrite(serverLink, g_propHandle[TIER_FREE], badHandle);
-                RunMultiItemWrite(serverLink, badHandle, g_propHandle[TIER_FREE]);
+                RunMultiItemWrite(g_serverLink, g_propHandle[TIER_FREE], badHandle);
+                RunMultiItemWrite(g_serverLink, badHandle, g_propHandle[TIER_FREE]);
             }
         }
 
@@ -1245,7 +1347,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
                     req->handle = g_propHandle[TIER_FREE];
                     req->type = SSAP_TYPE_DATA;
-                    RunRequestTask(clientLink, SSAPC_ReadReq, req, E2E_READ);
+                    RunRequestTask(g_clientLink, SSAPC_ReadReq, req, E2E_READ);
                     if (E2eWaitObs()) {
                         uint8_t cbBefore = g_obs.cbCount;
                         static const uint8_t dupRsp[] = {0x0e, 0x03, 0x11, 0x00, 0x00, 0x02, 0xAA, 0xBB};
@@ -1266,9 +1368,8 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
         }
 
         /* 13. SS-F：分片。读大值属性（600B > mtu128）→ 响应经 FragFeedToClient
-         * 切片回喂客户端真实重组；错误序列各自走 DROP 分支。发侧
-         * SSAP_SendFragPkt 直调（fuzzer 内 DTAP 链止于 DLI stub，覆盖构建/
-         * 注册路径；双链真机交错=环境受限如实登记）。 */
+         * 切片回喂客户端真实重组；错误序列各自走 DROP 分支。发侧直调已按
+         * M2 移除（见下方注释，环境前置不满足降级为记录+跳过）。 */
         {
             if (fragCase != 0 && g_propHandle[TIER_BIG] != 0) {
                 g_fragMode = fragCase;
@@ -1278,7 +1379,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     (void)memcpy_s(&req->addr, sizeof(SLE_Addr_S), &clientAddr, sizeof(SLE_Addr_S));
                     req->handle = g_propHandle[TIER_BIG];
                     req->type = SSAP_TYPE_DATA;
-                    RunRequestTask(clientLink, SSAPC_ReadReq, req, E2E_READ);
+                    RunRequestTask(g_clientLink, SSAPC_ReadReq, req, E2E_READ);
                     bool ok = E2eWaitObs();
                     NAI_LOG_INFO("[E2E] frag case=%u fed=%u ok=%d err=%u len=%u", fragCase,
                         g_fragFed, (int)ok, g_obs.errCode, g_obs.valLen);
@@ -1286,24 +1387,13 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                 g_fragMode = 0;
                 /* 错误序列（缺首片/重复尾片/截断/超长）丢弃重组 → 请求任务
                  * 无响应可配，冲刷避免 BUSY 残留 */
-                E2eFlushBusyTask(clientLink);
-                if (clientLink->mtu > SSAP_PDU_BASE_LEN + 2) {
-                    uint32_t bigLen = 200;
-                    SDF_Buff_S *big = SDF_BuffNew(bigLen);
-                    if (big != nullptr) {
-                        uint8_t *dst = SDF_BuffAppend(big, bigLen);
-                        if (dst != nullptr) {
-                            dst[0] = SSAP_READ_RSP;
-                            dst[1] = SSAP_CTRL_NO_FRAG;
-                            for (uint32_t i = 2; i < bigLen; i++) {
-                                dst[i] = (uint8_t)(i & 0xFF);
-                            }
-                            /* 所有权同产品：SendFragPkt 失败即释放原报文，
-                             * 成功注册为 curTask.buff 由链路清理 */
-                            (void)SSAP_SendFragPkt(clientLink, big, SSAP_READ_RSP);
-                        }
-                    }
-                }
+                E2eFlushBusyTask(g_clientLink);
+                /* M2（自检报告）：发侧原为 SSAP_SendFragPkt 直调——其逐片经
+                 * SSAP_SendBuffToDTAP→DTAP_DataSend 进入真实 DTAP 数据面，而本
+                 * 工程进程未做 DTAP/DLI 初始化（真机回退态），半初始化态直调
+                 * 属未验证契约（PR#331 SdfFuzz 同类崩溃）。按"环境前置不满足
+                 * 降级为记录+跳过"原则移除直调；发侧覆盖由收侧 FragFeedToClient
+                 * 的产品片头格式复刻 + 真机 DTAP 环境另行验证补齐。 */
             }
         }
 
@@ -1319,7 +1409,7 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                     first->type = FIND_STRUCTURE_TYPE_PRIMARY_SERVICE;
                     first->startHandle = 1;
                     first->endHandle = 0xFFFF;
-                    RunRequestTask(clientLink, SSAPC_FindReq, first, E2E_FIND);
+                    RunRequestTask(g_clientLink, SSAPC_FindReq, first, E2E_FIND);
                     /* 响应被扣留 → 链路 busy，首任务在途 */
                     SSAP_ParamFindByUuid_S *normal = (SSAP_ParamFindByUuid_S *)SDF_MemZalloc(
                         sizeof(SSAP_ParamFindByUuid_S));
@@ -1338,27 +1428,28 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
                         E2eObsReset(E2E_FINDUUID);
                         if (timeCase == 2) {
                             /* 高优先级头插：应先于任何已排队普通任务执行 */
-                            SSAP_ProcessHighPriorityRequestTask(clientLink, &normalParam, false);
+                            SSAP_ProcessHighPriorityRequestTask(g_clientLink, &normalParam, false);
                         } else {
-                            SSAP_ProcessRequestTask(clientLink, &normalParam, false);
+                            SSAP_ProcessRequestTask(g_clientLink, &normalParam, false);
                         }
                     }
                     if (timeCase == 1) {
                         /* 超时直调（与真实触发同一函数）：首任务 TIMEOUT 收尾，
                          * 队列续跑；二次直调不复活 */
                         E2eObsReset(E2E_FIND);
-                        SSAP_TimeoutCbk(clientLink);
+                        SSAP_TimeoutCbk(g_clientLink);
                         (void)E2eWaitObs();
                         uint8_t seqAfterFirst = g_seqLen;
-                        SSAP_TimeoutCbk(clientLink);
+                        SSAP_TimeoutCbk(g_clientLink);
                         E2E_INVARIANT(g_seqLen <= seqAfterFirst + 1,
                             "T: task resurrected after timeout");
                     }
                     g_holdMode = false;
+                    E2eQuiesce(); /* 扣留期间 worker 可能仍在级联，先静默再投递 */
                     if (g_holdBuff != nullptr) {
                         SDF_Buff_S *held = g_holdBuff;
                         g_holdBuff = nullptr;
-                        if (clientLink->status == SSAP_LINK_BUSY) {
+                        if (g_clientLink->status == SSAP_LINK_BUSY) {
                             (void)SSAP_Recv(&g_clientInfo, held);
                         }
                         SDF_BuffFree(held);
@@ -1383,39 +1474,8 @@ void FuzzSsapE2eSequence(const uint8_t *fuzzData, size_t size)
         }
     }
 
-CLEANUP:
-    /* SS-03：轮间清理——真实注销（内含 CleanTaskByAppId/cpcd 缓存清）、
-     * slink 夹具拆除、B 链路删除、DeInit 复位 g_curHandle（下轮布局确定） */
-    if (g_cliAppId >= 0) {
-        NLSTK_SsapClientDeregApp(g_cliAppId);
-        g_cliAppId = -1;
-    }
-    if (g_srvAppId >= 0) {
-        NLSTK_SsapServerDeregisterApplication(g_srvAppId);
-        g_srvAppId = -1;
-    }
-    for (volatile int32_t i = 0; i < 100000; i++) {
-    } /* 让注销腿在 worker 上先行，主线程随后删链路 */
-    if (g_holdBuff != nullptr) {
-        SDF_BuffFree(g_holdBuff);
-        g_holdBuff = nullptr;
-    }
-    SlinkFixtureClear();
-    if (clientLinkB != nullptr) {
-        SSAP_DeleteSsapLinkByAddr(&serverAddrB2);
-    }
-    if (serverLinkB != nullptr) {
-        SSAP_DeleteSsapLinkByAddr(&clientAddrB);
-    }
-    if (serverLink != nullptr) {
-        SSAP_DeleteSsapLinkByAddr(&serverAddr);
-    }
-    if (clientLink != nullptr) {
-        SSAP_DeleteSsapLinkByAddr(&clientAddr);
-    }
-    g_clientLink = nullptr;
-    SSAPS_ServiceDeInit();
-    SSAP_LinkDeInit();
+    /* SS-03：轮间清理（编译修复：goto 跨初始化消除后，就地调用统一清理） */
+    E2eTeardown(&serverAddr, &clientAddr, &clientAddrB, &serverAddrB2);
 }
 
 }  // namespace OHOS

@@ -230,32 +230,41 @@ namespace OHOS {
                 uuidLen = uuidShort ? SSAP_UUID128_LEN : SSAP_UUID16_LEN;
             }
             uint32_t pduLen = sizeof(SSAP_PduFindStructReq_S) + uuidLen;
-            if (size + 1 >= pduLen) {
-                (void)SDF_BuffTrimSuffix(sdfBuff, size + 1 - pduLen);  // 收缩 dataLen 到合法 PDU 长度
-            }
-            SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)buf;
-            req->msgCode = reqOpcode;
-            req->ctrl.findType = findType;
-            req->ctrl.itemType = itemType;
-            req->ctrl.rspMode = FIND_RSP_MODE_SINGLE_RSP;  // 多响应模式需对端支持分包（fragCtx.fragment 恒 0），恒取单响应
-            req->ctrl.resv = 0;
-            req->startHandle = startH;
-            req->endHandle = endH;
-            if (uuidLen != 0) {
-                static NLSTK_SsapUuid_S *svcUuid[3] = {&g_stdSvcUuid, &g_uuid3, &g_mixSvcUuid};
-                NLSTK_SsapUuid_S *uuid = svcUuid[svcIdx];
-                if (uuidLen == SSAP_UUID128_LEN) {
-                    for (uint32_t i = 0; i < SSAP_UUID128_LEN; i++) {
-                        req->uuid[i] = uuid->uuid[SSAP_UUID128_LEN - 1 - i];  // 16 字节全量网络序（对应 SSAP_HostToNetUuid）
-                    }
-                } else if (SSAP_CheckUuidStd(uuid)) {
-                    req->uuid[0] = uuid->uuid[15];  // STD 形态短 uuid：网络序（SSAP_GetUuidFromPktBuf 回填 uuid[14]/[15]）
-                    req->uuid[1] = uuid->uuid[14];
-                } else {
-                    req->uuid[0] = 0xAA;            // 非 STD 形态无法以 2 字节表达：发不匹配短 uuid，驱动 by-uuid ITEM_INEXIST
-                    req->uuid[1] = 0xBB;
+            /* 容量不足（小输入 × by-uuid 16 字节）时结构化填充会越界写
+             * （ASAN 设备轮实锤：req->uuid[i] heap-buffer-overflow）——
+             * 退化为原始路径（opcode+随机载荷），只写 size+1 已分配区 */
+            bool structFit = (size + 1 >= pduLen);
+            if (!structFit) {
+                buf[0] = reqOpcode;
+                for (size_t i = 0; i < size; i++) {
+                    buf[i + 1] = fdp.ConsumeIntegral<uint8_t>();
                 }
-            }
+            } else {
+                (void)SDF_BuffTrimSuffix(sdfBuff, size + 1 - pduLen);  // 收缩 dataLen 到合法 PDU 长度
+                SSAP_PduFindStructReq_S *req = (SSAP_PduFindStructReq_S *)buf;
+                req->msgCode = reqOpcode;
+                req->ctrl.findType = findType;
+                req->ctrl.itemType = itemType;
+                req->ctrl.rspMode = FIND_RSP_MODE_SINGLE_RSP;  // 多响应模式需对端支持分包（fragCtx.fragment 恒 0），恒取单响应
+                req->ctrl.resv = 0;
+                req->startHandle = startH;
+                req->endHandle = endH;
+                if (uuidLen != 0) {
+                    static NLSTK_SsapUuid_S *svcUuid[3] = {&g_stdSvcUuid, &g_uuid3, &g_mixSvcUuid};
+                    NLSTK_SsapUuid_S *uuid = svcUuid[svcIdx];
+                    if (uuidLen == SSAP_UUID128_LEN) {
+                        for (uint32_t i = 0; i < SSAP_UUID128_LEN; i++) {
+                            req->uuid[i] = uuid->uuid[SSAP_UUID128_LEN - 1 - i];  // 16 字节全量网络序（对应 SSAP_HostToNetUuid）
+                        }
+                    } else if (SSAP_CheckUuidStd(uuid)) {
+                        req->uuid[0] = uuid->uuid[15];  // STD 形态短 uuid：网络序（SSAP_GetUuidFromPktBuf 回填 uuid[14]/[15]）
+                        req->uuid[1] = uuid->uuid[14];
+                    } else {
+                        req->uuid[0] = 0xAA;            // 非 STD 形态无法以 2 字节表达：发不匹配短 uuid，驱动 by-uuid ITEM_INEXIST
+                        req->uuid[1] = 0xBB;
+                    }
+                }
+                }  // structFit 路径结束：以上结构化填充仅在容量足够时执行
         }
 
         DTAP_Data_Info_S info = {0};
