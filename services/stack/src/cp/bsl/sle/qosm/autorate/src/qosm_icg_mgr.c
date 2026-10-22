@@ -40,11 +40,13 @@
 #include "qosm_autorate_timeout_process.h"
 #include "common_ext_func_wrapper.h"
 #include "qosm_ext_func_wrapper.h"
+#include "dli_ext_func_wrapper.h"
 #include "dli_reg_ext_func.h"
 #include "dli_cmd_struct.h"
 #include "dli_errno.h"
 
 #define QOSM_MAX_RECOMMEND_ENTER_5G_TIMES 3
+#define QOSM_IMG_ACB_MAX_CNT 2
 
 struct __attribute__((packed)) QOSM_PowerLevelInfo {
     uint16_t connHandle;
@@ -67,6 +69,7 @@ static CM_ICGLabelParam *QOSM_MallocICGLabelParam();
 static void QOSM_FreeICGLabelParam(CM_ICGLabelParam *labelParam);
 static uint32_t QOSM_ICGMgrRemoveParamInner(QOSM_ICGInfo *icgInfo);
 static void QOSM_ExecuteDelayParamTask(QOSM_ICGInfo *icgInfo);
+static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo);
 
 bool QOSM_HasICBConnecting(const QOSM_ICGInfo *icgInfo)
 {
@@ -187,6 +190,7 @@ static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *pa
     icgInfo->upLevelDelayTimerId = QOSM_INVALID_TIMER_HANDLE;
     icgInfo->qosParam = NULL;
     icgInfo->recommendEnter5GTimes = 0;
+    icgInfo->isImgAcbInfoReported = false;
     QOSM_CopySupportedBitrate(icgInfo, param->autorateParam.supportedBitrate,
         param->autorateParam.supportedBitrateCnt);
 }
@@ -243,6 +247,8 @@ static QOSM_ICGInfo *QOSM_CreateQosICGInfo(const QOSM_ICGMgrParam *param, bool i
     for (uint8_t i = 0, icbId = 0; i < param->autorateParam.linkCnt; i++) {
         icgInfo->link[i].icbId = icbId++;
         icgInfo->link[i].freqBand = QOSM_DEFAULT_BAND;
+        /* 预填异步链路标识, 使ConfigICG阶段即可按序取到组成员 */
+        icgInfo->link[i].lcid = (i < param->autorateParam.lcidCnt) ? param->autorateParam.lcid[i] : 0;
         icgInfo->link[i].retryConnectTimerId = QOSM_INVALID_TIMER_HANDLE;
         icgInfo->link[i].addConnectionTimerId = QOSM_INVALID_TIMER_HANDLE;
     }
@@ -341,6 +347,9 @@ static void QOSM_ConfigICG(CM_ICBConnection *connection)
     }
     QOSM_AutorateSetDspOn(false);
     QOSM_NotifyParamChangedSuccessCb(icgInfo, QOSM_PARAM_SETTED);
+    if (icgInfo->icbType == CM_IMB) {
+        QOSM_ImgAcbInfoReport(icgInfo);
+    }
 }
 
 static void QOSM_IncreaseConnectSeq(void)
@@ -543,6 +552,36 @@ static void QOSM_ConnectFailInGroup(QOSM_ICGInfo *icgInfo, uint8_t connectSeq)
 
     QOSM_RecalculateConnectedCnt(icgInfo);
     QOSM_NotifyConnCbk(icgInfo, QOSM_CONNECTION_ADDED, QOSM_FAIL, link, linkCnt);
+}
+
+/*
+ * IMG组播setLabel(0x2815)之后, 将组成员(各对端ACB链路句柄)连同img句柄上报BTC(DLI 0xFC14),
+ * 按协议定长8个句柄下发, 有效个数为acbCnt;
+ * 发送时机为QOSM_ConfigICG(set-param完成回调), 成员lcid由set-param入参在建icgInfo时预填
+ */
+static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
+{
+    if (icgInfo->isImgAcbInfoReported) {
+        return;
+    }
+    DLI_ImgAcbInfoParam param = {};
+    param.imgConhdl = icgInfo->gHandle;
+    for (uint8_t i = 0; i < icgInfo->linkCnt && param.acbCnt < QOSM_IMG_ACB_MAX_CNT; i++) {
+        if (icgInfo->link[i].lcid == 0) {
+            continue;
+        }
+        param.acbConhdl[param.acbCnt] = icgInfo->link[i].lcid;
+        param.acbCnt++;
+    }
+    if (param.acbCnt == 0) {
+        QOSM_LOGI("no member lcid, skip report, icgId: %u", icgInfo->icgId);
+        return;
+    }
+
+    icgInfo->isImgAcbInfoReported = true;
+    DLI_ICGCbkParam cbkParam = {.type = icgInfo->icbType, .id = icgInfo->icgId};
+    uint32_t ret = DLI_SetImgAcbInfoExt(&param, &cbkParam);
+    QOSM_LOGI("report img acb info, gHandle: 0x%04x, acbCnt: %u, ret: %u", param.imgConhdl, param.acbCnt, ret);
 }
 
 /*

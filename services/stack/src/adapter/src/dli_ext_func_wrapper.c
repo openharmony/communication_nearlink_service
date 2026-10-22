@@ -139,3 +139,13 @@ uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCb
     }
     return funcList->updateICGParam(param, mcast, cbkParam);
 }
+
+uint32_t DLI_SetImgAcbInfoExt(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
+    if (funcList == NULL || funcList->setImgAcbInfo == NULL) {
+        ADAPTER_LOGW("get func setImgAcbInfo failed");
+        return 0;
+    }
+    return funcList->setImgAcbInfo(param, cbkParam);
+}

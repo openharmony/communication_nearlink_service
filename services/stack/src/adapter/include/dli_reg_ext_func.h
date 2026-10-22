@@ -37,6 +37,7 @@ typedef uint32_t (*DLI_SetICGAutorateParamExtPtr)(DLI_ICGAutorateParam *param, b
 typedef uint32_t (*DLI_SetICGLabelPtr)(DLI_ICGLabelParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 typedef uint32_t (*DLI_CreateICBExtPtr)(DLI_ICBConnectionParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
 typedef uint32_t (*DLI_UpdateICGParamPtr)(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCbkParam *cbkParam);
+typedef uint32_t (*DLI_SetImgAcbInfoPtr)(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam);
 
 typedef struct {
     DLI_AddDeviceToAcceptFilterListExtPtr addDeviceToAcceptFilterListExt;
@@ -51,6 +52,7 @@ typedef struct {
     DLI_SetICGLabelPtr setICGLabel;
     DLI_CreateICBExtPtr createICBExt;
     DLI_UpdateICGParamPtr updateICGParam;
+    DLI_SetImgAcbInfoPtr setImgAcbInfo;
 } DLI_ExtFuncList;
 
 void DLI_RegisterExtFunc(void *soHandle);
