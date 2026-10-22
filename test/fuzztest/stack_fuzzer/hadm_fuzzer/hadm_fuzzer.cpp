@@ -340,7 +340,12 @@ namespace OHOS {
 
     void FuzzHADMEvtReportSetConfig(void)
     {
+        /* g_hadmCbkList 由 mock DLI_CmdCbkReg 在 HadmInit 时按
+         * hadm_listen_dli.c 注册表填充；未注册时跳过避免空指针。 */
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_CONFIG_PARAM];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -353,6 +358,9 @@ namespace OHOS {
     void FuzzHADMEvtReportSetEnable(void)
     {
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_EN];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -430,6 +438,11 @@ namespace OHOS {
         uint32_t maxNum = fdp.ConsumeIntegral<uint32_t>();
         HadmGetSoundingAddrInfo(&addr, maxNum);
 
+        /* 量测配置/使能命令完成上报（原死代码接入）：走
+         * hadm_listen_dli.c EvtReportSetCsConfig/EvtReportSetCsEnable 路径。 */
+        FuzzHADMEvtReportSetConfig();
+        FuzzHADMEvtReportSetEnable();
+
         HadmDeInitLinkCbManager();
     }
 
@@ -463,7 +476,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void) argc;
     (void) argv;
-    HadmInit();
+    /* HadmInit 移至 LLVMFuzzerTestOneInput 开头，与末尾 HadmDeInit 按输入配对。 */
     return 0;
 }
 
@@ -474,6 +487,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
     uint8_t *fuzzData = fuzzVec.data();
     size_t fuzzSize = fuzzVec.size();
+    /* 与末尾 HadmDeInit 按输入配对：DeInit 会清 g_hadmDliCmdVec/回调注册，
+     * 只在 Initialize 里 Init 一次会使第 2 条输入起深路径全部早退（红蓝对抗实证）。 */
+    (void)HadmInit();
     OHOS::FuzzGeneralEvtRegisterCbks(static_cast<uint8_t *>(fuzzData), fuzzSize);
     OHOS::FuzzSetMeasure(fuzzData, fuzzSize);
     OHOS::FuzzTestHadmApi(fuzzData, fuzzSize);

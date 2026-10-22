@@ -21,6 +21,7 @@
 #include "ssapc_client_api.h"
 #include "ssap_manager.h"
 #include "ssap_link.h"
+#include "ssap_link_state.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"
@@ -121,7 +122,10 @@ namespace OHOS {
         /* 链路状态机事件遍历：同一 appId 上按 建链→连接成功→断链→连接断开
          * 顺序驱动 SsapClientLinkStateMachineCall（ssapc_app_link_sm.c 唯一
          * 事件入口，此前无任何 fuzzer 调用），覆盖缓存操作与状态迁移分支；
-         * reason 取 fuzz 字节保留错误码路径。 */
+         * reason 取 fuzz 字节保留错误码路径。先经
+         * SsapLinkHandleRecordLinkStateFromCm 铺底已连接态，USER_CONNECT
+         * 才能从 IDLE 走 UserConnectInIdleState 真实迁移。 */
+        SsapLinkHandleRecordLinkStateFromCm(&addr, SSAP_CONNECT_STATE_CONNECTED);
         {
             static const NLSTK_SsapClientLinkChangeEvent_E events[] = {
                 SSAP_USER_CONNECT,
@@ -310,10 +314,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void)DLI_SetCallback(&dliCallback);
     (void)NLSTK_InitStack();
     (void)NLSTK_EnableStack();
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
     /* 设备实证（hilog pid 过滤）：手机固件 /system/lib64 ext so 的
      * STK_ExtModuleInit 在 fuzzer 进程内 DLI 事件注册失败 → InitStack
      * 回滚销毁调度器 → 全部 UAPI post task fail。ScheduleEnable 幂等，
-     * 末尾重建保证调度器无论 ext 成败都存活（test-only，不涉产品码）。 */
+     * 末尾重建保证调度器无论 ext 成败都存活（test-only，不涉产品码）。
+     * ThreadInit/EvcInit 曾被 babcbed8 误删，此处恢复（2f71d7d9 实证
+     * 缺它们时 RegApp 必败）。 */
     ScheduleEnable();
     return 0;
 }

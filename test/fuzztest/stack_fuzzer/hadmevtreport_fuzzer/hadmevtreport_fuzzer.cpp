@@ -179,6 +179,50 @@ namespace OHOS {
         SDF_MemFree(fuzzCmdRes);
     }
 
+    void FuzzEvtReportSetMeasureConfigParam(const uint8_t *fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        DLI_ExecuteCmdCbk EvtReportSetMeasureConfigParam = g_hadmCbkList[FUZZ_ONE];
+        uint16_t fuzzStatus = fdp.ConsumeIntegral<uint16_t>();
+
+        DLI_ExecuteCmdRetParam *fuzzCmdRes = (DLI_ExecuteCmdRetParam *)SDF_MemAlloc(sizeof(DLI_ExecuteCmdRetParam));
+        if (fuzzCmdRes == nullptr) {
+            return;
+        }
+        fuzzCmdRes->cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
+        fuzzCmdRes->size = sizeof(DLI_CommandStatus);
+        DLI_CommandStatus evt = {0};
+        evt.cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
+        evt.numDliCommandPackets = fdp.ConsumeIntegral<uint8_t>();
+        evt.status = fdp.ConsumeIntegral<uint8_t>();
+        fuzzCmdRes->eventParameter = &evt;
+
+        EvtReportSetMeasureConfigParam(&fuzzStatus, fuzzStatus, fuzzCmdRes);
+        SDF_MemFree(fuzzCmdRes);
+    }
+
+    void FuzzEvtReportSetMeasureEn(const uint8_t *fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        DLI_ExecuteCmdCbk EvtReportSetMeasureEn = g_hadmCbkList[FUZZ_TWO];
+        uint16_t fuzzStatus = fdp.ConsumeIntegral<uint16_t>();
+
+        DLI_ExecuteCmdRetParam *fuzzCmdRes = (DLI_ExecuteCmdRetParam *)SDF_MemAlloc(sizeof(DLI_ExecuteCmdRetParam));
+        if (fuzzCmdRes == nullptr) {
+            return;
+        }
+        fuzzCmdRes->cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
+        fuzzCmdRes->size = sizeof(DLI_CommandStatus);
+        DLI_CommandStatus evt = {0};
+        evt.cmdOpcode = fdp.ConsumeIntegral<uint16_t>();
+        evt.numDliCommandPackets = fdp.ConsumeIntegral<uint8_t>();
+        evt.status = fdp.ConsumeIntegral<uint8_t>();
+        fuzzCmdRes->eventParameter = &evt;
+
+        EvtReportSetMeasureEn(&fuzzStatus, fuzzStatus, fuzzCmdRes);
+        SDF_MemFree(fuzzCmdRes);
+    }
+
     void FuzzEvt(const uint8_t *fuzzData, size_t size)
     {
         HadmRegDliCbk();
@@ -186,6 +230,8 @@ namespace OHOS {
         FuzzEvtReportSetCsEnable(fuzzData, size);
         FuzzEvtReportReadLocalCsCaps();
         FuzzEvtReportSetCsConfig(fuzzData, size);
+        FuzzEvtReportSetMeasureConfigParam(fuzzData, size);
+        FuzzEvtReportSetMeasureEn(fuzzData, size);
         FuzzEvtReportReadRemoteCsCaps(fuzzData, size);
         FuzzEvtReportSlemIQ(fuzzData, size);
         FuzzEvtReportMeasureState(fuzzData, size);

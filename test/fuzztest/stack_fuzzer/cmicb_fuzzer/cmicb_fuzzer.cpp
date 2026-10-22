@@ -15,10 +15,12 @@
 
 #include "cmicb_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
+#include "cm_api.h"
 #include "cm_icb_api.h"
 #include "cm_icb_inner_api.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
+#include "nlstk_schedule.h"
 #include "sdf_evc.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"
@@ -271,10 +273,19 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
-    NLSTK_InitStack();
-    NLSTK_EnableStack();
+    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚（nlstk_init.c FAIL_EXT
+     * →ScheduleDisable→g_schedule=NULL）。CM_Init/CM_Enable 内部经 CP_PostTaskBlocked
+     * 投递，必须先重建线程池/调度器，否则投递失败、CM_ICBInit 不执行（红蓝对抗实证）。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
+    if (stackInited) {
+        (void)NLSTK_EnableStack();
+    } else {
+        (void)ScheduleEnable();
+        (void)CM_Init();
+        (void)CM_Enable();
+    }
     CM_ICBCallback cb = {0};
     cb.connectionCbk = OHOS::IcbConnectionCbkImpl;
     cb.labelReportCbk = OHOS::IcbLabelReportCbkImpl;

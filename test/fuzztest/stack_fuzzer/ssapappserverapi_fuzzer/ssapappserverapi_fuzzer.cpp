@@ -18,7 +18,10 @@
 #include "sdf_evc.h"
 #include "nlstk_log.h"
 #include "nlstk_init_api.h"
+#include "nlstk_schedule.h"
 #include "nlstk_ssap_app_server.h"
+#include "ssaps_service.h"
+#include "ssap_handle.h"
 #include "ssapappserverapi_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
 
@@ -42,6 +45,13 @@ namespace OHOS {
 
     int32_t appId = -1;
 
+    /* 已注册服务的 128 位 UUID（Bluetooth SIG 基址）；AddServices/CheckExist 共用，
+     * CheckServiceExistByUuid 用同 UUID 才能命中 exist=true 分支。 */
+    static const uint8_t g_fuzzServiceUuid[SSAP_UUID128_LEN] = {
+        0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80,
+        0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+
     void FuzzSsapServerRegApp(void)
     {
         NLSTK_SsapAppServerCb_S cb = {0};
@@ -61,26 +71,52 @@ namespace OHOS {
 
     void FuzzSsapServerAddServices(void)
     {
-        NLSTK_SsapServicePropertyParam_S property = {.descriptorNum = 0};
+        /* 参数填实：全零参数（无 uuid/operation/permission/descriptor）时属性
+         * 生成与句柄分配路径浅层即返。描述符带 CLIENT_CONFIG+可写指示，
+         * property/method 各带 uuid+permission。首个服务句柄从
+         * SSAP_HANDLE_MIN(0x10) 起确定：0x10=服务 0x11=属性 0x12=方法
+         * （事件不分配句柄，ssaps_service.c 注释"当前仅有Property,method"）。 */
+        static uint16_t cccdValue = 0x0001;
+        NLSTK_SsapServiceDescriptorParam_S descriptor = {};
+        descriptor.type = DESC_TYPE_CLIENT_CONFIG;
+        descriptor.operation.operationValue = SSAP_OPERATE_INDICATION_DESCRIPTOR_CLIENT_CONFIGURATION_WRITE;
+        descriptor.val.data = (uint8_t *)&cccdValue;
+        descriptor.val.len = sizeof(cccdValue);
 
-        NLSTK_SsapServiceMethodParam_S method = {.type = ITEM_TYPE_STD_PRIMARY_SERVICE};
+        NLSTK_SsapServicePropertyParam_S property = {};
+        property.type = ITEM_TYPE_STD_PROPERTY;
+        (void)memcpy_s(property.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
+        property.operation.operationValue = SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE |
+            SSAP_OPERATE_INDICATION_NOTIFY;
+        property.permission.permissionValue = SSAP_PERMISSION_NO_NEED;
+        property.descriptorNum = 1;
+        property.descriptors = &descriptor;
 
-        NLSTK_SsapServiceEventParam_S event = {.type = ITEM_TYPE_STD_PRIMARY_SERVICE};
+        NLSTK_SsapServiceMethodParam_S method = {};
+        method.type = ITEM_TYPE_STD_METHOD;
+        (void)memcpy_s(method.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
+        method.permission.permissionValue = SSAP_PERMISSION_NO_NEED;
 
-        NLSTK_ServiceParam_S service = {
-            .servicePropertyNum = 1,
-            .property = &property,
-            .serviceMethodNum = 1,
-            .method = &method,
-            .serviceEventNum = 1,
-            .event = &event,
-        };
+        NLSTK_SsapServiceEventParam_S event = {};
+        event.type = ITEM_TYPE_STD_EVENT;
+        (void)memcpy_s(event.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
+
+        NLSTK_ServiceParam_S service = {};
+        (void)memcpy_s(service.serviceStatement.uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
+        service.serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+        service.servicePropertyNum = 1;
+        service.property = &property;
+        service.serviceMethodNum = 1;
+        service.method = &method;
+        service.serviceEventNum = 1;
+        service.event = &event;
         NLSTK_SsapServerAddService(appId, &service);
     }
 
     void FuzzSsapServerRemoveServices(uint8_t* data, size_t size)
     {
-        uint16_t handle = data[0];
+        /* 用真实句柄域（0x10~0x13），data 仅决定命中哪个已注册条目。 */
+        uint16_t handle = SSAP_HANDLE_MIN + (uint16_t)(data[0] % FUZZ_FOUR);
         NLSTK_SsapServerRemoveService(appId, handle);
     }
 
@@ -98,7 +134,8 @@ namespace OHOS {
 
     void FuzzSsapServerUpdatePropertyValue(uint8_t* data, size_t size)
     {
-        uint16_t handle = data[0];
+        /* 属性句柄=0x11（首个服务 0x10 之后第一个属性），保留 fuzz 抖动覆盖邻句柄。 */
+        uint16_t handle = SSAP_HANDLE_MIN + 1 + (uint16_t)(data[0] % FUZZ_THREE);
         NLSTK_VariableData_S *value;
         value = (NLSTK_VariableData_S *)SDF_MemZalloc(sizeof(NLSTK_VariableData_S) + size);
         value->len = size;
@@ -108,8 +145,8 @@ namespace OHOS {
     void FuzzSsapServerUpdateDescriptorValue(uint8_t* data, size_t size)
     {
         FuzzedDataProvider provider(data, size);
-        uint16_t handle = provider.ConsumeIntegral<uint16_t>();
-        uint8_t type = provider.ConsumeIntegral<uint8_t>();
+        uint16_t handle = SSAP_HANDLE_MIN + 1 + (uint16_t)(provider.ConsumeIntegral<uint8_t>() % FUZZ_THREE);
+        uint8_t type = DESC_TYPE_CLIENT_CONFIG;
         NLSTK_VariableData_S *value;
         value = (NLSTK_VariableData_S *)SDF_MemZalloc(sizeof(NLSTK_VariableData_S) + size);
         value->len = size;
@@ -122,7 +159,7 @@ namespace OHOS {
             return;
         }
 
-        uint16_t handle = data[0];
+        uint16_t handle = SSAP_HANDLE_MIN + 1 + (uint16_t)(data[0] % FUZZ_THREE);
         SLE_Addr_S addr = {
             .type = PUBLIC_ADDRESS,
             .addr = { data[0], data[1], data[2], data[3], data[4], data[5] },
@@ -136,6 +173,7 @@ namespace OHOS {
     void FuzzSsapServerCheckServiceExistByUuid(void)
     {
         NLSTK_SsapUuid_S uuid = {0};
+        (void)memcpy_s(uuid.uuid, SSAP_UUID128_LEN, g_fuzzServiceUuid, SSAP_UUID128_LEN);
         bool isExist;
         NLSTK_SsapServerCheckServiceExistByUuid(appId, &uuid, &isExist);
     }
@@ -173,7 +211,21 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void) argc;
     (void) argv;
-    NLSTK_InitStack();
+    /* 补调度三件套：RegApp 走 SchedulePostTaskBlocked、AddService 走
+     * SchedulePostTask，调度器不活则 appId 无效、全部 UAPI 直接失败；
+     * InitStack 回滚会销毁调度器，须重建（照 uapi 模式）。ext 失败时
+     * SSAP_Init（ssap_manager.c:686）未运行：句柄分配器/服务向量缺失，
+     * AddService 恒走无句柄异常分支（红蓝对抗实证）——照
+     * ssape2e_fuzzer.cpp:190 显式初始化。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
+    (void)ScheduleEnable();
+    if (stackInited) {
+        (void)NLSTK_EnableStack();
+    } else {
+        (void)SSAPS_ServiceInit();
+    }
     return 0;
 }
 
