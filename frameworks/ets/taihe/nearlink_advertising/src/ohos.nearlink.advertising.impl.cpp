@@ -92,17 +92,18 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
         outSettings.SetConnectable(isConnectable);
     }
     if (input.frameType.has_value()) {
-        int32_t frameTypeValue = static_cast<int32_t>(input.frameType.value());
+        ConstantFrameType frameType = input.frameType.value();
+        int32_t frameTypeValue = frameType.get_value();
         HILOGI("frameType: %{public}d", frameTypeValue);
-        if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
-            frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
+        if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+            frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
             HILOGE("Invalid frameType: %{public}d", frameTypeValue);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
-        uint8_t frameType = (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) ?
+        uint8_t nativeFrameType = (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) ?
             static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) :
             static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
-        outSettings.SetPrimaryFrameType(frameType);
+        outSettings.SetPrimaryFrameType(nativeFrameType);
     }
     return TaiheStatus::TAIHE_OK;
 }
