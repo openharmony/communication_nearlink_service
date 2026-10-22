@@ -43,6 +43,7 @@
 #include "sdf_thread.h"
 #include "sdf_evc.h"
 #include "nlstk_schedule.h"
+#include <stdlib.h>
 
 #define ENCODE2BYTE_LITTLE(_ptr, data) do { \
     *(uint8_t *)((_ptr) + 1) = (uint8_t)((uint16_t)(data) >> 8); \
@@ -296,6 +297,47 @@ namespace OHOS {
 /* PR#331 编译修复（二轮）：定义在调用点之后，OHOS 作用域内补前向声明 */
 void FuzzDtapSchedulerFire(uint8_t* data, size_t size);
 void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
+
+/* PR331 修复（二段）：数据面序列经 SchedulePostTaskBlocked 投递 SCHEDULE evc 线程执行，
+ * 与 rsp/retrans/reorder 周期定时器（同 evc；RELIABLE 通道建立即启动、参数无法禁用，
+ * dtap_channel.c:308）串行，消除主线程直调与定时器回调的并发访问。 */
+void FuzzDtapSchedulerFireImpl(uint8_t* data, size_t size);
+void FuzzDtapDataPathLifecycleImpl(uint8_t* data, size_t size);
+struct FuzzDtapTask {
+    void (*run)(uint8_t *data, size_t size);
+    uint8_t *data;
+    size_t size;
+};
+static void FuzzDtapTaskTrampoline(void *arg)
+{
+    FuzzDtapTask *task = (FuzzDtapTask *)arg;
+    task->run(task->data, task->size);
+}
+static void FuzzDtapTaskFree(void *arg)
+{
+    free(arg);
+}
+static void FuzzDtapPostTask(void (*run)(uint8_t *data, size_t size), uint8_t *data, size_t size)
+{
+    FuzzDtapTask *task = (FuzzDtapTask *)malloc(sizeof(FuzzDtapTask));
+    if (task == nullptr) {
+        return;
+    }
+    task->run = run;
+    task->data = data;
+    task->size = size;
+    if (SchedulePostTaskBlocked(FuzzDtapTaskTrampoline, task, FuzzDtapTaskFree, 10000) != 0) {
+        free(task); /* post 失败自释放 */
+    }
+}
+void FuzzDtapSchedulerFire(uint8_t* data, size_t size)
+{
+    FuzzDtapPostTask(FuzzDtapSchedulerFireImpl, data, size);
+}
+void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size)
+{
+    FuzzDtapPostTask(FuzzDtapDataPathLifecycleImpl, data, size);
+}
 
     SDF_Buff_S *FuzzDtapCreateBuff(uint8_t* data, size_t size)
     {
@@ -878,7 +920,7 @@ void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
 
     /* FUZZ-016: 调度器点火——connect/配额/NOCP/disconnect 驱动 lcid buffer 节点
      * 全生命周期；差异化句柄保证 ≥2 节点共存与配额重算分支。 */
-    void FuzzDtapSchedulerFire(uint8_t* data, size_t size)
+    void FuzzDtapSchedulerFireImpl(uint8_t* data, size_t size)
     {
         FuzzedDataProvider provider(data, size);
         uint16_t lcid1 = provider.ConsumeIntegral<uint16_t>();
@@ -898,7 +940,7 @@ void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size);
     /* FUZZ-017(C2): 连接态全链——三模式建通道→点火连接/配额→多包 DataSend（真实
      * 入队/出队/发送计数）→NOCP 完成回执→通道释放→断链。FuzzDtapOperateChannel
      * 既有参数域为 UINT16_MAX，本序列补小值域（mps/mtu/超时）互补覆盖。 */
-    void FuzzDtapDataPathLifecycle(uint8_t* data, size_t size)
+    void FuzzDtapDataPathLifecycleImpl(uint8_t* data, size_t size)
     {
         FuzzedDataProvider provider(data, size);
         uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
