@@ -42,7 +42,7 @@ static void PassCodeRecvTNodeCfmWithRb(SmSLink_S *slink, const uint8_t *pkg, siz
 
 static PassCodePattern_E CheckPassCodePattern(SmSLink_S *slink);
 static uint32_t GenerateSixDigits(SmAuthUserCode_S *code);
-static void GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixCode, uint8_t codeLen);
+static bool GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixCode, uint8_t codeLen);
 static bool GenPassCodeConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink,
                                   uint8_t *mixCode, uint8_t codeLen, SmConfirmNum_S *confirm);
 static bool CheckPassCodeConfirm(SmSLink_S *slink, uint8_t *confirmRecv, uint8_t *randomNum, uint8_t randLen,
@@ -115,7 +115,12 @@ static void PassCodeStartPatternInputG(SmSLink_S *slink)
                 .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
             return;
         }
-        GenMixPassCode(slink, slink->tNode.passCode, slink->tNode.mixCode, SM_MIX_PASSCODE_LEN);
+        if (!GenMixPassCode(slink, slink->tNode.passCode, slink->tNode.mixCode, SM_MIX_PASSCODE_LEN)) {
+            NLSTK_LOG_ERROR("[SM][PASSCODE] T mix passcode generate failed.");
+            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+            return;
+        }
         SmConfirmNum_S confirm = {0};
         if (!GenPassCodeConfirmNum(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
                                    slink->tNode.mixCode, SM_MIX_PASSCODE_LEN, &confirm)) {
@@ -148,7 +153,12 @@ static void PassCodeStartPatternInputT(SmSLink_S *slink)
                 .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
             return;
         }
-        GenMixPassCode(slink, slink->gNode.passCode, slink->gNode.mixCode, SM_MIX_PASSCODE_LEN);
+        if (!GenMixPassCode(slink, slink->gNode.passCode, slink->gNode.mixCode, SM_MIX_PASSCODE_LEN)) {
+            NLSTK_LOG_ERROR("[SM][PASSCODE] G mix passcode generate failed.");
+            STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+                .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+            return;
+        }
         SmConfirmNum_S confirm = {0};
         if (!GenPassCodeConfirmNum(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
                                    slink->gNode.mixCode, SM_MIX_PASSCODE_LEN, &confirm)) {
@@ -184,7 +194,12 @@ void SmPassCodeSetGPassCode(SmSLink_S *slink)
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
     }
-    GenMixPassCode(slink, slink->gNode.passCode, slink->gNode.mixCode, SM_MIX_PASSCODE_LEN);
+    if (!GenMixPassCode(slink, slink->gNode.passCode, slink->gNode.mixCode, SM_MIX_PASSCODE_LEN)) {
+        NLSTK_LOG_ERROR("[SM][PASSCODE] G mix passcode generate failed.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        return;
+    }
     SmConfirmNum_S confirm = {0};
     if (!GenPassCodeConfirmNum(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
                                slink->gNode.mixCode, SM_MIX_PASSCODE_LEN, &confirm)) {
@@ -209,7 +224,12 @@ void SmPassCodeSetTPassCode(SmSLink_S *slink)
             .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
         return;
     }
-    GenMixPassCode(slink, slink->tNode.passCode, slink->tNode.mixCode, SM_MIX_PASSCODE_LEN);
+    if (!GenMixPassCode(slink, slink->tNode.passCode, slink->tNode.mixCode, SM_MIX_PASSCODE_LEN)) {
+        NLSTK_LOG_ERROR("[SM][PASSCODE] T mix passcode generate failed.");
+        STM_MFUNC(slink->stm, ProcessMessage, (Message) {
+            .what = SM_INTERNAL_ERROR, .extData = (void *)(uintptr_t)SM_ERR_UNSPECIFIED_REASON });
+        return;
+    }
     SmConfirmNum_S confirm = {0};
     if (!GenPassCodeConfirmNum(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, slink,
                                slink->tNode.mixCode, SM_MIX_PASSCODE_LEN, &confirm)) {
@@ -387,7 +407,7 @@ static uint32_t GenerateSixDigits(SmAuthUserCode_S *code)
     return num;
 }
 
-static void GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixCode, uint8_t codeLen)
+static bool GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixCode, uint8_t codeLen)
 {
     NLSTK_SmDerivedMac_S input = {
         .algo = slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY],
@@ -401,8 +421,16 @@ static void GenMixPassCode(SmSLink_S *slink, uint32_t passCodeNum, uint8_t *mixC
     }
     input.buff = buffM;
     input.buffSize = SM_MIX_PASSCODE_LEN;
-    SmCmacGenerate(&input, mixCode, codeLen);
+    if (!SmCmacGenerate(&input, mixCode, codeLen)) {
+        NLSTK_LOG_ERROR("[SM][PASSCODE] Generate mix passcode error.");
+        (void)memset_s(mixCode, codeLen, 0, codeLen);
+        (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+        (void)memset_s(buffM, SM_MIX_PASSCODE_LEN, 0, SM_MIX_PASSCODE_LEN);
+        return false;
+    }
     (void)memset_s(&input, sizeof(NLSTK_SmDerivedMac_S), 0, sizeof(NLSTK_SmDerivedMac_S));
+    (void)memset_s(buffM, SM_MIX_PASSCODE_LEN, 0, SM_MIX_PASSCODE_LEN);
+    return true;
 }
 
 static bool GenPassCodeConfirmNum(uint8_t *key, uint8_t keyLen, SmSLink_S *slink,

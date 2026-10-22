@@ -16,6 +16,7 @@
 #ifndef SLE_CRYPTO_H
 #define SLE_CRYPTO_H
 
+#include <stdbool.h>
 #include "nlstk_sm_api.h"
 
 #ifdef __cplusplus
@@ -40,11 +41,11 @@ typedef enum {
     KEY_NEGOTIATION_ALGORITHM_ABILITY_RESERVED,
 } KeyNegoAlgoAbility;
 
-void Crypto_RandNumGenerate(uint8_t *out, uint8_t len);
-void Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
-void Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
-void Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
-void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
+bool Crypto_RandNumGenerate(uint8_t *out, uint8_t len);
+bool Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
+bool Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
+bool Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
+bool Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
 
 #ifdef __cplusplus
 }

@@ -49,10 +49,10 @@ void Test_SmImgMsgCbk(NLSTK_SmSendImgMsgCmpl_S *params);
 
 void Test_ResetData();
 
-void Test_CryptoRandNumGenerate(uint8_t *out, uint8_t len);
-void Test_CryptoPubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
-void Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
-void Test_CryptoDerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
+bool Test_CryptoRandNumGenerate(uint8_t *out, uint8_t len);
+bool Test_CryptoPubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair);
+bool Test_CryptoSecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen);
+bool Test_CryptoDerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen);
 
 #ifdef __cplusplus
 }
