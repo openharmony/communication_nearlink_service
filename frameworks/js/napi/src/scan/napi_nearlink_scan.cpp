@@ -116,7 +116,7 @@ static napi_status ParseScanParameters(
     if (exist) {
         HILOGI("Scan duration is %{public}d", duration);
         if (duration < SCAN_DURATION_MIN || duration > SCAN_DURATION_MAX) {
-            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
             HILOGE("duration should in range of 10 to 60 (sec), inclusive.");
             return napi_invalid_arg;
         }
@@ -218,7 +218,7 @@ static napi_status ParseScanFilterRssiParameters(
     if (exist) {
         HILOGI("Scan rssi is %{public}d", rssi);
         if (rssi < SCAN_RSSI_MIN || rssi > SCAN_RSSI_MAX) {
-            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
             HILOGE("rssi should in range of -128 to 127, inclusive.");
             return napi_invalid_arg;
         }

@@ -106,10 +106,10 @@ void setConnectionMode(::ohos::nearlink::manager::ConnectionMode mode, int durat
     HILOGI("enter");
     int32_t connectionMode = mode.get_value();
     if (connectionMode < 0 || connectionMode > 1) {
-        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTEGER);
     }
     if (duration < 0) {
-        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTEGER);
     }
     NlErrCode err = NearlinkHost::GetInstance().SetConnectionMode(connectionMode, duration);
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
