@@ -54,7 +54,6 @@ extern "C" {
 #define SLE_LOCAL_AUTORATE_FEATURE 23
 
 #define SLE_ICB_MAX_NUM 16
-#define SLE_IMG_ACB_HANDLE_MAX_NUM 8
 
 /* ------------------------------------------发送命令相关结构体----------------------------------------------------------*/
 #pragma pack(1)
@@ -562,9 +561,8 @@ typedef struct {
 } DLI_FreqBandExtParam;
 
 typedef struct {
-    uint16_t imgConhdl;                 /*!< IMG组播连接句柄 */
-    uint8_t acbCnt;                     /*!< ACB链路个数, 最大为2(双耳2, 单耳1) */
-    uint16_t acbConhdl[SLE_IMG_ACB_HANDLE_MAX_NUM]; /*!< 对端ACB连接句柄, 按协议定长8下发, 有效个数为acbCnt */
+    uint16_t imgHandle;                 /*!< IMG组播连接句柄 */
+    uint16_t acbHandle;                 /*!< 对端ACB连接句柄 */
 } DLI_ImgAcbInfoParam;
 
 typedef struct {

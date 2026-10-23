@@ -46,7 +46,6 @@
 #include "dli_errno.h"
 
 #define QOSM_MAX_RECOMMEND_ENTER_5G_TIMES 3
-#define QOSM_IMG_ACB_MAX_CNT 2
 
 struct __attribute__((packed)) QOSM_PowerLevelInfo {
     uint16_t connHandle;
@@ -555,8 +554,8 @@ static void QOSM_ConnectFailInGroup(QOSM_ICGInfo *icgInfo, uint8_t connectSeq)
 }
 
 /*
- * IMG组播setLabel(0x2815)之后, 将组成员(各对端ACB链路句柄)连同img句柄上报BTC(DLI 0xFC14),
- * 按协议定长8个句柄下发, 有效个数为acbCnt;
+ * IMG组播setLabel(0x2815)之后, 将组成员(对端ACB链路句柄)逐个连同img句柄上报BTC(DLI 0xFC14),
+ * 每条命令携带一个成员(双耳2条, 单耳1条);
  * 发送时机为QOSM_ConfigICG(set-param完成回调), 成员lcid由set-param入参在建icgInfo时预填
  */
 static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
@@ -564,24 +563,23 @@ static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
     if (icgInfo->isImgAcbInfoReported) {
         return;
     }
-    DLI_ImgAcbInfoParam param = {};
-    param.imgConhdl = icgInfo->gHandle;
-    for (uint8_t i = 0; i < icgInfo->linkCnt && param.acbCnt < QOSM_IMG_ACB_MAX_CNT; i++) {
+    uint8_t memberCnt = 0;
+    DLI_ICGCbkParam cbkParam = {.type = icgInfo->icbType, .id = icgInfo->icgId};
+    for (uint8_t i = 0; i < icgInfo->linkCnt; i++) {
         if (icgInfo->link[i].lcid == 0) {
             continue;
         }
-        param.acbConhdl[param.acbCnt] = icgInfo->link[i].lcid;
-        param.acbCnt++;
+        DLI_ImgAcbInfoParam param = {.imgHandle = icgInfo->gHandle, .acbHandle = icgInfo->link[i].lcid};
+        uint32_t ret = DLI_SetImgAcbInfoExt(&param, &cbkParam);
+        QOSM_LOGI("report img acb info, gHandle: 0x%04x, acbHandle: 0x%04x, ret: %u",
+            param.imgHandle, param.acbHandle, ret);
+        memberCnt++;
     }
-    if (param.acbCnt == 0) {
+    if (memberCnt == 0) {
         QOSM_LOGI("no member lcid, skip report, icgId: %u", icgInfo->icgId);
         return;
     }
-
     icgInfo->isImgAcbInfoReported = true;
-    DLI_ICGCbkParam cbkParam = {.type = icgInfo->icbType, .id = icgInfo->icgId};
-    uint32_t ret = DLI_SetImgAcbInfoExt(&param, &cbkParam);
-    QOSM_LOGI("report img acb info, gHandle: 0x%04x, acbCnt: %u, ret: %u", param.imgConhdl, param.acbCnt, ret);
 }
 
 /*
