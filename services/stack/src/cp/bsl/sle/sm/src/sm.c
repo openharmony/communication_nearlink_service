@@ -215,6 +215,14 @@ void SmRequestSecurity(void *addrIn)
         return;
     }
     NLSTK_LOG_INFO("[SM] Find slink with addr = %s, lcid = %d.", GET_ENC_ADDR(&slink->rmtAddr), slink->lcid);
+    /* 协商/鉴权/密钥缺失/移除中四态无ACTIVE_START处理分支, 直接回报失败, 避免调用方无响应 */
+    if (slink->curStateIndex == SM_STATE_NEGO || slink->curStateIndex == SM_STATE_AUTH ||
+        slink->curStateIndex == SM_STATE_MISS || slink->curStateIndex == SM_STATE_REMV) {
+        NLSTK_LOG_ERROR("[SM] Request security in invalid state: %d.", slink->curStateIndex);
+        SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
+            .addr = *addr, .authStatus = SM_PAIR_ERROR });
+        return;
+    }
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
 }
 
@@ -237,6 +245,13 @@ void SmStartPairing(void *addrIn)
         SmSLinkWaitDelTimer(slink);
         SmSLinkWaitDelUapiTimer(slink);
         (void)memset_s(slink->linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+        (void)memset_s(slink->dhKey, SM_DHKEY_LEN, 0, SM_DHKEY_LEN);
+        (void)memset_s(slink->priKey, SM_PRIVATE_KEY_LEN, 0, SM_PRIVATE_KEY_LEN);
+        (void)memset_s(&slink->negoParams, sizeof(slink->negoParams), 0, sizeof(slink->negoParams));
+        (void)memset_s(&slink->gNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
+        (void)memset_s(&slink->tNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
+        slink->expectOpCode = 0;
+        slink->dispatcher = NULL;
         STM_MFUNC(slink->stm, Transition, g_smStateName[SM_STATE_INIT]);
     }
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
