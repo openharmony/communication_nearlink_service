@@ -46,6 +46,32 @@ typedef enum {
 
 namespace OHOS {
 
+    /* SDF_MapMoveInsert 重复 key 时返回 false 且不接管 key/slink: 回收并复用已登记条目,
+     * 避免每次输入恒定泄漏(设备实证: 修复前 RSS 线性增长至 OOM)。产品侧同款用法见 sm.c:689。 */
+    static SmSLink_S *FuzzStmGetSLink(const SLE_Addr_S *addr)
+    {
+        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
+        if (key == nullptr) {
+            return nullptr;
+        }
+        (void)memcpy_s(key, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        SmSLink_S *slink = SmSLinkCtor(addr);
+        if (slink == nullptr) {
+            SDF_MemFree(key);
+            return nullptr;
+        }
+        if (!SDF_MapMoveInsert(g_slinkMap, key, slink)) {
+            SDF_MemFree(key);
+            SmSLinkDtor(slink);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, addr);
+            if (iter == nullptr) {
+                return nullptr;
+            }
+            slink = (SmSLink_S *)iter->val;
+        }
+        return slink;
+    }
+
     void FuzzSetSecuParams(const uint8_t* fuzzData, size_t size)
     {
         FuzzedDataProvider fdp(fuzzData, size);
@@ -97,10 +123,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         NLSTK_SmStartPairing(&addr);
     }
 
@@ -114,10 +140,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         slink->negoParams.authMethod = SM_AUTH_METHOD_MAX;
         NLSTK_SmSetConfirm(&addr);
     }
@@ -132,10 +158,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         NLSTK_SmPassCode_S passCode = {
             .addr = addr,
             .passCode = fdp.ConsumeIntegral<uint32_t>()
@@ -153,10 +179,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         uint8_t passWordLen = fdp.ConsumeIntegral<uint8_t>();
         if (passWordLen > FUZZ_ONEHUNDREDTWENTYEIGHT) {
@@ -187,10 +213,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         NLSTK_SmPsk_S psk = {{0}};
         psk.addr = addr;
@@ -202,6 +228,10 @@ namespace OHOS {
 
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
+        if (g_slinkMap != NULL) {
+            /* 先释放 SmInit 建立或上一输入遗留的表, 避免直接覆盖丢引用 */
+            SDF_MapDtor(g_slinkMap);
+        }
         g_slinkMap = SDF_MapCtor(SLE_ADDR_TRAITS(), MAKE_TRAITS(SmSLinkDtor, NULL));
         FuzzSetSecuParams(fuzzData, size);
         FuzzSetStartParing(fuzzData, size);
