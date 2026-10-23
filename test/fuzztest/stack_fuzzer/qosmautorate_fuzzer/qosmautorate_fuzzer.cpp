@@ -348,7 +348,8 @@ void FuzzQosmTransChannelCbksRegister(const uint8_t *fuzzData, size_t size)
  * DLI 注册表不全或命令层缺口属环境可达性问题，不是产品缺陷——记录在案 + 跳过本轮
  * （置位后本目标后续输入直接跳过，验收锚点记 BLOCKED）。探测通过后其余断言保持 abort。 */
 static bool g_qosEnvDegraded = false;
-#define QOSM_TUNING_REQUIRE(cond)                         \n    do {                                                \
+#define QOSM_TUNING_REQUIRE(cond)                         \
+    do {                                                \
         if (!(cond)) {                                  \
             QOSM_LOGE("qosm tuning env degraded, skip");\
             g_qosEnvDegraded = true;                    \

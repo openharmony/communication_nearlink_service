@@ -1235,7 +1235,7 @@ uint32_t FuzzCmDynTransInit(void)
     uint32_t ret = CM_SignalingInit();
     if (ret != CM_SUCCESS) {
         CM_LOGE("CM_SignalingInit failed, env degraded, ret:%d", ret);
-        g_cmLinkEnvDegraded = true;
+        OHOS::g_cmLinkEnvDegraded = true; /* 命名空间限定：本函数在 OHOS 外 */
         return ret;
     }
     CM_DynTransChannelCbks_S cbks = {0};
@@ -1246,7 +1246,7 @@ uint32_t FuzzCmDynTransInit(void)
     ret = CM_RegDynTransChannelCbks(&cbks);
     if (ret != CM_SUCCESS) {
         CM_LOGE("CM_RegDynTransChannelCbks failed, env degraded, ret:%d", ret);
-        g_cmLinkEnvDegraded = true;
+        OHOS::g_cmLinkEnvDegraded = true; /* 命名空间限定：本函数在 OHOS 外 */
         return ret;
     }
     return CM_SUCCESS;
