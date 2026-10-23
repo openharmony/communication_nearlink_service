@@ -39,6 +39,7 @@ struct RouteFlagInfo {
     uint32_t streamUsage;
     AudioStandard::RendererState status;
     std::string bundleName;
+    bool silentMode;
 };
 
 class SleAudioFrameworkAdapter {

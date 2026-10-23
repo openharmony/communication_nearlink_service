@@ -105,8 +105,9 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
     // 遍历新增插入,所有pipe中的流加起来最多256条
     for (const auto &rendererStream : rendererStreams) {
         auto info = rendererStream.second;
-        HILOGD("[SleAudioFrameworkAdapter] state=%{public}d, usage=%{public}d, streamId=%{public}d", info.state_,
-               info.usage_, info.streamId_);
+        HILOGD(
+        "[SleAudioFrameworkAdapter] state=%{public}d, usage=%{public}d, streamId=%{public}d, silentMode_=%{public}d",
+        info.state_, info.usage_, info.streamId_, info.silentMode_);
         if (GetRouteFlagList().size() > MAX_ROUTE_FLAG_LIST_SIZE) {
             HILOGE("[SleAudioFrameworkAdapter] err size up to limit");
             return;
@@ -121,6 +122,7 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
             .streamUsage = info.usage_,
             .status = info.state_,
             .bundleName = bundleName,
+            .silentMode = info.silentMode_,
         };
         AddMemberRouteFlagList(newInfo);
     }
@@ -273,7 +275,7 @@ void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange(
         auto changeInfo = std::make_shared<AudioStandard::AudioRendererChangeInfo>();
         changeInfo->sessionId = info.streamId_;
         changeInfo->rendererState = info.state_;
-        changeInfo->rendererInfo.streamUsage = static_cast<AudioStandard::StreamUsage>(info.usage_);
+        changeInfo->rendererInfo.streamUsage = info.usage_;
         audioRendererChangeInfos.push_back(changeInfo);
     }
     McpServerService *mcpService = McpServerService::GetService();
@@ -355,10 +357,16 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         mcpService->GetMediaLoader()->RendererStreamStateChange(MCP_PLAYBACK_STATE_PLAY);
         return;
     }
+    /* silentMode为true的流是应用主动静音，不对其实施静音流管控 */
+    bool isSilentMode = false;
     for (const auto &it : GetRouteFlagList()) {
         if (isCallStreamType(it.streamUsage)) {
             StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
             return;
+        }
+        if (it.streamId == streamId && it.silentMode) {
+            isSilentMode = true;
+            continue;
         }
         /* 匹配静音流的streamid */
         if (it.streamId == streamId) {
@@ -368,6 +376,10 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
             isStart = false;
             return;
         }
+    }
+    if (isSilentMode) {
+        HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode, skip mute stream control", streamId);
+        return;
     }
     StartEmptyMuteScMcpPauseTimer(device, isStart, streamId, MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
 }
