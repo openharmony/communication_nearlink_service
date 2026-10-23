@@ -19,11 +19,21 @@
 #include <cstdint>
 #include "fuzzer/FuzzedDataProvider.h"
 #include "securec.h"
+#include "cm_signaling_internal.h"
+
+// cm_link_fuzzer.cpp 内的 C++ 导出（OHOS 命名空间，声明不放入头文件以符合规范）
+namespace OHOS {
+void CM_ConnectActiveOpsFuzz(uint8_t *data, size_t size);
+void CM_DynTransLifecycleFuzz(uint8_t *data, size_t size);
+uint32_t CmFuzzerSignalingCaptureCb(uint8_t pi, uint8_t tcid, uint16_t lcid, SDF_Buff_S *buff);
+}
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
+    // 信令发送回调进程内只注册一次：cm_fuzzer 未编 dtap，捕获 CM 发出的信令并释放 buff（dtap 所有权语义）
+    CM_SetSendSignalingDataCbk(OHOS::CmFuzzerSignalingCaptureCb);
     return FuzzCmLinkInit();
 }
 
@@ -36,12 +46,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     uint8_t *fuzzData = fuzzVec.data();
     size_t fuzzSize = fuzzVec.size();
     FuzzCmLinkApi(fuzzData, fuzzSize);
+
+    // dyntrans 闭环窗口：仍在 CM_Init 之后、CM_DeInit 之前，每 input 与 Init/DeInit 严格配对
+    FuzzCmDynTransInit();
+    OHOS::CM_ConnectActiveOpsFuzz(fuzzData, fuzzSize);
+    OHOS::CM_DynTransLifecycleFuzz(fuzzData, fuzzSize);
+    FuzzCmDynTransDeInit();
+
     FuzzCmLinkDeInit();
 
     FuzzCmConcurrentConnInit();
     FuzzCmConcurrentConnApi(fuzzData, fuzzSize);
     FuzzCmConcurrentConnDeInit();
-    
+
     FuzzCmDliAdaptor(fuzzData, fuzzSize);
     return 0;
 }

@@ -41,6 +41,7 @@ ohos_fuzztest("CmIcbFuzzTest") {
   ]
   sources = shared_stack_source + [
     "cmicb_fuzzer.cpp",
+    "cmicb_evt_fuzzer.cpp",
   ]
 
   deps = [ 

@@ -98,6 +98,35 @@ namespace OHOS {
         free(fuzzDataStr);
         g_fuzzDataStr = nullptr;
     }
+
+    /* DFX 直调组：与上方 FuzzDtapGetFrameCtx 的业务状态机覆盖（Start/Stop）分别统计，
+     * 直调 Update/QualityReport/GetDspStatus 等纯参数入口。
+     * 注：QOSM_ExecuteBitrateChangeDecision/QOSM_UeventInit 为本文件既有桩——DFX 比特率
+     * 变更决策与 uevent netlink 非真实链路，故单列直调组而不混入业务状态机序列。 */
+    void FuzzQosmAudioDfxDirectCalls(const uint8_t* data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+        struct QOSM_AudioDfxConn conn = {0};
+        conn.connHandle = fdp.ConsumeIntegral<uint16_t>();
+        conn.lcid = fdp.ConsumeIntegral<uint16_t>();
+        for (size_t i = 0; i < QOSM_ADDR_LEN; i++) {
+            conn.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        bool connected = fdp.ConsumeBool();
+        uint32_t bitrate = fdp.ConsumeIntegral<uint32_t>();
+        uint8_t frameType = fdp.ConsumeIntegral<uint8_t>();
+        uint16_t powerHandle = fdp.ConsumeIntegral<uint16_t>();
+        uint8_t powerLevel = fdp.ConsumeIntegral<uint8_t>();
+        uint16_t txFlushed = fdp.ConsumeIntegral<uint16_t>();
+        uint16_t ackrate = fdp.ConsumeIntegral<uint16_t>();
+        QOSM_AudioDfxUpdateConn(&conn, connected);
+        QOSM_AudioDfxUpdateBitrate(bitrate);
+        QOSM_AudioDfxUpdateFrameType(frameType);
+        QOSM_AudioDfxUpdatePowerLevel(powerHandle, powerLevel);
+        QOSM_AudioDfxQualityReport(txFlushed, ackrate);
+        bool started = false;
+        (void)QOSM_AudioDfxGetDspStatus(&started);
+    }
 }  // namespace OHOS
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -114,5 +143,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     OHOS::FuzzDtapGetFrameCtx(data, size);
+    OHOS::FuzzQosmAudioDfxDirectCalls(data, size);
     return 0;
 }

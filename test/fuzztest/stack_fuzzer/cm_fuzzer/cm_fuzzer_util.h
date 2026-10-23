@@ -49,6 +49,14 @@ void CmFuzzerGenDifferentAddress(SLE_Addr_S *addr, uint32_t handle);
 
 void CmFuzzerSleConnectCompleteEvt(uint16_t handle);
 
+// 与 CmFuzzerSleConnectCompleteEvt 的区别：完成事件携带调用方指定的对端地址（覆盖正常直连分支），
+// status 注入到 DLI_ConnectionCompleteEvt.status（非 0 走建链失败路径）
+void CmFuzzerSleConnectCompleteEvtWithAddr(uint16_t handle, const SLE_Addr_S *addr, uint8_t status);
+
+// SetMcs 完成事件回注：CM_SleSetMcsProc 从 context->connHandle 取 lcid（cmdRes 为空），
+// 必须构造携带真实 connHandle 的 DLI_ConnCbkContext
+void CmFuzzerSetMcsEvt(uint16_t connHandle, uint8_t status);
+
 void CmFuzzerReadRemoteVersionCompleteEvt(DLI_ReadRemoteVersionEvt *evt);
 
 void CmFuzzerReadRemoteFeaturesCompleteEvt(DLI_ReadRemoteFeatsEvt *evt);
