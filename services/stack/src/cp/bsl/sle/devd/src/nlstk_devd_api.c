@@ -479,28 +479,18 @@ static void DevdCreateAdvHandleInner(void *arg)
     param->handle = DevdCreateAdvHandle(param->cbk);
 }
 
-static void DevdRollbackCreateAdvHandle(void *arg)
-{
-    NLSTK_CreateHandleParam_S *param = (NLSTK_CreateHandleParam_S *)arg;
-    NLSTK_CHECK_RETURN_VOID(param != NULL, "[DEVD] rollback adv handle param is null");
-    // 原任务延迟执行且成功创建句柄时回滚，避免句柄泄漏；未创建时无需处理
-    if (param->handle != ADV_INVALID_HANDLE) {
-        DevdRemoveAdv(&param->handle);
-    }
-}
-
 uint8_t NLSTK_DevdCreateAdvHandle(NLSTK_DevdAdvEventCbk cbk)
 {
     NLSTK_CHECK_RETURN(cbk != NULL, ADV_INVALID_HANDLE, "[DEVD] adv cbk is null");
-    // 堆分配：超时返回后原任务仍可能在队列中延迟执行，栈参数会悬空
+    // 同步接口的内存，由调用点释放；堆分配：超时返回后原任务仍可能在队列中延迟执行，栈参数会悬空
     NLSTK_CreateHandleParam_S *param = (NLSTK_CreateHandleParam_S *)SDF_MemZalloc(sizeof(NLSTK_CreateHandleParam_S));
     NLSTK_CHECK_RETURN(param != NULL, ADV_INVALID_HANDLE, "[DEVD] param malloc fail");
     param->handle = ADV_INVALID_HANDLE;
     param->cbk = cbk;
-    uint32_t ret = SchedulePostTaskBlocked(DevdCreateAdvHandleInner, param, NULL, NLSTK_API_TIME_OUT);
+    uint32_t ret = SchedulePostTaskBlocked(DevdCreateAdvHandleInner, (void *)param, NULL, NLSTK_API_TIME_OUT);
     if (ret == NLSTK_ERRCODE_TASK_TIMEOUT) {
-        // 超时后原任务仍在调度队列：补发回滚任务（FIFO 保证在原任务之后执行）善后 param
-        (void)SchedulePostTask(DevdRollbackCreateAdvHandle, param, SDF_MemFree);
+        // 在异常场景下，无法再处理，补发空任务在原任务之后释放param（框架惯例）
+        (void)SchedulePostTask(NULL, (void *)param, SDF_MemFree);
         return ADV_INVALID_HANDLE;
     }
     if (ret != NLSTK_OK) {
