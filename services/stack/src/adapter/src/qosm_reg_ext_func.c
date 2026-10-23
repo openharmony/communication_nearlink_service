@@ -31,35 +31,15 @@ void QOSM_RegisterExtFunc(void *soHandle)
         return;
     }
 
-    /* 全有或全无：任一符号缺失时保持 g_funcList 原状，避免部分填充导致新旧函数指针混用 */
-    QOSM_ExtFuncList funcList = {0};
-
-    funcList.antennaDfxSendQueryCmd =
+    g_funcList.antennaDfxSendQueryCmd =
         (QOSM_AntennaDfxSendQueryCmdPtr)dlsym(soHandle, "QOSM_AntennaDfxSendQueryCmd");
-    if (funcList.antennaDfxSendQueryCmd == NULL) {
-        ADAPTER_LOGE("null antennaDfxSendQueryCmd\n");
-        return;
-    }
-    funcList.antennaDfxGetAntennaPolicy =
+    g_funcList.antennaDfxGetAntennaPolicy =
         (QOSM_AntennaDfxGetAntennaPolicyPtr)dlsym(soHandle, "QOSM_AntennaDfxGetAntennaPolicy");
-    if (funcList.antennaDfxGetAntennaPolicy == NULL) {
-        ADAPTER_LOGE("null antennaDfxGetAntennaPolicy\n");
-        return;
-    }
-    funcList.isLastEnableFreqBandByRecommend =
+    g_funcList.isLastEnableFreqBandByRecommend =
         (QOSM_IsLastEnableFreqBandByRecommendPtr)dlsym(soHandle, "IsLastEnableFreqBandByRecommend");
-    if (funcList.isLastEnableFreqBandByRecommend == NULL) {
-        ADAPTER_LOGE("null isLastEnableFreqBandByRecommend\n");
-        return;
-    }
-    funcList.isNeedRecoverFreqBandAbility =
+    g_funcList.isNeedRecoverFreqBandAbility =
         (QOSM_IsNeedRecoverFreqBandAbilityPtr)dlsym(soHandle, "IsNeedRecoverFreqBandAbility");
-    if (funcList.isNeedRecoverFreqBandAbility == NULL) {
-        ADAPTER_LOGE("null isNeedRecoverFreqBandAbility\n");
-        return;
-    }
 
-    g_funcList = funcList;
     ADAPTER_LOGI("qosm register ext func finished\n");
 }
 
