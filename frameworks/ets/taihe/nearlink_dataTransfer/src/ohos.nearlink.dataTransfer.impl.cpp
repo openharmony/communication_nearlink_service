@@ -116,15 +116,16 @@ static TaiheStatus ParseFrameType(const ::ohos::nearlink::dataTransfer::Connecti
     if (!params.frameType.has_value()) {
         return TaiheStatus::TAIHE_OK;
     }
-    int32_t frameTypeValue = static_cast<int32_t>(params.frameType.value());
+    ConstantFrameType frameType = params.frameType.value();
+    int32_t frameTypeValue = frameType.get_value();
     HILOGI("frameType: %{public}d", frameTypeValue);
-    if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
-        frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
+    if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+        frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
         HILOGE("Invalid frameType: %{public}d", frameTypeValue);
         HandleSyncErr(NL_ERR_INVALID_PARAM);
         return TaiheStatus::TAIHE_INVALID_ARG;
     }
-    if (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
+    if (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) {
         outFrameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4);
     }
     return TaiheStatus::TAIHE_OK;

@@ -218,17 +218,18 @@ static TaiheStatus CheckFilterScanParams(::ohos::nearlink::scan::Filters const& 
             outSettings.SetDuration(duration);
         }
         if (scanOptions.frameType.has_value()) {
-            int32_t frameTypeValue = static_cast<int32_t>(scanOptions.frameType.value().get_value());
+            ConstantFrameType frameType = scanOptions.frameType.value();
+            int32_t frameTypeValue = frameType.get_value();
             HILOGI("frameType: %{public}d", frameTypeValue);
-            if (frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_1) &&
-                frameTypeValue != static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) {
+            if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+                frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
                 HILOGE("Invalid frameType: %{public}d", frameTypeValue);
                 return TAIHE_INVALID_ARG;
             }
-            uint8_t frameType = (frameTypeValue == static_cast<int32_t>(ConstantFrameType::key_t::FRAME_TYPE_4)) ?
+            uint8_t nativeFrameType = (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) ?
                 static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
                 static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
-            outSettings.SetFrameType(frameType);
+            outSettings.SetFrameType(nativeFrameType);
         }
     }
     return TAIHE_OK;
