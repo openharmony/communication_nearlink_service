@@ -63,7 +63,7 @@ namespace OHOS {
         if (!SDF_MapMoveInsert(g_slinkMap, key, slink)) {
             SDF_MemFree(key);
             SmSLinkDtor(slink);
-            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, addr);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, const_cast<SLE_Addr_S *>(addr));
             if (iter == nullptr) {
                 return nullptr;
             }
