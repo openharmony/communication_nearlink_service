@@ -359,3 +359,8 @@ uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCb
 {
     return 0;
 }
+
+uint32_t DLI_SetImgAcbInfoExt(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    return 0;
+}
