@@ -624,22 +624,6 @@ static void QOSM_ConnectSuccessInGroup(QOSM_ICGInfo *icgInfo, uint8_t connectSeq
     }
 }
 
-static void QOSM_DfxUpdateConnnected(uint16_t connHandle, uint16_t lcid)
-{
-    CM_LogicLink_S link = {};
-    if (CM_GetLogicLinkByLcid(lcid, &link) != CM_SUCCESS) {
-        return;
-    }
-
-    struct QOSM_AudioDfxConn conn = {};
-    conn.connHandle = connHandle;
-    conn.lcid = lcid;
-    if (memcpy_s(conn.addr, sizeof(conn.addr), link.addr.addr, sizeof(link.addr.addr)) != EOK) {
-        return;
-    }
-    QOSM_AudioDfxUpdateConn(&conn, true);
-}
-
 static void QOSM_RetryConnectTimeoutCbk(void *arg)
 {
     uint16_t input = (uint16_t)(uintptr_t)arg;
@@ -1720,20 +1704,6 @@ static void QOSM_ICGPowerLevelChangeCbk(void *args)
     struct QOSM_PowerLevelInfo *info  = (struct QOSM_PowerLevelInfo *)chanInfo->data;
     QOSM_LOGI("power level changed, conn handle=0x%04x, level=%hhu", info->connHandle, info->level);
     QOSM_AudioDfxUpdatePowerLevel(info->connHandle, info->level);
-}
-
-static void QOSM_AudioDfxInfoSet(struct QOSM_AudioDfxInfo *dfxInfo, QOSM_ICGInfo *icgInfo)
-{
-    if (icgInfo->qosParam != NULL) {
-        dfxInfo->startBitrate = icgInfo->qosParam->downwardBitrate;
-    }
-
-    dfxInfo->codecType = (icgInfo->qosIndex == QOSM_QOSINDEX_CALL ||
-        icgInfo->qosIndex == QOSM_QOSINDEX_VOICE_ASSISTANT) ? QOSM_AUDIO_DFX_CODEC_TYPE_BOTH :
-        (icgInfo->qosIndex == QOSM_QOSINDEX_HD_RECORDING) ? QOSM_AUDIO_DFX_CODEC_TYPE_DECODER :
-        QOSM_AUDIO_DFX_CODEC_TYPE_ENCODER;
-    dfxInfo->dspStatusCb = QOSM_DspStatusCbk;
-    dfxInfo->flowCtrlCb = QOSM_DspFlowCtrlCbk;
 }
 
 static void QOSM_ICGMgrSetAutorateParamInner(QOSM_ICGMgrParam *autoRateParam, bool isResetParam)

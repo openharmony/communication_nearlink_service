@@ -146,7 +146,7 @@ struct QosLevelLabel {
     uint8_t labelId;                  /* 非AutorateParam的labelId，由芯片生成 */
 };
 
-typedef struct {
+typedef struct QosICGInfo {
     SDF_DListEntry_S entry;
     uint8_t qosId;                        /* 由于全局只有一个调用方，所以qosId充当icgId */
     uint8_t icgId;                        /* ICG唯一标识 */

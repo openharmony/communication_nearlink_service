@@ -95,6 +95,10 @@ void QOSM_AudioDfxGetDspStatusInner(void *arg);
 uint32_t QOSM_AudioDfxGetDspStatus(bool *started);
 void QOSM_AudioDfxQualityReport(uint16_t txFlushed, uint16_t ackrate);
 
+struct QosICGInfo;
+void QOSM_DfxUpdateConnnected(uint16_t connHandle, uint16_t lcid);
+void QOSM_AudioDfxInfoSet(struct QOSM_AudioDfxInfo *dfxInfo, struct QosICGInfo *icgInfo);
+
 #ifdef __cplusplus
 }
 #endif
