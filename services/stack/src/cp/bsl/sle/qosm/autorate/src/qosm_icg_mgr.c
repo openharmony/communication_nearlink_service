@@ -553,11 +553,6 @@ static void QOSM_ConnectFailInGroup(QOSM_ICGInfo *icgInfo, uint8_t connectSeq)
     QOSM_NotifyConnCbk(icgInfo, QOSM_CONNECTION_ADDED, QOSM_FAIL, link, linkCnt);
 }
 
-/*
- * IMG组播setLabel(0x2815)之后, 将组成员ACB链路句柄连同img句柄上报BTC(DLI 0xFC14),
- * 仅下发一条, 携带首个有效成员句柄;
- * 发送时机为QOSM_ConfigICG(set-param完成回调), 成员lcid由set-param入参在建icgInfo时预填
- */
 static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
 {
     if (icgInfo->isImgAcbInfoReported) {
@@ -575,12 +570,17 @@ static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
         return;
     }
 
-    icgInfo->isImgAcbInfoReported = true;
     DLI_ImgAcbInfoParam param = {.imgHandle = icgInfo->gHandle, .acbHandle = acbHandle};
     DLI_ICGCbkParam cbkParam = {.type = icgInfo->icbType, .id = icgInfo->icgId};
     uint32_t ret = DLI_SetImgAcbInfoExt(&param, &cbkParam);
-    QOSM_LOGI("report img acb info, gHandle: 0x%04x, acbHandle: 0x%04x, ret: %u",
-        param.imgHandle, param.acbHandle, ret);
+    if (ret != DLI_SUCCESS) {
+        QOSM_LOGE("report img acb info failed, gHandle: 0x%04x, acbHandle: 0x%04x, ret: %u",
+            param.imgHandle, param.acbHandle, ret);
+        return;
+    }
+    icgInfo->isImgAcbInfoReported = true;
+    QOSM_LOGI("report img acb info, gHandle: 0x%04x, acbHandle: 0x%04x",
+        param.imgHandle, param.acbHandle);
 }
 
 /*
