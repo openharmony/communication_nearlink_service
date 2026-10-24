@@ -489,7 +489,7 @@ uint8_t NLSTK_DevdCreateAdvHandle(NLSTK_DevdAdvEventCbk cbk)
     param->cbk = cbk;
     uint32_t ret = SchedulePostTaskBlocked(DevdCreateAdvHandleInner, (void *)param, NULL, NLSTK_API_TIME_OUT);
     if (ret == NLSTK_ERRCODE_TASK_TIMEOUT) {
-        // 在异常场景下，无法再处理，补发空任务在原任务之后释放param（框架惯例）
+        // 在异常场景下，无法再处理，补发空任务在原任务之后释放param
         (void)SchedulePostTask(NULL, (void *)param, SDF_MemFree);
         return ADV_INVALID_HANDLE;
     }
