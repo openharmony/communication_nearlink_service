@@ -88,6 +88,7 @@ ohos_fuzztest("AscServiceFuzzTest") {
       "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/actm/include",
       "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/interface",
       "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
+      "$NEARLINK_ROOT/services/stack/src/sdf/bsl/dsl/include",
     ]
 
     external_deps += [
