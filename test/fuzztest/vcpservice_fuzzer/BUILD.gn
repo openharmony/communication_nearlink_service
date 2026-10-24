@@ -46,6 +46,29 @@ ohos_fuzztest("VcpServiceFuzzTest") {
     "$NEARLINK_ROOT/services/service/src/common",
   ]
 
+  # 弱耦合部件条件编译：audio 部件存在时直调 VcpService/VcpStackAdapter
+  defines = []
+  if (nearlink_deps_audio_exist) {
+    defines += [ "NEARLINK_FUZZ_AUDIO_PARTS" ]
+    include_dirs += [
+      "$NEARLINK_ROOT/services/service/src/vcp",
+      "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/mctl/include",
+      "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/public/include",
+      "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
+    ]
+  }
+
+  # telephony 部件存在时直调 CcpService/CcpStackAdapter（call_manager 头文件编译必需）
+  if (nearlink_deps_telephony_exist) {
+    defines += [ "NEARLINK_FUZZ_TELEPHONY_PARTS" ]
+    include_dirs += [
+      "$NEARLINK_ROOT/services/service/src/ccp",
+      "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cctl/include",
+      "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/public/include",
+      "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
+    ]
+  }
+
   configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
 
   sources = [ "vcpservice_fuzzer.cpp" ]
@@ -75,6 +98,10 @@ ohos_fuzztest("VcpServiceFuzzTest") {
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
   ]
+
+  if (nearlink_deps_telephony_exist) {
+    external_deps += [ "call_manager:tel_call_manager_api" ]
+  }
 }
 
 ###############################################################################
