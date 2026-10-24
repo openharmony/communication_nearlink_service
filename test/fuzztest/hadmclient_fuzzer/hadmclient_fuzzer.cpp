@@ -13,7 +13,9 @@
  * limitations under the License.
  */
 
+#include <memory>
 #include <thread>
+#include <vector>
 #include "fuzzer/FuzzedDataProvider.h"
 #include "hadmclient_fuzzer.h"
 #include "nearlink_native_token_mock.h"
@@ -21,6 +23,7 @@
 #include "nearlink_hadm_client_stub.h"
 #include "nearlink_hadm_client_server.h"
 #include "nearlink_host_server.h"
+#include "interface_hadm_client_service.h"
 #include "ThreadUtil.h"
 #include "log.h"
 #include "securec.h"
@@ -44,11 +47,26 @@ public:
     void OnSoundingStateChange(const NearlinkRawAddress &addr, int newState, int errorCode) {}
 };
 
+class FuzzHadmClientServiceCallback : public InterfaceHadmClientServiceCallback {
+public:
+    FuzzHadmClientServiceCallback()
+    {
+        HILOGI("FuzzHadmClientServiceCallback");
+    }
+    ~FuzzHadmClientServiceCallback()
+    {
+        HILOGI("~FuzzHadmClientServiceCallback");
+    }
+    void OnSoundingResult(const RawAddress &addr, const NearlinkHadmSoundingResult &result, uint32_t hadmId) {}
+    void OnSoundingStateChange(const RawAddress &addr, int newState, int errorCode, uint32_t hadmId) {}
+};
+
 namespace {
 constexpr int HOST_FUZZ_DELAY_MS = 50;
 constexpr int HOST_FUZZ_DELAY_100_MS = 100;
 constexpr int HOST_FUZZ_DELAY_5000_MS = 5000;
 constexpr uint32_t MESSAGE_SIZE = NearlinkHadmClientInterfaceCode::NL_HADM_CLIENT_MANAGER_BUTT;
+constexpr uint8_t HADM_FUZZ_MAX_ID_COUNT = 8;
 sptr<NearlinkHadmClientServer> g_hadmClient = nullptr;
 sptr<INearlinkHadmClientCallback> g_hadmClientCb = new (std::nothrow) MockNearlinkHadmClientCallbackStub();
 ThreadUtil &g_threadUtil = ThreadUtil::GetInstance();
@@ -72,7 +90,8 @@ void RegisterNearlinkHadmClientCallbackFuzzTest(const uint8_t *fuzzData, size_t 
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkHadmClientStub::GetDescriptor());
-    data.WriteUint32(provider.ConsumeIntegral<uint32_t>());
+    // RegisterInner 只读 RemoteObject（不读 hadmId）；仍消费保持旧种子取值流
+    (void)provider.ConsumeIntegral<uint32_t>();
     if (g_hadmClientCb != nullptr) {
         data.WriteRemoteObject(g_hadmClientCb->AsObject());
     }
@@ -116,6 +135,7 @@ void StartSoundingFuzzTest(const uint8_t *fuzzData, size_t size)
     std::string addrStr = BuildAddressString(provider);
     NearlinkRawAddress addr(addrStr);
     data.WriteParcelable(&addr);
+    data.WriteUint8(provider.ConsumeIntegral<uint8_t>());
 
     int32_t ret = HadmClientOnRemoteRequest(
         NearlinkHadmClientInterfaceCode::NL_HADM_CLIENT_START_SOUNDING, data, reply);
@@ -164,21 +184,90 @@ void HadmClientFuzzTest(const uint8_t* fuzzData, size_t size)
 {
     FuzzedDataProvider provider(fuzzData, size);
     uint32_t code = (provider.ConsumeIntegral<uint32_t>() % MESSAGE_SIZE);
-    auto addr = BuildAddressString(provider);
 
     MessageParcel data;
     MessageParcel reply;
 
     std::u16string descriptor = NearlinkHadmClientStub::GetDescriptor();
     data.WriteInterfaceToken(descriptor);
-    data.WriteInt32(provider.ConsumeIntegral<int32_t>());
-    data.WriteString(addr.c_str());
+    // 按 stub 各 Inner 的实际读序构造 parcel 形状
+    switch (code) {
+        case NearlinkHadmClientInterfaceCode::NL_REGISTER_HADM_CLIENT_CALLBACK:
+            if (g_hadmClientCb != nullptr) {
+                data.WriteRemoteObject(g_hadmClientCb->AsObject());
+            }
+            break;
+        case NearlinkHadmClientInterfaceCode::NL_DE_REGISTER_HADM_CLIENT_CALLBACK:
+            data.WriteUint32(provider.ConsumeIntegral<uint32_t>());
+            if (g_hadmClientCb != nullptr) {
+                data.WriteRemoteObject(g_hadmClientCb->AsObject());
+            }
+            break;
+        case NearlinkHadmClientInterfaceCode::NL_HADM_CLIENT_START_SOUNDING: {
+            data.WriteUint32(provider.ConsumeIntegral<uint32_t>());
+            std::string addrStr = BuildAddressString(provider);
+            NearlinkRawAddress addr(addrStr);
+            data.WriteParcelable(&addr);
+            data.WriteUint8(provider.ConsumeIntegral<uint8_t>());
+            break;
+        }
+        case NearlinkHadmClientInterfaceCode::NL_HADM_CLIENT_STOP_SOUNDING: {
+            data.WriteUint32(provider.ConsumeIntegral<uint32_t>());
+            std::string addrStr = BuildAddressString(provider);
+            NearlinkRawAddress addr(addrStr);
+            data.WriteParcelable(&addr);
+            break;
+        }
+        case NearlinkHadmClientInterfaceCode::NL_GET_HADM_FEATURE:
+            break;
+        default: {
+            std::string addrStr = BuildAddressString(provider);
+            data.WriteInt32(provider.ConsumeIntegral<int32_t>());
+            data.WriteString(addrStr.c_str());
+            break;
+        }
+    }
     data.RewindRead(0);
 
     int32_t ret = HadmClientOnRemoteRequest(code, data, reply);
     if (ret != NO_ERROR) {
         HILOGI("send req failed, ret(%{public}d)", ret);
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_MS));
+}
+
+void HadmClientServiceDirectFuzzTest(FuzzedDataProvider &provider)
+{
+    InterfaceHadmClientService &hadmService = InterfaceHadmClientService::GetInstance();
+    std::shared_ptr<InterfaceHadmClientServiceCallback> callback =
+        std::make_shared<FuzzHadmClientServiceCallback>();
+    if (callback == nullptr) {
+        HILOGI("HadmClientServiceDirectFuzzTest callback is nullptr");
+        return;
+    }
+    hadmService.RegisterNearlinkHadmClientCallback(callback);
+
+    uint8_t idCount = provider.ConsumeIntegral<uint8_t>() % HADM_FUZZ_MAX_ID_COUNT;
+    std::vector<uint32_t> hadmIds;
+    for (uint8_t i = 0; i < idCount; i++) {
+        hadmIds.push_back(hadmService.AllocHadmId());
+    }
+
+    for (uint32_t hadmId : hadmIds) {
+        RawAddress addr = BuildRawAddress(provider);
+        uint8_t toneControl = provider.ConsumeIntegral<uint8_t>();
+        hadmService.StartSounding(hadmId, addr, toneControl);
+        hadmService.StopSounding(hadmId, addr);
+        hadmService.StopSoundingById(hadmId);
+    }
+
+    uint8_t capability = hadmService.GetHadmFeature();
+    HILOGI("HadmClientServiceDirectFuzzTest capability(%{public}u)", capability);
+    for (uint32_t hadmId : hadmIds) {
+        hadmService.RemoveHadmId(hadmId);
+    }
+    hadmService.DeregisterNearlinkHadmClientCallback();
+    hadmService.AllocHadmId(); // hadmId 回收路径
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_MS));
 }
 }
@@ -219,6 +308,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::StopSoundingFuzzTest(data, size);
     OHOS::DeregisterNearlinkHadmClientCallbackFuzzTest(data, size);
     OHOS::GetHadmFeatureFuzzTest(data, size);
+    {
+        FuzzedDataProvider fdp(data, size);
+        OHOS::HadmClientServiceDirectFuzzTest(fdp);
+    }
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
