@@ -34,6 +34,7 @@ ohos_fuzztest("NearlinkObserverMapFuzzTest") {
     "$NEARLINK_ROOT/interfaces/inner_api/include",
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/server/include",
+    "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/services/service/src/permission",
   ]
 
@@ -45,6 +46,8 @@ ohos_fuzztest("NearlinkObserverMapFuzzTest") {
   deps = [
     "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
     "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+    "$NEARLINK_ROOT/services/common:nearlink_service_common",
     "$NEARLINK_ROOT/services/ipc:nl_service_ipc",
     "$NEARLINK_ROOT/services/server:nearlink_server",
     "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
