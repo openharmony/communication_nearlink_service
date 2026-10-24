@@ -75,6 +75,27 @@ ohos_fuzztest("AscServiceFuzzTest") {
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
   ]
+
+  # ASC/QosM/ASCUtils/SleAudioFrameworkAdapter 直调仅音频部件在位时编译链接（与产品侧 audio 门控一致）
+  if (nearlink_deps_audio_exist) {
+    defines = [ "NL_FUZZ_AUDIO_ASC" ]
+
+    include_dirs += [
+      "$NEARLINK_ROOT/services/service/src/asc",
+      "$NEARLINK_ROOT/services/service/src/audio",
+      "$NEARLINK_ROOT/services/service/src/mcp",
+      "$NEARLINK_ROOT/services/common/include",
+      "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/actm/include",
+      "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/interface",
+      "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
+    ]
+
+    external_deps += [
+      "audio_framework:audio_policy_manager",
+      "audio_framework:audio_engine_manager",
+      "audio_framework:audio_foundation",
+    ]
+  }
 }
 
 ###############################################################################

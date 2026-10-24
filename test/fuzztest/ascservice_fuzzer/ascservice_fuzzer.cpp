@@ -25,6 +25,12 @@
 #include "log.h"
 #include "securec.h"
 #include "raw_address.h"
+#ifdef NL_FUZZ_AUDIO_ASC
+#include "ASCService.h"
+#include "QosM.h"
+#include "ASCUtils.h"
+#include "SleAudioFrameworkAdapter.h"
+#endif
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -246,6 +252,126 @@ void ASCFuzzTest(const uint8_t* fuzzData, size_t size)
         HILOGI("send req failed, ret(%{public}d)", ret);
     }
 }
+
+#ifdef NL_FUZZ_AUDIO_ASC
+class FuzzAscCallback : public InterfaceASCCallback {
+public:
+    void OnAudioControlComplete(const NearlinkRawAddress &device, const NearlinkASCAudioControlResult &result) {}
+    void OnAddSleAudioDevice(const NearlinkRawAddress &device, uint32_t streamType, int32_t mediaVolume,
+        int32_t callVolume) {}
+    void OnDeleteSleAudioDevice(const NearlinkRawAddress &device) {}
+    void OnSleAudioDeviceActionChanged(const NearlinkRawAddress &device, const NearlinkASCAudioStreamInfo &streamInfo,
+        int action) {}
+    void OnAddSleVirtualAudioDevice(const NearlinkRawAddress &device, AudioStreamType streamType) {}
+    void OnDeleteSleVirtualAudioDevice(const NearlinkRawAddress &device) {}
+};
+
+/* ASCService 直调：Enable->RegisterApplication->Connect->AudioControl(START/STOP)->StopSink->查询族->Disconnect */
+void AscServiceDirectFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    ASCService *ascService = ASCService::GetService();
+    if (ascService == nullptr) {
+        HILOGI("AscServiceDirectFuzzTest: ascService is nullptr");
+        return;
+    }
+    FuzzedDataProvider provider(fuzzData, size);
+    ascService->Enable();
+    std::this_thread::sleep_for(std::chrono::milliseconds(HOST_FUZZ_DELAY_100_MS));
+
+    std::shared_ptr<InterfaceASCCallback> callback = std::make_shared<FuzzAscCallback>();
+    ascService->RegisterApplication(callback);
+
+    const std::string addrStr = BuildAddressString(provider);
+    const RawAddress device(addrStr);
+    const NearlinkRawAddress nearlinkAddr(addrStr);
+    ascService->Connect(device);
+
+    const AudioStreamType streamTypes[] = { AUDIO_STREAM_MUSIC, AUDIO_STREAM_VOICE_CALL, AUDIO_STREAM_RING,
+        AUDIO_STREAM_VOIP, AUDIO_STREAM_GAME, AUDIO_STREAM_SING };
+    const size_t streamTypeCount = sizeof(streamTypes) / sizeof(streamTypes[0]);
+    AudioStreamType streamType = streamTypes[provider.ConsumeIntegral<uint8_t>() % streamTypeCount];
+    ascService->AudioControl(device, streamType, NL_SLE_ASC_CONTROL_CMD_START);
+    ascService->AudioControl(device, streamType, NL_SLE_ASC_CONTROL_CMD_STOP);
+    ascService->StopSink();
+
+    std::vector<NearlinkRawAddress> devices;
+    ascService->GetAudioDeviceList(devices);
+    ascService->GetVirtualAudioDeviceList(devices);
+    uint32_t supportStreamType = 0;
+    ascService->GetSupportStreamType(nearlinkAddr, supportStreamType);
+    std::map<AudioStreamType, AudioStreamCodecInfo> codecInfo;
+    ascService->GetAudioDeviceCodecInfo(nearlinkAddr, codecInfo);
+    ascService->SetActiveSinkDevice(nearlinkAddr, supportStreamType);
+    ascService->UpdateDeviceRole(device, provider.ConsumeIntegral<uint8_t>());
+    (void)ascService->GetDualRecordAbility(device);
+    (void)ascService->GetKaraokeAbility(device);
+
+    ascService->Disconnect(device);
+    ascService->DeregisterApplication();
+    ascService->Disable();
+    std::this_thread::sleep_for(std::chrono::milliseconds(HOST_FUZZ_DELAY_100_MS));
+}
+
+/* QosM 单例直调：AddQos->JudgeQosPriority->SyncQos->查询族->Clear/Delete + ASCUtils static 族 */
+void QosMGearFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    QosM &qosM = QosM::GetInstance();
+    const std::string addrStr = BuildAddressString(provider);
+    const RawAddress device(addrStr);
+    const RawAddress coSetDevice(BuildAddressString(provider));
+
+    constexpr uint8_t qosCount = 10; // NL_SLE_QOS_1..NL_SLE_QOS_10
+    Qos qos = static_cast<Qos>(provider.ConsumeIntegral<uint8_t>() % qosCount + 1);
+    qosM.AddQos(device, qos);
+
+    DevQosmStru qosm = {};
+    qosm.cos = qos;
+    qosm.gos.push_back(qos);
+    (void)qosM.JudgeQosPriority(device, qosm, qos);
+    qosM.SyncQos(device, coSetDevice);
+    (void)qosM.IsQos4Exist(device);
+    (void)qosM.IsQosExist(device, qos);
+    (void)qosM.GetCOS(device);
+    (void)qosM.CalculateNos(device);
+    (void)qosM.GetQosPriority(qos);
+    qosM.ClearQosIfStartFailed(device, qos);
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+    (void)qosM.DeleteQos(device, qos, isStopStream, isStopImmediately);
+    qosM.ClearQosM(device);
+
+    (void)ASCUtils::GetEncodeSoundChannelNum();
+    (void)ASCUtils::GetEncodeCodecClan(provider.ConsumeIntegral<uint8_t>());
+    (void)ASCUtils::GetBpsBitIndexByBps(provider.ConsumeIntegral<uint16_t>());
+    (void)ASCUtils::IsNeedSetDirection(qos);
+    (void)ASCUtils::GetDirection(provider.ConsumeBool(), qos);
+    (void)ASCUtils::GetAutorateTargetFrameType(provider.ConsumeBool());
+}
+
+/* SleAudioFrameworkAdapter 单例直调：状态查询 + 输出管道查询 + listener 注册/去注册 */
+void AudioAdapterQueryFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    (void)fuzzData;
+    (void)size;
+    SleAudioFrameworkAdapter &adapter = SleAudioFrameworkAdapter::GetInstance();
+    (void)adapter.IsMusicActive();
+    (void)adapter.IsVoiceCallActive();
+    (void)adapter.IsAudioServiceActivate();
+    (void)adapter.IsNearlinkOut();
+    (void)adapter.IsBtOut();
+    (void)adapter.IsInVoipCallKit();
+    adapter.GetCurrentOutputPipeInfos();
+    adapter.RegisterAudioFrameworkAdapterListener();
+    adapter.UnregisterAudioFrameworkAdapterListener();
+    /* 产品侧无注销接口，每输入注册会向 AudioCollaborativeManager 泄漏 listener 对象——每进程一次 */
+    static bool collaborativeRegistered = false;
+    if (!collaborativeRegistered) {
+        adapter.RegisterCollaborativeAudioListener();
+        collaborativeRegistered = true;
+    }
+}
+#endif
 }
 
 // fuzzer init
@@ -288,6 +414,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::GetKaraokeAbilityFuzzTest(data, size);
     OHOS::ASCFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest();
+#ifdef NL_FUZZ_AUDIO_ASC
+    OHOS::AscServiceDirectFuzzTest(data, size);
+    OHOS::QosMGearFuzzTest(data, size);
+    OHOS::AudioAdapterQueryFuzzTest(data, size);
+#endif
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }

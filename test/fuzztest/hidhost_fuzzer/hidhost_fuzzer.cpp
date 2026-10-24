@@ -20,7 +20,13 @@
 #include "nearlink_hid_host_stub.h"
 #include "nearlink_hid_host_server.h"
 #include "HidHostService.h"
+/* 暴露 HidHostUhid 私有接口（ReadUhidEvent/ReadUhidOutPut/ReadUhidFeature/ReadUhidSetReport/fd_）供直调 */
+#ifdef private
+#undef private
+#endif
+#define private public
 #include "HidHostUhid.h"
+#undef private
 #include "nearlink_host_server.h"
 #include "nearlink_service_ipc_interface_code.h"
 #include "ThreadUtil.h"
@@ -217,6 +223,89 @@ void DoSomethingInterestingWithHidHostServiceAPI(const uint8_t *fuzzData, size_t
     hidHostService->ShutDownDone(isConnect);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
+
+/* Uhid 事件族直调：ReadUhidOutPut/ReadUhidFeature/ReadUhidSetReport 按事件payload驱动，
+ * 管道伪造内核输入驱动 ReadUhidEvent 的 switch 分发（覆盖 UHID_START/STOP/OPEN/CLOSE 分支），
+ * 再 Open（真机可能成功）后复打 Send* 带新 payload，最终 Close/Destroy。
+ * 注：PollEventThreadSub 不直调——fd_ 无效时 poll 超时返回0且 keepPolling_ 恒真，同步调用必死循环。 */
+void UhidEventDispatchFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    const std::string addr = BuildAddressString(provider);
+    std::shared_ptr<HidHostUhid> uhidPtr = std::make_shared<HidHostUhid>(addr);
+    const int uhidEventCount = 7;
+
+    uint16_t payloadLen = provider.ConsumeIntegral<uint8_t>();
+    std::vector<uint8_t> payload = provider.ConsumeBytes<uint8_t>(payloadLen);
+
+    struct uhid_event outputEvent = {};
+    outputEvent.type = UHID_OUTPUT;
+    outputEvent.u.output.rtype = provider.ConsumeIntegral<uint8_t>() % 3; // INPUT/OUTPUT/FEATURE 三分支
+    outputEvent.u.output.size = static_cast<uint16_t>(payload.size());
+    for (size_t i = 0; i < payload.size() && i < sizeof(outputEvent.u.output.data); i++) {
+        outputEvent.u.output.data[i] = payload[i];
+    }
+    uhidPtr->ReadUhidOutPut(outputEvent);
+
+    struct uhid_event featureEvent = {};
+    featureEvent.type = UHID_FEATURE;
+    featureEvent.u.feature.id = provider.ConsumeIntegral<uint32_t>();
+    featureEvent.u.feature.rnum = provider.ConsumeIntegral<uint8_t>();
+    featureEvent.u.feature.rtype = provider.ConsumeIntegral<uint8_t>() % 3;
+    uhidPtr->ReadUhidFeature(featureEvent);
+
+    struct uhid_event setReportEvent = {};
+    setReportEvent.type = UHID_SET_REPORT;
+    setReportEvent.u.set_report.id = provider.ConsumeIntegral<uint32_t>();
+    setReportEvent.u.set_report.rnum = provider.ConsumeIntegral<uint8_t>();
+    setReportEvent.u.set_report.rtype = provider.ConsumeIntegral<uint8_t>() % 3;
+    setReportEvent.u.set_report.size = static_cast<uint16_t>(payload.size());
+    for (size_t i = 0; i < payload.size() && i < sizeof(setReportEvent.u.set_report.data); i++) {
+        setReportEvent.u.set_report.data[i] = payload[i];
+    }
+    uhidPtr->ReadUhidSetReport(setReportEvent);
+
+    /* 无 /dev/uhid 环境下用管道伪造内核事件流，驱动 ReadUhidEvent switch 全分支 */
+    int uhidPipeFds[2] = { -1, -1 };
+    if (pipe(uhidPipeFds) == 0) {
+        struct uhid_event ev = {};
+        ev.type = UHID_START;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev.type = UHID_STOP;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev.type = UHID_OPEN;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev.type = UHID_CLOSE;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev = outputEvent;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev = featureEvent;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        ev = setReportEvent;
+        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+
+        uhidPtr->fd_ = uhidPipeFds[0];
+        for (int i = 0; i < uhidEventCount; i++) {
+            (void)uhidPtr->ReadUhidEvent();
+        }
+        uhidPtr->fd_ = -1;
+        close(uhidPipeFds[0]);
+        close(uhidPipeFds[1]);
+    }
+
+    /* Open 真机可能成功；UHID_START 分支已置 readyForData_，Send* 走 WriteUhid 深路径 */
+    (void)uhidPtr->Open();
+    payloadLen = provider.ConsumeIntegral<uint8_t>();
+    payload = provider.ConsumeBytes<uint8_t>(payloadLen);
+    if (!payload.empty()) {
+        (void)uhidPtr->SendData(payload.data(), static_cast<uint16_t>(payload.size()));
+        (void)uhidPtr->SendControlData(payload.data(), static_cast<uint16_t>(payload.size()));
+    }
+    (void)uhidPtr->SendHandshake(provider.ConsumeIntegral<uint16_t>());
+    (void)uhidPtr->Close();
+    (void)uhidPtr->Destroy();
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
 }
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -254,6 +343,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::HidHostFuzzTest(data, size);
     OHOS::DoSomethingInterestingWithHidHostServiceAPI(data, size);
     OHOS::DoSomethingInterestingWithHidHostUhidAPI(data, size);
+    OHOS::UhidEventDispatchFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
