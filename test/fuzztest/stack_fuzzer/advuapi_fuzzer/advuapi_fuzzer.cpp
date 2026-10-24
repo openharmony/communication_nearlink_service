@@ -20,6 +20,7 @@
 #include "sdf_mem.h"
 #include "nlstk_devd_def.h"
 #include "nlstk_devd_api.h"
+#include "dli_errno.h" /* PR345 修复：DLI_SUCCESS */
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
 #include "cm_api.h"

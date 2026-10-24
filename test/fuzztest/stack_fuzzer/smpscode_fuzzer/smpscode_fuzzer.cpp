@@ -133,7 +133,7 @@ namespace OHOS {
         if (!SDF_MapMoveInsert(g_slinkMap, key, slink)) {
             SDF_MemFree(key);
             SmSLinkDtor(slink);
-            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, addr);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, const_cast<SLE_Addr_S *>(addr));
             if (iter == nullptr) {
                 return nullptr;
             }
@@ -485,12 +485,12 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     };
     NLSTK_SmRegAlgoFuncs(&algoFuncs);
     NLSTK_SmCallbacks_S extCbks = {
-        .startCbk = FuzzSmStartCbk,
-        .removeCbk = FuzzSmRemoveCbk,
-        .requestCbk = FuzzSmRequestCbk,
-        .authCbk = FuzzSmAuthCbk,
-        .encCbk = FuzzSmEncCbk,
-        .imgMsgCbk = FuzzSmImgMsgCbk,
+        .startCbk = OHOS::FuzzSmStartCbk,
+        .removeCbk = OHOS::FuzzSmRemoveCbk,
+        .requestCbk = OHOS::FuzzSmRequestCbk,
+        .authCbk = OHOS::FuzzSmAuthCbk,
+        .encCbk = OHOS::FuzzSmEncCbk,
+        .imgMsgCbk = OHOS::FuzzSmImgMsgCbk,
     };
     NLSTK_SmRegExternalCbks(&extCbks);
     return 0;
