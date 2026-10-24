@@ -26,6 +26,8 @@
 #include "log.h"
 #include "securec.h"
 #include "raw_address.h"
+#include "SleServiceManager.h"
+#include "SysStateMachine.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -1024,6 +1026,152 @@ void GetDeviceInformationTest(const uint8_t *fuzzData, size_t size)
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
+
+// ---------------------------------------------------------------------------
+// ServiceManager lifecycle deep drive.
+// Safety: Reset()/FactoryReset()/ClearAllStorage()/Stop()/AdapterStop() and
+// OnChipResetNotify() are NEVER called (Reset kills the process, see
+// SleServiceManager::Reset). No *_TIME_OUT message is ever posted; after each
+// switch request the machine is polled back into a stable state so the 10s
+// turning timers are always closed by the adapter/profile CMP path.
+// ---------------------------------------------------------------------------
+class FuzzSleAdapterStateObserverStub : public IAdapterStateObserver {
+public:
+    void OnStateChange(const SleTransport transport, const SleStateID state) {}
+    void OnDisableResponse(bool isHalfDisable, SwitchCallerInfo callerInfo) {}
+};
+
+class FuzzSleSystemStateObserverStub : public ISystemStateObserver {
+public:
+    void OnSystemStateChange(const SleSystemState state) {}
+};
+
+namespace {
+constexpr int SLE_STATE_WAIT_LOOPS = 40; // 40 * 50ms = 2s bounded wait per step
+}
+
+bool WaitSleStableState(SleServiceManager *manager)
+{
+    for (int i = 0; i < SLE_STATE_WAIT_LOOPS; i++) {
+        SleStateID state = manager->GetState(SleTransport::ADAPTER_SLE);
+        if (SleServiceManager::IsStateStable(state)) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+    }
+    HILOGE("sle state not stable after bounded wait");
+    return false;
+}
+
+void ServiceManagerLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    SleServiceManager *manager = SleServiceManager::GetInstance();
+    if (manager == nullptr) {
+        HILOGE("SleServiceManager is nullptr");
+        return;
+    }
+    static FuzzSleAdapterStateObserverStub adapterObserver;
+    static FuzzSleSystemStateObserverStub systemObserver;
+
+    // 1) observer register / duplicate-register / deregister branches
+    manager->RegisterStateObserver(adapterObserver);
+    manager->RegisterSystemStateObserver(systemObserver);
+    manager->RegisterStateObserver(adapterObserver); // duplicate -> rejected branch
+    manager->DeregisterStateObserver(adapterObserver);
+    manager->DeregisterSystemStateObserver(systemObserver);
+    manager->DeregisterSystemStateObserver(systemObserver); // not registered -> rejected branch
+    manager->RegisterStateObserver(adapterObserver);        // register again after deregister
+    manager->RegisterSystemStateObserver(systemObserver);
+
+    // 2) query family (both transports where applicable)
+    SleEventType reason = static_cast<SleEventType>(provider.ConsumeIntegral<uint8_t>() % 10);
+    SwitchCallerInfo callerInfo = {};
+    callerInfo.fullTokenId = provider.ConsumeIntegral<uint64_t>();
+    callerInfo.callerUid = provider.ConsumeIntegral<int32_t>();
+    SleAutoConnectPolicy autoConnPolicy =
+        static_cast<SleAutoConnectPolicy>(provider.ConsumeIntegral<uint8_t>() % 3);
+    SleStateID fuzzState = static_cast<SleStateID>(provider.ConsumeIntegral<uint8_t>() % 9);
+    SleStateID stateSle = manager->GetState(SleTransport::ADAPTER_SLE);
+    SleStateID stateSlb = manager->GetState(SleTransport::ADAPTER_SLB);
+    SleConnectState connectState = manager->GetAdapterConnectState();
+    int maxAudio = manager->GetMaxNumConnectedAudioDevices();
+    SleStateID switchParamState = manager->GetNearlinkSwitchStateFromSystemParameter();
+    bool stateStable = SleServiceManager::IsStateStable(fuzzState);
+    bool switchRestricted = manager->IsSleSwitchRestricted();
+    bool autoConnAudio = manager->IsEnableAutoConnectAudioDevices();
+    bool autoConnUserDisc = manager->IsEnableAutoConnectUserDisconnectedDevices();
+    bool disabling = manager->IsDisabling();
+    HILOGI("state(%{public}d/%{public}d), conn(%{public}d), maxAudio(%{public}d), param(%{public}d), "
+           "stable(%{public}d), restricted(%{public}d), audioConn(%{public}d), userDiscConn(%{public}d), "
+           "disabling(%{public}d)", static_cast<int>(stateSle), static_cast<int>(stateSlb),
+           static_cast<int>(connectState), maxAudio, static_cast<int>(switchParamState),
+           static_cast<int>(stateStable), static_cast<int>(switchRestricted), static_cast<int>(autoConnAudio),
+           static_cast<int>(autoConnUserDisc), static_cast<int>(disabling));
+
+    // 3) state machine walk: observe state, request, bounded wait for stable
+    SleStateID cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur == SleStateID::STATE_TURN_ON || cur == SleStateID::STATE_TURN_HALF) {
+        manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff
+        WaitSleStableState(manager);
+    }
+    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur == SleStateID::STATE_TURN_OFF) {
+        manager->EnableToHalf(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnHalf
+        WaitSleStableState(manager);
+    }
+    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur == SleStateID::STATE_TURN_HALF) {
+        manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy); // -> TurnOn
+        WaitSleStableState(manager);
+    }
+    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur == SleStateID::STATE_TURN_ON) {
+        manager->Disable(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff or TurnHalf
+        WaitSleStableState(manager);
+    }
+    // ponytail: enable-direction failure CMP(false) injection removed — HandleProfileEnableCmpMsg
+    // (AdapterStateMachine.cpp) stops only profileTimer_ and leaves the one-shot adapterTimer_
+    // armed on the early-exit path; if a later input is in TurningOn/TurningOffToHalf when it
+    // fires, MSG_ADAPTER_ENABLE_TIME_OUT hits Reset()=SIGKILL. Re-add only after the product
+    // side stops adapterTimer_ on that failure path.
+    // failure direction: profile disable complete(false) during turning off
+    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur == SleStateID::STATE_TURN_ON || cur == SleStateID::STATE_TURN_HALF) {
+        manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
+        manager->OnProfileServicesDisableComplete(SleTransport::ADAPTER_SLE, false);
+        WaitSleStableState(manager);
+    }
+    // corrective: leave the machine enabled for the next fuzz input
+    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    if (cur != SleStateID::STATE_TURN_ON) {
+        manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy);
+        WaitSleStableState(manager);
+    }
+
+    // 4) pair devices removed (both transports) and adapter handle queries
+    std::vector<RawAddress> devices;
+    devices.push_back(RawAddress(BuildAddressString(provider)));
+    devices.push_back(RawAddress(BuildAddressString(provider)));
+    manager->OnPairDevicesRemoved(SleTransport::ADAPTER_SLE, devices);
+    manager->OnPairDevicesRemoved(SleTransport::ADAPTER_SLB, devices);
+    SleInterfaceAdapter *adapterSle = manager->GetAdapter(SleTransport::ADAPTER_SLE);
+    if (adapterSle != nullptr) {
+        std::string localName = adapterSle->GetLocalName();
+        HILOGI("sle adapter local name(%{public}s)", localName.c_str());
+    }
+    SleInterfaceAdapter *adapterSlb = manager->GetAdapter(SleTransport::ADAPTER_SLB);
+    if (adapterSlb != nullptr) {
+        std::string localAddr = adapterSlb->GetLocalAddress();
+        HILOGI("slb adapter local addr(%{public}s)", localAddr.c_str());
+    }
+
+    // 5) sys state notify with benign state only ("Stopping"/"FactoryResetting"
+    // would satisfy stop/reset promises, keep them away)
+    manager->OnSysStateChange(SYS_STATE_STARTED);
+    manager->OnSysStateExit(SYS_STATE_STARTED);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
 }  // namespace OHOS
 
 // fuzzer init
@@ -1115,6 +1263,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::IsFeatureSupportedTest(data, size);
     OHOS::GetBatteryLevelTest(data, size);
     OHOS::GetDeviceInformationTest(data, size);
+    OHOS::ServiceManagerLifecycleFuzzTest(data, size);
 
     return 0;
 }
