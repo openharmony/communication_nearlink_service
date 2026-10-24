@@ -461,6 +461,7 @@ namespace OHOS {
 
     void FuzzStmInitRecoverStart(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();
@@ -494,6 +495,7 @@ namespace OHOS {
 
     void FuzzStmMissLchannelDisconn(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();
@@ -511,6 +513,7 @@ namespace OHOS {
 
     void FuzzStmMissRemovePair(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();
@@ -528,6 +531,7 @@ namespace OHOS {
 
     void FuzzStmFullActiveStart(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();
@@ -546,6 +550,7 @@ namespace OHOS {
 
     void FuzzStmAuthEntryMethods(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();
@@ -566,6 +571,7 @@ namespace OHOS {
 
     void FuzzStmEncpEntryRoles(const uint8_t* fuzzData, size_t size)
     {
+        FuzzedDataProvider fdp(fuzzData, size);
         SLE_Addr_S addr;
         (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
         addr.type = fdp.ConsumeIntegral<uint8_t>();

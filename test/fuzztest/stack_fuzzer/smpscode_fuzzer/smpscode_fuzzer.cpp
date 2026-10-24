@@ -153,6 +153,9 @@ namespace OHOS {
         };
         memcpy_s(&slink.gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(&slink.tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb, SM_RANDOM_NUMBER_R_LEN);
+        /* 派生算法必须指明 HA2(AES-CMAC): 缺省 0 使 Crypto_DerivedKeyGenerate 走 default 拒绝,
+         * SmGenLinkKey 每输入失败早退, 后续向量比对与认证回调腿全部变死代码(红队 P0-2) */
+        slink.negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
 
         uint8_t dhKey[SM_DHKEY_LEN];
         NLSTK_SmKeyPair_S keyPair;
@@ -176,9 +179,16 @@ namespace OHOS {
             CP_LOG_ERROR("[FUZZ]SM-A3 vectors(wei-heid): dhKey match=%d linkKey match=%d", (int)dhOk, (int)lkOk);
             fuzzVecLogged = true;
         }
-        /* 认证回调腿: 真实 DH/LinkKey 之后经 AUTH_SUCCESS 触发外部 authCbk(强制迁移, 内部路径记账) */
-        STM_MFUNC(slink.stm, Transition, g_smStateName[SM_STATE_AUTH]);
-        STM_MFUNC(slink.stm, ProcessMessage, (Message) { .what = SM_AUTH_SUCCESS });
+        /* 认证回调腿: 真实 DH/LinkKey 之后经 AUTH_SUCCESS 触发外部 authCbk(强制迁移, 内部路径记账)。
+         * 栈 slink 的 stm 为聚合初始化留下的 NULL, 必须用 SmSLinkCtor 建的堆 slink 驱动状态机 */
+        SmSLink_S *authSlink = SmSLinkCtor(&g_tNodeAddr);
+        if (authSlink != nullptr) {
+            authSlink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] =
+                SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+            STM_MFUNC(authSlink->stm, Transition, g_smStateName[SM_STATE_AUTH]);
+            STM_MFUNC(authSlink->stm, ProcessMessage, (Message) { .what = SM_AUTH_SUCCESS });
+            SmSLinkDtor(authSlink);
+        }
     }
 
     void FuzzSMDigit(const uint8_t* fuzzData, size_t size)

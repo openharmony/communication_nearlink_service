@@ -624,6 +624,13 @@ namespace OHOS {
     static void FuzzScanLifecycleClosedLoop(void *arg)
     {
         (void)arg;
+        /* 全常量确定性序列: 每输入重放无新增覆盖, 且产品侧 DevdAdvDataReport 每帧打整包
+         * hex INFO 日志, 全量重放会重演 hadmstm 式日志洪水(红队 P1-2), 故仅首输入执行 */
+        static bool fuzzLoopDone = false;
+        if (fuzzLoopDone) {
+            return;
+        }
+        fuzzLoopDone = true;
         (void)DevdScanInit(); /* 确保缓存链表初始化且模块真实 ScanCbk/ReportCbk 已注册到全局单点 */
 
         /* S6: 缓存逐出（7 址满 + 第 8 址逐出最老 + 被逐地址重发现） */

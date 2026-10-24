@@ -232,13 +232,44 @@ namespace OHOS {
             rollbackStall ? 1 : 0);
     }
 
+    /* 红队 P1-1: UAPI 的 Add/Delete Inner 投递在调度线程, 本组直调同一 Inner 必须同线程
+     * 串行, 否则跨输入并发操作 g_portPrivateList 向量。数据深拷贝所有权随任务转移,
+     * 投递失败也由调度实例释放(P-0.3 异步腿所有权)。 */
+    typedef struct {
+        uint8_t *data;
+        size_t size;
+    } FuzzPortInnerArg_S;
+
+    static void FreePortInnerArg(void *arg)
+    {
+        FuzzPortInnerArg_S *innerArg = (FuzzPortInnerArg_S *)arg;
+        SDF_MemFree(innerArg->data);
+        SDF_MemFree(innerArg);
+    }
+
+    static void FuzzPortInnerTask(void *arg)
+    {
+        FuzzPortInnerArg_S *innerArg = (FuzzPortInnerArg_S *)arg;
+        FuzzPortUuidLifecycle(innerArg->data, innerArg->size);
+        FuzzPortCapacityFull(innerArg->data, innerArg->size);
+    }
+
     void FuzzPortApi(uint8_t *data, size_t size)
     {
         if (data == nullptr || size < 1) {
             return;
         }
-        FuzzPortUuidLifecycle(data, size);
-        FuzzPortCapacityFull(data, size);
+        FuzzPortInnerArg_S *innerArg = (FuzzPortInnerArg_S *)SDF_MemZalloc(sizeof(FuzzPortInnerArg_S));
+        if (innerArg != NULL) {
+            innerArg->data = (uint8_t *)SDF_MemZalloc(size);
+            if (innerArg->data != NULL) {
+                (void)memcpy_s(innerArg->data, size, data, size);
+                innerArg->size = size;
+                (void)SchedulePostTask(FuzzPortInnerTask, innerArg, FreePortInnerArg);
+            } else {
+                SDF_MemFree(innerArg);
+            }
+        }
         FuzzPortClientApi(data, size);
         FuzzPortServerApi(data, size);
     }

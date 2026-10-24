@@ -268,6 +268,13 @@ namespace OHOS {
     {
         (void)fuzzData;
         (void)size;
+        /* 全常量确定性分片序列: 每输入重放无新增覆盖, 产品侧 SetAdvData/Param 每片叠 INFO
+         * 日志, 全量重放构成吞吐/日志杀手(红队 P1-2), 故仅首输入执行 */
+        static bool fuzzFragDone = false;
+        if (fuzzFragDone) {
+            return;
+        }
+        fuzzFragDone = true;
         uint16_t chunk = CfgdbGetMaxAdvDataLen();
         if (chunk == 0) {
             return;
