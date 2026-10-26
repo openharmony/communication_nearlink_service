@@ -243,13 +243,13 @@ public:
         std::shared_ptr<SsapService> setService;
         bool isFindService = clientSptr->pimpl->ssapServices_.Find([&properties, &setService](const uint16_t handle,
             std::shared_ptr<SsapService> &service) -> bool {
-            for (auto &sp : service->GetProperty()) {
-                if (sp.GetUuid().Equals(UUID::FromString(properties[0].uuid_.ToString()))) {
-                    setService = service;
-                    return true;
+                for (auto &sp : service->GetProperty()) {
+                    if (sp.GetUuid().Equals(UUID::FromString(properties[0].uuid_.ToString()))) {
+                        setService = service;
+                        return true;
+                    }
                 }
-            }
-            return false;
+                return false;
         });
         if (!isFindService || !setService) {
             HILOGE("not find service!");
