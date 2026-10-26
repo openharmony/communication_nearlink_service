@@ -85,11 +85,9 @@ class MockHadmClientCallbackStub : public IRemoteStub<INearlinkHadmClientCallbac
 public:
     MockHadmClientCallbackStub()
     {
-        HILOGI("MockHadmClientCallbackStub");
     }
     ~MockHadmClientCallbackStub()
     {
-        HILOGI("~MockHadmClientCallbackStub");
     }
     void OnSoundingResult(const NearlinkRawAddress &addr, const NearlinkHadmClientSoundingResult &result) {}
     void OnSoundingStateChange(const NearlinkRawAddress &addr, int newState, int errorCode) {}
@@ -379,8 +377,6 @@ void InvokeStubRequest(uint8_t stubSel, uint8_t code, MessageParcel &data, Messa
     }
     int32_t ret = IpcApiOnRemoteRequest(stubSel, code, data, reply);
     if (ret != NO_ERROR) {
-        HILOGI("ipcapi_fuzzer req failed, stub(%{public}u) code(%{public}u) ret(%{public}d)",
-            stubSel, code, ret);
     }
     (void)reply.ReadInt32();
 }
@@ -513,10 +509,8 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     if (hostServer == nullptr) {
         return 0;
     }
-    HILOGI("ipcapi_fuzzer OnStart");
     hostServer->OnStart();
     std::this_thread::sleep_for(std::chrono::milliseconds(IPCAPI_FUZZ_DELAY_100_MS));
-    HILOGI("ipcapi_fuzzer EnableSle");
     hostServer->EnableSle();
     std::this_thread::sleep_for(std::chrono::milliseconds(IPCAPI_FUZZ_DELAY_5000_MS));
     return 0;
@@ -536,8 +530,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::DispatchStubRequest(stubSel, fdp);
     OHOS::FuzzAddressRoundTrip(fdp);
     OHOS::FuzzStreamInfoRoundTrip(fdp);
-    HILOGI("ipcapi_fuzzer roundtrip addr ok(%{public}u) fail(%{public}u), stream ok(%{public}u) fail(%{public}u)",
-        OHOS::g_addrRoundTripOk, OHOS::g_addrRoundTripFail, OHOS::g_streamRoundTripOk, OHOS::g_streamRoundTripFail);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
