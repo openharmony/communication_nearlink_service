@@ -329,11 +329,13 @@ HWTEST_F(NearlinkSsapClientServerTest, ReadPropertyByUuid001, TestSize.Level1)
     NearlinkSsapPropertyParcel property {};
     MessageParcel data;
     MessageParcel reply;
-    data.WriteInterfaceToken(NearlinkSsapClientStub::GetDescriptor());
+    // 直调Inner不经过OnRemoteRequest, interface token不会被消费, 不写入避免读取错位
     data.WriteInt32(appId_);
     data.WriteParcelable(&property);
-    NearlinkSsapClientStub::ReadPropertyByUuidInner(
+    int32_t ret = NearlinkSsapClientStub::ReadPropertyByUuidInner(
         nearlinkSsapClientServer_.get(), data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    EXPECT_EQ(NL_NO_ERROR, reply.ReadInt32());
     HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid001 end");
 }
 
