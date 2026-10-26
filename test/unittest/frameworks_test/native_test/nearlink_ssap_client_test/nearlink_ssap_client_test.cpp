@@ -269,7 +269,6 @@ HWTEST_F(NearlinkSsapClientTest, GetServicesByUuid001, TestSize.Level1)
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
     sleep(SLEEP_TIME);
-    ssapClient_->pimpl->connectionState_ = static_cast<int>(SleConnectState::CONNECTED);
     UUID serviceUuid = UUID::FromString(SERVICE_UUID_STRING);
     std::vector<SsapService> services {};
     ret = ssapClient_->GetServicesByUuid(serviceUuid, services);
@@ -516,7 +515,7 @@ HWTEST_F(NearlinkSsapClientTest, OnCallMethod001, TestSize.Level1)
 
 /**
  * @tc.name: OnReadPropertiesByUuid001
- * @tc.desc:
+ * @tc.desc: Test OnReadPropertiesByUuid when service not found in cache.
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid001, TestSize.Level1)
@@ -525,7 +524,6 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid001, TestSize.Level1)
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
 
-    // 分支②: 执行成功但缓存中找不到匹配服务, 回调空列表+NL_ERR_INTERNAL_ERROR
     int32_t retValue = static_cast<int32_t>(SsapStatus::SSAP_SUCCESS);
     NearlinkSsapPropertyParcel property {};
     std::vector<NearlinkSsapPropertyParcel> properties {1, property};
@@ -547,7 +545,6 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid002, TestSize.Level1)
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
 
-    // 分支①: 执行失败, 回调空列表并透传原始错误码
     int32_t retValue = static_cast<int32_t>(SsapStatus::SSAP_NO_ENTRY);
     NearlinkSsapPropertyParcel property {};
     std::vector<NearlinkSsapPropertyParcel> properties {1, property};
@@ -568,7 +565,6 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid003, TestSize.Level1)
     HILOGI("OnReadPropertiesByUuid003 start");
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
-    ssapClient_->pimpl->connectionState_ = static_cast<int>(SleConnectState::CONNECTED);
 
     // 预置包含目标属性的服务缓存
     SsapService ssapService = CreateSsapService();
@@ -576,7 +572,6 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid003, TestSize.Level1)
     std::vector<NearlinkSsapServiceParcel> serviceParcelVec {1, serviceParcel};
     ssapClient_->pimpl->BuildServiceList(serviceParcelVec);
 
-    // 分支③: 执行成功且命中缓存, 回调构建好的属性列表(带服务uuid与值)
     NearlinkSsapPropertyParcel property {};
     property.uuid_ = Uuid::ConvertFromString(PROPERTY_UUID_STRING);
     property.opInd_ = static_cast<uint32_t>(SsapProperty::OperationIndication::OPERATION_READ);
