@@ -43,6 +43,8 @@ ohos_fuzztest("SleControllerFuzzTest") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/service/src/permission",
+    "$NEARLINK_ROOT/services/stack/src/sdf/bsl/dsl/include",
+    "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
     "$NEARLINK_ROOT/services/service/src/common",
     "$NEARLINK_ROOT/services/service/src/adapter",
     "$NEARLINK_ROOT/services/service/src/cdsm",
