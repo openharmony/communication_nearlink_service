@@ -104,6 +104,7 @@ ohos_unittest("nl_vcp_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
     "$NEARLINK_ROOT/services/service/src/tws/TwsService.cpp",
     "$NEARLINK_ROOT/services/service/src/asc/ASCService.cpp",
   ]
