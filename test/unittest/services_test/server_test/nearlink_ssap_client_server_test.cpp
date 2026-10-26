@@ -319,6 +319,39 @@ HWTEST_F(NearlinkSsapClientServerTest, ReadProperty002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ReadPropertyByUuid001
+ * @tc.desc: Test ReadPropertyByUuidInner.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServerTest, ReadPropertyByUuid001, TestSize.Level1)
+{
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid001 start");
+    NearlinkSsapPropertyParcel property {};
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkSsapClientStub::GetDescriptor());
+    data.WriteInt32(appId_);
+    data.WriteParcelable(&property);
+    NearlinkSsapClientStub::ReadPropertyByUuidInner(
+        nearlinkSsapClientServer_.get(), data, reply);
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid001 end");
+}
+
+/**
+ * @tc.name: ReadPropertyByUuid002
+ * @tc.desc: Test ReadPropertyByUuid.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServerTest, ReadPropertyByUuid002, TestSize.Level1)
+{
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid002 start");
+    NearlinkSsapPropertyParcel property {};
+    NlErrCode result = nearlinkSsapClientServer_->ReadPropertyByUuid(appId_, property);
+    EXPECT_EQ(NL_NO_ERROR, result);
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid002 end");
+}
+
+/**
  * @tc.name: CallMethod001
  * @tc.desc: Test CallMethodInner.
  * @tc.type: FUNC

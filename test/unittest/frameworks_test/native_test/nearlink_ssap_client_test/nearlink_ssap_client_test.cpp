@@ -249,6 +249,42 @@ HWTEST_F(NearlinkSsapClientTest, FindStructure001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: GetServicesByUuid001
+ * @tc.desc: Test SsapClient::GetServicesByUuid with no matching service.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, GetServicesByUuid001, TestSize.Level1)
+{
+    HILOGI("GetServicesByUuid001 start");
+    NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    sleep(SLEEP_TIME);
+    ssapClient_->pimpl->connectionState_ = static_cast<int>(SleConnectState::CONNECTED);
+    UUID serviceUuid = UUID::FromString(SERVICE_UUID_STRING);
+    std::vector<SsapService> services {};
+    ret = ssapClient_->GetServicesByUuid(serviceUuid, services);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    EXPECT_TRUE(services.empty());
+    HILOGI("GetServicesByUuid001 end");
+}
+
+/**
+ * @tc.name: GetServicesByUuid002
+ * @tc.desc: Test SsapClient::GetServicesByUuid before register.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, GetServicesByUuid002, TestSize.Level1)
+{
+    HILOGI("GetServicesByUuid002 start");
+    // 未Connect注册, isRegisterSucceeded_为false, 返回内部错误
+    UUID serviceUuid = UUID::FromString(SERVICE_UUID_STRING);
+    std::vector<SsapService> services {};
+    NlErrCode ret = ssapClient_->GetServicesByUuid(serviceUuid, services);
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, ret);
+    HILOGI("GetServicesByUuid002 end");
+}
+
+/**
  * @tc.name: ReadAndWriteProperty001
  * @tc.desc:
  * @tc.type: FUNC
