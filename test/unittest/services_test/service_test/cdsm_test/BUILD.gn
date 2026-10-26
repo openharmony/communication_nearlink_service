@@ -113,8 +113,7 @@ ohos_unittest("nl_cdsm_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
-    "/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
-    "/services/service/src/common/ProfileServiceManager.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps

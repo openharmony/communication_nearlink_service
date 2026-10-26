@@ -37,6 +37,7 @@ extern void SetMockVendorBusinessTypeDevice(const std::string &addr);
 extern void ClearMockVendorBusinessTypeDevice();
 extern int GetMockSetPeerDeviceTypeCount();
 extern void ClearMockSetPeerDeviceTypeCount();
+constexpr int DELAY_LITTLE_MS = 100;
 
 namespace TEST {
 using namespace testing;
