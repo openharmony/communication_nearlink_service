@@ -59,7 +59,7 @@ public:
      *
      * @since 6
      */
-    NearlinkRemoteDevice(const NearlinkBaseRemoteDevice &base);
+    explicit NearlinkRemoteDevice(const NearlinkBaseRemoteDevice &base);
 
     /**
      * @brief A destructor used to delete the <b>NearlinkRemoteDevice</b> instance.
