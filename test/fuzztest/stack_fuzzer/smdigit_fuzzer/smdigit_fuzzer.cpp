@@ -115,7 +115,7 @@ namespace OHOS {
         SmGenLinkKey(slink);
 
         SmNoEntryAuthPkgDispatcher((int[]){312, 313, 314, 321, 322}[fdp.ConsumeIntegral<uint8_t>() % FUZZ_FIVE],
-            slink, msg, sizeof(msg));
+            slink, msg, size);
 
         SmSLinkDtor(slink);
         free(msg);

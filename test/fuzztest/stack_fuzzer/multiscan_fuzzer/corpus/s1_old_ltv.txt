@@ -1,0 +1,1 @@
+multiscan FuzzDevdAdvDataReport 从文件尾向前消费: [L-1]=advDataLen(d), 随后 d 字节广播数据(顺序), 再 addrType/addr[6]/eventType/dataStatus/directAddrType/directAddr[6]/primFrameType..secondPolar 共8字段/rssi, 尾部再 d 字节为第二帧数据; 特征: 广播数据=铅笔签名 03 19 C7 03 0F 16 EE FD(旧格式LTV, KMP命中走 DevdParseAdvReportOld), eventType=0x00 直报路径

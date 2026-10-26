@@ -1,0 +1,1 @@
+multiscan 同 s1_old_ltv 布局; 特征: 新格式 UUID 05 字段三变体连续: len=4 整除(2个16位UUID)/len=3 非整除(被拒)/len=4 同值重复(去重); 第二帧 07 02 为 incomplete 列表同值 UUID

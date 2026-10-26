@@ -1,0 +1,1 @@
+scancbk 同 s1_old_ltv 布局; 特征: data=厂商数据最小合法变体 FF 02 01 02 03

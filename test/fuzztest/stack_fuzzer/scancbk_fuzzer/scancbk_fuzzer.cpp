@@ -100,6 +100,8 @@ namespace OHOS {
         extendParams->secondMod = fdp.ConsumeIntegral<uint8_t>();
         extendParams->secondPilotRatio = fdp.ConsumeIntegral<uint8_t>();
         extendParams->secondPolar = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->primFrameType = fdp.ConsumeIntegral<uint8_t>();
+        extendParams->secondFrameType = fdp.ConsumeIntegral<uint8_t>();
 
         NLSTK_DevdRegScanEventCbk(&cbks);
         SDF_MemFree(report);

@@ -1,0 +1,1 @@
+multiscan 同 s1_old_ltv 布局; 特征: eventType=0x08(scanRsp bit3)+primFrameType=0, 两次 DevdAdvDataReport 同址: 第一次缓存(scanRsp 先落地), 第二次 AppendAdvDataCache 自拼接 data+data 后上报, 覆盖同址双帧拼接分支

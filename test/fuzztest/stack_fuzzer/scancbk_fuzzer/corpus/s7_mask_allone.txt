@@ -1,0 +1,1 @@
+scancbk 同 s1_old_ltv 布局; 特征: data=全一 mask 字节 FF FF(S7 过滤 mask 语义)

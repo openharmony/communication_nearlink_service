@@ -1,0 +1,1 @@
+scancbk 同 s1_old_ltv 布局; 特征: data=单条 16 位服务 UUID 05 02 06 09(整除变体)
