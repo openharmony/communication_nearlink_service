@@ -25,6 +25,9 @@
 #include "SleUtils.h"
 #include "log.h"
 #include "SleConfig.h"
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 
 
 namespace OHOS {
@@ -38,8 +41,6 @@ extern void ClearMockSetPeerDeviceTypeCount();
 namespace TEST {
 using namespace testing;
 using namespace testing::ext;
-
-constexpr int DELAY_LITTLE_MS = 100;
 
 class CdsmCallbackTest : public CdsmObserver {
 public:
@@ -121,29 +122,46 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    // 测试目的：fixture 持有自有 CdsmService 实例（dis 样板），
+    // 不再依赖厂商栈启动链（裸进程 StartTask/slem_initialize 必败，GetService() 返回 nullptr）。
+    std::unique_ptr<CdsmService> service_;
 };
 
 void NearlinkCdsmTest::SetUpTestCase()
 {
+    // 测试目的：删除 Start()（裸进程必败且返回值被忽略）与固定 sleep；
+    // 服务实例改由每例 SetUp 自建并注入注册表。
     HILOGI("SetUpTestCase start NearlinkCdsmTest");
-    SleInterfaceManager::GetInstance()->Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }
 
 void NearlinkCdsmTest::TearDownTestCase()
 {
     HILOGI("TearDownTestCase NearlinkCdsmTest");
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }
 
 void NearlinkCdsmTest::SetUp()
 {
     HILOGI("SetUp NearlinkCdsmTest.");
+    // 测试目的：与产品注册路径同构（ProfileServiceManager SetProfile）直接注入自有服务，
+    // 使 GetService() 命中；NOT_SWITCH_THREAD 让服务任务在测试线程同步执行，无需 sleep。
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_CDSM, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    service_ = std::make_unique<CdsmService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, service_.get());
+    ASSERT_EQ(service_.get(), CdsmService::GetService());
 }
 
 void NearlinkCdsmTest::TearDown()
 {
     HILOGI("TearDown NearlinkCdsmTest.");
+    // 测试目的：先解绑注册表再销毁服务，并恢复线程调度默认态，防单例状态跨例残留。
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /**
@@ -156,9 +174,9 @@ HWTEST_F(NearlinkCdsmTest, Connect001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:Connect001 start");
     RawAddress device("11:22:33:44:55:66");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     int ret = cdsmService->Connect(device);
     EXPECT_EQ(ret, NL_NO_ERROR);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:Connect001 end");
 }
 
@@ -172,9 +190,9 @@ HWTEST_F(NearlinkCdsmTest, Disconnect001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:Disconnect001 start");
     RawAddress device("11:22:33:44:55:66");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     int ret = cdsmService->Disconnect(device);
     EXPECT_EQ(ret, NL_NO_ERROR);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:Disconnect001 end");
 }
 
@@ -188,9 +206,9 @@ HWTEST_F(NearlinkCdsmTest, Enable001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:Enable001 start");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->Enable();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:Enable001 end");
 }
 
@@ -204,9 +222,9 @@ HWTEST_F(NearlinkCdsmTest, Disable001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:Disable001 start");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->Disable();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:Disable001 end");
 }
 
@@ -220,10 +238,10 @@ HWTEST_F(NearlinkCdsmTest, RegisterObserver001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:RegisterObserver001 start");
     CdsmCallbackTest serviceObserver;
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->RegisterObserver(serviceObserver);
     cdsmService->DeregisterObserver(serviceObserver);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:RegisterObserver001 end");
 }
 
@@ -236,9 +254,9 @@ HWTEST_F(NearlinkCdsmTest, GetConnectState001, TestSize.Level1)
 {
     HILOGI("NearlinkCdsmTest:GetConnectState001 start");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     int ret = cdsmService->GetConnectState();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:GetConnectState001 end");
 }
 
@@ -251,9 +269,9 @@ HWTEST_F(NearlinkCdsmTest, GetConnectDevices001, TestSize.Level1)
 {
     HILOGI("NearlinkCdsmTest:GetConnectDevices001 start");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     std::list<RawAddress> ret = cdsmService->GetConnectDevices();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:GetConnectDevices001 end");
 }
 
@@ -267,10 +285,10 @@ HWTEST_F(NearlinkCdsmTest, NotifyStateChanged001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:NotifyStateChanged001 start");
     RawAddress device("FF:FF:FF:FF:FF:FF");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->NotifyStateChanged(device, CdsmClientState::CDSM_STATE_CONNECTED,
         CdsmClientState::CDSM_STATE_DISCONNECTED);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:NotifyStateChanged001 end");
 }
 
@@ -284,10 +302,10 @@ HWTEST_F(NearlinkCdsmTest, NotifyStateChanged002, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:NotifyStateChanged002 start");
     RawAddress device("FF:FF:FF:FF:FF:FF");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->NotifyStateChanged(device, CdsmClientState::CDSM_STATE_CONNECTING,
         CdsmClientState::CDSM_STATE_CONNECTED);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:NotifyStateChanged002 end");
 }
 
@@ -301,10 +319,10 @@ HWTEST_F(NearlinkCdsmTest, NotifyStateChanged003, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:NotifyStateChanged003 start");
     RawAddress device("FF:FF:FF:FF:FF:FF");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->NotifyStateChanged(device, CdsmClientState::CDSM_STATE_CONNECTING,
         CdsmClientState::CDSM_STATE_DISCONNECTED);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:NotifyStateChanged003 end");
 }
 
@@ -327,9 +345,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmStackProfileCallback001, TestSize.Level1)
     event.memInfo[0].state = CDSM_PROFILE_CONNECT;
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmStackProfileCallback(&event);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     delete event.memInfo;
     HILOGI("NearlinkCdsmTest:CdsmStackProfileCallback001 end");
 }
@@ -347,9 +365,9 @@ HWTEST_F(NearlinkCdsmTest, ProcessEvent001, TestSize.Level1)
     event.dev_ = "11:22:33:44:55:66";
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->ProcessEvent(event);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:ProcessEvent001 end");
 }
 
@@ -364,10 +382,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmCheckIsPrivateCooperationDevice001, TestSize.Leve
     RawAddress devAddr("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmCheckIsPrivateCooperationDevice(devAddr);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmCheckIsPrivateCooperationDevice001 end");
 }
 
@@ -382,10 +400,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmCheckIsCooperationMember001, TestSize.Level1)
     RawAddress devAddr("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmCheckIsCooperationMember(devAddr);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationMember001 end");
 }
 
@@ -400,10 +418,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmCheckIsCooperationReport001, TestSize.Level1)
     RawAddress devAddr("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmCheckIsCooperationReport(devAddr);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationReport001 end");
 }
 
@@ -418,10 +436,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmCheckIsSameCooperation001, TestSize.Level1)
     RawAddress dev1("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmCheckIsCooperationReport(dev1);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation001 end");
 }
 
@@ -437,10 +455,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetReportAddr001, TestSize.Level1)
     RawAddress reportAddr;
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmGetReportAddr(dev1, reportAddr);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetReportAddr001 end");
 }
 
@@ -455,9 +473,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmDeleteGroup001, TestSize.Level1)
     RawAddress dev1("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmDeleteGroup(dev1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmDeleteGroup001 end");
 }
 
@@ -472,9 +490,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmStopInviteAdv001, TestSize.Level1)
     RawAddress dev1("11:22:33:44:55:66");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmStopInviteAdv(dev1, true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmStopInviteAdv001 end");
 }
 
@@ -491,9 +509,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmCreateGroup001, TestSize.Level1)
     std::vector<RawAddress> devAddrList = {dev1, dev2};
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmCreateGroup(dev1, devAddrList, true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmCreateGroup001 end");
 }
 
@@ -509,10 +527,16 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetOtherAddr001, TestSize.Level1)
     RawAddress other;
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    // 测试目的：原依赖 CdsmStackProfileCallback001 遗留的跨用例 cdsmList_ 数据；
+    // fixture 改为逐例自建服务后残留消失，此处自足构造合作集数据验证"查询命中"路径。
+    auto cdsmInfo = std::make_shared<CdsmInfo>(1, dev1.GetAddress());
+    cdsmInfo->CdsmAddMemberInfo(dev1.GetAddress(), 1);
+    cdsmInfo->CdsmAddMemberInfo("11:22:33:44:55:88", 1);
+    cdsmService->cdsmList_.EnsureInsert(1, cdsmInfo);
     bool ret = cdsmService->CdsmGetOtherAddr(dev1, other);
     EXPECT_EQ(ret, true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetOtherAddr001 end");
 }
 
@@ -528,10 +552,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetOtherAddr002, TestSize.Level1)
     RawAddress other;
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmGetOtherAddr(dev1, other);
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetOtherAddr002 end");
 }
 
@@ -545,9 +569,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmRecoverFromConf001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf001 start");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmRecoverFromConf();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf001 end");
 }
 
@@ -561,10 +585,15 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetGroupId001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:CdsmGetGroupId001 start");
     uint32_t groupId = 0;
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    // 测试目的：同 CdsmGetOtherAddr001——自足构造合作集成员数据（原跨用例残留随逐例
+    // 自建服务消失），使"按成员地址查组ID命中"路径可测。
+    auto cdsmInfo = std::make_shared<CdsmInfo>(1, "11:22:33:44:55:66");
+    cdsmInfo->CdsmAddMemberInfo("11:22:33:44:55:66", 1);
+    cdsmService->cdsmList_.EnsureInsert(1, cdsmInfo);
     bool ret = cdsmService->CdsmGetGroupId(groupId, "11:22:33:44:55:66");
     EXPECT_EQ(ret, true);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetGroupId001 end");
 }
 
@@ -578,10 +607,10 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetGroupId002, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:CdsmGetGroupId002 start");
     uint32_t groupId = 0;
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     bool ret = cdsmService->CdsmGetGroupId(groupId, "11:22:33:44:00:00");
     EXPECT_EQ(ret, false);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetGroupId002 end");
 }
 
@@ -595,9 +624,9 @@ HWTEST_F(NearlinkCdsmTest, HandleCdsmClientCallback001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback001 start");
     RawAddress dev1("11:22:33:44:55:66");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->HandleCdsmClientCallback(dev1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback001 end");
 }
 
@@ -611,9 +640,9 @@ HWTEST_F(NearlinkCdsmTest, UpdateCdsmMemberProfileConnectState001, TestSize.Leve
     HILOGI("NearlinkCdsmTest:UpdateCdsmMemberProfileConnectState001 start");
     RawAddress dev1("11:22:33:44:55:66");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->UpdateCdsmMemberProfileConnectState(dev1, SleConnectState::CONNECTED);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:UpdateCdsmMemberProfileConnectState001 end");
 }
 
@@ -627,9 +656,9 @@ HWTEST_F(NearlinkCdsmTest, UpdateReportConnectState001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:UpdateReportConnectState001 start");
     RawAddress dev1("11:22:33:44:55:66");
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->UpdateReportConnectState(dev1, static_cast<int>(SleConnectState::CONNECTED));
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:UpdateReportConnectState001 end");
 }
 
@@ -644,9 +673,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetReportedState001, TestSize.Level1)
     RawAddress dev1("11:22:33:44:55:66");
     int reportConnectState = 0;
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->CdsmGetReportedState(dev1, reportConnectState);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmGetReportedState001 end");
 }
 
@@ -660,9 +689,9 @@ HWTEST_F(NearlinkCdsmTest, DeregisterCdsmClientCallback001, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:DeregisterCdsmClientCallback001 start");
 
     CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
     cdsmService->DeregisterCdsmClientCallback();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:DeregisterCdsmClientCallback001 end");
 }
 
@@ -678,7 +707,6 @@ HWTEST_F(NearlinkCdsmTest, ClearOldDevice001, TestSize.Level1)
     MockCdsmService cdsmService;
     cdsmService.MockClearOldDevice();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:ClearOldDevice001 end");
 }
 
@@ -694,7 +722,6 @@ HWTEST_F(NearlinkCdsmTest, UpdateCdsmData001, TestSize.Level1)
     MockCdsmService cdsmService;
     cdsmService.MockUpdateCdsmData();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:UpdateCdsmData001 end");
 }
 
@@ -710,7 +737,6 @@ HWTEST_F(NearlinkCdsmTest, CdsmDeleteMember001, TestSize.Level1)
     MockCdsmService cdsmService;
     cdsmService.MockCdsmDeleteMember();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmDeleteMember001 end");
 }
 
@@ -726,7 +752,6 @@ HWTEST_F(NearlinkCdsmTest, CdsmClientCdsmStopInviteAdv001, TestSize.Level1)
     MockCdsmClient cdsmClient("11:22:33:44:55:66");
     cdsmClient.CdsmStopInviteAdv();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:CdsmClientCdsmStopInviteAdv001 end");
 }
 
@@ -743,7 +768,6 @@ HWTEST_F(NearlinkCdsmTest, IsVendorDevice_001, TestSize.Level1)
     RawAddress device("11:22:33:44:55:66");
     bool ret = cdsmService->IsVendorDevice(device);
     EXPECT_FALSE(ret);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkCdsmTest:IsVendorDevice_001 end");
 }
 
