@@ -439,23 +439,17 @@ void CheckAddressRoundTrip(const std::string &addrStr)
     MessageParcel parcel;
     if (!parcel.WriteParcelable(&orig)) {
         g_addrRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer address write failed
-");
         return;
     }
     std::shared_ptr<NearlinkRawAddress> dest(parcel.ReadParcelable<NearlinkRawAddress>());
     if (dest == nullptr) {
         g_addrRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer address read failed
-");
         return;
     }
     if (dest->GetAddress() == addrStr) {
         g_addrRoundTripOk++;
     } else {
         g_addrRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer address mismatch, orig(%s) dest(%s)
-", addrStr.c_str(), dest->GetAddress().c_str());
     }
 }
 
@@ -482,31 +476,23 @@ void FuzzStreamInfoRoundTrip(FuzzedDataProvider &fdp)
     MessageParcel parcel;
     if (!parcel.WriteParcelable(&orig)) {
         g_streamRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer streamInfo write failed
-");
         return;
     }
     std::shared_ptr<NearlinkASCAudioStreamInfo> dest(parcel.ReadParcelable<NearlinkASCAudioStreamInfo>());
     if (dest == nullptr) {
         g_streamRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer streamInfo read failed
-");
         return;
     }
     std::vector<struct AudioStreamInfo> outData = {};
     dest->GetStreamState(outData);
     if (outData.size() != streamData.size()) {
         g_streamRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer streamInfo size mismatch, orig(%{public}zu) dest(%{public}zu)
-", streamData.size(), outData.size());
         return;
     }
     for (size_t i = 0; i < outData.size(); i++) {
         if (outData[i].streamType != streamData[i].streamType ||
             outData[i].streamState != streamData[i].streamState) {
             g_streamRoundTripFail++;
-            fprintf(stderr, "ipcapi_fuzzer streamInfo item mismatch, index(%{public}zu)
-", i);
             return;
         }
     }
