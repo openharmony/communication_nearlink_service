@@ -802,7 +802,7 @@ static void QOSM_SetupICB(CM_ICBConnection *connection)
             QOSM_LOGI("conn handler 0x%04x connected, lcid: 0x%04x, total connected cnt: %u",
                 connection->channel[i].connHandle, connection->channel[i].lcid, icgInfo->connectedCnt);
 
-            QOSM_DfxUpdateConnnected(connection->channel[i].connHandle, connection->channel[i].lcid);
+            QOSM_DfxUpdateConnected(connection->channel[i].connHandle, connection->channel[i].lcid);
 
             if (QOSM_IsLinkConnectStatusEqualInGroup(icgInfo, icgInfo->link[j].connectSeq, LINK_CONNECTED)) {
                 QOSM_ConnectSuccessInGroup(icgInfo, icgInfo->link[j].connectSeq);

@@ -384,7 +384,7 @@ void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected)
 {
 }
 
-void QOSM_DfxUpdateConnnected(uint16_t connHandle, uint16_t lcid)
+void QOSM_DfxUpdateConnected(uint16_t connHandle, uint16_t lcid)
 {
 }
 
