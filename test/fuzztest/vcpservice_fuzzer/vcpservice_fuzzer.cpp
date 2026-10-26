@@ -21,7 +21,19 @@
 #include "ThreadUtil.h"
 #include "log.h"
 #include "nearlink_host_server.h"
+// 产品头 nearlink_vcp_client_server.h 与 VcpStackAdapter.h 在 OHOS::Nearlink 内
+// 重复定义 VolumeStreamType（产品码双份同文，红线不可改产品头）。本驱动 stub 路径
+// 只按 uint8_t 写 parcel、不引用 server 侧枚举名：宏窗口内 include server 头
+// （连带其依赖树统一改名），adapter 侧原名保留给 VcpService API。
+#define VolumeStreamType NearlinkVcpServerVolumeStreamType
+#define SLE_STREAM_MEDIA NearlinkVcpServerSleStreamMedia
+#define SLE_STREAM_CALL NearlinkVcpServerSleStreamCall
+#define SLE_STREAM_MAX NearlinkVcpServerSleStreamMax
 #include "nearlink_vcp_client_server.h"
+#undef VolumeStreamType
+#undef SLE_STREAM_MEDIA
+#undef SLE_STREAM_CALL
+#undef SLE_STREAM_MAX
 #include "nearlink_vcp_client_stub.h"
 #include "nearlink_raw_address.h"
 #ifdef NEARLINK_FUZZ_AUDIO_PARTS
