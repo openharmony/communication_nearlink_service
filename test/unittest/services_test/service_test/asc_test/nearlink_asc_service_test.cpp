@@ -540,6 +540,12 @@ HWTEST_F(ASCServiceTest, OnConnectionStateChanged_002, TestSize.Level1)
     ASCService *asc = ASCService::GetService();
     asc->RegisterObserver(g_ascServiceObserver_);
     RawAddress device = RawAddress(deviceStr);
+    // 测试前提显式化（repeat 安全）：被测服务是 mock ProfileServiceManager 返回的静态实例，
+    // 设备状态跨用例/跨轮残留（如 CbkReadPropFail_001 依设计经 ReportConnectStateChanged
+    // 写入 NL_SLE_ASC_DISCONNECTED），--gtest_repeat=2 第二轮会继承该值导致本断言误判。
+    // 此处播种为 GetASCStatus 无记录时的默认值 NL_SLE_ASC_ENABLED，与首轮行为完全一致，
+    // 被测语义不变：断连失败上报（cmd=DISCONN 且 result!=0）不得把状态改为 DISCONNECTED。
+    asc->SetASCStatus(device, NL_SLE_ASC_ENABLED);
     asc->OnConnectionStateChanged(device, NL_SLE_ASC_CONN_CMD_DISCONN, NL_SLE_ASC_ERROR_JUDGE_RECFG_STATE_ERROR, 0);
     EXPECT_EQ(false, NL_SLE_ASC_DISCONNECTED == asc->GetASCStatus(device));
     HILOGI("OnConnectionStateChanged_002 end");
@@ -556,6 +562,12 @@ HWTEST_F(ASCServiceTest, ReportConnectStateChanged_001, TestSize.Level1)
     ASCService *asc = ASCService::GetService();
     asc->RegisterObserver(g_ascServiceObserver_);
     RawAddress device = RawAddress(deviceStr);
+    // 测试前提显式化（repeat 安全）：被测服务是 mock ProfileServiceManager 返回的静态实例，
+    // 设备状态跨用例/跨轮残留（如 CbkReadPropFail_001 依设计经 ReportConnectStateChanged
+    // 写入 NL_SLE_ASC_DISCONNECTED），--gtest_repeat=2 第二轮会继承该值导致本断言误判。
+    // 此处播种为 GetASCStatus 无记录时的默认值 NL_SLE_ASC_ENABLED，与首轮行为完全一致，
+    // 被测语义不变：断连失败上报（cmd=DISCONN 且 result!=0）不得把状态改为 DISCONNECTED。
+    asc->SetASCStatus(device, NL_SLE_ASC_ENABLED);
     asc->ReportConnectStateChanged(device, NL_SLE_ASC_CONN_CMD_DISCONN, NL_SLE_ASC_ERROR_JUDGE_RECFG_STATE_ERROR, 0);
     EXPECT_EQ(false, NL_SLE_ASC_DISCONNECTED == asc->GetASCStatus(device));
     HILOGI("ReportConnectStateChanged_001 end");
