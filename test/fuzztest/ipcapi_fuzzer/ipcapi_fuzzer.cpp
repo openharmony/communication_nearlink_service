@@ -454,7 +454,7 @@ void CheckAddressRoundTrip(const std::string &addrStr)
         g_addrRoundTripOk++;
     } else {
         g_addrRoundTripFail++;
-        fprintf(stderr, "ipcapi_fuzzer address mismatch, orig(%{public}s) dest(%{public}s)
+        fprintf(stderr, "ipcapi_fuzzer address mismatch, orig(%s) dest(%s)
 ", addrStr.c_str(), dest->GetAddress().c_str());
     }
 }
