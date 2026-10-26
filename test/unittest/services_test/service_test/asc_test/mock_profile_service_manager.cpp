@@ -29,6 +29,7 @@
 
 #include "ASCService.h"
 #include "SleInterfaceProfile.h"
+#include "TwsService.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -89,6 +90,16 @@ SleInterfaceProfile *ProfileServiceManager::GetProfileService(const std::string 
         // 惰性构造：构造仅向 stack 注册回调，与用例内 new ASCService() 的已验证路径一致
         static ASCService instance;
         return &instance;
+    }
+    if (name == PROFILE_NAME_TWS) {
+        // 测试目的：SetMusicMuteWhenAudioRelease 的 vendor 耳机静音路径需要非空 TWS
+        // profile（ASCService.cpp:6817-6819 判空即返回 NL_ERR_INTERNAL_ERROR，正是
+        // SetMusicMuteWhenAudioRelease_001 末段期望 NL_NO_ERROR 实得 1009700099 的失败点）。
+        // mock_tws_service.cpp 已提供静态实例，且 TwsGetDeviceAudioMusicType 对
+        // coDeviceStr 返回 DISABLE（静音路径前置条件）。其余产品消费点
+        // （IsLeftEarDevice/IsRolePrimary/SetDeviceRole）均在 IsVendorDevice 门后，
+        // 仅显式 SetMockVendorAudioDevice 的用例会走到该实例。
+        return TwsService::GetService();
     }
     return nullptr;
 }

@@ -68,12 +68,17 @@ extern void ClearMockAudioFwkState();
 // 测试目的：跑完所有用例后干净退出。先 fflush stdout/stderr 保住管道缓冲里的汇总行，
 // 再按失败用例数 _exit（保留原退出码语义），跳过静态对象析构，避开 ffrt worker
 // 在进程退出阶段回调已析构对象导致的环境级竞态崩溃。
+// R6（登记册）：_exit 会跳过 gcov 运行时的 atexit 写盘，asc 覆盖率将全部漏采。
+// 退出前显式 __gcov_dump() 把计数器落盘到 .gcda（clang coverage profile 运行时符号）。
+extern "C" void __gcov_dump(void);
+
 class CleanExitListener : public testing::EmptyTestEventListener {
 public:
     void OnTestProgramEnd(const testing::UnitTest &) override
     {
         fflush(stdout);
         fflush(stderr);
+        __gcov_dump();
         _exit(testing::UnitTest::GetInstance()->failed_test_count() > 0 ? 1 : 0);
     }
 };
