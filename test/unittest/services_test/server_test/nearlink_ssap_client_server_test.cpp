@@ -329,11 +329,13 @@ HWTEST_F(NearlinkSsapClientServerTest, ReadPropertyByUuid001, TestSize.Level1)
     NearlinkSsapPropertyParcel property {};
     MessageParcel data;
     MessageParcel reply;
-    // 直调Inner不经过OnRemoteRequest, interface token不会被消费, 不写入避免读取错位
+    MessageOption option {MessageOption::TF_SYNC};
+    data.WriteInterfaceToken(NearlinkSsapClientStub::GetDescriptor());
     data.WriteInt32(appId_);
     data.WriteParcelable(&property);
-    int32_t ret = NearlinkSsapClientStub::ReadPropertyByUuidInner(
-        nearlinkSsapClientServer_.get(), data, reply);
+    // Inner为private, 经public的OnRemoteRequest分发, 同时覆盖新命令码的权限表注册
+    int32_t ret = nearlinkSsapClientServer_->OnRemoteRequest(
+        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_READ_PROPERTY_BY_UUID, data, reply, option);
     EXPECT_EQ(NO_ERROR, ret);
     EXPECT_EQ(NL_NO_ERROR, reply.ReadInt32());
     HILOGI("NearlinkSsapClientServerTest:ReadPropertyByUuid001 end");
