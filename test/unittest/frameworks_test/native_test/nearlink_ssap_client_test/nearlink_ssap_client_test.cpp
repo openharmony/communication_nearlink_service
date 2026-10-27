@@ -587,7 +587,8 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid003, TestSize.Level1)
     EXPECT_TRUE(ssapClientcallback_->lastProperties_[0].GetServiceUuid().Equals(
         UUID::FromString(SERVICE_UUID_STRING)));
     size_t valueLen = 0;
-    auto valuePtr = ssapClientcallback_->lastProperties_[0].GetValue(&valueLen);
+    // GetValue返回unique_ptr引用, 绑定引用避免触发已删除的拷贝构造
+    const auto &valuePtr = ssapClientcallback_->lastProperties_[0].GetValue(&valueLen);
     EXPECT_EQ(size_t(3), valueLen);
     EXPECT_NE(nullptr, valuePtr.get());
     HILOGI("OnReadPropertiesByUuid003 end");
