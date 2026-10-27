@@ -43,7 +43,7 @@ public:
     static uint8_t GetCustomizeDownChannelNum(uint8_t pointType, uint8_t enCodecId);
     static uint8_t GetCustomizeUpChannelNum(uint8_t pointType, Qos cos);
     static uint32_t GetDecodeSampleRate(const ASCToDSPInfo &ascToDspInfo, Qos cos);
-    static uint8_t GetEncodeBitDepth(Qos cos, uint8_t bitDepth);
+    static uint8_t GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos);
     static uint8_t GetBpsBitIndexByBps(uint16_t bps);
     static void SetQosmInfo(const NLSTK_ActmQosmInfo_S& infoActm, AscQosmInfo& infoAsc);
     static bool IsNeedSetDirection(Qos qos);

@@ -57,7 +57,7 @@ uint8_t ASCUtils::GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInf
 {
     if (cos == NL_SLE_QOS_5) {
         NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, DUAL_REC_START, DUAL_REC_NOTIFY_DSP);
-        // 双耳录音上行编解码器家族跟随与对端协商的编解码器(见encodeCodecClan)，不再固定L2HC_VOICE
+        return DSP_CODEC_CLAN_L2HC_VOICE;
     }
     // 默认上下行一致
     return ascToDspInfo.encodeCodecClan;
@@ -283,13 +283,13 @@ void ASCUtils::TransferProperty(const RawAddress& device, uint8_t num, NLSTK_Act
     }
 }
 
-uint8_t ASCUtils::GetEncodeBitDepth(Qos cos, uint8_t bitDepth)
+uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos)
 {
     if (cos == NL_SLE_QOS_5) {
         return static_cast<uint8_t>(DSP_BITS_DEPTH_16); // 位宽
     }
     // 默认上下行一致
-    return bitDepth;
+    return ascToDspInfo.encodeBitDepth;
 }
 
 uint32_t ASCUtils::GetDecodeSampleRate(const ASCToDSPInfo &ascToDspInfo, Qos cos)
