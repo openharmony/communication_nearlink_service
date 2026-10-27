@@ -22,13 +22,7 @@ void CMIcbDftReportExcep(uint16_t scene, uint8_t id, uint16_t status)
     int32_t appearance = 0;
     uint16_t icbId = (uint16_t)id;
 
-    // 当前故障场景无设备上下文，设备信息以空值占位上报，保持事件结构完整
-    DftCache(NULL, NLSTK_DFT_EVENT_ICB_EXCEP, ICB_DFT_EXCEP_DEVICE_ADDR,
-        NLSTK_DFT_PARAM_VALUE_TYPE_STRING, &emptyStr);
-    DftCache(NULL, NLSTK_DFT_EVENT_ICB_EXCEP, ICB_DFT_EXCEP_DEVICE_NAME,
-        NLSTK_DFT_PARAM_VALUE_TYPE_STRING, &emptyStr);
-    DftCache(NULL, NLSTK_DFT_EVENT_ICB_EXCEP, ICB_DFT_EXCEP_DEVICE_APPEARANCE,
-        NLSTK_DFT_PARAM_VALUE_TYPE_INT32, &appearance);
+    // 当前故障场景无设备上下文、设备信息，仅上报故障场景、故障ID和故障码
     DftCache(NULL, NLSTK_DFT_EVENT_ICB_EXCEP, ICB_DFT_EXCEP_SCENE,
         NLSTK_DFT_PARAM_VALUE_TYPE_UINT16, &scene);
     DftCache(NULL, NLSTK_DFT_EVENT_ICB_EXCEP, ICB_DFT_EXCEP_ID,
