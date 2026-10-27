@@ -638,14 +638,13 @@ typedef enum DftDiscoveryExcepParamEnum : int {
     DISCOVERY_PARAM_BUTT,
 } DftDiscoveryExcepParamEnum;
 
-// NEARLINK_STACK_ICB_EXCEP param enum
+// NEARLINK_ICB_EXCEP param enum
 typedef enum DftStackIcbExcepParamEnum : int {
     ICB_EXCEP_INVALID = 0,
     // add key param below this
     // add key param above this
     ICB_EXCEP_KEY_BUTT,
     // add normal param below this
-    ICB_EXCEP_TIME,
     ICB_EXCEP_DEVICE_ADDR,
     ICB_EXCEP_DEVICE_NAME,
     ICB_EXCEP_DEVICE_APPEARANCE,

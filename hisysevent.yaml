@@ -398,9 +398,8 @@ NEARLINK_DISCOVERY_EXCEPTION:
   DISCOVERY_PKG_NAME: {type: STRING, desc: who start advertise or scan}
   DISCOVERY_RESULT_CALLBACK_TIME: {type: STRING, desc: when scan result callback}
 
-NEARLINK_STACK_ICB_EXCEP:
+NEARLINK_ICB_EXCEP:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack icb excep event}
-  TIME: {type: STRING, desc: the time when icb set param fail}
   DEVICE_ADDR: {type: STRING, desc: device address}
   DEVICE_NAME: {type: STRING, desc: device name}
   DEVICE_APPEARANCE: {type: INT32, desc: device appearance}
