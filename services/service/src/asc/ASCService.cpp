@@ -799,8 +799,9 @@ uint8_t ASCService::GetDspL2hcVersion(const AscQosmInfo& info)
 
 void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo& info, ASCToDSPInfo &ascToDspInfo)
 {
+    Qos cos = QosM::GetInstance().GetCOS(device);
     ascToDspInfo.encodeDspVersion = GetDspL2hcVersion(info);
-    ascToDspInfo.encodeBitDepth = info.bitSamp;
+    ascToDspInfo.encodeBitDepth = ASCUtils::GetEncodeBitDepth(cos, info.bitSamp);
     ascToDspInfo.encodeSampleRate = info.rate;
     ascToDspInfo.encodeBps = GetASCToDspEncodeBps(device, info.bps);
     ascToDspInfo.encodeFrame = info.frame;
@@ -811,7 +812,6 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.buffNum = info.bufNum;
     ascToDspInfo.encodeCodecClan = ASCUtils::GetEncodeCodecClan(info.codecId);
     ascToDspInfo.encodeChannelNum = ASCUtils::GetEncodeSoundChannelNum();
-    Qos cos = QosM::GetInstance().GetCOS(device);
     uint8_t pointType = GetPointType(device, cos);
     ascToDspInfo.downChannelNum = ASCUtils::GetCustomizeDownChannelNum(pointType, info.codecId);
     ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos);
@@ -819,7 +819,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
     ascToDspInfo.bn = info.bn;
-    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos);
+    ascToDspInfo.decodeBitDepth = info.bitSamp;
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
 }
 
@@ -1617,6 +1617,8 @@ void ASCService::ProcessCodecFCVersion(AscCodecIdKey &codec)
         codec.version = std::min(codec.version, ASC_L2HC_4_0_CODEC.version);
     } else if (IsEqualCodec(codec, ASC_L2HC_CODEC)) {
         codec.version = std::min(codec.version, ASC_L2HC_CODEC.version);
+    } else if (IsEqualCodec(codec, ASC_L2HC_VOICE_CODEC)) {
+        codec.version = std::min(codec.version, ASC_L2HC_VOICE_CODEC.version);
     }
 }
 
@@ -1962,13 +1964,21 @@ uint8_t ASCService::SelectCodecSampleRatePolicyInDualRec(AscCodecIdKey codec, ui
     return static_cast<uint8_t>(ASC_SAMPLE_RATE_48KHZ);
 }
 
+/*
+ * 双耳录音位深协商：入参为耳机上报的位深能力位图，返回值随echo 8,E响应回给耳机。
+ * 该位深属于上行录音参数，与 SelectCodecSampleRatePolicyInDualRec 的“上行48kHz”、
+ * SelectCodecChannelPolicyInDualRec 的“优先单声道”同组；但本地DSP的双耳录音上行采样率/声道
+ * 固定为48kHz/单声道，不跟随协商，仅位深与编解码器家族跟随协商结果。
+ * 注意：DSP侧QOS_5的decodeBitDepth取的是ASC协商值info.bitSamp，不是本函数返回值；
+ * 下行encodeBitDepth在QOS_5下由ASCUtils::GetEncodeBitDepth固定为16bit，勿混用。
+ */
 uint8_t ASCService::SelectCodecBitDepthPolicyInDualRec(AscCodecIdKey codec, uint8_t inDepth)
 {
     uint8_t peerDepth = inDepth;
     uint8_t localDepth = GetLocalCodecBitDepthCap(codec);
     // 取交集
     uint8_t depth = (peerDepth & localDepth);
-    // 优选24bit
+    // 上行录音优选24bit
     if ((depth & (1 << ASC_SAMPLE_DEPTH_24BIT)) != 0) {
         return ASC_SAMPLE_DEPTH_24BIT;
     }

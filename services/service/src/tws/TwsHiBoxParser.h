@@ -102,6 +102,7 @@ private:
     static void ParseOutDatapath(const TwsMessage &event);
     /* echo 8,E */
     static void ParseDualRecCodecInfo(const TwsMessage &event);
+    /* echo 8,E 与对端协商双耳录音编解码器及参数 */
     static DeviceDualRecParmInfo SetPeerDualRecCodecParamConfig(const HiBoxNearlinkDualRecCaps& data);
 
     /* echo 4,3 AT指令解析相关 */
