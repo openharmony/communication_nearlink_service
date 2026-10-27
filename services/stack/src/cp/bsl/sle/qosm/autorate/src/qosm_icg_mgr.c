@@ -560,7 +560,7 @@ static void QOSM_ImgAcbInfoReport(QOSM_ICGInfo *icgInfo)
     }
     uint16_t acbHandle = 0;
     for (uint8_t i = 0; i < icgInfo->linkCnt; i++) {
-        if (icgInfo->link[i].lcid != 0) {
+        if (icgInfo->link[i].lcid != 0 && icgInfo->link[i].lcid != 0xFFFF) {
             acbHandle = icgInfo->link[i].lcid;
             break;
         }
