@@ -24,10 +24,20 @@
 #include "nearlink_errorcode.h"
 #include "nearlink_device_model.h"
 #include "nearlink_device_information.h"
+#include "nearlink_base_remote_device.h"
 
 namespace OHOS {
 namespace Nearlink {
 
+/**
+ * @brief Represents framework remote device.
+ *
+ * Embeds NearlinkBaseRemoteDevice in base.so; all implementations are
+ * shared from the embedded base device by forwarding without any cast.
+ *
+ * 说明：仅声明未实现（无任何定义）的接口（如 GetDeviceBatteryLevel）不建立桥接转发
+ * （拆分前框架亦未导出）。
+ */
 class NEARLINK_API NearlinkRemoteDevice {
 public:
     /**
@@ -35,7 +45,7 @@ public:
      *
      * @since 6
      */
-    NearlinkRemoteDevice(){};
+    NearlinkRemoteDevice();
 
     /**
      * @brief A structor used to create the <b>NearlinkRemoteDevice</b> instance, addr is little endian order.
@@ -45,11 +55,18 @@ public:
     NearlinkRemoteDevice(const std::string &addr, const int transport);
 
     /**
+     * @brief A structor used to create the <b>NearlinkRemoteDevice</b> instance from a base device.
+     *
+     * @since 6
+     */
+    explicit NearlinkRemoteDevice(const NearlinkBaseRemoteDevice &base);
+
+    /**
      * @brief A destructor used to delete the <b>NearlinkRemoteDevice</b> instance.
      *
      * @since 6
      */
-    virtual ~NearlinkRemoteDevice(){};
+    ~NearlinkRemoteDevice();
 
     /**
      * @brief Get device address, address is little endian order.
@@ -59,7 +76,18 @@ public:
      */
     std::string GetDeviceAddr() const
     {
-        return address_;
+        return base_.GetDeviceAddr();
+    };
+
+    /**
+     * @brief Get the embedded base remote device.
+     *
+     * @return Returns the embedded base remote device reference.
+     * @since 6
+     */
+    const NearlinkBaseRemoteDevice &GetBaseDevice() const
+    {
+        return base_;
     };
 
     /**
@@ -260,11 +288,7 @@ public:
     NlErrCode GetBatteryLevel();
 
 private:
-
-    bool IsValidPassCode(const std::string& passCode);
-
-    std::string address_ = "00:00:00:00:00:00"; // address is little endian order
-    int transport_ = 0;
+    NearlinkBaseRemoteDevice base_;
 };
 }  // namespace Nearlink
 } // namespace OHOS

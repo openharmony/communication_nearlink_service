@@ -16,11 +16,11 @@ import("../../nearlink_config.gni")
 
 
 FwkSrc = [
-    "nearlink_host_load_callback.cpp",
     "nearlink_host.cpp",
     "nearlink_hid_host.cpp",
     "nearlink_sa_manager.cpp",
     "nearlink_remote_device.cpp",
+    "nearlink_observer_adapter.cpp",
     "nearlink_sle_advertiser.cpp",
     "nearlink_sle_scanner.cpp",
     "nearlink_sle_datatransfer.cpp",
@@ -31,7 +31,6 @@ FwkSrc = [
     "nearlink_ssap_property.cpp",
     "nearlink_ssap_service.cpp",
     "nearlink_ssap_server.cpp",
-    "nearlink_switch_module.cpp",
     "nearlink_sle_ranging.cpp",
     "nearlink_uuid.cpp",
     "nearlink_ASC_source.cpp",
@@ -43,9 +42,6 @@ FwkSrc = [
 
 NL_IPCSRC_DIR = "../ipc/src"
 FwkIpcSrc = [
-    "$NL_IPCSRC_DIR/nearlink_device_battery_observer_stub.cpp",
-    "$NL_IPCSRC_DIR/nearlink_host_observer_stub.cpp",
-    "$NL_IPCSRC_DIR/nearlink_host_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_hid_host_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertise_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_advertiser_proxy.cpp",
@@ -53,7 +49,6 @@ FwkIpcSrc = [
     "$NL_IPCSRC_DIR/nearlink_sle_datatransfer_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_central_manager_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_sle_central_manager_proxy.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_peripheral_observer_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_client_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_client_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_ssap_server_callback_stub.cpp",
@@ -67,8 +62,6 @@ FwkIpcSrc = [
     "$NL_IPCSRC_DIR/nearlink_tws_client_proxy.cpp",
     "$NL_IPCSRC_DIR/nearlink_cdsm_client_callback_stub.cpp",
     "$NL_IPCSRC_DIR/nearlink_cdsm_client_proxy.cpp",
-    "$NL_IPCSRC_DIR/nearlink_device_rssi_observer_stub.cpp",
-    "$NL_IPCSRC_DIR/nearlink_sle_controller_proxy.cpp",
 ]
 
 RangAlgSrc = [
@@ -79,6 +72,7 @@ config("nl_framework_public") {
     include_dirs = [
       "include",
       "$NEARLINK_ROOT/interfaces/inner_api/include",
+      "$NEARLINK_ROOT/interfaces/inner_api/include/base",
       "$NEARLINK_ROOT/interfaces/def",
     ]
 }
@@ -96,6 +90,7 @@ config("nearlink_framework_config") {
     "-fno-exceptions",
     "-fno-rtti",
     "-flto",
+    "-fno-semantic-interposition",
   ]
 
   if (build_variant == "user") {
@@ -105,8 +100,14 @@ config("nearlink_framework_config") {
   cflags_cc = cflags
 
   include_dirs = [
+    ".",
     "include",
+    "base",
+    "base/include",
     "../ipc/include",
+    "$NEARLINK_ROOT/socket",
+    "$NEARLINK_ROOT/interfaces/inner_api/include",
+    "$NEARLINK_ROOT/interfaces/inner_api/include/base",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/src",
   ]
@@ -121,6 +122,8 @@ ohos_shared_library("nearlink_framework") {
   ldflags = [
     "-flto",
     "-Wl,--gc-sections",
+    "-Wl,--no-as-needed",
+    "-Wl,-Bsymbolic",
   ]
 
   sanitize = {
@@ -153,6 +156,7 @@ ohos_shared_library("nearlink_framework") {
   sources += RangAlgSrc
 
   deps = [
+    "base:nearlink_framework_base",
     "$NEARLINK_ROOT/utils:nearlink_utils",
     "$NEARLINK_ROOT/socket:nearlink_socket",
     "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",

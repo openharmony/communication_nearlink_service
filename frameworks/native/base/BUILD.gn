@@ -1,0 +1,147 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("../../../nearlink_config.gni")
+
+BaseSrc = [
+    "nearlink_base_host.cpp",
+    "nearlink_base_host_load_callback.cpp",
+    "nearlink_base_remote_device.cpp",
+    "nearlink_base_sa_manager.cpp",
+    "nearlink_base_sle_controller.cpp",
+    "nearlink_base_switch_module.cpp",
+]
+
+BaseIpcSrc = [
+    "ipc/src/nearlink_host_proxy.cpp",
+    "ipc/src/nearlink_sle_controller_proxy.cpp",
+    "ipc/src/nearlink_host_observer_stub.cpp",
+    "ipc/src/nearlink_sle_peripheral_observer_stub.cpp",
+    "ipc/src/nearlink_device_battery_observer_stub.cpp",
+    "ipc/src/nearlink_device_rssi_observer_stub.cpp",
+]
+
+config("nearlink_base_public") {
+    include_dirs = [
+        "$NEARLINK_ROOT/interfaces/inner_api/include",
+        "$NEARLINK_ROOT/interfaces/inner_api/include/base",
+        "$NEARLINK_ROOT/interfaces/def",
+    ]
+}
+
+config("nearlink_base_config") {
+    cflags = [
+        "-fPIC",
+        "-Wno-unused-parameter",
+        "-Wunused-private-field",
+        "-fdata-sections",
+        "-ffunction-sections",
+        "-fno-asynchronous-unwind-tables",
+        "-fno-unwind-tables",
+        "-Os",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-flto",
+        "-fno-semantic-interposition",
+    ]
+
+    if (build_variant == "user") {
+        cflags += [ "-DIS_NL_RELEASE_VERSION" ]
+    }
+
+    cflags_cc = cflags
+
+    include_dirs = [
+        ".",
+        "include",
+        "..",
+        "../include",
+        "../../ipc/include",
+        "$NEARLINK_ROOT/interfaces/inner_api/include",
+        "$NEARLINK_ROOT/interfaces/inner_api/include/base",
+        "$NEARLINK_ROOT/interfaces/def",
+    ]
+}
+
+ohos_shared_library("nearlink_framework_base") {
+
+    branch_protector_ret = "pac_ret"
+
+    configs = [ ":nearlink_base_config" ]
+
+    ldflags = [
+        "-flto",
+        "-Wl,--gc-sections",
+        "-Wl,-Bsymbolic",
+    ]
+
+    sanitize = {
+        cfi = true
+        cfi_vcall_icall_only = true
+        boundary_sanitize = true
+        cfi_cross_dso = true
+        integer_overflow = true
+        ubsan = true
+        debug = false
+    }
+
+    defines = [
+        "LOG_TAG = \"nearlink_fwk_base\"",
+        "LOG_DOMAIN = 0xD000151",
+    ]
+    defines += product_defines
+
+    if (nearlink_service_kia_enable) {
+        defines += [ "NEARLINK_KIA_ENABLE" ]
+    }
+
+    if (nearlink_service_bas_enable) {
+        defines += [ "NEARLINK_BAS_ENABLE" ]
+    }
+
+    if (nearlink_deps_power_manager_exist && nearlink_service_host_avoid_sleep) {
+        defines += [ "NEARLINK_HOST_AVOID_SLEEP" ]
+    }
+
+    if (nearlink_service_pluggable_supported) {
+        defines += [ "NEARLINK_PLUGGABLE_SUPPORTED" ]
+    }
+
+    sources = []
+    sources += BaseSrc
+    sources += BaseIpcSrc
+
+    public_configs = [ ":nearlink_base_public" ]
+
+    deps = [
+        "$NEARLINK_ROOT/utils:nearlink_utils",
+        "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+    ]
+
+    external_deps = [
+        "c_utils:utils",
+        "hilog:libhilog",
+        "init:libbegetutil",
+        "ipc:ipc_core",
+        "samgr:samgr_proxy",
+        "ffrt:libffrt",
+    ]
+
+    if (nearlink_deps_power_manager_exist && nearlink_service_host_avoid_sleep) {
+        external_deps += [ "power_manager:powermgr_client" ]
+    }
+
+    part_name = "nearlink_service"
+    innerapi_tags = [ "platformsdk" ]
+    subsystem_name = "communication"
+}
