@@ -4150,8 +4150,6 @@ void ASCService::ClearWhenDisconnect(const RawAddress& device)
     // 清除同步链路参数
     ClearStreamQosmInfo(device);
     ClearASCSubrateInfo(device);
-    // 清除双耳录音协商结果
-    ClearDualRecCodecInfo(device);
     // 清除码率
     SetAutoRateBps(device, 0);
     // 设置状态:connected
