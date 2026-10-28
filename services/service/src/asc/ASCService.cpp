@@ -814,20 +814,18 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     Qos cos = QosM::GetInstance().GetCOS(device);
     uint8_t pointType = GetPointType(device, cos);
     ascToDspInfo.downChannelNum = ASCUtils::GetCustomizeDownChannelNum(pointType, info.codecId);
-    // 双耳录音上行编解码器和位深使用echo 8,E协商结果
-    DeviceDualRecParmInfo dualRecInfo = GetDualRecCodecInfoForDsp(device, cos);
-    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos, dualRecInfo.codecId);
+    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos);
     ascToDspInfo.decodeChannelNum = ASCUtils::GetDecodeSoundChannelNum();
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
     ascToDspInfo.bn = info.bn;
+    // 双耳录音上行位深使用echo 8,E协商结果
+    DeviceDualRecParmInfo dualRecInfo = GetDualRecCodecInfoForDsp(device, cos);
     ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, dualRecInfo.depth);
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
     if (cos == NL_SLE_QOS_5) {
-        // DSP仅有一个版本字段(下行)，同时打印上下行版本便于排查版本不一致
-        HILOGI("[ASCService]%{public}s dual rec: version %{public}d codecId %{public}d depth %{public}d"
-            " encode version %{public}d, encode codecId %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
-            dualRecInfo.version, dualRecInfo.codecId, dualRecInfo.depth, info.version, info.codecId);
+        HILOGI("[ASCService]%{public}s dual rec depth %{public}d decodeBitDepth %{public}d",
+            GetEncryptAddr(device.GetAddress()).c_str(), dualRecInfo.depth, ascToDspInfo.decodeBitDepth);
     }
 }
 
@@ -3086,9 +3084,15 @@ void ASCService::SaveProperty(const RawAddress& device, const std::vector<AscPro
 
 void ASCService::SetDualRecCodecInfo(const RawAddress &device, const DeviceDualRecParmInfo &info)
 {
+    // echo 8,E由左右两只耳机分别上报，按上报方地址缓存，起播时以同一地址查询
+    // codecId为0表示未协商成功，不覆盖缓存，避免全0结果覆盖已生效的位深
+    if (info.codecId == 0) {
+        HILOGD("[ASCService]device %{public}s not negotiated, skip", GetEncryptAddr(device.GetAddress()).c_str());
+        return;
+    }
     std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
     dualRecCodecInfoMap_[device.GetAddress()] = info;
-    HILOGI("[ASCService]SetDualRecCodecInfo %{public}s codecId %{public}d depth %{public}d",
+    HILOGI("[ASCService]device %{public}s codecId %{public}d depth %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), info.codecId, info.depth);
 }
 
@@ -3097,8 +3101,7 @@ void ASCService::GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParm
     std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
     std::map<std::string, DeviceDualRecParmInfo>::iterator it = dualRecCodecInfoMap_.find(device.GetAddress());
     if (it == dualRecCodecInfoMap_.end()) {
-        HILOGD("[ASCService]GetDualRecCodecInfo %{public}s NO Item",
-            GetEncryptAddr(device.GetAddress()).c_str());
+        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
 
@@ -3121,8 +3124,7 @@ void ASCService::ClearDualRecCodecInfo(const RawAddress &device)
     std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
     size_t num = dualRecCodecInfoMap_.erase(device.GetAddress());
     if (num == 0) {
-        HILOGD("[ASCService]ClearDualRecCodecInfo %{public}s NO Item",
-            GetEncryptAddr(device.GetAddress()).c_str());
+        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
     }
 }
 
@@ -4148,6 +4150,8 @@ void ASCService::ClearWhenDisconnect(const RawAddress& device)
     // 清除同步链路参数
     ClearStreamQosmInfo(device);
     ClearASCSubrateInfo(device);
+    // 清除双耳录音协商结果
+    ClearDualRecCodecInfo(device);
     // 清除码率
     SetAutoRateBps(device, 0);
     // 设置状态:connected

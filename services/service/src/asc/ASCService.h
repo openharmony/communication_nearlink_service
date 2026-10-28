@@ -146,7 +146,7 @@ public:
     uint8_t SelectCodecSampleRatePolicyInDualRec(AscCodecIdKey codec, uint16_t peerSampleRate);
     uint8_t SelectCodecBitDepthPolicyInDualRec(AscCodecIdKey codec, uint8_t inDepth);
     uint8_t SelectCodecChannelPolicyInDualRec(AscCodecIdKey codec, uint16_t peerChannel);
-    /* 保存echo 8,E协商的双耳录音上行编解码器和位深信息 */
+    /* 保存echo 8,E协商的双耳录音上行编解码器和位深信息，按上报方地址缓存；协商失败(codecId为0)的上报不缓存 */
     void SetDualRecCodecInfo(const RawAddress &device, const DeviceDualRecParmInfo &info);
     void SetSleVoiceStatusFlag(const RawAddress& device);
     bool IsSleVoiceExisted(const RawAddress& device);

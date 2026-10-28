@@ -82,12 +82,6 @@ const char TWS_DEVINFO_DATA_TYPE_ICON_ID = 'b';
 
 const int DEX_STRING_TO_INT = 10;
 
-/* echo 8,E 双耳录音本端支持的编解码器，按协商优先级排列 */
-constexpr AscCodecIdKey TWS_DUAL_REC_LOCAL_CODECS[] = {
-    ASC_L2HC_5_0_CODEC,     /* 优选L2HC5.0 */
-    ASC_L2HC_VOICE_CODEC,   /* 对端不支持L2HC5.0时使用L2HC_VOICE */
-};
-
 /* Vendor电量私有服务数据类型 */
 enum class TwsVendorBatterEnum : uint8_t {
     TWS_VENDOR_BATTERY_NORMAL_LEVEL = 1,        /* Battery Level, Normal device Battery */
@@ -668,28 +662,25 @@ DeviceDualRecParmInfo TwsHiBoxParser::SetPeerDualRecCodecParamConfig(const RawAd
 {
     DeviceDualRecParmInfo rspInfo;
     (void)memset_s(&rspInfo, sizeof(DeviceDualRecParmInfo), 0x00, sizeof(DeviceDualRecParmInfo));
+    // 当前本端仅支持L2HC_VOICE 免去协商
+    AscCodecIdKey localCodec = ASC_L2HC_VOICE_CODEC;
     ASCService *ascService = ASCService::GetService();
     NL_CHECK_RETURN_RET(ascService, rspInfo, "[Tws HiBox]:asc instance invalid!");
-    bool isMatched = false;
-    // 按本端优先级遍历，对端支持L2HC5.0则优先协商L2HC5.0，否则使用L2HC_VOICE
-    for (const AscCodecIdKey &localCodec : TWS_DUAL_REC_LOCAL_CODECS) {
-        for (uint8_t i = 0; (i < data.codecNum) && (i < DEVICE_DUAL_REC_CODEC_MAX_NUM); i++) {
-            const DeviceDualRecCapInfo &reqInfo = data.param[i];
-            AscCodecIdKey peerCodec = {
-                .codecId = reqInfo.codecId,
-                .companyId = reqInfo.companyId,
-                .vendorId = reqInfo.vendorId,
-                .version = reqInfo.version,
-            };
-            HILOGI("[Tws HiBox]: localCodecId %{public}d, codecId %{public}d, companyId %{public}d"
-                " vendorId %{public}d", localCodec.codecId, peerCodec.codecId, peerCodec.companyId, peerCodec.vendorId);
-            if (!ascService->IsEqualCodec(localCodec, peerCodec)) {
-                continue;
-            }
-            ascService->ProcessCodecFCVersion(peerCodec);
+    for(int i = 0; i < data.codecNum; i++) {
+        DeviceDualRecCapInfo reqInfo = data.param[i];
+        AscCodecIdKey peerCodec = {
+            .codecId = reqInfo.codecId,
+            .companyId = reqInfo.companyId,
+            .vendorId = reqInfo.vendorId,
+            .version = reqInfo.version,
+        };
+        HILOGI("[Tws HiBox]: codecId %{public}d, companyId %{public}d vendorId %{public}d",
+            peerCodec.codecId, peerCodec.companyId, peerCodec.vendorId);
+        if (ascService->IsEqualCodec(localCodec, peerCodec)) {
             rspInfo.codecId = peerCodec.codecId;
             rspInfo.companyId = peerCodec.companyId;
             rspInfo.vendorId = peerCodec.vendorId;
+            ascService->ProcessCodecFCVersion(peerCodec);
             rspInfo.version = peerCodec.version;
             rspInfo.sampleRate = ascService->SelectCodecSampleRatePolicyInDualRec(peerCodec, reqInfo.sampleRate);
             rspInfo.depth = ascService->SelectCodecBitDepthPolicyInDualRec(peerCodec, reqInfo.depth);
@@ -698,19 +689,12 @@ DeviceDualRecParmInfo TwsHiBoxParser::SetPeerDualRecCodecParamConfig(const RawAd
             // 双耳录音上行：96kbps codec_1 L2HC_VOICE, 下行：96/48kbps codec_2 L2HC
             (void)memcpy_s(&rspInfo.upBitrate, sizeof(rspInfo.upBitrate),
                 &L2HC_VOICE_BPS_S_96, DUAL_REC_CODEC_UP_BITRATE_BIT_LEN);
-            HILOGI("[Tws HiBox]: peer have match codec %{public}d", rspInfo.codecId);
-            isMatched = true;
+            HILOGI("[Tws HiBox]: peer have match codec");
             break;
         }
-        if (isMatched) {
-            break;
-        }
-    }
-    if (!isMatched) {
-        HILOGE("[Tws HiBox]: no match codec, codecNum:%{public}d", data.codecNum);
     }
 
-    // 保存协商结果，供ASC适配双耳录音上行编解码器及位深
+    // 保存协商结果，供ASC适配双耳录音上行位深
     ascService->SetDualRecCodecInfo(peerAddr, rspInfo);
     return rspInfo;
 }
