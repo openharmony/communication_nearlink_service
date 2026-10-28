@@ -816,8 +816,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.downChannelNum = ASCUtils::GetCustomizeDownChannelNum(pointType, info.codecId);
     // 双耳录音上行编解码器和位深使用echo 8,E协商结果
     DeviceDualRecParmInfo dualRecInfo = GetDualRecCodecInfoForDsp(device, cos);
-    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos, dualRecInfo.codecId,
-        dualRecInfo.version, info.version);
+    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos, dualRecInfo.codecId);
     ascToDspInfo.decodeChannelNum = ASCUtils::GetDecodeSoundChannelNum();
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
@@ -825,8 +824,10 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, dualRecInfo.depth);
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
     if (cos == NL_SLE_QOS_5) {
-        HILOGI("[ASCService]%{public}s dual rec: version %{public}d codecId %{public}d depth %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), dualRecInfo.version, dualRecInfo.codecId, dualRecInfo.depth);
+        // DSP仅有一个版本字段(下行)，同时打印上下行版本便于排查版本不一致
+        HILOGI("[ASCService]%{public}s dual rec: version %{public}d codecId %{public}d depth %{public}d"
+            " encode version %{public}d, encode codecId %{public}d", GetEncryptAddr(device.GetAddress()).c_str(),
+            dualRecInfo.version, dualRecInfo.codecId, dualRecInfo.depth, info.version, info.codecId);
     }
 }
 
@@ -3091,18 +3092,17 @@ void ASCService::SetDualRecCodecInfo(const RawAddress &device, const DeviceDualR
         GetEncryptAddr(device.GetAddress()).c_str(), info.codecId, info.depth);
 }
 
-bool ASCService::GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info)
+void ASCService::GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info)
 {
     std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
     std::map<std::string, DeviceDualRecParmInfo>::iterator it = dualRecCodecInfoMap_.find(device.GetAddress());
     if (it == dualRecCodecInfoMap_.end()) {
         HILOGD("[ASCService]GetDualRecCodecInfo %{public}s NO Item",
             GetEncryptAddr(device.GetAddress()).c_str());
-        return false;
+        return;
     }
 
     info = it->second;
-    return true;
 }
 
 DeviceDualRecParmInfo ASCService::GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos)

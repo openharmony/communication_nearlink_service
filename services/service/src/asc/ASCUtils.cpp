@@ -54,7 +54,7 @@ uint8_t ASCUtils::GetEncodeCodecClan(uint8_t codecId)
 }
 
 uint8_t ASCUtils::GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInfo &ascToDspInfo, Qos cos,
-    uint8_t dualRecCodecId, uint8_t dualRecVersion, uint8_t streamVersion)
+    uint8_t codecId)
 {
     if (cos != NL_SLE_QOS_5) {
         // 默认上下行一致
@@ -62,16 +62,11 @@ uint8_t ASCUtils::GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInf
     }
     NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, DUAL_REC_START, DUAL_REC_NOTIFY_DSP);
     // 双耳录音上行编解码器优先使用echo 8,E协商结果
-    if (dualRecCodecId == 0) {
+    if (codecId == 0) {
+        // codecId为0表示未协商，使用默认值
         return DSP_CODEC_CLAN_L2HC_VOICE;
     }
-    uint8_t clan = GetEncodeCodecClan(dualRecCodecId);
-    // DSP仅有一个版本字段(下行)，上行L2HC版本无法单独下发
-    if ((clan == DSP_CODEC_CLAN_L2HC) && (dualRecVersion != streamVersion)) {
-        HILOGE("[ASCUtils]dual rec codec version %{public}d, stream version %{public}d",
-            dualRecVersion, streamVersion);
-    }
-    return clan;
+    return GetEncodeCodecClan(codecId);
 }
 
 uint8_t ASCUtils::GetCustomizeDownChannelNum(uint8_t pointType, uint8_t enCodecId)

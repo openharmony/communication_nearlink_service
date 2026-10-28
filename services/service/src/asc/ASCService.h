@@ -146,7 +146,7 @@ public:
     uint8_t SelectCodecSampleRatePolicyInDualRec(AscCodecIdKey codec, uint16_t peerSampleRate);
     uint8_t SelectCodecBitDepthPolicyInDualRec(AscCodecIdKey codec, uint8_t inDepth);
     uint8_t SelectCodecChannelPolicyInDualRec(AscCodecIdKey codec, uint16_t peerChannel);
-    /* 保存echo 8,E协商的双耳录音上行编解码器及位深 */
+    /* 保存echo 8,E协商的双耳录音上行编解码器和位深信息 */
     void SetDualRecCodecInfo(const RawAddress &device, const DeviceDualRecParmInfo &info);
     void SetSleVoiceStatusFlag(const RawAddress& device);
     bool IsSleVoiceExisted(const RawAddress& device);
@@ -560,7 +560,7 @@ private:
      */
     std::vector<AscProp>& GetPropertyList(const RawAddress& device);
     void SaveProperty(const RawAddress& device, const std::vector<AscProp>& properties);
-    bool GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info);
+    void GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info);
     DeviceDualRecParmInfo GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos);
     void ClearDualRecCodecInfo(const RawAddress &device);
     bool FindBps(const AscProp& prop, uint8_t codecId, uint64_t& bps);
