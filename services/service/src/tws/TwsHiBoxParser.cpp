@@ -663,7 +663,8 @@ void TwsHiBoxParser::DualRecCodecInfoRsp(const RawAddress &peerAddr, DeviceDualR
     HILOGI("[Tws HiBox]: HadpCodecInfoRsp rsp");
 }
 
-DeviceDualRecParmInfo TwsHiBoxParser::SetPeerDualRecCodecParamConfig(const HiBoxNearlinkDualRecCaps& data)
+DeviceDualRecParmInfo TwsHiBoxParser::SetPeerDualRecCodecParamConfig(const RawAddress &peerAddr,
+    const HiBoxNearlinkDualRecCaps& data)
 {
     DeviceDualRecParmInfo rspInfo;
     (void)memset_s(&rspInfo, sizeof(DeviceDualRecParmInfo), 0x00, sizeof(DeviceDualRecParmInfo));
@@ -708,6 +709,9 @@ DeviceDualRecParmInfo TwsHiBoxParser::SetPeerDualRecCodecParamConfig(const HiBox
     if (!isMatched) {
         HILOGE("[Tws HiBox]: no match codec, codecNum:%{public}d", data.codecNum);
     }
+
+    // 保存协商结果，供ASC适配双耳录音上行编解码器及位深
+    ascService->SetDualRecCodecInfo(peerAddr, rspInfo);
     return rspInfo;
 }
 
@@ -728,16 +732,11 @@ void TwsHiBoxParser::ParseDualRecCodecInfo(const TwsMessage &event)
         HILOGE("[Tws HiBox]: parse echo 8,E codecNum:%{public}d ", data.codecNum);
         return;
     }
-    DeviceDualRecParmInfo info = SetPeerDualRecCodecParamConfig(data);
+    DeviceDualRecParmInfo info = SetPeerDualRecCodecParamConfig(peerAddr, data);
     HILOGI("[Tws HiBox]: codecNum:%{public}d, codecId:%{public}d, companyId:%{public}d, vendorId:%{public}d,"
         "version:%{public}d, sampleRate:%{public}d, depth:%{public}d, channel:%{public}d,"
         "frame:%{public}d,", data.codecNum, info.codecId, info.companyId, info.vendorId, info.version,
         info.sampleRate, info.depth, info.channel, info.frame);
-    // 保存协商结果，供ASC适配双耳录音上行编解码器及位深
-    ASCService *ascService = ASCService::GetService();
-    if (ascService != nullptr && info.codecId != 0) {
-        ascService->SetDualRecCodecInfo(peerAddr, info);
-    }
     DualRecCodecInfoRsp(peerAddr, info);
 }
 
