@@ -99,7 +99,7 @@ void AniSsapClientCallback::OnPropertiesReadResult(const std::vector<SsapPropert
 {
     HILOGI("ret: %{public}d", ret);
     auto result = std::make_shared<TaiheNativeSsapPropertyArray>(properties);
-    AsyncWorkCallFunction(asyncPromiseMap_, TaiheAsyncType::SSAP_CLIENT_READ_PROPERTY_BY_UUID, result, ret);
+    AsyncWorkCallFunction(asyncPromiseMap_, TaiheAsyncType::SSAP_CLIENT_READ_PROPERTIES_BY_UUID, result, ret);
 }
 
 void AniSsapClientCallback::OnPropertyWriteResult(const SsapProperty &property, int ret)

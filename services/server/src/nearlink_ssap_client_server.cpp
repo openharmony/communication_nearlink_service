@@ -597,7 +597,7 @@ NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSs
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
 }
 
-NlErrCode NearlinkSsapClientServer::ReadPropertyByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
+NlErrCode NearlinkSsapClientServer::ReadPropertiesByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
 {
     HILOGI("appId: %{public}d", appId);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();

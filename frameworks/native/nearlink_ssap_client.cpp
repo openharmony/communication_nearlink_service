@@ -1032,7 +1032,7 @@ NlErrCode SsapClient::ReadPropertiesByUuid(SsapProperty &property)
     sptr<INearlinkSsapClient> proxy = GetProxy<INearlinkSsapClient>(PROFILE_SSAP_CLIENT);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
 
-    result = proxy->ReadPropertyByUuid(
+    result = proxy->ReadPropertiesByUuid(
         pimpl->applicationId_, (NearlinkSsapPropertyParcel)Nearlink::Property(
             propertyHandle,
             Uuid::ConvertFrom128Bits(property.GetUuid().ConvertTo128Bits()), property.GetOperationIndication()));

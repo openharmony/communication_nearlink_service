@@ -145,7 +145,7 @@ enum NearlinkSsapClientInterfaceCode {
     NL_SSAP_CLIENT_REQUEST_NOTIFICATION,
     NL_SSAP_CLIENT_CALL_METHOD,
     NL_SSAP_CLIENT_REQUEST_INDICATION,
-    NL_SSAP_CLIENT_READ_PROPERTY_BY_UUID,
+    NL_SSAP_CLIENT_READ_PROPERTIES_BY_UUID,
     // The last code, if you want to add a new code, please add it before this
     NL_SSAP_CLIENT_BUTT
 };

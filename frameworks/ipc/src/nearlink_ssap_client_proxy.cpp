@@ -186,7 +186,7 @@ NlErrCode NearlinkSsapClientProxy::ReadProperty(int32_t appId, const NearlinkSsa
     return static_cast<NlErrCode>(reply.ReadInt32());
 }
 
-NlErrCode NearlinkSsapClientProxy::ReadPropertyByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
+NlErrCode NearlinkSsapClientProxy::ReadPropertiesByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
 {
     HILOGI("start");
     MessageParcel data;
@@ -200,7 +200,7 @@ NlErrCode NearlinkSsapClientProxy::ReadPropertyByUuid(int32_t appId, const Nearl
         MessageOption::TF_SYNC
     };
     ErrCode error = InnerTransact(
-        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_READ_PROPERTY_BY_UUID, option, data, reply);
+        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_READ_PROPERTIES_BY_UUID, option, data, reply);
     NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED, "done fail, error: %{public}d", error);
     return static_cast<NlErrCode>(reply.ReadInt32());
 }

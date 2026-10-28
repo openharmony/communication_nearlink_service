@@ -143,7 +143,7 @@ uintptr_t SsapClientImpl::ReadPropertiesByUuid(const ::ohos::nearlink::ssap::Pro
     auto asyncWork = TaiheAsyncWorkFactory::CreateAsyncWork(env, nullptr, func);
     ANI_NL_ASSERT_RETURN(asyncWork, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
     ANI_NL_ASSERT_RETURN(callback_ != nullptr, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
-    bool success = callback_->asyncPromiseMap_.TryPush(TaiheAsyncType::SSAP_CLIENT_READ_PROPERTY_BY_UUID, asyncWork);
+    bool success = callback_->asyncPromiseMap_.TryPush(TaiheAsyncType::SSAP_CLIENT_READ_PROPERTIES_BY_UUID, asyncWork);
     ANI_NL_ASSERT_RETURN(success, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
     asyncWork->Run();
     return reinterpret_cast<uintptr_t>(asyncWork->GetRet());
