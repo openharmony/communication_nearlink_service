@@ -814,13 +814,20 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     Qos cos = QosM::GetInstance().GetCOS(device);
     uint8_t pointType = GetPointType(device, cos);
     ascToDspInfo.downChannelNum = ASCUtils::GetCustomizeDownChannelNum(pointType, info.codecId);
-    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos);
+    // 双耳录音上行编解码器和位深使用echo 8,E协商结果
+    DeviceDualRecParmInfo dualRecInfo = GetDualRecCodecInfoForDsp(device, cos);
+    ascToDspInfo.decodeCodecClan = ASCUtils::GetDecodeCodecClan(device, ascToDspInfo, cos, dualRecInfo.codecId,
+        dualRecInfo.version, info.version);
     ascToDspInfo.decodeChannelNum = ASCUtils::GetDecodeSoundChannelNum();
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
     ascToDspInfo.bn = info.bn;
-    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos);
+    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, dualRecInfo.depth);
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
+    if (cos == NL_SLE_QOS_5) {
+        HILOGI("[ASCService]%{public}s dual rec: version %{public}d codecId %{public}d depth %{public}d",
+            GetEncryptAddr(device.GetAddress()).c_str(), dualRecInfo.version, dualRecInfo.codecId, dualRecInfo.depth);
+    }
 }
 
 /**
@@ -3076,6 +3083,49 @@ void ASCService::SaveProperty(const RawAddress& device, const std::vector<AscPro
     }
 }
 
+void ASCService::SetDualRecCodecInfo(const RawAddress &device, const DeviceDualRecParmInfo &info)
+{
+    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
+    dualRecCodecInfoMap_[device.GetAddress()] = info;
+    HILOGI("[ASCService]SetDualRecCodecInfo %{public}s codecId %{public}d depth %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), info.codecId, info.depth);
+}
+
+bool ASCService::GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info)
+{
+    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
+    std::map<std::string, DeviceDualRecParmInfo>::iterator it = dualRecCodecInfoMap_.find(device.GetAddress());
+    if (it == dualRecCodecInfoMap_.end()) {
+        HILOGD("[ASCService]GetDualRecCodecInfo %{public}s NO Item",
+            GetEncryptAddr(device.GetAddress()).c_str());
+        return false;
+    }
+
+    info = it->second;
+    return true;
+}
+
+DeviceDualRecParmInfo ASCService::GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos)
+{
+    DeviceDualRecParmInfo info {};
+    if (cos != NL_SLE_QOS_5) {
+        return info;
+    }
+    // 缓存缺失时保持零值，由下游函数回退默认值
+    GetDualRecCodecInfo(device, info);
+    return info;
+}
+
+void ASCService::ClearDualRecCodecInfo(const RawAddress &device)
+{
+    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
+    size_t num = dualRecCodecInfoMap_.erase(device.GetAddress());
+    if (num == 0) {
+        HILOGD("[ASCService]ClearDualRecCodecInfo %{public}s NO Item",
+            GetEncryptAddr(device.GetAddress()).c_str());
+    }
+}
+
 void ASCService::SetConnRptDelayingFlag(const RawAddress &device, bool isDelaying)
 {
     HILOGD("[ASCService]SetConnRptDelayingFlag in %{public}s %{public}d",
@@ -4618,6 +4668,8 @@ void ASCService::CbkDisconnect(const RawAddress& device, uint8_t result)
     ClearStreamResult(device);
     // 清除同步链路参数
     ClearStreamQosmInfo(device);
+    // 清除双耳录音协商结果
+    ClearDualRecCodecInfo(device);
     ClearASCSubrateInfo(device);
     // 清除码率
     SetAutoRateBps(device, 0);

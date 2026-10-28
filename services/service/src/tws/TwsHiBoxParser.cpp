@@ -733,6 +733,11 @@ void TwsHiBoxParser::ParseDualRecCodecInfo(const TwsMessage &event)
         "version:%{public}d, sampleRate:%{public}d, depth:%{public}d, channel:%{public}d,"
         "frame:%{public}d,", data.codecNum, info.codecId, info.companyId, info.vendorId, info.version,
         info.sampleRate, info.depth, info.channel, info.frame);
+    // 保存协商结果，供ASC适配双耳录音上行编解码器及位深
+    ASCService *ascService = ASCService::GetService();
+    if (ascService != nullptr && info.codecId != 0) {
+        ascService->SetDualRecCodecInfo(peerAddr, info);
+    }
     DualRecCodecInfoRsp(peerAddr, info);
 }
 

@@ -53,14 +53,25 @@ uint8_t ASCUtils::GetEncodeCodecClan(uint8_t codecId)
     return (codecId == ASC_CODEC_ID_L2HC_VOICE) ? DSP_CODEC_CLAN_L2HC_VOICE : DSP_CODEC_CLAN_L2HC;
 }
 
-uint8_t ASCUtils::GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInfo &ascToDspInfo, Qos cos)
+uint8_t ASCUtils::GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInfo &ascToDspInfo, Qos cos,
+    uint8_t dualRecCodecId, uint8_t dualRecVersion, uint8_t streamVersion)
 {
-    if (cos == NL_SLE_QOS_5) {
-        NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, DUAL_REC_START, DUAL_REC_NOTIFY_DSP);
+    if (cos != NL_SLE_QOS_5) {
+        // 默认上下行一致
+        return ascToDspInfo.encodeCodecClan;
+    }
+    NearlinkDftUe::GetInstance().WriteAudioSourceDeviceUe(device, device, DUAL_REC_START, DUAL_REC_NOTIFY_DSP);
+    // 双耳录音上行编解码器优先使用echo 8,E协商结果
+    if (dualRecCodecId == 0) {
         return DSP_CODEC_CLAN_L2HC_VOICE;
     }
-    // 默认上下行一致
-    return ascToDspInfo.encodeCodecClan;
+    uint8_t clan = GetEncodeCodecClan(dualRecCodecId);
+    // DSP仅有一个版本字段(下行)，上行L2HC版本无法单独下发
+    if ((clan == DSP_CODEC_CLAN_L2HC) && (dualRecVersion != streamVersion)) {
+        HILOGE("[ASCUtils]dual rec codec version %{public}d, stream version %{public}d",
+            dualRecVersion, streamVersion);
+    }
+    return clan;
 }
 
 uint8_t ASCUtils::GetCustomizeDownChannelNum(uint8_t pointType, uint8_t enCodecId)
@@ -283,13 +294,17 @@ void ASCUtils::TransferProperty(const RawAddress& device, uint8_t num, NLSTK_Act
     }
 }
 
-uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos)
+uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos, uint8_t bitDepth)
 {
-    if (cos == NL_SLE_QOS_5) {
-        return static_cast<uint8_t>(DSP_BITS_DEPTH_16); // 位宽
+    if (cos != NL_SLE_QOS_5) {
+        // 默认上下行一致
+        return ascToDspInfo.encodeBitDepth;
     }
-    // 默认上下行一致
-    return ascToDspInfo.encodeBitDepth;
+    // 双耳录音上行位深优先使用echo 8,E协商结果，未协商时固定16bit
+    if (bitDepth == ASC_SAMPLE_DEPTH_24BIT) {
+        return static_cast<uint8_t>(DSP_BITS_DEPTH_24); // 位宽
+    }
+    return static_cast<uint8_t>(DSP_BITS_DEPTH_16); // 位宽
 }
 
 uint32_t ASCUtils::GetDecodeSampleRate(const ASCToDSPInfo &ascToDspInfo, Qos cos)

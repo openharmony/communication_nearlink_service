@@ -39,11 +39,14 @@ public:
     static uint8_t GetDecodeSoundChannelNum();
     static uint8_t GetCosetDeviceNum(const RawAddress& device);
     static uint8_t GetEncodeCodecClan(uint8_t codecId);
-    static uint8_t GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInfo &ascToDspInfo, Qos cos);
+    /* 获取上行解码编解码器家族，dualRecCodecId/dualRecVersion为echo 8,E协商结果，codecId为0表示未协商 */
+    static uint8_t GetDecodeCodecClan(const RawAddress& device, const ASCToDSPInfo &ascToDspInfo, Qos cos,
+        uint8_t dualRecCodecId = 0, uint8_t dualRecVersion = 0, uint8_t streamVersion = 0);
     static uint8_t GetCustomizeDownChannelNum(uint8_t pointType, uint8_t enCodecId);
     static uint8_t GetCustomizeUpChannelNum(uint8_t pointType, Qos cos);
     static uint32_t GetDecodeSampleRate(const ASCToDSPInfo &ascToDspInfo, Qos cos);
-    static uint8_t GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos);
+    /* 获取上行解码位深，bitDepth为echo 8,E协商的采样深度(ASCSampleBitDepth)，0表示未协商 */
+    static uint8_t GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos, uint8_t bitDepth = 0);
     static uint8_t GetBpsBitIndexByBps(uint16_t bps);
     static void SetQosmInfo(const NLSTK_ActmQosmInfo_S& infoActm, AscQosmInfo& infoAsc);
     static bool IsNeedSetDirection(Qos qos);
