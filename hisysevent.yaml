@@ -24,6 +24,7 @@ NEARLINK_SWITCH_EXCEPTION:
   SWITCH_START_TIME: {type: STRING, desc: nearlink switch oper start time}
   SWITCH_END_TIME: {type: STRING, desc: nearlink switch oper end time}
   SUB_STATE_FLOW: {type: STRING, desc: sub event switch state flow}
+  SWITCH_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_DISCONN_EXCEPTION:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink disconn exception event}
@@ -36,6 +37,7 @@ NEARLINK_DISCONN_EXCEPTION:
   DISCONN_DEVICE_RSSI: {type: INT32, desc: the rssi value of device}
   SUB_PEER_INFO: {type: STRING, desc: sub event peer info}
   SUB_CONN_INFO: {type: STRING, desc: sub event connection info}
+  DISCONN_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_ACCURATESEARCH:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink accuratesearch event}
@@ -78,6 +80,7 @@ NEARLINK_PAIR_EXCEPTION:
   REPORT_ADDR: {type: STRING, desc: Nearlink coordinated devices set management report address}
   NUMBER_OF_MEMBERS: {type: UINT16, desc: Nearlink coordinated devices set management number of member}
   ADDR_OF_MEMBERS: {type: STRING, desc: Nearlink coordinated devices set management address of member}
+  SLE_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_UNPAIR_EXCEPTION:
   __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink unpairing event}
@@ -253,6 +256,7 @@ NEARLINK_AUDIO_HEADSET_EXCEP:
   MID_CHANNEL_NUM: {type: UINT16, desc: mediate interference channel num}
   WEAK_CHANNEL_NUM: {type: UINT16, desc: weak interference channel num}
   NOISE_AVG_VALUE: {type: INT32, desc: average noise value}
+  AUDIO_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_AUDIO_STREAM_EXCEP:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink audio stream exception event}
@@ -275,6 +279,7 @@ NEARLINK_AUDIO_STREAM_EXCEP:
   STREAM_POINT_TYPE: {type: UINT8, desc: point type}
   STREAM_OPERATOR_RESULT: {type: UINT8, desc: operation type}
   STREAM_OPERATOR_ERROR_CODE: {type: INT32, desc: error code}
+  STREAM_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_DSP_CODEC_EXCEPTION:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink dsp codec exception}
@@ -305,6 +310,7 @@ NEARLINK_DSP_CHOPPY_EXCEPTION:
   DSP_NOISE_AVG_VALUE_24G: {type: INT32, desc: average noise floor in 2.4G band}
   DSP_CHANNEL_STATUS_5G: {type: STRING, desc: interference status in 5.8G band}
   DSP_NOISE_AVG_VALUE_5G: {type: INT32, desc: average noise floor value in 5.8G}
+  DSP_LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_DSP_OFFLOAD_STATS:
   __BASE: {type: STATISTIC, level: CRITICAL, desc: nearlink dsp offload statistics}
@@ -366,6 +372,7 @@ NEARLINK_DSP_OFFLOAD_STATS:
   CHANNEL_CONT_TIME_24G: {type: STRING, desc: 2G band using time}
   CHANNEL_CONT_TIME_58G: {type: STRING, desc: 5G2 band using time}
   CHANNEL_FREQ_BAND_CHANGE_TIMES: {type: UINT32, desc: Band change count}
+  LOCAL_COUNTRY_INFO: {type: STRING, desc: local country code info}
 
 NEARLINK_STACK_HADM_EXCEP:
   __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack hadm excep event}
