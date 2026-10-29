@@ -104,6 +104,7 @@ ohos_unittest("nl_security_adapter_service_test") {
 
   sources = [
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/security_adapter_test/nearlink_adapter_hukstool_test.cpp",
+    "$NEARLINK_ROOT/test/unittest/services_test/service_test/security_adapter_test/mock_nlstk_sm.cpp",
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/security_adapter_test/mock_nearlink_dft_exception.cpp",
   ]
   sources += [
@@ -117,6 +118,9 @@ ohos_unittest("nl_security_adapter_service_test") {
   sources += shared_service_source
   sources -= [
     "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
+    # 测试目的：ProfileServiceManager.cpp 改由测试 TU 编译（fixture 需访问 pimpl->startedProfiles_
+    # 注入自有 CdsmService，dis 样板），避免与 shared_service_source 重复定义。
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps
