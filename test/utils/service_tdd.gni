@@ -271,10 +271,10 @@ if (nearlink_deps_telephony_exist) {
   ]
 }
 
-if (nearlink_deps_device_manager_exist) {
-  shared_service_external_deps += [ "device_manager:devicemanagersdk" ]
-  shared_service_defines += [ "DEVICE_MANAGER" ]
-}
+# fuzz 语境不链真实 DM SDK：裸进程环境无设备管理服务，固件版
+# libdevicemanagersdk 在 InitDeviceManager 路径内 SIGSEGV（真机实证）。
+# 产品侧 SleServiceManager 本就有 #if(defined(DEVICE_MANAGER)) 部件开关，
+# 此处不定义该宏即等价产品“无 DM 部件”构建形态，编译期即切除外呼。
 
 if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {
   shared_service_external_deps += [ "resource_schedule_service:ressched_client" ]
