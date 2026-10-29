@@ -160,9 +160,6 @@ shared_service_source = [
   "$SERVICE_TDD_DIR/src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
 
   "$SERVICE_TDD_DIR/src/controller/SleControllerService.cpp",
-
-  # DM SDK fuzz stub：链接期本地定义优先于共享库导出（见下方 device_manager 说明）
-  "$NEARLINK_ROOT/test/utils/mock_devicemanagersdk.cpp",
 ]
 
 shared_service_deps = [
@@ -274,13 +271,9 @@ if (nearlink_deps_telephony_exist) {
   ]
 }
 
-# fuzz 语境不调真实 DM SDK：裸进程环境无设备管理服务，固件版
-# libdevicemanagersdk 在 InitDeviceManager 路径内 SIGSEGV（真机实证）。
-# 保留 devicemanagersdk external_deps 仅为获取 device_manager.h 头路径；
-# 不定义 DEVICE_MANAGER 宏（产品 #if 开关即编译期切除外呼源码）；
-# 运行期残余绑定由上方 mock_devicemanagersdk.cpp 的本地强符号接管。
 if (nearlink_deps_device_manager_exist) {
   shared_service_external_deps += [ "device_manager:devicemanagersdk" ]
+  shared_service_defines += [ "DEVICE_MANAGER" ]
 }
 
 if (nearlink_deps_resource_schedule_service_exist && nearlink_service_rss_background_task) {

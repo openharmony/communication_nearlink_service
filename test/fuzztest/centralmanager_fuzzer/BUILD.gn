@@ -52,6 +52,7 @@ ohos_fuzztest("CentralManagerFuzzTest") {
 
   sources = [ "centralmanager_fuzzer.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_host_server.cpp" ]
+  sources += [ "$MOCK_HOST_SERVER_FILE/mock_devicemanagersdk.cpp" ]
   sources += ["mock_nlstk_scan_api.c"]
 
   deps = [

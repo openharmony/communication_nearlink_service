@@ -59,6 +59,7 @@ ohos_fuzztest("DataTransferServiceFuzzTest") {
 
   sources = ["datatransferservice_fuzzer.cpp"]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_host_server.cpp" ]
+  sources += [ "$MOCK_HOST_SERVER_FILE/mock_devicemanagersdk.cpp" ]
 
   deps = [
     "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
