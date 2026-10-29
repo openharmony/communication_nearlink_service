@@ -75,6 +75,7 @@ ohos_fuzztest("SleControllerFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "bounds_checking_function:libsec_shared",
     "huks:libhukssdk",
     "hilog:libhilog",

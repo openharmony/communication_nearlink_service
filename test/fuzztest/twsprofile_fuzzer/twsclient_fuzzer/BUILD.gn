@@ -67,6 +67,7 @@ ohos_fuzztest("TwsClientFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "bounds_checking_function:libsec_shared",
     "hilog:libhilog",
     "ipc:ipc_single",
