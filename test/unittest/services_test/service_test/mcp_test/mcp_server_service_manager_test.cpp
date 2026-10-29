@@ -26,6 +26,8 @@
 #include "mock_avsession_controller.h"
 #include "stub.h"
 
+extern int32_t g_mockLastPlaybackState; // 定义在mock_nlstk_mcp_media_server.cpp
+
 namespace OHOS {
 namespace Nearlink {
 namespace TEST {
@@ -477,6 +479,79 @@ HWTEST_F(McpServerServiceManagerTest, UpdateMediaBasicInfo001, TestSize.Level1)
     g_McpManager->pimpl->UpdateMediaBasicInfo();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::MCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("UpdateMediaBasicInfo001 end");
+}
+
+/*
+ * @tc.number: ResetMediaPlaybackState001
+ * @tc.name: 无设备连接时清理媒体播放状态
+ * @tc.desc: 复位写入READY，并清空本地播放状态缓存与定时器
+ */
+HWTEST_F(McpServerServiceManagerTest, ResetMediaPlaybackState001, TestSize.Level1)
+{
+    HILOGI("ResetMediaPlaybackState001 start");
+    auto &mcpImpl = *(g_McpManager->pimpl);
+    auto originAscFunc = mcpImpl.getAscProfileFunc_;
+    g_McpManager->SetAscProfileFunc(nullptr); // 复核判据不可用，等价于当前无设备连接
+    mcpImpl.currPlaybackState_.SetState(AVPlaybackState::PLAYBACK_STATE_PLAY);
+    mcpImpl.currentReportState_ = NLSTK_MCP_STATE_PLAYING;
+    mcpImpl.renderState_ = McpRenderState::KPlaying;
+    g_mockLastPlaybackState = -1;
+
+    g_McpManager->ResetMediaPlaybackState();
+
+    EXPECT_EQ(NLSTK_MCP_STATE_READY, g_mockLastPlaybackState);
+    EXPECT_EQ(NLSTK_MCP_STATE_READY, mcpImpl.currentReportState_);
+    EXPECT_EQ(static_cast<int32_t>(AVPlaybackState::PLAYBACK_STATE_INITIAL),
+        static_cast<int32_t>(mcpImpl.currPlaybackState_.GetState()));
+    EXPECT_EQ(static_cast<int>(McpRenderState::KUninitalize), static_cast<int>(mcpImpl.renderState_));
+    EXPECT_EQ(nullptr, mcpImpl.stateTimer_);
+    g_McpManager->SetAscProfileFunc(originAscFunc);
+    HILOGI("ResetMediaPlaybackState001 end");
+}
+
+/*
+ * @tc.number: ResetMediaPlaybackState002
+ * @tc.name: 已有设备连接时不做复位
+ * @tc.desc: 执行侧复核不通过时保持原状态，不向协议栈写入
+ */
+HWTEST_F(McpServerServiceManagerTest, ResetMediaPlaybackState002, TestSize.Level1)
+{
+    HILOGI("ResetMediaPlaybackState002 start");
+    auto &mcpImpl = *(g_McpManager->pimpl);
+    mcpImpl.currentReportState_ = NLSTK_MCP_STATE_PLAYING;
+    mcpImpl.renderState_ = McpRenderState::KPlaying;
+    g_mockLastPlaybackState = -1;
+
+    g_McpManager->ResetMediaPlaybackState(); // 默认桩始终有一个设备在连
+
+    EXPECT_EQ(-1, g_mockLastPlaybackState);
+    EXPECT_EQ(NLSTK_MCP_STATE_PLAYING, mcpImpl.currentReportState_);
+    EXPECT_EQ(static_cast<int>(McpRenderState::KPlaying), static_cast<int>(mcpImpl.renderState_));
+    HILOGI("ResetMediaPlaybackState002 end");
+}
+
+/*
+ * @tc.number: ResetMediaPlaybackState003
+ * @tc.name: 复位后到达的旧定时器回调被丢弃
+ * @tc.desc: 定时器已到期且回调已入队时，复位后旧回调不得把暂停状态写回
+ */
+HWTEST_F(McpServerServiceManagerTest, ResetMediaPlaybackState003, TestSize.Level1)
+{
+    HILOGI("ResetMediaPlaybackState003 start");
+    auto &mcpImpl = *(g_McpManager->pimpl);
+    auto originAscFunc = mcpImpl.getAscProfileFunc_;
+    g_McpManager->SetAscProfileFunc(nullptr);
+    DoInMcpThread([]() { std::this_thread::sleep_for(std::chrono::milliseconds(1500)); }); // 占住队列
+    mcpImpl.renderState_ = McpRenderState::KPlaying;
+    mcpImpl.StartStateTimer();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1150)); // 定时器到期，回调已入队
+
+    g_McpManager->ResetMediaPlaybackState(); // 复位先执行
+    std::this_thread::sleep_for(std::chrono::milliseconds(800)); // 等旧回调执行
+
+    EXPECT_EQ(static_cast<int>(McpRenderState::KUninitalize), static_cast<int>(mcpImpl.renderState_));
+    g_McpManager->SetAscProfileFunc(originAscFunc);
+    HILOGI("ResetMediaPlaybackState003 end");
 }
 
 } // namespace TEST

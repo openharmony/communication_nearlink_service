@@ -155,6 +155,13 @@ public:
      * @since 6
      */
     virtual McpRenderState GetMcpRealTimeRenderState() = 0;
+
+    /**
+     * @brief Resets the media playback state, used when all audio devices are disconnected.
+     *
+     * @since 6
+     */
+    virtual void ResetMediaPlaybackState() = 0;
 };
 
 class McpServerServiceManager : public McpServerServiceManagerInterface {
@@ -173,6 +180,7 @@ public:
     bool IsAVPlaybackStatePlay() override;
     void PostEvent(const McpMessage &event) override;
     McpRenderState GetMcpRealTimeRenderState() override;
+    void ResetMediaPlaybackState() override;
 private:
     struct impl;
     std::shared_ptr<impl> pimpl = nullptr;
