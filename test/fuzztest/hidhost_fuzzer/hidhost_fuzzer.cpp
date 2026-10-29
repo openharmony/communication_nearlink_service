@@ -326,6 +326,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     hostServer->EnableSle();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_5000_MS));
     HILOGI("HidHostFuzzTest endEnableSle");
+    // 线程状态表进程级一次初始化:每输入 Clear/Init 的清空窗口会让
+    // ThreadUtil::PostTask 静默丢弃滞后异步投递(无失败回执),future 永久
+    // 悬空致 GetDeviceState 族 future.get() 主线程挂死(真机取证见验证记录)
+    OHOS::g_threadUtil.InitThreadStateMap();
     return 0;
 }
 
@@ -333,17 +337,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     if (data == nullptr) {
-        OHOS::g_threadUtil.ClearThreadStateMap();
         return 0;
     }
 
     /* Run your code on data */
-    OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::HidHostSetReportFuzzTest(data, size);
     OHOS::HidHostFuzzTest(data, size);
     OHOS::DoSomethingInterestingWithHidHostServiceAPI(data, size);
     OHOS::DoSomethingInterestingWithHidHostUhidAPI(data, size);
     OHOS::UhidEventDispatchFuzzTest(data, size);
-    OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }
