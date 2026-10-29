@@ -38,6 +38,7 @@
       "*NLSTK_SmRegAlgoFuncs*";
       "*NLSTK_SmRemovePairing*";
       "*NLSTK_SmStartPairing*";
+      "*NLSTK_SmRequestSecurity*";
       "*NLSTK_SmSendImgSecuConfig*";
       "*NLSTK_DevdRemoveAdv*";
       "*NLSTK_DevdSetAdvData*";

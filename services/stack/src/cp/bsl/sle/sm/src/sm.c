@@ -201,6 +201,33 @@ void SmPkgDispatcher(uint16_t opcode, SLE_Addr_S *addr, const uint8_t *pkg, size
                             uapi interface functions
 *****************************************************************************************/
 
+/* 回连场景: 由状态机按当前状态决定行为,
+ * ENCP态使用已保存的linkKey加密, 未配对时兜底走配对流程. */
+void SmRequestSecurity(void *addrIn)
+{
+    NLSTK_LOG_INFO("[SM] Request security.");
+    SLE_Addr_S *addr = (SLE_Addr_S *)addrIn;
+    SmSLink_S *slink = SmFindOrCreateSLink(addr);
+    if (slink == NULL) {
+        NLSTK_LOG_ERROR("[SM] Find or create slink failed on request security.");
+        SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
+            .addr = *addr, .authStatus = SM_PAIR_ERROR });
+        return;
+    }
+    NLSTK_LOG_INFO("[SM] Find slink with addr = %s, lcid = %d.", GET_ENC_ADDR(&slink->rmtAddr), slink->lcid);
+    /* 协商/鉴权/密钥缺失/移除中四态无ACTIVE_START处理分支, 直接回报失败, 避免调用方无响应 */
+    if (slink->curStateIndex == SM_STATE_NEGO || slink->curStateIndex == SM_STATE_AUTH ||
+        slink->curStateIndex == SM_STATE_MISS || slink->curStateIndex == SM_STATE_REMV) {
+        NLSTK_LOG_ERROR("[SM] Request security in invalid state: %d.", slink->curStateIndex);
+        SmExternalCbks(SM_CBK_EVENT_AUTH_COMPLETE, &(NLSTK_SmAuthComplete_S) {
+            .addr = *addr, .authStatus = SM_PAIR_ERROR });
+        return;
+    }
+    STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
+}
+
+/* 启动配对: 无论slink当前处于何种状态, 均复位回INIT后重走完整配对流程,
+ * 不改变各状态既有的事件处理逻辑. */
 void SmStartPairing(void *addrIn)
 {
     NLSTK_LOG_INFO("[SM] Start pairing.");
@@ -212,7 +239,21 @@ void SmStartPairing(void *addrIn)
             .addr = *addr, .authStatus = SM_PAIR_ERROR });
         return;
     }
-    NLSTK_LOG_INFO("[SM] Find slink with addr = %s, lcid = %d.", GET_ENC_ADDR(&slink->rmtAddr), slink->lcid);
+    NLSTK_LOG_INFO("[SM] Find slink with addr = %s, lcid = %d, state index: %d.",
+        GET_ENC_ADDR(&slink->rmtAddr), slink->lcid, slink->curStateIndex);
+    if (slink->curStateIndex != SM_STATE_INIT) {
+        SmSLinkWaitDelTimer(slink);
+        SmSLinkWaitDelUapiTimer(slink);
+        (void)memset_s(slink->linkKey, SM_LINK_KEY_LEN, 0, SM_LINK_KEY_LEN);
+        (void)memset_s(slink->dhKey, SM_DHKEY_LEN, 0, SM_DHKEY_LEN);
+        (void)memset_s(slink->priKey, SM_PRIVATE_KEY_LEN, 0, SM_PRIVATE_KEY_LEN);
+        (void)memset_s(&slink->negoParams, sizeof(slink->negoParams), 0, sizeof(slink->negoParams));
+        (void)memset_s(&slink->gNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
+        (void)memset_s(&slink->tNode, sizeof(SmDeviceParams_S), 0, sizeof(SmDeviceParams_S));
+        slink->expectOpCode = 0;
+        slink->dispatcher = NULL;
+        STM_MFUNC(slink->stm, Transition, g_smStateName[SM_STATE_INIT]);
+    }
     STM_MFUNC(slink->stm, ProcessMessage, (Message) { .what = SM_ACTIVE_START });
 }
 
