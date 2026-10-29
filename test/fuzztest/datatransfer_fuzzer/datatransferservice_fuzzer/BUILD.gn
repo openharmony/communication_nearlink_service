@@ -78,6 +78,7 @@ ohos_fuzztest("DataTransferServiceFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "c_utils:utils",
     "hilog:libhilog",
     "safwk:system_ability_fwk",

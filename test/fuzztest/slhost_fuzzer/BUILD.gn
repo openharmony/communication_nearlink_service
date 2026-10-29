@@ -71,6 +71,7 @@ ohos_fuzztest("SlHostFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "hilog:libhilog",
     "ipc:ipc_single",
     "access_token:libaccesstoken_sdk",
