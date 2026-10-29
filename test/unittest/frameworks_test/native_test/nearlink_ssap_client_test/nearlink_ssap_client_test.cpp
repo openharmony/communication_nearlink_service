@@ -524,13 +524,14 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid001, TestSize.Level1)
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
 
+    // 缓存未命中不丢弃已读数据: 透传原始成功码并构建结果(服务uuid留空)
     int32_t retValue = static_cast<int32_t>(SsapStatus::SSAP_SUCCESS);
     NearlinkSsapPropertyParcel property {};
     std::vector<NearlinkSsapPropertyParcel> properties {1, property};
     clientCallback_->OnReadPropertiesByUuid(retValue, properties);
     EXPECT_EQ(1, ssapClientcallback_->propertiesReadResultCount_);
-    EXPECT_TRUE(ssapClientcallback_->lastProperties_.empty());
-    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, ssapClientcallback_->lastRet_);
+    EXPECT_EQ(retValue, ssapClientcallback_->lastRet_);
+    EXPECT_EQ(size_t(1), ssapClientcallback_->lastProperties_.size());
     HILOGI("OnReadPropertiesByUuid001 end");
 }
 

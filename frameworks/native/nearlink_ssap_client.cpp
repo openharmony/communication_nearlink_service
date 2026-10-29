@@ -252,16 +252,17 @@ public:
                 return false;
         });
         if (!isFindService || !setService) {
+            // 本地服务缓存未命中不丢弃已读数据, 服务uuid留空继续构建结果
             HILOGE("not find service!");
-            WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, std::vector<SsapProperty> {},
-                NL_ERR_INTERNAL_ERROR);
-            return;
+            setService = nullptr;
         }
         std::vector<SsapProperty> onReadProperties;
         for (uint32_t i = 0; i < properties.size(); i++) {
             SsapProperty onReadProp(0, 0, UUID::FromString(properties[i].uuid_.ToString()), properties[i].opInd_, 0);
             onReadProp.SetValue(properties[i].value_.data(), properties[i].value_.size());
-            onReadProp.SetServiceUuid(setService->GetUuid());
+            if (setService != nullptr) {
+                onReadProp.SetServiceUuid(setService->GetUuid());
+            }
             onReadProperties.push_back(onReadProp);
         }
         WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, onReadProperties, ret);
@@ -898,8 +899,9 @@ NlErrCode SsapClient::GetServicesByUuid(const UUID &uuid, std::vector<SsapServic
     for (auto &parcel : result) {
         std::shared_ptr<SsapService> service = pimpl->BuildService(parcel);
         if (service) {
-            pimpl->ssapServices_.EnsureInsert(service->GetHandle(), service);
+            // 先拷贝后入容器: 拷贝发生在对象进入共享容器前, 避免与持锁改写并发
             services.push_back(*service);
+            pimpl->ssapServices_.EnsureInsert(service->GetHandle(), service);
         }
     }
     return NL_NO_ERROR;
