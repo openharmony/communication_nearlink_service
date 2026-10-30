@@ -188,6 +188,42 @@ void SleControllerServiceFuzzTest(FuzzedDataProvider &provider)
     uint16_t pendingInterval = provider.ConsumeIntegral<uint16_t>();
     controller.UpdateSleHidCoexModePendingInterval(pendingDevice, pendingInterval);
 
+    /* ---- 以下为 PR-8 追加段（仅尾部追加消费，旧 corpus 读序不变）----
+     * FetchInterval/GetConnectionParams/EnableSleHidCoexMode/DisableSleHidCoexMode/
+     * UpdateSleHidCoexIntervalForEach/StartSleHidCoexUpdateTimer 均为 private，
+     * 经公有入口 UpdateConnectInterval / SetSleCoexMode 驱动。 */
+
+    /* FetchInterval 全 10 个合法型 + 非法型（GetConnectionParams 在命中后同链触达） */
+    std::string fetchDevice = BuildAddressString(provider);
+    for (int32_t i = 0; i < SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM; i++) {
+        controller.UpdateConnectInterval(fetchDevice, i);
+    }
+    int32_t invalidIntervalType = SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM + provider.ConsumeIntegral<uint8_t>();
+    controller.UpdateConnectInterval(fetchDevice, invalidIntervalType);
+
+    /* Enable 成功链：非空 deviceList + 等长合法 paramList → EnableSleHidCoexMode →
+     * UpdateSleHidCoexIntervalForEach(0)。裸进程无连接记录，SleCoexistManager 查不到
+     * 地址 → currentInterval 恒 0 → updateInterval=0 → StartSleHidCoexUpdateTimer 以
+     * protectTime=0 立即递归（不创建 NearlinkTimer），index 到尾后 STARTING→STARTED */
+    int32_t enableSize = provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_COEX_DEVICE_NUM + 1;
+    std::vector<std::string> enableDeviceList;
+    std::vector<ConnectionInterval> enableParamList;
+    for (int32_t i = 0; i < enableSize; i++) {
+        enableDeviceList.push_back(BuildAddressString(provider));
+        enableParamList.push_back(static_cast<ConnectionInterval>(
+            provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM));
+    }
+    controller.SetSleCoexMode(SLE_HID_COEX_MODE_ENABLE, enableDeviceList, enableParamList);
+
+    /* state=STARTED 后的深分支：复用 Enable 链登记的同一地址，addr 命中 deviceList */
+    uint16_t deepCurrentInterval = provider.ConsumeIntegral<uint16_t>();
+    uint16_t deepCoexInterval = 0;
+    controller.GetSleHidCoexInterval(enableDeviceList.front(), deepCurrentInterval, deepCoexInterval);
+    controller.UpdateSleHidCoexModePendingInterval(enableDeviceList.front(), deepCurrentInterval);
+
+    /* Disable 链：STOPPING → UpdateSleHidCoexIntervalForEach → STOPPED（清空 deviceList） */
+    controller.SetSleCoexMode(SLE_HID_COEX_MODE_DISABLE, {}, {});
+
     std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
 }
 
