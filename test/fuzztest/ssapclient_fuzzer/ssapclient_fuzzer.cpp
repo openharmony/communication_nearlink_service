@@ -31,6 +31,7 @@
 
 #define private public
 #include "ssap_client_stack_adapter.h"
+#include "ssap_client_service.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -55,6 +56,19 @@ public:
     void OnSetPropertyIndication(int32_t ret, bool enable, const NearlinkSsapPropertyParcel &property) {}
     void OnServicesRediscovered(const std::vector<NearlinkSsapServiceParcel> &services) {}
     void OnServiceChanged(uint16_t handle, const NearlinkUuidParcel &uuid) {}
+};
+
+/* service 直驱段用的最小观测 mock（其余虚函数沿用基类空实现） */
+class SsapClientServiceFuzzCallback : public InterfaceSsapClientCallback {
+public:
+    void OnMtuChanged(uint16_t mtu, int ret) override { mtu_ = mtu; errCode_ = ret; }
+    void OnConnectionStateChanged(uint8_t state, int ret) override { state_ = state; errCode_ = ret; }
+    void OnPropertyChanged(const Property &property) override { handle_ = property.handle_; }
+
+    uint16_t mtu_ = 0;
+    uint8_t state_ = 0;
+    uint16_t handle_ = 0;
+    int errCode_ = 0;
 };
 
 namespace {
@@ -701,6 +715,58 @@ void OnEventFuzzTest(const uint8_t* fuzzData, size_t size)
     free(property);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
+
+/* 尾部追加段：g_isInit 真时段内直取常驻 profile service（进程级生命周期，
+ * 其 adapter 即 g_ssapClientStackAdapter 当前指向），走 public 包装：
+ * Enable→真实注册（成功得 appId≥0）→未覆盖包装→Connect/Disconnect→
+ * 真 appId 重打 3 个静态 On*→Deregister；注册失败跳过依赖段 */
+void ServiceLayerDirectFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    SleInterfaceProfile *profile = SleInterfaceProfileManager::GetInstance().GetProfileService(
+        PROFILE_NAME_SSAP_CLIENT);
+    if (profile == nullptr) {
+        return;
+    }
+    SsapClientService *service = static_cast<SsapClientService *>(profile);
+    service->Enable();
+    /* Enable 经 DoInSsapThread 异步置位 InRunningState，先排空再注册
+     * （RegisterApplication 在调用线程同步检查该状态） */
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+    std::shared_ptr<SsapClientServiceFuzzCallback> cb = std::make_shared<SsapClientServiceFuzzCallback>();
+    uint8_t secureReq = provider.ConsumeIntegral<uint8_t>() % 2;
+    int appId = service->RegisterApplication(cb, BuildRawAddress(provider), 1, secureReq);
+    if (appId < 0) {
+        return;
+    }
+    struct Event event = {};
+    event.handle_ = provider.ConsumeIntegral<uint16_t>();
+    service->SetEventNotification(appId, event, provider.ConsumeBool());
+    service->SetEventIndication(appId, event, provider.ConsumeBool());
+    service->ReadDescriptorsByUuid(appId, BuildUuid(provider),
+        provider.ConsumeIntegral<uint8_t>() % DESC_TYPE_MAX,
+        provider.ConsumeIntegral<uint16_t>(), provider.ConsumeIntegral<uint16_t>());
+    service->Connect(appId, provider.ConsumeBool());
+
+    uint8_t valBuf[8] = {};
+    for (size_t i = 0; i < sizeof(valBuf); i++) {
+        valBuf[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    NLSTK_SsapClientReadPropertyInfo_S info = {};
+    info.handle = provider.ConsumeIntegral<uint16_t>();
+    info.uuid = g_uuid;
+    info.value.len = sizeof(valBuf);
+    info.value.data = valBuf;
+    SsapClientStackAdapter::OnMtuChanged(appId, provider.ConsumeIntegral<uint16_t>(), NLSTK_ERRCODE_SUCCESS);
+    SsapClientStackAdapter::OnConnectionStateChanged(appId, provider.ConsumeIntegral<uint8_t>(),
+        NLSTK_ERRCODE_SUCCESS, provider.ConsumeIntegral<int>());
+    SsapClientStackAdapter::OnPropertyChanged(appId, &info);
+
+    service->Disconnect(appId);
+    service->DeregisterApplication(appId);
+    /* service/adapter 均为常驻对象，此处仅为排空 DoInSsapThread 已投任务 */
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
 }
 
 // fuzzer init
@@ -777,6 +843,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::DisconnectFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest(data, size);
     OHOS::SsapClientFuzzTest(data, size);
+    if (OHOS::g_isInit) {
+        OHOS::ServiceLayerDirectFuzzTest(data, size);
+    }
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }

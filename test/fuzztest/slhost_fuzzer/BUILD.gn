@@ -45,6 +45,9 @@ ohos_fuzztest("SlHostFuzzTest") {
     "$NEARLINK_ROOT/services/service/src/permission",
     "$NEARLINK_ROOT/services/service/src/sl_host",
     "$NEARLINK_ROOT/services/service/src/base",
+    "$NEARLINK_ROOT/services/service/include",
+    "$NEARLINK_ROOT/services/service/src/common",
+    "$NEARLINK_ROOT/services/common/include",
   ]
 
   configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
@@ -52,6 +55,7 @@ ohos_fuzztest("SlHostFuzzTest") {
 
   sources = [ "slhost_fuzzer.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_host_server.cpp" ]
+  sources += [ "$MOCK_HOST_SERVER_FILE/mock_devicemanagersdk.cpp" ]
 
   deps = [
     "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
@@ -67,6 +71,7 @@ ohos_fuzztest("SlHostFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "hilog:libhilog",
     "ipc:ipc_single",
     "access_token:libaccesstoken_sdk",

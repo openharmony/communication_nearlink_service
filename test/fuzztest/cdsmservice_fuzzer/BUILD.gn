@@ -44,12 +44,19 @@ ohos_fuzztest("CdsmServiceFuzzTest") {
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/service/src/permission",
     "$NEARLINK_ROOT/services/service/src/common",
+    # CdsmService.h/CdsmClient.h 直调所需
+    "$NEARLINK_ROOT/services/service/src/cdsm",
+    "$NEARLINK_ROOT/services/common/include",
+    "$NEARLINK_ROOT/services/stack/src/cp/bal/audioctl/cdsm/include",
+    "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
+    "$NEARLINK_ROOT/services/stack/src/sdf/bsl/dsl/include",
   ]
 
   configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
 
   sources = [ "cdsmservice_fuzzer.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_host_server.cpp" ]
+  sources += [ "$MOCK_HOST_SERVER_FILE/mock_devicemanagersdk.cpp" ]
 
   deps = [
     "$NEARLINK_ROOT/frameworks/native:nearlink_framework",
@@ -65,6 +72,7 @@ ohos_fuzztest("CdsmServiceFuzzTest") {
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "bounds_checking_function:libsec_shared",
     "hilog:libhilog",
     "ipc:ipc_single",

@@ -47,6 +47,7 @@ group("nearlink_fuzztest") {
     "fuzztest/native/nearlinkobservermap_fuzzer:NearlinkObserverMapFuzzTest",
     "fuzztest/hadmclient_fuzzer:HadmClientFuzzTest",
     "fuzztest/host_fuzzer:HostFuzzTest",
+    "fuzztest/slhost_fuzzer:SlHostFuzzTest",
     "fuzztest/hidhost_fuzzer:HidHostFuzzTest",
     "fuzztest/lisserver_fuzzer:LisServerFuzzTest",
     "fuzztest/disserver_fuzzer:DisServerFuzzTest",
