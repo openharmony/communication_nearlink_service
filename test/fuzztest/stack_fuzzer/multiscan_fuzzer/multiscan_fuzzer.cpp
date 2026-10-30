@@ -219,6 +219,38 @@ namespace OHOS {
             }
         }
 
+        /* PR-10 尾向追加（不改头部已有消费顺序，旧 corpus 尾部耗尽取默认 false 保持原路径）：
+         * extParam 变体驱动 DevdCopyExtparam 8 项校验与 DevdSetDefaultAdvExtParam else 分支，
+         * connParam 变体驱动 DevdCopyConnParam 4 项校验（超时公式双向）。
+         * % (X+2) 同时覆盖合法值与首个非法值。 */
+        NLSTK_DevdAdvExtParam_S extParam = {0};
+        NLSTK_DevdConnParam_S connParam = {0};
+        if (fdp.ConsumeBool()) {
+            extParam.advFilterPolicy = fdp.ConsumeIntegral<uint8_t>() % (ADV_FLT_ALLOW_SCAN_ALLOW_CONNECT + FUZZ_TWO);
+            extParam.advTxPower = fdp.ConsumeIntegral<int8_t>();
+            extParam.advSid = fdp.ConsumeIntegral<uint8_t>();
+            extParam.phyParam.primAdvPhy = fdp.ConsumeIntegral<uint8_t>() % (ADV_PHY_4M + FUZZ_TWO);
+            extParam.phyParam.secondAdvFrame = fdp.ConsumeIntegral<uint8_t>() %
+                (ADV_FRAME_TYPE_SHORT_HEADER + FUZZ_TWO);
+            extParam.phyParam.secondAdvPhy = fdp.ConsumeIntegral<uint8_t>() % (ADV_PHY_4M + FUZZ_TWO);
+            extParam.phyParam.secondAdvMcs = fdp.ConsumeIntegral<uint8_t>() % (ADV_MCS_MAX + FUZZ_TWO);
+            extParam.phyParam.secondAdvPilot = fdp.ConsumeIntegral<uint8_t>() % (ADV_PILOT_RATIO_NO + FUZZ_TWO);
+            extParam.phyParam.secondAdvMaxSkip = fdp.ConsumeIntegral<uint8_t>();
+            extParam.scanParam.scanReqNotifEnable = fdp.ConsumeIntegral<uint8_t>() % (SCAN_REQ_REPORT + FUZZ_TWO);
+            extParam.scanParam.scanReqRecvNumberMax = fdp.ConsumeIntegral<uint8_t>();
+            extParam.scanParam.scanReqRxDurMax = fdp.ConsumeIntegral<uint16_t>();
+            advParams.param.extParam = &extParam;
+        }
+        if (fdp.ConsumeBool() && advParams.param.advGtRole != ADV_GT_ROLE_T_NO_NEGO) {
+            connParam.intervalMin = DEVD_ADV_INTERVAL_MIN + fdp.ConsumeIntegral<uint16_t>();
+            connParam.intervalMax = connParam.intervalMin + fdp.ConsumeIntegral<uint16_t>();
+            connParam.maxLatency = fdp.ConsumeIntegral<uint16_t>() % FUZZ_EIGHT;
+            connParam.supervisionTimeout = fdp.ConsumeIntegral<uint16_t>();
+            connParam.minCeLength = fdp.ConsumeIntegral<uint16_t>();
+            connParam.maxCeLength = fdp.ConsumeIntegral<uint16_t>();
+            advParams.param.connParam = &connParam;
+        }
+
         (void)NLSTK_DevdStartAdv(&advParams);
 
         SDF_MemFree(advParams.data.advData);
@@ -617,6 +649,238 @@ namespace OHOS {
         SDF_MemFree(evt);
     }
 
+    /* ========== PR-10 深路径补充：scan_stm 失败恢复链 / scan_manager 多扫描器过滤器组合 ========== */
+    static uint32_t g_moduleBStartCnt = 0;
+    static uint32_t g_moduleBReportCnt = 0;
+    static bool g_moduleBLogged = false;
+
+    /* 模块 B 独立回调桩：驱动 ReportCbk 按模块分发向量（devd_scan_manager.c scanners[] 聚合） */
+    static void FuzzModuleBScanEvent(NLSTK_Errcode_E resultCode, bool isStartScan)
+    {
+        if (isStartScan) {
+            g_moduleBStartCnt++;
+        }
+        if (!g_moduleBLogged) {
+            NLSTK_LOG_INFO("[FUZZ] module B scan cbk first reach, code:%d isStart:%u", resultCode, isStartScan);
+            g_moduleBLogged = true;
+        }
+    }
+
+    static void FuzzModuleBScanReport(NLSTK_DevdAdvResult_S *result)
+    {
+        (void)result;
+        g_moduleBReportCnt++;
+    }
+
+    /* 单条 uuid 精确过滤器向量（base uuid + 末两字节），帧型对齐帧一结果 */
+    static SDF_Vector_S *FuzzMakeUuidFilterVector(const uint8_t *uuidLast2)
+    {
+        static const uint8_t baseUuid[SERVICE_UUID_LEN_128] = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA,
+            0xB7, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        NLSTK_DevdScanFilter_S filter = {};
+        filter.hasServiceUuid = true;
+        for (uint8_t i = 0; i < SERVICE_UUID_LEN_128 - FUZZ_TWO; i++) {
+            filter.serviceUuid[i] = baseUuid[i];
+        }
+        filter.serviceUuid[SERVICE_UUID_LEN_128 - FUZZ_TWO] = uuidLast2[FUZZ_ZERO];
+        filter.serviceUuid[SERVICE_UUID_LEN_128 - FUZZ_ONE] = uuidLast2[FUZZ_ONE];
+        filter.advFrameType = ADV_FRAME_TYPE_1; /* 报告帧一，帧型不等直接不过滤 */
+        return DevdConvertFiltersToVector(&filter, FUZZ_ONE);
+    }
+
+    /* 单条名称等长过滤器向量 */
+    static SDF_Vector_S *FuzzMakeNameFilterVector(const uint8_t *name, uint8_t nameLen)
+    {
+        NLSTK_DevdScanFilter_S filter = {};
+        filter.name.len = nameLen;
+        filter.name.data = (uint8_t *)name;
+        filter.advFrameType = ADV_FRAME_TYPE_1;
+        return DevdConvertFiltersToVector(&filter, FUZZ_ONE);
+    }
+
+    /* PR-10: 扫描状态机深迁移——STARTING/STOPPING 失败恢复链与双帧重启。
+     * DLI 桩不回包，全部回包直调补全；内部超时/参数变更消息经状态机公开 ProcessMessage 注入：
+     * SetParam 失败→DEVD_START_ERR→STOPPED；Enable 失败回包(STARTING 态乱序忽略)；
+     * STOPPING 态 Disable 失败→DEVD_STOP_ERR 回 STARTED；内部超时两级(STARTING/STOPPING)；
+     * 帧一+帧四参数变更→STOPPING→STOPPED→双帧重启(BuildScanParams phyCnt=2)。 */
+    static void FuzzScanDeepRecovery(DevdStartScanParam_S *startParam, NLSTK_DevdStateMachine_S *scanStm,
+        DevdScannerParam_S *scnParam)
+    {
+        /* 1. STARTING 态 SetParam 失败 → DEVD_START_ERR → STOPPED（失败回调到达模块） */
+        DevdStartScan(startParam);
+        DevdSleSetScanParamCbk(NULL, FUZZ_ONE, NULL);
+        DevdSleEnableScanCbk(NULL, FUZZ_ONE, NULL); /* STOPPED 态晚到失败回包，仅记录 */
+        /* 2. 再启动 → SetParam 成功自动 Enable(SET_SCAN_DISABLE2ENABLE) → Enable 失败回包
+         *    → 消息折算为 DISABLE_SCAN+失败 → STARTING 忽略，栈内 status 复位 IDLE */
+        DevdStartScan(startParam);
+        DevdSleSetScanParamCbk(NULL, DLI_SUCCESS, NULL);
+        DevdSleEnableScanCbk(NULL, FUZZ_ONE, NULL);
+        /* 3. STARTING 卡死注入内部超时 → DEVD_INTERNAL_TIMEOUT → STOPPED */
+        STM_MFUNC(scanStm, ProcessMessage, (Message) { .what = DEVD_INTERNAL_TIMEOUT });
+        /* 4. 失败链后再启动成功 → STARTED（失败恢复终点） */
+        DevdStartScan(startParam);
+        DevdSleSetScanParamCbk(NULL, DLI_SUCCESS, NULL);
+        DevdSleEnableScanCbk(NULL, DLI_SUCCESS, NULL);
+        /* 5. STOPPING 态 Disable 失败 → DEVD_STOP_ERR → 回 STARTED（停止失败状态自洽） */
+        DevdStopScan(&startParam->scannerId);
+        DevdSleEnableScanCbk(NULL, FUZZ_ONE, NULL);
+        /* 6. 注入 POTIENTIAL_UPDATE（参数已清→无扫描者→再入 STOPPING），注入内部超时 →
+         *    STOPPED + 链式 POTIENTIAL_UPDATE（无参数早退分支） */
+        STM_MFUNC(scanStm, ProcessMessage, (Message) { .what = DEVD_POTIENTIAL_UPDATE });
+        STM_MFUNC(scanStm, ProcessMessage, (Message) { .what = DEVD_INTERNAL_TIMEOUT });
+        /* 7. 帧一重启 → STARTED；同扫描器补帧四参数 → 目标≠当前 → STOPPING → STOP_OK→
+         *    STOPPED 链式重启 → STARTING(帧一+帧四双 PHY) → STARTED 双帧 */
+        DevdStartScan(startParam);
+        DevdSleSetScanParamCbk(NULL, DLI_SUCCESS, NULL);
+        DevdSleEnableScanCbk(NULL, DLI_SUCCESS, NULL);
+        DevdStartScanParam_S frame4Param = {};
+        frame4Param.scannerId = startParam->scannerId;
+        frame4Param.setting.scanMode = SCAN_MODE_LOW_LATENCY;
+        frame4Param.setting.reportDelayMillis = 100; /* >0 走 BATCH(ALL_MATCHES) 参数组 */
+        frame4Param.setting.frameType = DEVD_SCAN_FRAME_TYPE_4;
+        frame4Param.filters = DevdConvertFiltersToVector(NULL, 0);
+        if (frame4Param.filters != NULL) {
+            DevdStartScan(&frame4Param);
+            DevdSleEnableScanCbk(NULL, DLI_SUCCESS, NULL); /* 停止成功→链式重启进入 STARTING */
+            DevdSleSetScanParamCbk(NULL, DLI_SUCCESS, NULL);
+            DevdSleEnableScanCbk(NULL, DLI_SUCCESS, NULL); /* 双帧 START_OK → STARTED */
+            SDF_DestroyVector(frame4Param.filters);
+        }
+        FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, g_fuzzDisNameAdv, sizeof(g_fuzzDisNameAdv)); /* 双帧态上报 */
+        /* 8. STARTED 态直接移除扫描者 → 扫描器向量空 → "no scanner" 停止分支 → STOPPED；
+         *    随后 Stop 扫描者已不存在 → DevdRemoveScanParam 未命中早退（幂等/晚到 Stop） */
+        DevdRemoveScannerId(scnParam);
+        DevdSleEnableScanCbk(NULL, DLI_SUCCESS, NULL);
+        DevdStopScan(&startParam->scannerId);
+    }
+
+    /* PR-10: 多扫描器/多模块过滤器组合（不经状态机，直调 DevdAddScanParam 铺垫后经
+     * DevdSleScanReportCbk→真实 ReportCbk 分发）：同模块双扫描器交叠过滤(uuid/名称)、
+     * 跨模块回调分发、同 scanId 过滤器更新链、monitor 模式、非法 scanMode、
+     * duration 定时器建立、停止态上报告警、入口校验错误分支。 */
+    static void FuzzMultiScannerFilters(uint8_t moduleIdA)
+    {
+        static const uint8_t uuidHit[FUZZ_TWO] = {0x06, 0x09};   /* DIS uuid */
+        static const uint8_t uuidMiss[FUZZ_TWO] = {0xFF, 0xFE};  /* 更新后不存在的 uuid */
+        static const uint8_t nameAbcd[FUZZ_FOUR] = {0x41, 0x42, 0x43, 0x44};
+        /* 新格式 TLV(T,L,V)：0x05 完整16位服务UUID / 0x0B 完整本地名称 */
+        static const uint8_t advUuidName[] = {0x05, 0x02, 0x06, 0x09, 0x0B, 0x04, 0x41, 0x42, 0x43, 0x44};
+        static const uint8_t advUuidOnly[] = {0x05, 0x02, 0x06, 0x09};
+        static const uint8_t advNameOnly[] = {0x0B, 0x04, 0x41, 0x42, 0x43, 0x44};
+
+        DevdScannerParam_S scnA1 = {};
+        scnA1.moduleId = moduleIdA;
+        DevdAllocScannerId(&scnA1);
+        DevdScanModuleParam_S modBParam = {};
+        modBParam.scanCbk.onStartOrStopEvent = FuzzModuleBScanEvent;
+        modBParam.scanCbk.onScanCallback = FuzzModuleBScanReport;
+        DevdRegScanModule(&modBParam);
+        if (modBParam.moduleId >= DEVD_MAX_MODULE_ID) {
+            DevdRemoveScannerId(&scnA1);
+            return;
+        }
+        DevdScannerParam_S scnA2 = {};
+        scnA2.moduleId = moduleIdA;
+        DevdAllocScannerId(&scnA2);
+        DevdScannerParam_S scnB1 = {};
+        scnB1.moduleId = modBParam.moduleId;
+        DevdAllocScannerId(&scnB1);
+        if (scnA1.scannerId == DEVD_INVALID_SCANNER_ID) {
+            DevdDeregScanModule(&modBParam);
+            return;
+        }
+        if (scnA2.scannerId == DEVD_INVALID_SCANNER_ID || scnB1.scannerId == DEVD_INVALID_SCANNER_ID) {
+            DevdRemoveScannerId(&scnA1);
+            DevdDeregScanModule(&modBParam);
+            return;
+        }
+        NLSTK_DevdScanSetting_S setting = {};
+        setting.scanMode = SCAN_MODE_BALANCED;
+        setting.frameType = DEVD_SCAN_FRAME_TYPE_1;
+
+        SDF_Vector_S *uuidVec = FuzzMakeUuidFilterVector(uuidHit);
+        SDF_Vector_S *nameVec = FuzzMakeNameFilterVector(nameAbcd, sizeof(nameAbcd));
+        SDF_Vector_S *wildVec = DevdConvertFiltersToVector(NULL, 0);
+        if (uuidVec != NULL && nameVec != NULL && wildVec != NULL) {
+            (void)DevdAddScanParam(scnA1.scannerId, &setting, uuidVec);    /* A1: uuid 过滤 */
+            (void)DevdAddScanParam(scnA2.scannerId, &setting, nameVec); /* A2: 名称过滤 */
+            (void)DevdAddScanParam(scnB1.scannerId, &setting, wildVec); /* B1: 通配 */
+            FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advUuidName, sizeof(advUuidName));  /* A1+A2 / B1 三命中 */
+            FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advUuidOnly, sizeof(advUuidOnly));  /* A1 / B1 */
+            FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advNameOnly, sizeof(advNameOnly));  /* A2 / B1 */
+            /* 同 scanId 过滤器更新链：A1 uuid→不存在值，旧向量销毁替换 */
+            SDF_Vector_S *missVec = FuzzMakeUuidFilterVector(uuidMiss);
+            if (missVec != NULL) {
+                (void)DevdAddScanParam(scnA1.scannerId, &setting, missVec);
+                SDF_DestroyVector(missVec);
+            }
+            FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advUuidName, sizeof(advUuidName));  /* 仅 A2 / B1 */
+        }
+        SDF_DestroyVector(uuidVec);
+        SDF_DestroyVector(nameVec);
+        SDF_DestroyVector(wildVec);
+
+        /* monitor 模式：扫描参数复位早退，软件过滤器仍生效 */
+        NLSTK_DevdScanSetting_S monSetting = {};
+        monSetting.scanMode = SCAN_MODE_MONITOR;
+        monSetting.frameType = DEVD_SCAN_FRAME_TYPE_1;
+        SDF_Vector_S *monVec = DevdConvertFiltersToVector(NULL, 0);
+        if (monVec != NULL) {
+            (void)DevdAddScanParam(scnA2.scannerId, &monSetting, monVec);
+            SDF_DestroyVector(monVec);
+        }
+        FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advNameOnly, sizeof(advNameOnly));
+
+        /* 非法 scanMode：SetScanMode default 分支，窗口保持 0（不触发扫描启动） */
+        NLSTK_DevdScanSetting_S badSetting = {};
+        badSetting.scanMode = SCAN_MODE_INVALID;
+        badSetting.frameType = DEVD_SCAN_FRAME_TYPE_4;
+        SDF_Vector_S *badVec = DevdConvertFiltersToVector(NULL, 0);
+        if (badVec != NULL) {
+            (void)DevdAddScanParam(scnB1.scannerId, &badSetting, badVec);
+            SDF_DestroyVector(badVec);
+        }
+        /* duration>0：SetScanDuration+UpdateExpireTimer+StartDurationTimer 建链
+         * （24h 常量定时器，fuzz 运行期内不触发，无跨输入副作用） */
+        NLSTK_DevdScanSetting_S durSetting = {};
+        durSetting.scanMode = SCAN_MODE_FULL_SCAN;
+        durSetting.reportDelayMillis = 100; /* >0：BATCH(ALL_MATCHES) 参数组另一半分支 */
+        durSetting.frameType = DEVD_SCAN_FRAME_TYPE_1;
+        durSetting.duration = 86400; /* 24h：fuzz 运行期内不触发，无跨输入副作用 */
+        SDF_Vector_S *durVec = DevdConvertFiltersToVector(NULL, 0);
+        if (durVec != NULL) {
+            (void)DevdAddScanParam(scnB1.scannerId, &durSetting, durVec);
+            SDF_DestroyVector(durVec);
+        }
+        /* 入口校验错误分支：非法 scannerId / setting 空 / 非法帧型 */
+        SDF_Vector_S *errVec = DevdConvertFiltersToVector(NULL, 0);
+        if (errVec != NULL) {
+            (void)DevdAddScanParam(DEVD_INVALID_SCANNER_ID, &durSetting, errVec);
+            NLSTK_DevdScanSetting_S frameSetting = durSetting;
+            frameSetting.frameType = FUZZ_THREE; /* 非帧一非帧四 */
+            (void)DevdAddScanParam(scnA1.scannerId, &frameSetting, errVec);
+            SDF_DestroyVector(errVec);
+        }
+        (void)DevdAddScanParam(scnA1.scannerId, NULL, NULL);
+        (void)DevdRemoveScanParam(DEVD_INVALID_SCANNER_ID);
+        (void)DevdCreateScanner(DEVD_MAX_MODULE_ID); /* 非法 moduleId */
+        DevdDestroyScanner(DEVD_INVALID_SCANNER_ID);
+        /* 公开 API 空参/非法参入口 */
+        (void)NLSTK_DevdSleStartScan(NULL);
+        (void)NLSTK_DevdSleEnableScan(NULL);
+        (void)NLSTK_DevdRegScanEventCbk(NULL);
+        (void)NLSTK_DevdStartScan(scnA1.scannerId, NULL, NULL, 0);
+        (void)NLSTK_DevdStartScan(DEVD_INVALID_SCANNER_ID, &durSetting, NULL, 0);
+        /* 全量参数清除（含 duration 定时器停链）后停止态上报：isStopped 告警分支 */
+        DevdRemoveAllScanParam();
+        FuzzFeedScanReportEvt(g_fuzzAddrA, 0x00, advUuidOnly, sizeof(advUuidOnly));
+
+        DevdRemoveScannerId(&scnA1);
+        DevdRemoveScannerId(&scnA2);
+        DevdRemoveScannerId(&scnB1);
+        DevdDeregScanModule(&modBParam);
+    }
+
     /* 生命周期闭环 + 乱序对抗。整体作为单个任务投递保证同线程顺序驱动：
      * Reg→Alloc→StartScan(STARTING)→SetScanParamCbk(成功,自动Enable)→EnableScanCbk(START_OK→STARTED)
      * →ScanReportCbk→ReportCbk→过滤→onScanCallback→StopScan(STOPPING)→EnableScanCbk(STOP_OK→STOPPED)
@@ -691,6 +955,13 @@ namespace OHOS {
         badRes.eventParameter = badBuf;
         DevdSleScanReportCbk(NULL, DLI_SUCCESS, &badRes);
         DevdSleScanReportCbk(NULL, DLI_SUCCESS, NULL);
+
+        /* PR-10：状态机失败恢复链 + 多扫描器过滤器组合（复用已注册模块/扫描器，收尾仍走下方原注销链） */
+        NLSTK_DevdStateMachine_S *deepStm = DevdGetStateMachine();
+        if (deepStm != NULL) {
+            FuzzScanDeepRecovery(&startParam, deepStm, &scnParam);
+            FuzzMultiScannerFilters(modParam.moduleId);
+        }
 
         SDF_DestroyVector(startParam.filters);
         DevdRemoveScannerId(&scnParam);

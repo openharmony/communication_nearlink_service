@@ -23,6 +23,7 @@
 #include "cm_api.h"
 #include "devd_scan.h"
 #include "dli_cmd_struct.h"
+#include "dli_event_struct.h" /* PR-10: DLI_SetScanFilterEvt */
 #include "devd_cbk.h"
 #include "sdf_evc.h"
 #include "sdf_thread.h"
@@ -102,6 +103,21 @@ namespace OHOS {
         DevdSleEnableScanCbk(NULL, 0, cfm_par);
         DevdSleScanReportCbkCheck(cfm_par);
         DevdSleScanReportCbk(NULL, 0, cfm_par);
+
+        // PR-10: 扫描过滤器设置回包（合法 cmdRes 走 subCode/numAvailable 解析与 SCAN_FILTER_CBK 分发；
+        // 成功与失败 status 各一次。产品侧 cmdRes 无 NULL 守卫（devd_scan.c:256 直接解引用），已登记，
+        // 此处仅以合法指针驱动）
+        DLI_ExecuteCmdRetParam *filterRes = (DLI_ExecuteCmdRetParam *)SDF_MemZalloc(sizeof(DLI_ExecuteCmdRetParam));
+        if (filterRes != NULL) {
+            filterRes->size = sizeof(DLI_SetScanFilterEvt);
+            filterRes->eventParameter = SDF_MemZalloc(sizeof(DLI_SetScanFilterEvt));
+            if (filterRes->eventParameter != NULL) {
+                DevdSleSetScanFilterCbk(NULL, 0, filterRes);
+                DevdSleSetScanFilterCbk(NULL, FUZZ_ONE, filterRes);
+                SDF_MemFree(filterRes->eventParameter);
+            }
+            SDF_MemFree(filterRes);
+        }
 
         // 释放分配的内存
         SDF_MemFree(cfm_par->eventParameter);
