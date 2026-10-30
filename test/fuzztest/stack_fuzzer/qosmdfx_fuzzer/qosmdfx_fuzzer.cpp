@@ -54,6 +54,11 @@ extern "C" void QOSM_PrintQualityReportParam(CM_ICBQuality *param)
     (void)param;
 }
 
+extern "C" void QOSM_UpdateAllICGParamFailed(void)
+{
+    return;
+}
+
 static void QOSM_AudioDfxDspStatusCbMock(bool isOn)
 {
     (void)isOn;

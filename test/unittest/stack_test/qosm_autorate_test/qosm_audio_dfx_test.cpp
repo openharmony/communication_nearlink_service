@@ -101,6 +101,11 @@ bool QOSM_ExecuteBitrateChangeDecision(uint16_t connHandle, uint16_t qosIndex, u
     return false;
 }
 
+void QOSM_UpdateAllICGParamFailed(void)
+{
+    // stub：nl_stack_qosm_audio_dfx_test不编译qosm_autorate_notify.c，此处仅满足链接
+}
+
 void QOSM_PrintQualityReportParam(CM_ICBQuality *param)
 {
     (void)param;

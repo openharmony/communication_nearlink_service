@@ -40,6 +40,7 @@ bool QOSM_AutorateIsDspOn(void);
 void QOSM_AutorateSetDspOn(bool on);
 void QOSM_AutorateUpdateDspStatus(void);
 void QOSM_ResetUpdateParam(QOSM_ICGInfo *icgInfo);
+void QOSM_SendLabelChangeFailMsg(QOSM_ICGInfo *icgInfo, uint16_t direction, uint8_t labelId);
 bool QOSM_RollbackWhenDownLevel(QOSM_ICGInfo *icgInfo);
 void QOSM_ResetAllICBAckRateOverCnt(QOSM_ICGInfo *icgInfo);
 bool QOSM_HandleDownwardBitrateConstraint(QOSM_ICGInfo *icgInfo);
