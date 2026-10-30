@@ -17,6 +17,7 @@ group("stackfuzz") {
   deps += [
     "hadm_fuzzer:HadmFuzzTest",
     "dli_fuzzer:DliFuzzTest",
+    "DliHw_fuzzer:DliHwFuzzTest",
     "dlilayer_fuzzer:DliLayerFuzzTest",
     "sm_fuzzer:SmFuzzTest",
     "smcbknego_fuzzer:SmCbknegoFuzzTest",
