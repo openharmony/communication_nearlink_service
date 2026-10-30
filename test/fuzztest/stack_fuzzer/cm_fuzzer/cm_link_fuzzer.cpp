@@ -32,6 +32,9 @@
 #include "cm_fuzzer_util.h"
 #include "cm_signaling_struct.h"
 #include "cm_signaling_internal.h"
+#include "cm_access_mgr.h"
+#include "sdf_vector.h"
+#include "sle_connect_param.h"
 // DLI 相关头文件
 #include "dli_event_struct.h"
 #include "dli_errno.h"
@@ -1084,6 +1087,414 @@ namespace OHOS {
         (void)CM_SetRemoteFeature(&info);
     }
 
+    /* ==== PR-10 DLI 帧事件时序注入族 ====
+     * 手法说明：不走 service 铺底，直接以 DLI 层"芯片回执事件"的形态向 CM 回递连接建立/拆除/
+     * 运维时序（栈内状态注入，非真实空口）。分发依赖 cm_fuzzer_util 修复后的双表聚合
+     * （DLI_CBK_CONNECT/DISCONNECT 经 CM_COMMON 适配器表到达 SleAccessConnectCbk/DisconnectCbk，
+     * 命令回执经 CM 表到达 g_sleCmCbk 各处理函数）。 */
+
+    // HID 共存查询回调：产品默认无模块注册 SLE_ACCESS_CBK_HID_COEX_MODE 时
+    // SleAccessHidCoexModeInterval 恒 false（cm_event_core.c CM_SleHidCoexModeCbkProc 不可达），
+    // 此处注册可控回调覆盖协商成功/失败两分支
+    static uint16_t g_cmFuzzCoexInterval = 0;
+    static void CmFuzzerHidCoexModeCb(void *context, uint8_t result, const CM_ExecuteCmdPar_S *par)
+    {
+        (void)context;
+        (void)result;
+        CM_HidCoexModeRsp_S *coex = (CM_HidCoexModeRsp_S *)par->eventParameter;
+        if ((coex != NULL) && (coex->eventType == CM_SLE_CBK_EVENT_GET_HID_COEX_INTERVAL)) {
+            coex->coexInterval = g_cmFuzzCoexInterval;
+        }
+    }
+
+    // 独立地址生成：首字节取自递增计数避免与 FuzzCmApi 其他子函数的同模式地址撞车
+    // （GetByAddr 命中他方 CONNECTED 节点会让本序列走"重复连接"浅分支）
+    static void CmFuzzerGenSeqAddr(SLE_Addr_S *addr, uint8_t seq)
+    {
+        addr->type = 0;
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr->addr[i] = 0;
+        }
+        addr->addr[0] = (uint8_t)(0x51 + seq);
+        addr->addr[1] = 0xC3;
+        addr->addr[2] = 0x9A;
+    }
+
+    // 主动建链到 CONNECTED（请求 + SCAN 型完成事件，status=0）。失败返回 false
+    static bool CmFuzzerActiveConnect(FuzzedDataProvider &provider, SLE_Addr_S *addr, uint16_t *handle, uint8_t seq,
+        uint8_t role)
+    {
+        CmFuzzerGenSeqAddr(addr, seq);
+        *handle = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1); // 1..256，避开 0/INVALID
+        CM_ConnectParamReq_S param = {0};
+        param.version = provider.ConsumeIntegral<uint8_t>();
+        param.localIndex = provider.ConsumeIntegral<uint16_t>();
+        (void)memcpy_s(&param.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        uint32_t ret = CM_ConnectEstablishReq(&param);
+        if (ret != CM_SUCCESS) {
+            return false;
+        }
+        CmFuzzerSleConnectCompleteEvtEx(*handle, addr, 0, role, CM_CONN_COMPLETE_SCAN);
+        CM_LogicLink_S logicLink = { 0 };
+        ret = CM_GetLogicLinkByAddr(addr, &logicLink);
+        if ((ret != CM_SUCCESS) || (logicLink.lcid != *handle)) {
+            // 白名单/竞争场景下完成事件未按预期关联，跳过后续深链（浅分支仍已被本输入覆盖）
+            return false;
+        }
+        return true;
+    }
+
+    // 版本/特性/数据长度"连接收尾三连"事件：完整走通 G 节点连接建立流程
+    // （ReadRemoteVersion → G 分支转 ReadRemoteFeatures → SetDataLength → NotifyLogicLinkCbks）
+    static void CmFuzzerGNodeFinishSeq(FuzzedDataProvider &provider, uint16_t lcid, uint8_t vStatus)
+    {
+        DLI_ReadRemoteVersionEvt vEvt = { 0 };
+        vEvt.status = vStatus;
+        vEvt.connHandle = lcid;
+        vEvt.version = provider.ConsumeIntegral<uint8_t>();
+        vEvt.companyIdentifier = provider.ConsumeIntegral<uint16_t>();
+        vEvt.subversion = provider.ConsumeIntegral<uint16_t>();
+        CmFuzzerGenericCmEvt(DLI_CBK_READ_REMOTE_VERSION, &vEvt, sizeof(vEvt), vStatus, lcid);
+        if (vStatus != 0) {
+            return; // 版本失败走 exception 中断，后续事件无链路可挂
+        }
+        DLI_ReadRemoteFeatsEvt fEvt = { 0 };
+        fEvt.status = provider.ConsumeIntegral<uint8_t>() % 2; // 成功/失败均覆盖（失败走 exception 中断）
+        fEvt.connHandle = lcid;
+        for (uint32_t i = 0; i < (sizeof(fEvt.feats) / sizeof(fEvt.feats[0])); i++) {
+            fEvt.feats[i] = provider.ConsumeIntegral<uint8_t>();
+        }
+        CmFuzzerGenericCmEvt(DLI_CBK_READ_REMOTE_FEATURE, &fEvt, sizeof(fEvt), fEvt.status, lcid);
+        if (fEvt.status != 0) {
+            return;
+        }
+        DLI_DataLenChangeEvt dEvt = { 0 };
+        dEvt.connHandle = lcid;
+        dEvt.maxTxOctets = provider.ConsumeIntegral<uint16_t>();
+        dEvt.maxRxOctets = provider.ConsumeIntegral<uint16_t>();
+        CmFuzzerGenericCmEvt(DLI_CBK_SET_DATA_LEN, &dEvt, sizeof(dEvt), 0, lcid);
+    }
+
+    // 链路在连期间的运维事件族（均要求 lcid 有真实链路，覆盖 sle_access_dli 各 cbk 深分支）
+    static void CmFuzzerOpsEventSeq(FuzzedDataProvider &provider, const SLE_Addr_S *addr, uint16_t lcid)
+    {
+        // 对端发起连接参数更新请求（link 存在 → 组 reply → DLI_RemoteConnectionParamReqReply mock 成功）
+        DLI_RemoteConnParamReqEvt rEvt = { 0 };
+        rEvt.connHandle = lcid;
+        rEvt.connIntervalMin = provider.ConsumeIntegral<uint16_t>();
+        rEvt.connIntervalMax = provider.ConsumeIntegral<uint16_t>();
+        rEvt.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        rEvt.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        CmFuzzerGenericCmEvt(DLI_CBK_REMOTE_CONNECT_PARAM_REQ, &rEvt, sizeof(rEvt), 0, lcid);
+
+        // 本端参数更新请求 + 完成事件（CM_ConnectUpdateParamReqInner 需要 link 存在）
+        CM_ConnectUpdateParamReq_S updParam = {0};
+        (void)memcpy_s(&updParam.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        updParam.intervalMin = provider.ConsumeIntegral<uint16_t>();
+        updParam.intervalMax = provider.ConsumeIntegral<uint16_t>();
+        updParam.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        updParam.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        (void)CM_ConnectUpdateParamReq(&updParam);
+        DLI_ConnectionUpdateCmpEvt uEvt = { 0 };
+        uEvt.status = 0;
+        uEvt.connHandle = lcid;
+        uEvt.connInterval = updParam.intervalMax;
+        uEvt.maxLatency = updParam.maxLatency;
+        uEvt.supervisionTimeout = updParam.supervisionTimeout;
+        CmFuzzerGenericCmEvt(DLI_CBK_CONNECT_UPDATE, &uEvt, sizeof(uEvt), 0, lcid);
+
+        // ACB subrate：先置对端私有特性 SUBRATE 位（CM_SetRealACBSubrate 的支持校验），
+        // 再 SetRealACBSubrate（subrate 变化 → setSubrate → isSubrateUpdating）+ 两个完成事件
+        NLSTK_RemoteFeatureInfo_S feature = {0};
+        feature.lcid = lcid;
+        feature.features[CM_PRIVATE_FEATURES_BIT_SUBRATE / 8] =
+            (uint8_t)(1u << (CM_PRIVATE_FEATURES_BIT_SUBRATE % 8));
+        (void)CM_SetRemoteFeature(&feature);
+        CM_SetACBSubrateParam subParam = {};
+        (void)memcpy_s(&subParam.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        subParam.subrate = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1); // 非零且 != 当前(0)
+        subParam.subrateMax = provider.ConsumeIntegral<uint16_t>();
+        subParam.maxLatency = provider.ConsumeIntegral<uint16_t>();
+        subParam.continuationNum = provider.ConsumeIntegral<uint16_t>();
+        subParam.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+        (void)CM_SetRealACBSubrate(&subParam, FuzzSetACBSubrateImpl);
+        DLI_AcbSetSubrateEvt sEvt = { 0 };
+        sEvt.status = 0;
+        sEvt.lcid = lcid;
+        sEvt.subrateFactor = subParam.subrate;
+        sEvt.peripheralLatency = subParam.maxLatency;
+        sEvt.continuationNum = subParam.continuationNum;
+        sEvt.supervisionTimeout = subParam.supervisionTimeout;
+        CmFuzzerGenericCmEvt(DLI_CBK_ACB_SET_SUBRATE, &sEvt, sizeof(sEvt), 0, lcid);
+        DLI_AcbReqSubrateEvt qEvt = { 0 };
+        qEvt.status = 0;
+        qEvt.lcid = lcid;
+        qEvt.subrateMin = subParam.subrate;
+        qEvt.subrateMax = subParam.subrateMax;
+        qEvt.peripheralLatency = subParam.maxLatency;
+        qEvt.continuationNum = subParam.continuationNum;
+        qEvt.supervisionTimeout = subParam.supervisionTimeout;
+        CmFuzzerGenericCmEvt(DLI_CBK_ACB_REQ_SUBRATE, &qEvt, sizeof(qEvt), 0, lcid);
+        // Inner 通道（ICB 注入的 subrate 直调口）
+        CM_SetACBSubrateInnerParam innerParam = {0};
+        innerParam.lcid = lcid;
+        innerParam.subrate = (uint16_t)(subParam.subrate + 1);
+        (void)CM_InnerSetACBSubrate(&innerParam);
+
+        // 高功率：请求 + 完成事件
+        CM_EnableConnHighPowerReq_S powerParam = {0};
+        powerParam.lcid = lcid;
+        powerParam.enable = provider.ConsumeBool();
+        powerParam.powerLevel = provider.ConsumeIntegral<uint8_t>();
+        (void)CM_EnableRealConnHighPower(&powerParam, FuzzEnableConnHighPowerImpl);
+        DLI_ConnEnableHighPowerCmpEvt pEvt = { 0 };
+        pEvt.connHandle = lcid;
+        CmFuzzerGenericCmEvt(DLI_CBK_ENABLE_CONN_HIGH_POWER, &pEvt, sizeof(pEvt), 0, lcid);
+
+        // RxDataFilter / DataLenChange / PeerDevType / RSSI 完成事件
+        DLI_SetRxDataFilterEvt fltEvt = { 0 };
+        fltEvt.connHandle = lcid;
+        CmFuzzerGenericCmEvt(DLI_CBK_SET_RX_DATA_FILTER, &fltEvt, sizeof(fltEvt), 0, lcid);
+        DLI_DataLenChangeEvt lenEvt = { 0 };
+        lenEvt.connHandle = lcid;
+        lenEvt.maxTxOctets = provider.ConsumeIntegral<uint16_t>();
+        lenEvt.maxRxOctets = provider.ConsumeIntegral<uint16_t>();
+        CmFuzzerGenericCmEvt(DLI_CBK_DATA_LEN_CHANGE, &lenEvt, sizeof(lenEvt), 0, lcid);
+        CmFuzzerPeerDevTypeEvt(addr, 0);
+        CM_ReadRemoteRssiReq_S rssiParam = {0};
+        rssiParam.lcid = lcid;
+        (void)CM_GetRssi(&rssiParam);
+        DLI_ReadRemoteRssiEvt rssiEvt = { 0 };
+        rssiEvt.connHandle = lcid;
+        rssiEvt.rssi = (int8_t)provider.ConsumeIntegral<uint8_t>();
+        CmFuzzerGenericCmEvt(DLI_CBK_READ_REMOTE_RSSI, &rssiEvt, sizeof(rssiEvt), 0, lcid);
+    }
+
+    // 传输通道查询族（cm_trans_channel_mgr 查询/遍历分支）：固定通道激活后 3 节点命中 +
+    // 动态通道空表未命中；断链后再查走已释放分支
+    static void CmFuzzerTransChannelQuerySeq(uint16_t lcid, bool afterRelease)
+    {
+        SDF_Traits traits = { .dtor = NULL };
+        SDF_Vector_S *vec = SDF_CreateVector(traits);
+        if (vec == NULL) {
+            return;
+        }
+        (void)CM_IsExistFixedTransChannelByLcid(lcid);
+        (void)CM_FindFixedTransChannelByLcid(lcid, vec);
+        SDF_DestroyVector(vec);
+        SDF_Vector_S *vec2 = SDF_CreateVector(traits);
+        if (vec2 == NULL) {
+            return;
+        }
+        (void)CM_IsExistDynamicTransChannelByLcid(lcid);
+        (void)CM_FindDynTransChannelByLcid(lcid, vec2);
+        SDF_DestroyVector(vec2);
+        // 固定三通道按 localTcid / remoteTcid 查找（命中与未命中分支）
+        (void)CM_FindTransChannelByLocalTcid(lcid, CM_TCID_SLE_CMTC);
+        (void)CM_FindTransChannelByLocalTcid(lcid, CM_TCID_SLE_CUTC);
+        (void)CM_FindTransChannelByRemoteTcid(lcid, CM_TCID_SLE_SMTC);
+        (void)CM_FindTransChannelByRemoteTcid(lcid, CM_TCID_UC_BEGIN); // 动态区间 → 查动态表(空)
+        if (afterRelease) {
+            // 释放后的 lcid：固定/动态两表均无该 lcid 节点（空遍历分支）
+            (void)CM_FindTransChannelByLocalTcid(lcid, CM_TCID_SLE_CMTC);
+        }
+    }
+
+    // 断链闭环：CM_ConnectReleaseReq + 断开完成事件 + 断链后晚到事件（无链路的防御分支）
+    static void CmFuzzerDisconnectSeq(FuzzedDataProvider &provider, const SLE_Addr_S *addr, uint16_t lcid,
+        uint8_t reason)
+    {
+        CM_DisconnectParamReq_S disParam = {0};
+        (void)memcpy_s(&disParam.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        disParam.discReason = reason;
+        (void)CM_ConnectReleaseReq(&disParam);
+        CmFuzzerSleDisconnectEvtEx(lcid, reason, provider.ConsumeBool() ? DLI_CMD_ERROR_EVT : 0);
+        // 断链后同 lcid 再补一帧断开（link 已删 → "link is not exists" 分支）
+        CmFuzzerSleDisconnectEvtEx(lcid, reason, 0);
+    }
+
+    // 主生命周期：G 节点成功流 + T 节点流 + 被动(ADV)流 + 失败流 + 命令错误流，
+    // 全部在单输入内有序完成（无跨输入状态依赖）
+    void CM_DliConnLifecycleFuzz(uint8_t *data, size_t size)
+    {
+        if (g_cmLinkEnvDegraded) {
+            return; /* 环境已降级：本轮记 BLOCKED 跳过 */
+        }
+        FuzzedDataProvider provider(data, size);
+        // HID 共存回调注册（CM_DeInit 会清空 g_cmAccessCbk，需每 input 重新注册）
+        g_cmFuzzCoexInterval = provider.ConsumeBool() ? 0x20 : 0;
+        (void)CM_AccessRegCbk(SLE_ACCESS_CBK_HID_COEX_MODE, CmFuzzerHidCoexModeCb);
+        // 复位连接参数为直连模式（FuzzCmApi 阶段的 CM_ConnectSetParamReqFuzz 可能已把
+        // initiatorFilterPolicy 置为白名单，导致本序列地址被清 0 而失去确定性）
+        CM_ConnectSetParamReq_S resetParam = {0};
+        resetParam.enableFilterPolicy = SLE_INITIATOR_FILTER_POLICY;
+        (void)CM_ConnectSetParamReq(&resetParam);
+
+        // 流 A：G 节点主动建链 → 连接收尾三连 → 运维事件族 → 通道查询 → 断链
+        SLE_Addr_S addrA = {0};
+        uint16_t handleA = 0;
+        if (CmFuzzerActiveConnect(provider, &addrA, &handleA, 1, CM_G_NODE)) {
+            CmFuzzerGNodeFinishSeq(provider, handleA, 0);
+            CmFuzzerOpsEventSeq(provider, &addrA, handleA);
+            CmFuzzerTransChannelQuerySeq(handleA, false);
+            CmFuzzerDisconnectSeq(provider, &addrA, handleA, CM_DISC_REASON_REMOTE_USER_TERMINATED);
+            CmFuzzerTransChannelQuerySeq(handleA, true);
+        }
+
+        // 流 B：T 节点建链（版本事件走 T 分支直接上报）→ 断链
+        SLE_Addr_S addrB = {0};
+        uint16_t handleB = 0;
+        if (CmFuzzerActiveConnect(provider, &addrB, &handleB, 2, CM_T_NODE)) {
+            DLI_ReadRemoteVersionEvt vEvt = { 0 };
+            vEvt.status = 0;
+            vEvt.connHandle = handleB;
+            vEvt.version = provider.ConsumeIntegral<uint8_t>();
+            vEvt.companyIdentifier = provider.ConsumeIntegral<uint16_t>();
+            vEvt.subversion = provider.ConsumeIntegral<uint16_t>();
+            CmFuzzerGenericCmEvt(DLI_CBK_READ_REMOTE_VERSION, &vEvt, sizeof(vEvt), 0, handleB);
+            CmFuzzerDisconnectSeq(provider, &addrB, handleB, CM_DISC_REASON_CANCEL_PAIR);
+        }
+
+        // 流 C：被动建链（ADV 完成事件 → SleLogicLinkAdd 新节点；若地址已被 A/B 占用则走
+        // "addr has in logic link list" 防御分支，同样有覆盖价值）→ 断开
+        SLE_Addr_S addrC = {0};
+        CmFuzzerGenSeqAddr(&addrC, 3);
+        uint16_t handleC = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1);
+        CmFuzzerSleConnectCompleteEvtEx(handleC, &addrC, 0, CM_T_NODE, CM_CONN_COMPLETE_ADV);
+        CmFuzzerSleDisconnectEvtEx(handleC, CM_DISC_REASON_REMOTE_USER_TERMINATED, 0);
+
+        // 流 D：建链成功后完成事件失败（status!=0 → DISCONNECTED 通知 + 链路移除）；
+        // 再走一条成功链路的版本/特性失败事件（exception 中断路径）
+        SLE_Addr_S addrD = {0};
+        CmFuzzerGenSeqAddr(&addrD, 5);
+        CM_ConnectParamReq_S failParam = {0};
+        (void)memcpy_s(&failParam.addr, sizeof(SLE_Addr_S), &addrD, sizeof(SLE_Addr_S));
+        if (CM_ConnectEstablishReq(&failParam) == CM_SUCCESS) {
+            CmFuzzerSleConnectCompleteEvtEx(CM_INVALID_LCID, &addrD,
+                (uint8_t)(provider.ConsumeIntegral<uint8_t>() | 1), CM_G_NODE, CM_CONN_COMPLETE_SCAN);
+        }
+        SLE_Addr_S addrF = {0};
+        uint16_t handleF = 0;
+        if (CmFuzzerActiveConnect(provider, &addrF, &handleF, 7, CM_G_NODE)) {
+            CmFuzzerGNodeFinishSeq(provider, handleF, (uint8_t)(provider.ConsumeIntegral<uint8_t>() | 1));
+        }
+        // 命令级错误注入：DISALLOWED（忽略）/其他错误码（直接返回）
+        CmFuzzerSleConnectErrEvt(DLI_COMMAND_DISALLOWED);
+        CmFuzzerSleConnectErrEvt((uint8_t)(provider.ConsumeIntegral<uint8_t>() | 0x20));
+        // TIMEOUT：无 CONNECTING 节点（防御分支）与有节点（记录超时原因）两种时序
+        CmFuzzerSleConnectErrEvt(DLI_COMMAND_TIMEOUT);
+        SLE_Addr_S addrE = {0};
+        CmFuzzerGenSeqAddr(&addrE, 6);
+        CM_ConnectParamReq_S pendParam = {0};
+        (void)memcpy_s(&pendParam.addr, sizeof(SLE_Addr_S), &addrE, sizeof(SLE_Addr_S));
+        if (CM_ConnectEstablishReq(&pendParam) == CM_SUCCESS) {
+            CmFuzzerSleConnectErrEvt(DLI_COMMAND_TIMEOUT); // 有 CONNECTING 节点 → SleAccessCancelConnectingLink
+            // 取消连接请求 + 取消完成事件（CM_SleCancelConnectionProc 两分支）
+            (void)CM_ConnectCancelReq();
+            uint8_t cancelResult = 0;
+            CmFuzzerSleCompleteEvt(DLI_CREATE_CONNECTION_CANCEL, DLI_CBK_CONNECT_CANCEL, cancelResult);
+        }
+    }
+
+    /* PR-10：cm_api.c 参数校验/状态前置失败分支族。现有用例多以随机参数偶发命中，
+     * 此处按分支定点构造：非法 discReason/无链路/状态不符/mcs 越界/deviceType 非法/
+     * 重复建链（已存在通知）/并发中已有连接（请求取消通知）/subrate 特性不支持与同值捷径 */
+    void CM_ApiErrorBranchFuzz(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
+        uint8_t badReason = (uint8_t)(provider.ConsumeIntegral<uint8_t>() | 0x80); // 必不在 3 个合法值内
+
+        // CM_ConnectReleaseReq：discReason 非法 / addr 无链路
+        CM_DisconnectParamReq_S disParam = {0};
+        disParam.discReason = badReason;
+        (void)CM_ConnectReleaseReq(&disParam);
+        disParam.discReason = CM_DISC_REASON_REMOTE_USER_TERMINATED;
+        (void)CM_ConnectReleaseReq(&disParam); // addr 全 0 无链路 → NotifyReleasingReqCanceled
+        // 状态前置失败：CONNECTING 态发起释放（非 CONNECTED → COMMAND_DISALLOWED 分支）
+        SLE_Addr_S pendAddr = {0};
+        CmFuzzerGenSeqAddr(&pendAddr, 8);
+        CM_ConnectParamReq_S pendReq = {0};
+        (void)memcpy_s(&pendReq.addr, sizeof(SLE_Addr_S), &pendAddr, sizeof(SLE_Addr_S));
+        if (CM_ConnectEstablishReq(&pendReq) == CM_SUCCESS) {
+            (void)memcpy_s(&disParam.addr, sizeof(SLE_Addr_S), &pendAddr, sizeof(SLE_Addr_S));
+            (void)CM_ConnectReleaseReq(&disParam);
+            (void)CM_ConnectCancelReq();
+        }
+
+        // 重复建链：同地址已存在（NotifyConnectionExisted）与其他地址连接中（请求取消）
+        SLE_Addr_S connAddr = {0};
+        uint16_t connHandle = 0;
+        if (CmFuzzerActiveConnect(provider, &connAddr, &connHandle, 9, CM_T_NODE)) {
+            CM_ConnectParamReq_S dupReq = {0};
+            (void)memcpy_s(&dupReq.addr, sizeof(SLE_Addr_S), &connAddr, sizeof(SLE_Addr_S));
+            (void)CM_ConnectEstablishReq(&dupReq); // GetByAddr 命中 CONNECTED → 已存在通知
+            SLE_Addr_S otherAddr = {0};
+            CmFuzzerGenSeqAddr(&otherAddr, 10);
+            CM_ConnectParamReq_S otherReq = {0};
+            (void)memcpy_s(&otherReq.addr, sizeof(SLE_Addr_S), &otherAddr, sizeof(SLE_Addr_S));
+            // 先断开 connAddr 使下一请求落入"已有 CONNECTING(其他)"或直接成功，两分支均有价值
+            CmFuzzerDisconnectSeq(provider, &connAddr, connHandle, CM_DISC_REASON_REMOTE_USER_TERMINATED);
+            (void)CM_ConnectEstablishReq(&otherReq);
+            (void)CM_ConnectCancelReq();
+        }
+
+        // CM_SetMcs：mcs 越界 / lcid 无链路
+        CM_SetMcsReq_S mcsParam = {0};
+        mcsParam.lcid = lcid;
+        mcsParam.mcs = CM_MCS_MAX; // 越界（合法为 [CM_MCS_00, CM_MCS_MAX)）
+        (void)CM_SetMcs(&mcsParam);
+        mcsParam.mcs = CM_MCS_00;
+        (void)CM_SetMcs(&mcsParam); // lcid 无链路 → CM_INVALID_LCID
+        // CM_SetLogicLinkDeviceType：deviceType 非法 / 无链路
+        (void)CM_SetLogicLinkDeviceType(lcid, (uint8_t)(CM_DEVTYPE_OLD + 1));
+        (void)CM_SetLogicLinkDeviceType(lcid, CM_DEVTYPE_OLD);
+        // CM_GetLogicLinkByLcid / CM_GetLogicLinkConnectedSize / CM_GetLcidByConnHandle 无链路
+        CM_LogicLink_S logicLink = { 0 };
+        (void)CM_GetLogicLinkByLcid(lcid, &logicLink);
+        (void)CM_GetLogicLinkConnectedSize();
+        (void)CM_GetLcidByConnHandle(lcid);
+        // CM_RegTransChannelListener 参数非法（NULL cbk）
+        (void)CM_RegTransChannelListener(nullptr);
+        // CM_SetRemoteFeature 无链路
+        NLSTK_RemoteFeatureInfo_S info = {0};
+        info.lcid = lcid;
+        (void)CM_SetRemoteFeature(&info);
+        // NULL 参数入口（公开 API 的 CM_INVALID_PARAM 分支）
+        (void)CM_ConnectEstablishReq(nullptr);
+        (void)CM_ConnectReleaseReq(nullptr);
+        (void)CM_SetPhy(nullptr);
+        (void)CM_SetHostChannelClassification(nullptr);
+        (void)CM_EnableRealConnHighPower(nullptr, FuzzEnableConnHighPowerImpl);
+        (void)CM_SetRealACBSubrate(nullptr, FuzzSetACBSubrateImpl);
+        (void)CM_GetRssi(nullptr);
+        (void)CM_SetRemoteFeature(nullptr);
+
+        // subrate 捷径/不支持分支：无特性置位（NotifySubrateEvent 不支持分支）+ 同值捷径
+        SLE_Addr_S subAddr = {0};
+        uint16_t subHandle = 0;
+        if (CmFuzzerActiveConnect(provider, &subAddr, &subHandle, 11, CM_T_NODE)) {
+            CM_SetACBSubrateParam subParam = {};
+            (void)memcpy_s(&subParam.addr, sizeof(SLE_Addr_S), &subAddr, sizeof(SLE_Addr_S));
+            subParam.subrate = 1;
+            subParam.onlySubrate = provider.ConsumeBool(); // NotifySubrateEvent 两分支
+            (void)CM_SetRealACBSubrate(&subParam, FuzzSetACBSubrateImpl); // 特性未置位 → 拒绝通知
+            // 置特性后同值请求（subrate 已在首次成功时更新 → isSubrateUpdating/同值捷径分支）
+            NLSTK_RemoteFeatureInfo_S feat = {0};
+            feat.lcid = subHandle;
+            feat.features[CM_PRIVATE_FEATURES_BIT_SUBRATE / 8] =
+                (uint8_t)(1u << (CM_PRIVATE_FEATURES_BIT_SUBRATE % 8));
+            (void)CM_SetRemoteFeature(&feat);
+            (void)CM_SetRealACBSubrate(&subParam, FuzzSetACBSubrateImpl); // link->subrate 仍 0 → 走下发
+            (void)CM_SetRealACBSubrate(&subParam, FuzzSetACBSubrateImpl); // isSubrateUpdating=true → 捷径
+            CM_SetACBSubrateInnerParam innerParam = {0};
+            innerParam.lcid = subHandle;
+            innerParam.subrate = 1; // 与 link->subrate 相同 → no change 分支
+            (void)CM_InnerSetACBSubrate(&innerParam);
+            CmFuzzerDisconnectSeq(provider, &subAddr, subHandle, CM_DISC_REASON_REMOTE_USER_TERMINATED);
+        }
+    }
+
     void FuzzCmLinkSupplementApi(uint8_t *data, size_t size)
     {
         if (data == nullptr || size < 1) {
@@ -1096,6 +1507,9 @@ namespace OHOS {
         CM_RegDynTransChannelCbksFuzz(data, size);
         CM_DynTransChannelEstablishReqFuzz(data, size);
         CM_SetRemoteFeatureFuzz(data, size);
+        // PR-10 尾向追加：DLI 帧事件时序生命周期 + API 错误分支（不改头部已有消费顺序）
+        CM_DliConnLifecycleFuzz(data, size);
+        CM_ApiErrorBranchFuzz(data, size);
     }
 
     void FuzzCmApi(uint8_t *data, size_t size)

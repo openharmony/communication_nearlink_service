@@ -131,6 +131,92 @@ namespace OHOS {
             return;
         }
     }
+
+    /* ==== PR-10 并发连接交错事件序列（cm_concurrent_conn 深路径）====
+     * 现有 Direct/BgConn 入口用全随机 moduleId/frameType，几乎全部被参数校验拦截在
+     * CM_DirectConnectAdd/CM_BackgroundConnectAdd 浅层。此处在单输入内以合法参数构造
+     * 有序多设备交错时序：A 直连 → B 直连（先取消旧建链再重启白名单）→ 背景连接 C →
+     * A 连接完成事件（CONNECTING 全0节点地址覆写 → CM_ConcurrentConnDoingComplete 清 map
+     * 并重新发起）→ A 断开 → 重复直连（restart timer 分支）→ B 移除 → 背景移除/清空。
+     * 不做跨输入真并发/状态依赖（PR#345 红队 P1 教训）。 */
+    static void CmFuzzerCCGenAddr(SLE_Addr_S *addr, uint8_t seq)
+    {
+        addr->type = 0;
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr->addr[i] = 0;
+        }
+        addr->addr[0] = (uint8_t)(0x71 + seq); // 非全零（过 CM_IsEmptyAddr 校验）且各设备互异
+        addr->addr[1] = 0x3C;
+        addr->addr[2] = 0xB7;
+    }
+
+    void FuzzCmCCInterleavedSeqApi(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        static const uint8_t legalModules[] = { CM_MODULE_ADPT, CM_MODULE_SSAP, CM_MODULE_BNL };
+        uint8_t modA = legalModules[provider.ConsumeIntegral<uint8_t>() %
+            (sizeof(legalModules) / sizeof(legalModules[0]))];
+        // frameType 仅 TYPE_1(0)/TYPE_4(3) 合法（CM_DirectConnectAdd 校验）
+        uint8_t frameA = (provider.ConsumeBool() ? CM_CONN_PARAM_FRAME_TYPE_1 : CM_CONN_PARAM_FRAME_TYPE_4);
+        uint8_t frameB = (provider.ConsumeBool() ? CM_CONN_PARAM_FRAME_TYPE_4 : CM_CONN_PARAM_FRAME_TYPE_1);
+
+        SLE_Addr_S addrA = {0};
+        SLE_Addr_S addrB = {0};
+        SLE_Addr_S addrC = {0};
+        CmFuzzerCCGenAddr(&addrA, 1);
+        CmFuzzerCCGenAddr(&addrB, 2);
+        CmFuzzerCCGenAddr(&addrC, 3);
+        uint16_t handleA = (uint16_t)(provider.ConsumeIntegral<uint8_t>() + 1);
+
+        // A 直连：DoingConnDirectInsert → timer(mock) → StartAllowListConnReq → 全0地址白名单建链
+        CM_DirectConnAddrParam_S paramA = {};
+        (void)memcpy_s(&paramA.addr, sizeof(SLE_Addr_S), &addrA, sizeof(SLE_Addr_S));
+        paramA.frameType = frameA;
+        (void)CM_DirectConnectAdd(modA, &paramA);
+        // B 直连交错：map 非空 → 先 CurrentConnCancelReq（删 CONNECTING 节点）再重启白名单建链
+        CM_DirectConnAddrParam_S paramB = {};
+        (void)memcpy_s(&paramB.addr, sizeof(SLE_Addr_S), &addrB, sizeof(SLE_Addr_S));
+        paramB.frameType = frameB;
+        (void)CM_DirectConnectAdd(modA, &paramB);
+        // 背景连接 C（moduleId 仅 ADPT 合法；count 1..16）
+        CM_BgConnAddrParam_S bgArr[1] = {};
+        (void)memcpy_s(&bgArr[0].addr, sizeof(SLE_Addr_S), &addrC, sizeof(SLE_Addr_S));
+        bgArr[0].isBypass = provider.ConsumeBool();
+        (void)CM_BackgroundConnectAdd(CM_MODULE_ADPT, 1, bgArr);
+        // 同地址重复背景添加（CM_DoingConnBgFind 已存在 → isBypass 刷新分支）
+        (void)CM_BackgroundConnectAdd(CM_MODULE_ADPT, 1, bgArr);
+
+        // A 连接完成（白名单 CONNECTING 节点地址覆写 → CONNECTED → 固定通道激活 →
+        // CM_ConcurrentConnDoingComplete 清 A 后 map 仍有 B/C → 重新发起白名单建链）
+        CmFuzzerSleConnectCompleteEvtEx(handleA, &addrA, 0, CM_T_NODE, CM_CONN_COMPLETE_SCAN);
+        // A 断开事件（CM_SleDisconnectProc → CM_ReleaseFixedTransChannel + 监听通报）
+        CmFuzzerSleDisconnectEvtEx(handleA, CM_DISC_REASON_REMOTE_USER_TERMINATED, 0);
+
+        // 同 moduleId 重复直连 A（已存在 doing direct 节点 → CM_DirectDoingConnRestartTimer 分支）
+        (void)CM_DirectConnectAdd(modA, &paramA);
+        // B 移除（CM_DoingConnDirectRemove → 各模块取消通知 + map 清理 + StartRmvAllowListConnReq）
+        (void)CM_DirectConnectRemove(modA, &addrB, CM_DISC_REASON_CANCEL_PAIR);
+        // A 移除（已连接态走 CM_ConnectReleaseReq 分支；未连接走 DoingConnDirectRemove）
+        (void)CM_DirectConnectRemove(modA, &addrA, CM_DISC_REASON_REMOTE_USER_TERMINATED);
+        // 背景移除 + 清空（CM_DoingConnBgRemove/CM_DoingConnBgClear + 空表遍历分支）
+        (void)CM_BackgroundConnectRemove(CM_MODULE_ADPT, &addrC);
+        (void)CM_BackgroundConnectClear(CM_MODULE_ADPT);
+
+        // 取消连接时序：新白名单建链 → CM_ConnectCancelReq（删 CONNECTING）→ 取消完成事件
+        //（无 CONNECTING 节点 → result 覆写 DLI_UNKNOWN_CONNECTION_IDENTIFIER 分支）
+        CM_ConnectParamReq_S cancelParam = {0};
+        (void)memcpy_s(&cancelParam.addr, sizeof(SLE_Addr_S), &addrC, sizeof(SLE_Addr_S));
+        if (CM_ConnectEstablishReq(&cancelParam) == CM_SUCCESS) {
+            (void)CM_ConnectCancelReq();
+            uint8_t cancelResult = 0;
+            CmFuzzerGenericCmEvt(DLI_CBK_CONNECT_CANCEL, &cancelResult, sizeof(cancelResult), 0, 0);
+            // 再建一条 CONNECTING 后注入取消完成事件（正常 result 分支）
+            if (CM_ConnectEstablishReq(&cancelParam) == CM_SUCCESS) {
+                CmFuzzerGenericCmEvt(DLI_CBK_CONNECT_CANCEL, &cancelResult, sizeof(cancelResult), 0, 0);
+                (void)CM_ConnectCancelReq();
+            }
+        }
+    }
 }
 
 static void CM_FuzzerChannelState(CM_TransChannelStateList_S *state)
@@ -243,6 +329,8 @@ void FuzzCmConcurrentConnApi(uint8_t *data, size_t size)
     OHOS::FuzzCmCCBgConnAddApi(static_cast<uint8_t *>(data), size);
     OHOS::FuzzCmCCBgConnRmvApi(static_cast<uint8_t *>(data), size);
     OHOS::FuzzCmCCBgConnClearApi(static_cast<uint8_t *>(data), size);
+    // PR-10 尾向追加：合法参数多设备交错时序（不改头部已有消费顺序）
+    OHOS::FuzzCmCCInterleavedSeqApi(static_cast<uint8_t *>(data), size);
 }
 
 void FuzzCmConcurrentConnDeInit(void)

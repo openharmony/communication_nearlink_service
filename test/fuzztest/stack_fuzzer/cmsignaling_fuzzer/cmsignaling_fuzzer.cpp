@@ -121,6 +121,8 @@ namespace OHOS {
     const uint16_t TEST_CAP_RSP = 0x02;
     const uint16_t TEST_INVALID_VALUE = 0xffff;
     const uint16_t TEST_INVALID_LCID = 0xffff;
+    /* PR-10 编译修复（PR#331 惯例）：定义在调用点之后，OHOS 作用域内补前向声明 */
+    void FuzzCmSignalingStructuredReqParse(uint8_t *data, size_t size);
 
     uint32_t CM_SendSignalingDataCbkStub(uint8_t pi, uint8_t tcid,
         uint16_t lcid, SDF_Buff_S *buff)
@@ -393,6 +395,94 @@ namespace OHOS {
         FuzzCmSignalingTransChanEstablishRspSend(data, size);
         FuzzCMSignalingTransChanCbksRegister();
         FuzzCmSignalingTransChanEstablishReqSend(data, size);
+        // PR-10 尾向追加：结构化合法 REQ 包深分支（不改头部已有消费顺序）
+        FuzzCmSignalingStructuredReqParse(data, size);
+    }
+
+    /* PR-10 深分支：现有 EstablishReqProc 输入为全随机字节（length 恰为最小 ReqPkt），
+     * 在 TransModeConfigParse 即因长度/模式非法被拦截，Stream/Reliable 配置段、
+     * SlqiList 段与 portConfig 扩展段的 Parse 深分支不可达。此处按协议布局构造
+     * 结构化合法包（packed 结构体直排，小端平台 ENCODE 等价于成员赋值）覆盖：
+     * STREAM/RELIABLE 两模式 × portConfig 有/无 × optionOffset 对/错配 × slqiNum 非法 */
+    void FuzzCmSignalingStructuredReqParse(uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider provider(data, size);
+        uint8_t srcTcid = provider.ConsumeIntegral<uint8_t>();
+        uint16_t mtu = provider.ConsumeIntegral<uint16_t>();
+        uint16_t mps = provider.ConsumeIntegral<uint16_t>();
+        uint16_t srcPort = provider.ConsumeIntegral<uint16_t>();
+        uint16_t dstPort = provider.ConsumeIntegral<uint16_t>();
+        uint16_t aid = provider.ConsumeIntegral<uint16_t>();
+        uint8_t exclusive = provider.ConsumeIntegral<uint8_t>() % 2;
+        uint8_t modeSel = provider.ConsumeIntegral<uint8_t>() % 4;
+        uint8_t lcid = provider.ConsumeIntegral<uint8_t>() % 4;
+
+        for (uint8_t variant = 0; variant < 4; variant++) {
+            uint8_t buf[32] = {0};
+            CM_TransChanEstablishReqPkt_S *req = (CM_TransChanEstablishReqPkt_S *)buf;
+            req->srcTcid = srcTcid;
+            req->exclusive = exclusive;
+            uint8_t off = (uint8_t)sizeof(CM_TransChanEstablishReqPkt_S);
+            // variant0: STREAM+portConfig；variant1: RELIABLE+portConfig；variant2: STREAM 无扩展；
+            // variant3: slqiNum 非法（Parse 失败分支）
+            uint8_t mode = (variant % 2 == 0) ? CM_TRANS_MODE_STREAM : CM_TRANS_MODE_RELIABLE;
+            if (modeSel >= 2) {
+                mode = CM_TRANS_MODE_BASIC; // 基础模式（Parse 的 do-nothing 分支）
+            }
+            CM_TransModeCommonConfig_S *common = (CM_TransModeCommonConfig_S *)(buf + off);
+            common->transMode = mode;
+            common->mtu = mtu;
+            common->mps = mps;
+            off += (uint8_t)sizeof(CM_TransModeCommonConfig_S);
+            if (mode == CM_TRANS_MODE_STREAM) {
+                CM_TransModeStreamConfig_S *stream = (CM_TransModeStreamConfig_S *)(buf + off);
+                stream->flushTimeout = 0x100;
+                stream->reorderTimeout = 0x100;
+                stream->crcInit = 0x1234;
+                off += (uint8_t)sizeof(CM_TransModeStreamConfig_S);
+            } else if (mode == CM_TRANS_MODE_RELIABLE) {
+                CM_TransModeReliableConfig_S *reliable = (CM_TransModeReliableConfig_S *)(buf + off);
+                reliable->txWindow = 0x10;
+                reliable->maxTxThreshold = 0x20;
+                reliable->retransTimeout = 0x200;
+                reliable->rspTimeout = 0x300;
+                reliable->reorderTimeout = 0x100;
+                reliable->crcInit = 0x5678;
+                off += (uint8_t)sizeof(CM_TransModeReliableConfig_S);
+            }
+            CM_PreferredSlqiList_S *slqiList = (CM_PreferredSlqiList_S *)(buf + off);
+            slqiList->slqiNum = (variant == 3) ? 2 : 1; // 非法 slqiNum → Parse 拒绝分支
+            slqiList->slqi[0] = 0x01;
+            off += 2; // CM_SLQI_SIZE：slqiNum(1)+slqi[0](1)
+            if ((variant == 0) || (variant == 1)) {
+                // 扩展段实排在尾部；variant0 的 optionOffset 指向实际位置（pc=1 → PortConfig
+                // 解析成功分支），variant1 的 optionOffset 错配（!= totalOffset → 拒绝分支）
+                CM_TransChanEstablishReqExt_S *ext = (CM_TransChanEstablishReqExt_S *)(buf + off);
+                ext->pc = 1;
+                CM_PortConfig_S *port = (CM_PortConfig_S *)(buf + off + sizeof(CM_TransChanEstablishReqExt_S));
+                port->srcPort = srcPort;
+                port->dstPort = dstPort;
+                port->aid = aid;
+                off += (uint8_t)(sizeof(CM_TransChanEstablishReqExt_S) + sizeof(CM_PortConfig_S));
+                // variant0: optionOffset 指向扩展段实际位置（pc=1 → PortConfig 解析成功分支）
+                // variant1: optionOffset 与实际偏移错配（!= totalOffset → Parse 拒绝分支）
+                if (variant == 0) {
+                    req->optionOffset = (uint8_t)(sizeof(CM_TransChanEstablishReqPkt_S) +
+                        sizeof(CM_TransModeCommonConfig_S) + sizeof(CM_TransModeStreamConfig_S) + 2);
+                } else {
+                    req->optionOffset = (uint8_t)(off + 1);
+                }
+            }
+            CM_SignalingHead_S *pkt = (CM_SignalingHead_S *)SDF_MemZalloc(sizeof(CM_SignalingHead_S) + off);
+            if (pkt == NULL) {
+                return;
+            }
+            pkt->length = off;
+            pkt->identifier = provider.ConsumeIntegral<uint8_t>();
+            (void)memcpy_s(pkt->data, off, buf, off);
+            (void)CM_SignalingTransChanEstablishReqProc(lcid, pkt);
+            SDF_MemFree(pkt);
+        }
     }
 
     void FuzzCmSignalingApi(uint8_t* data, size_t size)
