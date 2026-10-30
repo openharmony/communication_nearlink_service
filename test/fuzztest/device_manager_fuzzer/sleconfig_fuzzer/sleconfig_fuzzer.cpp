@@ -252,6 +252,28 @@ void FuzzSleConfigAscDevice(const uint8_t *data, size_t size)
     config.GetReconnectDeviceAddressList();
 }
 
+void FuzzSleConfigCrypto(const uint8_t *data, size_t size)
+{
+    if (size < 2) return;
+    FuzzedDataProvider provider(data, size);
+    SleConfig &config = SleConfig::GetInstance();
+    // file environment is redirected by this project's LLVMFuzzerInitialize
+    config.LoadConfigInfo();
+    config.Save();
+    config.EncryptLinkKey();
+    config.EncryptCloudDeviceToken();
+    // valid-length hex strings hit the all-xdigit pass branch of the private validators
+    std::string validLinkKey = BuildHexChars(data, size, 32);
+    config.IsRawLinkKeyCharValid(validLinkKey.c_str(), static_cast<uint8_t>(validLinkKey.length()));
+    std::string validToken = BuildHexChars(data, size, 64);
+    config.IsRawCloudDeviceTokenCharValid(validToken.c_str(), static_cast<uint8_t>(validToken.length()));
+    // fuzz-length strings hit the length-mismatch and bad-char branches
+    std::string rawLinkKey = provider.ConsumeRandomLengthString(64);
+    config.IsRawLinkKeyCharValid(rawLinkKey.c_str(), static_cast<uint8_t>(rawLinkKey.length()));
+    std::string rawToken = provider.ConsumeRandomLengthString(64);
+    config.IsRawCloudDeviceTokenCharValid(rawToken.c_str(), static_cast<uint8_t>(rawToken.length()));
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS
 
@@ -271,7 +293,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (data == nullptr || size == 0) return 0;
     FuzzedDataProvider provider(data, size);
     uint32_t category = provider.ConsumeIntegral<uint32_t>();
-    switch (category % 9) {
+    switch (category % 10) {
         case 0: FuzzSleConfigValidate(data, size); break;
         case 1: FuzzSleConfigLocalInfo(data, size); break;
         case 2: FuzzSleConfigPeerInfo(data, size); break;
@@ -281,6 +303,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         case 6: FuzzSleConfigDeviceModel(data, size); break;
         case 7: FuzzSleConfigVolume(data, size); break;
         case 8: FuzzSleConfigAscDevice(data, size); break;
+        case 9: FuzzSleConfigCrypto(data, size); break;
         default: break;
     }
     return 0;

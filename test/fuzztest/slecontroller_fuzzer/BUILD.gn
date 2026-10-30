@@ -43,7 +43,12 @@ ohos_fuzztest("SleControllerFuzzTest") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/service/src/permission",
+    "$NEARLINK_ROOT/services/stack/src/sdf/bsl/dsl/include",
+    "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
     "$NEARLINK_ROOT/services/service/src/common",
+    "$NEARLINK_ROOT/services/service/src/adapter",
+    "$NEARLINK_ROOT/services/service/src/cdsm",
+    "$NEARLINK_ROOT/services/service/src/controller",
   ]
 
   configs = [ "${nearlink_test_utils_path}:test_utils_config" ]
@@ -51,6 +56,7 @@ ohos_fuzztest("SleControllerFuzzTest") {
 
   sources = [ "slecontroller_fuzzer.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_host_server.cpp" ]
+  sources += [ "$MOCK_HOST_SERVER_FILE/mock_devicemanagersdk.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_nearlink_permission_manager.cpp" ]
   sources += [ "$MOCK_HOST_SERVER_FILE/mock_ipc_skeleton.cpp" ]
 
@@ -63,12 +69,15 @@ ohos_fuzztest("SleControllerFuzzTest") {
     "$NEARLINK_ROOT/services/common:nearlink_service_common",
     "$NEARLINK_ROOT/services/device_manager:nearlink_device_manager",
     "$NEARLINK_ROOT/services/service:nearlink_service_impl_static",
+    "$NEARLINK_ROOT/services/stack:nearlink_stack",
     "${nearlink_test_utils_path}:test_utils_static",
     "${nearlink_fuzztest_utils_path}:fuzztest_utils_static",
   ]
 
   external_deps = [
+    "device_manager:devicemanagersdk",
     "bounds_checking_function:libsec_shared",
+    "huks:libhukssdk",
     "hilog:libhilog",
     "ipc:ipc_single",
     "access_token:libaccesstoken_sdk",

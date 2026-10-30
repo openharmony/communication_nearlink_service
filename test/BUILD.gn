@@ -59,5 +59,6 @@ group("nearlink_fuzztest") {
     "fuzztest/cloudpair_fuzzer:CloudPairFuzzTest",
     "fuzztest/slecontroller_fuzzer:SleControllerFuzzTest",
     "fuzztest/device_manager_fuzzer:DeviceManagerFuzz",
+    "fuzztest/ipcapi_fuzzer:IpcApiFuzzTest",
   ]
 }
