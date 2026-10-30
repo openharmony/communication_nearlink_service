@@ -514,6 +514,238 @@ namespace OHOS {
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
     }
 
+    /* ===== SS-S1 服务端深路径（ssaps_server.c miss 262 / ssaps_server_write.c miss 205）：
+     * 多值读（含授权属性拒绝 + 真实多值序列化）、单/多值写（可写属性经 app 路径实录真实句柄，
+     * 子项校验/长度越界）、取消写、指示确认、方法 REQ 族、pending vector 推取。 */
+    static uint16_t g_deepPropHandle = 0;
+    static uint16_t g_deepMethodHandle = 0;
+    static void SsapServerDeepOnAddService(int32_t appId, SSAP_Service_S *service, NLSTK_Errcode_E ret)
+    {
+        (void)appId;
+        if (service == nullptr || ret != NLSTK_ERRCODE_SUCCESS) {
+            return;
+        }
+        if (service->properties != nullptr && service->properties->size > 0) {
+            SSAP_Property_S *property = (SSAP_Property_S *)SDF_VectorElementAt(service->properties, 0);
+            if (property != nullptr) {
+                g_deepPropHandle = property->handle;
+            }
+        }
+        if (service->methods != nullptr && service->methods->size > 0) {
+            SSAP_Method_S *method = (SSAP_Method_S *)SDF_VectorElementAt(service->methods, 0);
+            if (method != nullptr) {
+                g_deepMethodHandle = method->handle;
+            }
+        }
+    }
+
+    /* 注册带可写属性（READ|WRITE）+ 方法的服务；阻塞屏障等 onAddService 实录真实句柄 */
+    static int32_t SsapServerDeepAppCache(void)
+    {
+        int32_t srvAppId = -1;
+        NLSTK_SsapAppServerCb_S cb = {};
+        cb.onAddService = SsapServerDeepOnAddService;
+        if (NLSTK_SsapServerRegApp(&cb, &srvAppId) != NLSTK_ERRCODE_SUCCESS || srvAppId < 0) {
+            return -1;
+        }
+        NLSTK_SsapServicePropertyParam_S property = {};
+        property.type = ITEM_TYPE_STD_PROPERTY;
+        (void)memcpy_s(&property.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid4, sizeof(NLSTK_SsapUuid_S));
+        property.operation.operationValue = SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE;
+        property.permission.permissionValue = SSAP_PERMISSION_NO_NEED;
+        NLSTK_SsapServiceMethodParam_S method = {};
+        method.type = ITEM_TYPE_STD_METHOD;
+        (void)memcpy_s(&method.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
+        NLSTK_ServiceParam_S service = {};
+        service.serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+        (void)memcpy_s(&service.serviceStatement.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2,
+            sizeof(NLSTK_SsapUuid_S));
+        service.servicePropertyNum = 1;
+        service.property = &property;
+        service.serviceMethodNum = 1;
+        service.method = &method;
+        g_deepPropHandle = 0;
+        g_deepMethodHandle = 0;
+        (void)NLSTK_SsapServerAddService(srvAppId, &service);
+        bool isExist = false;
+        (void)NLSTK_SsapServerCheckServiceExistByUuid(srvAppId, &service.serviceStatement.uuid, &isExist);
+        return srvAppId;
+    }
+
+    static SDF_Buff_S *SsapSrvFuzzBuff(const uint8_t *bytes, uint32_t len)
+    {
+        SDF_Buff_S *buff = SDF_BuffNew(len);
+        if (buff == nullptr) {
+            return nullptr;
+        }
+        uint8_t *buf = SDF_BuffAppend(buff, len);
+        if (buf == nullptr || memcpy_s(buf, len, bytes, len) != EOK) {
+            SDF_BuffFree(buff);
+            return nullptr;
+        }
+        return buff;
+    }
+
+    void FuzzSsapServerDeep(uint8_t *data, size_t size)
+    {
+        if (data == nullptr || size < SLE_ADDR_LEN) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        AddService1();
+        AddService2();
+        SLE_Addr_S sleAddr;
+        (void)memcpy_s(sleAddr.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        sleAddr.type = PUBLIC_ADDRESS;
+        SleLogicLinkInit();
+        SleLogicLink_S *node = SleLogicLinkAdd(&sleAddr);
+        if (node == nullptr) {
+            return;
+        }
+        node->lcid = 0x6D11;
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, node->lcid, SendFunc);
+        if (link == nullptr) {
+            SleLogicLinkRemove(node);
+            return;
+        }
+        int32_t srvAppId = SsapServerDeepAppCache();
+
+        /* —— 1. 多值读含授权属性（遗留 SVC1 属性2 perm=0x04 授权位）→
+         *    SSAPS_CheckMultiReadAuthNeed 拒绝（ssaps_server.c:427-447/:764-769）—— */
+        {
+            uint8_t denyReq[8] = {SSAP_READ_REQ, 0x03, 0x11, 0x00, 0x00, 0x12, 0x00, 0x00};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(denyReq, sizeof(denyReq));
+            if (buff != nullptr) {
+                SSAPS_ReadReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* —— 2. 多值读真实序列化（3× NO_NEED 属性 0x11 → SSAPS_ReadMultiHandleReq：
+         *    结果组包/逐项序列化/无分包错误响应 :456-641）—— */
+        {
+            uint8_t okReq[11] = {SSAP_READ_REQ, 0x03, 0x11, 0x00, 0x00, 0x11, 0x00, 0x00,
+                0x11, 0x00, 0x00};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(okReq, sizeof(okReq));
+            if (buff != nullptr) {
+                SSAPS_ReadReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* —— 3. 写族（ssaps_server_write.c）—— */
+        if (g_deepPropHandle != 0) {
+            /* 3a. 单值写成功路径：真实可写属性（app 服务实录句柄） */
+            uint8_t wrSingle[7] = {SSAP_WRITE_REQ, 0x03,
+                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x00, 0x12, 0x34};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(wrSingle, sizeof(wrSingle));
+            if (buff != nullptr) {
+                SSAPS_WriteReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+            /* 3b. 多值写：同一可写句柄 2 子项（type/len2/值）→ 子项校验+执行+回环 */
+            uint8_t wrMulti[14] = {SSAP_WRITE_REQ, 0x07,
+                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x02,
+                0x00, 0x02, 0x00, 0xAA, 0x00, 0x02, 0x00, 0xBB, 0x00};
+            buff = SsapSrvFuzzBuff(wrMulti, sizeof(wrMulti));
+            if (buff != nullptr) {
+                SSAPS_WriteReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+            /* 3c. 多值写子项声明长度越界 → 组包校验失败 INVALID_PDU（GetNextMultiItemPos） */
+            uint8_t wrMultiBad[9] = {SSAP_WRITE_REQ, 0x07,
+                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x01,
+                0x00, 0xFF, 0x00, 0x11};
+            buff = SsapSrvFuzzBuff(wrMultiBad, sizeof(wrMultiBad));
+            if (buff != nullptr) {
+                SSAPS_WriteReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+            /* 3d. 子项数为 0 → INVALID_HANDLE 结果项（:653-657） */
+            uint8_t wrMultiZero[5] = {SSAP_WRITE_REQ, 0x07,
+                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x00};
+            buff = SsapSrvFuzzBuff(wrMultiZero, sizeof(wrMultiZero));
+            if (buff != nullptr) {
+                SSAPS_WriteReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* 3e. 取消写单包（ctrl oper=CANCEL<<3|NO_FRAG=0x13）→ HandleWriteCancel→SendWriteCancelRsp */
+        {
+            uint8_t wrCancel[3] = {SSAP_WRITE_REQ, 0x13, 0x00};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(wrCancel, sizeof(wrCancel));
+            if (buff != nullptr) {
+                SSAPS_WriteReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* —— 4. 指示确认（SSAPS_ValueAckHandle:1116-1141 → 应用回调）—— */
+        {
+            uint8_t valueAck[3] = {SSAP_VALUE_ACK, 0x03, SSAP_ACK_RECV_SUCCESS};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(valueAck, sizeof(valueAck));
+            if (buff != nullptr) {
+                SSAPS_ValueAckHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* —— 5. 方法 REQ 族（SSAPS_MethodReqHandle:1275 → MethodHandle→MethodExecute）—— */
+        if (srvAppId >= 0 && g_deepMethodHandle != 0) {
+            uint8_t methodReq[6] = {SSAP_CALL_METHOD_REQ, 0x03,
+                (uint8_t)(g_deepMethodHandle & 0xFF), (uint8_t)(g_deepMethodHandle >> 8), 0x0A, 0x0B};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(methodReq, sizeof(methodReq));
+            if (buff != nullptr) {
+                SSAPS_MethodReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        {   /* 无效方法句柄 → MethodErrorProcess 错误响应 */
+            uint8_t methodBad[4] = {SSAP_CALL_METHOD_REQ, 0x03, 0x99, 0x09};
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(methodBad, sizeof(methodBad));
+            if (buff != nullptr) {
+                SSAPS_MethodReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+        }
+        /* —— 6. 按 UUID 读多值处理（link->multiProcessing=true → AddMultiOneItem 组包
+         *    ssaps_server.c:923-929/972-1014）；16B 自定义 uuid 匹配 SVC1 双属性 —— */
+        {
+            link->multiProcessing = true;
+            uint8_t rbuReq[23] = {SSAP_READ_BY_UUID_REQ, SSAP_READ_BY_CUSTOM_UUID_CONTROL,
+                0x10, 0x00, 0xFF, 0xFF, 0x00};
+            (void)memcpy_s(rbuReq + 7, 0x10, &g_uuid2Net, 0x10);
+            SDF_Buff_S *buff = SsapSrvFuzzBuff(rbuReq, sizeof(rbuReq));
+            if (buff != nullptr) {
+                SSAPS_ReadByUuidReqHandle(link, buff);
+                SDF_BuffFree(buff);
+            }
+            link->multiProcessing = false;
+        }
+        /* —— 7. pending vector 推/取/清（ssaps_server.c:133-194，授权挂起队列机制）—— */
+        {
+            SSAP_BufferedOperation_S *operation = (SSAP_BufferedOperation_S *)SDF_MemZalloc(
+                sizeof(SSAP_BufferedOperation_S) + 2);
+            if (operation != nullptr) {
+                operation->value.len = 2;
+                operation->value.value[0] = 0x11;
+                operation->value.value[1] = 0x22;
+                (void)memcpy_s(&operation->addr, sizeof(SLE_Addr_S), &sleAddr, sizeof(SLE_Addr_S));
+                if (SSAPS_PushOperationPenddingVector(operation)) {
+                    size_t idx = 0;
+                    (void)SSAPS_PopOperationPenddingVector(operation->requestId, &idx);
+                    (void)SSAPS_PopOperationPenddingVector(0x7FFF, &idx); /* 未命中 → NULL 分支 */
+                }
+                SDF_MemFree(operation);
+                SSAPS_CleanPendingVectorByAddr(&sleAddr);
+            }
+        }
+        /* 扰动消费（分支已由常量模板覆盖） */
+        (void)provider.ConsumeIntegral<uint8_t>();
+
+        if (srvAppId >= 0) {
+            NLSTK_SsapServerDeregisterApplication(srvAppId);
+        }
+        SSAP_DeleteSsapLinkByAddr(&sleAddr);
+        SleLogicLinkRemove(node);
+    }
+
     void FuzzSsapServerApi(uint8_t *data, size_t size)
     {
         if (size > 255) {
@@ -641,6 +873,7 @@ namespace OHOS {
         FuzzSsapServerHandle2(data, size);
         FuzzSsapSendAndRecvPkt(data, size);
         FuzzSsapServerApi(data, size);
+        FuzzSsapServerDeep(data, size);
         FuzzSsapServerAsyncApi(data, size);
         SSAP_LinkDeInit();
     }

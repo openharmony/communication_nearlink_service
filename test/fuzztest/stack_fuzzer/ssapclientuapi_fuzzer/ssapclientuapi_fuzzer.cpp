@@ -365,6 +365,89 @@ namespace OHOS {
         (void)NLSTK_SsapClientDisconnect(appId);
     }
 
+    /* ===== SS-A1 app 链路状态机铺态+迁移对（ssapc_app_link_sm.c，cov_round4 22%）：
+     * 5 状态 × 4 事件 = 20 个 handler，既有用例只路过 IDLE/CONNECTED 少数格子。
+     * 手法照 smstm_fuzzer：SsapcAppSetLinkState 强制铺态（强制状态迁移记账组）+
+     * SsapcCacheLinkOper 预置缓存操作三变体（无/CONNECT/DISCONNECT，驱动各 handler
+     * 的缓存分支）+ SsapClientLinkStateMachineCall 逐事件注入。 */
+    static uint32_t g_smStateNotifyCnt = 0;
+    static void SsapSmStateCb(int32_t appId, uint8_t state, NLSTK_Errcode_E ret, int32_t reason)
+    {
+        (void)appId;
+        (void)state;
+        (void)ret;
+        (void)reason;
+        g_smStateNotifyCnt++;
+    }
+
+    void FuzzSsapAppLinkSmMatrix(uint8_t* data, size_t size)
+    {
+        if (data == nullptr || size < SLE_ADDR_LEN) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        SLE_Addr_S addr = {0};
+        memcpy_s(addr.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        addr.addr[0] = (uint8_t)(addr.addr[0] ^ 0x5A); /* 与 Uapi/Uapi2 既有用例地址空间错开 */
+        uint8_t reason = provider.ConsumeIntegral<uint8_t>();
+        SleLogicLinkInit();
+        int32_t appId = -1;
+        NLSTK_SsapAppClientCb_S cb = {0};
+        cb.onConnectionStateChanged = SsapSmStateCb;
+        NLSTK_SsapClientRegApp(&appId, &cb, &addr);
+        if (appId < 0 || !IsAppIdValid(appId)) {
+            return;
+        }
+        /* 铺底实际链路层（ssap_link_state.c g_linkState）已连接：IDLE 态 USER_CONNECT
+         * 命中 SsapLinkHandleTryConnect 的 CONNECTED 快速分支（ssapc_app_link_sm.c:157-160）；
+         * CONNECTED 态 USER_DISCONNECT 放行真实 CM_DirectConnectRemove（:397-408） */
+        SsapLinkHandleRecordLinkStateFromCm(&addr, SSAP_CONNECT_STATE_CONNECTED);
+
+        static const NLSTK_SsapConnectLinkState_E states[] = {
+            SSAP_CONNECT_STATE_IDLE,
+            SSAP_CONNECT_STATE_CONNECTING,
+            SSAP_CONNECT_STATE_CONNECTED,
+            SSAP_CONNECT_STATE_DISCONNECTING,
+            SSAP_CONNECT_STATE_DISCONNECTED,
+        };
+        static const NLSTK_SsapClientLinkChangeEvent_E seedOps[] = {
+            SSAP_LINK_CHANGE_EVENT_BUTT,   /* 无缓存：各 handler 主路径 */
+            SSAP_USER_CONNECT,             /* 预置建链缓存：清理/抵消分支 */
+            SSAP_USER_DISCONNECT,          /* 预置断链缓存：清理/保持分支 */
+        };
+        static const NLSTK_SsapClientLinkChangeEvent_E events[] = {
+            SSAP_USER_CONNECT,
+            SSAP_USER_DISCONNECT,
+            SSAP_LOGIC_LINK_CONNECTED,
+            SSAP_LOGIC_LINK_DISCONNECTED,
+        };
+        for (size_t s = 0; s < sizeof(states) / sizeof(states[0]); s++) {
+            for (size_t o = 0; o < sizeof(seedOps) / sizeof(seedOps[0]); o++) {
+                SsapcAppSetLinkState(appId, states[s]);
+                if (seedOps[o] != SSAP_LINK_CHANGE_EVENT_BUTT) {
+                    SsapcCacheLinkOper(appId, seedOps[o]);
+                }
+                for (size_t e = 0; e < sizeof(events) / sizeof(events[0]); e++) {
+                    SsapClientLinkStateMachineCall(appId, events[e], reason);
+                }
+            }
+        }
+        /* 真实迁移组：实际链路态清空后（DISCONNECTED 上报释放 g_linkState 条目），
+         * IDLE 态 USER_CONNECT 走 SsapLinkHandleTryConnect 的 IDLE 分支真实发起
+         * CM_DirectConnectAdd（ssap_link_state.c:88-95），受理失败回 DISCONNECTED+
+         * CONN_FAIL 上报（ssapc_app_link_sm.c:171-176） */
+        SsapLinkHandleRecordLinkStateFromCm(&addr, SSAP_CONNECT_STATE_DISCONNECTED);
+        SsapcAppSetLinkState(appId, SSAP_CONNECT_STATE_IDLE);
+        SsapClientLinkStateMachineCall(appId, SSAP_USER_CONNECT, reason);
+        /* 边界：越界事件值（>=BUTT）与无效 appId 的守卫分支 */
+        SsapClientLinkStateMachineCall(appId, SSAP_LINK_CHANGE_EVENT_BUTT, reason);
+        SsapClientLinkStateMachineCall(-1, SSAP_USER_CONNECT, reason);
+
+        /* 收尾：记录断链释放 g_linkState 条目 + 注销 app（每输入资源回收） */
+        SsapLinkHandleRecordLinkStateFromCm(&addr, SSAP_CONNECT_STATE_DISCONNECTED);
+        NLSTK_SsapClientDeregApp(appId);
+    }
+
     void FuzzSsapClientApi(uint8_t* data, size_t size)
     {
         if (data == nullptr || size < 1) {
@@ -374,6 +457,7 @@ namespace OHOS {
         FuzzSsapClientUapi2(data, size);
         FuzzSsapClientUapi3();
         FuzzSsapClientAsyncApi(data, size);
+        FuzzSsapAppLinkSmMatrix(data, size);
     }
 }
 
