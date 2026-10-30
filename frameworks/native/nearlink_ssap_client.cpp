@@ -233,10 +233,13 @@ public:
     void OnReadPropertiesByUuid(int32_t ret, const std::vector<NearlinkSsapPropertyParcel> &properties) override
     {
         HILOGI("ret:%{public}d, size:%{public}zu", ret, properties.size());
-        NL_CHECK_RETURN(ret == static_cast<int32_t>(SsapStatus::SSAP_SUCCESS), "OnReadPropertiesByUuid error");
-        NL_CHECK_RETURN(!properties.empty(), "OnReadPropertiesByUuid properties empty");
         std::shared_ptr<SsapClient> clientSptr = (client_).lock();
         NL_CHECK_RETURN(clientSptr, "callback client is nullptr");
+        // 失败或空结果必须透传, 由回调把错误码带回调用方, 避免promise挂起直到超时
+        if (ret != static_cast<int32_t>(SsapStatus::SSAP_SUCCESS) || properties.empty()) {
+            WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, std::vector<SsapProperty> {}, ret);
+            return;
+        }
         std::shared_ptr<SsapService> setService;
         bool isFindService = clientSptr->pimpl->ssapServices_.Find([&properties, &setService](const uint16_t handle,
             std::shared_ptr<SsapService> &service) -> bool {
@@ -248,12 +251,18 @@ public:
                 }
                 return false;
         });
-        NL_CHECK_RETURN(isFindService && setService, "not find service!");
+        if (!isFindService || !setService) {
+            // 本地服务缓存未命中不丢弃已读数据, 服务uuid留空继续构建结果
+            HILOGE("not find service!");
+            setService = nullptr;
+        }
         std::vector<SsapProperty> onReadProperties;
         for (uint32_t i = 0; i < properties.size(); i++) {
             SsapProperty onReadProp(0, 0, UUID::FromString(properties[i].uuid_.ToString()), properties[i].opInd_, 0);
             onReadProp.SetValue(properties[i].value_.data(), properties[i].value_.size());
-            onReadProp.SetServiceUuid(setService->GetUuid());
+            if (setService != nullptr) {
+                onReadProp.SetServiceUuid(setService->GetUuid());
+            }
             onReadProperties.push_back(onReadProp);
         }
         WPTR_SSAP_CBACK(clientSptr->pimpl->callback_, OnPropertiesReadResult, onReadProperties, ret);
@@ -861,6 +870,43 @@ std::shared_ptr<SsapService> SsapClient::GetService(const UUID &uuid)
     return service;
 }
 
+NlErrCode SsapClient::GetServicesByUuid(const UUID &uuid, std::vector<SsapService> &services)
+{
+    HILOGI("enter");
+    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
+        "nearlink is not support.");
+    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(pimpl->isRegisterSucceeded_, NL_ERR_INTERNAL_ERROR, "isRegisterSucceeded_ is false.");
+
+    {
+        std::unique_lock<std::mutex> lock(pimpl->findInformation_.clientMutex);
+        while (pimpl->findInformation_.isFinding) {
+            auto ret = pimpl->findInformation_.condition.wait_for(lock, std::chrono::seconds(WAIT_TIMEOUT));
+            if (ret == std::cv_status::timeout) {
+                HILOGE("timeout");
+                return NL_ERR_TIMEOUT;
+            }
+        }
+    }
+
+    std::vector<NearlinkSsapServiceParcel> result;
+    sptr<INearlinkSsapClient> proxy = GetProxy<INearlinkSsapClient>(PROFILE_SSAP_CLIENT);
+    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
+    Uuid pUuid = Uuid::ConvertFromString(uuid.ToString());
+    NlErrCode status = proxy->GetServicesByUuid(pimpl->applicationId_, pUuid, result);
+    NL_CHECK_RETURN_RET(status == NL_NO_ERROR, status, "get services failed, status(%{public}d).", status);
+
+    for (auto &parcel : result) {
+        std::shared_ptr<SsapService> service = pimpl->BuildService(parcel);
+        if (service) {
+            // 先拷贝后入容器: 拷贝发生在对象进入共享容器前, 避免与持锁改写并发
+            services.push_back(*service);
+            pimpl->ssapServices_.EnsureInsert(service->GetHandle(), service);
+        }
+    }
+    return NL_NO_ERROR;
+}
+
 NlErrCode SsapClient::GetService(std::vector<SsapService> &services)
 {
     HILOGI("enter");
@@ -970,7 +1016,7 @@ NlErrCode SsapClient::CallMethod(SsapMethod &method, std::vector<uint8_t> value)
     return result;
 }
 
-NlErrCode SsapClient::ReadPropertyByUuid(SsapProperty &property)
+NlErrCode SsapClient::ReadPropertiesByUuid(SsapProperty &property)
 {
     HILOGI("enter");
     NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
@@ -988,7 +1034,7 @@ NlErrCode SsapClient::ReadPropertyByUuid(SsapProperty &property)
     sptr<INearlinkSsapClient> proxy = GetProxy<INearlinkSsapClient>(PROFILE_SSAP_CLIENT);
     NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
 
-    result = proxy->ReadProperty(
+    result = proxy->ReadPropertiesByUuid(
         pimpl->applicationId_, (NearlinkSsapPropertyParcel)Nearlink::Property(
             propertyHandle,
             Uuid::ConvertFrom128Bits(property.GetUuid().ConvertTo128Bits()), property.GetOperationIndication()));

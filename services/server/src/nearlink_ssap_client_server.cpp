@@ -210,7 +210,7 @@ public:
     {
         HILOGI("Enter");
         if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
-            (!NearLinkPermissionManager::VerifyPermission(MANAGE_NEARLINK, tokenId_))) {
+            (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
@@ -309,7 +309,7 @@ public:
     {
         HILOGI("status: %{public}d", status);
         if ((!NearLinkPermissionManager::CheckSystemPermission(tokenId_)) ||
-            (!NearLinkPermissionManager::VerifyPermission(MANAGE_NEARLINK, tokenId_))) {
+            (!NearLinkPermissionManager::VerifyPermission(ACCESS_NEARLINK, tokenId_))) {
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
@@ -575,7 +575,7 @@ NlErrCode NearlinkSsapClientServer::DiscoverServiceByUuid(int32_t appId, const U
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
     int result = clientService->DiscoverServicesByUuid(appId, Uuid::ConvertFrom128Bits(uuid.ConvertTo128Bits()),
-        0x0001, 0xFFFF);
+        MIN_ENTRY_HANDLE, MAX_ENTRY_HANDLE);
     HILOGI("DiscoverServicesByUuid result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
 }
@@ -591,9 +591,21 @@ NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSs
     if (property.handle_ != static_cast<uint16_t>(INVALID_ENTRY_HANDLE)) {
         result = clientService->ReadProperty(appId, (Property)property);
     } else {
-        result = clientService->ReadPropertiesByUuid(appId, property.uuid_, 0x0001, 0xFFFF);
+        result = clientService->ReadPropertiesByUuid(appId, property.uuid_, MIN_ENTRY_HANDLE, MAX_ENTRY_HANDLE);
     }
     HILOGI("ReadProperty result: %{public}d", result);
+    return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
+}
+
+NlErrCode NearlinkSsapClientServer::ReadPropertiesByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
+{
+    HILOGI("appId: %{public}d", appId);
+    InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
+    NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
+    NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
+        "caller identity check failed.");
+    int result = clientService->ReadPropertiesByUuid(appId, property.uuid_, MIN_ENTRY_HANDLE, MAX_ENTRY_HANDLE);
+    HILOGI("ReadPropertiesByUuid result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
 }
 

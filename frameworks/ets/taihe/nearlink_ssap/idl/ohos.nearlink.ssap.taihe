@@ -28,9 +28,13 @@ interface Client {
     @promise Disconnect(): void;
     Close(): void;
     @promise GetServices(): Array<Service>;
+    @promise GetServicesByUuid(service: Service): Array<Service>;
 
     @rename("readProperty")
     ReadProperty(property: Property): @sts_type("Promise<Property>") Opaque;
+
+    @rename("readPropertiesByUuid")
+    ReadPropertiesByUuid(property: Property): @sts_type("Promise<Property[]>") Opaque;
 
     @rename("writeProperty")
     WriteProperty(property: Property, writeType: PropertyWriteType): @sts_type("Promise<void>") Opaque;

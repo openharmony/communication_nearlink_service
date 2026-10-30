@@ -33,7 +33,10 @@ public:
     void Disconnect();
     bool Close();
     ::taihe::array<::ohos::nearlink::ssap::Service> GetServices();
+    ::taihe::array<::ohos::nearlink::ssap::Service> GetServicesByUuid(
+        const ::ohos::nearlink::ssap::Service &service);
     uintptr_t ReadProperty(const ::ohos::nearlink::ssap::Property &property);
+    uintptr_t ReadPropertiesByUuid(const ::ohos::nearlink::ssap::Property &property);
     uintptr_t WriteProperty(const ::ohos::nearlink::ssap::Property &property,
         ::ohos::nearlink::ssap::PropertyWriteType writeType);
     uintptr_t ReadDescriptor(const ::ohos::nearlink::ssap::PropertyDescriptor &descriptor);

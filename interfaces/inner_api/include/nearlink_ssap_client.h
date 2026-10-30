@@ -345,6 +345,15 @@ public:
     std::shared_ptr<SsapService> GetService(const UUID &uuid);
 
     /**
+     * @brief The function to get all services matching the specified uuid.
+     *
+     * @param uuid uuid of ssap service, uuid is big endian order.
+     * @param services all services matching the uuid, empty when no match.
+     * @return Returns the status code for this function called.
+     */
+    NlErrCode GetServicesByUuid(const UUID &uuid, std::vector<SsapService> &services);
+
+    /**
      * @brief The function to get service.
      *
      * @return Returns the status code for this function called.
@@ -389,7 +398,7 @@ public:
      * @param property Property object.
      * @return Returns the status code for this function called.
      */
-    NlErrCode ReadPropertyByUuid(SsapProperty &property);
+    NlErrCode ReadPropertiesByUuid(SsapProperty &property);
 
     /**
      * @brief The function to read descriptor.
