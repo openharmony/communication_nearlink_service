@@ -52,7 +52,7 @@ extern "C" uint32_t DLI_CmdCbkReg(const ModuleType module, const DLI_InnerCbkLin
 }
 
 // DLI_CmdCbkUnReg（cm_dli_mocker.c 转调）：按 module 清空对应表槽，对齐真实反注册语义
-void CmFuzzerUtilClearModuleTable(ModuleType module)
+extern "C" void CmFuzzerUtilClearModuleTable(ModuleType module)
 {
     if (module == CM) {
         g_cmModuleCbk = NULL;

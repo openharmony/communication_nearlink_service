@@ -125,6 +125,9 @@ namespace OHOS {
             for (int i = 0; i < SM_OCTETS_16; i++) {
                 dhMsg.authData[i] = fdp.ConsumeIntegral<uint8_t>();
             }
+            /* 先删 Ra 腿经 SmSLinkWaitUapiInput 挂上的真实 30s 定时器, 否则假句柄覆盖后
+             * timerfd 悬垂(args 指向本 slink), 30s 后 evc 线程 WaitTimeoutCbk 读已 Dtor 的 slink -> UAF(红队 P0-2) */
+            SmSLinkWaitDelUapiTimer(tSlink);
             tSlink->uapiTimerHandle = 0x7FFF0000; /* 假句柄: 仅制造占用语义, Dtor 删除时为安全空操作 */
             SmNoEntryAuthPkgDispatcher(SM_AUTH_G_NODE_DHKEY, tSlink, (const uint8_t *)&dhMsg, sizeof(dhMsg));
             SmNoEntryContinueNoentry(tSlink);

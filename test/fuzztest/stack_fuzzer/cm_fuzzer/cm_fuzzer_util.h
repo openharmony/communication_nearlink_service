@@ -71,7 +71,14 @@ void CmFuzzerSetPhyEvt(DLI_SetPhyEvt *evt);
 
 /* ---- PR-10 DLI 帧事件时序注入族（经 CM_COMMON 适配器表/CM 命令表真实分发）---- */
 // 反注册时按 module 清表槽（cm_dli_mocker.c 的 DLI_CmdCbkUnReg 转调）
+// C 编译单元直接调用，必须 C 链接（红队 P0-1：缺 extern "C" 时 C 侧 undefined reference）
+#ifdef __cplusplus
+extern "C" {
+#endif
 void CmFuzzerUtilClearModuleTable(ModuleType module);
+#ifdef __cplusplus
+}
+#endif
 
 // 带 status/自定义 context 的分发底座
 void CmFuzzerDispatchCmdStatus(uint16_t cbkOpcode, void *evt, uint32_t evtSize, uint8_t status, uint16_t connHandle,

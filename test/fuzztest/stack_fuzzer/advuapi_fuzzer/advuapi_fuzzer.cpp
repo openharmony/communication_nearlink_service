@@ -441,7 +441,6 @@ namespace OHOS {
         if (fuzzDeepDone) {
             return;
         }
-        fuzzDeepDone = true;
         uint16_t chunk = CfgdbGetMaxAdvDataLen();
         if (chunk == 0) {
             return;
@@ -456,6 +455,7 @@ namespace OHOS {
         if (handle == DEVD_INVALID_ADV_HANDLE) {
             return;
         }
+        fuzzDeepDone = true; /* 置位推迟到序列真正启动后(红队 P2-1): 早退路径允许后续输入重试, 失败路径无日志洪水 */
         DLI_AdvCbkContext ctx = {};
         ctx.advHandle = handle;
         FuzzFeedSetAdvParam(handle, ADV_MODE_NONCONN_SCANABLE, PRIM_ADV_FRAME_TYPE_1, ADV_GT_ROLE_T_NO_NEGO,

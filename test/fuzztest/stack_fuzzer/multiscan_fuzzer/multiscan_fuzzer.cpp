@@ -786,11 +786,15 @@ namespace OHOS {
         scnB1.moduleId = modBParam.moduleId;
         DevdAllocScannerId(&scnB1);
         if (scnA1.scannerId == DEVD_INVALID_SCANNER_ID) {
+            DevdRemoveScannerId(&scnA2); /* 早退前回收已分配槽位(红队 P2-2), INVALID id 内部有守卫 */
+            DevdRemoveScannerId(&scnB1);
             DevdDeregScanModule(&modBParam);
             return;
         }
         if (scnA2.scannerId == DEVD_INVALID_SCANNER_ID || scnB1.scannerId == DEVD_INVALID_SCANNER_ID) {
             DevdRemoveScannerId(&scnA1);
+            DevdRemoveScannerId(&scnA2);
+            DevdRemoveScannerId(&scnB1);
             DevdDeregScanModule(&modBParam);
             return;
         }
