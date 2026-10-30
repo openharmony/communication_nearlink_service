@@ -143,9 +143,75 @@ namespace OHOS {
         SDF_MemFree(newAddr);
     }
 
+    /* PR-10 SM-D8: 加密入口分支矩阵(内部直调铺垫)——
+     * SmEncpEnable: lcid 无效守卫腿 / 有效 lcid + 加密与完整性算法能力相等(同算法分支)与不等(0xFF 分支);
+     * SmEncpParamReqReplyProcess: T 角色走应答腿(含 linkKey 拷贝), G 角色走负响应腿。
+     * slink 均不入 g_slinkMap, Dtor 兜底回收。 */
+    void FuzzSMEncpBranchMatrix(const uint8_t* fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S encpAddr = {
+            .type = PUBLIC_ADDRESS,
+            .addr = {0x00, 0x01, 0x0c, 0xb3, 0x33, 0x47},
+        };
+        uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
+        uint8_t intgAlgo = fdp.ConsumeBool() ? SM_INTEGRITY_PROTECTION_ALGORITHM_ABILITY_IA1 :
+            SM_INTEGRITY_PROTECTION_ALGORITHM_ABILITY_IA2;
+
+        /* lcid 无效: 守卫腿, 不触 DLI */
+        SmSLink_S *guardSlink = SmSLinkCtor(&encpAddr);
+        if (guardSlink == NULL) {
+            return;
+        }
+        guardSlink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
+        guardSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = intgAlgo;
+        guardSlink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        SmEncpEnable(guardSlink); /* lcid == CM_INVALID_LCID 早退 */
+        SmSLinkDtor(guardSlink);
+
+        /* 有效 lcid: 能力相等 -> cryptoAlgo=能力-1; 不等 -> 0xFF */
+        SmSLink_S *encpSlink = SmSLinkCtor(&encpAddr);
+        if (encpSlink == NULL) {
+            return;
+        }
+        encpSlink->lcid = lcid;
+        encpSlink->role = SM_G_NODE;
+        encpSlink->curStateIndex = SM_STATE_ENCP; /* SmDftCacheTimestamp/Report 事件分流走 ENCP 分支 */
+        encpSlink->encIntgCheck = SM_ENCRYPTION_INTEGRITY_PROTECTION;
+        encpSlink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        for (int i = 0; i < SM_LINK_KEY_LEN; i++) {
+            encpSlink->linkKey[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        encpSlink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
+        encpSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
+        SmEncpEnable(encpSlink); /* 相等分支 */
+        encpSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = intgAlgo;
+        SmEncpEnable(encpSlink); /* 不等分支: cryptoAlgo=0xFF */
+        SmSLinkDtor(encpSlink);
+
+        /* 参数请求应答: T 走应答 / G 走负响应 */
+        SmSLink_S *replySlink = SmSLinkCtor(&encpAddr);
+        if (replySlink == NULL) {
+            return;
+        }
+        replySlink->lcid = lcid;
+        replySlink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] =
+            SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        replySlink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
+        for (int i = 0; i < SM_LINK_KEY_LEN; i++) {
+            replySlink->linkKey[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        replySlink->role = SM_T_NODE;
+        SmEncpParamReqReplyProcess(replySlink); /* T: 应答腿 */
+        replySlink->role = SM_G_NODE;
+        SmEncpParamReqReplyProcess(replySlink); /* G: 负响应腿 */
+        SmSLinkDtor(replySlink);
+    }
+
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
         FuzzSMEncpParamReqReplyProcess(fuzzData, size);
+        FuzzSMEncpBranchMatrix(fuzzData, size);
     }
 }
 
