@@ -60,5 +60,13 @@ group("nearlink_fuzztest") {
     "fuzztest/slecontroller_fuzzer:SleControllerFuzzTest",
     "fuzztest/device_manager_fuzzer:DeviceManagerFuzz",
     "fuzztest/ipcapi_fuzzer:IpcApiFuzzTest",
+    "fuzztest/bas_fuzzer:BasFuzzTest",
+    "fuzztest/mic_fuzzer:MicServiceFuzzTest",
+    "fuzztest/vas_fuzzer:VasServiceFuzzTest",
+    "fuzztest/icceservice_fuzzer:IcceServiceDirectFuzzTest",
+    "fuzztest/adapterstate_fuzzer:AdapterStateFuzzTest",
+    "fuzztest/devicebattery_fuzzer:DeviceBatteryFuzzTest",
+    "fuzztest/adaptercfg_fuzzer:AdapterCfgFuzzTest",
+    "fuzztest/bnlproxy_fuzzer:BnlProxyFuzzTest",
   ]
 }
