@@ -18,7 +18,7 @@ import("../../../nearlink_config.gni")
 import("../../utils/test_utils.gni")
 
 ##############################fuzztest##########################################
-ohos_fuzztest("BasFuzzTest") {
+ohos_fuzztest("BasStmFuzzTest") {
   module_out_path = module_output_path
   fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/bas_fuzzer"
 
