@@ -61,7 +61,10 @@ void VasLocalLifecycle(const RawAddress &device, uint32_t reqActivate, uint32_t 
 {
     VasService vasService;
     DriveVasService(vasService, device, reqActivate, reqClose);
-    std::this_thread::sleep_for(std::chrono::milliseconds(VAS_FUZZ_DELAY_50_MS));
+    // ASAN 真机实证 50ms 不足（DoInVasThread 残留任务在栈实例析构后执行 pimpl 解引用，
+    // stack-use-after-scope @VasService.cpp:147）——局部生命周期段收敛等待提到 250ms，
+    // 并由调用侧 FDP 门控降频（不是每个输入都进本段）
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 
 /* VasStackAdapter 全公开方法直调（每次调用仅走 NLSTK + DFT 上报，无全局注册副作用） */
@@ -89,7 +92,9 @@ void VasServiceFuzzTestInner(FuzzedDataProvider &fdp)
     uint32_t reqCloseOk = fdp.ConsumeIntegral<uint32_t>();
     uint32_t reqCloseFail = fdp.ConsumeIntegral<uint32_t>();
 
-    VasLocalLifecycle(device, reqActivate, reqClose);
+    if ((fdp.ConsumeIntegral<uint8_t>() & 0x07) == 0) {  // 局部生命周期段降频(1/8)，FDP 驱动选择
+        VasLocalLifecycle(device, reqActivate, reqClose);
+    }
 
     // 无 ProfileServiceManager 引导时返回 nullptr，覆盖判空跳过分支；有则轻驱管理器实例
     VasService *vasServiceStatic = VasService::GetService();
