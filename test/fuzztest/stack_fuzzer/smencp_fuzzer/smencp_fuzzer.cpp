@@ -144,7 +144,7 @@ namespace OHOS {
     }
 
     /* PR-10 SM-D8: 加密入口分支矩阵(内部直调铺垫)——
-     * SmEncpEnable: lcid 无效守卫腿 / 有效 lcid + 加密与完整性算法能力相等(同算法分支)与不等(0xFF 分支);
+     * SmEncpEnable: lcid 无效守卫腿 / 有效 lcid + 加密与完整性算法能力相等(同算法分支)或不等(0xFF 分支, FDP 位选);
      * SmEncpParamReqReplyProcess: T 角色走应答腿(含 linkKey 拷贝), G 角色走负响应腿。
      * slink 均不入 g_slinkMap, Dtor 兜底回收。 */
     void FuzzSMEncpBranchMatrix(const uint8_t* fuzzData, size_t size)
@@ -169,7 +169,8 @@ namespace OHOS {
         SmEncpEnable(guardSlink); /* lcid == CM_INVALID_LCID 早退 */
         SmSLinkDtor(guardSlink);
 
-        /* 有效 lcid: 能力相等 -> cryptoAlgo=能力-1; 不等 -> 0xFF */
+        /* 有效 lcid: 能力相等 -> cryptoAlgo=能力-1; 不等 -> 0xFF。
+         * 相等/不等选择改为 FDP 位选: 消费追加在函数消费流尾部(先消费后用), 见下方 encpSlink 分支腿 */
         SmSLink_S *encpSlink = SmSLinkCtor(&encpAddr);
         if (encpSlink == NULL) {
             return;
@@ -183,15 +184,11 @@ namespace OHOS {
             encpSlink->linkKey[i] = fdp.ConsumeIntegral<uint8_t>();
         }
         encpSlink->negoParams.codeAlgoCap[SM_ENC_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
-        encpSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC1;
-        SmEncpEnable(encpSlink); /* 相等分支 */
-        encpSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = intgAlgo;
-        SmEncpEnable(encpSlink); /* 不等分支: cryptoAlgo=0xFF */
-        SmSLinkDtor(encpSlink);
 
-        /* 参数请求应答: T 走应答 / G 走负响应 */
+        /* 应答腿 linkKey 消费前置(既有读序不变), 产品调用后置到 encpSlink 分支腿之后 */
         SmSLink_S *replySlink = SmSLinkCtor(&encpAddr);
         if (replySlink == NULL) {
+            SmSLinkDtor(encpSlink);
             return;
         }
         replySlink->lcid = lcid;
@@ -201,6 +198,14 @@ namespace OHOS {
         for (int i = 0; i < SM_LINK_KEY_LEN; i++) {
             replySlink->linkKey[i] = fdp.ConsumeIntegral<uint8_t>();
         }
+
+        /* 消费流尾部追加 ConsumeBool: 相等(intg=AC1)走 cryptoAlgo=能力-1, 不等(intg=intgAlgo, IA1/IA2)走 0xFF */
+        encpSlink->negoParams.codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] =
+            fdp.ConsumeBool() ? SM_ENCRYPTION_ALGORITHM_ABILITY_AC1 : intgAlgo;
+        SmEncpEnable(encpSlink);
+        SmSLinkDtor(encpSlink);
+
+        /* 参数请求应答: T 走应答 / G 走负响应 */
         replySlink->role = SM_T_NODE;
         SmEncpParamReqReplyProcess(replySlink); /* T: 应答腿 */
         replySlink->role = SM_G_NODE;

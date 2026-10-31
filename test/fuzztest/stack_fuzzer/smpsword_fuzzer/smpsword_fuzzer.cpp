@@ -423,7 +423,8 @@ namespace OHOS {
                 rSlink->tNode.recvFlag = true;
                 SmPassWordSetTPassWord(rSlink, passWordIn); /* 接受腿 */
                 rSlink->tNode.recvFlag = true;
-                rSlink->gNode.confirm[0] ^= 0x01;
+                rSlink->gNode.confirm[fdp.ConsumeIntegral<uint8_t>() % SM_CONFIRM_NUMBER_LEN] ^=
+                    (uint8_t)(1u << (fdp.ConsumeIntegral<uint8_t>() % 8));
                 SmPassWordSetTPassWord(rSlink, passWordIn); /* 拒收腿 */
                 SDF_MemFree(passWordIn);
             }

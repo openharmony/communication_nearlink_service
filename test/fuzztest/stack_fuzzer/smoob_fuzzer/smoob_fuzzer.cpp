@@ -164,7 +164,8 @@ namespace OHOS {
             (void)memcpy_s(msg.tNodeCfm, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
             (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_oobFuzzRb, SM_OCTETS_16);
             SmOobAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, gSlink, (const uint8_t *)&msg, sizeof(msg));
-            msg.tNodeCfm[0] ^= 0x80;
+            msg.tNodeCfm[fdp.ConsumeIntegral<uint8_t>() % SM_OCTETS_16] ^=
+                (uint8_t)(1u << (fdp.ConsumeIntegral<uint8_t>() % 8));
             SmOobAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, gSlink, (const uint8_t *)&msg, sizeof(msg));
             SmSLinkDtor(gSlink);
         }

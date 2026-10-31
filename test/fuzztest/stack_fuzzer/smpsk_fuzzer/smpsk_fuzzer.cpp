@@ -188,7 +188,8 @@ namespace OHOS {
             SmAuthTCfmMsg_S tMsg = {0};
             (void)memcpy_s(tMsg.authData, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
             SmPskAuthPkgDispatcher(SM_AUTH_T_NODE_CFM, gSlink2, (const uint8_t *)&tMsg, sizeof(tMsg));
-            tMsg.authData[0] ^= 0x80;
+            tMsg.authData[fdp.ConsumeIntegral<uint8_t>() % SM_OCTETS_16] ^=
+                (uint8_t)(1u << (fdp.ConsumeIntegral<uint8_t>() % 8));
             SmPskAuthPkgDispatcher(SM_AUTH_T_NODE_CFM, gSlink2, (const uint8_t *)&tMsg, sizeof(tMsg));
             SmSLinkDtor(gSlink2);
         }
