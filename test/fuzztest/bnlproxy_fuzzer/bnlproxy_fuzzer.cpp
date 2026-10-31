@@ -330,8 +330,10 @@ static void OperateChannel(uint16_t lcid, uint8_t tcid, uint8_t mode, uint16_t r
     return;
 }
 
-/* BNL_SendMsg（sendMsgFunc）三档驱动：合法长度 / len 与 cmdLen 不一致 / len 超上限 */
-static void DriveBnlSendMsg(const std::vector<uint8_t> &payload, uint8_t pi)
+/* BNL_SendMsg（sendMsgFunc）驱动（随机性整改）：len 全域由调用侧 FDP 传入（错配域
+ * 交引擎自发命中：不一致/超上限/任意档），另保留一次与 payload 对齐的合法构造
+ * （确定性准备，保证 DTAP_DataSend 深路径可达） */
+static void DriveBnlSendMsg(const std::vector<uint8_t> &payload, uint8_t pi, uint32_t fdpLen)
 {
     if (g_bnlProxyFuncs.sendMsgFunc == nullptr) {
         return;
@@ -342,17 +344,14 @@ static void DriveBnlSendMsg(const std::vector<uint8_t> &payload, uint8_t pi)
     msg->pi = pi;
     msg->lcid = 0;
     msg->tcid = 0;
-    msg->len = static_cast<uint32_t>(payload.size());
     if (!payload.empty()) {
         (void)memcpy_s(msg->val, payload.size(), payload.data(), payload.size());
     }
-    /* 档1：合法（len == cmdLen - header 且 <= 上限），通道已建则深入 DTAP_DataSend */
+    /* 档1：len 全域（FDP）→ 合法/不一致/超上限由引擎与种子命中 */
+    msg->len = fdpLen;
     g_bnlProxyFuncs.sendMsgFunc(cmd.data(), static_cast<uint32_t>(cmd.size()));
-    /* 档2：len 与 cmdLen 不一致 → 判空跳过分支 */
-    msg->len = static_cast<uint32_t>(payload.size()) + 1;
-    g_bnlProxyFuncs.sendMsgFunc(cmd.data(), static_cast<uint32_t>(cmd.size()));
-    /* 档3：len 超上限 → 判空跳过分支 */
-    msg->len = BNL_NET_BUF_MAX_SIZE + 1;
+    /* 档2：合法构造（len 与 payload 对齐，真实报文形状），通道已建则深入 DTAP_DataSend */
+    msg->len = static_cast<uint32_t>(payload.size());
     g_bnlProxyFuncs.sendMsgFunc(cmd.data(), static_cast<uint32_t>(cmd.size()));
 }
 
@@ -420,8 +419,9 @@ void BnlProxyFuzzTest(const uint8_t *data, size_t size)
         g_bnlProxyFuncs.disConnectDeviceFunc(&addr);
     }
 
-    /* 发送回调（BNL_SendMsg）三档 */
-    DriveBnlSendMsg(sendPayload, pi);
+    /* 发送回调（BNL_SendMsg）：len 全域 FDP + 合法对齐构造 */
+    uint32_t sendLen = fdp.ConsumeIntegral<uint32_t>();
+    DriveBnlSendMsg(sendPayload, pi, sendLen);
 
     /* 链路状态回调（BNL_LogicLinkCbk）：经捕获的 logicLinkCbk 点火，逐字段 FDP */
     if (g_bnlFuzzLogicLinkCbks.logicLinkCbk != nullptr) {
