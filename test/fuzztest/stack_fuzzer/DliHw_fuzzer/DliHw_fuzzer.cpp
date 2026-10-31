@@ -189,28 +189,31 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     SleDliSnoop::GetInstance().DliSnoopCapture(packetType, junk, isReceived);
     SleDliSnoop::GetInstance().DliSnoopCapture(packetType, std::vector<uint8_t>(), !isReceived);
 
-    /* 确定模板抓帧：黑名单命中/未命中 × CMD/EVENT(status/complete/敏感)/ACB/ICB */
-    const uint8_t cmdHit[] = {0xA1, 0x05, 0x04, 0x11, 0x22, 0x33, 0x44}; /* opcode 0x0405 命中 */
-    const uint8_t cmdMiss[] = {0xA1, 0x00, 0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
-    const uint8_t evtHit[] = {0x15, 0x00, 0x10, 0x00, 0xAA, 0xBB, 0xCC}; /* 0x0015 命中 */
-    const uint8_t evtStatus[] = {0x01, 0x00, 0x04, 0x00, 0x05, 0x04, 0xAA}; /* status 携带 0x0405 */
-    const uint8_t evtComplete[] = {0x02, 0x00, 0x04, 0x00, 0x00, 0x10, 0xBB}; /* complete 未命中 */
-    const uint8_t acb[] = {0xA3, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
-    const uint8_t icb[] = {0xA4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
-    std::vector<std::vector<uint8_t>> caps;
-    caps.push_back(MakePayload(cmdHit, sizeof(cmdHit), junk));
-    caps.push_back(MakePayload(cmdMiss, sizeof(cmdMiss), junk));
-    caps.push_back(MakePayload(evtHit, sizeof(evtHit), junk));
-    caps.push_back(MakePayload(evtStatus, sizeof(evtStatus), junk));
-    caps.push_back(MakePayload(evtComplete, sizeof(evtComplete), junk));
-    caps.push_back(MakePayload(acb, sizeof(acb), junk));
-    caps.push_back(MakePayload(icb, sizeof(icb), junk));
-    constexpr size_t CAP_TPL_COUNT = 7; /* 与上面 push_back 次数一致 */
-    for (size_t i = 0; i < CAP_TPL_COUNT; i++) {
-        /* send：data[0] 即类型；recv：类型由捕获任务补头。两向都驱动 */
-        SleDliSnoop::GetInstance().DliSnoopCapture(caps[i][0], caps[i], false);
-        SleDliSnoop::GetInstance().DliSnoopCapture(0xA2, caps[i], true);
-    }
+    /* 确定模板抓帧（随机性整改：静态表 + FDP 索引选择其一，不再每轮全量重放）：
+     * 黑名单命中/未命中 × CMD/EVENT(status/complete/敏感)/ACB/ICB，7 槽全遍历交引擎/种子 */
+    static const uint8_t cmdHit[] = {0xA1, 0x05, 0x04, 0x11, 0x22, 0x33, 0x44}; /* opcode 0x0405 命中 */
+    static const uint8_t cmdMiss[] = {0xA1, 0x00, 0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+    static const uint8_t evtHit[] = {0x15, 0x00, 0x10, 0x00, 0xAA, 0xBB, 0xCC}; /* 0x0015 命中 */
+    static const uint8_t evtStatus[] = {0x01, 0x00, 0x04, 0x00, 0x05, 0x04, 0xAA}; /* status 携带 0x0405 */
+    static const uint8_t evtComplete[] = {0x02, 0x00, 0x04, 0x00, 0x00, 0x10, 0xBB}; /* complete 未命中 */
+    static const uint8_t acbTpl[] = {0xA3, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
+    static const uint8_t icbTpl[] = {0xA4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
+    static const struct {
+        const uint8_t *data;
+        size_t len;
+    } CAP_TPL_TABLE[] = {
+        {cmdHit, sizeof(cmdHit)},         {cmdMiss, sizeof(cmdMiss)},
+        {evtHit, sizeof(evtHit)},         {evtStatus, sizeof(evtStatus)},
+        {evtComplete, sizeof(evtComplete)}, {acbTpl, sizeof(acbTpl)},
+        {icbTpl, sizeof(icbTpl)},
+    };
+    constexpr size_t CAP_TPL_COUNT = sizeof(CAP_TPL_TABLE) / sizeof(CAP_TPL_TABLE[0]);
+    const auto &capTpl = CAP_TPL_TABLE[fdp.ConsumeIntegral<uint8_t>() % CAP_TPL_COUNT];
+    std::vector<uint8_t> tplJunk = fdp.ConsumeBytes<uint8_t>(MAX_JUNK_LEN);
+    std::vector<uint8_t> capPayload = MakePayload(capTpl.data, capTpl.len, tplJunk);
+    /* send：data[0] 即类型；recv：类型由捕获任务补头。两向都驱动 */
+    SleDliSnoop::GetInstance().DliSnoopCapture(capPayload[0], capPayload, false);
+    SleDliSnoop::GetInstance().DliSnoopCapture(0xA2, capPayload, true);
     usleep(SNOOP_DRAIN_US); /* 队列内匿名化/落盘任务出队 */
 
     SleDliSnoop::GetInstance().CreateSnoopFile(newTimeNeeded);
