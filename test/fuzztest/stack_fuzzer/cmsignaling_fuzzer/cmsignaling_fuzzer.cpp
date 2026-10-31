@@ -403,7 +403,9 @@ namespace OHOS {
      * 在 TransModeConfigParse 即因长度/模式非法被拦截，Stream/Reliable 配置段、
      * SlqiList 段与 portConfig 扩展段的 Parse 深分支不可达。此处按协议布局构造
      * 结构化合法包（packed 结构体直排，小端平台 ENCODE 等价于成员赋值）覆盖：
-     * STREAM/RELIABLE 两模式 × portConfig 有/无 × optionOffset 对/错配 × slqiNum 非法 */
+     * STREAM/RELIABLE 两模式 × portConfig 有/无 × optionOffset 对/错配 × slqiNum 非法；
+     * 配置字段（flushTimeout/crcInit/txWindow/retransTimeout 等 CRC/窗口敏感输入）全 FDP，
+     * 语义常量组合下沉种子 seed_cm_sig_struct_req / seed_cm_sig_struct_extreme */
     void FuzzCmSignalingStructuredReqParse(uint8_t *data, size_t size)
     {
         FuzzedDataProvider provider(data, size);
@@ -435,19 +437,21 @@ namespace OHOS {
             common->mps = mps;
             off += (uint8_t)sizeof(CM_TransModeCommonConfig_S);
             if (mode == CM_TRANS_MODE_STREAM) {
+                // Stream 配置字段全 FDP（重排/flush 超时与 CRC 初值为 CRC 路径敏感输入）
                 CM_TransModeStreamConfig_S *stream = (CM_TransModeStreamConfig_S *)(buf + off);
-                stream->flushTimeout = 0x100;
-                stream->reorderTimeout = 0x100;
-                stream->crcInit = 0x1234;
+                stream->flushTimeout = provider.ConsumeIntegral<uint16_t>();
+                stream->reorderTimeout = provider.ConsumeIntegral<uint16_t>();
+                stream->crcInit = provider.ConsumeIntegral<uint16_t>();
                 off += (uint8_t)sizeof(CM_TransModeStreamConfig_S);
             } else if (mode == CM_TRANS_MODE_RELIABLE) {
+                // Reliable 配置字段全 FDP（txWindow/retransTimeout 为窗口路径敏感输入）
                 CM_TransModeReliableConfig_S *reliable = (CM_TransModeReliableConfig_S *)(buf + off);
-                reliable->txWindow = 0x10;
-                reliable->maxTxThreshold = 0x20;
-                reliable->retransTimeout = 0x200;
-                reliable->rspTimeout = 0x300;
-                reliable->reorderTimeout = 0x100;
-                reliable->crcInit = 0x5678;
+                reliable->txWindow = provider.ConsumeIntegral<uint16_t>();
+                reliable->maxTxThreshold = provider.ConsumeIntegral<uint16_t>();
+                reliable->retransTimeout = provider.ConsumeIntegral<uint16_t>();
+                reliable->rspTimeout = provider.ConsumeIntegral<uint16_t>();
+                reliable->reorderTimeout = provider.ConsumeIntegral<uint16_t>();
+                reliable->crcInit = provider.ConsumeIntegral<uint16_t>();
                 off += (uint8_t)sizeof(CM_TransModeReliableConfig_S);
             }
             CM_PreferredSlqiList_S *slqiList = (CM_PreferredSlqiList_S *)(buf + off);
