@@ -65,10 +65,9 @@ void DriveMicService(MicService &micSvc, const RawAddress &device, SleConnectSta
     micSvc.GetConnectDevices();
     micSvc.GetContext();
 
-    // NotifyStateChanged：随机(含非法)状态对 + 合法连接/断链两档（EnsureInsert/Erase 分支）
+    // NotifyStateChanged：随机(含非法)状态对（随机性整改：两条常量语义对删除，
+    // (CONNECTED,CONNECTING)/(DISCONNECTED,CONNECTED) 与 %5 FDP 对同域，由种子/引擎保证）
     micSvc.NotifyStateChanged(device, curState, preState);
-    micSvc.NotifyStateChanged(device, SleConnectState::CONNECTED, SleConnectState::CONNECTING);
-    micSvc.NotifyStateChanged(device, SleConnectState::DISCONNECTED, SleConnectState::CONNECTED);
 
     // UpdateMicState：合法 ON 插入/同态跳过/ON->OFF 迁移 + 随机(含非法)值
     micSvc.UpdateMicState(device, MIC_ON);
