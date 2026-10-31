@@ -193,13 +193,11 @@ void SleControllerServiceFuzzTest(FuzzedDataProvider &provider)
      * UpdateSleHidCoexIntervalForEach/StartSleHidCoexUpdateTimer 均为 private，
      * 经公有入口 UpdateConnectInterval / SetSleCoexMode 驱动。 */
 
-    /* FetchInterval 全 10 个合法型 + 非法型（GetConnectionParams 在命中后同链触达） */
+    /* FetchInterval：intervalType 全域单次 FDP（随机性整改：合法 10 型+非法型统一全域，
+     * 合法型由引擎/corpus 命中；GetConnectionParams 在命中后同链触达） */
     std::string fetchDevice = BuildAddressString(provider);
-    for (int32_t i = 0; i < SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM; i++) {
-        controller.UpdateConnectInterval(fetchDevice, i);
-    }
-    int32_t invalidIntervalType = SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM + provider.ConsumeIntegral<uint8_t>();
-    controller.UpdateConnectInterval(fetchDevice, invalidIntervalType);
+    int32_t intervalType = provider.ConsumeIntegral<int32_t>();
+    controller.UpdateConnectInterval(fetchDevice, intervalType);
 
     /* Enable 成功链：非空 deviceList + 等长合法 paramList → EnableSleHidCoexMode →
      * UpdateSleHidCoexIntervalForEach(0)。裸进程无连接记录，SleCoexistManager 查不到
