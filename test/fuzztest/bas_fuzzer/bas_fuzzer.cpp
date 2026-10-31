@@ -43,7 +43,6 @@
 namespace {
 constexpr uint8_t BAS_FUZZ_ADDR_LEN = 6;
 constexpr uint8_t BAS_FUZZ_HANDLE = 0x34;
-constexpr uint16_t BAS_FUZZ_INVALID_LEN = 2;
 constexpr int32_t BAS_FUZZ_APPID = 5;
 /* 记录桩：注册给 bas_client 的用户回调，仅记录被调次数（HID cbk 记录桩手法） */
 std::atomic<uint32_t> g_basCbkSeq { 0 };
@@ -123,262 +122,128 @@ BasStmParam_S MakeEvent(int what, void *extData)
     return param;
 }
 
-/* ---- bas_stm.c 铺态+迁移对（每对独立设备，extData 均为同步栈上结构） ---- */
+/* ---- bas_stm.c 铺态+迁移对：FDP 事件环（随机性整改） ----
+ * 状态全域 %9、事件由合法事件表索引 %11 选择（第 11 槽为非法事件）、
+ * 事件附属字段（appId、linkState、service、property、ntf）全部由 FDP 决定；
+ * 旧 30 个固定迁移对的语义由 corpus/seed_stm_*.bin 保证（尾部追加消费序，
+ * 各保留段自建 FDP 实例、读序不变）。
+ * 内存纪律：每轮独立设备（BuildBasDev 内 AddInfoIntoVector，状态机 RemoveDeviceInfo
+ * 会析构 devInfo，严禁跨轮复用）；extData 恒指向本轮栈上结构，BasClientStmCall 同步消费。 */
 
-void FuzzStmUnregUserConnect(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_APPID_UNREGISTERED, addr, -1);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECT, nullptr));
-}
+constexpr uint8_t BAS_FUZZ_STM_STATE_NUM = BAS_DEVICE_DISCONNECTED + 1; /* 9 态 */
+constexpr uint8_t BAS_FUZZ_EVENT_SEL_NUM = BAS_STM_EVENT_BUTT + 1;      /* 10 合法 + 1 非法槽 */
+constexpr uint8_t BAS_FUZZ_STM_MAX_ROUNDS = 8;
+/* 合法事件静态表（PR-9 DISC_REASON_TABLE 范式）：当前枚举连续恒等，保留表形式便于剔除非连续值 */
+constexpr int BAS_FUZZ_EVENT_TABLE[BAS_STM_EVENT_BUTT] = {
+    BAS_ON_USER_CONNECT, BAS_ON_USER_CONNECTING, BAS_ON_REGISTERED_CBK, BAS_ON_LINK_DISCONNECTED,
+    BAS_ON_LINK_STATE_CHANGE, BAS_ON_GET_SERVICE_CBK, BAS_ON_READ_PROPERTY, BAS_ON_SET_NOTIFICATION,
+    BAS_ON_NOTIFY_PROPERTY, BAS_ON_USER_DISCONNECT,
+};
 
-void FuzzStmUnregInvalidEvent(const uint8_t *data, size_t size)
+void DriveBasStmPair(FuzzedDataProvider &fdp)
 {
-    FuzzedDataProvider fdp(data, size);
     SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_APPID_UNREGISTERED, addr, -1);
+    uint8_t stmState = fdp.ConsumeIntegral<uint8_t>() % BAS_FUZZ_STM_STATE_NUM;
+    int32_t appId = fdp.ConsumeBool() ? -1 : BAS_FUZZ_APPID;
+    BasDeviceInfo_S *info = BuildBasDev(stmState, addr, appId);
     NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_STM_EVENT_BUTT + fdp.ConsumeIntegral<uint8_t>(), nullptr));
-}
 
-void FuzzStmRegisteringUserConnect(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_APPID_REGISTERING, addr, -1);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECT, nullptr));
-}
-
-void FuzzStmRegisteringCbkOk(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_APPID_REGISTERING, addr, -1);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    int32_t appId = BAS_FUZZ_APPID;
-    BasClientStmCall(info, MakeEvent(BAS_ON_REGISTERED_CBK, (void *)&appId));
-}
-
-void FuzzStmRegisteringCbkInvalid(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_APPID_REGISTERING, addr, -1);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    int32_t appId = -1;
-    BasClientStmCall(info, MakeEvent(BAS_ON_REGISTERED_CBK, (void *)&appId));
-}
-
-void FuzzStmLinkDiscUserConnect(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_LINK_DISCONNECTED, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECT, nullptr));
-}
-
-void FuzzStmLinkDiscConnecting(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_LINK_DISCONNECTED, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
-}
-
-void FuzzStmLinkConnecting(const uint8_t *data, size_t size, uint8_t linkState)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_LINK_CONNECTING, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    if (linkState == SSAP_CONNECT_STATE_BUTT) {
-        BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
+    uint8_t eventSel = fdp.ConsumeIntegral<uint8_t>() % BAS_FUZZ_EVENT_SEL_NUM;
+    if (eventSel >= BAS_STM_EVENT_BUTT) {
+        /* 非法事件槽：BUTT 起全域（default 分支覆盖） */
+        BasClientStmCall(info, MakeEvent(BAS_STM_EVENT_BUTT + fdp.ConsumeIntegral<uint8_t>(), nullptr));
         return;
     }
-    uint8_t state = linkState;
-    BasClientStmCall(info, MakeEvent(BAS_ON_LINK_STATE_CHANGE, (void *)&state));
-}
+    int what = BAS_FUZZ_EVENT_TABLE[eventSel];
 
-void FuzzStmLinkConnectingDisconnect(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_LINK_CONNECTING, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_DISCONNECT, nullptr));
-}
-
-void FuzzStmServiceFoundConnecting(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_SERVICE_FOUND, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
-}
-
-void FuzzStmServiceFoundGetSvc(const uint8_t *data, size_t size, bool validService)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_SERVICE_FOUND, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    NLSTK_SsapPrty_S property = {0};
-    property.handle = BAS_FUZZ_HANDLE;
-    property.uuid = BasConvertUuidToStru(BAS_REMAIN_BATTERY_PERCENTAGE_UUID);
-    NLSTK_SsapServ_S service = {0};
-    service.uuid = BasConvertUuidToStru(BAS_SERVICE_UUID);
-    service.propertyNum = 1;
-    service.properties = &property;
-    BasServiceMsg_S serviceMsg = {0};
-    serviceMsg.serviceNum = validService ? 1 : 0;
-    serviceMsg.service = validService ? &service : nullptr;
-    serviceMsg.func = nullptr;
-    BasClientStmCall(info, MakeEvent(BAS_ON_GET_SERVICE_CBK, (void *)&serviceMsg));
-}
-
-void FuzzStmLinkStateAfterCreate(const uint8_t *data, size_t size, uint8_t state)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    /* 覆盖建链后各态（LINK_CONNECTING/SERVICE_FOUND/READ_PROPERTY/CONNECTED/
-     * SET_NOTIFICATION/DISCONNECTED 有 case，其余走 default 分支） */
-    uint8_t stmState = fdp.ConsumeIntegral<uint8_t>() % (BAS_DEVICE_DISCONNECTED + 1);
-    BasDeviceInfo_S *info = BuildBasDev(stmState, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    /* BasOnStateChangedAfterCreateLinkState 直接解引用 extData，必须非空 */
-    BasClientStmCall(info, MakeEvent(BAS_ON_LINK_STATE_CHANGE, (void *)&state));
-}
-
-void FuzzStmReadPropertyConnecting(const uint8_t *data, size_t size, bool withHandle)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_READ_PROPERTY, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    if (withHandle) {
+    /* 状态相关铺底（信任边界之前的准备）：READ_PROPERTY/SET_NOTIFICATION 态的句柄域 */
+    if ((stmState == BAS_READ_PROPERTY || stmState == BAS_SET_NOTIFICATION) && fdp.ConsumeBool()) {
         info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
         PushHandle(info, BAS_FUZZ_HANDLE);
-        PushHandle(info, BAS_FUZZ_HANDLE + 1);
+        if (stmState == BAS_READ_PROPERTY) {
+            PushHandle(info, BAS_FUZZ_HANDLE + 1);
+        }
     }
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
+
+    switch (what) {
+        case BAS_ON_USER_CONNECT:
+        case BAS_ON_USER_CONNECTING:
+        case BAS_ON_USER_DISCONNECT:
+        case BAS_ON_LINK_DISCONNECTED:
+            BasClientStmCall(info, MakeEvent(what, nullptr));
+            break;
+        case BAS_ON_REGISTERED_CBK: {
+            int32_t cbkAppId = fdp.ConsumeIntegral<int32_t>(); /* 全域（旧 -1/5 两档交种子） */
+            BasClientStmCall(info, MakeEvent(what, (void *)&cbkAppId));
+            break;
+        }
+        case BAS_ON_LINK_STATE_CHANGE: {
+            /* BasOnStateChangedAfterCreateLinkState 直接解引用 extData，恒非空（产品 P-1 已登记） */
+            uint8_t state = fdp.ConsumeIntegral<uint8_t>() % (SSAP_CONNECT_STATE_BUTT + 1);
+            BasClientStmCall(info, MakeEvent(what, (void *)&state));
+            break;
+        }
+        case BAS_ON_GET_SERVICE_CBK: {
+            NLSTK_SsapPrty_S property = {0};
+            property.handle = BAS_FUZZ_HANDLE;
+            property.uuid = BasConvertUuidToStru(BAS_REMAIN_BATTERY_PERCENTAGE_UUID);
+            NLSTK_SsapServ_S service = {0};
+            service.uuid = BasConvertUuidToStru(BAS_SERVICE_UUID);
+            service.propertyNum = 1;
+            service.properties = &property;
+            BasServiceMsg_S serviceMsg = {0};
+            serviceMsg.serviceNum = fdp.ConsumeBool() ? 1 : 0;
+            serviceMsg.service = (serviceMsg.serviceNum != 0) ? &service : nullptr;
+            serviceMsg.func = nullptr;
+            BasClientStmCall(info, MakeEvent(what, (void *)&serviceMsg));
+            break;
+        }
+        case BAS_ON_READ_PROPERTY: {
+            uint8_t battery = fdp.ConsumeIntegral<uint8_t>();
+            NLSTK_SsapClientReadPropertyInfo_S property = {0};
+            property.handle = fdp.ConsumeBool() ? BAS_FUZZ_HANDLE : (BAS_FUZZ_HANDLE + 1); /* hit/miss 旧对语义 */
+            property.value.len = 1;
+            property.value.data = &battery;
+            BasReadPropertyMsg_S readMsg = {0};
+            readMsg.property = fdp.ConsumeBool() ? &property : nullptr;
+            readMsg.ret = fdp.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_FAIL;
+            BasClientStmCall(info, MakeEvent(what, (void *)&readMsg));
+            break;
+        }
+        case BAS_ON_SET_NOTIFICATION: {
+            info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
+            bool enable = fdp.ConsumeBool();
+            NLSTK_SsapUuid_S uuid = BasConvertUuidToStru(BAS_SERVICE_UUID);
+            BasSetPropertyNtfMsg_S setNtfMsg = {0};
+            setNtfMsg.uuid = &uuid;
+            setNtfMsg.handle = BAS_FUZZ_HANDLE;
+            setNtfMsg.enable = enable;
+            setNtfMsg.ret = fdp.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_FAIL;
+            BasClientStmCall(info, MakeEvent(what, (void *)&setNtfMsg));
+            break;
+        }
+        case BAS_ON_NOTIFY_PROPERTY: {
+            info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
+            uint8_t battery = fdp.ConsumeIntegral<uint8_t>();
+            NLSTK_SsapClientReadPropertyInfo_S property = {0};
+            property.handle = BAS_FUZZ_HANDLE;
+            property.value.len = fdp.ConsumeIntegral<uint8_t>(); /* 全域（旧 1/2 两档交种子） */
+            property.value.data = &battery;
+            BasClientStmCall(info, MakeEvent(what, (void *)&property));
+            break;
+        }
+        default:
+            BasClientStmCall(info, MakeEvent(what, nullptr));
+            break;
+    }
 }
 
-void FuzzStmReadPropertyCbk(const uint8_t *data, size_t size, bool hitLast)
+void FuzzBasStmRandom(FuzzedDataProvider &fdp)
 {
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_READ_PROPERTY, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
-    info->lastReadHandle = hitLast ? BAS_FUZZ_HANDLE : (BAS_FUZZ_HANDLE + 1);
-    PushHandle(info, BAS_FUZZ_HANDLE);
-    uint8_t battery = fdp.ConsumeIntegral<uint8_t>();
-    NLSTK_SsapClientReadPropertyInfo_S property = {0};
-    property.handle = BAS_FUZZ_HANDLE;
-    property.value.len = 1;
-    property.value.data = &battery;
-    BasReadPropertyMsg_S readMsg = {.property = &property, .ret = NLSTK_ERRCODE_SUCCESS};
-    BasClientStmCall(info, MakeEvent(BAS_ON_READ_PROPERTY, (void *)&readMsg));
-}
-
-void FuzzStmReadPropertyFail(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_READ_PROPERTY, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasReadPropertyMsg_S readMsg = {.property = nullptr, .ret = NLSTK_ERRCODE_FAIL};
-    BasClientStmCall(info, MakeEvent(BAS_ON_READ_PROPERTY, (void *)&readMsg));
-}
-
-void FuzzStmConnectedConnecting(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_DEVICE_CONNECTED, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
-}
-
-void FuzzStmConnectedNotify(const uint8_t *data, size_t size, uint16_t len)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    uint8_t stmState = fdp.ConsumeBool() ? BAS_DEVICE_CONNECTED : BAS_SET_NOTIFICATION;
-    BasDeviceInfo_S *info = BuildBasDev(stmState, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
-    uint8_t battery = fdp.ConsumeIntegral<uint8_t>();
-    NLSTK_SsapClientReadPropertyInfo_S property = {0};
-    property.handle = BAS_FUZZ_HANDLE;
-    property.value.len = len;
-    property.value.data = &battery;
-    BasClientStmCall(info, MakeEvent(BAS_ON_NOTIFY_PROPERTY, (void *)&property));
-}
-
-void FuzzStmConnectedRead(const uint8_t *data, size_t size, bool hitHandle)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_SET_NOTIFICATION, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
-    uint8_t battery = fdp.ConsumeIntegral<uint8_t>();
-    NLSTK_SsapClientReadPropertyInfo_S property = {0};
-    property.handle = hitHandle ? BAS_FUZZ_HANDLE : (BAS_FUZZ_HANDLE + 1);
-    property.value.len = 1;
-    property.value.data = &battery;
-    BasReadPropertyMsg_S readMsg = {.property = &property, .ret = NLSTK_ERRCODE_SUCCESS};
-    BasClientStmCall(info, MakeEvent(BAS_ON_READ_PROPERTY, (void *)&readMsg));
-}
-
-void FuzzStmSetNtfConnecting(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_SET_NOTIFICATION, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    info->devHandleInfo.remainBatPctHdl = BAS_FUZZ_HANDLE;
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_CONNECTING, nullptr));
-}
-
-void FuzzStmSetNtfCbk(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_SET_NOTIFICATION, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    bool enable = fdp.ConsumeBool();
-    NLSTK_SsapUuid_S uuid = BasConvertUuidToStru(BAS_SERVICE_UUID);
-    BasSetPropertyNtfMsg_S setNtfMsg = {.uuid = &uuid, .handle = BAS_FUZZ_HANDLE,
-        .enable = enable, .ret = enable ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_FAIL};
-    BasClientStmCall(info, MakeEvent(BAS_ON_SET_NOTIFICATION, (void *)&setNtfMsg));
-}
-
-void FuzzStmUserDisconnectCommon(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    uint8_t stmState = fdp.ConsumeIntegral<uint8_t>() % (BAS_DEVICE_DISCONNECTED + 1);
-    BasDeviceInfo_S *info = BuildBasDev(stmState, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    BasClientStmCall(info, MakeEvent(BAS_ON_USER_DISCONNECT, nullptr));
-}
-
-void FuzzStmDisconnectedLinkState(const uint8_t *data, size_t size)
-{
-    FuzzedDataProvider fdp(data, size);
-    SLE_Addr_S addr = BuildBasAddr(fdp);
-    BasDeviceInfo_S *info = BuildBasDev(BAS_DEVICE_DISCONNECTED, addr, BAS_FUZZ_APPID);
-    NL_CHECK_RETURN(info != nullptr, "build dev fail");
-    uint8_t state = SSAP_CONNECT_STATE_DISCONNECTED;
-    BasClientStmCall(info, MakeEvent(BAS_ON_LINK_STATE_CHANGE, (void *)&state));
+    uint8_t rounds = fdp.ConsumeIntegralInRange<uint8_t>(1, BAS_FUZZ_STM_MAX_ROUNDS);
+    for (uint8_t i = 0; i < rounds; i++) {
+        DriveBasStmPair(fdp);
+    }
 }
 
 /* ---- bas_ssap_cbk.c：BasGetSsapCbk 取真实 cbk 表后直调函数本体（深对先铺 appId 匹配设备） ---- */
@@ -488,39 +353,18 @@ void FuzzBasApi(const uint8_t *data, size_t size)
     FuzzBasAdapter(data, size);
     FuzzBasClientTasks(data, size);
     FuzzBasRegAppChain(data, size);
-    /* bas_stm 铺态迁移对 */
-    FuzzStmUnregUserConnect(data, size);
-    FuzzStmUnregInvalidEvent(data, size);
-    FuzzStmRegisteringUserConnect(data, size);
-    FuzzStmRegisteringCbkOk(data, size);
-    FuzzStmRegisteringCbkInvalid(data, size);
-    FuzzStmLinkDiscUserConnect(data, size);
-    FuzzStmLinkDiscConnecting(data, size);
-    FuzzStmLinkConnecting(data, size, SSAP_CONNECT_STATE_CONNECTED);
-    FuzzStmLinkConnecting(data, size, SSAP_CONNECT_STATE_DISCONNECTED);
-    FuzzStmLinkConnecting(data, size, SSAP_CONNECT_STATE_IDLE);
-    FuzzStmLinkConnecting(data, size, SSAP_CONNECT_STATE_BUTT);
-    FuzzStmLinkConnectingDisconnect(data, size);
-    FuzzStmServiceFoundConnecting(data, size);
-    FuzzStmServiceFoundGetSvc(data, size, true);
-    FuzzStmServiceFoundGetSvc(data, size, false);
-    FuzzStmLinkStateAfterCreate(data, size, SSAP_CONNECT_STATE_DISCONNECTED);
-    FuzzStmReadPropertyConnecting(data, size, true);
-    FuzzStmReadPropertyConnecting(data, size, false);
-    FuzzStmReadPropertyCbk(data, size, true);
-    FuzzStmReadPropertyCbk(data, size, false);
-    FuzzStmReadPropertyFail(data, size);
-    FuzzStmConnectedConnecting(data, size);
-    FuzzStmConnectedNotify(data, size, 1);
-    FuzzStmConnectedNotify(data, size, BAS_FUZZ_INVALID_LEN);
-    FuzzStmConnectedRead(data, size, true);
-    FuzzStmConnectedRead(data, size, false);
-    FuzzStmSetNtfConnecting(data, size);
-    FuzzStmSetNtfCbk(data, size);
-    FuzzStmUserDisconnectCommon(data, size);
-    FuzzStmDisconnectedLinkState(data, size);
     /* bas_ssap_cbk cbk 本体直调 */
     FuzzBasSsapCbks(data, size);
+    /* bas_stm 事件环（新增消费，追加尾部；各保留段自建 FDP 读序不变）：
+     * [尾1] rounds = InRange(1,8)；每轮自尾端依次消费
+     * addr 7B、stmState(%9)、appId bool、eventSel(%11，10 号为非法槽+1B)，
+     * 之后按事件消费附属字段（REGISTERED_CBK int32、LINK_STATE_CHANGE u8(%6)、
+     * GET_SERVICE bool、READ_PROPERTY u8+bool+bool+bool、SET_NOTIFICATION bool+bool、
+     * NOTIFY u8+u8、句柄铺底 bool） */
+    {
+        FuzzedDataProvider fdp(data, size);
+        FuzzBasStmRandom(fdp);
+    }
     BasDisable();
 }
 
