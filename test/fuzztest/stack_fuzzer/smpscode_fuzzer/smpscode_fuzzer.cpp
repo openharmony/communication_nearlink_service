@@ -499,7 +499,7 @@ namespace OHOS {
         /* 期望 T 确认码基于产品已算出的 gNode.mixCode 派生, 喂回走接受腿 */
         uint8_t tConfirm[SM_OCTETS_16] = {0};
         if (FuzzPcodeGenConfirm(g_tNodeRb, slink->gNode.mixCode, tConfirm)) {
-            SmAuthTCfmWithRbMsg_S msg = {0};
+            SmAuthTCfmWithRbMsg_S msg = {};
             (void)memcpy_s(msg.tNodeCfm, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
             (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_tNodeRb, SM_OCTETS_16);
             slink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_G 分支 */

@@ -201,7 +201,7 @@ void CmFuzzerSleConnectCompleteEvtWithAddr(uint16_t handle, const SLE_Addr_S *ad
 // PR-10 编译闭环:mock 回调表(原设计经 DLI 注册流程填充;当前静态空表=SetMcs 事件
 // 不触发,保守降级,表接入随后续迭代)
 static const size_t g_cmdCbkSize = 0;
-static DLI_ConnCmdCbk g_cmdCbk[1] = {};
+static DLI_CbkLineStru g_cmdCbk[1] = {};
 
 void CmFuzzerSetMcsEvt(uint16_t connHandle, uint8_t status)
 {

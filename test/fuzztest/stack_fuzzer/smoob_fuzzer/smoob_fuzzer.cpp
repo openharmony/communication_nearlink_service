@@ -140,7 +140,7 @@ namespace OHOS {
         SmSLink_S *tSlink = FuzzOobMakeSLink(SM_T_NODE);
         if (tSlink != nullptr) {
             tSlink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_T 分支 */
-            SmAuthGCfmWithRaMsg_S msg = {0};
+            SmAuthGCfmWithRaMsg_S msg = {};
             (void)memcpy_s(msg.gNodeCfm, SM_OCTETS_16, gConfirm, SM_OCTETS_16);
             (void)memcpy_s(msg.randomA, SM_OCTETS_16, g_oobFuzzRa, SM_OCTETS_16);
             SmOobAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, tSlink, (const uint8_t *)&msg, sizeof(msg));
@@ -160,7 +160,7 @@ namespace OHOS {
         SmSLink_S *gSlink = FuzzOobMakeSLink(SM_G_NODE);
         if (gSlink != nullptr) {
             gSlink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_G 分支 */
-            SmAuthTCfmWithRbMsg_S msg = {0};
+            SmAuthTCfmWithRbMsg_S msg = {};
             (void)memcpy_s(msg.tNodeCfm, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
             (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_oobFuzzRb, SM_OCTETS_16);
             SmOobAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, gSlink, (const uint8_t *)&msg, sizeof(msg));

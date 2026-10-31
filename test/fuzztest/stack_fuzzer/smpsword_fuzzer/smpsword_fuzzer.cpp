@@ -366,7 +366,7 @@ namespace OHOS {
         SmSLink_S *tSlink = FuzzPwdMakeSLink(SM_T_NODE);
         if (tSlink != nullptr) {
             (void)memcpy_s(tSlink->tNode.mixWord, SM_MIX_PASSWORD_LEN, mixWord, SM_MIX_PASSWORD_LEN);
-            SmAuthGCfmWithRaMsg_S msg = {0};
+            SmAuthGCfmWithRaMsg_S msg = {};
             (void)memcpy_s(msg.randomA, SM_OCTETS_16, g_gNodeRa, SM_OCTETS_16);
             if (FuzzPwdGenConfirm(tSlink, g_gNodeRa, mixWord, msg.gNodeCfm)) {
                 SmPassWordAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, tSlink,
@@ -390,7 +390,7 @@ namespace OHOS {
         SmSLink_S *gSlink = FuzzPwdMakeSLink(SM_G_NODE);
         if (gSlink != nullptr) {
             (void)memcpy_s(gSlink->gNode.mixWord, SM_MIX_PASSWORD_LEN, mixWord, SM_MIX_PASSWORD_LEN);
-            SmAuthTCfmWithRbMsg_S msg = {0};
+            SmAuthTCfmWithRbMsg_S msg = {};
             (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_tNodeRb, SM_OCTETS_16);
             if (FuzzPwdGenConfirm(gSlink, g_tNodeRb, mixWord, msg.tNodeCfm)) {
                 SmPassWordAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, gSlink,
