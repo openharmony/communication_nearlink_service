@@ -26,6 +26,7 @@
 #include "sle_service_data.h"
 #include "SleAdapter.cpp"
 #include "SleRemoteDeviceManager.h"
+#include "SleCoexistManager.h"
 
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
@@ -33,6 +34,9 @@
 #include "nearlink_access_token_mock.h"
 #include <thread>
 #include <chrono>
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 
 namespace OHOS {
 namespace Nearlink {
@@ -56,6 +60,11 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    // 测试目的：GetRealAddress001/GetPairState001 等用例直取 CdsmService 并读写 cdsmList_
+    // （实测 SIGSEGV：GetService() 空指针解引用）；按 dis 样板注入自有服务（裸进程 Start 链必败）。
+    std::unique_ptr<CdsmService> service_;
 };
 
 void SleAdapterSecurityTest::SetUpTestCase()
@@ -76,6 +85,12 @@ void SleAdapterSecurityTest::SetUp()
     SleConfig::GetInstance().RemoveAllPairedDevices();
     SleRemoteDeviceManager::GetInstance()->RemovePeripheralDevice(std::string("00:11:22:33:44:55"));
     g_adapter->SetIoCapability(SLE_DEFAULT_IO);
+    // 测试目的：与产品注册路径同构（ProfileServiceManager SetProfile）注入自有 CdsmService，
+    // 使 GetService() 命中，用例对 cdsmList_ 的读写及 TearDown 清理语义随之真实生效。
+    service_ = std::make_unique<CdsmService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, service_.get());
+    ASSERT_EQ(service_.get(), CdsmService::GetService());
     HILOGI("SetUp SleSecurityTest.");
 }
 
@@ -84,11 +99,25 @@ void SleAdapterSecurityTest::TearDown()
     // 全量兜底清理：用例间共享进程级单例与 g_adapter 内部状态，
     // 尾部自清存在遗漏与异步续体晚到写入，在此统一吸收（详见用例隔离分析）
     SleConfig::GetInstance().RemoveAllPairedDevices();
-    CdsmService::GetService()->cdsmList_.Clear();
+    // 测试目的：CdsmService 由 profile 启动链创建；裸进程 Start() 失败时 GetService() 返回
+    // nullptr，直接解引用会让套件死在 TearDown（实测 SIGSEGV 于 cdsmList_ 内 mutex lock）。
+    // 判空保留清理语义，不删清理代码。
+    CdsmService *cdsmService = CdsmService::GetService();
+    if (cdsmService != nullptr) {
+        cdsmService->cdsmList_.Clear();
+    }
     g_adapter->pimpl->needReconnectDevices_.Clear();
     g_adapter->pimpl->credibleDevice_.Clear();
+    // 测试目的：ConnectionStateTask001/ConnectionCompleteTask001 直呼 ConnectionStateTask，
+    // 会在进程级 SleCoexistManager 写入连接参数且无自清（repeat 复验时污染 GetConnectionParam001
+    // 的"未连接"前置）。按本 TearDown 全量兜底惯例清空 coexist 表。
+    SleCoexistManager::GetInstance()->ClearAll();
     SleRemoteDeviceAdapter::GetInstance()->RemoveAllPeripheralDevices();
     g_adapter->SetIoCapability(SLE_DEFAULT_IO);
+    // 测试目的：解绑注册表并销毁自有 CdsmService，防状态跨例残留。
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    service_.reset();
     HILOGI("TearDown SleSecurityTest.");
 }
 
@@ -320,6 +349,11 @@ TEST_F(SleAdapterSecurityTest, Get_Set_SleProperties001)
     EXPECT_EQ(SLE_DEFAULT_IO, ioBility);
     bool result = g_adapter->SetIoCapability(1);
     EXPECT_EQ(true, result);
+    // 测试目的：IsSleEnabled 读取 SleServiceManager 缓存的适配器状态；裸进程未走真实使能
+    // 流程，状态恒为 TURN_OFF。按产品状态上报路径同步执行 OnAdapterStateChangeTask，
+    // 模拟"适配器已使能"前置（与真实流程写同一 state_ 字段），不改断言期望。
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(
+        SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
     bool enable = g_adapter->IsSleEnabled();
     EXPECT_EQ(true, enable);
     HILOGI("SleAdapterSecurityTest: Get_Set_SleProperties001 end");
