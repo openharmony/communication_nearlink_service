@@ -196,8 +196,8 @@ void SleControllerServiceFuzzTest(FuzzedDataProvider &provider)
     /* FetchInterval：intervalType 全域单次 FDP（随机性整改：合法 10 型+非法型统一全域，
      * 合法型由引擎/corpus 命中；GetConnectionParams 在命中后同链触达） */
     std::string fetchDevice = BuildAddressString(provider);
-    int32_t intervalType = provider.ConsumeIntegral<int32_t>();
-    controller.UpdateConnectInterval(fetchDevice, intervalType);
+    int32_t intervalTypeFetch = provider.ConsumeIntegral<int32_t>();
+    controller.UpdateConnectInterval(fetchDevice, intervalTypeFetch);
 
     /* Enable 成功链：非空 deviceList + 等长合法 paramList → EnableSleHidCoexMode →
      * UpdateSleHidCoexIntervalForEach(0)。裸进程无连接记录，SleCoexistManager 查不到

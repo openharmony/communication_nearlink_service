@@ -38,6 +38,7 @@ ohos_fuzztest("BasStmFuzzTest") {
 
   include_dirs = [
     "$NEARLINK_ROOT/services/stack/src/sdf/oal/memm/include",
+    "$NEARLINK_ROOT/services/stack/src/sdf/dfx/errno/include",
     "$NEARLINK_ROOT/utils/include",
     "$NEARLINK_ROOT/frameworks/inner/include",
     "$NEARLINK_ROOT/interfaces/inner_api/include",

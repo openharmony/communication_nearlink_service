@@ -22,6 +22,7 @@
 #include "nearlink_host_server.h"
 // 栈侧 icce_utils（C 接口）须先于 IcceServerStackAdapter.h：两份 icce_utils.h 同用 ICCE_UTILS_H
 // include guard，先含栈侧才能保住 IcceConvert* 声明（service 侧本驱动未用其声明）
+#include "src/icce_type.h"
 #include "src/icce_utils.h"
 #include "IcceService.h"
 #include "IcceServerStackAdapter.h"
@@ -94,7 +95,7 @@ void DriveIcceUtils(FuzzedDataProvider &fdp)
     uint16_t uuid16Round = IcceConvertUuidTo16Bits(uuidStru2);
     HILOGI("IcceFuzzTest uuid round-trip %{public}u -> %{public}u", uuid16, uuid16Round);
 
-    IcceDevice_S dev = {};
+    IcceDevice_S dev = IcceDevice_S{};
     dev.appId = fdp.ConsumeIntegral<int32_t>();
     int32_t appIdSame = dev.appId;
     int32_t appIdDiff = appIdSame + 1;

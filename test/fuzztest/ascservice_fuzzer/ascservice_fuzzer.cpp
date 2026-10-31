@@ -506,7 +506,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     uint8_t *ascFuzzData = static_cast<uint8_t *>(malloc(size));
     if (ascFuzzData != nullptr) {
         if (memcpy_s(ascFuzzData, size, data, size) == EOK) {
-            OHOS::SleASCDirectFuzzTest(ascFuzzData, size);
+            SleASCDirectFuzzTest(ascFuzzData, size);
         }
         free(ascFuzzData);
     }
