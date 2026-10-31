@@ -336,109 +336,60 @@ void WalkToTurningHalfToOff(const std::shared_ptr<AdapterStateMachine> &machine)
     PostMsg(machine, AdapterMsg::MSG_DISABLE_REQ, true);
 }
 
-// 1. TurnOff（初始稳定态）：ENABLE_REQ→TurningOn；HALF_DISABLE_REQ→TurningOffToHalf
-void RunCaseTurnOff(FuzzedDataProvider &fdp)
+/* ---- FDP 消息环（随机性整改）：铺底目标态由 walkSel 选择，之后"下一消息"由
+ * SAFE_MSG_TABLE 索引决定（TIME_OUT 绝不入表，SIGKILL 红线）；旧 8 case 固定
+ * 矩阵语义由 corpus/seed_case_*.bin 保证。 ---- */
+constexpr uint8_t ADAPTER_STATE_FUZZ_WALK_MOD = 7;    /* 铺底选择：驻 Off/半程×2/On/Half/TurningOff/TurningHalfToOff */
+constexpr uint8_t ADAPTER_STATE_FUZZ_MSG_MOD = 8;     /* 安全消息数 */
+constexpr uint8_t ADAPTER_STATE_FUZZ_MSG_MAX_ROUNDS = 8;
+/* 安全消息静态表（只放 REQ/CMP 族；MSG_*_TIME_OUT 全部禁投——TIME_OUT 分支会调
+ * SleServiceManager::Reset()，裸进程挂死） */
+constexpr AdapterMsg ADAPTER_STATE_FUZZ_SAFE_MSG_TABLE[ADAPTER_STATE_FUZZ_MSG_MOD] = {
+    AdapterMsg::MSG_ENABLE_REQ,
+    AdapterMsg::MSG_DISABLE_REQ,
+    AdapterMsg::MSG_HALF_DISABLE_REQ,
+    AdapterMsg::MSG_ADAPTER_ENABLE_CMP,
+    AdapterMsg::MSG_PROFILE_ENABLE_CMP,
+    AdapterMsg::MSG_PROFILE_DISABLE_CMP,
+    AdapterMsg::MSG_ADAPTER_DISABLE_CMP,
+    AdapterMsg::MSG_TURNING_TASK_CMP,
+};
+
+void FuzzAdapterMsgLoop(FuzzedDataProvider &fdp)
 {
     bool useSlb = fdp.ConsumeBool();
-    PostMsg(BuildMachine(useSlb), AdapterMsg::MSG_ENABLE_REQ, true);
-    PostMsg(BuildMachine(useSlb), AdapterMsg::MSG_HALF_DISABLE_REQ, true);
-}
-
-// 2. TurningOn：ADAPTER_ENABLE_CMP / PROFILE_ENABLE_CMP（arg1M 双分支，false 走失败 CMP 迁移）
-void RunCaseTurningOn(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    bool cmpOkA = fdp.ConsumeBool();
-    bool cmpOkB = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    PostMsg(machineA, AdapterMsg::MSG_ENABLE_REQ, true);
-    PostMsg(machineA, AdapterMsg::MSG_ADAPTER_ENABLE_CMP, cmpOkA);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    PostMsg(machineB, AdapterMsg::MSG_ENABLE_REQ, true);
-    PostMsg(machineB, AdapterMsg::MSG_PROFILE_ENABLE_CMP, cmpOkB);
-}
-
-// 3. TurnOn（稳定态）：DISABLE_REQ→TurningOff；HALF_DISABLE_REQ→TurningOff（ON→OFF→HALF 流程）
-void RunCaseTurnOn(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    WalkToTurnOn(machineA);
-    PostMsg(machineA, AdapterMsg::MSG_DISABLE_REQ, true);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    WalkToTurnOn(machineB);
-    PostMsg(machineB, AdapterMsg::MSG_HALF_DISABLE_REQ, true);
-}
-
-// 4. TurningOff：PROFILE_DISABLE_CMP（停 profileTimer/启 adapterTimer/ctx Disable）；
-//    ADAPTER_DISABLE_CMP（→TurnOff，Entry(TurnOff) 首次真实走 CheckAndStopService 链）
-void RunCaseTurningOff(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    bool cmpOkA = fdp.ConsumeBool();
-    bool cmpOkB = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    WalkToTurningOff(machineA);
-    PostMsg(machineA, AdapterMsg::MSG_PROFILE_DISABLE_CMP, cmpOkA);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    WalkToTurningOff(machineB);
-    PostMsg(machineB, AdapterMsg::MSG_ADAPTER_DISABLE_CMP, cmpOkB);
-}
-
-// 5. TurningHalfToOff：消息对同 TurningOff（半关→全关路径）
-void RunCaseTurningHalfToOff(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    bool cmpOkA = fdp.ConsumeBool();
-    bool cmpOkB = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    WalkToTurningHalfToOff(machineA);
-    PostMsg(machineA, AdapterMsg::MSG_PROFILE_DISABLE_CMP, cmpOkA);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    WalkToTurningHalfToOff(machineB);
-    PostMsg(machineB, AdapterMsg::MSG_ADAPTER_DISABLE_CMP, cmpOkB);
-}
-
-// 6. TurningOffToHalf：ADAPTER_ENABLE_CMP / PROFILE_ENABLE_CMP（false 走失败 CMP→TurningHalfToOff）
-void RunCaseTurningOffToHalf(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    bool cmpOkA = fdp.ConsumeBool();
-    bool cmpOkB = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    PostMsg(machineA, AdapterMsg::MSG_HALF_DISABLE_REQ, true);
-    PostMsg(machineA, AdapterMsg::MSG_ADAPTER_ENABLE_CMP, cmpOkA);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    PostMsg(machineB, AdapterMsg::MSG_HALF_DISABLE_REQ, true);
-    PostMsg(machineB, AdapterMsg::MSG_PROFILE_ENABLE_CMP, cmpOkB);
-}
-
-// 7. TurningHalfToOn：Entry 自投 TURNING_TASK_CMP（唯一安全驱动点，Entry 后即迁移 TurnOn，
-//    状态不可驻留；TIME_OUT 分支禁投）
-void RunCaseTurningHalfToOn(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
+    uint8_t walkSel = fdp.ConsumeIntegral<uint8_t>() % ADAPTER_STATE_FUZZ_WALK_MOD;
     std::shared_ptr<AdapterStateMachine> machine = BuildMachine(useSlb);
-    WalkToTurnHalf(machine);
-    PostMsg(machine, AdapterMsg::MSG_ENABLE_REQ, true);
-}
-
-// 8. TurnHalf（稳定态）：ENABLE_REQ→TurningHalfToOn；DISABLE_REQ→TurningHalfToOff
-void RunCaseTurnHalf(FuzzedDataProvider &fdp)
-{
-    bool useSlb = fdp.ConsumeBool();
-    std::shared_ptr<AdapterStateMachine> machineA = BuildMachine(useSlb);
-    WalkToTurnHalf(machineA);
-    PostMsg(machineA, AdapterMsg::MSG_ENABLE_REQ, true);
-
-    std::shared_ptr<AdapterStateMachine> machineB = BuildMachine(useSlb);
-    WalkToTurnHalf(machineB);
-    PostMsg(machineB, AdapterMsg::MSG_DISABLE_REQ, true);
+    /* 铺底（信任边界之前的确定性准备，CMP 恒 arg1=true）：随机消息环从铺底态出发 */
+    switch (walkSel) {
+        case 1: /* Off --ENABLE_REQ--> 驻 TurningOn */
+            PostMsg(machine, AdapterMsg::MSG_ENABLE_REQ, true);
+            break;
+        case 2: /* Off --HALF_DISABLE_REQ--> 驻 TurningOffToHalf */
+            PostMsg(machine, AdapterMsg::MSG_HALF_DISABLE_REQ, true);
+            break;
+        case 3:
+            WalkToTurnOn(machine);
+            break;
+        case 4:
+            WalkToTurnHalf(machine);
+            break;
+        case 5:
+            WalkToTurningOff(machine);
+            break;
+        case 6:
+            WalkToTurningHalfToOff(machine);
+            break;
+        case 0:
+        default:
+            break; /* 驻留初始稳定态 TurnOff */
+    }
+    uint8_t rounds = fdp.ConsumeIntegralInRange<uint8_t>(1, ADAPTER_STATE_FUZZ_MSG_MAX_ROUNDS);
+    for (uint8_t i = 0; i < rounds; i++) {
+        AdapterMsg msg = ADAPTER_STATE_FUZZ_SAFE_MSG_TABLE[fdp.ConsumeIntegral<uint8_t>() %
+            ADAPTER_STATE_FUZZ_MSG_MOD];
+        PostMsg(machine, msg, fdp.ConsumeBool());
+    }
 }
 
 // B. 三个公开方法直调（稳定态 TurnOff 上）：SetNextTargetState 稳定/非稳定分支 +
@@ -474,28 +425,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     FuzzedDataProvider fdp(data, size);
-    /* FDP 读序（单流，整型自缓冲区尾端逆序消费；后续扩展只允许追加尾部，保旧 corpus 兼容）：
-     * [尾1] targetSel: SetNextTargetState 选择器 %4（RunPublicApiTrio 用）
-     * [尾2] useSlb: RunCaseTurnOff 的 context 名 SlbAdapter/SleAdapter → ADAPTER_SLB/ADAPTER_SLE
-     * [尾3~尾5] RunCaseTurningOn: useSlb + cmpOkA + cmpOkB（CMP arg1M 成败双分支）
-     * [尾6] RunCaseTurnOn: useSlb
-     * [尾7~尾9] RunCaseTurningOff: useSlb + cmpOkA + cmpOkB
-     * [尾10~尾12] RunCaseTurningHalfToOff: useSlb + cmpOkA + cmpOkB
-     * [尾13~尾15] RunCaseTurningOffToHalf: useSlb + cmpOkA + cmpOkB
-     * [尾16] RunCaseTurningHalfToOn: useSlb
-     * [尾17] RunCaseTurnHalf: useSlb
-     * [尾18] RunPublicApiTrio: useSlb */
-    uint8_t targetSel = fdp.ConsumeIntegral<uint8_t>();
-
-    OHOS::RunCaseTurnOff(fdp);
-    OHOS::RunCaseTurningOn(fdp);
-    OHOS::RunCaseTurnOn(fdp);
-    OHOS::RunCaseTurningOff(fdp);
-    OHOS::RunCaseTurningHalfToOff(fdp);
-    OHOS::RunCaseTurningOffToHalf(fdp);
-    OHOS::RunCaseTurningHalfToOn(fdp);
-    OHOS::RunCaseTurnHalf(fdp);
-    OHOS::RunPublicApiTrio(fdp, targetSel);
+    /* FDP 读序（单流，整型自缓冲区尾端逆序消费；随机性整改后新增消费只追加尾部）：
+     * 消息环段（新增）：[尾1] msg 环 rounds 之前依次为
+     *   useSlb(bool) → walkSel(%7) → rounds(InRange 1..8) → 每轮 msgSel(%8)+arg1(bool)
+     * 公开 API 段（保留，追加在环之后消费）：targetSel(%4) → useSlb(bool)
+     * 旧 8 case 固定矩阵语义由 corpus/seed_case_*.bin 保证（按本读序构造）。 */
+    OHOS::FuzzAdapterMsgLoop(fdp);
+    OHOS::RunPublicApiTrio(fdp, fdp.ConsumeIntegral<uint8_t>());
 
     std::this_thread::sleep_for(std::chrono::milliseconds(ADAPTER_STATE_FUZZ_DELAY_50_MS));
     return 0;
