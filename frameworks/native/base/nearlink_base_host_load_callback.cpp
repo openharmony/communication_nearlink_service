@@ -13,22 +13,22 @@
  * limitations under the License.
  */
 
-#include "nearlink_host_load_callback.h"
-#include "nearlink_host.h"
+#include "nearlink_base_host_load_callback.h"
+#include "nearlink_base_host.h"
 #include "iremote_object.h"
 
 namespace OHOS {
 namespace Nearlink {
 
-void NearlinkHostLoadCallBack::OnLoadSystemAbilitySuccess(
+void NearlinkBaseHostLoadCallBack::OnLoadSystemAbilitySuccess(
     int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject)
 {
-    NearlinkHost::GetInstance().LoadSystemAbilitySuccess(remoteObject);
+    NearlinkBaseHost::GetInstance().LoadSystemAbilitySuccess(remoteObject);
 }
 
-void NearlinkHostLoadCallBack::OnLoadSystemAbilityFail(int32_t systemAbilityId)
+void NearlinkBaseHostLoadCallBack::OnLoadSystemAbilityFail(int32_t systemAbilityId)
 {
-    NearlinkHost::GetInstance().LoadSystemAbilityFail();
+    NearlinkBaseHost::GetInstance().LoadSystemAbilityFail();
 }
 }  // namespace Nearlink
 }  // namespace OHOS

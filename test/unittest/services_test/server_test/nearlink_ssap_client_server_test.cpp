@@ -319,6 +319,43 @@ HWTEST_F(NearlinkSsapClientServerTest, ReadProperty002, TestSize.Level1)
 }
 
 /**
+ * @tc.name: ReadPropertiesByUuid001
+ * @tc.desc: Test ReadPropertiesByUuidInner.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServerTest, ReadPropertiesByUuid001, TestSize.Level1)
+{
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertiesByUuid001 start");
+    NearlinkSsapPropertyParcel property {};
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option {MessageOption::TF_SYNC};
+    data.WriteInterfaceToken(NearlinkSsapClientStub::GetDescriptor());
+    data.WriteInt32(appId_);
+    data.WriteParcelable(&property);
+    // ReadPropertiesByUuidInner为private, 经public的OnRemoteRequest分发, 同时覆盖新命令码的权限表注册
+    int32_t ret = nearlinkSsapClientServer_->OnRemoteRequest(
+        NearlinkSsapClientInterfaceCode::NL_SSAP_CLIENT_READ_PROPERTIES_BY_UUID, data, reply, option);
+    EXPECT_EQ(NO_ERROR, ret);
+    EXPECT_EQ(NL_NO_ERROR, reply.ReadInt32());
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertiesByUuid001 end");
+}
+
+/**
+ * @tc.name: ReadPropertiesByUuid002
+ * @tc.desc: Test ReadPropertiesByUuid.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServerTest, ReadPropertiesByUuid002, TestSize.Level1)
+{
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertiesByUuid002 start");
+    NearlinkSsapPropertyParcel property {};
+    NlErrCode result = nearlinkSsapClientServer_->ReadPropertiesByUuid(appId_, property);
+    EXPECT_EQ(NL_NO_ERROR, result);
+    HILOGI("NearlinkSsapClientServerTest:ReadPropertiesByUuid002 end");
+}
+
+/**
  * @tc.name: CallMethod001
  * @tc.desc: Test CallMethodInner.
  * @tc.type: FUNC

@@ -61,6 +61,32 @@ int SleSendDliPacket(const SlePkt *packet)
 
 namespace OHOS {
 
+    /* SDF_MapMoveInsert 重复 key 时返回 false 且不接管 key/slink: 回收并复用已登记条目,
+     * 避免每次输入恒定泄漏(设备实证: 修复前 RSS 线性增长至 OOM)。产品侧同款用法见 sm.c:689。 */
+    static SmSLink_S *FuzzStmGetSLink(const SLE_Addr_S *addr)
+    {
+        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
+        if (key == nullptr) {
+            return nullptr;
+        }
+        (void)memcpy_s(key, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        SmSLink_S *slink = SmSLinkCtor(addr);
+        if (slink == nullptr) {
+            SDF_MemFree(key);
+            return nullptr;
+        }
+        if (!SDF_MapMoveInsert(g_slinkMap, key, slink)) {
+            SDF_MemFree(key);
+            SmSLinkDtor(slink);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, const_cast<SLE_Addr_S *>(addr));
+            if (iter == nullptr) {
+                return nullptr;
+            }
+            slink = (SmSLink_S *)iter->val;
+        }
+        return slink;
+    }
+
     void FuzzSMNego(const uint8_t* fuzzData, size_t size)
     {
         FuzzedDataProvider fdp(fuzzData, size);
@@ -93,6 +119,8 @@ namespace OHOS {
             CP_LOG_ERROR("[SM] Construct newAddr failed");
             return;
         }
+        /* key 填实对端地址: 原先未初始化内存既被 ctor 读取又作为 map key */
+        (void)memcpy_s(newAddr, sizeof(SLE_Addr_S), &g_tNodeAddr1, sizeof(SLE_Addr_S));
 
         SmSLink_S *slink = SmSLinkCtor(newAddr);
         if (slink == NULL) {
@@ -107,12 +135,21 @@ namespace OHOS {
         memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa1, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);
 
-        SDF_MapMoveInsert(g_slinkMap, newAddr, slink);
+        if (!SDF_MapMoveInsert(g_slinkMap, newAddr, slink)) {
+            /* 重复 key: map 不接管, 回收并复用已登记条目 */
+            SDF_MemFree(newAddr);
+            SmSLinkDtor(slink);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, &g_tNodeAddr1);
+            if (iter == NULL) {
+                return;
+            }
+            slink = (SmSLink_S *)iter->val;
+        }
 
         SmNegoPkgDispatcher((int[]){307, 308, 309, 310, 311}[fdp.ConsumeIntegral<uint8_t>() % FUZZ_FIVE],
             slink, fuzzData, size);
 
-        SDF_MapErase(g_slinkMap, newAddr);
+        SDF_MapErase(g_slinkMap, &g_tNodeAddr1);
     }
 
     void FuzzSMNegoParamRequest(const uint8_t* fuzzData, size_t size)
@@ -125,13 +162,12 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-
-        SmSLink_S *slink = SmSLinkCtor(&addr);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         slink->gNode.pskFlag = 0;
         slink->tNode.pskFlag = 0;
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
         SmPairReqRspMsg_S pkg = {
             .ioAbility = 0x04,
             .oobDataFlag = 0,
@@ -155,13 +191,12 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-
-        SmSLink_S *slink = SmSLinkCtor(&addr);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         slink->gNode.pskFlag = 0;
         slink->tNode.pskFlag = 0;
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
         SmPairReqRspMsg_S pkg = {
             .ioAbility = 0x04,
             .oobDataFlag = 0,
@@ -177,6 +212,10 @@ namespace OHOS {
 
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
+        if (g_slinkMap != NULL) {
+            /* 先释放 SmInit 建立或上一输入遗留的表, 避免直接覆盖丢引用 */
+            SDF_MapDtor(g_slinkMap);
+        }
         g_slinkMap = SDF_MapCtor(SLE_ADDR_TRAITS(), MAKE_TRAITS(SmSLinkDtor, NULL));
         FuzzSMNego(fuzzData, size);
         FuzzSMNegoParamRequest(fuzzData, size);
@@ -199,6 +238,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
         .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
         .secKeyFunc = Crypto_SecKeyGenerate,
         .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+    .sha256HashFunc = Crypto_Sha256,
     };
     NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;

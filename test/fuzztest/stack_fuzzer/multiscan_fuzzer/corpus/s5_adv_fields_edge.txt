@@ -1,0 +1,1 @@
+multiscan 同 s1_old_ltv 布局; 特征: 厂商 FF len=2(<=2 被拒)/len=3 最小合法, txPower 0C 01 7F, mesh 10 02, 名称 0B 00(空)与 0B 04 NAME, 覆盖各字段边界

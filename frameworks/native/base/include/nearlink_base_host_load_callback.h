@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef NEARLINK_HOST_LOAD_CALLBACK_H
-#define NEARLINK_HOST_LOAD_CALLBACK_H
+#ifndef NEARLINK_HOST_LOAD_CALLBACK_BASE_H
+#define NEARLINK_HOST_LOAD_CALLBACK_BASE_H
 
 #include <cstdint>
 
@@ -23,9 +23,12 @@
 
 namespace OHOS {
 namespace Nearlink {
-class NearlinkHostLoadCallBack : public SystemAbilityLoadCallbackStub {
-public:
 
+/**
+ * @brief base.so implementation class of host load callback.
+ */
+class NearlinkBaseHostLoadCallBack : public SystemAbilityLoadCallbackStub {
+public:
     void OnLoadSystemAbilitySuccess(int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject) override;
 
     void OnLoadSystemAbilityFail(int32_t systemAbilityId) override;
@@ -33,4 +36,4 @@ public:
 }  // namespace Nearlink
 }  // namespace OHOS
 
-#endif  // NEARLINK_HOST_LOAD_CALLBACK_H
+#endif  // NEARLINK_HOST_LOAD_CALLBACK_BASE_H

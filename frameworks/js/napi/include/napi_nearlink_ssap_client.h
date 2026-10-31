@@ -44,7 +44,7 @@ public:
     static napi_value RequestMtuSize(napi_env env, napi_callback_info info);
     static napi_value ReadProperty(napi_env env, napi_callback_info info);
     static napi_value CallMethod(napi_env env, napi_callback_info info);
-    static napi_value ReadPropertyByUuid(napi_env env, napi_callback_info info);
+    static napi_value ReadPropertiesByUuid(napi_env env, napi_callback_info info);
     static napi_value WriteProperty(napi_env env, napi_callback_info info);
     static napi_value ReadDescriptor(napi_env env, napi_callback_info info);
     static napi_value WriteDescriptor(napi_env env, napi_callback_info info);

@@ -1,0 +1,1 @@
+scancbk 同 s1_old_ltv 布局; 特征: data=扫描响应名称 LTV 头 0B 02 41 42 43(双帧第二段语义)

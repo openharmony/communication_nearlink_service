@@ -23,6 +23,8 @@
 #include "nearlink_host_server.h"
 #include "nearlink_cdsm_client_server.h"
 #include "nearlink_raw_address.h"
+#include "CdsmService.h"
+#include "CdsmClient.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -31,6 +33,12 @@ namespace OHOS {
 class MockNearlinkCdsmClientCallbackStub : public IRemoteStub<INearlinkCdsmClientCallback> {
 public:
     void OnCdsInfoChanged(const NearlinkCdsInfoParcel &cdsInfo) {}
+};
+
+class FuzzCdsmClientCallback : public InterfaceCdsmClientServiceCallback {
+public:
+    void OnCdsmClientStateChange(const RawAddress &remoteAddr, std::vector<NearlinkCdsmInfo> &cdsmInfo,
+        std::optional<uint64_t> tokenId) {}
 };
 
 namespace {
@@ -103,6 +111,82 @@ void DeregisterApplicationFuzzTest()
     }
 }
 
+/* CdsmService 会话生命周期直调：Enable->注册回调->建组->Connect/Disconnect->成员/组查询->回调触发->删组->Disable */
+void CdsmSessionLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    CdsmService *cdsmService = CdsmService::GetService();
+    if (cdsmService == nullptr) {
+        HILOGI("CdsmSessionLifecycleFuzzTest: cdsmService is nullptr");
+        return;
+    }
+    FuzzedDataProvider provider(fuzzData, size);
+    cdsmService->Enable();
+    std::this_thread::sleep_for(std::chrono::milliseconds(HOST_FUZZ_DELAY_100_MS));
+    (void)cdsmService->RegisterCdsmClientCallback(std::make_shared<FuzzCdsmClientCallback>());
+
+    const std::string reportAddrStr = BuildAddressString(provider);
+    const RawAddress reportAddr(reportAddrStr);
+    std::vector<RawAddress> members;
+    constexpr size_t maxMemberCount = 4;
+    size_t memberCount = provider.ConsumeIntegral<uint8_t>() % maxMemberCount + 1;
+    for (size_t i = 0; i < memberCount; i++) {
+        members.push_back(RawAddress(BuildAddressString(provider)));
+    }
+    (void)cdsmService->CdsmCreateGroup(reportAddr, members, provider.ConsumeBool());
+
+    const RawAddress &firstMember = members.front();
+    for (size_t i = 0; i < members.size(); i++) {
+        (void)cdsmService->Connect(members[i]);
+        (void)cdsmService->Disconnect(members[i]);
+    }
+
+    std::vector<NearlinkCdsmInfo> cdsmInfos;
+    (void)cdsmService->CdsmGetAllMemberInfo(firstMember, cdsmInfos);
+    (void)cdsmService->CdsmCheckIsCooperationMember(firstMember);
+    (void)cdsmService->CdsmCheckIsCooperationDevice(reportAddr);
+    (void)cdsmService->CdsmCheckIsCooperationReport(reportAddr);
+    (void)cdsmService->CdsmCheckIsSameCooperation(members);
+    RawAddress outAddr;
+    (void)cdsmService->CdsmGetReportAddr(firstMember, outAddr);
+    (void)cdsmService->CdsmGetOtherAddr(firstMember, outAddr);
+    uint32_t groupId = 0;
+    (void)cdsmService->CdsmGetGroupId(groupId, firstMember.GetAddress());
+    cdsmService->CdsmStopInviteAdv(reportAddr, provider.ConsumeBool());
+
+    cdsmService->HandleCdsmClientCallback(firstMember);
+    constexpr uint8_t cdsmStateCount = 4; // CDSM_STATE_DISCONNECTED..CDSM_STATE_CONNECTED
+    CdsmClientState preState = static_cast<CdsmClientState>(provider.ConsumeIntegral<uint8_t>() % cdsmStateCount);
+    CdsmClientState curState = static_cast<CdsmClientState>(provider.ConsumeIntegral<uint8_t>() % cdsmStateCount);
+    cdsmService->NotifyStateChanged(firstMember, curState, preState);
+    constexpr uint8_t connectStateCount = 5; // SleConnectState::CONNECTING..INVALID_STATE
+    cdsmService->UpdateCdsmMemberProfileConnectState(firstMember,
+        static_cast<SleConnectState>(provider.ConsumeIntegral<uint8_t>() % connectStateCount));
+
+    cdsmService->CdsmDeleteGroup(reportAddr);
+    (void)cdsmService->DeregisterCdsmClientCallback();
+    cdsmService->Disable();
+    std::this_thread::sleep_for(std::chrono::milliseconds(HOST_FUZZ_DELAY_100_MS));
+}
+
+/* CdsmClient 直调：CreateCdsmClient 判空后驱动连接/状态/广播停止 */
+void CdsmClientDirectFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    const std::string addrStr = BuildAddressString(provider);
+    std::shared_ptr<CdsmClient> cdsmClient = CdsmClient::CreateCdsmClient(addrStr);
+    if (cdsmClient == nullptr) {
+        HILOGI("CdsmClientDirectFuzzTest: cdsmClient is nullptr");
+        return;
+    }
+    (void)cdsmClient->CdsmClientStartConnect();
+    constexpr uint8_t cdsmStateCount = 4; // CDSM_STATE_DISCONNECTED..CDSM_STATE_CONNECTED
+    CdsmClientState state = static_cast<CdsmClientState>(provider.ConsumeIntegral<uint8_t>() % cdsmStateCount);
+    cdsmClient->CdsmClientUpdateState(state);
+    (void)cdsmClient->CdsmClientGetState();
+    (void)cdsmClient->CdsmClientStartDisconnect();
+    cdsmClient->CdsmStopInviteAdv();
+}
+
 }
 
 // fuzzer init
@@ -138,6 +222,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::RegisterApplicationFuzzTest(data, size);
     OHOS::GetCdsmInfoFuzzTest(data, size);
     OHOS::DeregisterApplicationFuzzTest();
+    OHOS::CdsmSessionLifecycleFuzzTest(data, size);
+    OHOS::CdsmClientDirectFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }

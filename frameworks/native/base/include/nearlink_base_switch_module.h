@@ -13,13 +13,12 @@
  * limitations under the License.
  */
 
-#ifndef NEARLINK_SWITCH_MODULE_H
-#define NEARLINK_SWITCH_MODULE_H
+#ifndef NEARLINK_SWITCH_MODULE_BASE_H
+#define NEARLINK_SWITCH_MODULE_BASE_H
 
 #include <atomic>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <vector>
 #include "nearlink_def.h"
 #include "nearlink_errorcode.h"
@@ -65,11 +64,16 @@ enum class NearlinkDisableStatus : int {
     DISABLING_TO_OFF,
 };
 
-class NearlinkSwitchModule : public std::enable_shared_from_this<NearlinkSwitchModule> {
+/**
+ * @brief base.so implementation class of framework switch module.
+ *
+ * INearlinkSwitchAction and switch enums are reused from this header.
+ */
+class NearlinkBaseSwitchModule : public std::enable_shared_from_this<NearlinkBaseSwitchModule> {
 public:
-    explicit NearlinkSwitchModule(std::unique_ptr<INearlinkSwitchAction> switchAction)
+    explicit NearlinkBaseSwitchModule(std::unique_ptr<INearlinkSwitchAction> switchAction)
         : ffrtQueue_("nl_switch"), switchAction_(std::move(switchAction)) {}
-    ~NearlinkSwitchModule() = default;
+    ~NearlinkBaseSwitchModule() = default;
 
     NlErrCode ProcessNearlinkSwitchEvent(NearlinkSwitchEvent event,
         const SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL,
@@ -106,7 +110,7 @@ private:
 
     const uint64_t DEFAULT_TASK_TIMEOUT = 8000000;  // 8s
     uint64_t taskTimeout_ = DEFAULT_TASK_TIMEOUT;
-    // SA 加载默认超时（与 nearlink_host.cpp 的 LOAD_NEARLINK_SA_TIMEOUT_MS 对齐），
+    // SA 加载默认超时（与 nearlink_base_host.cpp 的 LOAD_NEARLINK_SA_TIMEOUT_MS 对齐），
     // 加载入参 <=0（含处理缓存事件）时按此值计算动作的超时时间
     const int32_t DEFAULT_SA_LOAD_TIMEOUT_MS = 30000;
     const uint32_t MAX_CONSECUTIVE_TIMEOUT_CNT = 3;  // 连续超时达到该次数后清空缓存队列
@@ -128,4 +132,4 @@ private:
 };
 }  // namespace Nearlink
 }  // namespace OHOS
-#endif  // NEARLINK_SWITCH_MODULE_H
+#endif  // NEARLINK_SWITCH_MODULE_BASE_H

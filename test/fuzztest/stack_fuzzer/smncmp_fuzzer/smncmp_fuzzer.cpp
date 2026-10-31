@@ -204,6 +204,7 @@ namespace OHOS {
             .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
             .secKeyFunc = Crypto_SecKeyGenerate,
             .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
         };
         NLSTK_SmRegAlgoFuncs(&algoFuncs);
 
@@ -274,6 +275,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
         .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
         .secKeyFunc = Crypto_SecKeyGenerate,
         .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+    .sha256HashFunc = Crypto_Sha256,
     };
     NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;

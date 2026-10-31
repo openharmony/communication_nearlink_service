@@ -749,28 +749,13 @@ HWTEST_F(NearlinkCdsmTest, IsVendorDevice_001, TestSize.Level1)
 
 /**
  * @tc.name: SetPeerDeviceTypeToControllerInner_001
- * @tc.desc: Test SetPeerDeviceTypeToControllerInner uses IRemoteDeviceQuery::GetInstance(), should not crash
+ * @tc.desc: Test SetPeerDeviceTypeToControllerInner with a mixed group (one vendor device),
+ *           no member should be set to controller
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerInner_001, TestSize.Level1)
 {
     HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 start");
-    MockCdsmService cdsmService;
-    RawAddress device("11:22:33:44:55:66");
-    cdsmService.SetPeerDeviceTypeToControllerInner(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
-    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 end");
-}
-
-/**
- * @tc.name: SetPeerDeviceTypeToControllerByVendor_001
- * @tc.desc: Test SetPeerDeviceTypeToControllerByVendor with a mixed group (one vendor device),
- *           no member should be set to controller
- * @tc.type: FUNC
- */
-HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_001, TestSize.Level1)
-{
-    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_001 start");
     MockCdsmService cdsmService;
     RawAddress vendorReportAddr("11:22:33:44:55:66");
     RawAddress commonColabAddr("11:22:33:44:55:77");
@@ -789,24 +774,24 @@ HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_001, TestSize.L
 
     SetMockVendorBusinessTypeDevice(vendorReportAddr.GetAddress());
     ClearMockSetPeerDeviceTypeCount();
-    cdsmService.SetPeerDeviceTypeToControllerByVendor(dataBlock, vendorReportAddr);
+    cdsmService.SetPeerDeviceTypeToControllerInner(dataBlock, vendorReportAddr);
     EXPECT_EQ(GetMockSetPeerDeviceTypeCount(), 0);
     ClearMockSetPeerDeviceTypeCount();
     ClearMockVendorBusinessTypeDevice();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
-    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_001 end");
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_001 end");
 }
 
 /**
- * @tc.name: SetPeerDeviceTypeToControllerByVendor_002
- * @tc.desc: Test SetPeerDeviceTypeToControllerByVendor with an all-common group,
+ * @tc.name: SetPeerDeviceTypeToControllerInner_002
+ * @tc.desc: Test SetPeerDeviceTypeToControllerInner with an all-common group,
  *           the member except the report address should be set to controller
  * @tc.type: FUNC
  */
-HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_002, TestSize.Level1)
+HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerInner_002, TestSize.Level1)
 {
-    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_002 start");
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_002 start");
     MockCdsmService cdsmService;
     RawAddress commonReportAddr("11:22:33:44:55:66");
     RawAddress commonColabAddr("11:22:33:44:55:77");
@@ -825,12 +810,12 @@ HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerByVendor_002, TestSize.L
 
     ClearMockVendorBusinessTypeDevice();
     ClearMockSetPeerDeviceTypeCount();
-    cdsmService.SetPeerDeviceTypeToControllerByVendor(dataBlock, commonReportAddr);
+    cdsmService.SetPeerDeviceTypeToControllerInner(dataBlock, commonReportAddr);
     EXPECT_EQ(GetMockSetPeerDeviceTypeCount(), 1);
     ClearMockSetPeerDeviceTypeCount();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
-    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerByVendor_002 end");
+    HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_002 end");
 }
 
 } // namespace TEST

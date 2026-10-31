@@ -20,6 +20,10 @@
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
+#include "sle_crypto.h"
+#include "sdf_thread.h"
+#include "sdf_evc.h"
+#include "nlstk_sm_api.h"
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
 #include "cm_api.h"
@@ -95,8 +99,19 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void) argc;
     (void) argv;
+    /* PR-5 SM-A1: NLSTK_SmRecoverKey 是任务投递型 UAPI, 无线程池则任务永不执行 */
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
     NLSTK_InitStack();
     NLSTK_EnableStack();
+    NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
+        .randNumFunc = Crypto_RandNumGenerate,
+        .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
+        .secKeyFunc = Crypto_SecKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
+    };
+    NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;
 }
 

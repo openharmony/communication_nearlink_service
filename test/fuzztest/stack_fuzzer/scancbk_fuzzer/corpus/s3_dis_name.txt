@@ -1,0 +1,1 @@
+scancbk 同 s1_old_ltv 布局; 特征: data=DIS 服务数据头 03 08 09 06 06(uuid 末两字节 06 09)

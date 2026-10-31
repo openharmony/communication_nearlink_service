@@ -151,7 +151,12 @@ namespace OHOS {
             fdp.ConsumeIntegral<uint8_t>() % HADM_SOUNDING_STATE_INVALID);
         uint32_t ret = HadmSetSoundingState(&g_addr, state);
         if (ret == NLSTK_HADM_ERRCODE_CAN_NOT_FIND_LINKCB) {    // 8193
-            NLSTK_LOG_ERROR("[FUZZ]HadmSetSoundingState failed, ret = %d", ret);
+            /* 限频: init未完成时每次输入都会命中, 全量打印会灌满hdc stdout通道楔死会话 */
+            static bool fuzzNoLinkCbLogged = false;
+            if (!fuzzNoLinkCbLogged) {
+                NLSTK_LOG_ERROR("[FUZZ]HadmSetSoundingState failed (no linkcb), ret = %d", ret);
+                fuzzNoLinkCbLogged = true;
+            }
             return;
         }
 
@@ -259,6 +264,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
         NLSTK_DeinitStack();
     }
     NLSTK_InitStack();
+    if (!NLSTK_IsStackInited()) {
+        /* 完整栈初始化未完成(mock调度器下常见): 回退直接初始化HADM, 同 hadm_fuzzer 模式 */
+        (void)HadmInit();
+    }
     return 0;
 }
 

@@ -47,6 +47,24 @@ NLSTK_Errcode_E NLSTK_SmStartPairing(SLE_Addr_S *addrIn)
     return NLSTK_ERRCODE_SUCCESS;
 }
 
+NLSTK_Errcode_E NLSTK_SmRequestSecurity(SLE_Addr_S *addrIn)
+{
+    NLSTK_CHECK_RETURN(addrIn != NULL, NLSTK_ERRCODE_POINTER_NULL, "[SM] Request security null pointer.");
+    SLE_Addr_S *addr = SDF_MemZalloc(sizeof(SLE_Addr_S));
+    NLSTK_CHECK_RETURN(addr != NULL, NLSTK_ERRCODE_MALLOC_FAIL, "[SM] Request security addr malloc error.");
+    addr->type = addrIn->type;
+    if (memcpy_s(addr->addr, sizeof(addr->addr), addrIn->addr, sizeof(addrIn->addr)) != EOK) {
+        NLSTK_LOG_ERROR("[SM] Request security addr memcpy fail");
+        SDF_MemFree(addr);
+        return NLSTK_ERRCODE_MEMCPY_FAIL;
+    }
+    if (SchedulePostTask((SDF_WorkCb)SmRequestSecurity, addr, SDF_MemFree) != NLSTK_ERRCODE_SUCCESS) {
+        NLSTK_LOG_ERROR("[SM] Request security post task failed.");
+        return NLSTK_ERRCODE_TASK_FAIL;
+    }
+    return NLSTK_ERRCODE_SUCCESS;
+}
+
 NLSTK_Errcode_E NLSTK_SmRemovePairing(SLE_Addr_S *addrIn)
 {
     NLSTK_CHECK_RETURN(addrIn != NULL, NLSTK_ERRCODE_POINTER_NULL, "[SM] Remove pairing null pointer.");

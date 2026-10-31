@@ -25,6 +25,8 @@
 #include "log.h"
 #include "securec.h"
 #include "raw_address.h"
+#include "nearlink_def.h"
+#include "SleCloudPairService.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -84,15 +86,84 @@ void UpdateCloudDeviceInfoListFuzzTest(const uint8_t *fuzzData, size_t size)
 
 void GetCloudPairStateFuzzTest(const uint8_t *fuzzData, size_t size)
 {
+    FuzzedDataProvider provider(fuzzData, size);
     MessageParcel data;
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkCloudPairStub::GetDescriptor());
+    /* server 侧 GetCloudPairStateInner 会 ReadString(address)，缺失则浅路径直接失败 */
+    data.WriteString(BuildAddressString(provider));
     int32_t ret = ControllerManagerOnRemoteRequest(NearlinkCloudPairInterfaceCode::NL_GET_CLOUD_PAIR_STATE,
         data, reply);
     if (ret != NO_ERROR) {
         HILOGI("send req failed, ret(%{public}d)", ret);
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::CONTROLLER_MANAGER_FUZZ_DELAY_50_MS));
+}
+
+/* SleCloudPairService 直调：Init->下发设备列表->状态查询->配对状态机四分支->别名/图标/型号族->清理 */
+void CloudPairLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    SleCloudPairService &cloudPair = SleCloudPairService::GetInstance();
+    FuzzedDataProvider provider(fuzzData, size);
+    cloudPair.Init();
+
+    std::vector<NearlinkCloudPairDevice> cloudDeviceInfos {};
+    size_t devCount = provider.ConsumeIntegral<uint8_t>() % (FUZZ_CLOUD_PAIR_LIST_SIZE + 1);
+    for (size_t i = 0; i < devCount; i++) {
+        NearlinkCloudPairDevice dev;
+        dev.SetBtAddr(BuildAddressString(provider));
+        dev.SetDeviceName(BuildAddressString(provider));
+        dev.SetToken(provider.ConsumeBytes<uint8_t>(TOKEN_BYTE_LEN));
+        dev.SetReportAddr(BuildAddressString(provider));
+        dev.SetMembersAddr(vector<string>{BuildAddressString(provider), BuildAddressString(provider)});
+        dev.SetModel(BuildAddressString(provider));
+        dev.SetSubModelId(BuildAddressString(provider));
+        dev.SetDeviceIconId(BuildAddressString(provider));
+        cloudDeviceInfos.emplace_back(dev);
+    }
+    (void)cloudPair.UpdateCloudDeviceInfoList(cloudDeviceInfos);
+
+    const std::string reportAddrStr = BuildAddressString(provider);
+    const RawAddress reportAddr(reportAddrStr);
+    (void)cloudPair.IsCloudDevice(reportAddr);
+    int32_t cloudPairState = 0;
+    (void)cloudPair.GetCloudPairState(reportAddrStr, cloudPairState);
+
+    /* HandlePairStatusChanged：NONE/PAIRING/PAIRED/CANCELING 逐个驱动 */
+    const int32_t pairStates[] = { static_cast<int32_t>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRING),
+        static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int32_t>(SlePairState::SLE_PAIR_CANCELING) };
+    constexpr uint8_t pairStateCount = 4;
+    for (size_t i = 0; i < pairStateCount; i++) {
+        int32_t status = pairStates[provider.ConsumeIntegral<uint8_t>() % pairStateCount];
+        cloudPair.HandlePairStatusChanged(reportAddr, pairStates[i], status, provider.ConsumeIntegral<int32_t>());
+    }
+
+    cloudPair.SetCrediblePairState(reportAddr);
+    (void)cloudPair.CloudDeviceConnectionComplete(reportAddr);
+    (void)cloudPair.CancelCloudPairing(reportAddr);
+    (void)cloudPair.CancelCloudPairComplete(reportAddr,
+        pairStates[provider.ConsumeIntegral<uint8_t>() % pairStateCount], provider.ConsumeIntegral<int32_t>());
+
+    const std::string aliasName = BuildAddressString(provider);
+    (void)cloudPair.GetCloudDeviceAliasName(reportAddr);
+    (void)cloudPair.SetCloudDeviceAliasName(reportAddr, aliasName);
+    (void)cloudPair.GetCloudDeviceIcondId(reportAddr);
+    (void)cloudPair.GetCloudDeviceSubModelId(reportAddr);
+    (void)cloudPair.GetCloudDeviceManufacturerBusinessType(reportAddr);
+    (void)cloudPair.IsCloudDeviceConnecting(reportAddr);
+    (void)cloudPair.GetBtAddrByReportAddr(reportAddrStr);
+    (void)cloudPair.GetReportAddrByBtAddr(BuildAddressString(provider));
+
+    cloudPair.SetKeyMissingPairState(reportAddr);
+    (void)cloudPair.IsCloudDeviceCreatePair(reportAddr);
+    (void)cloudPair.IsInRepairing(reportAddr);
+    (void)cloudPair.IsInReplacing(reportAddr);
+    (void)cloudPair.IsPreparingRepair(reportAddr);
+    (void)cloudPair.GetCloudDeviceRealAddress(reportAddr);
+    cloudPair.ClearCloudDeviceMap(provider.ConsumeBool());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::CONTROLLER_MANAGER_FUZZ_DELAY_50_MS));
 }
 } // namespace OHOS
@@ -126,6 +197,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::UpdateCloudDeviceInfoListFuzzTest(data, size);
     OHOS::GetCloudPairStateFuzzTest(data, size);
+    OHOS::CloudPairLifecycleFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }

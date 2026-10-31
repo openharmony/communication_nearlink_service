@@ -20,6 +20,10 @@
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
+#include "sle_crypto.h"
+#include "nlstk_sm_api.h"
+#include "nlstk_sm_algos.h"
+#include <string.h>
 #include "nlstk_init_api.h"
 
 #include "cpfwk_log.h"
@@ -103,6 +107,41 @@ namespace OHOS {
         0x0f, 0xe3, 0xa0, 0x70, 0x13, 0xb6, 0xaf, 0x9a, 0x81, 0x91, 0xb7, 0xd3, 0x76, 0xa0, 0xa9, 0x0a,
     };
 
+    /* PR-5 SM-A3: 外部结果回调记录桩, 认证成功/失败副作用观测 */
+    static uint32_t g_fuzzSmAuthCbkCnt = 0;
+    static void FuzzSmStartCbk(NLSTK_SmPairingStart_S *params) { (void)params; }
+    static void FuzzSmRemoveCbk(NLSTK_SmPairingRemove_S *params) { (void)params; }
+    static void FuzzSmRequestCbk(NLSTK_SmPairingRequest_S *params) { (void)params; }
+    static void FuzzSmAuthCbk(NLSTK_SmAuthComplete_S *params) { (void)params; g_fuzzSmAuthCbkCnt++; }
+    static void FuzzSmEncCbk(NLSTK_SmEncComplete_S *params) { (void)params; }
+    static void FuzzSmImgMsgCbk(NLSTK_SmSendImgMsgCmpl_S *params) { (void)params; }
+
+    /* SDF_MapMoveInsert 重复 key 时返回 false 且不接管 key/slink: 回收并复用已登记条目,
+     * 避免每次输入恒定泄漏(设备实证: 修复前 RSS 线性增长至 OOM)。产品侧同款用法见 sm.c:689。 */
+    static SmSLink_S *FuzzStmGetSLink(const SLE_Addr_S *addr)
+    {
+        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
+        if (key == nullptr) {
+            return nullptr;
+        }
+        (void)memcpy_s(key, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
+        SmSLink_S *slink = SmSLinkCtor(addr);
+        if (slink == nullptr) {
+            SDF_MemFree(key);
+            return nullptr;
+        }
+        if (!SDF_MapMoveInsert(g_slinkMap, key, slink)) {
+            SDF_MemFree(key);
+            SmSLinkDtor(slink);
+            SDF_MapIter *iter = SDF_MapFind(g_slinkMap, const_cast<SLE_Addr_S *>(addr));
+            if (iter == nullptr) {
+                return nullptr;
+            }
+            slink = (SmSLink_S *)iter->val;
+        }
+        return slink;
+    }
+
     void FuzzGenDhKeyAndLinkKey(const uint8_t* fuzzData, size_t size)
     {
         FuzzedDataProvider fdp(fuzzData, size);
@@ -114,6 +153,9 @@ namespace OHOS {
         };
         memcpy_s(&slink.gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa, SM_RANDOM_NUMBER_R_LEN);
         memcpy_s(&slink.tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb, SM_RANDOM_NUMBER_R_LEN);
+        /* 派生算法必须指明 HA2(AES-CMAC): 缺省 0 使 Crypto_DerivedKeyGenerate 走 default 拒绝,
+         * SmGenLinkKey 每输入失败早退, 后续向量比对与认证回调腿全部变死代码(红队 P0-2) */
+        slink.negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
 
         uint8_t dhKey[SM_DHKEY_LEN];
         NLSTK_SmKeyPair_S keyPair;
@@ -121,9 +163,32 @@ namespace OHOS {
         (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, g_gNodePrivKey, SM_PRIVATE_KEY_LEN);
         (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, g_gNodePubKey, SM_PUBLIC_KEY_LEN);
         (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
-        SmGenDhKey(&keyPair, dhKey, SM_DHKEY_LEN);
+        if (!SmGenDhKey(&keyPair, dhKey, SM_DHKEY_LEN)) {
+            return;
+        }
         (void)memcpy_s(slink.dhKey, SM_DHKEY_LEN, dhKey, SM_DHKEY_LEN);
-        SmGenLinkKey(&slink);
+        if (!SmGenLinkKey(&slink)) {
+            return;
+        }
+        /* PR-5 SM-A3: 固定向量比对——向量来源未核实, 仅记录不冻结(计划 A3.3 "待核对"口径),
+         * 不符不判失败: 成组关系与角色未经上游证实, 不得把当前实现输出定为权威答案 */
+        static bool fuzzVecLogged = false;
+        if (!fuzzVecLogged && slink.role == SM_G_NODE) {
+            bool dhOk = (memcmp(dhKey, g_gNodeDhKey, SM_DHKEY_LEN) == 0);
+            bool lkOk = (memcmp(slink.linkKey, g_linkKey, SM_LINK_KEY_LEN) == 0);
+            CP_LOG_ERROR("[FUZZ]SM-A3 vectors(wei-heid): dhKey match=%d linkKey match=%d", (int)dhOk, (int)lkOk);
+            fuzzVecLogged = true;
+        }
+        /* 认证回调腿: 真实 DH/LinkKey 之后经 AUTH_SUCCESS 触发外部 authCbk(强制迁移, 内部路径记账)。
+         * 栈 slink 的 stm 为聚合初始化留下的 NULL, 必须用 SmSLinkCtor 建的堆 slink 驱动状态机 */
+        SmSLink_S *authSlink = SmSLinkCtor(&g_tNodeAddr);
+        if (authSlink != nullptr) {
+            authSlink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] =
+                SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+            STM_MFUNC(authSlink->stm, Transition, g_smStateName[SM_STATE_AUTH]);
+            STM_MFUNC(authSlink->stm, ProcessMessage, (Message) { .what = SM_AUTH_SUCCESS });
+            SmSLinkDtor(authSlink);
+        }
     }
 
     void FuzzSMDigit(const uint8_t* fuzzData, size_t size)
@@ -202,10 +267,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         slink->gNode.ioAbility = SM_IO_DISPLAY_ONLY;
         slink->tNode.ioAbility = SM_IO_KEYBOARD_ONLY;
@@ -223,10 +288,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         slink->gNode.ioAbility = SM_IO_DISPLAY_ONLY;
         slink->tNode.ioAbility = SM_IO_KEYBOARD_ONLY;
@@ -244,10 +309,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         slink->gNode.ioAbility = SM_IO_KEYBOARD_ONLY;
         slink->tNode.ioAbility = SM_IO_DISPLAY_ONLY;
@@ -265,10 +330,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
 
         slink->gNode.ioAbility = SM_IO_KEYBOARD_ONLY;
         slink->tNode.ioAbility = SM_IO_DISPLAY_ONLY;
@@ -286,10 +351,10 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         SmPassCodeSetGPassCode(slink);
     }
 
@@ -303,17 +368,94 @@ namespace OHOS {
         for (int i = 0; i < SLE_ADDR_LEN; i++) {
             addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
         }
-        SLE_Addr_S *key = (SLE_Addr_S *)SDF_MemAlloc(sizeof(SLE_Addr_S));
-        (void)memcpy_s(key, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-        SmSLink_S *slink = SmSLinkCtor(&addr);
-        SDF_MapMoveInsert(g_slinkMap, key, slink);
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
         SmPassCodeSetTPassCode(slink);
     }
     
+    /* PR-5 SM-A3/SM-R1: 真算法生成确认码——合法应被接受、翻转一位/截断应被拒收且无认证成功副作用。
+     * 确认码 = CMAC(key=G.randomR, buff=G公钥||T公钥||T.mixCode), 与产品校验路径同一算法。
+     * slink 刻意不入 g_slinkMap: 拒收与发送失败都会同步迁移 REMV, 而 SmRemoveSLink 只做
+     * MapErase, 不入表则对象存活, 可安全观察 expectOpCode/curStateIndex, 用后手动 Dtor。 */
+    static SmSLink_S *FuzzR1MakeTNodeSLink(void)
+    {
+        SLE_Addr_S addr = g_gNodeAddr;
+        SmSLink_S *slink = SmSLinkCtor(&addr);
+        if (slink == nullptr) {
+            return nullptr;
+        }
+        slink->role = SM_T_NODE;
+        (void)memcpy_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, g_gNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_gNodeRa, SM_RANDOM_NUMBER_R_LEN);
+        (void)memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb, SM_RANDOM_NUMBER_R_LEN);
+        slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        const uint8_t mixCode[SM_MIX_PASSCODE_LEN] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        (void)memcpy_s(slink->tNode.mixCode, SM_MIX_PASSCODE_LEN, mixCode, SM_MIX_PASSCODE_LEN);
+        return slink;
+    }
+
+    void FuzzSMR1CfmAcceptAndReject(const uint8_t* fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        /* 确认码: 与 GenPassCodeConfirmNum 同构(G公钥||T公钥||mixCode, key=G随机数) */
+        uint8_t cfmBuff[SM_PUBLIC_KEY_LEN * 2 + SM_MIX_PASSCODE_LEN];
+        (void)memcpy_s(cfmBuff, sizeof(cfmBuff), g_gNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(cfmBuff + SM_PUBLIC_KEY_LEN, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
+        const uint8_t mixCode[SM_MIX_PASSCODE_LEN] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        (void)memcpy_s(cfmBuff + SM_PUBLIC_KEY_LEN * 2, SM_MIX_PASSCODE_LEN, mixCode, SM_MIX_PASSCODE_LEN);
+        NLSTK_SmDerivedMac_S macInput = {};
+        macInput.algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        (void)memcpy_s(macInput.key, SM_OCTETS_16, g_gNodeRa, SM_OCTETS_16);
+        macInput.buff = cfmBuff;
+        macInput.buffSize = sizeof(cfmBuff);
+        SmAuthGCfmWithRaMsg_S msg = {};
+        if (!SmCmacGenerate(&macInput, msg.gNodeCfm, SM_OCTETS_16)) {
+            return;
+        }
+        (void)memcpy_s(msg.randomA, SM_OCTETS_16, g_gNodeRa, SM_OCTETS_16);
+
+        /* 1) 合法确认码: T 节点校验通过并发送 Rb 确认(发送腿在桩环境可能失败, 属环境前置, 如实记录) */
+        SmSLink_S *slink = FuzzR1MakeTNodeSLink();
+        if (slink == nullptr) {
+            return;
+        }
+        SmPassCodeAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg));
+        uint16_t expectAfterLegal = slink->expectOpCode;
+        SmState_E stateAfterLegal = slink->curStateIndex;
+        /* 2) 截断报文: 处理端 size 守卫应直接拒绝, 不触碰状态 */
+        SmPassCodeAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg) - 1);
+        SmSLinkDtor(slink);
+
+        /* 3) 翻转一位确认码: 校验不一致 -> SM_ERR_PASSCODE 中止, 不产生认证成功副作用 */
+        SmSLink_S *slink2 = FuzzR1MakeTNodeSLink();
+        if (slink2 == nullptr) {
+            return;
+        }
+        msg.gNodeCfm[fdp.ConsumeIntegral<uint8_t>() % SM_OCTETS_16] ^=
+            (uint8_t)(1u << (fdp.ConsumeIntegral<uint8_t>() % 8));
+        SmPassCodeAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink2, (const uint8_t *)&msg, sizeof(msg));
+        static bool fuzzR1Logged = false;
+        if (!fuzzR1Logged) {
+            CP_LOG_ERROR("[FUZZ]SM-R1 accept(expect=%u st=%d) reject(st=%d) authCbkCnt=%u",
+                (unsigned)expectAfterLegal, (int)stateAfterLegal,
+                (int)slink2->curStateIndex, (unsigned)g_fuzzSmAuthCbkCnt);
+            fuzzR1Logged = true;
+        }
+        SmSLinkDtor(slink2);
+    }
+
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
+        if (g_slinkMap != NULL) {
+            /* 先释放 SmInit 建立或上一输入遗留的表, 避免直接覆盖丢引用 */
+            SDF_MapDtor(g_slinkMap);
+        }
         g_slinkMap = SDF_MapCtor(SLE_ADDR_TRAITS(), MAKE_TRAITS(SmSLinkDtor, NULL));
         FuzzGenDhKeyAndLinkKey(fuzzData, size);
+        FuzzSMR1CfmAcceptAndReject(fuzzData, size);
         FuzzSMDigit(fuzzData, size);
         FuzzSMPassCodeAuthStartCase1(fuzzData, size);
         FuzzSMPassCodeAuthStartCase2(fuzzData, size);
@@ -334,6 +476,23 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argv;
     NLSTK_InitStack();
     NLSTK_EnableStack();
+    NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
+        .randNumFunc = Crypto_RandNumGenerate,
+        .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
+        .secKeyFunc = Crypto_SecKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
+    };
+    NLSTK_SmRegAlgoFuncs(&algoFuncs);
+    NLSTK_SmCallbacks_S extCbks = {
+        .startCbk = OHOS::FuzzSmStartCbk,
+        .removeCbk = OHOS::FuzzSmRemoveCbk,
+        .requestCbk = OHOS::FuzzSmRequestCbk,
+        .authCbk = OHOS::FuzzSmAuthCbk,
+        .encCbk = OHOS::FuzzSmEncCbk,
+        .imgMsgCbk = OHOS::FuzzSmImgMsgCbk,
+    };
+    NLSTK_SmRegExternalCbks(&extCbks);
     return 0;
 }
 

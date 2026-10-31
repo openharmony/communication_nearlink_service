@@ -121,6 +121,7 @@ static void QOSM_StopAddConnectionTimer(struct QosICBInfo *link)
 
 static void QOSM_DestroyQosICGInfo(QOSM_ICGInfo *icgInfo)
 {
+    QOSM_LOGI("enter");
     if (icgInfo == NULL) {
         return;
     }
@@ -851,6 +852,7 @@ static void QOSM_StopICB(CM_ICBConnection *connection)
 
 static void QOSM_ExecuteDelayParamTask(QOSM_ICGInfo *icgInfo)
 {
+    QOSM_LOGI("enter");
     if (icgInfo->delaySetParam != NULL) {
         QOSM_LOGI("now set param, icg type: %u, id: %u", icgInfo->icbType, icgInfo->icgId);
         if (icgInfo->isAutorate) {

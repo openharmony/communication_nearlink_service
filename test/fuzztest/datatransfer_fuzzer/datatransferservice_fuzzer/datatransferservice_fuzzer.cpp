@@ -20,6 +20,7 @@
 #include "../nl_utils/fuzztest_utils.h"
 #include "nearlink_sle_datatransfer_service.cpp"
 #include "SleInterfaceDataTransfer.h"
+#include "SleRemoteDeviceAdapter.h"
 #include "nearlink_host_server.h"
 #include "qosm_trans_channel.h"
 #include "log.h"
@@ -406,6 +407,153 @@ void OnConnectionStateChangedFuzzTest001(const uint8_t *data, size_t size)
     instance.DestroyPort(uuid, portId);
 }
 
+void TransferBizFuzzTest(const uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+    std::string address = BuildAddressString(provider);
+    std::string uuid = BuildUuid(provider).ConvertToString();
+
+    SleDataTransferService &instance = SleDataTransferService::GetInstance();
+    instance.RegisterSleDataTransferServiceCallback(g_callback);
+    uint16_t portId = instance.CreatePort(uuid);
+    NL_CHECK_RETURN(portId > 0, "portId is invalid");
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    size_t length = provider.ConsumeIntegral<uint8_t>() % 64 + 1; // 1..64
+    std::vector<uint8_t> datas = provider.ConsumeBytes<uint8_t>(length);
+    while (datas.size() < length) {
+        datas.push_back(0);
+    }
+    uint8_t tcid = static_cast<uint8_t>(provider.ConsumeIntegral<uint16_t>() | 1); // 保证非 0
+    uint16_t dstPort = provider.ConsumeIntegral<uint16_t>();
+    uint16_t mtu = provider.ConsumeIntegral<uint16_t>();
+
+    AppConnectParamMapping temp;
+    temp.address = address;
+    temp.dstPort = dstPort;
+    temp.tcid = tcid;
+    temp.state = static_cast<int32_t>(SleConnectState::CONNECTED);
+    instance.HandleConnectEvent(QOSM_TRANS_CHANNEL_ESTABLISHED, portId, mtu, temp);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    DataTransferDataParams dataParams(address, uuid, portId, datas);
+    instance.WriteData(dataParams);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    DataTransferConnectionParams param;
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    param.SetPort(portId);
+    int32_t connState = instance.GetConnectionState(param);
+    int transState = 0;
+    int preTransState = 0;
+    int transRet = instance.GetConnectionTransferState(portId, address, transState, preTransState);
+    uint8_t result = static_cast<uint8_t>(provider.ConsumeIntegral<uint8_t>() % 2); // 0/1: AVAILABLE/BUSY
+    instance.ChangeSocketState(portId, address, result);
+    bool isValidPort = instance.IsValidSrcPort(portId);
+    std::string devAddress = address;
+    bool proxyExisted = instance.IsProxyConnectExisted(devAddress);
+    instance.GetRemotePortByConnectionState(address, static_cast<int>(SleConnectState::CONNECTED),
+        static_cast<int>(SleConnectState::CONNECTING));
+    instance.ClearCacheByTokenId(provider.ConsumeIntegral<uint64_t>());
+    instance.StopNlProxyIfExisted();
+    HILOGI("TransferBizFuzzTest connState(%{public}d) transRet(%{public}d) transState(%{public}d) "
+        "preTransState(%{public}d) isValidPort(%{public}d) proxyExisted(%{public}d)",
+        connState, transRet, transState, preTransState, isValidPort, proxyExisted);
+
+    instance.DestroyPort(uuid, portId);
+    if (g_fd > 0) {
+        fdsan_close_with_tag(g_fd, NEARLINK_FDSAN_TAG_SOCKET);
+        g_fd = -1;
+    }
+}
+
+void CarKeyConnectFuzzTest(const uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+    std::string address = BuildAddressString(provider);
+    std::string uuid = CAR_UUID;
+
+    SleRemoteDeviceAdapter *adapter = SleRemoteDeviceAdapter::GetInstance();
+    NL_CHECK_RETURN(adapter != nullptr, "adapter is nullptr");
+    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
+    peerDevice->SetAddress(RawAddress(address));
+    adapter->AddPeripheralDevice(address, peerDevice);
+    adapter->SetAcbState(address, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    SleDataTransferService &instance = SleDataTransferService::GetInstance();
+    instance.RegisterSleDataTransferServiceCallback(g_callback);
+    DataTransferConnectionParams param;
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    uint16_t portId = instance.CreatePort(uuid);
+    NL_CHECK_RETURN(portId > 0, "portId is invalid");
+    param.SetPort(portId);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    instance.Connect(param); // IsAcbConnected=true -> ConnectCarChannelAfterAcb
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    adapter->SetAcbState(address, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    instance.Connect(param); // IsAcbConnected=false -> connect acb 分支
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    instance.Disconnect(param);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+    instance.DestroyPort(uuid, portId);
+    adapter->RemovePeripheralDevice(address);
+}
+
+void TransferDisconnectFuzzTest(const uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+    std::string address = BuildAddressString(provider);
+    std::string uuid = BuildUuid(provider).ConvertToString();
+    uint8_t tcid = static_cast<uint8_t>(provider.ConsumeIntegral<uint16_t>() | 1); // 保证非 0
+    uint16_t dstPort = provider.ConsumeIntegral<uint16_t>();
+    uint16_t mtu = provider.ConsumeIntegral<uint16_t>();
+
+    SleDataTransferService &instance = SleDataTransferService::GetInstance();
+    instance.RegisterSleDataTransferServiceCallback(g_callback);
+    DataTransferConnectionParams param;
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    uint16_t portId = instance.CreatePort(uuid);
+    NL_CHECK_RETURN(portId > 0, "portId is invalid");
+    param.SetPort(portId);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    AppConnectParamMapping temp;
+    temp.address = address;
+    temp.dstPort = dstPort;
+    temp.tcid = tcid;
+    temp.state = static_cast<int32_t>(SleConnectState::CONNECTED);
+    instance.HandleConnectEvent(QOSM_TRANS_CHANNEL_ESTABLISHED, portId, mtu, temp);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    AppConnectParamMapping discTemp;
+    discTemp.address = address;
+    discTemp.dstPort = dstPort;
+    discTemp.tcid = tcid;
+    discTemp.state = static_cast<int32_t>(SleConnectState::DISCONNECTED);
+    instance.HandleConnectEvent(QOSM_TRANS_CHANNEL_RELEASED, portId, mtu, discTemp);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    RawAddress addr(address);
+    int state = static_cast<int>(SleConnectState::DISCONNECTED);
+    int oldState = static_cast<int>(SleConnectState::CONNECTED);
+    instance.pimpl->dataTransferPortObserver_.OnConnectionStateChanged(addr, state, oldState);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+
+    instance.Disconnect(param);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_10_MS));
+    instance.DestroyPort(uuid, portId);
+    if (g_fd > 0) {
+        fdsan_close_with_tag(g_fd, NEARLINK_FDSAN_TAG_SOCKET);
+        g_fd = -1;
+    }
+}
+
 }
 
 // fuzzer init
@@ -449,6 +597,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::PortServiceOnConnectionStateChangedFuzzTest002(data, size);
     OHOS::OnConnectionStateChangedFuzzTest001(data, size);
     OHOS::DeregisterSleDataTransferServiceCallbackFuzzTest001();
+    OHOS::TransferBizFuzzTest(data, size);
+    OHOS::CarKeyConnectFuzzTest(data, size);
+    OHOS::TransferDisconnectFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
 }

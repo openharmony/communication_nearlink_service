@@ -20,6 +20,8 @@
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
+#include "sle_crypto.h"
+#include "nlstk_sm_api.h"
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
 #include "cm_api.h"
@@ -97,6 +99,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argv;
     NLSTK_InitStack();
     NLSTK_EnableStack();
+    NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
+        .randNumFunc = Crypto_RandNumGenerate,
+        .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
+        .secKeyFunc = Crypto_SecKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
+    };
+    NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;
 }
 

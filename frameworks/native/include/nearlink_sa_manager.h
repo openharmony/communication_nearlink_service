@@ -15,32 +15,18 @@
 #ifndef NEARLINK_SA_MANAGER_H
 #define NEARLINK_SA_MANAGER_H
 
-#include <condition_variable>
 #include <string>
-#include <mutex>
 #include "iremote_broker.h"
-#include "iservice_registry.h"
-#include "system_ability_definition.h"
-#include "system_ability_status_change_stub.h"
-#include "nearlink_safe_map.h"
+#include "nearlink_base_sa_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
-constexpr int32_t INVALID_PROFILE_ID = -1;
 
-class NearlinkRegisterInfo {
-public:
-    explicit NearlinkRegisterInfo(std::string name) : profileName_(name)
-    {}
-    ~NearlinkRegisterInfo() = default;
-
-    std::string profileName_ = "";
-    std::function<void(sptr<IRemoteObject>)> serviceStartedFunc_;
-    std::function<void(void)> serviceStoppedFunc_;
-    std::function<void(sptr<IRemoteObject>)> stateOnFunc_;
-    std::function<void(sptr<IRemoteObject>)> stateOffFunc_;
-};
-
+/**
+ * Keeps in sync with NearlinkBaseSaManager declared in nearlink_base_sa_manager.h.
+ * The singleton holds a reference to NearlinkBaseSaManager in base.so and
+ * forwards all calls to it.
+ */
 class NearlinkSaManager {
 public:
     /**
@@ -94,37 +80,7 @@ public:
 
     ~NearlinkSaManager();
 private:
-    void SubscribeNearlinkSa();
-    void UnsubscribeNearlinkSa();
-    void OnServiceStarted();
-    void OnServiceStopped();
-    sptr<IRemoteObject> GetRemoteHost();
-    int32_t AllocateProfileId();
-
-    NearlinkSafeMap<std::string, sptr<IRemoteObject>> profileRemoteMap_;
-    NearlinkSafeMap<int32_t, std::shared_ptr<NearlinkRegisterInfo>> profileIdFuncMap_;
-
-    enum class ServiceState : uint32_t {
-        SERVICE_STATE_NOT_SUBSCRIBED, // 未订阅服务启动
-        SERVICE_STATE_STARTED, // 服务已启动
-        SERVICE_STATE_STOPPED, // 服务已停止
-    };
-    ServiceState serviceState_ = ServiceState::SERVICE_STATE_NOT_SUBSCRIBED;
-
-    class NearlinkSa : public SystemAbilityStatusChangeStub {
-        void OnAddSystemAbility(int32_t systemAbilityId, const std::string &deviceId) override;
-        void OnRemoveSystemAbility(int32_t systemAbilityId, const std::string &deviceId) override;
-    };
-
-    sptr<NearlinkSa> nearlinkSa_ = nullptr;
-    std::mutex serviceStateMutex_;
-    std::condition_variable cvfull_;
-};
-
-template <typename T>
-sptr<T> GetProxy(const std::string &profileName)
-{
-    return iface_cast<T>(NearlinkSaManager::GetInstance().GetRemoteProfile(profileName));
+    NearlinkBaseSaManager &impl_;
 };
 } // namespace Nearlink
 } // namespace OHOS

@@ -187,8 +187,7 @@ private:
     uint32_t CdsmGenerateGroupIdInner(const RawAddress &reportAddr);
     void CdsmDeleteGroupInner(const RawAddress &devAddr);
     bool IsVendorDevice(const RawAddress &device);
-    void SetPeerDeviceTypeToControllerInner(const RawAddress &device);
-    void SetPeerDeviceTypeToControllerByVendor(const CdsmCallBackData &dataBlock, const RawAddress &reportAddr);
+    void SetPeerDeviceTypeToControllerInner(const CdsmCallBackData &dataBlock, const RawAddress &reportAddr);
 }; /* CdsmService */
 
 } // namespace Sle

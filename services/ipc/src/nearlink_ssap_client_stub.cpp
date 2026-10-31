@@ -41,8 +41,10 @@ NearlinkSsapClientStub::NearlinkSsapClientStub()
         {STUB_FUNC(NL_SSAP_CLIENT_DIS_CONNECT, DisconnectInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_DISCOVERY_SERVICES, DiscoveryServicesInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_DISCOVERY_SERVICES_BY_UUID, DiscoverServiceByUuidInner,
-            CHECK_PERM(false, {MANAGE_NEARLINK}))},
+            CHECK_PERM(true, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_READ_PROPERTY, ReadPropertyInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
+        {STUB_FUNC(NL_SSAP_CLIENT_READ_PROPERTIES_BY_UUID, ReadPropertiesByUuidInner,
+            CHECK_PERM(true, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_CALL_METHOD, CallMethodInner, CHECK_PERM(true, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_WRITE_PROPERTY, WritePropertyInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_READ_DESCRIPTOR, ReadDescriptorInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
@@ -51,7 +53,7 @@ NearlinkSsapClientStub::NearlinkSsapClientStub()
         {STUB_FUNC(NL_SSAP_CLIENT_REQUEST_CONNECTION_PRIORITY, RequestConnectionPriorityInner,
             CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_GET_SERVICES, GetServicesInner, CHECK_PERM(false, {ACCESS_NEARLINK}))},
-        {STUB_FUNC(NL_SSAP_CLIENT_GET_SERVICES_BY_UUID, GetServicesByUuidInner, CHECK_PERM(false, {MANAGE_NEARLINK}))},
+        {STUB_FUNC(NL_SSAP_CLIENT_GET_SERVICES_BY_UUID, GetServicesByUuidInner, CHECK_PERM(true, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_REQUEST_NOTIFICATION, RequestNotificationInner,
             CHECK_PERM(false, {ACCESS_NEARLINK}))},
         {STUB_FUNC(NL_SSAP_CLIENT_REQUEST_INDICATION, RequestIndicationInner,
@@ -178,6 +180,24 @@ int32_t NearlinkSsapClientStub::ReadPropertyInner(NearlinkSsapClientStub *stub, 
         return TRANSACTION_ERR;
     }
     NlErrCode result = stub->ReadProperty(appId, *property);
+    bool ret = reply.WriteInt32(result);
+    if (!ret) {
+        HILOGE("NearlinkSsapClientStub: reply writing failed.");
+        return ERR_INVALID_VALUE;
+    }
+    return NO_ERROR;
+}
+
+int32_t NearlinkSsapClientStub::ReadPropertiesByUuidInner(NearlinkSsapClientStub *stub, MessageParcel &data,
+    MessageParcel &reply)
+{
+    HILOGI("NearlinkSsapClientStub::ReadPropertiesByUuidInner starts");
+    int32_t appId = data.ReadInt32();
+    std::shared_ptr<NearlinkSsapPropertyParcel> property(data.ReadParcelable<NearlinkSsapPropertyParcel>());
+    if (!property) {
+        return TRANSACTION_ERR;
+    }
+    NlErrCode result = stub->ReadPropertiesByUuid(appId, *property);
     bool ret = reply.WriteInt32(result);
     if (!ret) {
         HILOGE("NearlinkSsapClientStub: reply writing failed.");
