@@ -610,114 +610,129 @@ namespace OHOS {
         }
         int32_t srvAppId = SsapServerDeepAppCache();
 
-        /* —— 1. 多值读含授权属性（遗留 SVC1 属性2 perm=0x04 授权位）→
-         *    SSAPS_CheckMultiReadAuthNeed 拒绝（ssaps_server.c:427-447/:764-769）—— */
-        {
-            uint8_t denyReq[8] = {SSAP_READ_REQ, 0x03, 0x11, 0x00, 0x00, 0x12, 0x00, 0x00};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(denyReq, sizeof(denyReq));
-            if (buff != nullptr) {
-                SSAPS_ReadReqHandle(link, buff);
-                SDF_BuffFree(buff);
+        /* —— 请求族域表主驱动（取代原 deny/ok/wr×4/ack/method×2/rbu 常量模板全量重放，
+         * 模板语义下沉 corpus seed_srv_*）：每轮 FDP 选一族；句柄域走
+         * {实录句柄, 0, 0x99 非法档, fdp%0x20} 域表 FDP 选择；子项数/长度/值域全 FDP —— */
+        static const uint8_t SRV_FAM_TABLE[] = {
+            SSAP_READ_REQ,        /* 0: 多值读（含授权拒绝 + 真实序列化 :427-447/:456-641）*/
+            SSAP_WRITE_REQ,       /* 1: 写族（ssaps_server_write.c 单/多/取消/子项校验）*/
+            SSAP_VALUE_ACK,       /* 2: 指示确认（:1116-1141）*/
+            SSAP_CALL_METHOD_REQ, /* 3: 方法 REQ（:1275 → MethodHandle→MethodExecute）*/
+            SSAP_READ_BY_UUID_REQ, /* 4: 多值处理（multiProcessing 组包 :923-1014）*/
+        };
+        uint8_t famIdx = provider.ConsumeIntegral<uint8_t>() % (sizeof(SRV_FAM_TABLE) / sizeof(SRV_FAM_TABLE[0]));
+        uint8_t handleRaw = provider.ConsumeIntegral<uint8_t>() % 0x20;
+        uint8_t handleIdx = provider.ConsumeIntegral<uint8_t>() % 4;
+        /* 句柄域表：实录可写属性/方法句柄（真实注册回录）、0 档、0x99 非法档、FDP 小域档 */
+        uint16_t propTable[4] = {g_deepPropHandle, 0, 0x99, handleRaw};
+        uint16_t methTable[4] = {g_deepMethodHandle, 0, 0x99, handleRaw};
+        uint16_t handle = propTable[handleIdx];
+        uint8_t req[7 + SSAP_UUID128_LEN]; /* RBU req：头 7 + uuid16 */
+        uint32_t reqLen = 2;
+        req[0] = SRV_FAM_TABLE[famIdx];
+        req[1] = 0x03;
+        void (*handler)(SSAP_Link_S *, SDF_Buff_S *) = SSAPS_ReadReqHandle;
+        switch (famIdx) {
+            case 0: {
+                /* 多值读：条目数 FDP（1..3，>1 走 CheckMultiReadAuthNeed/ReadMultiHandleReq），
+                 * 条目 = handle2 + type1，句柄取域表值 */
+                uint8_t itemNum = (uint8_t)(provider.ConsumeIntegral<uint8_t>() % 3 + 1);
+                for (uint8_t i = 0; i < itemNum; i++) {
+                    req[2 + 3 * i] = (uint8_t)(handle & 0xFF);
+                    req[3 + 3 * i] = (uint8_t)(handle >> 8);
+                    req[4 + 3 * i] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                }
+                reqLen = 2 + 3 * itemNum;
+                break;
+            }
+            case 1: {
+                /* 写族四档 FDP：单值写（真实可写句柄成功路径）/多值写（子项校验+执行+回环）/
+                 * 取消写单包（oper=CANCEL<<3|NO_FRAG）/子项数 0（INVALID_HANDLE 结果项） */
+                uint8_t writeTier = provider.ConsumeIntegral<uint8_t>() % 4;
+                if (writeTier == 0) { /* 单值写：{handle2, type1, value} */
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    req[4] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                    uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                    for (uint8_t i = 0; i < valLen; i++) {
+                        req[5 + i] = provider.ConsumeIntegral<uint8_t>();
+                    }
+                    reqLen = 5 + valLen;
+                } else if (writeTier == 1) { /* 多值写：{handle2, subNum, subs{type1, len2, value}} */
+                    req[1] = 0x07;
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    uint8_t subNum = provider.ConsumeIntegral<uint8_t>() % 3;
+                    req[4] = subNum;
+                    uint32_t off = 5;
+                    for (uint8_t s = 0; s < subNum && off + 3 < sizeof(req); s++) {
+                        req[off++] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                        uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                        req[off++] = valLen; /* 声明长度域（LE 2B，超实际值 → INVALID_PDU 档） */
+                        req[off++] = provider.ConsumeIntegral<uint8_t>() % 0x40;
+                        for (uint8_t i = 0; i < valLen && off < sizeof(req); i++) {
+                            req[off++] = provider.ConsumeIntegral<uint8_t>();
+                        }
+                    }
+                    reqLen = off;
+                } else if (writeTier == 2) { /* 取消写单包：ctrl = CANCEL<<3|NO_FRAG */
+                    req[1] = 0x13;
+                    req[2] = 0x00;
+                    reqLen = 3;
+                } else { /* 子项数 0 → INVALID_HANDLE 结果项（:653-657） */
+                    req[1] = 0x07;
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    req[4] = 0x00;
+                    reqLen = 5;
+                }
+                handler = SSAPS_WriteReqHandle;
+                break;
+            }
+            case 2: {
+                /* 指示确认：结果域 FDP（RECV_SUCCESS/RECV_FAIL → 应用回调 :1116-1141） */
+                req[2] = provider.ConsumeIntegral<uint8_t>() % 2;
+                reqLen = 3;
+                handler = SSAPS_ValueAckHandle;
+                break;
+            }
+            case 3: {
+                /* 方法 REQ：{handle2, 参数值}，句柄取方法域表（实录方法句柄命中 / 非法错误响应） */
+                uint16_t methHandle = methTable[handleIdx];
+                req[2] = (uint8_t)(methHandle & 0xFF);
+                req[3] = (uint8_t)(methHandle >> 8);
+                uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                for (uint8_t i = 0; i < valLen; i++) {
+                    req[4 + i] = provider.ConsumeIntegral<uint8_t>();
+                }
+                reqLen = 4 + valLen;
+                handler = SSAPS_MethodReqHandle;
+                break;
+            }
+            default: {
+                /* 按 UUID 读多值（link->multiProcessing=true → AddMultiOneItem 组包）：
+                 * 句柄域铺底 + uuid16 全 FDP（匹配/不匹配双档） */
+                req[1] = SSAP_READ_BY_CUSTOM_UUID_CONTROL;
+                req[2] = 0x10;
+                req[3] = 0x00;
+                req[4] = 0xFF;
+                req[5] = 0xFF;
+                req[6] = 0x00;
+                for (int i = 0; i < SSAP_UUID128_LEN; i++) {
+                    req[7 + i] = provider.ConsumeIntegral<uint8_t>();
+                }
+                reqLen = 7 + SSAP_UUID128_LEN;
+                handler = SSAPS_ReadByUuidReqHandle;
+                link->multiProcessing = true; /* 域铺底：多值处理组包路径 */
+                break;
             }
         }
-        /* —— 2. 多值读真实序列化（3× NO_NEED 属性 0x11 → SSAPS_ReadMultiHandleReq：
-         *    结果组包/逐项序列化/无分包错误响应 :456-641）—— */
-        {
-            uint8_t okReq[11] = {SSAP_READ_REQ, 0x03, 0x11, 0x00, 0x00, 0x11, 0x00, 0x00,
-                0x11, 0x00, 0x00};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(okReq, sizeof(okReq));
-            if (buff != nullptr) {
-                SSAPS_ReadReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
+        SDF_Buff_S *famBuff = SsapSrvFuzzBuff(req, reqLen);
+        if (famBuff != nullptr) {
+            handler(link, famBuff);
+            SDF_BuffFree(famBuff);
         }
-        /* —— 3. 写族（ssaps_server_write.c）—— */
-        if (g_deepPropHandle != 0) {
-            /* 3a. 单值写成功路径：真实可写属性（app 服务实录句柄） */
-            uint8_t wrSingle[7] = {SSAP_WRITE_REQ, 0x03,
-                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x00, 0x12, 0x34};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(wrSingle, sizeof(wrSingle));
-            if (buff != nullptr) {
-                SSAPS_WriteReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-            /* 3b. 多值写：同一可写句柄 2 子项（type/len2/值）→ 子项校验+执行+回环 */
-            uint8_t wrMulti[14] = {SSAP_WRITE_REQ, 0x07,
-                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x02,
-                0x00, 0x02, 0x00, 0xAA, 0x00, 0x02, 0x00, 0xBB, 0x00};
-            buff = SsapSrvFuzzBuff(wrMulti, sizeof(wrMulti));
-            if (buff != nullptr) {
-                SSAPS_WriteReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-            /* 3c. 多值写子项声明长度越界 → 组包校验失败 INVALID_PDU（GetNextMultiItemPos） */
-            uint8_t wrMultiBad[9] = {SSAP_WRITE_REQ, 0x07,
-                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x01,
-                0x00, 0xFF, 0x00, 0x11};
-            buff = SsapSrvFuzzBuff(wrMultiBad, sizeof(wrMultiBad));
-            if (buff != nullptr) {
-                SSAPS_WriteReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-            /* 3d. 子项数为 0 → INVALID_HANDLE 结果项（:653-657） */
-            uint8_t wrMultiZero[5] = {SSAP_WRITE_REQ, 0x07,
-                (uint8_t)(g_deepPropHandle & 0xFF), (uint8_t)(g_deepPropHandle >> 8), 0x00};
-            buff = SsapSrvFuzzBuff(wrMultiZero, sizeof(wrMultiZero));
-            if (buff != nullptr) {
-                SSAPS_WriteReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-        }
-        /* 3e. 取消写单包（ctrl oper=CANCEL<<3|NO_FRAG=0x13）→ HandleWriteCancel→SendWriteCancelRsp */
-        {
-            uint8_t wrCancel[3] = {SSAP_WRITE_REQ, 0x13, 0x00};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(wrCancel, sizeof(wrCancel));
-            if (buff != nullptr) {
-                SSAPS_WriteReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-        }
-        /* —— 4. 指示确认（SSAPS_ValueAckHandle:1116-1141 → 应用回调）—— */
-        {
-            uint8_t valueAck[3] = {SSAP_VALUE_ACK, 0x03, SSAP_ACK_RECV_SUCCESS};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(valueAck, sizeof(valueAck));
-            if (buff != nullptr) {
-                SSAPS_ValueAckHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-        }
-        /* —— 5. 方法 REQ 族（SSAPS_MethodReqHandle:1275 → MethodHandle→MethodExecute）—— */
-        if (srvAppId >= 0 && g_deepMethodHandle != 0) {
-            uint8_t methodReq[6] = {SSAP_CALL_METHOD_REQ, 0x03,
-                (uint8_t)(g_deepMethodHandle & 0xFF), (uint8_t)(g_deepMethodHandle >> 8), 0x0A, 0x0B};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(methodReq, sizeof(methodReq));
-            if (buff != nullptr) {
-                SSAPS_MethodReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-        }
-        {   /* 无效方法句柄 → MethodErrorProcess 错误响应 */
-            uint8_t methodBad[4] = {SSAP_CALL_METHOD_REQ, 0x03, 0x99, 0x09};
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(methodBad, sizeof(methodBad));
-            if (buff != nullptr) {
-                SSAPS_MethodReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-        }
-        /* —— 6. 按 UUID 读多值处理（link->multiProcessing=true → AddMultiOneItem 组包
-         *    ssaps_server.c:923-929/972-1014）；16B 自定义 uuid 匹配 SVC1 双属性 —— */
-        {
-            link->multiProcessing = true;
-            uint8_t rbuReq[23] = {SSAP_READ_BY_UUID_REQ, SSAP_READ_BY_CUSTOM_UUID_CONTROL,
-                0x10, 0x00, 0xFF, 0xFF, 0x00};
-            (void)memcpy_s(rbuReq + 7, 0x10, &g_uuid2Net, 0x10);
-            SDF_Buff_S *buff = SsapSrvFuzzBuff(rbuReq, sizeof(rbuReq));
-            if (buff != nullptr) {
-                SSAPS_ReadByUuidReqHandle(link, buff);
-                SDF_BuffFree(buff);
-            }
-            link->multiProcessing = false;
-        }
+        link->multiProcessing = false;
         /* —— 7. pending vector 推/取/清（ssaps_server.c:133-194，授权挂起队列机制）—— */
         {
             SSAP_BufferedOperation_S *operation = (SSAP_BufferedOperation_S *)SDF_MemZalloc(
@@ -736,8 +751,6 @@ namespace OHOS {
                 SSAPS_CleanPendingVectorByAddr(&sleAddr);
             }
         }
-        /* 扰动消费（分支已由常量模板覆盖） */
-        (void)provider.ConsumeIntegral<uint8_t>();
 
         if (srvAppId >= 0) {
             NLSTK_SsapServerDeregisterApplication(srvAppId);

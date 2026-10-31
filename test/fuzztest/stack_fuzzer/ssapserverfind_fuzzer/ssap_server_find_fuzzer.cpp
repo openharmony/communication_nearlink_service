@@ -357,58 +357,26 @@ namespace OHOS {
         /* 设备类型：OLD → V10 响应族（:1460-1471）；NEW → 常规族 */
         CM_StubDeviceType((variant & 0x08) != 0 ? CM_DEVTYPE_OLD : CM_DEVTYPE_NEW);
 
-        /* —— 1. 句柄边界：start=0 拒绝 / start>end 拒绝 / 精确服务域 / 跨服务交叉 —— */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0, 0x14, nullptr, 0);            /* start=0 → INVALID_HANDLE */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x14, 0x13, nullptr, 0);          /* start>end → INVALID_HANDLE */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x10, 0x12, nullptr, 0);          /* 精确 SVC_STD 域 */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_SERVICE_STRUCTURE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x12, 0x15, nullptr, 0);          /* 跨服务交叉 */
-        /* —— 2. itemType 三态 × findType（属性/方法/事件拒绝分支）—— */
-        for (uint8_t itemType = 0; itemType < 3; itemType++) {
-            SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-                itemType, rspMode, 0x10, 0x14, nullptr, 0);
-            SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_METHOD,
-                itemType, rspMode, 0x10, 0x17, nullptr, 0); /* 无方法服务 → ITEM_INEXIST */
-            SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_EVENT,
-                itemType, rspMode, 0x10, 0x17, nullptr, 0); /* 事件恒拒绝（:1476-1479） */
-            SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-                itemType, rspMode, 0x10, 0x17, nullptr, 0);
-        }
-        /* —— 3. by-uuid 匹配组合：uuid 类型交叉错配（:391-397 GetUuidType 校验）—— */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x01, 0xFFFF, &g_stdSvcUuid, SSAP_UUID16_LEN);   /* 命中 SVC_STD */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x01, 0xFFFF, &g_stdPropUuid1, SSAP_UUID16_LEN); /* 属性uuid→类型错配 */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x10, 0x12, &g_stdPropUuid1, SSAP_UUID16_LEN);   /* 命中属性 */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-            FIND_ITEM_TYPE_MIX, rspMode, 0x10, 0x12, &g_stdSvcUuid, SSAP_UUID16_LEN);     /* 服务uuid→错配 */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-            FIND_ITEM_TYPE_CUSTOMIZE, rspMode, 0x01, 0xFFFF, &g_uuid3, SSAP_UUID128_LEN); /* CUS 服务命中 */
-        SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-            FIND_ITEM_TYPE_STANDARD, rspMode, 0x10, 0x14, &g_uuid4, SSAP_UUID128_LEN);    /* CUS 属性 128 位 */
-        /* —— 4. V10 旧设备族（devType=OLD 时 :1460-1471 分派）—— */
-        if (((variant & 0x08) != 0) || ((variant & 0x10) != 0)) {
-            CM_StubDeviceType(CM_DEVTYPE_OLD);
-            for (uint8_t itemType = 0; itemType < 3; itemType++) {
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-                    itemType, rspMode, 0x01, 0xFFFF, &g_stdSvcUuid, SSAP_UUID16_LEN);
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-                    itemType, rspMode, 0x01, 0xFFFF, &g_uuid3, SSAP_UUID128_LEN);
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-                    itemType, rspMode, 0x10, 0x14, &g_stdPropUuid1, SSAP_UUID16_LEN);
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_BY_UUID_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-                    itemType, rspMode, 0x10, 0x14, &g_uuid4, SSAP_UUID128_LEN);
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PRIMARY_SERVICE,
-                    itemType, rspMode, 0x10, 0x17, nullptr, 0); /* 非 by-uuid 走常规 V10 构包 */
-                SsapFindFuzzReq(link, SSAP_FIND_STRUCTURE_REQ, FIND_STRUCTURE_TYPE_PROPERTY,
-                    itemType, rspMode, 0x10, 0x14, nullptr, 0);
-            }
-            CM_StubDeviceType(CM_DEVTYPE_NEW);
-        }
+        /* —— FDP 域表主驱动（取代原 4+12+6+30 组常量枚举全量重放，语义组合下沉
+         * corpus seed_find_*）：msgCode/findType/itemType/uuid 变体/句柄域全 FDP 选择；
+         * variant 四维（小 MTU/对端分包/多响应/OLD 设备→V10 响应族）为合规域铺底保留；
+         * 注册服务句柄域常量表为结构域铺底保留 —— */
+        uint16_t rangeRaw = fdp.ConsumeIntegral<uint8_t>() % 0x20;
+        uint16_t rangeTable[6] = {0, 0x10, 0x12, 0x14, 0x17, rangeRaw}; /* 0=start 拒绝/服务域/交叉/FDP 小域 */
+        uint16_t startH = rangeTable[fdp.ConsumeIntegral<uint8_t>() % 6];
+        uint16_t endH = rangeTable[fdp.ConsumeIntegral<uint8_t>() % 6];
+        bool byUuid = (fdp.ConsumeIntegral<uint8_t>() & 0x01) != 0;
+        uint8_t findType = fdp.ConsumeIntegral<uint8_t>() % 6; /* 全 6 种 findType（含 0x02/0x05 拒绝分支） */
+        uint8_t itemType = fdp.ConsumeIntegral<uint8_t>() % 3; /* STD/CUS/MIX（MIX 命中 FillMix* 组包） */
+        /* by-uuid uuid 变体域表：服务/属性 uuid 交叉错配（:391-397 GetUuidType 校验）、
+         * STD 短码/16B 全量双档 */
+        static const NLSTK_SsapUuid_S *uuidTable[] = {&g_stdSvcUuid, &g_stdPropUuid1, &g_mixSvcUuid,
+            &g_uuid3, &g_uuid4};
+        const NLSTK_SsapUuid_S *uuid = uuidTable[fdp.ConsumeIntegral<uint8_t>() % 5];
+        uint32_t uuidLen = ((fdp.ConsumeIntegral<uint8_t>() & 0x01) != 0) ? SSAP_UUID128_LEN :
+            SSAP_UUID16_LEN; /* 非 STD 形态 + 短码档 → 不匹配 → ITEM_INEXIST 分支 */
+        SsapFindFuzzReq(link, byUuid ? SSAP_FIND_STRUCTURE_BY_UUID_REQ : SSAP_FIND_STRUCTURE_REQ,
+            findType, itemType, rspMode, startH, endH, byUuid ? uuid : nullptr, byUuid ? uuidLen : 0);
 
         link->mtu = SSAP_STACK_MTU_DEFAULT; /* 恢复默认，避免跨输入残留 */
         link->fragCtx.fragment = false;

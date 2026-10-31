@@ -329,68 +329,54 @@ namespace OHOS {
             return;
         }
 
-        /* —— 1. 分片重组异常分支（直接 SSAP_ReassemFragment，输入 buff 归调用方）—— */
-        /* WRITE_REQ 分片模板：ctrl = oper<<3 | frag（oper: PART=01 END 时 INSTANT=00；frag: BEGIN=0 MID=1 END=2） */
+        /* —— 1. 分片重组异常分支（ssap_manager.c:281-439），报文 opcode 域表 + ctrl/载荷/长度全 FDP：
+         * ctrl 低 2 位自然覆盖 BEGIN/MID/END/NO_FRAG、oper 高 2 位覆盖 CANCEL（分片取消回调）；
+         * frag=NO_FRAG 时 HandleFragRecv 返回 false，回退单包 WriteReqHandle（取消写/正常写单包）—— */
+        static const uint8_t fragOps[] = {SSAP_WRITE_REQ, SSAP_READ_RSP, SSAP_FIND_STRUCTURE_REQ};
+        /* 必达保底链模板（WRITE_REQ 分片：ctrl = oper<<3 | frag） */
         const uint8_t wrBegin[7] = {SSAP_WRITE_REQ, 0x08, 0x11, 0x00, 0x00, 0xA1, 0xA2};
         const uint8_t wrMid[4] = {SSAP_WRITE_REQ, 0x09, 0xA3, 0xA4};
         const uint8_t wrEnd[3] = {SSAP_WRITE_REQ, 0x02, 0xA5};
-        const uint8_t wrCancel[3] = {SSAP_WRITE_REQ, 0x13, 0x00}; /* oper=CANCEL(0b10)<<3 | NO_FRAG(3) */
-        const uint8_t rdRspBegin[8] = {SSAP_READ_RSP, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+        uint8_t fragPkt[2 + 31];
+        fragPkt[0] = fragOps[provider.ConsumeIntegral<uint8_t>() % (sizeof(fragOps) / sizeof(fragOps[0]))];
+        fragPkt[1] = provider.ConsumeIntegral<uint8_t>();
+        uint8_t fragLen = provider.ConsumeIntegral<uint8_t>() % 32;
+        for (uint8_t i = 0; i < fragLen; i++) {
+            fragPkt[2 + i] = provider.ConsumeIntegral<uint8_t>();
+        }
         SDF_Buff_S *complete = nullptr;
-        /* 1a. MID 无上下文 → DROP（ssap_manager.c:336-339） */
-        SDF_Buff_S *frag = SsapMgrFuzzBuff(wrMid, sizeof(wrMid));
+        SDF_Buff_S *frag = SsapMgrFuzzBuff(fragPkt, 2 + fragLen);
         if (frag != nullptr) {
-            (void)SSAP_ReassemFragment(link, frag, &complete);
-            SDF_BuffFree(frag);
-        }
-        /* 1b. 双 BEGIN：先建 WRITE_REQ 重组上下文，再来 READ_RSP BEGIN → 丢弃旧缓存分支（:285-290） */
-        frag = SsapMgrFuzzBuff(wrBegin, sizeof(wrBegin));
-        SDF_Buff_S *frag2 = SsapMgrFuzzBuff(rdRspBegin, sizeof(rdRspBegin));
-        if (frag != nullptr && frag2 != nullptr) {
-            (void)SSAP_ReassemFragment(link, frag, &complete); /* WRITE_REQ BEGIN 建上下文 */
-            (void)SSAP_ReassemFragment(link, frag2, &complete); /* READ_RSP BEGIN 丢弃旧缓存 */
-            SDF_BuffFree(frag2);
-            /* 1c. 上下文 opcode 不一致（WRITE_REQ MID 对 READ_RSP 上下文）→ DROP（:336-339） */
-            SDF_Buff_S *frag3 = SsapMgrFuzzBuff(wrMid, sizeof(wrMid));
-            if (frag3 != nullptr) {
-                (void)SSAP_ReassemFragment(link, frag3, &complete);
-                SDF_BuffFree(frag3);
+            if (!SSAP_HandleFragRecv(link, frag, SSAPS_WriteReqHandle, SsapMgrFuzzCancelCb)) {
+                SSAPS_WriteReqHandle(link, frag); /* 非分片报文：单包处理路径 */
             }
-        }
-        SDF_BuffFree(frag);
-        /* 1d. 取消写——单包形式（oper=CANCEL、frag=NO_FRAG）经 WriteReqHandle 内
-         * SSAPS_HandleWriteCancel→SSAPS_SendWriteCancelRsp（ssaps_server_write.c:224-234）；
-         * 顺带清掉 1b/1c 残留的 READ_RSP 重组上下文 */
-        frag = SsapMgrFuzzBuff(wrCancel, sizeof(wrCancel));
-        if (frag != nullptr) {
-            SSAPS_WriteReqHandle(link, frag);
             SDF_BuffFree(frag);
         }
-        /* 1d2. 取消写——分片形式（oper=CANCEL 且 frag=MID）→ SSAP_ReassemFragment
-         * CANCEL 分支（:371-381）+ SSAP_HandleFragRecv cancelProc 回调（:419-421） */
-        const uint8_t wrCancelFrag[3] = {SSAP_WRITE_REQ, 0x11, 0x00};
-        frag = SsapMgrFuzzBuff(wrCancelFrag, sizeof(wrCancelFrag));
-        if (frag != nullptr) {
-            (void)SSAP_HandleFragRecv(link, frag, SSAPS_WriteReqHandle, SsapMgrFuzzCancelCb);
-            SDF_BuffFree(frag);
-        }
-        /* 1e. 单片超 MTU → DROP + 重组上下文清理（:385-394） */
+        /* 1b. 超 MTU 档（:385-394 DROP+清理）：域铺底压低 mtu 后同构造器再喂一包，
+         * 长度域 %32 天然覆盖 >mtu 与 <=mtu 两档 */
         uint16_t oldMtu = link->mtu;
         link->mtu = 8; /* ponytail: 直改链路 mtu 压低上限触发超限分支，用后恢复 */
-        uint8_t oversize[16];
-        oversize[0] = SSAP_WRITE_REQ;
-        oversize[1] = 0x08;
-        for (uint8_t i = 2; i < sizeof(oversize); i++) {
-            oversize[i] = i;
+        fragPkt[0] = fragOps[provider.ConsumeIntegral<uint8_t>() % (sizeof(fragOps) / sizeof(fragOps[0]))];
+        fragPkt[1] = provider.ConsumeIntegral<uint8_t>();
+        fragLen = provider.ConsumeIntegral<uint8_t>() % 32;
+        for (uint8_t i = 0; i < fragLen; i++) {
+            fragPkt[2 + i] = provider.ConsumeIntegral<uint8_t>();
         }
-        frag = SsapMgrFuzzBuff(oversize, sizeof(oversize));
+        frag = SsapMgrFuzzBuff(fragPkt, 2 + fragLen);
         if (frag != nullptr) {
             (void)SSAP_ReassemFragment(link, frag, &complete);
             SDF_BuffFree(frag);
         }
         link->mtu = oldMtu;
-        /* 1f. WRITE_REQ BEGIN→MID→END 组包闭环（经真实服务端 handler，
-         * proc=SSAPS_WriteReqHandle、组包完成→SSAP_HandleRspTaskComplete 清任务续跑队列） */
+        /* 1c. 必达保底链（常量）：首包 MID 无上下文 → DROP（:336-339）；FDP 包留下未闭环
+         * 重组上下文（READ_RSP/FIND BEGIN）时，链上 BEGIN 命中"丢弃旧缓存"（:285-290）、
+         * MID 命中 opcode 错配 DROP；末三包保证 BEGIN→MID→END 组包闭环（经真实服务端
+         * handler，组包完成→SSAP_HandleRspTaskComplete 清任务续跑队列） */
+        frag = SsapMgrFuzzBuff(wrMid, sizeof(wrMid));
+        if (frag != nullptr) {
+            SSAPS_WriteReqHandle(link, frag);
+            SDF_BuffFree(frag);
+        }
         frag = SsapMgrFuzzBuff(wrBegin, sizeof(wrBegin));
         if (frag != nullptr) {
             SSAPS_WriteReqHandle(link, frag);
@@ -407,57 +393,48 @@ namespace OHOS {
             SDF_BuffFree(frag);
         }
 
-        /* —— 2. 超时回调 opcode switch（SSAP_TimeoutCbk:480-503），每轮重铺 curTask（回调内部自清）—— */
+        /* —— 2. 超时回调 opcode switch（SSAP_TimeoutCbk:480-503）：opcode 从域表 FDP 索引选择
+         * （常量全枚举重放下沉 seed_mgr_timeout_*），每轮铺一次 curTask（回调内部自清）；
+         * invalid 档（valid=false → 清任务续跑 :473-479）由 FDP 位驱动补一次回调 —— */
         static const uint8_t timeoutOps[] = {
             SSAP_EXCHANGE_INFO_REQ, SSAP_FIND_STRUCTURE_REQ, SSAP_FIND_STRUCTURE_BY_UUID_REQ,
             SSAP_READ_REQ, SSAP_WRITE_REQ, SSAP_READ_BY_UUID_REQ, SSAP_CALL_METHOD_REQ,
             SSAP_VALUE_IND, SSAP_ERROR_RSP, /* default 分支 */
         };
-        for (size_t i = 0; i < sizeof(timeoutOps) / sizeof(timeoutOps[0]); i++) {
-            uint8_t opcode = timeoutOps[i];
-            uint8_t req[8] = {opcode, 0x00, 0x11, 0x00, 0x00, 0x01, 0x02, 0x03};
-            uint32_t reqLen = (opcode == SSAP_READ_BY_UUID_REQ) ? 7 : 6; /* ReadByUuidErrorHandle 需 >= sizeof(req PDU)=7 */
-            SsapMgrFuzzSetTask(link, opcode, req, reqLen);
-            SSAP_TimeoutCbk((void *)link);
-        }
-        /* 2b. 无效 app 任务（valid=false）→ 清任务续跑分支（:473-479） */
-        {
-            uint8_t req[6] = {SSAP_READ_REQ, 0x00, 0x11, 0x00, 0x00, 0x01};
-            SsapMgrFuzzSetTask(link, SSAP_READ_REQ, req, sizeof(req));
+        uint8_t opcode = timeoutOps[provider.ConsumeIntegral<uint8_t>() %
+            (sizeof(timeoutOps) / sizeof(timeoutOps[0]))];
+        uint8_t req[8] = {opcode, 0x00, 0x11, 0x00, 0x00, 0x01, 0x02, 0x03};
+        SsapMgrFuzzSetTask(link, opcode, req,
+            (opcode == SSAP_READ_BY_UUID_REQ) ? 7 : 6); /* ReadByUuidErrorHandle 需 >= sizeof(req PDU)=7 */
+        SSAP_TimeoutCbk((void *)link);
+        if ((provider.ConsumeIntegral<uint8_t>() & 0x01) != 0) {
+            uint8_t reqBad[6] = {SSAP_READ_REQ, 0x00, 0x11, 0x00, 0x00, 0x01};
+            SsapMgrFuzzSetTask(link, SSAP_READ_REQ, reqBad, sizeof(reqBad));
             if (link->curTask.param != nullptr) {
                 link->curTask.param->valid = false;
             }
             SSAP_TimeoutCbk((void *)link);
         }
 
-        /* —— 3. 错误响应分发（SSAP_Recv op=ERROR_RSP → ErrorRspHandle switch:750-772）—— */
+        /* —— 3. 错误响应分发（SSAP_Recv op=ERROR_RSP → ErrorRspHandle switch:750-772）：
+         * msgCodeReq 域表 FDP 选、errCode FDP 全域；错配早退档（msgCodeReq != curTask.opcode
+         * :748）由 FDP 位将铺底任务 opcode 与 msgCodeReq 错开 —— */
         DTAP_Data_Info_S info = {0};
         info.lcid = mgrLcid;
-        for (size_t i = 0; i < sizeof(timeoutOps) / sizeof(timeoutOps[0]) - 1; i++) {
-            uint8_t opcode = timeoutOps[i];
-            uint8_t req[8] = {opcode, 0x00, 0x11, 0x00, 0x00, 0x01, 0x02, 0x03};
-            uint32_t reqLen = (opcode == SSAP_READ_BY_UUID_REQ) ? 7 :
-                ((opcode == SSAP_EXCHANGE_INFO_REQ) ? 6 : 6);
-            SsapMgrFuzzSetTask(link, opcode, req, reqLen);
-            uint8_t errRsp[6] = {SSAP_ERROR_RSP, 0x00, opcode, 0x11, 0x00, SSAP_ERRCODE_TIMEOUT};
-            SDF_Buff_S *rspBuff = SsapMgrFuzzBuff(errRsp, sizeof(errRsp));
-            if (rspBuff != nullptr) {
-                (void)SSAP_Recv(&info, rspBuff);
-                SDF_BuffFree(rspBuff);
-            }
+        uint8_t msgCodeReq = timeoutOps[provider.ConsumeIntegral<uint8_t>() %
+            (sizeof(timeoutOps) / sizeof(timeoutOps[0]) - 1)]; /* 排除 SSAP_ERROR_RSP 自身 */
+        uint8_t taskOp = ((provider.ConsumeIntegral<uint8_t>() & 0x01) != 0) ?
+            (uint8_t)(msgCodeReq + 1) : msgCodeReq;
+        uint8_t req3[8] = {taskOp, 0x00, 0x11, 0x00, 0x00, 0x01, 0x02, 0x03};
+        SsapMgrFuzzSetTask(link, taskOp, req3, (taskOp == SSAP_READ_BY_UUID_REQ) ? 7 : 6);
+        uint8_t errRsp[6] = {SSAP_ERROR_RSP, 0x00, msgCodeReq, 0x11, 0x00,
+            provider.ConsumeIntegral<uint8_t>()}; /* errCode 全域（含 SSAP_ERRCODE_TIMEOUT/非法档） */
+        SDF_Buff_S *rspBuff = SsapMgrFuzzBuff(errRsp, sizeof(errRsp));
+        if (rspBuff != nullptr) {
+            (void)SSAP_Recv(&info, rspBuff);
+            SDF_BuffFree(rspBuff);
         }
-        /* 3b. msgCodeReq 与 curTask.opcode 不匹配 → ErrorRspHandle 早退（:748） */
-        {
-            uint8_t req[6] = {SSAP_READ_REQ, 0x00, 0x11, 0x00, 0x00, 0x01};
-            SsapMgrFuzzSetTask(link, SSAP_READ_REQ, req, sizeof(req));
-            uint8_t errRsp[6] = {SSAP_ERROR_RSP, 0x00, SSAP_CALL_METHOD_REQ, 0x11, 0x00, 0x01};
-            SDF_Buff_S *rspBuff = SsapMgrFuzzBuff(errRsp, sizeof(errRsp));
-            if (rspBuff != nullptr) {
-                (void)SSAP_Recv(&info, rspBuff);
-                SDF_BuffFree(rspBuff);
-            }
-        }
-        /* 3c. SSAP_Recv 守卫：lcid 找不到链路 / 数据长度为 0 */
+        /* 3c. SSAP_Recv 守卫：lcid 找不到链路 / 数据长度为 0（守卫铺底，无家族选择） */
         {
             DTAP_Data_Info_S badInfo = {0};
             badInfo.lcid = 0x7F7F;
@@ -522,8 +499,6 @@ namespace OHOS {
             }
             SSAP_ProcessNormalTask(link, SsapMgrFuzzTaskFunc, nullptr, nullptr);
         }
-        /* 变异字节仅作扰动记录，不驱动分支（常量重放已覆盖全部目标分支） */
-        g_mgrOutOpcode = provider.ConsumeIntegral<uint8_t>();
 
         SSAP_DeleteSsapLinkByAddr(&mgrAddr);
         SSAP_LinkDeInit();
