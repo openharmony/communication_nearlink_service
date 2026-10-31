@@ -1387,7 +1387,7 @@ namespace OHOS {
     static void CmFuzzerDisconnectSeq(FuzzedDataProvider &provider, const SLE_Addr_S *addr, uint16_t lcid,
         uint8_t reason)
     {
-        CM_DisconnectParamReq_S disParam = {0};
+        CM_DisconnectParamReq_S disParam = {};
         (void)memcpy_s(&disParam.addr, sizeof(SLE_Addr_S), addr, sizeof(SLE_Addr_S));
         disParam.discReason = reason;
         (void)CM_ConnectReleaseReq(&disParam);
@@ -1523,7 +1523,7 @@ namespace OHOS {
         uint8_t badReason = (uint8_t)(provider.ConsumeIntegral<uint8_t>() | 0x80); // 必不在 3 个合法值内
 
         // CM_ConnectReleaseReq：discReason 非法 / addr 无链路
-        CM_DisconnectParamReq_S disParam = {0};
+        CM_DisconnectParamReq_S disParam = {};
         disParam.discReason = badReason;
         (void)CM_ConnectReleaseReq(&disParam);
         disParam.discReason = CM_DISC_REASON_REMOTE_USER_TERMINATED;

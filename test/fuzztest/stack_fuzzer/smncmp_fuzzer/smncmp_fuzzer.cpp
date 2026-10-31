@@ -145,7 +145,7 @@ namespace OHOS {
         SmSLink_S *gSlink = FuzzNumCmpMakeSLink(SM_G_NODE, lcid);
         if (gSlink != nullptr) {
             (void)memcpy_s(gSlink->tNode.confirm, SM_CONFIRM_NUMBER_LEN, tConfirm, SM_CONFIRM_NUMBER_LEN);
-            SmAuthTCfmWithRbMsg_S msg = {0};
+            SmAuthTCfmWithRbMsg_S msg = {};
             (void)memcpy_s(msg.tNodeCfm, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
             (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_numCmpRb, SM_OCTETS_16);
             gSlink->curStateIndex = SM_STATE_AUTH;

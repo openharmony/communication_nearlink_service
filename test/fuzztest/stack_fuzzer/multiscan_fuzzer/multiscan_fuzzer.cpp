@@ -53,6 +53,7 @@ typedef enum {
     FUZZ_FIVE    = 5,
     FUZZ_SIX     = 6,
     FUZZ_SEVEN   = 7,
+    FUZZ_EIGHT   = 8,
     FUZZ_THIRTYTWO = 32,
     FUZZ_NINE    = 9, /* R5: 恢复环步数域 4..12 用 */
 } FUZZ_NUM_E;
