@@ -401,6 +401,12 @@ namespace OHOS {
         }
     }
 
+    /* R5: 回包成败 FDP 化（bool 域映射 DLI_SUCCESS/失败，失败值沿用 FUZZ_ONE） */
+    static uint16_t FuzzCbkStatus(FuzzedDataProvider &fdp)
+    {
+        return fdp.ConsumeBool() ? DLI_SUCCESS : FUZZ_ONE;
+    }
+
     /* 内部直调 DevdSetAdvParam 铺垫：合法基本参数+数据（DevdSave*ToTbl 深拷贝，返回后可释放） */
     static void FuzzFeedSetAdvParam(uint8_t handle, uint8_t advMode, uint8_t frameType, uint8_t gtRole,
         uint16_t advLen, uint16_t scanRspLen)
@@ -434,87 +440,94 @@ namespace OHOS {
 
     void FuzzAdvDeepBoundary(const uint8_t *fuzzData, size_t size)
     {
-        (void)fuzzData;
-        (void)size;
-        /* 全常量确定性序列: 每输入重放无新增覆盖, 产品侧广播路径逐片叠 INFO 日志(红队 P1-2), 仅首输入执行 */
-        static bool fuzzDeepDone = false;
-        if (fuzzDeepDone) {
-            return;
-        }
+        /* R5 整改: 去 (void)fuzzData 与 static 一次性门, 每输入执行; 长度/回包成败/模式改 FDP 域表,
+         * 深链语义时序(busy 拒绝/LAST 失败回滚/交错 scanRsp 分片)由 seed_adv_deep_* 重放 */
+        FuzzedDataProvider fdp(fuzzData, size);
         uint16_t chunk = CfgdbGetMaxAdvDataLen();
         if (chunk == 0) {
             return;
         }
         uint16_t bigLen = (uint16_t)(chunk * FUZZ_TWO + FUZZ_TWENTY);
         uint16_t fragCnt = (uint16_t)((bigLen + chunk - 1) / chunk);
-        DevdLocalDeviceDeInit(); /* 默认最大广播节点数 1，清空历史节点 */
+        /* 长度域表: {0, 1, chunk-1, chunk, chunk+1, 2*chunk+20} 边界语义, chunk 动态取 */
+        const uint16_t lenDomain[FUZZ_SIX] = {FUZZ_ZERO, FUZZ_ONE, (uint16_t)(chunk - FUZZ_ONE), chunk,
+            (uint16_t)(chunk + FUZZ_ONE), bigLen};
+        DevdLocalDeviceDeInit(); /* 每输入重置: 默认最大广播节点数 1, 清空历史节点 */
         DevdLocalDeviceInit();
 
-        /* 1. 参数+单片数据 set 路径闭环至 ENABLED，为后续更新路径提供 node->param */
+        /* 1. 铺底(首三步常量成功, 审计允许): 参数+单片数据闭环至 ENABLED, 为更新路径提供 node->param;
+         *    advMode(合法四模)/帧型(帧一+帧四族)/gtRole(四角色)域表 FDP 选取, 深链组合由种子重放 */
         uint8_t handle = NLSTK_DevdCreateAdvHandle(FuzzAdvDeepCbk);
         if (handle == DEVD_INVALID_ADV_HANDLE) {
             return;
         }
-        fuzzDeepDone = true; /* 置位推迟到序列真正启动后(红队 P2-1): 早退路径允许后续输入重试, 失败路径无日志洪水 */
         DLI_AdvCbkContext ctx = {};
         ctx.advHandle = handle;
-        FuzzFeedSetAdvParam(handle, ADV_MODE_NONCONN_SCANABLE, PRIM_ADV_FRAME_TYPE_1, ADV_GT_ROLE_T_NO_NEGO,
-            FUZZ_FOUR, 0);
+        FuzzFeedSetAdvParam(handle, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+            fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+            FUZZ_FOUR, FUZZ_ZERO);
         DevdSetAdvParamCbk(&ctx, DLI_SUCCESS, NULL);
         DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL); /* 单片完成自动使能 */
-        DevdEnableAdvCbk(&ctx, DLI_SUCCESS, NULL);  /* advStatus=ENABLED */
+        DevdEnableAdvCbk(&ctx, DLI_SUCCESS, NULL);
 
-        /* 2. 长度边界（更新路径，node 有参数）：恰好 chunk 单片 COMPLETE */
-        FuzzFeedSetAdvData(handle, chunk, 0);
-        DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
-        /* 3. chunk+1 双片 FIRST+LAST：FIRST 在途时 busy 拒绝链 + LAST 失败回滚 + 失败后再设置 */
-        FuzzFeedSetAdvData(handle, (uint16_t)(chunk + FUZZ_ONE), 0);
-        DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL); /* FIRST 在途，节点 busy */
+        /* 2. 长度边界（更新路径，node 有参数）：域表选取, 种子重放"恰好 chunk 单片 COMPLETE" */
+        FuzzFeedSetAdvData(handle, lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX], FUZZ_ZERO);
+        DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL);
+        /* 3. 双片在途链：FIRST 在途 busy 拒绝 + LAST 失败回滚(有历史数据→回 IDLE) + 失败后再设置 */
+        FuzzFeedSetAdvData(handle, lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX], FUZZ_ZERO);
+        DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL); /* >chunk 时 FIRST 在途, 节点 busy */
         NLSTK_DevdSetAdvEnable_S busyDisable = {};
         busyDisable.advHandle = handle;
-        DevdEnableAdv(&busyDisable);          /* enable=0 先过 advStatus 检查，命中 busy 拒绝 */
-        FuzzFeedSetAdvData(handle, FUZZ_FOUR, 0); /* busy 态更新数据拒绝 */
-        DevdSetAdvDataCbk(&ctx, FUZZ_ONE, NULL);  /* LAST 在途失败回滚（有历史数据→回 IDLE） */
-        FuzzFeedSetAdvData(handle, FUZZ_FOUR, 0); /* 失败后再设置：单片成功闭环 */
-        DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
+        DevdEnableAdv(&busyDisable);          /* enable=0 先过 advStatus 检查，busy 态拒绝 */
+        FuzzFeedSetAdvData(handle, lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX],
+            FUZZ_ZERO);                       /* busy 态更新数据拒绝 */
+        DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL); /* 在途失败回滚 */
+        FuzzFeedSetAdvData(handle, lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX],
+            FUZZ_ZERO);                       /* 失败后再设置 */
+        DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL); /* 单片成功闭环 */
 
         /* 4. 交错设置（更新路径 scanRsp 分片链）：advData 单片完成→SET_SCAN_RSP_DATA→
-         *    scanRsp 大数据 FIRST/INTERMEDIATE/LAST→IDLE→事件通知+数据交换 */
-        FuzzFeedSetAdvData(handle, FUZZ_THREE, bigLen);
-        DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL); /* advData 完成，转扫描响应分片 */
+         *    scanRsp 大数据 FIRST/INTERMEDIATE/LAST→IDLE→事件通知+数据交换（双长度域表, 成败 FDP） */
+        FuzzFeedSetAdvData(handle, lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX],
+            lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX]);
+        DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL); /* advData 完成，转扫描响应分片 */
         for (uint16_t i = 0; i < fragCnt; i++) {
-            DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
+            DevdSetAdvDataCbk(&ctx, FuzzCbkStatus(fdp), NULL);
         }
 
-        /* 5. ENABLED 态幂等拒绝：再使能/设参/移除均被 advStatus 检查拒绝 */
+        /* 5. 幂等拒绝：再使能/设参/移除均由产品 advStatus 检查决策（模式域表, 形态合法） */
         NLSTK_DevdSetAdvEnable_S reEnable = {};
         reEnable.advHandle = handle;
         reEnable.enable = ADV_ENABLED;
         DevdEnableAdv(&reEnable);
-        FuzzFeedSetAdvParam(handle, ADV_MODE_NONCONN_SCANABLE, PRIM_ADV_FRAME_TYPE_1, ADV_GT_ROLE_T_NO_NEGO,
-            FUZZ_FOUR, 0);
+        FuzzFeedSetAdvParam(handle, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+            fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+            FUZZ_FOUR, FUZZ_ZERO);
         DevdRemoveAdv(&handle);
-        /* 6. 去使能→回包成功→DISABLED；移除失败回包(节点保留)→再移除→成功回包(节点移除) */
+        /* 6. 去使能→回包(成败 FDP)→DISABLED；移除失败回包(节点保留)→再移除→成功回包(节点移除) */
         DevdEnableAdv(&busyDisable);
-        DevdEnableAdvCbk(&ctx, DLI_SUCCESS, NULL);
+        DevdEnableAdvCbk(&ctx, FuzzCbkStatus(fdp), NULL);
         DevdRemoveAdv(&handle);
-        DevdRemoveAdvCbk(&ctx, FUZZ_ONE, NULL);     /* 失败：节点保留 */
+        DevdRemoveAdvCbk(&ctx, FuzzCbkStatus(fdp), NULL);
         DevdRemoveAdv(&handle);
-        DevdRemoveAdvCbk(&ctx, DLI_SUCCESS, NULL);  /* 成功：节点移除 */
+        DevdRemoveAdvCbk(&ctx, FuzzCbkStatus(fdp), NULL);
 
         /* 7. BuildAdvParam 连接分支+帧四覆盖（内部直调绕过 NLSTK 校验，仅取构建路径）：
-         *    gtRole=T_CAN_NEGO→连接参数拷贝；帧四→DEFAULT_FRAME_4_CONN_INTERVAL 覆盖；
-         *    参数失败回包→无历史参数节点回滚移除 */
+         *    gtRole 域表(可协商→连接参数拷贝)、帧型域表(4_M_0→DEFAULT_FRAME_4_CONN_INTERVAL)、
+         *    长度域表；回包成败 FDP(失败→无历史参数节点回滚移除) */
         uint8_t connHandle = NLSTK_DevdCreateAdvHandle(FuzzAdvDeepCbk);
         if (connHandle != DEVD_INVALID_ADV_HANDLE) {
             DLI_AdvCbkContext connCtx = {};
             connCtx.advHandle = connHandle;
-            FuzzFeedSetAdvParam(connHandle, ADV_MODE_CONNECTABLE_NONSCAN, PRIM_ADV_FRAME_TYPE_4_M_0,
-                ADV_GT_ROLE_T_CAN_NEGO, FUZZ_FOUR, 0);
-            DevdSetAdvParamCbk(&connCtx, FUZZ_ONE, NULL);
+            FuzzFeedSetAdvParam(connHandle, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+                fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR, fdp.ConsumeIntegral<uint8_t>() % FUZZ_FOUR,
+                lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX],
+                lenDomain[fdp.ConsumeIntegral<uint8_t>() % FUZZ_SIX]);
+            DevdSetAdvParamCbk(&connCtx, FuzzCbkStatus(fdp), NULL);
         }
 
-        /* 8. NLSTK 公开入口边界：len=0/超上限(0x7FF+1) 拒绝、非法使能值拒绝、空参拒绝 */
+        /* 8. NLSTK 公开入口边界：len=0/超上限(0x7FF+1) 拒绝、非法使能值拒绝、空参拒绝
+         *    （空指针/常量边界形态无法随机化, 保留常量, 属错误矩阵） */
         NLSTK_DevdSetAdvData_S badData = {};
         uint8_t tinyBuf[FUZZ_FOUR] = {0};
         badData.advHandle = FUZZ_ONE;
@@ -531,6 +544,11 @@ namespace OHOS {
         (void)NLSTK_DevdSetAdvData(NULL);
         (void)NLSTK_DevdStartAdv(NULL);
         (void)NLSTK_DevdEnableAdv(NULL);
+
+        /* 每输入资源配对: 移除链成败 FDP 化后节点可能残留, 兜底回收
+         * (已移除句柄晚到回包走产品"节点为空"安全返回, 见 devd_adv.c GetAdvNode 判空) */
+        FuzzRemoveAdvNodeByCbk(handle);
+        FuzzRemoveAdvNodeByCbk(connHandle);
     }
 
     void FuzzAdvApi(const uint8_t *fuzzData, size_t size)

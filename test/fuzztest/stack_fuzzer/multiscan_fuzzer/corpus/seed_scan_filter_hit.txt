@@ -1,0 +1,1 @@
+multiscan FuzzScanDeepTask 变体: 4 轮干净启停(STARTED→STOPPED), 过滤器族全命中——A1 uuid 过滤器=DIS uuid(0609)/A2 名称过滤器=ABCD, 广播 TLV(0x05 uuid + 0x0B name) 双命中, 更新链换不存在 uuid(FF FE)后仅 A2/B1; 帧一, MONITOR/24h/FULL_SCAN+delay100 档
