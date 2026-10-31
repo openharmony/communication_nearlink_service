@@ -39,6 +39,7 @@
 #include "sm_psk.h"
 #include "sm_numcmp.h"
 #include "sm_dhkey.h"
+#include "sm_struct.h"
 #include "sm_stub_test.h"
 
 using namespace testing;
@@ -82,6 +83,14 @@ protected:
         EXPECT_CALL(dliMock, DLI_CmdCbkReg).WillRepeatedly(TEST_DLI_CmdCbkReg);
         EXPECT_CALL(dliMock, DLI_CmdCbkUnReg).WillRepeatedly(TEST_DLI_CmdCbkUnReg);
         SmInit();
+        // SLinkLocalParamsInit leaves codeAlgoCap to SmEnable(), which reads chip caps via
+        // CfgdbReadAlgoCaps; a bare test process has no cfgdb, so advertise AES/ECDH directly.
+        NLSTK_SmLocalParams_S *localParams = SmGetLocalParams();
+        ASSERT_NE(localParams, nullptr);
+        localParams->codeAlgoCap[SM_ENC_ALGO_ABILITY] = SM_ENCRYPTION_ALGORITHM_ABILITY_AC2;
+        localParams->codeAlgoCap[SM_INTG_PROTECT_ALGO_ABILITY] = SM_INTEGRITY_PROTECTION_ALGORITHM_ABILITY_AC2;
+        localParams->codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        localParams->codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY] = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2;
     }
 
     // TearDown 在每一个 TEST_F 测试完成后执行一次
