@@ -114,8 +114,9 @@ public:
     bool CheckSinkIsSameAccount(const DmAccessCaller &caller, const DmAccessCallee &callee) override { return -1; }
 };
 
-DeviceManager::~DeviceManager() {}
-
+// 注:不定义 ~DeviceManager——上游新版 device_manager.h 已删除析构声明(定义隐式声明
+// 的析构会编译报错);旧版头有声明时由链接的产品 devicemanagersdk 提供实现即可。
+// (该定义原是 PRELOAD 注入版 dm_stub.so 的遗留,编译进 fuzzer 的 mock 从不需要)
 DeviceManager& DeviceManager::GetInstance()
 {
     static DmFuzzStub instance;
