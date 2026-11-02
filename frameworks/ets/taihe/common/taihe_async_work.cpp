@@ -56,7 +56,7 @@ std::shared_ptr<TaiheAsyncWork> TaiheAsyncWorkFactory::CreateAsyncWork(ani_env *
             if (ptr == nullptr) {
                 return;
             }
-            delete ptr;
+            std::thread([ptr]() { delete ptr; }).detach();
         });
     return taiheAsyncWork;
 }
@@ -136,7 +136,7 @@ void TaiheAsyncWork::CallFunction(int errCode, std::shared_ptr<TaiheNativeObject
     auto nativeObj = object;
     if (nativeObj == nullptr) {
         HILOGD("taihe native object is nullptr");
-        nativeObj = std::make_shared<TaiheNativeEmpty>();
+        nativeObj = std::make_shared<TaiheNativeUndefined>();
     }
     // Check timer triggered & remove timer if supported
     TaiheTimer::GetInstance()->Unregister(timerId_);

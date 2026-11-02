@@ -257,6 +257,11 @@ int32_t ConvertMethodToNative(const ::ohos::nearlink::ssap::Method &method, AniS
 {
     std::string serviceUuid = std::string(method.serviceUuid);
     std::string methodUuid = std::string(method.methodUuid);
+    if (!IsValidUuid(serviceUuid) || !IsValidUuid(methodUuid)) {
+        HILOGE("Invalid serviceUuid or methodUuid");
+        HandleSyncErr(NL_ERR_INVALID_UUID);
+        return NL_ERR_INVALID_UUID;
+    }
     aniMethod.serviceUuid_ = UUID::FromString(serviceUuid);
     aniMethod.methodUuid_ = UUID::FromString(methodUuid);
 
@@ -267,6 +272,7 @@ int32_t ConvertMethodToNative(const ::ohos::nearlink::ssap::Method &method, AniS
         aniMethod.result_.assign(method.result.value().begin(), method.result.value().end());
     }
     if (CheckBaseUuid(serviceUuid) || CheckBaseUuid(methodUuid)) {
+        HandleSyncErr(NL_ERR_STANDARD_UUID_NOT_ALLOWED);
         return NL_ERR_STANDARD_UUID_NOT_ALLOWED;
     }
     return NL_NO_ERROR;
