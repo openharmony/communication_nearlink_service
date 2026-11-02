@@ -262,6 +262,8 @@ int32_t ConvertMethodToNative(const ::ohos::nearlink::ssap::Method &method, AniS
         HandleSyncErr(NL_ERR_INVALID_UUID);
         return NL_ERR_INVALID_UUID;
     }
+    ConvertUuidToUpperCase(serviceUuid);
+    ConvertUuidToUpperCase(methodUuid);
     aniMethod.serviceUuid_ = UUID::FromString(serviceUuid);
     aniMethod.methodUuid_ = UUID::FromString(methodUuid);
 
@@ -282,6 +284,13 @@ int32_t ConvertEventToNative(const ::ohos::nearlink::ssap::Event &event, AniSsap
 {
     std::string serviceUuid = std::string(event.serviceUuid);
     std::string eventUuid = std::string(event.eventUuid);
+    if (!IsValidUuid(serviceUuid) || !IsValidUuid(eventUuid)) {
+        HILOGE("Invalid serviceUuid or eventUuid");
+        HandleSyncErr(NL_ERR_INVALID_UUID);
+        return NL_ERR_INVALID_UUID;
+    }
+    ConvertUuidToUpperCase(serviceUuid);
+    ConvertUuidToUpperCase(eventUuid);
     aniEvent.serviceUuid_ = UUID::FromString(serviceUuid);
     aniEvent.uuid_ = UUID::FromString(eventUuid);
 
@@ -295,6 +304,7 @@ int32_t ConvertEventToNative(const ::ohos::nearlink::ssap::Event &event, AniSsap
     }
 
     if (CheckBaseUuid(serviceUuid) || CheckBaseUuid(eventUuid)) {
+        HandleSyncErr(NL_ERR_STANDARD_UUID_NOT_ALLOWED);
         return NL_ERR_STANDARD_UUID_NOT_ALLOWED;
     }
     return NL_NO_ERROR;
