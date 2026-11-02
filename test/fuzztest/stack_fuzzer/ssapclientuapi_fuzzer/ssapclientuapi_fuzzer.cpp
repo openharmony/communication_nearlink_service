@@ -249,10 +249,13 @@ namespace OHOS {
 
         /* 收尾顺序沿用既有"先调度删链后 Dereg"模式，每 addr 成对一致；DeregApp 经
          * SsapcAppDeregister 清缓存并按 appId 清残留任务（ssapc_app.c:197-210） */
-        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addrA, NULL);
-        SchedulePostTask(SleLogicLinkRemove_stub, (void *)nodeA, NULL);
-        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addrB, NULL);
-        SchedulePostTask(SleLogicLinkRemove_stub, (void *)nodeB, NULL);
+        // 固件 ASAN(memory_debug=1)在工作线程首次 sancov emutls 分配时 dlopen 重入耗尽栈
+        // (10-31 系统 10 线程同签名),且栈地址作异步参数属 stack-use-after-return UB——
+        // 改主线程同步直调(根因报告 /tmp/ssapclientuaf_report.md)
+        SSAP_DeleteSsapLinkByAddr(&addrA);
+        SleLogicLinkRemove(nodeA);
+        SSAP_DeleteSsapLinkByAddr(&addrB);
+        SleLogicLinkRemove(nodeB);
 
         NLSTK_SsapClientDeregApp(appIdA1);
         NLSTK_SsapClientDeregApp(appIdA2);
@@ -305,8 +308,8 @@ namespace OHOS {
         NLSTK_SsapClientWriteDescriptor(appId, provider.ConsumeIntegral<uint16_t>(), &value,
             provider.ConsumeIntegral<uint8_t>(), provider.ConsumeBool());
 
-        SchedulePostTask(SSAP_DeleteSsapLinkByAddr_stub, (void *)&addr, NULL);
-        SchedulePostTask(SleLogicLinkRemove_stub, (void *)node, NULL);
+        SSAP_DeleteSsapLinkByAddr(&addr);
+        SleLogicLinkRemove(node);
 
         NLSTK_SsapClientDeregApp(appId);
         if (g_slinkMap) {
