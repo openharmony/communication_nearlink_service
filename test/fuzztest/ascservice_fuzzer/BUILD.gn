@@ -78,10 +78,6 @@ ohos_fuzztest("AscServiceFuzzTest") {
     "samgr:samgr_proxy",
   ]
 
-  # 音频部件在位时的条件编译（与产品侧 services/service/BUILD.gn 的
-  # nearlink_deps_audio_exist 门控一致），两段直调共用同一开关：
-  # - NL_FUZZ_AUDIO_ASC：ASCService/QosM/ASCUtils/SleAudioFrameworkAdapter 直调段
-  # - NEARLINK_FUZZ_AUDIO_PARTS：SleASC 直调段（模式同 vcpservice_fuzzer）
   defines = []
   if (nearlink_deps_audio_exist) {
     defines += [
@@ -99,7 +95,7 @@ ohos_fuzztest("AscServiceFuzzTest") {
       "$NEARLINK_ROOT/services/stack/src/cp/bsl/sle/cm/interface",
       "$NEARLINK_ROOT/services/stack/src/sdf/utils/include",
       "$NEARLINK_ROOT/services/stack/src/sdf/bsl/dsl/include",
-    \]
+    ]
 
     external_deps += [
       "audio_framework:audio_policy_manager",
