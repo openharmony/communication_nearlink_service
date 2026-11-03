@@ -1,0 +1,95 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#####################hydra-fuzz###################
+import("//build/ohos.gni")
+import("//build/ohos_var.gni")
+
+import("//build/config/features.gni")
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+
+STACK_SRC_DIR = "$NEARLINK_ROOT/services/stack/src"
+
+##############################fuzztest##########################################
+ohos_fuzztest("DliHwFuzzTest") {
+  module_out_path = module_output_path
+  fuzz_config_file = "$NEARLINK_ROOT/test/fuzztest/stack_fuzzer/DliHw_fuzzer"
+  include_dirs = [
+    "$NEARLINK_ROOT/services/hardware/include",
+    "$NEARLINK_ROOT/utils/include",
+    "$NEARLINK_ROOT/services/stack/include/ext",
+
+    "$STACK_SRC_DIR/nai/slem/include",
+    "$STACK_SRC_DIR/dli/event/include",
+    "$STACK_SRC_DIR/adapter/include",
+    "$STACK_SRC_DIR/sdf/utils/include",
+    "$STACK_SRC_DIR/sdf/bsl/dsl/include",
+    "$STACK_SRC_DIR/sdf/interface",
+    "$STACK_SRC_DIR/sdf/dfx/errno/include",
+    "$STACK_SRC_DIR/sdf/dfx/log/include",
+  ]
+  cflags = [
+    "-g",
+    "-O0",
+    "-Wno-unused-variable",
+    "-fno-omit-frame-pointer",
+    ]
+  cflags_cc = [
+    "-fstack-protector-all",
+    "-Wno-implicit-fallthrough",
+    "-D_POSIX_C_SOURCE=200112L",
+    "-D_GNU_SOURCE",
+  ]
+
+  # hardware 4 源（nearlink_dli_adapter 同源直接编入，参照 dli_fuzzer 模式）
+  # + 栈侧 3 目标 C 文件 + 各自最小依赖闭包（bnl_reg_ext_func/sdf_log_api）
+  sources = [
+    "$NEARLINK_ROOT/services/hardware/src/SleDliSnoop.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliThreadUtil.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliLayerAdapter.cpp",
+    "$NEARLINK_ROOT/services/hardware/src/SleDliCallbacks.cpp",
+    "$STACK_SRC_DIR/nai/slem/src/sle_dli_layer.c",
+    "$STACK_SRC_DIR/dli/event/src/dli_factory_event.c",
+    "$STACK_SRC_DIR/adapter/src/bnl_ext_func_wrapper.c",
+    "$STACK_SRC_DIR/adapter/src/bnl_reg_ext_func.c",
+    "$STACK_SRC_DIR/sdf/dfx/log/src/sdf_log_api.c",
+    "DliHw_fuzzer.cpp",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
+    "hdf_core:libhdf_utils",
+    "ipc:ipc_single",
+    "bounds_checking_function:libsec_shared",
+    "init:libbegetutil",
+    "init:libbeget_proxy",
+  ]
+
+  external_deps += [ "ffrt:libffrt" ]
+}
+
+###############################################################################
+group("fuzztest") {
+  testonly = true
+  deps = []
+  deps += [
+    # deps file
+    ":DliHwFuzzTest",
+  ]
+}
+###############################################################################

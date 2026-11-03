@@ -78,11 +78,15 @@ ohos_fuzztest("AscServiceFuzzTest") {
     "samgr:samgr_proxy",
   ]
 
-  # ASC/QosM/ASCUtils/SleAudioFrameworkAdapter 直调仅音频部件在位时编译链接（与产品侧 audio 门控一致）
+  defines = []
   if (nearlink_deps_audio_exist) {
-    defines = [ "NL_FUZZ_AUDIO_ASC" ]
+    defines += [
+      "NL_FUZZ_AUDIO_ASC",
+      "NEARLINK_FUZZ_AUDIO_PARTS",
+    ]
 
     include_dirs += [
+      "$NEARLINK_ROOT/services/service/src/adapter",
       "$NEARLINK_ROOT/services/service/src/asc",
       "$NEARLINK_ROOT/services/service/src/audio",
       "$NEARLINK_ROOT/services/service/src/mcp",

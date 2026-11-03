@@ -31,6 +31,10 @@
 #include "ASCUtils.h"
 #include "SleAudioFrameworkAdapter.h"
 #endif
+#ifdef NEARLINK_FUZZ_AUDIO_PARTS
+#include <stdlib.h>
+#include "SleASC.h"
+#endif
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -374,6 +378,84 @@ void AudioAdapterQueryFuzzTest(const uint8_t *fuzzData, size_t size)
 #endif
 }
 
+#ifdef NEARLINK_FUZZ_AUDIO_PARTS
+// B. SleASC（services/service/src/adapter/SleASC.cpp）进程内直调段。
+// SleASC.cpp 与 VcpService 同在 nearlink_deps_audio_exist 门控内编译，
+// 故按 vcpservice_fuzzer 的部件开关模式条件编译；NLSTK_Actm* 底层动作
+// 与 stack_fuzzer/actm_fuzzer 直调同一批栈接口，裸进程安全。
+static void FillAscConfig(FuzzedDataProvider &fdp, NLSTK_ActmConfig_S &config)
+{
+    config.pointType = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.codecId = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.companyId = fdp.ConsumeIntegral<uint16_t>();
+    config.codec.vendorId = fdp.ConsumeIntegral<uint16_t>();
+    config.codec.l2hc.version = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.rateConf = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.depthConf = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.channelConf = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.frameConf = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.bpsConf = fdp.ConsumeIntegral<uint8_t>();
+    config.codec.l2hc.bpsRange = fdp.ConsumeIntegral<uint64_t>();
+    config.channel.comm = fdp.ConsumeIntegral<uint8_t>();
+    config.channel.trans = fdp.ConsumeIntegral<uint8_t>();
+    config.channel.qosId = fdp.ConsumeIntegral<uint8_t>();
+    config.streamType = fdp.ConsumeIntegral<uint32_t>();
+    config.duration = fdp.ConsumeIntegral<uint8_t>();
+    config.mediaId = fdp.ConsumeIntegral<uint8_t>();
+    config.src = fdp.ConsumeIntegral<uint16_t>();
+    config.dst = fdp.ConsumeIntegral<uint16_t>();
+}
+
+void SleASCDirectFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider fdp(fuzzData, size);
+    std::string addrStr = BuildAddressString(fdp);
+    RawAddress device(addrStr);
+    uint8_t pointType = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t commType = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t streamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t openStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t startStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t stopStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t rateStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t releaseStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t direction = fdp.ConsumeIntegral<uint8_t>();
+    uint64_t bps = fdp.ConsumeIntegral<uint64_t>();
+    NLSTK_ActmConfig_S srcConfig;
+    NLSTK_ActmConfig_S sinkConfig;
+    (void)memset_s(&srcConfig, sizeof(srcConfig), 0x00, sizeof(srcConfig));
+    (void)memset_s(&sinkConfig, sizeof(sinkConfig), 0x00, sizeof(sinkConfig));
+    FillAscConfig(fdp, srcConfig);
+    FillAscConfig(fdp, sinkConfig);
+    NLSTK_ActmConfigParam_S cfgPara;
+    (void)memset_s(&cfgPara, sizeof(cfgPara), 0x00, sizeof(cfgPara));
+    cfgPara.streamId = streamId;
+    cfgPara.srcConfig = &srcConfig;
+    cfgPara.sinkConfig = &sinkConfig;
+    cfgPara.isImg = fdp.ConsumeBool();
+    NLSTK_ActmAutoRateRecvMsg_S autoRatePara;
+    (void)memset_s(&autoRatePara, sizeof(autoRatePara), 0x00, sizeof(autoRatePara));
+    autoRatePara.qosIndex = fdp.ConsumeIntegral<uint8_t>();
+    autoRatePara.labelId = fdp.ConsumeIntegral<uint8_t>();
+    autoRatePara.msgType = fdp.ConsumeIntegral<uint8_t>();
+    autoRatePara.result = fdp.ConsumeIntegral<uint32_t>();
+
+    // 全 API 生命周期直调：创建→查询→配置→开流/起停→速率→方向→释放→断开
+    (void)SleASC::CreateStream(device, pointType, commType);
+    (void)SleASC::GetAudioProperty(device);
+    (void)SleASC::ConfigStream(device, cfgPara);
+    (void)SleASC::ConfigStreamCustomize(device, cfgPara);
+    (void)SleASC::OpenStream(device, openStreamId);
+    (void)SleASC::StartStream(device, startStreamId);
+    (void)SleASC::StopStream(device, stopStreamId);
+    (void)SleASC::UpdateBitRate(device, bps, rateStreamId);
+    (void)SleASC::SendVoiceCallAutoRateMsg(device, autoRatePara);
+    (void)SleASC::SetDirection(device, direction);
+    (void)SleASC::ReleaseStream(device, releaseStreamId);
+    (void)SleASC::Disconnect(device);
+}
+#endif
+
 // fuzzer init
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
@@ -418,6 +500,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::AscServiceDirectFuzzTest(data, size);
     OHOS::QosMGearFuzzTest(data, size);
     OHOS::AudioAdapterQueryFuzzTest(data, size);
+#endif
+#ifdef NEARLINK_FUZZ_AUDIO_PARTS
+    // FDP 尾部追加：SleASC 直调段（新消费仅在尾部，不改旧读序；拷贝传入，dtap/actm 同款范式）
+    uint8_t *ascFuzzData = static_cast<uint8_t *>(malloc(size));
+    if (ascFuzzData != nullptr) {
+        if (memcpy_s(ascFuzzData, size, data, size) == EOK) {
+            SleASCDirectFuzzTest(ascFuzzData, size);
+        }
+        free(ascFuzzData);
+    }
 #endif
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
