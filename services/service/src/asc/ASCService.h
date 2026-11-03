@@ -560,8 +560,8 @@ private:
      */
     std::vector<AscProp>& GetPropertyList(const RawAddress& device);
     void SaveProperty(const RawAddress& device, const std::vector<AscProp>& properties);
-    void GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info);
-    DeviceDualRecParmInfo GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos);
+    /* 读取echo 8,E协商缓存，未命中时返回全0结构体 */
+    DeviceDualRecParmInfo GetDualRecCodecInfo(const RawAddress &device);
     /* 获取echo 8,E协商的双耳录音上行采样深度(ASCSampleBitDepth枚举)，非QOS_5或未协商时返回0 */
     uint8_t GetDualRecCodecDepth(const RawAddress &device, Qos cos);
     void ClearDualRecCodecInfo(const RawAddress &device);
@@ -754,8 +754,7 @@ private:
     std::map<std::string, AscQosmInfo> streamQosmInfo_;
 
     // echo 8,E协商的双耳录音参数，用于适配DSP上行编解码器及位深
-    std::mutex dualRecCodecInfoMutex_;
-    std::map<std::string, DeviceDualRecParmInfo> dualRecCodecInfoMap_;
+    NearlinkSafeMap<std::string, DeviceDualRecParmInfo> dualRecCodecInfoMap_;
 
     // 定时器
     std::map<std::string, std::shared_ptr<NearlinkTimer>> startPlayingTimer_;

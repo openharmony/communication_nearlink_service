@@ -5550,14 +5550,12 @@ HWTEST_F(ASCServiceTest, SetDualRecCodecInfo_001, TestSize.Level1)
     info.depth = ASC_SAMPLE_DEPTH_24BIT;
     asc->SetDualRecCodecInfo(device, info);
 
-    DeviceDualRecParmInfo getInfo {};
-    asc->GetDualRecCodecInfo(device, getInfo);
+    DeviceDualRecParmInfo getInfo = asc->GetDualRecCodecInfo(device);
     EXPECT_EQ(info.codecId, getInfo.codecId);
     EXPECT_EQ(ASC_SAMPLE_DEPTH_24BIT, getInfo.depth);
 
     // 未上报过的设备查询保持全0，由下游回退默认位深
-    getInfo = {};
-    asc->GetDualRecCodecInfo(coDevice, getInfo);
+    getInfo = asc->GetDualRecCodecInfo(coDevice);
     EXPECT_EQ(0, getInfo.codecId);
     EXPECT_EQ(0, getInfo.depth);
     delete asc;

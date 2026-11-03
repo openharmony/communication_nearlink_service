@@ -3084,47 +3084,37 @@ void ASCService::SetDualRecCodecInfo(const RawAddress &device, const DeviceDualR
         HILOGD("[ASCService]device %{public}s not negotiated, skip", GetEncryptAddr(device.GetAddress()).c_str());
         return;
     }
-    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
-    dualRecCodecInfoMap_[device.GetAddress()] = info;
+
+    dualRecCodecInfoMap_.EnsureInsert(device.GetAddress(), info);
     HILOGI("[ASCService]device %{public}s codecId %{public}d depth %{public}d",
         GetEncryptAddr(device.GetAddress()).c_str(), info.codecId, info.depth);
 }
 
-void ASCService::GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info)
-{
-    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
-    std::map<std::string, DeviceDualRecParmInfo>::iterator it = dualRecCodecInfoMap_.find(device.GetAddress());
-    if (it == dualRecCodecInfoMap_.end()) {
-        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
-        return;
-    }
-
-    info = it->second;
-}
-
-DeviceDualRecParmInfo ASCService::GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos)
+DeviceDualRecParmInfo ASCService::GetDualRecCodecInfo(const RawAddress &device)
 {
     DeviceDualRecParmInfo info {};
-    if (cos != NL_SLE_QOS_5) {
-        return info;
+    if (!dualRecCodecInfoMap_.GetValue(device.GetAddress(), info)) {
+        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
     }
-    // 缓存缺失时保持零值，由下游函数回退默认值
-    GetDualRecCodecInfo(device, info);
     return info;
 }
 
 uint8_t ASCService::GetDualRecCodecDepth(const RawAddress &device, Qos cos)
 {
     // 非QOS_5不查缓存；缓存缺失时depth为0(未协商)，由下游回退默认位深
-    DeviceDualRecParmInfo info = GetDualRecCodecInfoForDsp(device, cos);
+    if (cos != NL_SLE_QOS_5) {
+        return 0;
+    }
+    DeviceDualRecParmInfo info = GetDualRecCodecInfo(device);
     return info.depth;
 }
 
 void ASCService::ClearDualRecCodecInfo(const RawAddress &device)
 {
-    std::lock_guard<std::mutex> lock(dualRecCodecInfoMutex_);
-    size_t num = dualRecCodecInfoMap_.erase(device.GetAddress());
-    if (num == 0) {
+    // NearlinkSafeMap::Erase不返回删除结果，先查再删以保留未命中日志
+    bool isExist = dualRecCodecInfoMap_.FindIf(device.GetAddress());
+    dualRecCodecInfoMap_.Erase(device.GetAddress());
+    if (!isExist) {
         HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
     }
 }
