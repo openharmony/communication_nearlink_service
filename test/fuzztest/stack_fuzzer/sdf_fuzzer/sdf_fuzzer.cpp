@@ -310,7 +310,14 @@ void FuzzSdfDfx(const uint8_t *data, size_t size)
 void FuzzSdfAllApi(const uint8_t *data, size_t size)
 {
     FuzzSdfEvcEvent(data, size);
-    FuzzSdfThreadWorker(data, size);
+    // 线程段 FDP 门控(1/8):worker 线程首次执行插桩代码触发固件 ASAN
+    // memory_debug 分配缺陷(dlopen 递归栈耗尽,同 SsapServer/SsapClientUapi 根因)
+    {
+        FuzzedDataProvider gate(data, size);
+        if ((gate.ConsumeIntegral<uint8_t>() & 0x07) == 0) {
+            FuzzSdfThreadWorker(data, size);
+        }
+    }
     FuzzSdfDsl(data, size);
     FuzzSdfStm(data, size);
     FuzzSdfDfx(data, size);
