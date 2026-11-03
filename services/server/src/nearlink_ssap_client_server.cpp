@@ -31,6 +31,7 @@
 #include "nearlink_permission_manager.h"
 #include "nearlink_uuid.h"
 #include "nearlink_device_manager.h"
+#include "nearlink_app_wakeup_ue.h"
 #include "nearlink_ssap_client_server.h"
 #include "nearlink_remote_container.h"
 #ifdef NEARLINK_KIA_ENABLE
@@ -173,6 +174,8 @@ public:
             HILOGE("check permission failed, tokenId: %{public}lu", tokenId_);
             return;
         }
+        NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(tokenId_), uid_, pid_,
+            AppBehaviorType::SSAP_CALLBACK);
         callback_->OnPropertyChanged((NearlinkSsapPropertyParcel)property);
     }
 
@@ -369,6 +372,8 @@ private:
     sptr<INearlinkSsapClientCallback> callback_;
     int applicationId_;
     uint64_t tokenId_;
+    int64_t uid_ {-1};
+    int64_t pid_ {-1};
     int sdkVersion_;
     bool isUseRealAddrFlag;
 };
@@ -378,6 +383,8 @@ NearlinkSsapClientServer::impl::SsapClientCallbackImpl::SsapClientCallbackImpl(
     : callback_(callback)
 {
     tokenId_ = IPCSkeleton::GetCallingFullTokenID();
+    uid_ = static_cast<int64_t>(IPCSkeleton::GetCallingUid());
+    pid_ = static_cast<int64_t>(IPCSkeleton::GetCallingPid());
     sdkVersion_ = NearLinkPermissionManager::GetNearlinkApiVersion();
     isUseRealAddrFlag = NearLinkPermissionManager::IsUseRealAddr();
     applicationId_ = -1;
@@ -538,6 +545,7 @@ NlErrCode NearlinkSsapClientServer::Connect(int32_t appId, bool isAutoConnect)
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->Connect(appId, isAutoConnect);
     HILOGI("Connect result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -550,6 +558,7 @@ NlErrCode NearlinkSsapClientServer::Disconnect(int32_t appId)
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->Disconnect(appId);
     HILOGI("Disconnect result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -562,6 +571,7 @@ NlErrCode NearlinkSsapClientServer::DiscoveryServices(int32_t appId)
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->DiscoverServices(appId);
     HILOGI("DiscoverServices result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -574,6 +584,7 @@ NlErrCode NearlinkSsapClientServer::DiscoverServiceByUuid(int32_t appId, const U
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->DiscoverServicesByUuid(appId, Uuid::ConvertFrom128Bits(uuid.ConvertTo128Bits()),
         MIN_ENTRY_HANDLE, MAX_ENTRY_HANDLE);
     HILOGI("DiscoverServicesByUuid result: %{public}d", result);
@@ -587,6 +598,7 @@ NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSs
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = 0;
     if (property.handle_ != static_cast<uint16_t>(INVALID_ENTRY_HANDLE)) {
         result = clientService->ReadProperty(appId, (Property)property);
@@ -618,6 +630,7 @@ NlErrCode NearlinkSsapClientServer::CallMethod(int32_t appId, NearlinkSsapMethod
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->CallMethod(appId, methd, withoutRespond);
     HILOGI("CallMethod result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -633,6 +646,7 @@ NlErrCode NearlinkSsapClientServer::WriteProperty(
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->WriteProperty(appId, proper, withoutRespond);
     HILOGI("WriteProperty result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -645,6 +659,7 @@ NlErrCode NearlinkSsapClientServer::ReadDescriptor(int32_t appId, const Nearlink
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->ReadDescriptor(appId, (Descriptor)descriptor);
     HILOGI("ReadDescriptor result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -661,6 +676,7 @@ NlErrCode NearlinkSsapClientServer::WriteDescriptor(int32_t appId, NearlinkSsapD
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->WriteDescriptor(appId, desc, withoutRespond);
     HILOGI("WriteDescriptor result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -673,6 +689,7 @@ NlErrCode NearlinkSsapClientServer::RequestExchangeMtu(int32_t appId, int32_t mt
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     int result = clientService->ExchangeMtu(appId, static_cast<uint16_t>(mtu));
     HILOGI("ExchangeMtu result: %{public}d", result);
     return result == SsapStatus::SSAP_SUCCESS ? NL_NO_ERROR : NL_ERR_INTERNAL_ERROR;
@@ -683,6 +700,10 @@ NlErrCode NearlinkSsapClientServer::RequestConnectionPriority(int32_t appId, int
     HILOGI("appId: %{public}d, connPriority: %{public}d", appId, connPriority);
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    // NOTE: placeholder implementation, no real service call yet, the record below counts the
+    // app call itself. Keep the order (get service -> null check -> identity check -> record
+    // -> call) like other entries when the implementation is added.
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     return NL_NO_ERROR;
 }
 
@@ -693,6 +714,7 @@ NlErrCode NearlinkSsapClientServer::GetServices(int32_t appId, ::std::vector<Nea
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     for (auto &svc : clientService->GetServices(appId)) {
         service.push_back(NearlinkSsapServiceParcel(svc));
     }
@@ -707,6 +729,7 @@ NlErrCode NearlinkSsapClientServer::GetServicesByUuid(int32_t appId, const Uuid 
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
     for (auto &svc : clientService->GetServicesByUuid(appId,
         Uuid::ConvertFrom128Bits(uuid.ConvertTo128Bits()))) {
         service.push_back(NearlinkSsapServiceParcel(svc));
@@ -722,6 +745,7 @@ NlErrCode NearlinkSsapClientServer::RequestPropertyNotification(int32_t appId, u
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
+    NearlinkAppWakeupUe::GetInstance().Record(AppBehaviorType::SSAP_TRANSFER);
 
     int result = 0;
     Property property(propertyhandle);

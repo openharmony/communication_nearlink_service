@@ -84,6 +84,7 @@ ohos_shared_library("nearlink_dft_manager") {
     "src/nearlink_dft_common_event_helper.cpp",
     "src/nearlink_cemap_report_loader.cpp",
     "src/nearlink_dft_car_key_loader.cpp",
+    "src/nearlink_app_wakeup_ue.cpp",
   ]
 
   deps = [
@@ -105,6 +106,11 @@ ohos_shared_library("nearlink_dft_manager") {
     "hisysevent:libhisyseventmanager",
     "common_event_service:cesfwk_innerkits",
   ]
+
+  if (nearlink_deps_power_manager_exist) {
+    defines += [ "NEARLINK_POWER_MGR_ENABLE" ]
+    external_deps += [ "power_manager:powermgr_client" ]
+  }
 
   subsystem_name = "communication"
   part_name = "nearlink_service"
