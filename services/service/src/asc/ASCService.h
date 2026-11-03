@@ -562,6 +562,8 @@ private:
     void SaveProperty(const RawAddress& device, const std::vector<AscProp>& properties);
     void GetDualRecCodecInfo(const RawAddress &device, DeviceDualRecParmInfo &info);
     DeviceDualRecParmInfo GetDualRecCodecInfoForDsp(const RawAddress &device, Qos cos);
+    /* 获取echo 8,E协商的双耳录音上行采样深度(ASCSampleBitDepth枚举)，非QOS_5或未协商时返回0 */
+    uint8_t GetDualRecCodecDepth(const RawAddress &device, Qos cos);
     void ClearDualRecCodecInfo(const RawAddress &device);
     bool FindBps(const AscProp& prop, uint8_t codecId, uint64_t& bps);
     uint64_t GetSupportBps(const RawAddress &device, NLSTK_ActmPointType_E pointType, uint8_t codecId);

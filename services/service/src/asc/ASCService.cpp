@@ -819,14 +819,8 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
     ascToDspInfo.bn = info.bn;
-    // 双耳录音上行位深使用echo 8,E协商结果
-    DeviceDualRecParmInfo dualRecInfo = GetDualRecCodecInfoForDsp(device, cos);
-    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, dualRecInfo.depth);
+    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, GetDualRecCodecDepth(device, cos));
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
-    if (cos == NL_SLE_QOS_5) {
-        HILOGI("[ASCService]%{public}s dual rec depth %{public}d decodeBitDepth %{public}d",
-            GetEncryptAddr(device.GetAddress()).c_str(), dualRecInfo.depth, ascToDspInfo.decodeBitDepth);
-    }
 }
 
 /**
@@ -3117,6 +3111,13 @@ DeviceDualRecParmInfo ASCService::GetDualRecCodecInfoForDsp(const RawAddress &de
     // 缓存缺失时保持零值，由下游函数回退默认值
     GetDualRecCodecInfo(device, info);
     return info;
+}
+
+uint8_t ASCService::GetDualRecCodecDepth(const RawAddress &device, Qos cos)
+{
+    // 非QOS_5不查缓存；缓存缺失时depth为0(未协商)，由下游回退默认位深
+    DeviceDualRecParmInfo info = GetDualRecCodecInfoForDsp(device, cos);
+    return info.depth;
 }
 
 void ASCService::ClearDualRecCodecInfo(const RawAddress &device)

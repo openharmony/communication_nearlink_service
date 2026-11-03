@@ -289,7 +289,7 @@ uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos, u
         // 默认上下行一致
         return ascToDspInfo.encodeBitDepth;
     }
-    // 双耳录音上行位深优先使用echo 8,E协商结果，未协商时固定16bit
+    // 双耳录音上行位深使用echo 8,E协商结果：仅24bit映射DSP 24位，其余(含未协商bitDepth为0)回退16bit
     if (bitDepth == ASC_SAMPLE_DEPTH_24BIT) {
         return static_cast<uint8_t>(DSP_BITS_DEPTH_24); // 位宽
     }
