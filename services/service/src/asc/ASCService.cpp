@@ -819,7 +819,7 @@ void ASCService::UpdateASCToDSPInfo(const RawAddress& device, const AscQosmInfo&
     ascToDspInfo.upChannelNum = ASCUtils::GetCustomizeUpChannelNum(pointType, cos);
     ascToDspInfo.ft = info.ft;
     ascToDspInfo.bn = info.bn;
-    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos);
+    ascToDspInfo.decodeBitDepth = ASCUtils::GetDecodeBitDepth(ascToDspInfo, cos, GetDualRecCodecDepth(device, cos));
     ascToDspInfo.decodeSampleRate = ASCUtils::GetDecodeSampleRate(ascToDspInfo, cos);
 }
 
@@ -3076,6 +3076,44 @@ void ASCService::SaveProperty(const RawAddress& device, const std::vector<AscPro
     }
 }
 
+void ASCService::SetDualRecCodecInfo(const RawAddress &device, const DeviceDualRecParmInfo &info)
+{
+    // echo 8,E由左右两只耳机分别上报，按上报方地址缓存，起播时以同一地址查询
+    // codecId为0表示未协商成功，不覆盖缓存，避免全0结果覆盖已生效的位深
+    if (info.codecId == 0) {
+        HILOGD("[ASCService]device %{public}s not negotiated, skip", GetEncryptAddr(device.GetAddress()).c_str());
+        return;
+    }
+
+    dualRecCodecInfoMap_.EnsureInsert(device.GetAddress(), info);
+    HILOGI("[ASCService]device %{public}s codecId %{public}d depth %{public}d",
+        GetEncryptAddr(device.GetAddress()).c_str(), info.codecId, info.depth);
+}
+
+DeviceDualRecParmInfo ASCService::GetDualRecCodecInfo(const RawAddress &device)
+{
+    DeviceDualRecParmInfo info {};
+    if (!dualRecCodecInfoMap_.GetValue(device.GetAddress(), info)) {
+        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
+    }
+    return info;
+}
+
+uint8_t ASCService::GetDualRecCodecDepth(const RawAddress &device, Qos cos)
+{
+    // 非QOS_5不查缓存；缓存缺失时depth为0(未协商)，由下游回退默认位深
+    if (cos != NL_SLE_QOS_5) {
+        return 0;
+    }
+    DeviceDualRecParmInfo info = GetDualRecCodecInfo(device);
+    return info.depth;
+}
+
+void ASCService::ClearDualRecCodecInfo(const RawAddress &device)
+{
+    dualRecCodecInfoMap_.Erase(device.GetAddress());
+}
+
 void ASCService::SetConnRptDelayingFlag(const RawAddress &device, bool isDelaying)
 {
     HILOGD("[ASCService]SetConnRptDelayingFlag in %{public}s %{public}d",
@@ -4618,6 +4656,8 @@ void ASCService::CbkDisconnect(const RawAddress& device, uint8_t result)
     ClearStreamResult(device);
     // 清除同步链路参数
     ClearStreamQosmInfo(device);
+    // 清除双耳录音协商结果
+    ClearDualRecCodecInfo(device);
     ClearASCSubrateInfo(device);
     // 清除码率
     SetAutoRateBps(device, 0);

@@ -5491,5 +5491,143 @@ HWTEST_F(ASCServiceTest, IsRejectInActivateDeviceReq_001, TestSize.Level1)
     delete asc;
     HILOGI("IsRejectInActivateDeviceReq_001 end");
 }
+
+/**
+ * @tc.name: GetDecodeBitDepth_001
+ * @tc.desc: 非双耳录音上行位深默认与下行encodeBitDepth一致
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetDecodeBitDepth_001, TestSize.Level1)
+{
+    HILOGI("GetDecodeBitDepth_001 start");
+    ASCToDSPInfo ascToDspInfo {};
+    ascToDspInfo.encodeBitDepth = DSP_BITS_DEPTH_24;
+    // 非QOS_5场景，忽略bitDepth入参，上下行一致
+    EXPECT_EQ(DSP_BITS_DEPTH_24, ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_1, ASC_SAMPLE_DEPTH_16BIT));
+    ascToDspInfo.encodeBitDepth = DSP_BITS_DEPTH_16;
+    EXPECT_EQ(DSP_BITS_DEPTH_16, ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_2, ASC_SAMPLE_DEPTH_24BIT));
+    ascToDspInfo.encodeBitDepth = DSP_BITS_DEPTH_32;
+    EXPECT_EQ(DSP_BITS_DEPTH_32, ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_3));
+    HILOGI("GetDecodeBitDepth_001 end");
+}
+
+/**
+ * @tc.name: GetDecodeBitDepth_002
+ * @tc.desc: 双耳录音上行位深将echo 8,E协商的索引转换为DSP真实位宽
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetDecodeBitDepth_002, TestSize.Level1)
+{
+    HILOGI("GetDecodeBitDepth_002 start");
+    ASCToDSPInfo ascToDspInfo {};
+    ascToDspInfo.encodeBitDepth = DSP_BITS_DEPTH_32;
+    // 24bit协商索引需转换为DSP位宽24，而非透传下行位深
+    EXPECT_EQ(DSP_BITS_DEPTH_24,
+        ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_5, ASC_SAMPLE_DEPTH_24BIT));
+    // 16bit/32bit索引及非法索引均映射16bit，严禁将索引值当作位宽透传
+    EXPECT_EQ(DSP_BITS_DEPTH_16,
+        ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_5, ASC_SAMPLE_DEPTH_16BIT));
+    EXPECT_EQ(DSP_BITS_DEPTH_16,
+        ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_5, ASC_SAMPLE_DEPTH_32BIT));
+    EXPECT_EQ(DSP_BITS_DEPTH_16,
+        ASCUtils::GetDecodeBitDepth(ascToDspInfo, NL_SLE_QOS_5, 0x04));
+    HILOGI("GetDecodeBitDepth_002 end");
+}
+
+/**
+ * @tc.name: SetDualRecCodecInfo_001
+ * @tc.desc: 双耳录音协商结果按设备地址缓存与查询
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SetDualRecCodecInfo_001, TestSize.Level1)
+{
+    HILOGI("SetDualRecCodecInfo_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    DeviceDualRecParmInfo info {};
+    info.codecId = ASC_CODEC_ID_L2HC_VOICE;
+    info.depth = ASC_SAMPLE_DEPTH_24BIT;
+    asc->SetDualRecCodecInfo(device, info);
+
+    DeviceDualRecParmInfo getInfo = asc->GetDualRecCodecInfo(device);
+    EXPECT_EQ(info.codecId, getInfo.codecId);
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_24BIT, getInfo.depth);
+
+    // 未上报过的设备查询保持全0，由下游回退默认位深
+    getInfo = asc->GetDualRecCodecInfo(coDevice);
+    EXPECT_EQ(0, getInfo.codecId);
+    EXPECT_EQ(0, getInfo.depth);
+    delete asc;
+    HILOGI("SetDualRecCodecInfo_001 end");
+}
+
+/**
+ * @tc.name: UpdateASCToDSPInfoDualRecDepth_001
+ * @tc.desc: 双耳录音起播DSP上行位深使用协商结果，未协商回退16bit
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, UpdateASCToDSPInfoDualRecDepth_001, TestSize.Level1)
+{
+    HILOGI("UpdateASCToDSPInfoDualRecDepth_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscQosmInfo qosmInfo {};
+    qosmInfo.bitSamp = DSP_BITS_DEPTH_32;
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_5);
+
+    // 协商24bit时，上行位深为索引转换后的DSP位宽24
+    DeviceDualRecParmInfo info {};
+    info.codecId = ASC_CODEC_ID_L2HC_VOICE;
+    info.depth = ASC_SAMPLE_DEPTH_24BIT;
+    asc->SetDualRecCodecInfo(device, info);
+    ASCToDSPInfo ascToDspInfo {};
+    asc->UpdateASCToDSPInfo(device, qosmInfo, ascToDspInfo);
+    EXPECT_EQ(DSP_BITS_DEPTH_24, ascToDspInfo.decodeBitDepth);
+
+    // 协商16bit时，上行位深为DSP位宽16
+    info.depth = ASC_SAMPLE_DEPTH_16BIT;
+    asc->SetDualRecCodecInfo(device, info);
+    asc->UpdateASCToDSPInfo(device, qosmInfo, ascToDspInfo);
+    EXPECT_EQ(DSP_BITS_DEPTH_16, ascToDspInfo.decodeBitDepth);
+
+    // 未协商(缓存全0)时，上行位深回退16bit而非透传下行位深
+    asc->ClearDualRecCodecInfo(device);
+    asc->UpdateASCToDSPInfo(device, qosmInfo, ascToDspInfo);
+    EXPECT_EQ(DSP_BITS_DEPTH_16, ascToDspInfo.decodeBitDepth);
+
+    QosM::GetInstance().ClearQosM(device);
+    delete asc;
+    HILOGI("UpdateASCToDSPInfoDualRecDepth_001 end");
+}
+
+/**
+ * @tc.name: UpdateASCToDSPInfo_002
+ * @tc.desc: 非双耳录音场景上行位深保持与下行一致，不受缓存影响
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, UpdateASCToDSPInfo_002, TestSize.Level1)
+{
+    HILOGI("UpdateASCToDSPInfo_002 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscQosmInfo qosmInfo {};
+    qosmInfo.bitSamp = DSP_BITS_DEPTH_16;
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+
+    // 即使缓存了24bit协商结果，非QOS_5也不读取，上下行位深保持一致
+    DeviceDualRecParmInfo info {};
+    info.codecId = ASC_CODEC_ID_L2HC_VOICE;
+    info.depth = ASC_SAMPLE_DEPTH_24BIT;
+    asc->SetDualRecCodecInfo(device, info);
+    ASCToDSPInfo ascToDspInfo {};
+    asc->UpdateASCToDSPInfo(device, qosmInfo, ascToDspInfo);
+    EXPECT_EQ(DSP_BITS_DEPTH_16, ascToDspInfo.decodeBitDepth);
+    asc->ClearDualRecCodecInfo(device);
+
+    QosM::GetInstance().ClearQosM(device);
+    delete asc;
+    HILOGI("UpdateASCToDSPInfo_002 end");
+}
 }  // namespace Nearlink
 }  // namespace OHOS
