@@ -26,6 +26,10 @@
 #define HADM_MULTI_CHNL_NUM 4
 #define HADM_CHNL_MAP_INDEX_MAXNUM 9
 #define HADM_CHNL_HIGH_SEVEN_BIT 0x7F
+// status(1)+connHandle(2)+slemIdx(1)+slemInfoType(2)+timeStampSn(4)+chmap(10)+tofResult(4)+rssi(1)+iqBitLen(1)
+#define HADM_IQ_FIXED_LEN 26
+#define HADM_IQ_MULTITONE_INFO_LEN 1
+#define HADM_IQ_TAIL_LEN 3
 
 #define PARSER_DATA_BY_LEN(TAG, DATA, LEN) do { \
     if (memcpy_s(TAG, LEN, DATA, LEN) != EOK) { \
@@ -101,6 +105,9 @@ static HadmIqValue_S *HadmGetIqData(uint8_t *data, uint32_t iqChnlNum)
 HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
 {
     NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%d) ", dataLen);
+    // 校验固定前缀够长，后续固定偏移读取才安全
+    NLSTK_CHECK_RETURN(dataLen >= HADM_IQ_FIXED_LEN, NULL,
+        "[HADM] iq report too short, dataLen(%zu) minLen(%u)", dataLen, (uint32_t)HADM_IQ_FIXED_LEN);
     uint8_t *iqInfoFromDli = data;
     HadmIqInfoFromDli_S *iqInfo = (HadmIqInfoFromDli_S *)SDF_MemZalloc(sizeof(HadmIqInfoFromDli_S));
     NLSTK_CHECK_RETURN(iqInfo != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli malloc iqInfo fail");
@@ -124,6 +131,15 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     // 5. 比特 10=1 时有 1 字节多音信息
     if (isBit10Set) {
         iqInfoFromDli += sizeof(uint8_t);
+    }
+    // 校验 IQ 数据总量加尾部够长，再裸读 IQ 数据
+    uint32_t needLen = HADM_IQ_FIXED_LEN + (isBit10Set ? HADM_IQ_MULTITONE_INFO_LEN : 0) +
+        iqInfo->iqChnlNum * HADM_IQ_LEN + HADM_IQ_TAIL_LEN;
+    if (dataLen < needLen) {
+        NLSTK_LOG_ERROR("[HADM] iq report insufficient, dataLen(%zu) needLen(%u) iqChnlNum(%u)",
+            dataLen, needLen, iqInfo->iqChnlNum);
+        SDF_MemFree(iqInfo);
+        return NULL;
     }
     // 6. 解析 IQ 数据
     iqInfo->iqData = HadmGetIqData(iqInfoFromDli, iqInfo->iqChnlNum);
