@@ -3111,12 +3111,7 @@ uint8_t ASCService::GetDualRecCodecDepth(const RawAddress &device, Qos cos)
 
 void ASCService::ClearDualRecCodecInfo(const RawAddress &device)
 {
-    // NearlinkSafeMap::Erase不返回删除结果，先查再删以保留未命中日志
-    bool isExist = dualRecCodecInfoMap_.FindIf(device.GetAddress());
     dualRecCodecInfoMap_.Erase(device.GetAddress());
-    if (!isExist) {
-        HILOGD("[ASCService]device %{public}s NO Item", GetEncryptAddr(device.GetAddress()).c_str());
-    }
 }
 
 void ASCService::SetConnRptDelayingFlag(const RawAddress &device, bool isDelaying)
