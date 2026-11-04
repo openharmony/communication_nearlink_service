@@ -19,6 +19,8 @@
 #include "../../nl_utils/fuzztest_utils.h"
 #include "ClassCreator.h"
 #include "ssap_service_base.h"
+#include "ssap_inner_def.h"
+#include "ThreadUtil.h"
 #include "log.h"
 #include "securec.h"
 #include "slem.h"
@@ -123,6 +125,140 @@ void DoSomethingSsapServiceClientWithMyAPI(const uint8_t* fuzzData, size_t size)
     clientService.DisconnectTask(provider.ConsumeIntegral<int>());
 }
 
+// D-3 PR9：公共 API 错误码回传链 + exchangeInfo(ExchangeMtu)后续态 + notify/indicate 订阅族 + future 族。
+// 消费序：本函数为新增函数，消费序独立；所有 FDP 值在函数头部一次性消费，驱动段零消费。
+void SsapClientServiceApiFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    // future 族前置（纪律-2）：Register/Deregister/GetServices 走 promise.get_future().get()，
+    // SsapThread 与 Connect 链的 DeviceAdapterThread 状态表必须 ENABLED（map 空=DISABLED=投递被丢=future 永悬）。
+    // 本 target 无人调用 ClearThreadStateMap，Init 幂等兜底；新代码绝不调 Clear。
+    ThreadUtil::GetInstance().InitThreadStateMap();
+    FuzzedDataProvider provider(fuzzData, size);
+    std::shared_ptr<InterfaceSsapClientCallback> cb = std::make_shared<InterfaceSsapClientCb>();
+    // 泄漏式永生实例（R9/R10 判例）：公共 API 的 fire-and-forget DoInSsapThread lambda 捕获 this，
+    // 栈实例析构后 lambda 执行即悬垂；且析构会把 g_ssapClientStackAdapter 置空、打断后续输入。
+    static SsapClientService *svc = new SsapClientService();
+
+    const RawAddress addr = BuildRawAddress(provider); // 尾部 6 字节倒序
+    const uint8_t transport = provider.ConsumeIntegral<uint8_t>() % SSAP_TRANSPORT_MAX; // SsapTransportType 2 成员
+    const uint8_t secure = provider.ConsumeIntegral<uint8_t>() % SSAP_SEC_MAX; // SsapSecureType 2 成员
+    const uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 9; // 0=空值分支
+    const std::vector<uint8_t> valVec = provider.ConsumeBytes<uint8_t>(valLen); // 头部
+    const uint16_t handle = provider.ConsumeIntegral<uint16_t>();
+    const Uuid uuid = BuildUuid(provider); // 头部 16 字节
+    const uint8_t descType = provider.ConsumeIntegral<uint8_t>() % 5; // DESC_TYPE 5 成员(0-4)
+    const uint16_t mtu = static_cast<uint16_t>(SSAP_MTU_DEFAULT + provider.ConsumeIntegral<uint8_t>() % 774); // 251..1024
+    const bool enable = provider.ConsumeBool();
+    const bool withoutRsp = provider.ConsumeBool();
+    const bool autoConnect = provider.ConsumeBool();
+    // 整改 P9-7：错误码/越界档改 FDP 全域消费（追加尾部、旧序不动；边界语义对下沉种子）
+    const uint8_t badTransport = provider.ConsumeIntegral<uint8_t>(); // 全域，含 >= SSAP_TRANSPORT_MAX 档
+    const uint8_t badSecure = provider.ConsumeIntegral<uint8_t>(); // 全域，含 >= SSAP_SEC_MAX 档
+    const uint16_t lowMtu = provider.ConsumeIntegral<uint16_t>(); // 全域，含 < 251 档
+    const uint16_t badMtu = provider.ConsumeIntegral<uint16_t>(); // 全域，含 > 1024 档
+    const uint8_t badDescTypeA = provider.ConsumeIntegral<uint8_t>(); // 全域，含 RESERVE 档
+    const uint8_t badDescTypeB = provider.ConsumeIntegral<uint8_t>(); // 全域，含 CLIENT_CONFIG 档
+    const uint16_t startHA = provider.ConsumeIntegral<uint16_t>();
+    const uint16_t endHA = provider.ConsumeIntegral<uint16_t>();
+    const uint16_t startHB = provider.ConsumeIntegral<uint16_t>();
+    const uint16_t endHB = provider.ConsumeIntegral<uint16_t>();
+    Property emptyProp(handle, uuid); // value_ 为空 → 适配层 INVALID_PARAM 回传
+    Property valProp(handle, uuid, std::vector<uint8_t>(valVec));
+    Descriptor emptyDesc(handle, descType);
+    Descriptor valDesc(handle, descType, std::vector<uint8_t>(valVec));
+    Method emptyMethod(handle); // parameter_ 为空 → 适配层 INVALID_PARAM 回传
+    Method valMethod(handle, valVec);
+
+    // ---- 未使能窗口：全 API SSAP_NOT_ENABLE 错误码回传 ----
+    svc->DisableTask(); // 幂等窗口重置（未运行时走 OnDisable 通知分支）
+    (void)svc->RegisterApplication(cb, addr, transport, secure);
+    (void)svc->DeregisterApplication(0);
+    (void)svc->ExchangeMtu(0, mtu);
+    (void)svc->DiscoverServices(0);
+    (void)svc->DiscoverServicesByUuid(0, uuid, 1, 0xFFFF);
+    (void)svc->GetServices(0);
+    (void)svc->GetServicesByUuid(0, uuid);
+    (void)svc->ReadProperty(0, emptyProp);
+    (void)svc->ReadDescriptor(0, emptyDesc);
+    (void)svc->ReadPropertiesByUuid(0, uuid, 1, 0xFFFF);
+    (void)svc->ReadDescriptorsByUuid(0, uuid, descType, 1, 0xFFFF); // NOT_SUPPORT 桩
+    (void)svc->WriteProperty(0, emptyProp, withoutRsp);
+    (void)svc->WriteDescriptor(0, emptyDesc, withoutRsp);
+    (void)svc->GetPropertyNotification(0, emptyProp);
+    (void)svc->SetPropertyNotification(0, emptyProp, enable);
+    (void)svc->SetEventNotification(0, Event(handle, uuid), enable); // NOT_SUPPORT 桩
+    (void)svc->SetPropertyIndication(0, emptyProp, enable);
+    (void)svc->SetEventIndication(0, Event(handle, uuid), enable); // NOT_SUPPORT 桩
+    (void)svc->CallMethod(0, emptyMethod, withoutRsp);
+    (void)svc->Connect(0, autoConnect);
+    (void)svc->Disconnect(0);
+
+    // ---- 已使能 + 非法参数：SSAP_INVALID_PARAM 回传 ----
+    svc->EnableTask();
+    (void)svc->RegisterApplication(nullptr, addr, transport, secure); // 空 callback 档
+    (void)svc->RegisterApplication(cb, addr, badTransport, secure); // transport 越界档（FDP 全域）
+    (void)svc->RegisterApplication(cb, addr, transport, badSecure); // secure 越界档（FDP 全域）
+    (void)svc->DeregisterApplication(-1); // IsValidAppId 负值档
+    (void)svc->ExchangeMtu(0, lowMtu); // mtu 全域（< 251 档由种子/变异命中）
+    (void)svc->ExchangeMtu(0, badMtu); // mtu 全域（> 1024 档由种子/变异命中）
+    (void)svc->DiscoverServicesByUuid(0, uuid, startHA, endHA); // startHandle 越界/倒挂档（FDP 全域）
+    (void)svc->DiscoverServicesByUuid(0, uuid, startHB, endHB); // startHandle 越界/倒挂档（FDP 全域）
+    Descriptor descA(handle, badDescTypeA); // 非常量引用形参不可绑临时，改局部变量
+    (void)svc->ReadDescriptor(0, descA); // type 全域（含 RESERVE 档）
+    Descriptor descB(handle, badDescTypeB);
+    (void)svc->WriteDescriptor(0, descB, withoutRsp); // type 全域（含 CLIENT_CONFIG 档）
+    (void)svc->ReadPropertiesByUuid(-1, uuid, 1, 0xFFFF);
+    (void)svc->CallMethod(-1, emptyMethod, withoutRsp);
+    (void)svc->Connect(-1, autoConnect);
+    (void)svc->Disconnect(-1);
+
+    // ---- 注册成功态：真 appId 驱动 task 层命中分支（future 族：Register/Deregister/GetServices）----
+    const int appId = svc->RegisterApplication(cb, addr, transport, secure);
+    if (appId >= 0) {
+        (void)svc->ExchangeMtu(appId, mtu); // exchangeInfo(MTU 交换)链：service→adapter→NLSTK_SsapClientExchangeMtu
+        (void)svc->DiscoverServices(appId);
+        (void)svc->DiscoverServicesByUuid(appId, uuid, 1, 0xFFFF);
+        std::list<Service> services = svc->GetServices(appId);
+        services = svc->GetServicesByUuid(appId, uuid);
+        (void)services;
+        (void)svc->ReadProperty(appId, emptyProp);
+        (void)svc->ReadDescriptor(appId, emptyDesc);
+        (void)svc->ReadPropertiesByUuid(appId, uuid, 1, 0xFFFF);
+        // 订阅族：notify/indication enable/disable 两档
+        (void)svc->GetPropertyNotification(appId, emptyProp);
+        (void)svc->SetPropertyNotification(appId, emptyProp, enable);
+        (void)svc->SetPropertyIndication(appId, emptyProp, enable);
+        // 写/调用族：空值(INVALID_PARAM 回传)与带值两条链
+        Property p1 = emptyProp;
+        (void)svc->WriteProperty(appId, p1, withoutRsp);
+        Property p2 = valProp;
+        (void)svc->WriteProperty(appId, p2, withoutRsp);
+        Descriptor d1 = emptyDesc;
+        (void)svc->WriteDescriptor(appId, d1, withoutRsp);
+        Descriptor d2 = valDesc;
+        (void)svc->WriteDescriptor(appId, d2, withoutRsp);
+        Method m1 = emptyMethod;
+        (void)svc->CallMethod(appId, m1, withoutRsp);
+        Method m2 = valMethod;
+        (void)svc->CallMethod(appId, m2, withoutRsp);
+        (void)svc->Connect(appId, autoConnect);
+        (void)svc->Disconnect(appId);
+        // 注销：命中分支 + 二次注销 SSAP_NO_APP
+        (void)svc->DeregisterApplication(appId);
+        (void)svc->DeregisterApplication(appId);
+    } else {
+        // 注册失败档：appId 保持非法值，task 层走 no-app 分支
+        (void)svc->ExchangeMtu(appId, mtu);
+        (void)svc->DiscoverServices(appId);
+    }
+
+    // ---- NOT_SUPPORT / 查询桩 ----
+    (void)svc->Connect(addr);
+    (void)svc->Disconnect(addr);
+    std::list<RawAddress> devices = svc->GetConnectDevices();
+    (void)devices;
+    (void)svc->GetConnectState();
+}
 /* 尾部追加段：Enable 后走真实注册（NLSTK_SsapClientRegApp），成功则以真 appId
  * 驱动依赖段并经静态 On*（g_ssapClientStackAdapter 指向本 service 的 adapter）
  * 让回调落回 AdapterCallback→appSafeMap 命中→mock 观测；失败保 -1 直接跳过 */
@@ -207,6 +343,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
      * 与 ssapservicesserver_fuzzer 同款首尾配对 */
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::DoSomethingSsapServiceClientWithMyAPI(data, size);
+    OHOS::SsapClientServiceApiFuzzTest(data, size);
     OHOS::RealRegisterAndObserveFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;

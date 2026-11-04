@@ -130,15 +130,16 @@ void CloudPairLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
     int32_t cloudPairState = 0;
     (void)cloudPair.GetCloudPairState(reportAddrStr, cloudPairState);
 
-    /* HandlePairStatusChanged：NONE/PAIRING/PAIRED/CANCELING 逐个驱动 */
     const int32_t pairStates[] = { static_cast<int32_t>(SlePairState::SLE_PAIR_NONE),
         static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRING),
         static_cast<int32_t>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int32_t>(SlePairState::SLE_PAIR_CANCELING) };
     constexpr uint8_t pairStateCount = 4;
-    for (size_t i = 0; i < pairStateCount; i++) {
+    const uint8_t pairShots = provider.ConsumeIntegralInRange<uint8_t>(1, pairStateCount);
+    for (uint8_t i = 0; i < pairShots; i++) {
+        int32_t preState = pairStates[provider.ConsumeIntegral<uint8_t>() % pairStateCount];
         int32_t status = pairStates[provider.ConsumeIntegral<uint8_t>() % pairStateCount];
-        cloudPair.HandlePairStatusChanged(reportAddr, pairStates[i], status, provider.ConsumeIntegral<int32_t>());
+        cloudPair.HandlePairStatusChanged(reportAddr, preState, status, provider.ConsumeIntegral<int32_t>());
     }
 
     cloudPair.SetCrediblePairState(reportAddr);

@@ -25,6 +25,8 @@
 #include "log.h"
 #include "securec.h"
 #include "raw_address.h"
+#include "SleMultiScanData.h"
+#include "sle_uuid.h"
 #include "SleRemoteDeviceAdapter.h"
 #include "SleReconnectManager.h"
 
@@ -169,6 +171,101 @@ void StopScanFuzzTest()
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
 
+// PR-9 D-4: 多扫描器数据类直驱（SleMultiScanData.cpp 全 setter/getter/Has 族矩阵；纯值类零副作用）
+void SleMultiScanDataFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    // 尾部积分消费（首个消费取最后字节）
+    uint16_t uuid16 = provider.ConsumeIntegral<uint16_t>();
+    uint64_t mostSigBits = provider.ConsumeIntegral<uint64_t>();
+    uint64_t leastSigBits = provider.ConsumeIntegral<uint64_t>();
+    uint8_t uuidSel = provider.ConsumeIntegral<uint8_t>() % 4;  // Uuid 四种构造形状
+    uint8_t mfgLen = provider.ConsumeIntegral<uint8_t>() % 32;
+    uint16_t manufacturerId = provider.ConsumeIntegral<uint16_t>();
+    int clientId = provider.ConsumeIntegral<int>();
+    uint8_t filtIndex = provider.ConsumeIntegral<uint8_t>();
+    uint8_t filterAction = provider.ConsumeIntegral<uint8_t>();
+    bool sensorHubChannel = provider.ConsumeBool();
+    uint8_t filterFrameType = provider.ConsumeIntegral<uint8_t>();
+    int8_t rssiThreshold = provider.ConsumeIntegral<int8_t>();
+    long reportDelay = provider.ConsumeIntegral<long>();
+    uint16_t scanInterval = provider.ConsumeIntegral<uint16_t>();
+    uint16_t scanWindow = provider.ConsumeIntegral<uint16_t>();
+    bool legacy = provider.ConsumeBool();
+    int phy = provider.ConsumeIntegral<int>();
+    uint8_t settingsFrameType = provider.ConsumeIntegral<uint8_t>() % 4;
+    // 头部字节消费
+    std::string deviceId = provider.ConsumeRandomLengthString(64);
+    std::string localName = provider.ConsumeRandomLengthString(64);
+    std::vector<uint8_t> uuidBytes = provider.ConsumeBytes<uint8_t>(16);
+    std::vector<uint8_t> manufactureData = provider.ConsumeBytes<uint8_t>(mfgLen);
+
+    SleScanSettingsImpl settings;
+    settings.SetReportDelay(reportDelay);
+    settings.SetScanInterval(scanInterval);
+    settings.SetScanWindow(scanWindow);
+    settings.SetLegacy(legacy);
+    settings.SetPhy(phy);
+    settings.SetFrameType(settingsFrameType);
+    settings.GetReportDelayMillisValue();
+    settings.GetScanInterval();
+    settings.GetScanWindow();
+    settings.GetLegacy();
+    settings.GetPhy();
+    settings.GetFrameType();
+
+    Uuid uuid = Uuid::ConvertFrom16Bits(uuid16);
+    if (uuidSel == 1) {
+        uuid = Uuid::ConvertFromString(deviceId);  // 任意串：解析失败回退分支
+    } else if (uuidSel == 2) {
+        uuid = Uuid::ConvertFromMostAndLeastBit(mostSigBits, leastSigBits);
+    } else if (uuidSel == 3 && !uuidBytes.empty()) {
+        uuid = Uuid::ConvertFromBytesSle(uuidBytes.data(), uuidBytes.size());
+    }
+
+    SleScanFilterImpl filter;
+    filter.SetDeviceId(deviceId);
+    filter.SetName(localName);
+    filter.SetServiceUuid(uuid);
+    filter.SetServiceUuidMask(uuid);
+    filter.SetServiceSolicitationUuid(uuid);
+    filter.SetServiceSolicitationUuidMask(uuid);
+    filter.SetServiceData(manufactureData);
+    filter.SetServiceDataMask(manufactureData);
+    filter.SetManufacturerId(manufacturerId);
+    filter.SetManufactureData(manufactureData);
+    filter.SetManufactureDataMask(manufactureData);
+    filter.SetClientId(clientId);
+    filter.SetFiltIndex(filtIndex);
+    filter.SetFilterAction(filterAction);
+    filter.SetSensorHubChannel(sensorHubChannel);
+    filter.SetFrameType(filterFrameType);
+    filter.SetRssiThreshold(rssiThreshold);
+    filter.GetDeviceId();
+    filter.GetName();
+    filter.GetServiceUuid();
+    filter.GetServiceUuidMask();
+    filter.GetServiceSolicitationUuid();
+    filter.GetServiceSolicitationUuidMask();
+    filter.GetServiceData();
+    filter.GetServiceDataMask();
+    filter.GetManufacturerId();
+    filter.GetManufactureData();
+    filter.GetManufactureDataMask();
+    filter.GetClientId();
+    filter.GetFiltIndex();
+    filter.GetFilterAction();
+    filter.IsSensorHubChannel();
+    filter.GetFrameType();
+    filter.GetRssiThreshold();
+    filter.HasServiceUuid();
+    filter.HasServiceUuidMask();
+    filter.HasSolicitationUuid();
+    filter.HasSolicitationUuidMask();
+    filter.HasServiceData();
+    filter.HasServiceDataMask();
+    filter.HasRssiThreshold();
+}
 void AdapterDeviceLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
 {
     SleRemoteDeviceAdapter *adapter = SleRemoteDeviceAdapter::GetInstance();
@@ -342,6 +439,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::StartScanWithFilterFuzzTest(data, size);
     OHOS::StopScanFuzzTest();
     OHOS::DeRegisterSleCentralManagerCallbackFuzzTest();
+    OHOS::SleMultiScanDataFuzzTest(data, size);
     OHOS::AdapterDeviceLifecycleFuzzTest(data, size);
     OHOS::ReconnectLifecycleFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();

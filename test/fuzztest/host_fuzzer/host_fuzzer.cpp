@@ -27,7 +27,14 @@
 #include "securec.h"
 #include "raw_address.h"
 #include "SleServiceManager.h"
+#include "ProfileServiceManager.h"
+#include "IAdapterStateObserver.h"
+#include "SleSwitchDependency.h"
+#include "UnloadSa.h"
+#include "SleFrame4AntennaMgr.h"
 #include "SysStateMachine.h"
+#include "sle_uuid.h"
+#include "ThreadUtil.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -1027,6 +1034,48 @@ void GetDeviceInformationTest(const uint8_t *fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
 
+// PR-9 D-4: common 域直驱（SleServiceManager/SysStateMachine/ProfileServiceManager/SleSwitchDependency/UnloadSa/SleFrame4AntennaMgr）
+namespace {
+// ThreadUtil 进程级一次初始化（PR-9 计划 §3 纪律 1：future 族投递前置，map 为空=DISABLED=静默丢弃）
+std::once_flag g_pr9ThreadStateOnce;
+void InitPr9ThreadStateMapOnce()
+{
+    std::call_once(g_pr9ThreadStateOnce, []() { ThreadUtil::GetInstance().InitThreadStateMap(); });
+}
+
+constexpr size_t PR9_EVENT_TABLE_SIZE = 6;
+const SleEventType PR9_EVENT_TABLE[PR9_EVENT_TABLE_SIZE] = {
+    SleEventType::INTERFACE_TRIGGERED, SleEventType::AIRPLANE_TRIGGERED,
+    SleEventType::COLLABORATION_TRIGGERED, SleEventType::RESTORE_TRIGGERED,
+    SleEventType::SELF_HEALING_RETRY, SleEventType::SVC_TRIGGERED,
+};
+constexpr size_t PR9_STATE_TABLE_SIZE = 9;
+const SleStateID PR9_STATE_TABLE[PR9_STATE_TABLE_SIZE] = {
+    STATE_TURNING_ON, STATE_TURN_ON, STATE_TURNING_OFF, STATE_TURN_OFF,
+    STATE_TURNING_HALF_TO_OFF, STATE_TURNING_OFF_TO_HALF, STATE_TURNING_HALF_TO_ON,
+    STATE_TURNING_ON_TO_HALF, STATE_TURN_HALF,
+};
+
+// 整改 P9-2：迁移 API 四元域表（无捕获 lambda 退化函数指针；Enable 第 4 参走默认）
+using Pr9MigrationFn = void (*)(SleServiceManager *, const SleTransport, const SleEventType,
+    const SwitchCallerInfo &);
+constexpr size_t PR9_MIGRATION_TABLE_SIZE = 4;
+const Pr9MigrationFn PR9_MIGRATION_TABLE[PR9_MIGRATION_TABLE_SIZE] = {
+    [](SleServiceManager *mgr, const SleTransport transport, const SleEventType reason,
+        const SwitchCallerInfo &callerInfo) { mgr->Enable(transport, reason, callerInfo); },
+    [](SleServiceManager *mgr, const SleTransport transport, const SleEventType reason,
+        const SwitchCallerInfo &callerInfo) { mgr->Disable(transport, reason, callerInfo); },
+    [](SleServiceManager *mgr, const SleTransport transport, const SleEventType reason,
+        const SwitchCallerInfo &callerInfo) { mgr->EnableToHalf(transport, reason, callerInfo); },
+    [](SleServiceManager *mgr, const SleTransport transport, const SleEventType reason,
+        const SwitchCallerInfo &callerInfo) { mgr->DisableToOff(transport, reason, callerInfo); },
+};
+
+class MockAdapterStateObserver : public IAdapterStateObserver {
+public:
+    void OnStateChange(const SleTransport transport, const SleStateID state) {}
+    void OnDisableResponse(bool isHalfDisable, SwitchCallerInfo callerInfo) {}
+};
 // ---------------------------------------------------------------------------
 // ServiceManager lifecycle deep drive.
 // Safety: Reset()/FactoryReset()/ClearAllStorage()/Stop()/AdapterStop() and
@@ -1041,6 +1090,157 @@ public:
     void OnDisableResponse(bool isHalfDisable, SwitchCallerInfo callerInfo) {}
 };
 
+class MockSystemStateObserver : public ISystemStateObserver {
+public:
+    void OnSystemStateChange(const SleSystemState state) {}
+};
+}  // namespace
+
+void SleServiceManagerSwitchFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    InitPr9ThreadStateMapOnce();
+    SleServiceManager *mgr = SleServiceManager::GetInstance();
+    NL_CHECK_RETURN(mgr != nullptr, "SleServiceManager is nullptr");
+    MockAdapterStateObserver adapterObserver;
+    MockSystemStateObserver systemObserver;
+    SwitchCallerInfo callerInfo {};
+    uint8_t reasonIdx = provider.ConsumeIntegral<uint8_t>() % PR9_EVENT_TABLE_SIZE;
+    uint8_t stateIdx = provider.ConsumeIntegral<uint8_t>() % PR9_STATE_TABLE_SIZE;
+    bool isSle = provider.ConsumeBool();
+    uint8_t migrationSteps = provider.ConsumeIntegralInRange<uint8_t>(1, 5); // 整改 P9-2：步数 FDP
+    SleTransport transport = isSle ? ADAPTER_SLE : ADAPTER_SLB;
+    SleEventType reason = PR9_EVENT_TABLE[reasonIdx];
+
+    // 观察者注册/重复注册（future 族与回调均处于 InitThreadStateMap 进程级窗口内）
+    mgr->RegisterStateObserver(adapterObserver);
+    mgr->RegisterStateObserver(adapterObserver);
+    mgr->RegisterSystemStateObserver(systemObserver);
+    mgr->RegisterSystemStateObserver(systemObserver);
+    mgr->GetState(transport);
+    mgr->GetAdapterConnectState();
+
+    // 开关状态迁移深路径（整改 P9-2：原五步固定编排改 FDP 域表逐步选择）：
+    // TurnOn⇄Off⇄Half 四元迁移 API 由 FDP 选择、步数 FDP（1..5）；
+    // DoInServiceManagerThread+promise 同步 future，步间 100ms 有界等待
+    for (uint8_t step = 0; step < migrationSteps; step++) {
+        uint8_t migrationIdx = provider.ConsumeIntegral<uint8_t>() % PR9_MIGRATION_TABLE_SIZE;
+        PR9_MIGRATION_TABLE[migrationIdx](mgr, transport, reason, callerInfo);
+        std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_100_MS));
+    }
+    // 收尾回稳（确定性收尾非业务驱动）：固定 Enable 收敛到 TURN_ON，供后续输入稳定驱动
+    mgr->Enable(transport, reason, callerInfo);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+
+    // 整改 P9-1：stateIdx 接入真实分支——镜像产品迁移后的 UnloadSa 定时器调用对
+    // （SleServiceManager.cpp:582-585 同款：先 Stop 再按迁移态 Start；仅 STATE_TURN_OFF 实启，同输入内停表收敛）
+    UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();
+    UnloadSa::GetInstance().StartUnloadNearlinkSaTimer(PR9_STATE_TABLE[stateIdx]);
+    UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();
+
+    // 系统状态通知对（SysStateMachine 状态串 + 任意串的命中/未命中分支）
+    std::string sysState = provider.ConsumeRandomLengthString(32);
+    mgr->OnSysStateChange(SYS_STATE_STARTED);
+    mgr->OnSysStateChange(sysState);
+    mgr->OnSysStateChange(SYS_STATE_FRESETTING);  // not report 分支
+    mgr->OnSysStateExit(SYS_STATE_STARTED);
+    mgr->OnSysStateExit(sysState);
+    mgr->GetState(transport);
+
+    mgr->DeregisterStateObserver(adapterObserver);
+    mgr->DeregisterStateObserver(adapterObserver);  // 重复注销分支
+    mgr->DeregisterSystemStateObserver(systemObserver);
+    mgr->DeregisterSystemStateObserver(systemObserver);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void ProfileServiceManagerDispatchFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    ProfileServiceManager &profileManager = ProfileServiceManager::GetInstance();
+    ProfileServiceManager::Initialize();  // GetInstance().Start()，幂等
+    std::string unknownName = provider.ConsumeRandomLengthString(64);
+    std::string knownName = provider.ConsumeBool() ? std::string("dis") : std::string("tws");
+    uint32_t profileId = provider.ConsumeIntegral<uint32_t>();
+    bool enableRet = provider.ConsumeBool();
+    bool disableRet = provider.ConsumeBool();
+
+    // 分发族：未注册名（nullptr 分支）/已知名两档
+    profileManager.GetProfileService(unknownName);
+    SleInterfaceProfile *profileService = profileManager.GetProfileService(knownName);
+    (void)profileService;
+    std::vector<uint32_t> profileList = profileManager.GetProfileServicesList();
+    profileManager.GetProfileServiceConnectState(profileId);  // 非法 profileId 分支
+    profileManager.GetProfileServiceConnectState(
+        profileList.empty() ? 0 : profileList.front());
+    std::vector<std::string> supportedUuids;
+    profileManager.GetProfileServicesSupportedUuids(supportedUuids);
+    profileManager.SetSystemSupportProfileServices();
+    std::unordered_set<SleUuid> systemSupport = profileManager.GetSystemSupportProfileServices();
+    (void)systemSupport;
+    profileManager.OnEnable(knownName, enableRet);
+    profileManager.OnEnable(unknownName, enableRet);
+    profileManager.OnDisable(knownName, disableRet);
+    profileManager.OnDisable(unknownName, disableRet);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void SwitchDependencyFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    int32_t unknownSaId = provider.ConsumeIntegral<int32_t>();
+    // 泄漏式永生持有（enable_shared_from_this + 监听器 weak_ptr，绝不析构——R3/R6 判例）
+    static std::shared_ptr<SleSwitchDependency> switchDependency =
+        std::make_shared<SleSwitchDependency>([]() { HILOGI("SwitchDependencyFuzzTest callback hit"); });
+    int32_t initRet = switchDependency->Init();  // 无 samgr 环境返回 -1（依赖未就绪链）
+    (void)initRet;
+    switchDependency->OnAddSystemAbility(COMMON_EVENT_SERVICE_ID);
+    switchDependency->OnAddSystemAbility(DISTRIBUTED_KV_DATA_SERVICE_ABILITY_ID);
+    switchDependency->OnAddSystemAbility(unknownSaId);  // 未知 id 分支
+    switchDependency->OnAddSystemAbility(NEARLINK_HOST_SYS_ABILITY_ID);  // 全满足→回调（就绪链）
+    switchDependency->OnAddSystemAbility(COMMON_EVENT_SERVICE_ID);  // 已满足重复分支
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void UnloadSaFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    InitPr9ThreadStateMapOnce();
+    uint8_t stateIdx = provider.ConsumeIntegral<uint8_t>() % PR9_STATE_TABLE_SIZE;
+    UnloadSa &unloadSa = UnloadSa::GetInstance();
+    unloadSa.StartUnloadNearlinkSaTimer(PR9_STATE_TABLE[stateIdx]);  // 非 TURN_OFF 早退分支
+    unloadSa.StopUnloadNearlinkSaTimer();  // 未启动早退分支
+    unloadSa.StartUnloadNearlinkSaTimer(STATE_TURN_OFF);  // 实启 15s 单发定时器
+    unloadSa.StartUnloadNearlinkSaTimer(STATE_TURN_OFF);  // 已启动幂等分支
+    unloadSa.StopUnloadNearlinkSaTimer();  // 同输入内停表，不悬挂定时器
+    unloadSa.NearlinkHostExtOnIdle();  // DoInAdapterThread + dlopen 扩展插件（环境缺失安全返回）
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+void Frame4AntennaFuzzTest(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    InitPr9ThreadStateMapOnce();
+    SleFrame4AntennaMgr &antennaMgr = SleFrame4AntennaMgr::GetInstance();
+    uint8_t advHandle = provider.ConsumeIntegral<uint8_t>();
+    uint8_t frameType = provider.ConsumeIntegral<uint8_t>() % 4;  // 帧类型值域 0-3
+    uint32_t scannerId = provider.ConsumeIntegral<uint32_t>();
+    int scanMode = provider.ConsumeIntegral<int>();
+    uint32_t scannerId2 = provider.ConsumeIntegral<uint32_t>();
+
+    antennaMgr.OnAdvStarted(advHandle, frameType);
+    antennaMgr.OnAdvStarted(advHandle, frameType);  // 重复开播分支
+    antennaMgr.OnScanStarted(scannerId, scanMode, frameType);
+    antennaMgr.OnScanStarted(scannerId, scanMode, frameType);  // 重复扫描分支
+    // RemoveScanner 为 SleFrame4AntennaMgr 私有方法不可直调(编译实证),
+    // 移除/未命中两分支经下方 OnScanStopped 公有路径间接覆盖
+    antennaMgr.OnScanStopped(scannerId);  // 已移除后停扫
+    antennaMgr.OnScanStarted(scannerId2, scanMode, frameType);
+    antennaMgr.OnScanStopped(scannerId2);
+    antennaMgr.OnAllScanStopped();
+    antennaMgr.OnAdvRemoved(advHandle);
+    antennaMgr.OnAdvRemoved(advHandle);  // 重复移除分支
+}
 class FuzzSleSystemStateObserverStub : public ISystemStateObserver {
 public:
     void OnSystemStateChange(const SleSystemState state) {}
@@ -1048,6 +1248,8 @@ public:
 
 namespace {
 constexpr int SLE_STATE_WAIT_LOOPS = 40; // 40 * 50ms = 2s bounded wait per step
+constexpr uint8_t WALK_TABLE_SIZE = 5;
+constexpr uint8_t WALK_MAX_STEPS = 6;
 }
 
 bool WaitSleStableState(SleServiceManager *manager)
@@ -1110,40 +1312,42 @@ void ServiceManagerLifecycleFuzzTest(const uint8_t *fuzzData, size_t size)
            static_cast<int>(autoConnUserDisc), static_cast<int>(disabling));
 
     // 3) state machine walk: observe state, request, bounded wait for stable
-    SleStateID cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_ON || cur == SleStateID::STATE_TURN_HALF) {
-        manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff
-        WaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_OFF) {
-        manager->EnableToHalf(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnHalf
-        WaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_HALF) {
-        manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy); // -> TurnOn
-        WaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_ON) {
-        manager->Disable(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff or TurnHalf
-        WaitSleStableState(manager);
-    }
     // ponytail: enable-direction failure CMP(false) injection removed — HandleProfileEnableCmpMsg
     // (AdapterStateMachine.cpp) stops only profileTimer_ and leaves the one-shot adapterTimer_
     // armed on the early-exit path; if a later input is in TurningOn/TurningOffToHalf when it
     // fires, MSG_ADAPTER_ENABLE_TIME_OUT hits Reset()=SIGKILL. Re-add only after the product
     // side stops adapterTimer_ on that failure path.
-    // failure direction: profile disable complete(false) during turning off
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_ON || cur == SleStateID::STATE_TURN_HALF) {
-        manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
-        manager->OnProfileServicesDisableComplete(SleTransport::ADAPTER_SLE, false);
+    const uint8_t walkSteps = provider.ConsumeIntegralInRange<uint8_t>(1, WALK_MAX_STEPS);
+    for (uint8_t step = 0; step < walkSteps; step++) {
+        SleStateID before = manager->GetState(SleTransport::ADAPTER_SLE);
+        uint8_t sel = provider.ConsumeIntegral<uint8_t>() % WALK_TABLE_SIZE;
+        HILOGI("walk step(%{public}u/%{public}u) from state(%{public}d) sel(%{public}u)",
+            static_cast<unsigned>(step) + 1, static_cast<unsigned>(walkSteps), static_cast<int>(before),
+            static_cast<unsigned>(sel));
+        switch (sel) {
+            case 0U:
+                manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy);
+                break;
+            case 1U:
+                manager->Disable(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 2U:
+                manager->EnableToHalf(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 3U:
+                manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 4U:
+            default:
+                // failure direction: profile disable complete(false) during turning off
+                manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                manager->OnProfileServicesDisableComplete(SleTransport::ADAPTER_SLE, false);
+                break;
+        }
         WaitSleStableState(manager);
     }
     // corrective: leave the machine enabled for the next fuzz input
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    SleStateID cur = manager->GetState(SleTransport::ADAPTER_SLE);
     if (cur != SleStateID::STATE_TURN_ON) {
         manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy);
         WaitSleStableState(manager);
@@ -1264,6 +1468,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     OHOS::GetBatteryLevelTest(data, size);
     OHOS::GetDeviceInformationTest(data, size);
     OHOS::ServiceManagerLifecycleFuzzTest(data, size);
+
+    OHOS::SleServiceManagerSwitchFuzzTest(data, size);
+    OHOS::ProfileServiceManagerDispatchFuzzTest(data, size);
+    OHOS::SwitchDependencyFuzzTest(data, size);
+    OHOS::UnloadSaFuzzTest(data, size);
+    OHOS::Frame4AntennaFuzzTest(data, size);
 
     return 0;
 }

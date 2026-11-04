@@ -705,7 +705,7 @@ void OnEventFuzzTest(const uint8_t* fuzzData, size_t size)
     value.data = data;
     NLSTK_SsapClientEventInfo_S *property =
         (NLSTK_SsapClientEventInfo_S *)malloc(sizeof(NLSTK_SsapClientEventInfo_S));
-    
+
     int appId = provider.ConsumeIntegral<int>();
     property->handle = provider.ConsumeIntegral<uint16_t>();
     property->uuid = g_uuid;
@@ -716,6 +716,95 @@ void OnEventFuzzTest(const uint8_t* fuzzData, size_t size)
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
 }
 
+// D-3 PR9：OnReadPropertiesByUuid 回调族（基线未驱动）——属性数组批量转换链
+// BuildPropertyByStackProperty 的 data==nullptr 与带值两分支。新函数，消费序独立。
+void OnReadPropertiesByUuidFuzzTest(const uint8_t* fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    NLSTK_Errcode_E ret = NLSTK_ERRCODE_SUCCESS;
+
+    int appId = provider.ConsumeIntegral<int>();
+    uint8_t propNum = provider.ConsumeIntegral<uint8_t>() % 5; // 0..4，数组容量 4
+    std::vector<uint8_t> vec = provider.ConsumeBytes<uint8_t>(8); // 头部 8 字节作属性值
+    NLSTK_SsapClientReadPropertyInfo_S props[4] = {};
+    for (int i = 0; i < 4; i++) {
+        props[i].handle = provider.ConsumeIntegral<uint16_t>();
+        props[i].uuid = g_uuid;
+        props[i].errorCode = provider.ConsumeIntegral<uint8_t>();
+    }
+    // props[0] 保持零初始化：value.data 为空 → BuildPropertyByStackProperty 的 null-data 分支
+    for (int i = 1; i < 4; i++) {
+        props[i].value.data = vec.data(); // 带值档
+        props[i].value.len = vec.size();
+    }
+    SsapClientStackAdapter::OnReadPropertiesByUuid(appId, props, propNum, ret);
+    // 空参矩阵：NL_CHECK_RETURN 空指针分支
+    SsapClientStackAdapter::OnReadPropertiesByUuid(appId, nullptr, propNum, ret);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+// D-3 PR9：OnServiceRediscover 回调族（基线未驱动）——BuildServiceStructByStackService
+// 的属性/方法/事件/描述符全转换循环。serviceType 用合法成员静态表（R7 判例，避开枚举空洞 0x07）。
+void OnServiceRediscoverFuzzTest(const uint8_t* fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    // ITEM_TYPE 合法成员表（ssap_type.h：0x00..0x06、0x08..0x0E，0x07 为空洞）
+    const NLSTK_SsapItemType_E itemTypes[] = {
+        ITEM_TYPE_STD_PRIMARY_SERVICE,
+        ITEM_TYPE_VENDOR_PRIMARY_SERVICE,
+        ITEM_TYPE_STD_SECONDARY_SERVICE,
+    };
+
+    int appId = provider.ConsumeIntegral<int>();
+    uint16_t serviceNum = provider.ConsumeIntegral<uint16_t>() % 2; // 0..1，数组容量 1
+    uint8_t propNum = provider.ConsumeIntegral<uint8_t>() % 2; // 0..1
+    uint8_t methodNum = provider.ConsumeIntegral<uint8_t>() % 2; // 0..1
+    uint8_t eventNum = provider.ConsumeIntegral<uint8_t>() % 2; // 0..1
+    uint8_t dtorNum = provider.ConsumeIntegral<uint8_t>() % 2; // 0..1
+
+    NLSTK_SsapDtor_S dtors[1] = {};
+    dtors[0].handle = provider.ConsumeIntegral<uint16_t>();
+    NLSTK_SsapPrty_S propertys[1] = {};
+    propertys[0].handle = provider.ConsumeIntegral<uint16_t>();
+    propertys[0].uuid = g_uuid;
+    propertys[0].descriptorNum = dtorNum;
+    propertys[0].descriptors = dtors;
+    NLSTK_SsapPrty_S methods[1] = {};
+    methods[0].handle = provider.ConsumeIntegral<uint16_t>();
+    methods[0].uuid = g_uuid;
+    NLSTK_SsapPrty_S events[1] = {};
+    events[0].handle = provider.ConsumeIntegral<uint16_t>();
+    events[0].uuid = g_uuid;
+    NLSTK_SsapServ_S services[1] = {};
+    services[0].handle = provider.ConsumeIntegral<uint16_t>();
+    services[0].endHandle = provider.ConsumeIntegral<uint16_t>();
+    services[0].uuid = g_uuid;
+    services[0].propertyNum = propNum;
+    services[0].properties = propertys;
+    services[0].methodNum = methodNum;
+    services[0].methods = methods;
+    services[0].eventNum = eventNum;
+    services[0].events = events;
+    services[0].serviceType = itemTypes[provider.ConsumeIntegral<uint8_t>() % 3];
+
+    SsapClientStackAdapter::OnServiceRediscover(appId, services, serviceNum);
+    // 空参矩阵：NL_CHECK_RETURN 空指针分支
+    SsapClientStackAdapter::OnServiceRediscover(appId, nullptr, serviceNum);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_50_MS));
+}
+
+// D-3 PR9：OnServiceChange 回调族（基线未驱动）——服务变更通知链。
+void OnServiceChangeFuzzTest(const uint8_t* fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    NLSTK_SsapUuid_S *stackUuid = &g_uuid;
+
+    int appId = provider.ConsumeIntegral<int>();
+    uint16_t handle = provider.ConsumeIntegral<uint16_t>();
+    SsapClientStackAdapter::OnServiceChange(appId, handle, stackUuid);
+    // 空参矩阵：NL_CHECK_RETURN 空指针分支
+    SsapClientStackAdapter::OnServiceChange(appId, handle, nullptr);
+}
 /* 尾部追加段：g_isInit 真时段内直取常驻 profile service（进程级生命周期，
  * 其 adapter 即 g_ssapClientStackAdapter 当前指向），走 public 包装：
  * Enable→真实注册（成功得 appId≥0）→未覆盖包装→Connect/Disconnect→
@@ -838,6 +927,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         OHOS::OnSetPropertyIndicationFuzzTest(data, size);
         OHOS::OnPropertyChangedFuzzTest(data, size);
         OHOS::OnEventFuzzTest(data, size);
+        OHOS::OnReadPropertiesByUuidFuzzTest(data, size);
+        OHOS::OnServiceRediscoverFuzzTest(data, size);
+        OHOS::OnServiceChangeFuzzTest(data, size);
     }
 
     OHOS::DisconnectFuzzTest(data, size);

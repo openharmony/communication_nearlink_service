@@ -90,8 +90,8 @@ void RegisterNearlinkHadmClientCallbackFuzzTest(const uint8_t *fuzzData, size_t 
     MessageParcel reply;
 
     data.WriteInterfaceToken(NearlinkHadmClientStub::GetDescriptor());
-    // RegisterInner 只读 RemoteObject（不读 hadmId）；仍消费保持旧种子取值流
-    (void)provider.ConsumeIntegral<uint32_t>();
+    // RegisterInner 只读 RemoteObject（不读 hadmId）；仍消费保持旧种子取值流，值转投下方注销请求
+    uint32_t hadmId = provider.ConsumeIntegral<uint32_t>();
     if (g_hadmClientCb != nullptr) {
         data.WriteRemoteObject(g_hadmClientCb->AsObject());
     }
@@ -100,6 +100,21 @@ void RegisterNearlinkHadmClientCallbackFuzzTest(const uint8_t *fuzzData, size_t 
         NearlinkHadmClientInterfaceCode::NL_REGISTER_HADM_CLIENT_CALLBACK, data, reply);
     if (ret != NO_ERROR) {
         HILOGI("send req failed, ret(%{public}d)", ret);
+    }
+
+    // hadmId 转投真实参数：作注销请求的 uint32 实参（DE_REGISTER Inner 读序 uint32+RemoteObject），
+    // 注册后立即注销与既有末段注销形成已注册/未注册两分支
+    MessageParcel deregData;
+    MessageParcel deregReply;
+    deregData.WriteInterfaceToken(NearlinkHadmClientStub::GetDescriptor());
+    deregData.WriteUint32(hadmId);
+    if (g_hadmClientCb != nullptr) {
+        deregData.WriteRemoteObject(g_hadmClientCb->AsObject());
+    }
+    int32_t deregRet = HadmClientOnRemoteRequest(
+        NearlinkHadmClientInterfaceCode::NL_DE_REGISTER_HADM_CLIENT_CALLBACK, deregData, deregReply);
+    if (deregRet != NO_ERROR) {
+        HILOGI("send dereg req failed, ret(%{public}d)", deregRet);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::HOST_FUZZ_DELAY_MS));
 }
