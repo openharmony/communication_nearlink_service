@@ -1,0 +1,20 @@
+# PR-10 随机性整改新增种子（req+rsp 成对驱动重构后 FDP 读序，尾向消费）
+seed_mgr_frag_begin.bin -> WRITE_REQ BEGIN(0x08) 建上下文；oversize 段 READ_RSP BEGIN 留异 opcode 上下文 → 常量链 MID 命中 opcode 错配 DROP、BEGIN 命中丢弃旧缓存、链尾组包闭环
+seed_mgr_frag_mid_drop.bin -> MID 无上下文 → DROP（ssap_manager.c:336-339）
+seed_mgr_frag_end_drop.bin -> END 无上下文 → DROP
+seed_mgr_frag_cancel.bin -> ctrl=0x11（CANCEL<<3|MID）→ CANCEL 分支 + cancelProc 回调（:371-381/:419-421）
+seed_mgr_frag_nofrag_cancel.bin -> ctrl=0x13（CANCEL<<3|NO_FRAG）→ 单包 WriteReqHandle 取消写响应路径
+seed_mgr_oversize.bin -> mtu=8 铺底下 16B 分片 → 超 MTU DROP + 上下文清理（:385-394）
+seed_mgr_timeout_exch.bin -> 超时回调 EXCHANGE_INFO_REQ 分支（SSAPC_ExchangeInfoErrorHandle）
+seed_mgr_timeout_find.bin -> 超时回调 FIND_STRUCTURE_REQ 分支（FindReqErrorHandle）
+seed_mgr_timeout_finduuid.bin -> 超时回调 FIND_STRUCTURE_BY_UUID_REQ 分支
+seed_mgr_timeout_read_invalid.bin -> 超时回调 READ_REQ 分支 + valid=false 清任务续跑分支（:473-479）
+seed_mgr_timeout_write.bin -> 超时回调 WRITE_REQ 分支（ValueErrorHandle）
+seed_mgr_timeout_rbu.bin -> 超时回调 READ_BY_UUID_REQ 分支（reqLen=7 档）
+seed_mgr_timeout_method.bin -> 超时回调 CALL_METHOD_REQ 分支
+seed_mgr_timeout_ind.bin -> 超时回调 VALUE_IND 分支（仅日志）
+seed_mgr_timeout_default.bin -> 超时回调 default 分支（ERROR_RSP 档）
+seed_mgr_errrsp_read.bin -> 错误响应 READ_REQ 匹配分发 + errCode=TIMEOUT
+seed_mgr_errrsp_rbu.bin -> 错误响应 READ_BY_UUID_REQ 匹配分发
+seed_mgr_errrsp_exch.bin -> 错误响应 EXCHANGE_INFO_REQ 匹配分发
+seed_mgr_errrsp_mismatch.bin -> msgCodeReq 与 curTask.opcode 错位 → ErrorRspHandle 早退（:748）

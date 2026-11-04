@@ -1,0 +1,14 @@
+# PR-10 随机性整改新增种子（req+rsp 成对驱动重构后 FDP 读序，尾向消费）
+seed_find_start0_reject.bin -> startHandle=0 → INVALID_HANDLE 拒绝分支
+seed_find_cross.bin -> SERVICE_STRUCTURE 跨服务交叉句柄域 [0x12,0x17]
+seed_find_exact_std.bin -> SERVICE_STRUCTURE 精确 SVC_STD 域 [0x10,0x12]
+seed_find_prop_mixed.bin -> PROPERTY×MIX 命中 FillMix* 混排组包路径
+seed_find_method_inexist.bin -> METHOD 无方法服务 → ITEM_INEXIST 分支
+seed_find_event_reject.bin -> EVENT 恒拒绝分支（:1476-1479）
+seed_find_byuuid_hit.bin -> BY_UUID 短码命中 SVC_STD（startH=raw 0x01）
+seed_find_byuuid_mismatch.bin -> BY_UUID 属性 uuid×首要服务 findType → GetUuidType 类型错配（:391-397）
+seed_find_byuuid_prop.bin -> BY_UUID 属性 uuid 命中属性条目
+seed_find_byuuid_cus.bin -> BY_UUID 16B 自定义 uuid 命中 SVC_CUS（itemType=CUS）
+seed_find_v10.bin -> variant OLD 档 → V10 响应族（:1460-1471）+ BY_UUID STD 短码
+seed_find_smallmtu_multirsp.bin -> variant 小 MTU+分包+多响应三档联动（Build*Payload 截断/多响应组包）
+seed_find_multirsp_reject.bin -> 多响应模式无分包能力 → :1449 拒绝分支

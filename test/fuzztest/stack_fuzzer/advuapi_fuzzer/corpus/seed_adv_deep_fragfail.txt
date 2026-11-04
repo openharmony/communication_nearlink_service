@@ -1,0 +1,1 @@
+advuapi FuzzAdvDeepBoundary 变体: 更新路径 bigLen(4114) 三片 FIRST/INTERMEDIATE 成功后 LAST 失败回滚(有历史数据→回IDLE), 再设置成功; 交错 scanRsp 单片(chunk-1); 去使能失败+移除两次失败→走句柄兜底回收; 连接分支参数成功+scanRsp=bigLen(节点存活→兜底回收)

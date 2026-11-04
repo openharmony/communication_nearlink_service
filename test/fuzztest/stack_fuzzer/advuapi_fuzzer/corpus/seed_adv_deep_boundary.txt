@@ -1,0 +1,1 @@
+advuapi FuzzAdvDeepBoundary(R5 每输入执行) 从文件尾向前消费: [advMode/帧型/角色域%4]x2组+长度域%6(基表{0,1,2046,2047,2048,4114},chunk=2047动态)+回包成败ConsumeBool; 特征: 铺底NONCONN_SCANABLE+帧一+T_NO_NEGO常量成功闭环ENABLED, 更新路径恰好chunk单片COMPLETE→chunk+1双片FIRST在途busy拒绝→LAST失败回滚→再设置成功, 交错scanRsp(chunk+4114)三片全成功, 移除失败保留→再移除成功, 连接分支帧四+T_CAN_NEGO参数失败回滚移除

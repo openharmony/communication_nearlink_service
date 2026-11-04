@@ -276,6 +276,114 @@ namespace OHOS {
         SSAP_LinkDeInit();
         SSAPS_ServiceDeInit();
     }
+
+    // SS-F1 find 匹配器补深（ssaps_server_find.c miss 276）：
+    // 句柄 0 拒绝、by-uuid 类型错配（服务/属性 uuid 交叉）、V10 旧设备响应族
+    // （SendFindPrimaryServiceRspV10/SendFindPropertyRspV10 :1460-1471）、
+    // 小 MTU 截断与分包能力（Build*Payload 容量分档）、多响应模式无分包拒绝（:1447-1453）。
+    static SDF_Buff_S *SsapFindFuzzBuff(const uint8_t *bytes, uint32_t len)
+    {
+        SDF_Buff_S *buff = SDF_BuffNew(len);
+        if (buff == nullptr) {
+            return nullptr;
+        }
+        uint8_t *buf = SDF_BuffAppend(buff, len);
+        if (buf == nullptr || memcpy_s(buf, len, bytes, len) != EOK) {
+            SDF_BuffFree(buff);
+            return nullptr;
+        }
+        return buff;
+    }
+
+    /* 构造 FIND 请求并直调 SSAPS_FindReqHandle（真实公开入口，
+     * msgCode/uuid 长度已满足 :1350-1363 的长度族校验） */
+    static void SsapFindFuzzReq(SSAP_Link_S *link, uint8_t msgCode, uint8_t findType, uint8_t itemType,
+        uint8_t rspMode, uint16_t startH, uint16_t endH, const NLSTK_SsapUuid_S *uuid, uint32_t uuidLen)
+    {
+        uint8_t req[6 + SSAP_UUID128_LEN];
+        uint32_t reqLen = sizeof(SSAP_PduFindStructReq_S) + uuidLen;
+        req[0] = msgCode;
+        req[1] = (uint8_t)(findType | (itemType << 3) | (rspMode << 5));
+        req[2] = (uint8_t)(startH & 0xFF);
+        req[3] = (uint8_t)(startH >> 8);
+        req[4] = (uint8_t)(endH & 0xFF);
+        req[5] = (uint8_t)(endH >> 8);
+        if (uuidLen == SSAP_UUID128_LEN) {
+            for (uint32_t i = 0; i < SSAP_UUID128_LEN; i++) {
+                req[6 + i] = uuid->uuid[SSAP_UUID128_LEN - 1 - i]; /* 网络序全量 */
+            }
+        } else if (uuidLen == SSAP_UUID16_LEN) {
+            req[6] = uuid->uuid[15]; /* STD 短码网络序（SSAP_GetUuidFromPktBuf 回填 uuid[14]/[15]） */
+            req[7] = uuid->uuid[14];
+        }
+        SDF_Buff_S *buff = SsapFindFuzzBuff(req, reqLen);
+        if (buff != nullptr) {
+            SSAPS_FindReqHandle(link, buff);
+            SDF_BuffFree(buff);
+        }
+    }
+
+    void FuzzSsapFindDeep(uint8_t* data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+
+        SSAP_LinkInit();
+        SSAPS_ServiceInit();
+        AddService1();
+        AddService2();
+        AddService3();
+
+        SLE_Addr_S sleAddr = {0};
+        sleAddr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            sleAddr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, 0x7A11, SendFunc);
+        if (link == nullptr) {
+            SSAP_LinkDeInit();
+            SSAPS_ServiceDeInit();
+            return;
+        }
+
+        /* 链路能力三档：小 MTU（Build*Payload 截断分支）/ 对端分包（载荷上限取
+         * SSAP_REASSEM_MAX_SIZE 分支）/ 多响应模式（需分包能力否则 :1449 拒绝） */
+        uint8_t variant = fdp.ConsumeIntegral<uint8_t>();
+        if ((variant & 0x01) != 0) {
+            link->mtu = 24; /* ponytail: 直改 mtu 压低容量档触发截断，用后恢复 */
+        }
+        link->fragCtx.fragment = (variant & 0x02) != 0;
+        uint8_t rspMode = ((variant & 0x04) != 0 && link->fragCtx.fragment) ? FIND_RSP_MODE_MULTI_RSP :
+            FIND_RSP_MODE_SINGLE_RSP;
+        /* 设备类型：OLD → V10 响应族（:1460-1471）；NEW → 常规族 */
+        CM_StubDeviceType((variant & 0x08) != 0 ? CM_DEVTYPE_OLD : CM_DEVTYPE_NEW);
+
+        /* —— FDP 域表主驱动（取代原 4+12+6+30 组常量枚举全量重放，语义组合下沉
+         * corpus seed_find_*）：msgCode/findType/itemType/uuid 变体/句柄域全 FDP 选择；
+         * variant 四维（小 MTU/对端分包/多响应/OLD 设备→V10 响应族）为合规域铺底保留；
+         * 注册服务句柄域常量表为结构域铺底保留 —— */
+        uint16_t rangeRaw = fdp.ConsumeIntegral<uint8_t>() % 0x20;
+        uint16_t rangeTable[6] = {0, 0x10, 0x12, 0x14, 0x17, rangeRaw}; /* 0=start 拒绝/服务域/交叉/FDP 小域 */
+        uint16_t startH = rangeTable[fdp.ConsumeIntegral<uint8_t>() % 6];
+        uint16_t endH = rangeTable[fdp.ConsumeIntegral<uint8_t>() % 6];
+        bool byUuid = (fdp.ConsumeIntegral<uint8_t>() & 0x01) != 0;
+        uint8_t findType = fdp.ConsumeIntegral<uint8_t>() % 6; /* 全 6 种 findType（含 0x02/0x05 拒绝分支） */
+        uint8_t itemType = fdp.ConsumeIntegral<uint8_t>() % 3; /* STD/CUS/MIX（MIX 命中 FillMix* 组包） */
+        /* by-uuid uuid 变体域表：服务/属性 uuid 交叉错配（:391-397 GetUuidType 校验）、
+         * STD 短码/16B 全量双档 */
+        static const NLSTK_SsapUuid_S *uuidTable[] = {&g_stdSvcUuid, &g_stdPropUuid1, &g_mixSvcUuid,
+            &g_uuid3, &g_uuid4};
+        const NLSTK_SsapUuid_S *uuid = uuidTable[fdp.ConsumeIntegral<uint8_t>() % 5];
+        uint32_t uuidLen = ((fdp.ConsumeIntegral<uint8_t>() & 0x01) != 0) ? SSAP_UUID128_LEN :
+            SSAP_UUID16_LEN; /* 非 STD 形态 + 短码档 → 不匹配 → ITEM_INEXIST 分支 */
+        SsapFindFuzzReq(link, byUuid ? SSAP_FIND_STRUCTURE_BY_UUID_REQ : SSAP_FIND_STRUCTURE_REQ,
+            findType, itemType, rspMode, startH, endH, byUuid ? uuid : nullptr, byUuid ? uuidLen : 0);
+
+        link->mtu = SSAP_STACK_MTU_DEFAULT; /* 恢复默认，避免跨输入残留 */
+        link->fragCtx.fragment = false;
+        SSAP_DeleteSsapLinkByAddr(&sleAddr);
+        SSAP_LinkDeInit();
+        SSAPS_ServiceDeInit();
+    }
 }
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -293,5 +401,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     uint8_t *fuzzData = fuzzVec.data();
     size_t fuzzSize = fuzzVec.size();
     OHOS::FuzzDliSsapRecvPkt(fuzzData, fuzzSize);
+    OHOS::FuzzSsapFindDeep(fuzzData, fuzzSize);
     return 0;
 }

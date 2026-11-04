@@ -130,6 +130,27 @@ namespace OHOS {
         NLSTK_SmStartPairing(&addr);
     }
 
+    /* PR-10 SM-D9: !329 新增回连安全请求入口(真实公开入口)——
+     * 已配对短路/未配对兜底配对的决策在 sm.c 屏蔽区间内, 此处吃入 nlstk_sm_api.c 的
+     * 空指针守卫/参数拷贝/任务投递全链(与 FuzzSetStartParing 同款铺垫) */
+    void FuzzSetRequestSecurity(const uint8_t* fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+
+        SLE_Addr_S addr;
+        (void)memset_s(&addr, sizeof(SLE_Addr_S), 0, sizeof(SLE_Addr_S));
+        addr.type = fdp.ConsumeIntegral<uint8_t>();
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        SmSLink_S *slink = FuzzStmGetSLink(&addr);
+        if (slink == nullptr) {
+            return;
+        }
+        NLSTK_SmRequestSecurity(&addr);
+        NLSTK_SmRequestSecurity(nullptr); /* 空指针守卫腿 */
+    }
+
     void FuzzSetConfirm(const uint8_t* fuzzData, size_t size)
     {
         FuzzedDataProvider fdp(fuzzData, size);
@@ -235,6 +256,7 @@ namespace OHOS {
         g_slinkMap = SDF_MapCtor(SLE_ADDR_TRAITS(), MAKE_TRAITS(SmSLinkDtor, NULL));
         FuzzSetSecuParams(fuzzData, size);
         FuzzSetStartParing(fuzzData, size);
+        FuzzSetRequestSecurity(fuzzData, size);
         FuzzSetConfirm(fuzzData, size);
         FuzzSetPassCode(fuzzData, size);
         FuzzSetPassWord(fuzzData, size);

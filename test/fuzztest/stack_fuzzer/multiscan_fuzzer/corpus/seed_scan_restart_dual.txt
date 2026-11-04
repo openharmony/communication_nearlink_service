@@ -1,0 +1,1 @@
+multiscan FuzzScanDeepTask 变体: 恢复环 8 轮重放原第 7 步双帧重启——帧一闭环 STARTED 后同扫描器以帧四+reportDelay=100(BATCH 分支)再 Start → 目标≠当前链式 STOPPING→STOPPED→双 PHY 重启→STARTED; 过滤器同 seed_scan_recovery 双命中配置

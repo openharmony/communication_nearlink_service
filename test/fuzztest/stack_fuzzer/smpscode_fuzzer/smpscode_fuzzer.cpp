@@ -447,6 +447,79 @@ namespace OHOS {
         SmSLinkDtor(slink2);
     }
 
+    /* PR-10 SM-D10: T 侧确认码接受/拒收两腿——先让产品自己算出 gNode.mixCode
+     * (SmPassCodeSetGPassCode 内 GenMixPassCode 对 buffM[4..15] 存在未初始化栈读,
+     * 已登记产品缺陷; 用例侧不复制该缺陷、只喂合法 passCode 数字并直接读取产品输出,
+     * 期望确认码 = CMAC(key=Rb, buff=G公钥||T公钥||gNode.mixCode) 再喂回, 不放大不确定字节) */
+    static bool FuzzPcodeGenConfirm(const uint8_t *key, const uint8_t *mixCode, uint8_t *confirm)
+    {
+        uint8_t buff[SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN + SM_MIX_PASSCODE_LEN];
+        (void)memcpy_s(buff, SM_PUBLIC_KEY_LEN, g_gNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(buff + SM_PUBLIC_KEY_LEN, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(buff + SM_PUBLIC_KEY_LEN + SM_PUBLIC_KEY_LEN, SM_MIX_PASSCODE_LEN, mixCode,
+            SM_MIX_PASSCODE_LEN);
+        NLSTK_SmDerivedMac_S input = {
+            .algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2,
+            .buff = buff,
+            .buffSize = sizeof(buff),
+        };
+        (void)memcpy_s(input.key, SM_OCTETS_16, key, SM_OCTETS_16);
+        return SmCmacGenerate(&input, confirm, SM_OCTETS_16);
+    }
+
+    void FuzzSMPcodeTCfmTwoLeg(const uint8_t* fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        /* slink 刻意不入 g_slinkMap(拒收腿迁移 REMV, 同 R1 手法) */
+        SmSLink_S *slink = SmSLinkCtor(&g_tNodeAddr);
+        if (slink == nullptr) {
+            return;
+        }
+        slink->role = SM_G_NODE;
+        slink->negoParams.authMethod = SM_AUTH_PASSCODE;
+        slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY] = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2;
+        (void)memcpy_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, g_gNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->priKey, SM_PRIVATE_KEY_LEN, g_gNodePrivKey, SM_PRIVATE_KEY_LEN);
+        (void)memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb, SM_RANDOM_NUMBER_R_LEN);
+        NLSTK_SmKeyPair_S keyPair = {
+            .algo = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2,
+        };
+        (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, g_gNodePrivKey, SM_PRIVATE_KEY_LEN);
+        (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, g_gNodePubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, g_tNodePubKey, SM_PUBLIC_KEY_LEN);
+        if (!SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN)) {
+            SmSLinkDtor(slink);
+            return;
+        }
+        /* 产品侧先跑 G 置码: 生成 Ra/gNode.mixCode/gNode.confirm 并发送 */
+        slink->gNode.passCode = fdp.ConsumeIntegral<uint32_t>();
+        SmPassCodeSetGPassCode(slink);
+        /* 期望 T 确认码基于产品已算出的 gNode.mixCode 派生, 喂回走接受腿 */
+        uint8_t tConfirm[SM_OCTETS_16] = {0};
+        if (FuzzPcodeGenConfirm(g_tNodeRb, slink->gNode.mixCode, tConfirm)) {
+            SmAuthTCfmWithRbMsg_S msg = {};
+            (void)memcpy_s(msg.tNodeCfm, SM_OCTETS_16, tConfirm, SM_OCTETS_16);
+            (void)memcpy_s(msg.randomB, SM_OCTETS_16, g_tNodeRb, SM_OCTETS_16);
+            slink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_G 分支 */
+            SmPassCodeAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, slink,
+                (const uint8_t *)&msg, sizeof(msg)); /* 接受腿: ->DHKey/LinkKey->SmSendGNodeDhKey */
+            SmPassCodeAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, slink,
+                (const uint8_t *)&msg, sizeof(msg) - 1); /* 截断腿: size 守卫 */
+            msg.tNodeCfm[fdp.ConsumeIntegral<uint8_t>() % SM_OCTETS_16] ^=
+                (uint8_t)(1u << (fdp.ConsumeIntegral<uint8_t>() % 8));
+            SmPassCodeAuthPkgDispatcher(SM_AUTH_T_NODE_CFM_WITH_RB, slink,
+                (const uint8_t *)&msg, sizeof(msg)); /* 拒收腿: SM_ERR_PASSCODE */
+            static bool fuzzPcodeTLogged = false;
+            if (!fuzzPcodeTLogged) {
+                CP_LOG_ERROR("[FUZZ]SM-D10 T cfm legs done, state=%d", (int)slink->curStateIndex);
+                fuzzPcodeTLogged = true;
+            }
+        }
+        SmSLinkDtor(slink);
+    }
+
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
         if (g_slinkMap != NULL) {
@@ -456,6 +529,7 @@ namespace OHOS {
         g_slinkMap = SDF_MapCtor(SLE_ADDR_TRAITS(), MAKE_TRAITS(SmSLinkDtor, NULL));
         FuzzGenDhKeyAndLinkKey(fuzzData, size);
         FuzzSMR1CfmAcceptAndReject(fuzzData, size);
+        FuzzSMPcodeTCfmTwoLeg(fuzzData, size);
         FuzzSMDigit(fuzzData, size);
         FuzzSMPassCodeAuthStartCase1(fuzzData, size);
         FuzzSMPassCodeAuthStartCase2(fuzzData, size);

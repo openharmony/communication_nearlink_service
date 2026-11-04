@@ -69,4 +69,36 @@ void CmFuzzerSleConnectRemoteParamUpdateReqEvt(DLI_RemoteConnParamReqEvt *evt);
 
 void CmFuzzerSetPhyEvt(DLI_SetPhyEvt *evt);
 
+/* ---- PR-10 DLI 帧事件时序注入族（经 CM_COMMON 适配器表/CM 命令表真实分发）---- */
+// 反注册时按 module 清表槽（cm_dli_mocker.c 的 DLI_CmdCbkUnReg 转调）
+// C 编译单元直接调用，必须 C 链接（红队 P0-1：缺 extern "C" 时 C 侧 undefined reference）
+#ifdef __cplusplus
+extern "C" {
+#endif
+void CmFuzzerUtilClearModuleTable(ModuleType module);
+#ifdef __cplusplus
+}
+#endif
+
+// 带 status/自定义 context 的分发底座
+void CmFuzzerDispatchCmdStatus(uint16_t cbkOpcode, void *evt, uint32_t evtSize, uint8_t status, uint16_t connHandle,
+    void *rawContext);
+
+// 完整版连接完成事件：role 区分 G/T 节点，connCompleteType 区分主动(SCAN)/被动(ADV)，
+// evt status 非 0 走建链失败路径
+void CmFuzzerSleConnectCompleteEvtEx(uint16_t handle, const SLE_Addr_S *addr, uint8_t status, uint8_t role,
+    uint8_t connCompleteType);
+
+// 连接命令级错误注入（DISALLOWED 忽略/TIMEOUT 取消连接中链路/其他错误直接返回）
+void CmFuzzerSleConnectErrEvt(uint8_t dliStatus);
+
+// 断开事件变体：cmdOpcode 传 DLI_CMD_ERROR_EVT 追加注入命令错误分支
+void CmFuzzerSleDisconnectEvtEx(uint16_t handle, uint8_t reason, uint16_t cmdOpcode);
+
+// CM 表通用事件注入（ACB subrate/高功率/RxDataFilter/DataLenChange/RSSI 等）
+void CmFuzzerGenericCmEvt(uint16_t cbkOpcode, void *evt, uint32_t evtSize, uint8_t status, uint16_t connHandle);
+
+// SET_PEER_DEV_TYPE 专用（context 直接是 SLE_Addr_S*）
+void CmFuzzerPeerDevTypeEvt(const SLE_Addr_S *addr, uint8_t status);
+
 #endif // TEST_FUZZTEST_CM_FUZZER_UTIL_H

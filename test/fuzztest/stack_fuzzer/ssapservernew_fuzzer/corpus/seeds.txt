@@ -1,0 +1,12 @@
+# PR-10 随机性整改新增种子（req+rsp 成对驱动重构后 FDP 读序，尾向消费）
+seed_srv_read_ok3.bin -> 多值读 3×0x11 句柄真实序列化（okReq 语义，ReadMultiHandleReq :456-641）
+seed_srv_read_deny.bin -> 多值读 0x12 授权属性 → CheckMultiReadAuthNeed 拒绝（denyReq 语义，:427-447）
+seed_srv_write_single.bin -> 单值写实录可写属性成功路径（wrSingle 语义）
+seed_srv_write_multi.bin -> 多值写 2 子项校验+执行+回环（wrMulti 语义）
+seed_srv_write_multibad.bin -> 多值写子项声明长度 0x0100 越界 → INVALID_PDU（wrMultiBad 语义，GetNextMultiItemPos）
+seed_srv_write_zero.bin -> 多值写子项数 0 → INVALID_HANDLE 结果项（wrMultiZero 语义，:653-657）
+seed_srv_write_cancel.bin -> 取消写单包 ctrl=0x13 → SendWriteCancelRsp（wrCancel 语义）
+seed_srv_ack.bin -> 指示确认 RECV_SUCCESS → 应用回调（valueAck 语义，:1116-1141）
+seed_srv_method_ok.bin -> 方法 REQ 实录方法句柄命中 → MethodExecute（methodReq 语义，:1275）
+seed_srv_method_bad.bin -> 方法 REQ 非法句柄 0x99 档 → MethodErrorProcess 错误响应（methodBad 语义）
+seed_srv_rbu.bin -> 按 UUID 读多值 multiProcessing 组包（rbuReq 语义，g_uuid2Net 网络序，:923-1014）

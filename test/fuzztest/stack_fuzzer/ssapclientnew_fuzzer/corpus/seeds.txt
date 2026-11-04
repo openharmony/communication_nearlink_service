@@ -1,0 +1,23 @@
+# PR-10 随机性整改新增种子（req+rsp 成对驱动重构后 FDP 读序，尾向消费）
+seed_cli_find_std.bin -> FIND 新设备 PRIMARY_SERVICE×STD 2 条目（svcStd 语义，DecodePrimaryService STD）
+seed_cli_find_cus.bin -> FIND PRIMARY_SERVICE×CUS 16B uuid 条目（svcCus 语义）
+seed_cli_find_mix.bin -> FIND PRIMARY_SERVICE×MIX 指示头双组（mixIndStd/mixIndCus 语义，DecodeMixPrimaryService）
+seed_cli_find_prop.bin -> FIND PROPERTY×STD 属性条目带 1 描述符（propStd 语义，DecodeProperty）
+seed_cli_find_struct.bin -> FIND SERVICE_STRUCTURE×MIX 服务/属性/事件成员 + 残余 1B extra-data 分支（stru* 语义，DecodeMixStructure）
+seed_cli_find_v10_svc.bin -> BY_UUID+OLD V10 服务条目×2 无 uuid（v10Svc 语义，DecodePrimaryServiceByUuidV10）
+seed_cli_find_v10_prop.bin -> BY_UUID+OLD V10 属性条目（v10Prop 语义，DecodePropertyByUuidV10）
+seed_cli_read_single_ok.bin -> READ_RSP 单值成功裸 value（readOk 语义）
+seed_cli_read_single_err.bin -> READ_RSP 单值错误 errCode=5（readErr 语义，:841-856）
+seed_cli_read_multi_fill.bin -> READ_RSP 多值 2 成功+1 错误 → FillErrorItems 按句柄数补齐（multiRsp 语义，:915-941）
+seed_cli_rbu_single.bin -> READ_BY_UUID_RSP 单实例裸值（rbuSingle 语义）
+seed_cli_rbu_multi.bin -> READ_BY_UUID_RSP 多实例位：错误指示+带值指示（rbuMulti 语义）
+seed_cli_rbu_err.bin -> READ_BY_UUID_RSP 错误指示位（rbuErr 语义）
+seed_cli_write_verify.bin -> WRITE_RSP 成功+原值返回 items={handle,type,value}（wrOkVerify 语义，:1181-1190）
+seed_cli_write_plain_probe.bin -> WRITE_RSP 成功无原值 len=3 探测 verify=0 len>2 互斥守卫分支（wrOkPlain 语义）
+seed_cli_write_part.bin -> WRITE_RSP 部分写入错误项（wrPart 语义，HandleWriteRspHandleError）
+seed_cli_write_cancel.bin -> WRITE_RSP 取消写入错误项（wrCancel 语义）
+seed_cli_cm.bin -> CALL_METHOD_RSP 裸返回值（cmRsp 语义，:1401-1428）
+seed_cli_ntf_servchange.bin -> VALUE_NTF 普通条目+服务变更句柄域条目（ntf 语义，HandleServChangeEvent）
+seed_cli_ntf_trunc.bin -> VALUE_NTF 条目声明长度越界中断（ntfTrunc 语义，:1289-1292）
+seed_cli_ind_multi.bin -> VALUE_IND 多条目 → SendAck 回发（ind 语义）
+seed_cli_ind_trunc.bin -> VALUE_IND 条目越界中断 → itemCount=0 SendAck 早退（indTrunc 语义，:1350-1352）
