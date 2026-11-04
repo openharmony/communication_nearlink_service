@@ -114,8 +114,6 @@ public:
     bool CheckSinkIsSameAccount(const DmAccessCaller &caller, const DmAccessCallee &callee) override { return -1; }
 };
 
-DeviceManager::~DeviceManager() {}
-
 DeviceManager& DeviceManager::GetInstance()
 {
     static DmFuzzStub instance;

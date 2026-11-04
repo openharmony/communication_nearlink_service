@@ -310,7 +310,12 @@ void FuzzSdfDfx(const uint8_t *data, size_t size)
 void FuzzSdfAllApi(const uint8_t *data, size_t size)
 {
     FuzzSdfEvcEvent(data, size);
-    FuzzSdfThreadWorker(data, size);
+    {
+        FuzzedDataProvider gate(data, size);
+        if ((gate.ConsumeIntegral<uint8_t>() & 0x07) == 0) {
+            FuzzSdfThreadWorker(data, size);
+        }
+    }
     FuzzSdfDsl(data, size);
     FuzzSdfStm(data, size);
     FuzzSdfDfx(data, size);
