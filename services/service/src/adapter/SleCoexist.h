@@ -67,8 +67,9 @@ private:
     // 非调速设备仅需自定义参数时的处理
     void UpdateCustomParamDevice(const CoexistConnInfo& info);
 
-    // 参与调速设备按序号分配目标间隔
-    void UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex);
+    // 占用高速槽位的设备（间隔未知或小于7.5ms）按槽位分配目标间隔
+    void UpdateFastSlotDeviceParam(const CoexistConnInfo& info, int deviceCount,
+        bool isNeedAdjustInterval, bool isNeedAdjustExt);
 
     // 发送连接参数到底层
     void SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
