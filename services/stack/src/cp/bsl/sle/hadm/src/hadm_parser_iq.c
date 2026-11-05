@@ -105,7 +105,6 @@ static HadmIqValue_S *HadmGetIqData(uint8_t *data, uint32_t iqChnlNum)
 HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
 {
     NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%d) ", dataLen);
-    // 校验固定前缀够长，后续固定偏移读取才安全
     NLSTK_CHECK_RETURN(dataLen >= HADM_IQ_FIXED_LEN, NULL,
         "[HADM] iq report too short, dataLen(%zu) minLen(%u)", dataLen, (uint32_t)HADM_IQ_FIXED_LEN);
     uint8_t *iqInfoFromDli = data;
@@ -132,7 +131,6 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     if (isBit10Set) {
         iqInfoFromDli += sizeof(uint8_t);
     }
-    // 校验 IQ 数据总量加尾部够长，再裸读 IQ 数据
     uint32_t needLen = HADM_IQ_FIXED_LEN + (isBit10Set ? HADM_IQ_MULTITONE_INFO_LEN : 0) +
         iqInfo->iqChnlNum * HADM_IQ_LEN + HADM_IQ_TAIL_LEN;
     if (dataLen < needLen) {
