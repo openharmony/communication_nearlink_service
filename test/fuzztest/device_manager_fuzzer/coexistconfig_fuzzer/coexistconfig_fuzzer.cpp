@@ -12,130 +12,80 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "device_manager_fuzzer_common.h"
-#include "fuzztest_utils.h"
-#include "fuzzer/FuzzedDataProvider.h"
-#include <filesystem>
-#include "AdapterDeviceConfig.cpp"
-#include "SleCoexistManager.h"
-#include "SleCoexistData.h"
-#include "ManufacturerAbilityLoader.h"
-#include "raw_address.h"
+#ifndef SLE_COEXSIT_H
+#define SLE_COEXSIT_H
 
+#include "BaseDef.h"
+#include "nearlink_timer.h"
+#include "SleDefs.h"
+#include "cm.h"
+#include "cm_api.h"
+#include "SleServiceFfrtLog.h"
+
+/*
+ * @brief The nearlink system.
+ */
 namespace OHOS {
 namespace Nearlink {
 
-void FuzzSleCoexistManager(const uint8_t *data, size_t size)
-{
-    if (size < 2) return;
-    FuzzedDataProvider provider(data, size);
-    SleCoexistManager *mgr = SleCoexistManager::GetInstance();
-    if (mgr == nullptr) return;
-    CoexistConnInfo connInfo;
-    connInfo.lcid = provider.ConsumeIntegral<uint16_t>();
-    connInfo.interval = provider.ConsumeIntegral<uint16_t>();
-    connInfo.latency = provider.ConsumeIntegral<uint16_t>();
-    connInfo.timeout = provider.ConsumeIntegral<uint16_t>();
-    connInfo.addr = {};
-    for (int i = 0; i < 6; i++) connInfo.addr.addr[i] = provider.ConsumeIntegral<uint8_t>();
-    connInfo.addr.type = provider.ConsumeIntegral<uint8_t>();
-    mgr->UpdateConnectionInfo(connInfo);
-    mgr->OnConnectionRemoved(connInfo.lcid);
-    uint16_t timeout = 0;
-    uint16_t maxLatency = 0;
-    SLE_Addr_S testAddrS = {};
-    for (int i = 0; i < 6; i++) testAddrS.addr[i] = provider.ConsumeIntegral<uint8_t>();
-    testAddrS.type = provider.ConsumeIntegral<uint8_t>();
-    mgr->GetConnectionParam(testAddrS, timeout, maxLatency);
-    mgr->IterateConnInfo([](const CoexistConnInfo &info) {(void)info;});
-    mgr->HasMultipleConnections();
-    mgr->ClearAll();
-}
+struct CoexistConnInfo;
 
-void FuzzAdapterDeviceConfig(const uint8_t *data, size_t size)
-{
-    if (size < 2) return;
-    FuzzedDataProvider provider(data, size);
-    IAdapterDeviceConfig *config = AdapterDeviceConfig::GetInstance();
-    if (config == nullptr) return;
-    std::string section = BuildAddressString(provider);
-    std::string subSection = BuildAddressString(provider);
-    std::string property = BuildAddressString(provider);
-    std::string strVal = provider.ConsumeRandomLengthString(64);
-    int intVal = provider.ConsumeIntegral<int>();
-    bool boolVal = provider.ConsumeBool();
-    config->CreateFile();
-    config->Load();
-    config->Reload();
-    config->Save();
-    config->Fsync();
-    int outInt = 0;
-    std::string outStr;
-    bool outBool = false;
-    char charBuf[256] = {0};
-    config->GetValue(section, subSection, property, outInt);
-    config->GetValue(section, subSection, property, outStr);
-    config->GetValue(section, subSection, property, charBuf, 255);
-    config->GetValue(section, subSection, property, outBool);
-    config->GetValue(section, property, outInt);
-    config->GetValue(section, property, outStr);
-    config->GetValue(section, property, outBool);
-    config->SetValue(section, subSection, property, intVal);
-    config->SetValue(section, subSection, property, strVal);
-    config->SetValue(section, subSection, property, boolVal);
-    config->SetValue(section, property, intVal);
-    config->SetValue(section, property, strVal);
-    std::vector<std::string> subSections;
-    config->GetSubSections(section, subSections);
-    config->RemoveSection(section, subSection);
-    config->RemoveSection(section);
-}
+/*
+ * @brief SLE 共存控制适配器
+ *
+ * 负责定时器管理和触发共存参数更新
+ * 数据管理已迁移到 SleCoexistManager
+ */
+class SleCoexist : public std::enable_shared_from_this<SleCoexist> {
+public:
+    /**
+     * @brief Constructor.
+     */
+    SleCoexist();
 
-void FuzzManufacturerAbilityLoader(const uint8_t *data, size_t size)
-{
-    if (size < 2) return;
-    FuzzedDataProvider provider(data, size);
-    ManufacturerAbilityLoader &loader = ManufacturerAbilityLoader::GetInstance();
-    loader.Load();
-    loader.Unload();
-    (void)loader.GetLocalAbility();
-    std::vector<uint8_t> filterBytes = provider.ConsumeBytes<uint8_t>(SLE_MANU_ABILITY_LEN);
-    std::array<uint8_t, SLE_MANU_ABILITY_LEN> filterAbility;
-    std::copy(filterBytes.begin(), filterBytes.end(), filterAbility.begin());
-    loader.FilterAbility(filterAbility);
-    uint8_t index = provider.ConsumeIntegral<uint8_t>();
-    loader.CheckAbility(index);
-    loader.SetLocalAbility(index, provider.ConsumeBool());
-    RawAddress rawAddr = BuildRawAddress(provider);
-    loader.GetAbilityValue(rawAddr, index);
-    std::string abilityName = provider.ConsumeRandomLengthString(64);
-    loader.GetAbilityIndex(abilityName);
-}
+    /**
+     * @brief Destructor.
+     */
+    virtual ~SleCoexist();
 
+    // 初始化
+    void Init();
+
+    void ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param);
+    void ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr);
+
+private:
+    // 定时器回调
+    static void UpdateTimerCallback(std::weak_ptr<SleCoexist> sleCoexistImpl);
+
+    // 执行共存参数更新 (调用 Manager)
+    void UpdateConnParam();
+
+    // 刷新设备外观及自定义参数标记
+    void RefreshAppearanceAndCustomFlag(const CoexistConnInfo& info);
+
+    // 非调速设备仅需自定义参数时的处理
+    void UpdateCustomParamDevice(const CoexistConnInfo& info);
+
+    // 参与调速设备按序号分配目标间隔
+    void UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex);
+
+    // 发送连接参数到底层
+    void SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
+
+    // 定时器控制
+    void StartParamUpdateTimer();
+    void StopParamUpdateTimer();
+
+    SLE_DISALLOW_COPY_AND_ASSIGN(SleCoexist);
+
+    std::unique_ptr<NearlinkTimer> updateTimer_ = nullptr;
+    int updateDuration_ = CM_CONN_UPDATE_DURATION; // ms
+    std::weak_ptr<SleCoexist> selfWeak_;
+    bool isNeedCustomParam_ = false;
+    int appearance_ = INVALID_APPEARANCE;
+};
 }  // namespace Nearlink
 }  // namespace OHOS
 
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
-{
-    (void)argc;
-    (void)argv;
-    std::filesystem::create_directories(OHOS::Nearlink::SLE_CONFIG_DIR);
-    OHOS::Nearlink::AdapterDeviceConfig *cfg = static_cast<OHOS::Nearlink::AdapterDeviceConfig *>(OHOS::Nearlink::AdapterDeviceConfig::GetInstance());
-    cfg->pimpl->filePath_ = OHOS::Nearlink::SLE_CONFIG_DIR + cfg->pimpl->fileName_;
-    return 0;
-}
-
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
-{
-    using namespace OHOS::Nearlink;
-    if (data == nullptr || size == 0) return 0;
-    FuzzedDataProvider provider(data, size);
-    uint32_t category = provider.ConsumeIntegral<uint32_t>();
-    switch (category % 3) {
-        case 0: FuzzSleCoexistManager(data, size); break;
-        case 1: FuzzAdapterDeviceConfig(data, size); break;
-        case 2: FuzzManufacturerAbilityLoader(data, size); break;
-        default: break;
-    }
-    return 0;
-}
+#endif  // SLE_COEXSIT_H

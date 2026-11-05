@@ -27,6 +27,9 @@
  */
 namespace OHOS {
 namespace Nearlink {
+
+struct CoexistConnInfo;
+
 /*
  * @brief SLE 共存控制适配器
  *
@@ -58,8 +61,17 @@ private:
     // 执行共存参数更新 (调用 Manager)
     void UpdateConnParam();
 
+    // 刷新设备外观及自定义参数标记
+    void RefreshAppearanceAndCustomFlag(const CoexistConnInfo& info);
+
+    // 非调速设备仅需自定义参数时的处理
+    void UpdateCustomParamDevice(const CoexistConnInfo& info);
+
+    // 参与调速设备按序号分配目标间隔
+    void UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex);
+
     // 发送连接参数到底层
-    void SendConnectionParam(uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
+    void SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
 
     // 定时器控制
     void StartParamUpdateTimer();

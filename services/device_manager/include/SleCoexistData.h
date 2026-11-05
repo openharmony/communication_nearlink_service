@@ -33,6 +33,7 @@ struct CoexistConnInfo {
     uint16_t interval = 0;          // 链路调度间隔，单位 slot
     uint16_t latency = 0;           // 延迟周期，单位为事件组周期
     uint16_t timeout = 0;           // 超时时间，单位 10ms
+    bool intervalKnown = false;     // 间隔是否已知：建链时未知，收到参数更新事件后为已知
     SLE_Addr_S addr = {};           // 设备地址
 
     // 定义==运算符，用于 NearlinkSafeList 的 Insert 方法
