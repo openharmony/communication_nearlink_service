@@ -3107,6 +3107,47 @@ HWTEST_F(ASCServiceTest, OpenVoiceAssistant_001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CloseVoiceAssistant_001
+ * @tc.desc: Keep the calling flag in call-related audio scenes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, CloseVoiceAssistant_001, TestSize.Level1)
+{
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    auto &audioManager = AudioStandard::AudioSystemClientPolicyManager::GetInstance();
+    AudioStandard::AudioScene oldScene = audioManager.GetAudioScene();
+    const AudioStandard::AudioScene callScenes[] = {
+        AudioStandard::AudioScene::AUDIO_SCENE_RINGING,
+        AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CALL,
+        AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CHAT,
+        AudioStandard::AudioScene::AUDIO_SCENE_VOICE_RINGING,
+    };
+    for (const auto &scene : callScenes) {
+        EXPECT_EQ(0, audioManager.SetAudioScene(scene));
+        AudioStandard::AudioScene expectedScene = scene;
+        if (scene == AudioStandard::AudioScene::AUDIO_SCENE_VOICE_RINGING) {
+            expectedScene = AudioStandard::AudioScene::AUDIO_SCENE_RINGING;
+        }
+        EXPECT_EQ(expectedScene, audioManager.GetAudioScene());
+        asc->SetIsCallingFlag(true);
+        asc->CloseVoiceAssistant(device, AUDIO_STREAM_VOICE_ASSISTANT);
+        EXPECT_TRUE(asc->GetIsCallingFlag());
+    }
+
+    EXPECT_EQ(0, audioManager.SetAudioScene(AudioStandard::AudioScene::AUDIO_SCENE_DEFAULT));
+    asc->SetIsCallingFlag(true);
+    asc->CloseVoiceAssistant(device, AUDIO_STREAM_VOICE_ASSISTANT);
+    EXPECT_FALSE(asc->GetIsCallingFlag());
+
+    asc->SetIsCallingFlag(true);
+    asc->CloseVoiceAssistant(device, AUDIO_STREAM_MUSIC);
+    EXPECT_TRUE(asc->GetIsCallingFlag());
+    EXPECT_EQ(0, audioManager.SetAudioScene(oldScene));
+    delete asc;
+}
+
+/**
  * @tc.name: CheckStreamIsNeedNotifyCcp_001
  * @tc.desc: CheckStreamIsNeedNotifyCcp
  * @tc.type: FUNC

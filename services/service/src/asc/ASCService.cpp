@@ -6700,7 +6700,13 @@ void ASCService::OpenVoiceAssistant(const RawAddress &device, AudioStreamType st
 void ASCService::CloseVoiceAssistant(const RawAddress &device, AudioStreamType streamType)
 {
     if (streamType == AUDIO_STREAM_VOICE_ASSISTANT) {
-        SetIsCallingFlag(false);
+        AudioStandard::AudioScene scene = AudioStandard::AudioSystemClientPolicyManager::GetInstance().GetAudioScene();
+        if ((scene != AudioStandard::AudioScene::AUDIO_SCENE_RINGING) &&
+            (scene != AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CALL) &&
+            (scene != AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CHAT) &&
+            (scene != AudioStandard::AudioScene::AUDIO_SCENE_VOICE_RINGING)) {
+            SetIsCallingFlag(false);
+        }
         VasService *vasService = VasService::GetService();
         if (vasService != nullptr) {
             vasService->CloseVoiceAssistant(device);
