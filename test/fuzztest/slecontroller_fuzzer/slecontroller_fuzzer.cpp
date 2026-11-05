@@ -29,11 +29,18 @@
 #include "securec.h"
 #include "raw_address.h"
 #include "SleAdapter.h"
+#include "SleAdapterWrapper.h"
 #include "SleCoexist.h"
 #include "SleControllerService.h"
 #include "SleProfileConnectManager.h"
+#include "SleReconnectManager.h"
+#include "SleRemoteDeviceAdapter.h"
 #include "SleSecurity.h"
 #include "SleInterfaceManager.h"
+#include "nearlink_def.h"
+#include "nearlink_device_model.h"
+#include "nearlink_safe_list.h"
+#include "sle_service_data.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
@@ -48,6 +55,40 @@ constexpr int SLE_CONTROLLER_FUZZ_INTERVAL_TYPE_NUM = 10;    // ConnectionInterv
 constexpr int SLE_CONTROLLER_FUZZ_COEX_DEVICE_NUM = 9;
 constexpr int SLE_CONTROLLER_FUZZ_NAME_MAX_LEN = 32;
 constexpr int SLE_CONTROLLER_FUZZ_PASSCODE_MOD = 1000000;
+constexpr int SLE_CONTROLLER_FUZZ_CONN_STATE_NUM = 5;       // SleConnState: DISCONNECTED~ENCRYPTED
+constexpr int SLE_CONTROLLER_FUZZ_CONN_DIRECT_NUM = 2;      // SleConnDirect: PASSIVE/ACTIVE
+constexpr int SLE_CONTROLLER_FUZZ_ADDR_TYPE_NUM = 8;        // SLE_ADDR_TYPE: PUBLIC~ADDR_TYPE_END(边界)
+constexpr int SLE_CONTROLLER_FUZZ_ROLE_NUM = 2;             // primary/secondary
+constexpr int SLE_CONTROLLER_FUZZ_DISC_REASON_NUM = 3;      // SleDiscReason 成员数（稀疏值，走静态表）
+constexpr int SLE_CONTROLLER_FUZZ_PAIR_STATE_NUM = 4;       // SlePairState 成员数（稀疏值，走静态表）
+constexpr int SLE_CONTROLLER_FUZZ_APPEARANCE_TABLE_SIZE = 10;
+constexpr int SLE_CONTROLLER_FUZZ_RECONN_BG_MAX_NUM = 20;   // 覆盖 16(默认上限)/0/1 边界
+constexpr int SLE_CONTROLLER_FUZZ_RECONN_LIST_NUM = 4;
+constexpr int SLE_CONTROLLER_FUZZ_HID_REPORT_TYPE_NUM = 4;  // RESERVED/INPUT/OUTPUT/FEATURE
+// 稀疏枚举值静态表（PR7 R7 先例）：断链原因/配对状态/外观
+const uint8_t SLE_CONTROLLER_FUZZ_DISC_REASON_TABLE[SLE_CONTROLLER_FUZZ_DISC_REASON_NUM] = {
+    static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_COMMAND_TIMEOUT),
+    static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_REMOTE_USER_TERMINATED),
+    static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_CANCEL_PAIR),
+};
+const int SLE_CONTROLLER_FUZZ_PAIR_STATE_TABLE[SLE_CONTROLLER_FUZZ_PAIR_STATE_NUM] = {
+    static_cast<int>(SlePairState::SLE_PAIR_NONE),
+    static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+    static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+    static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+};
+const int SLE_CONTROLLER_FUZZ_APPEARANCE_TABLE[SLE_CONTROLLER_FUZZ_APPEARANCE_TABLE_SIZE] = {
+    INVALID_APPEARANCE,
+    0,
+    static_cast<int>(DeviceClassForService::DEVICE_SMART_WATCH),
+    static_cast<int>(DeviceClassForService::DEVICE_KEYBOARD),
+    static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
+    static_cast<int>(DeviceClassForService::DEVICE_HANDLE),
+    static_cast<int>(DeviceClassForService::DEVICE_STYLUS),
+    static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE),
+    static_cast<int>(DeviceClassForService::DEVICE_CLASS_VEHICLE_LOCK),
+    static_cast<int>(DeviceClassForService::DEVICE_NETWORKING),
+};
 sptr<NearlinkSleControllerServer> g_sleController = new NearlinkSleControllerServer();
 ThreadUtil &g_threadUtil = ThreadUtil::GetInstance();
 // counters for SleProfileConnectManagerFucs callbacks
@@ -435,6 +476,229 @@ void SleProfileConnectManagerFuzzTest(FuzzedDataProvider &provider)
 
     std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
 }
+
+// F. SleRemoteDeviceAdapter direct calls (GetInstance singleton: take only, never destruct;
+//    most methods go DoInDeviceAdapterThread + future.get(), must stay in InitThreadStateMap window)
+void SleRemoteDeviceAdapterFuzzTest(FuzzedDataProvider &provider)
+{
+    SleRemoteDeviceAdapter *deviceAdapter = SleRemoteDeviceAdapter::GetInstance();
+    NL_CHECK_RETURN(deviceAdapter != nullptr, "deviceAdapter is nullptr");
+
+    /* 连接态组合矩阵：建档 -> ACL/业务状态置位 -> 连接完成 -> 查询族 -> 断链顺序 */
+    RawAddress connDevice = BuildRawAddress(provider);
+    SleConnState connState = static_cast<SleConnState>(
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_CONN_STATE_NUM);
+    uint16_t lcid = provider.ConsumeIntegral<uint16_t>();
+    uint8_t role = provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_ROLE_NUM;
+    uint8_t addrType = static_cast<uint8_t>(static_cast<SLE_ADDR_TYPE>(
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_ADDR_TYPE_NUM));
+    uint8_t discReason = SLE_CONTROLLER_FUZZ_DISC_REASON_TABLE[
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_DISC_REASON_NUM];
+    int pairStatus = SLE_CONTROLLER_FUZZ_PAIR_STATE_TABLE[
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_PAIR_STATE_NUM];
+
+    deviceAdapter->SleAddPeerList(connDevice);
+    deviceAdapter->SetAcbState(connDevice.GetAddress(), static_cast<int>(connState));
+    deviceAdapter->SetLcid(connDevice.GetAddress(), lcid);
+    deviceAdapter->SetPairStatus(connDevice, pairStatus);
+    deviceAdapter->SetPrePairStatus(connDevice, pairStatus);
+    deviceAdapter->ConnectionCompleteHelper(connDevice, lcid, role, addrType);
+    (void)deviceAdapter->IsAcbConnected(connDevice);
+    (void)deviceAdapter->IsAcbEncrypted(connDevice);
+    (void)deviceAdapter->GetAcbState(connDevice.GetAddress());
+    (void)deviceAdapter->GetLcidByAddress(connDevice);
+    (void)deviceAdapter->GetAddressByLcid(lcid);
+    (void)deviceAdapter->GetPairState(connDevice);
+    (void)deviceAdapter->GetPairStatus(connDevice);
+    (void)deviceAdapter->GetLinkRole(connDevice);
+    (void)deviceAdapter->GetConnectedCnt();
+    (void)deviceAdapter->HasConnectedDevice();
+    (void)deviceAdapter->GetConnectedDevices();
+    (void)deviceAdapter->GetPairedDevices();
+    int connDirect = static_cast<int>(
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_CONN_DIRECT_NUM);
+    deviceAdapter->SavePairDirect(connDirect, connDevice);
+    (void)deviceAdapter->GetConnDirect(connDevice);
+    deviceAdapter->SetConnDirect(connDevice, connDirect);
+    deviceAdapter->SetConnDirectActive(connDevice);
+    deviceAdapter->DisconnectAcbAction(connDevice, discReason);
+    deviceAdapter->CancelAllConnection();
+
+    /* 查询族 + 名称/外观/配对算法/组密钥错误分支 */
+    std::string deviceName = provider.ConsumeRandomLengthString(SLE_CONTROLLER_FUZZ_NAME_MAX_LEN);
+    std::string aliasName = provider.ConsumeRandomLengthString(SLE_CONTROLLER_FUZZ_NAME_MAX_LEN);
+    (void)deviceAdapter->GetDeviceName(connDevice);
+    (void)deviceAdapter->SetName(connDevice, deviceName);
+    (void)deviceAdapter->GetAliasName(connDevice);
+    (void)deviceAdapter->SetAliasName(connDevice, aliasName);
+    int appearance = SLE_CONTROLLER_FUZZ_APPEARANCE_TABLE[
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_APPEARANCE_TABLE_SIZE];
+    (void)deviceAdapter->SetAppearance(connDevice, appearance);
+    (void)deviceAdapter->GetDeviceAppearance(connDevice);
+    (void)deviceAdapter->GetDeviceUuids(connDevice);
+    (void)deviceAdapter->IsBondedFromLocal(connDevice);
+    (void)deviceAdapter->GetManufacturerBusinessType(connDevice);
+    (void)deviceAdapter->GetNotPairNoneCnt(connDevice);
+    (void)deviceAdapter->GetPairedCnt(connDevice);
+    uint8_t cryptoAlgo = provider.ConsumeIntegral<uint8_t>();
+    uint8_t keyDerivAlgo = provider.ConsumeIntegral<uint8_t>();
+    uint8_t integrChkInd = provider.ConsumeIntegral<uint8_t>();
+    (void)deviceAdapter->SetPairAlgoInfo(connDevice, cryptoAlgo, keyDerivAlgo, integrChkInd);
+    (void)deviceAdapter->GetPairAlgoInfo(connDevice, cryptoAlgo, keyDerivAlgo, integrChkInd);
+    std::string groupKey = provider.ConsumeRandomLengthString(SLE_CONTROLLER_FUZZ_NAME_MAX_LEN);
+    uint64_t giv = provider.ConsumeIntegral<uint64_t>();
+    (void)deviceAdapter->SetGroupAndGiv(connDevice, groupKey, giv);
+    (void)deviceAdapter->GetGroupAndGiv(connDevice, groupKey, giv);
+    bool isAvailable = provider.ConsumeBool();
+    deviceAdapter->SetDeviceIsAvailable(connDevice, isAvailable);
+    int cdsmAddrType = static_cast<int>(static_cast<SLE_ADDR_TYPE>(
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_ADDR_TYPE_NUM));
+    (void)deviceAdapter->SetCdsmAddrType(connDevice, cdsmAddrType);
+    (void)deviceAdapter->IsServiceSupportedConn(connDevice);
+    (void)deviceAdapter->IsAudioDevice(connDevice.GetAddress());
+    (void)deviceAdapter->IsVendorDevice(connDevice);
+    RawAddress otherDevice;
+    (void)deviceAdapter->GetCdsmOtherAddr(connDevice, otherDevice);
+    (void)deviceAdapter->GetRealAddress(connDevice);
+    (void)deviceAdapter->GetPeerDeviceAddrType(connDevice);
+    (void)deviceAdapter->GetRemoteDevice(connDevice);
+
+    /* 地址转换族：SLE 地址 <-> BT 地址互转（random/public 两档由 addrType 矩阵覆盖） */
+    std::string sleAddr = BuildAddressString(provider);
+    std::string btAddr = BuildAddressString(provider);
+    (void)deviceAdapter->SetBtAddrBySleAddr(sleAddr, btAddr);
+    std::string btAddrResult = "";
+    (void)deviceAdapter->GetBtAddrBySleAddrTask(sleAddr, btAddrResult);
+    std::string sleAddrResult = "";
+    (void)deviceAdapter->GetSleAddrByBtAddrTask(btAddr, sleAddrResult);
+
+    /* 持久化/合作集/设备类型下发族 */
+    DeviceModel deviceModel;
+    std::string newModelId = provider.ConsumeRandomLengthString(SLE_CONTROLLER_FUZZ_NAME_MAX_LEN);
+    deviceAdapter->SaveDeviceModelInfo(sleAddr, deviceModel, newModelId);
+    deviceAdapter->FindDeviceModelInfoInCache(connDevice, deviceModel, newModelId);
+    std::array<uint8_t, SLE_MANU_ABILITY_LEN> manuAbility = {};
+    for (int i = 0; i < SLE_MANU_ABILITY_LEN; i++) {
+        manuAbility[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    deviceAdapter->UpdateDeviceManufacturerAbility(connDevice, manuAbility);
+    deviceAdapter->SaveHidManufacturerAbilityFromAdv(connDevice);
+    uint8_t ability = provider.ConsumeIntegral<uint8_t>();
+    (void)deviceAdapter->GetManufacturerAbility(connDevice, ability);
+    deviceAdapter->SaveDeviceManufacturerAbility(connDevice);
+    (void)deviceAdapter->SavePeerDeviceInfoToConf();
+    deviceAdapter->SavePeerDevices2Smp();
+    (void)deviceAdapter->CollectPairedDevicesForSmp();
+    deviceAdapter->RestorePairedDevicesAbility2Cfgdb();
+    deviceAdapter->SetAudioDeviceFlag(connDevice);
+    deviceAdapter->UpdateDefaultRole(connDevice);
+    deviceAdapter->HandleCdsmMemberFirstPairing(connDevice);
+    deviceAdapter->CdsmSaveData(connDevice);
+    (void)deviceAdapter->IsCdsmMemberPair(connDevice, otherDevice);
+    deviceAdapter->CdsmAddOtherRecord(connDevice, otherDevice);
+    SLE_Addr_S addrInfo = {};
+    uint32_t devType = 0;
+    deviceAdapter->GetDeviceTypeInfo(connDevice, addrInfo, devType);
+    deviceAdapter->SetPeerDeviceTypeToController(connDevice);
+    deviceAdapter->RemovePeerDeviceTypeToController(connDevice);
+
+    /* 背景回连列表族 */
+    NearlinkSafeList<RawAddress> bgList;
+    bgList.EnsureInsert(connDevice);
+    std::vector<std::string> reconnectList;
+    int32_t reconnSize = provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_RECONN_LIST_NUM;
+    for (int32_t i = 0; i < reconnSize; i++) {
+        reconnectList.push_back(BuildAddressString(provider));
+    }
+    deviceAdapter->GetBgList(bgList, reconnectList);
+    deviceAdapter->GetDirectConnList(bgList);
+    deviceAdapter->SendBgConnList(bgList);
+    deviceAdapter->SendDirectConnList(bgList);
+    deviceAdapter->AddBgConnDevice(connDevice.GetAddress());
+    deviceAdapter->SetReconnDeviceParam();
+
+    /* 收尾：批量移除配对与清档 */
+    std::vector<RawAddress> removeDevices;
+    deviceAdapter->RemoveAllPairsProcess(removeDevices);
+    deviceAdapter->ClearPeerDeviceGroupId();
+    std::shared_ptr<SlePeripheralDevice> peerDevice = std::make_shared<SlePeripheralDevice>();
+    deviceAdapter->AddPeripheralDevice(sleAddr, peerDevice);
+    deviceAdapter->RemovePeripheralDevice(sleAddr);
+    deviceAdapter->RemoveAllPeripheralDevices();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
+}
+
+// G. SleReconnectManager direct calls (GetInstance singleton; facade itself has no thread switch,
+//    inner AddBgConnDevice/SetPeerDeviceTypeToController go DoInDeviceAdapterThread + future)
+void SleReconnectManagerFuzzTest(FuzzedDataProvider &provider)
+{
+    SleReconnectManager &reconnManager = SleReconnectManager::GetInstance();
+    uint32_t bgConnMaxNum = provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_RECONN_BG_MAX_NUM;
+    reconnManager.SetBgConnMaxNum(bgConnMaxNum);
+
+    /* 策略切换：NONE 不发布/不落盘，非 NONE 发布事件 + LastASCActive/Connected 两路 */
+    RawAddress reconnDevice = BuildRawAddress(provider);
+    bool isActive = provider.ConsumeBool();
+    int pairState = SLE_CONTROLLER_FUZZ_PAIR_STATE_TABLE[
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_PAIR_STATE_NUM];
+    std::string btAddr = BuildAddressString(provider);
+    reconnManager.SetAutoConnectDevice(reconnDevice, isActive, pairState, btAddr);
+    (void)reconnManager.GetReconnDevice();
+    reconnManager.SetReconnDeviceParam();
+    (void)reconnManager.IsNeedToIgnore(reconnDevice.GetAddress());
+
+    /* 队列生命周期：建档 -> 断连(黑名单标记) -> 连接(可用/不可用两分支) -> 解配对 -> 重连列表 */
+    reconnManager.OnDeviceStartPair(reconnDevice);
+    bool isNeedBgConn = provider.ConsumeBool();
+    reconnManager.OnDeviceDisConnected(reconnDevice, isNeedBgConn);
+    bool isDeviceAvailable = provider.ConsumeBool();
+    reconnManager.OnDeviceConnected(reconnDevice, isDeviceAvailable);
+    reconnManager.OnDeviceUnpaired(reconnDevice);
+    (void)reconnManager.GetReconnectList();
+    reconnManager.RemoveAutoConnAudioDevConf(reconnDevice);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
+}
+
+// H. SleAdapterWrapper direct calls (static instance: ctor/dtor both trivial, kept per R3/R6 lessons)
+void SleAdapterWrapperFuzzTest(FuzzedDataProvider &provider)
+{
+    static SleAdapterWrapper adapterWrapper;
+    RawAddress wrapperDevice = BuildRawAddress(provider);
+
+    (void)adapterWrapper.GetConnectedDevices();
+    (void)adapterWrapper.GetLcidByAddress(wrapperDevice);
+    adapterWrapper.AddBgConnDevice(wrapperDevice.GetAddress());
+    (void)adapterWrapper.GetAliasName(wrapperDevice.GetAddress());
+    (void)adapterWrapper.GetPeerDeviceAddrType(wrapperDevice);
+    SLE_Addr_S addrInfo = {};
+    uint32_t devType = 0;
+    adapterWrapper.GetDeviceTypeInfo(wrapperDevice, addrInfo, devType);
+
+    HidReportInfo reportInfo = {};
+    reportInfo.dev_ = wrapperDevice;
+    reportInfo.reportType_ =
+        provider.ConsumeIntegral<uint8_t>() % SLE_CONTROLLER_FUZZ_HID_REPORT_TYPE_NUM;
+    reportInfo.reportId_ = provider.ConsumeIntegral<uint8_t>();
+    (void)adapterWrapper.HidSendData(reportInfo);
+
+    (void)adapterWrapper.IsAudioDevice(wrapperDevice.GetAddress());
+    RawAddress otherAddr;
+    (void)adapterWrapper.GetCdsmOtherAddr(wrapperDevice, otherAddr);
+    NearlinkSafeList<RawAddress> bgList;
+    bgList.EnsureInsert(wrapperDevice);
+    adapterWrapper.SendBgConnList(bgList);
+    adapterWrapper.SendDirectConnList(bgList);
+    (void)adapterWrapper.GetDeviceAppearance(wrapperDevice);
+    (void)adapterWrapper.DisconnectAllProfile(wrapperDevice);
+    std::vector<RawAddress> cdsmInfoAddr;
+    (void)adapterWrapper.WrapperCdsmGetAllMemberInfo(wrapperDevice, cdsmInfoAddr);
+    std::string devAddress = wrapperDevice.GetAddress();
+    (void)adapterWrapper.IsProxyConnectExisted(devAddress);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(SLE_CONTROLLER_FUZZ_DELAY_50_MS));
+}
 } // namespace
 
 // fuzzer init
@@ -486,6 +750,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     {
         FuzzedDataProvider fdp(data, size);
         OHOS::SleProfileConnectManagerFuzzTest(fdp);
+    }
+    {
+        FuzzedDataProvider fdp(data, size);
+        OHOS::SleRemoteDeviceAdapterFuzzTest(fdp);
+    }
+    {
+        FuzzedDataProvider fdp(data, size);
+        OHOS::SleReconnectManagerFuzzTest(fdp);
+    }
+    {
+        FuzzedDataProvider fdp(data, size);
+        OHOS::SleAdapterWrapperFuzzTest(fdp);
     }
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;

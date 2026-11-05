@@ -55,6 +55,8 @@ constexpr int SLHOST_FUZZ_DELAY_50_MS = 50;
 constexpr int SLHOST_FUZZ_DELAY_100_MS = 100;
 constexpr int SLHOST_FUZZ_DELAY_5000_MS = 5000;
 constexpr int SLE_STATE_WAIT_LOOPS = 40; // 40 * 50ms = 2s bounded wait per step
+constexpr uint8_t WALK_TABLE_SIZE = 5;
+constexpr uint8_t WALK_MAX_STEPS = 6;
 }
 
 int32_t SlHostOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply)
@@ -66,82 +68,31 @@ int32_t SlHostOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel 
     return hostServer->OnRemoteRequest(code, data, reply, option);
 }
 
-void SlHostGetSleFullStateFuzzTest(const uint8_t *fuzzData, size_t size)
+void SlHostStateQueryFuzzTest(const uint8_t *fuzzData, size_t size)
 {
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_GET_SLE_FULL_STATE, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
+    static constexpr NearlinkHostInterfaceCode IPC_CODE_TABLE[] = {
+        NearlinkHostInterfaceCode::NL_GET_SLE_FULL_STATE,
+        NearlinkHostInterfaceCode::NL_IS_SLE_ENABLED,
+        NearlinkHostInterfaceCode::NL_IS_SLE_AVAILABLE,
+        NearlinkHostInterfaceCode::NL_IS_SLE_HALF_DISABLED,
+        NearlinkHostInterfaceCode::NL_IS_SLE_DISABLED,
+        NearlinkHostInterfaceCode::NL_GET_ADAPTER_CONNECTION_STATE,
+    };
+    constexpr uint8_t IPC_CODE_TABLE_SIZE = 6;
+    FuzzedDataProvider provider(fuzzData, size);
+    const uint8_t shots = provider.ConsumeIntegralInRange<uint8_t>(1, 3);
+    for (uint8_t i = 0; i < shots; i++) {
+        MessageParcel data;
+        MessageParcel reply;
+        data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
+        NearlinkHostInterfaceCode code =
+            IPC_CODE_TABLE[provider.ConsumeIntegral<uint8_t>() % IPC_CODE_TABLE_SIZE];
+        int32_t ret = SlHostOnRemoteRequest(code, data, reply);
+        if (ret != NO_ERROR) {
+            HILOGI("send req failed, ret(%{public}d)", ret);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
-}
-
-void SlHostIsSleEnabledFuzzTest(const uint8_t *fuzzData, size_t size)
-{
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_IS_SLE_ENABLED, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
-}
-
-void SlHostIsSleAvailableFuzzTest(const uint8_t *fuzzData, size_t size)
-{
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_IS_SLE_AVAILABLE, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
-}
-
-void SlHostIsSleHalfDisabledFuzzTest(const uint8_t *fuzzData, size_t size)
-{
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_IS_SLE_HALF_DISABLED, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
-}
-
-void SlHostIsSleDisabledFuzzTest(const uint8_t *fuzzData, size_t size)
-{
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_IS_SLE_DISABLED, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
-}
-
-void SlHostGetAdapterConnectStateFuzzTest(const uint8_t *fuzzData, size_t size)
-{
-    MessageParcel data;
-    MessageParcel reply;
-
-    data.WriteInterfaceToken(NearlinkHostStub::GetDescriptor());
-    int32_t ret = SlHostOnRemoteRequest(NearlinkHostInterfaceCode::NL_GET_ADAPTER_CONNECTION_STATE, data, reply);
-    if (ret != NO_ERROR) {
-        HILOGI("send req failed, ret(%{public}d)", ret);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SLHOST_FUZZ_DELAY_50_MS));
 }
 
 bool SlHostWaitSleStableState(SleServiceManager *manager)
@@ -204,31 +155,39 @@ void SlHostServiceManagerFuzzTest(const uint8_t *fuzzData, size_t size)
            static_cast<int>(autoConnUserDisc), static_cast<int>(disabling));
 
     // state machine walk (core TurnOff <-> TurnOn <-> TurnHalf, one failure variant)
-    SleStateID cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_ON || cur == SleStateID::STATE_TURN_HALF) {
-        manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff
-        SlHostWaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_OFF) {
-        manager->EnableToHalf(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnHalf
-        SlHostWaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_HALF) {
-        manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy); // -> TurnOn
-        SlHostWaitSleStableState(manager);
-    }
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
-    if (cur == SleStateID::STATE_TURN_ON) {
-        manager->Disable(SleTransport::ADAPTER_SLE, reason, callerInfo); // -> TurnOff or TurnHalf
-        SlHostWaitSleStableState(manager);
-    }
     // ponytail: enable-direction failure CMP(false) injection removed — the early-exit path in
     // HandleProfileEnableCmpMsg leaves the one-shot adapterTimer_ armed; a stray fire in
     // TurningOn/TurningOffToHalf triggers Reset()=SIGKILL. See host_fuzzer for details.
+    const uint8_t walkSteps = provider.ConsumeIntegralInRange<uint8_t>(1, WALK_MAX_STEPS);
+    for (uint8_t step = 0; step < walkSteps; step++) {
+        SleStateID before = manager->GetState(SleTransport::ADAPTER_SLE);
+        uint8_t sel = provider.ConsumeIntegral<uint8_t>() % WALK_TABLE_SIZE;
+        HILOGI("walk step(%{public}u/%{public}u) from state(%{public}d) sel(%{public}u)",
+            static_cast<unsigned>(step) + 1, static_cast<unsigned>(walkSteps), static_cast<int>(before),
+            static_cast<unsigned>(sel));
+        switch (sel) {
+            case 0U:
+                manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy);
+                break;
+            case 1U:
+                manager->Disable(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 2U:
+                manager->EnableToHalf(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 3U:
+                manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                break;
+            case 4U:
+            default:
+                manager->DisableToOff(SleTransport::ADAPTER_SLE, reason, callerInfo);
+                manager->OnProfileServicesDisableComplete(SleTransport::ADAPTER_SLE, false);
+                break;
+        }
+        SlHostWaitSleStableState(manager);
+    }
     // corrective: leave the machine enabled for the next fuzz input
-    cur = manager->GetState(SleTransport::ADAPTER_SLE);
+    SleStateID cur = manager->GetState(SleTransport::ADAPTER_SLE);
     if (cur != SleStateID::STATE_TURN_ON) {
         manager->Enable(SleTransport::ADAPTER_SLE, reason, callerInfo, autoConnPolicy);
         SlHostWaitSleStableState(manager);
@@ -287,12 +246,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if (data == nullptr) {
         return 0;
     }
-    OHOS::SlHostGetSleFullStateFuzzTest(data, size);
-    OHOS::SlHostIsSleEnabledFuzzTest(data, size);
-    OHOS::SlHostIsSleAvailableFuzzTest(data, size);
-    OHOS::SlHostIsSleHalfDisabledFuzzTest(data, size);
-    OHOS::SlHostIsSleDisabledFuzzTest(data, size);
-    OHOS::SlHostGetAdapterConnectStateFuzzTest(data, size);
+    OHOS::SlHostStateQueryFuzzTest(data, size);
     OHOS::SlHostServiceManagerFuzzTest(data, size);
 
     return 0;

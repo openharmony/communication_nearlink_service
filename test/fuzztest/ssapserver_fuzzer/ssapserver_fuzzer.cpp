@@ -36,10 +36,14 @@
 
 #define private public
 #include "ssap_server_stack_adapter.h"
+// 整改 P9-8（方案 a）：服务层直调 SsapServerService（处于 #define private public 生效区，
+// EnableTask/RegisterApplication 等 task 族可达；链接经 nearlink_service_impl_static）
+#include "ssap_server_service.h"
 
 using namespace std;
 using namespace OHOS::Nearlink;
 namespace OHOS {
+constexpr int SSAP_FUZZ_DELAY_50_MS = 50;  // 收敛异步任务
 
 class MockNearlinkSsapServerCallbackStub : public IRemoteStub<INearlinkSsapServerCallback> {
 public:
@@ -58,6 +62,35 @@ public:
     void OnNotifyEventChanged(
         const NearlinkSsapDevice &device, const Uuid &uuid, uint16_t handle, int ret) {}
     void OnConnectionStateChanged(const NearlinkSsapDevice &device, uint8_t state, int reason) {}
+};
+
+// 整改 P9-8（方案 a）：服务层直调所需回调桩（同 ssapservicesserver_fuzzer 手法）
+class InterfaceSsapServerCb : public InterfaceSsapServerCallback {
+public:
+    void OnMtuChanged(const RawAddress &addr, uint8_t transport, uint16_t mtu) override {}
+    void OnAddService(Service &service, int ret) override {}
+    void OnSetPropertyValue(Property &property, int ret) override {}
+    void OnSetDescriptorValue(Descriptor &descriptor, int ret) override {}
+    void OnReadPropertyAuthorizeRequest(
+        const RawAddress &addr, uint8_t transport, uint16_t requestId, Property &property) override {}
+    void OnReadDescriptorAuthorizeRequest(
+        const RawAddress &addr, uint8_t transport, uint16_t requestId, Descriptor &descriptor) override {}
+    void OnWritePropertyAuthorizeRequest(
+        const RawAddress &addr, uint8_t transport, uint16_t requestId, Property &property) override {}
+    void OnWriteDescriptorAuthorizeRequest(
+        const RawAddress &addr, uint8_t transport, uint16_t requestId, Descriptor &descriptor) override {}
+    void OnReadProperty(const RawAddress &addr, uint8_t transport, Property &property, int ret) override {}
+    void OnReadDescriptor(const RawAddress &addr, uint8_t transport, Descriptor &descriptor, int ret) override {}
+    void OnWriteProperty(const RawAddress &addr, uint8_t transport, Property &property, int ret) override {}
+    void OnWriteDescriptor(const RawAddress &addr, uint8_t transport, Descriptor &descriptor, int ret) override {}
+    void OnNotifyProperty(const RawAddress &addr, uint8_t transport, Property &property, int ret) override {}
+    void OnIndicateProperty(const RawAddress &addr, uint8_t transport, Property &property, int ret) override {}
+    void OnNotifyEvent(const RawAddress &addr, uint8_t transport, Event &event, int ret) override {}
+    void OnIndicateEvent(const RawAddress &addr, uint8_t transport, Event &event, int ret) override {}
+    void OnCallMethod(const RawAddress &addr, uint8_t transport, Method &method,
+                      std::vector<uint8_t> &value, bool needReturn) override {}
+    void OnConnectionStateChanged(const RawAddress &addr, uint8_t transport, uint8_t state,
+        int ret, int reason) override {}
 };
 
 namespace {
@@ -652,6 +685,93 @@ void OnConnectionStateChanged(const uint8_t* fuzzData, size_t size)
     SsapServerStackAdapter::OnConnectionStateChanged(appId, addr, state, ret, reason);
     free(addr);
 }
+
+// D-3 PR9 整改 P9-8（方案 a）：多客户端并发——改服务层直调 SsapServerService::RegisterApplication
+// 取回真实 appId（参照 ssapservicesserver_fuzzer 手法），消除 MessageParcel/OnRemoteRequest 载体
+// （对齐计划 §3.4"不新增 stub/proxy/parcel 用例"口径），真 appId 驱动
+// NotifyProperty/SetPropertyValue/AuthorizeResponse/AddService/RemoveService，
+// 命中 SsapServerService AdapterCallback 的"有 app"分支（基线随机 appId 只走 no-app 分支）。
+// 客户端数 1+%2 由 FDP 选择；红蓝 B7 收尾注销与断链次序幂等设计保留。
+// 新函数，消费序独立；FDP 值头部一次性消费，驱动段零消费。
+void SsapServerMultiClientFuzzTest(const uint8_t* fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+
+    std::string addrStr = BuildAddressString(provider); // 尾部 6 字节倒序
+    const uint8_t transport = provider.ConsumeIntegral<uint8_t>();
+    const uint16_t propUuid = provider.ConsumeIntegral<uint16_t>();
+    const uint16_t requestId = provider.ConsumeIntegral<uint16_t>();
+    const bool allow = provider.ConsumeBool();
+    const uint16_t svcUuid = provider.ConsumeIntegral<uint16_t>();
+    const uint8_t clientNum = 1 + provider.ConsumeIntegral<uint8_t>() % 2; // 整改 P9-8：客户端数 FDP（1..2）
+
+    // future 族前置（纪律-2）：Register/Deregister 走 future.get()，SsapThread 状态表必须 ENABLED
+    ThreadUtil::GetInstance().InitThreadStateMap();
+    // 泄漏式永生实例（R9/R10 判例）：fire-and-forget DoInSsapThread lambda 捕获 this
+    static SsapServerService *svc = new SsapServerService();
+    std::shared_ptr<InterfaceSsapServerCb> cb = std::make_shared<InterfaceSsapServerCb>();
+    svc->EnableTask(); // 服务使能窗口（未使能 Register 走 NOT_ENABLE 档）
+
+    int32_t appIds[2] = {-1, -1};
+    for (uint8_t i = 0; i < clientNum; i++) {
+        appIds[i] = svc->RegisterApplication(cb); // 服务层直调取真实 appId（future 族，窗口内）
+    }
+
+    RawAddress rawAddr(addrStr);
+    Property ntfProperty(0, Uuid::ConvertFrom16Bits(propUuid));
+    Service svcDef(1, 1, 2, Uuid::ConvertFrom16Bits(svcUuid));
+
+    for (uint8_t i = 0; i < clientNum; i++) {
+        if (appIds[i] < 0) {
+            continue;
+        }
+        // 通知下发：真 appId → NotifyPropertyTask 命中分支 → adapter.Notify → NLSTK 链
+        (void)svc->NotifyProperty(appIds[i], ntfProperty, rawAddr, transport);
+        // 属性设置：真 appId（空值 → 适配层 INVALID_PARAM 回传链）
+        (void)svc->SetPropertyValue(appIds[i], ntfProperty);
+        // 授权应答：真 appId
+        (void)svc->AuthorizeResponse(appIds[i], requestId, allow);
+    }
+
+    // 多客户端断链次序：先注销 client0，再用其 appId 通知 → 服务层 no-app 分支
+    if (appIds[0] >= 0) {
+        (void)svc->DeregisterApplication(appIds[0]); // future：命中分支
+        (void)svc->NotifyProperty(appIds[0], ntfProperty, rawAddr, transport); // no-app 分支
+    }
+
+    // 服务增删：真 appId（AddService/RemoveService 走 service → adapter Fill/Free 链）+ 收尾补注销（红蓝 B7）
+    if (appIds[1] >= 0) {
+        (void)svc->AddService(appIds[1], svcDef);
+        (void)svc->RemoveService(appIds[1], svcDef);
+        (void)svc->DeregisterApplication(appIds[1]);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::SSAP_FUZZ_DELAY_50_MS));
+}
+
+// D-3 PR9：栈适配层空参矩阵——SSAP_SERVER 侧 On* 静态分发的 NL_CHECK_RETURN 空指针分支。
+void SsapServerNullArgFuzzTest(const uint8_t* fuzzData, size_t size)
+{
+    FuzzedDataProvider provider(fuzzData, size);
+    NLSTK_Errcode_E ret = NLSTK_ERRCODE_SUCCESS;
+
+    int appId = provider.ConsumeIntegral<int>();
+    uint16_t requestId = provider.ConsumeIntegral<uint16_t>();
+    SsapServerStackAdapter::OnMtuChanged(appId, nullptr, provider.ConsumeIntegral<uint16_t>());
+    SsapServerStackAdapter::OnAddService(appId, nullptr, ret);
+    SsapServerStackAdapter::OnSetPropertyValue(appId, nullptr, ret);
+    SsapServerStackAdapter::OnSetDescriptorValue(appId, nullptr, ret);
+    SsapServerStackAdapter::OnReadPropertyAuthorizeRequest(appId, requestId, nullptr);
+    SsapServerStackAdapter::OnReadDescriptorAuthorizeRequest(appId, requestId, nullptr);
+    SsapServerStackAdapter::OnWritePropertyAuthorizeRequest(appId, requestId, nullptr);
+    SsapServerStackAdapter::OnWriteDescriptorAuthorizeRequest(appId, requestId, nullptr);
+    SsapServerStackAdapter::OnReadProperty(appId, nullptr);
+    SsapServerStackAdapter::OnReadDescriptor(appId, nullptr);
+    SsapServerStackAdapter::OnWriteProperty(appId, nullptr);
+    SsapServerStackAdapter::OnWriteDescriptor(appId, nullptr);
+    SsapServerStackAdapter::OnNotifyProperty(appId, nullptr, ret);
+    SsapServerStackAdapter::OnConnectionStateChanged(appId, nullptr, provider.ConsumeIntegral<uint8_t>(),
+        ret, provider.ConsumeIntegral<int>());
+}
 }
 
 // fuzzer init
@@ -717,6 +837,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         OHOS::OnWriteDescriptorFuzzTest(data, size);
         OHOS::OnNotifyPropertyFuzzTest(data, size);
         OHOS::OnConnectionStateChanged(data, size);
+        OHOS::SsapServerMultiClientFuzzTest(data, size);
+        OHOS::SsapServerNullArgFuzzTest(data, size);
     }
 
     OHOS::SsapServerFuzzTest(data, size);

@@ -38,6 +38,8 @@ ohos_fuzztest("SsapClientAdapterFuzzTest") {
 
   include_dirs = [
     "$NEARLINK_ROOT/utils/include",
+    # D-3 PR9: ThreadUtil.h for SsapClientStackAdapter::Disable/OnDisable chain
+    "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/frameworks/inner/include",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
     "$NEARLINK_ROOT/services/ipc/include",
