@@ -629,8 +629,38 @@ HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange001, TestSize
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, true);
 
-    adapter.NotifyMcpRendererStateChange(rendererStreams);
+    adapter.NotifyMcpRendererStateChange();
     HILOGI("NotifyMcpRendererStateChange001 end");
+}
+
+/**
+ * @tc.number: NotifyMcpRendererStateChange002
+ * @tc.name:
+ * @tc.desc: 测试全部流被过滤时跳过通知，不向MCP发送任何播放状态
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange002, TestSize.Level1)
+{
+    HILOGI("NotifyMcpRendererStateChange002 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    // 一条特殊静音流 + 一条普通静音流，全部命中过滤
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> rendererStreams;
+    rendererStreams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID,
+        "com.allmuted.special", true);
+    rendererStreams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1,
+        "com.allmuted.normal");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, true);
+
+    adapter.NotifyMcpRendererStateChange();
+    HILOGI("NotifyMcpRendererStateChange002 end");
 }
 
 /**

@@ -84,9 +84,8 @@ private:
     void DftEmptyMuteCheck(const RawAddress &device, MCP_MUTE_CONTROL type, uint32_t streamId);
     void HandleAudioPipeStatusChangeInner(const AudioStandard::AudioPipeChangeType changeType,
         const std::shared_ptr<AudioStandard::AudioOutputPipeInfo> &changedPipeInfo);
-    /* 将管道流状态转换为AudioRendererChangeInfo后通知MCP */
-    void NotifyMcpRendererStateChange(
-        const std::map<uint32_t, AudioStandard::RendererStreamInfo> &rendererStreams);
+    /* 将全量列表中的可闻流转换为AudioRendererChangeInfo后通知MCP（跨管道全量，非本次事件增量） */
+    void NotifyMcpRendererStateChange();
 
     void JudgeEmptyStreamByRendererState(const RawAddress &device);
     bool IsSlePipe(AudioStandard::HdiAdapterType adapterType);

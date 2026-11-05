@@ -274,39 +274,38 @@ void SleAudioFrameworkAdapter::HandleAudioPipeStatusChangeInner(const AudioStand
     if (changeType == AudioStandard::PIPE_CHANGE_TYPE_PIPE_STATUS &&
         pipeStatus == AudioStandard::PIPE_STATUS_CLOSE) {
         ClearRouteFlagList();
-        NotifyMcpRendererStateChange({});
+        NotifyMcpRendererStateChange();
         return;
     }
     UpdateRouteFlagList(routeFlag, rendererStreams);
-    NotifyMcpRendererStateChange(rendererStreams);
+    NotifyMcpRendererStateChange();
     JudgeEmptyStreamByRendererState(device);
 }
 
-void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange(
-    const std::map<uint32_t, AudioStandard::RendererStreamInfo> &rendererStreams)
+void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange()
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
+    /* 数据源用全量列表而非本次事件增量：管道事件只携带本管道的流，
+     * 其他管道仍在播的流不能缺席判定，否则一次pause态上报会误判整体暂停 */
     std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> audioRendererChangeInfos;
-    for (const auto &rendererStream : rendererStreams) {
-        const auto &info = rendererStream.second;
+    for (const auto &it : GetRouteFlagList()) {
         /* 静音维度流（特殊静音流/普通静音流）此刻不可闻，不参与MCP播放判定 */
-        bool onMute = false;
-        for (const auto &it : GetRouteFlagList()) {
-            if (it.streamId == info.streamId_) {
-                onMute = it.onMute;
-                break;
-            }
-        }
-        if (info.silentMode_ || onMute) {
+        if (it.silentMode || it.onMute) {
             HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode:%{public}d onMute:%{public}d,"
-                " skip notify", info.streamId_, info.silentMode_, onMute);
+                " skip notify", it.streamId, it.silentMode, it.onMute);
             continue;
         }
         auto changeInfo = std::make_shared<AudioStandard::AudioRendererChangeInfo>();
-        changeInfo->sessionId = info.streamId_;
-        changeInfo->rendererState = info.state_;
-        changeInfo->rendererInfo.streamUsage = info.usage_;
+        changeInfo->sessionId = it.streamId;
+        changeInfo->rendererState = it.status;
+        changeInfo->rendererInfo.streamUsage = static_cast<AudioStandard::StreamUsage>(it.streamUsage);
         audioRendererChangeInfos.push_back(changeInfo);
+    }
+    /* 全部流被过滤时本次不通知MCP：静音维度流与MCP播放判定完全无关，不发任何播放状态；
+       列表为空（管道关闭/流全部消失）时通知空列表走暂停防抖 */
+    if (audioRendererChangeInfos.empty() && !GetRouteFlagList().empty()) {
+        HILOGI("[SleAudioFrameworkAdapter] all streams muted, skip notify");
+        return;
     }
     McpServerService *mcpService = McpServerService::GetService();
     NL_CHECK_RETURN(mcpService != nullptr, "[SleAudioFrameworkAdapter] mcpService is null!");
