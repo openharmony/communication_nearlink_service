@@ -2403,6 +2403,11 @@ int ASCService::JudgeReConfig(const RawAddress &device, AudioStreamType streamTy
         std::list<AudioStreamType>& list = GetStartedStreamList(device);
         list.emplace_back(streamType);
 
+        // 本次起播的是通话类流时才补置位；不查历史列表，避免残留的通话流把整机标志误置真
+        if (IsCallType(streamType)) {
+            SetIsCallingFlag(true);
+        }
+
         // 上报状态: 音频流打开,成功
         ReportAudioControlComplete(device, streamType, NL_SLE_ASC_CONTROL_CMD_START,
             NL_SLE_ASC_RESULT_SUCC, NL_NO_ERROR);
@@ -6694,10 +6699,12 @@ void ASCService::OpenVoiceAssistant(const RawAddress &device, AudioStreamType st
 
 void ASCService::CloseVoiceAssistant(const RawAddress &device, AudioStreamType streamType)
 {
-    VasService *vasService = VasService::GetService();
-    if (vasService != nullptr && streamType == AUDIO_STREAM_VOICE_ASSISTANT) {
+    if (streamType == AUDIO_STREAM_VOICE_ASSISTANT) {
         SetIsCallingFlag(false);
-        vasService->CloseVoiceAssistant(device);
+        VasService *vasService = VasService::GetService();
+        if (vasService != nullptr) {
+            vasService->CloseVoiceAssistant(device);
+        }
     }
 }
 
