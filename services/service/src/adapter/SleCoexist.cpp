@@ -153,7 +153,7 @@ void SleCoexist::UpdateConnParam()
             return;
         }
         if (isNeedAdjustInterval) {
-            sleCoexist->UpdateAdjustDeviceParam(info);
+            sleCoexist->UpdateAdjustDeviceParam(info, deviceIndex);
         }
         deviceIndex++;
     });
