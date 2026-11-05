@@ -233,7 +233,6 @@ void UhidEventDispatchFuzzTest(const uint8_t *fuzzData, size_t size)
     FuzzedDataProvider provider(fuzzData, size);
     const std::string addr = BuildAddressString(provider);
     std::shared_ptr<HidHostUhid> uhidPtr = std::make_shared<HidHostUhid>(addr);
-    const int uhidEventCount = 7;
 
     uint16_t payloadLen = provider.ConsumeIntegral<uint8_t>();
     std::vector<uint8_t> payload = provider.ConsumeBytes<uint8_t>(payloadLen);
@@ -268,24 +267,36 @@ void UhidEventDispatchFuzzTest(const uint8_t *fuzzData, size_t size)
     /* 无 /dev/uhid 环境下用管道伪造内核事件流，驱动 ReadUhidEvent switch 全分支 */
     int uhidPipeFds[2] = { -1, -1 };
     if (pipe(uhidPipeFds) == 0) {
-        struct uhid_event ev = {};
-        ev.type = UHID_START;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev.type = UHID_STOP;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev.type = UHID_OPEN;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev.type = UHID_CLOSE;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev = outputEvent;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev = featureEvent;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
-        ev = setReportEvent;
-        (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        static constexpr uint32_t UHID_TYPE_TABLE[7] = {
+            UHID_START, UHID_STOP, UHID_OPEN, UHID_CLOSE, UHID_OUTPUT, UHID_FEATURE, UHID_SET_REPORT,
+        };
+        const uint8_t writeCount = provider.ConsumeIntegralInRange<uint8_t>(1, 8);
+        for (uint8_t i = 0; i < writeCount; i++) {
+            struct uhid_event ev = {};
+            const uint8_t typeSel = provider.ConsumeIntegral<uint8_t>() % 7;
+            switch (typeSel) {
+                case 4U:
+                    ev = outputEvent;
+                    break;
+                case 5U:
+                    ev = featureEvent;
+                    break;
+                case 6U:
+                    ev = setReportEvent;
+                    break;
+                case 0U:
+                case 1U:
+                case 2U:
+                case 3U:
+                default:
+                    ev.type = UHID_TYPE_TABLE[typeSel];
+                    break;
+            }
+            (void)write(uhidPipeFds[1], &ev, sizeof(ev));
+        }
 
         uhidPtr->fd_ = uhidPipeFds[0];
-        for (int i = 0; i < uhidEventCount; i++) {
+        for (uint8_t i = 0; i < writeCount; i++) {
             (void)uhidPtr->ReadUhidEvent();
         }
         uhidPtr->fd_ = -1;

@@ -31,6 +31,7 @@
 #define private public
 #include "ssap_client_stack_adapter.h"
 #undef private
+#include "ThreadUtil.h"
 #include "slem.h"
 
 using namespace std;
@@ -141,24 +142,24 @@ void ClientAdapterCallbacksFuzzTest(const uint8_t* data, size_t size)
     desc.value.len = sizeof(valBuf);
     desc.value.data = valBuf;
 
-    SsapClientStackAdapter::OnMtuChanged(appId, provider.ConsumeIntegral<uint16_t>(), NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnDiscoverComplete(appId, NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnDiscoverByUuidComplete(appId, &g_clientAdapterUuid, NLSTK_ERRCODE_SUCCESS);
+    SsapClientStackAdapter::OnMtuChanged(appId, provider.ConsumeIntegral<uint16_t>(), provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnDiscoverComplete(appId, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnDiscoverByUuidComplete(appId, &g_clientAdapterUuid, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnConnectionStateChanged(appId, provider.ConsumeIntegral<uint8_t>(),
-        NLSTK_ERRCODE_SUCCESS, provider.ConsumeIntegral<int>());
-    SsapClientStackAdapter::OnReadProperty(appId, &info, NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnCallMethod(appId, &info, NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnReadDescriptor(appId, &desc, NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnWriteProperty(appId, &info, NLSTK_ERRCODE_SUCCESS);
-    SsapClientStackAdapter::OnWriteDescriptor(appId, &desc, NLSTK_ERRCODE_SUCCESS);
+        provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR, provider.ConsumeIntegral<int>());
+    SsapClientStackAdapter::OnReadProperty(appId, &info, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnCallMethod(appId, &info, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnReadDescriptor(appId, &desc, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnWriteProperty(appId, &info, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    SsapClientStackAdapter::OnWriteDescriptor(appId, &desc, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnGetPropertyNotification(appId, &g_clientAdapterUuid,
-        info.handle, provider.ConsumeBool(), NLSTK_ERRCODE_SUCCESS);
+        info.handle, provider.ConsumeBool(), provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnGetPropertyIndication(appId, &g_clientAdapterUuid,
-        info.handle, provider.ConsumeBool(), NLSTK_ERRCODE_SUCCESS);
+        info.handle, provider.ConsumeBool(), provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnSetPropertyNotification(appId, &g_clientAdapterUuid,
-        info.handle, provider.ConsumeBool(), NLSTK_ERRCODE_SUCCESS);
+        info.handle, provider.ConsumeBool(), provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnSetPropertyIndication(appId, &g_clientAdapterUuid,
-        info.handle, provider.ConsumeBool(), NLSTK_ERRCODE_SUCCESS);
+        info.handle, provider.ConsumeBool(), provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     SsapClientStackAdapter::OnPropertyChanged(appId, &info);
     SsapClientStackAdapter::OnEvent(appId, &info);
 
@@ -169,6 +170,48 @@ void ClientAdapterCallbacksFuzzTest(const uint8_t* data, size_t size)
     for (int id = 0; id < NLSTK_SSAP_CLIENT_APP_MAX_NUM; id++) {
         NLSTK_SsapClientDeregApp(id);
     }
+}
+
+// D-3 PR9：带值/空值写链（WriteProperty/WriteDescriptor/CallMethod 的 INVALID_PARAM 回传与 NLSTK 正常链）
+// + Disable/OnDisable 清理链。本函数为新增函数，消费序独立；FDP 值头部一次性消费，驱动段零消费。
+void SsapClientAdapterValueApiFuzzTest(const uint8_t *data, size_t size)
+{
+    // Disable → NLSTK_SsapCleanClientApp(OnDisable)：OnDisable 静态分发走 DoInSsapThread，状态表必须 ENABLED。
+    ThreadUtil::GetInstance().InitThreadStateMap();
+    FuzzedDataProvider provider(data, size);
+
+    // RegisterApplication 形参为非 const 引用（栈侧重写真实 appId），不可声明 const（红蓝 R1）
+    int appId = provider.ConsumeIntegral<int>();
+    const uint16_t handle = provider.ConsumeIntegral<uint16_t>();
+    const uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 9; // 0=空值分支
+    const std::vector<uint8_t> valVec = provider.ConsumeBytes<uint8_t>(valLen); // 头部
+    const uint8_t descType = provider.ConsumeIntegral<uint8_t>() % 5; // DESC_TYPE 5 成员(0-4)
+    const bool withoutRsp = provider.ConsumeBool();
+    const RawAddress addr = BuildRawAddress(provider); // 尾部 6 字节倒序
+
+    adapter.RegisterApplication(appId, addr, SSAP_SEC_ENCRYPT);
+
+    // CallMethod：parameter_ 为空 → OnCallMethodTask(SSAP_INVALID_PARAM) 回传；带值 → NLSTK 调用链
+    Method emptyMethod(handle);
+    adapter.CallMethod(appId, emptyMethod, withoutRsp);
+    Method valMethod(handle, valVec);
+    adapter.CallMethod(appId, valMethod, withoutRsp);
+
+    // WriteProperty：value_ 为空 → INVALID_PARAM 回传；带值 → NLSTK_SsapClientWriteProperty + delete[] 链
+    Property emptyProp(handle);
+    adapter.WriteProperty(appId, emptyProp, withoutRsp);
+    Property valProp(handle, std::vector<uint8_t>(valVec));
+    adapter.WriteProperty(appId, valProp, withoutRsp);
+
+    // WriteDescriptor：同上两链
+    Descriptor emptyDesc(handle, descType);
+    adapter.WriteDescriptor(appId, emptyDesc, withoutRsp);
+    Descriptor valDesc(handle, descType, std::vector<uint8_t>(valVec));
+    adapter.WriteDescriptor(appId, valDesc, withoutRsp);
+
+    // 清理链：NLSTK_SsapCleanClientApp(OnDisable) → DoInSsapThread → OnDisableTask → 回调 OnDisable
+    adapter.Disable();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 }
 
@@ -200,6 +243,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
      * 静默丢弃），与 ssapservicesserver_fuzzer 同款首尾配对 */
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::SsapClientAdapterApiFuzzTest(data, size);
+    OHOS::SsapClientAdapterValueApiFuzzTest(data, size);
     OHOS::ClientAdapterCallbacksFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;

@@ -106,6 +106,69 @@ void SsapServerAdapterApiFuzzTest(const uint8_t* data, size_t size)
     adapter.SetDescriptorValue(provider.ConsumeIntegral<int>(), des);
 }
 
+// D-3 PR9：真 appId 驱动带值链（FillPropertyToService/FillDescriptorToProperty/FreeStack* 释放链）
+// + 通知下发（Notify 带/空值两链）+ SetPropertyValue/SetDescriptorValue 空/带值错误回传。
+// 永生实例（R9/R10 判例）避免栈实例析构置空 g_ssapServerStackAdapter 后本函数内静态分发悬垂。
+void SsapServerAdapterValueApiFuzzTest(const uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+
+    const RawAddress addr = BuildRawAddress(provider); // 尾部 6 字节倒序
+    const uint16_t handle = provider.ConsumeIntegral<uint16_t>();
+    const uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 9; // 0=空值分支
+    const std::vector<uint8_t> valVec = provider.ConsumeBytes<uint8_t>(valLen); // 头部
+    const uint16_t descHandle = provider.ConsumeIntegral<uint16_t>();
+    const Uuid uuid128 = BuildUuid(provider); // 头部 16 字节（vendor 档）
+    const uint8_t descType = provider.ConsumeIntegral<uint8_t>() % 5; // DESC_TYPE 5 成员(0-4)
+    const uint16_t mtu = provider.ConsumeIntegral<uint16_t>();
+
+    static SsapServerStackCallbackFuzzMock cb;
+    static SsapServerStackAdapter *adapter = new SsapServerStackAdapter(cb); // 泄漏式永生实例
+
+    int appId = -1;
+    // SsapStatus::SSAP_SUCCESS == 0（interfaces/def/nearlink_def.h），此处头文件链不含 nearlink_def.h，用字面量
+    if (adapter->RegisterApplication(appId) != 0) {
+        appId = -1; // 注册失败档：后续走 NLSTK 错误分支
+    }
+
+    adapter->SetMtu(mtu);
+
+    // 服务下带值属性 + 属性下带值描述符：驱动 Fill/Free 全链与 UUID16/128 两档
+    Service svcDef(handle, handle, handle + 2, Uuid::ConvertFrom16Bits(0x0600));
+    Property valProp(handle + 1, uuid128, std::vector<uint8_t>(valVec));
+    valProp.descriptors_.emplace_back(Descriptor(descHandle, descType, std::vector<uint8_t>(valVec)));
+    valProp.descriptors_.emplace_back(Descriptor(descHandle + 1, descType)); // 空值描述符档
+    svcDef.properties_.emplace_back(valProp);
+    svcDef.properties_.emplace_back(Property(handle + 2, Uuid::ConvertFrom16Bits(0x0601))); // 空值属性档
+    adapter->AddService(appId, svcDef);
+
+    adapter->RemoveService(appId, handle);
+    (void)adapter->CheckServiceExistByUuid(appId, uuid128);
+    adapter->ClearServices(appId);
+    adapter->AuthorizeResponse(appId, handle, mtu % 2 == 0);
+
+    // SetPropertyValue：空值 → OnSetPropertyValueTask(INVALID_PARAM) 回传；带值 → NLSTK 更新链
+    Property emptyProp(handle);
+    adapter->SetPropertyValue(appId, emptyProp);
+    Property setProp(handle, std::vector<uint8_t>(valVec));
+    adapter->SetPropertyValue(appId, setProp);
+
+    // SetDescriptorValue：同上两链
+    Descriptor emptyDesc(descHandle, descType);
+    adapter->SetDescriptorValue(appId, emptyDesc);
+    Descriptor setDesc(descHandle, descType, std::vector<uint8_t>(valVec));
+    adapter->SetDescriptorValue(appId, setDesc);
+
+    // 通知下发：空值 → OnNotifyPropertyTask(INVALID_PARAM)；带值 → UpdateAndNotify 链
+    Property ntfEmpty(handle);
+    adapter->Notify(appId, ntfEmpty, addr);
+    Property ntfVal(handle, std::vector<uint8_t>(valVec));
+    adapter->Notify(appId, ntfVal, addr);
+
+    adapter->DeregisterApplication(appId);
+    // 注销后残留驱动：NLSTK 错误分支
+    adapter->SetMtu(mtu);
+}
 /* 尾部追加段：真实注册成功后以真 appId 驱动 SsapServerStackAdapter::On* 静态
  * 入口 14 个全集——经 DoInSsapThread 落到 On*Task→g_ssapServerStackAdapter
  * （指向本函数局部的 adapter）→SsapServerStackCallback mock；失败保 -1 跳过 */
@@ -151,7 +214,7 @@ void ServerAdapterCallbacksFuzzTest(const uint8_t* data, size_t size)
         stackService.endHandle = static_cast<uint16_t>(handle + 8);
         stackService.uuid = g_serverAdapterUuid;
         stackService.properties = propVec;
-        SsapServerStackAdapter::OnAddService(appId, &stackService, NLSTK_ERRCODE_SUCCESS);
+        SsapServerStackAdapter::OnAddService(appId, &stackService, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     }
     SDF_DestroyVector(propVec);
     SDF_MemFree(stackProp);
@@ -163,14 +226,14 @@ void ServerAdapterCallbacksFuzzTest(const uint8_t* data, size_t size)
     setPropParam.uuid = g_serverAdapterUuid;
     setPropParam.value.len = sizeof(valBuf);
     setPropParam.value.data = valBuf;
-    SsapServerStackAdapter::OnSetPropertyValue(appId, &setPropParam, NLSTK_ERRCODE_SUCCESS);
+    SsapServerStackAdapter::OnSetPropertyValue(appId, &setPropParam, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
     NLSTK_SsapServerOnSetDescriptorParam_S setDescParam = {};
     setDescParam.handle = handle;
     setDescParam.uuid = g_serverAdapterUuid;
     setDescParam.type = provider.ConsumeIntegral<uint8_t>() % DESC_TYPE_MAX;
     setDescParam.value.len = sizeof(valBuf);
     setDescParam.value.data = valBuf;
-    SsapServerStackAdapter::OnSetDescriptorValue(appId, &setDescParam, NLSTK_ERRCODE_SUCCESS);
+    SsapServerStackAdapter::OnSetDescriptorValue(appId, &setDescParam, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
 
     NLSTK_SsapServerReadPropertyInfo_S readProp = {};
     readProp.addr = peer;
@@ -210,9 +273,10 @@ void ServerAdapterCallbacksFuzzTest(const uint8_t* data, size_t size)
     notifyParam.uuid = g_serverAdapterUuid;
     notifyParam.value.len = sizeof(valBuf);
     notifyParam.value.data = valBuf;
-    SsapServerStackAdapter::OnNotifyProperty(appId, &notifyParam, NLSTK_ERRCODE_SUCCESS);
+    SsapServerStackAdapter::OnNotifyProperty(appId, &notifyParam, provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR);
+    const NLSTK_Errcode_E connRet = provider.ConsumeBool() ? NLSTK_ERRCODE_SUCCESS : NLSTK_ERRCODE_PARAM_ERR;
     SsapServerStackAdapter::OnConnectionStateChanged(appId, &peer, provider.ConsumeIntegral<uint8_t>(),
-        NLSTK_ERRCODE_SUCCESS, provider.ConsumeIntegral<int>());
+        connRet, provider.ConsumeIntegral<int>());
 
     adapter.DeregisterApplication(appId);
     /* 既有段直调注册成功后无人注销，栈侧 64 槽会跨输入泄漏耗尽使真实注册恒败；
@@ -253,6 +317,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
      * 静默丢弃），与 ssapservicesserver_fuzzer 同款首尾配对 */
     OHOS::g_threadUtil.InitThreadStateMap();
     OHOS::SsapServerAdapterApiFuzzTest(data, size);
+    OHOS::SsapServerAdapterValueApiFuzzTest(data, size);
     OHOS::ServerAdapterCallbacksFuzzTest(data, size);
     OHOS::g_threadUtil.ClearThreadStateMap();
     return 0;
