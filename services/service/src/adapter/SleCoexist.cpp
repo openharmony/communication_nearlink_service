@@ -122,7 +122,7 @@ void SleCoexist::ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr)
     // 新连接可能改变共存情况：已有多个连接时需要评估调整
     HILOGI("[SleCoexist] ConnectionStatusChanged lcid=0x%{public}x, connCount=%{public}d",
         lcid, manager->GetConnectionCount());
-    if (manager->HasMutipleConnections()) {
+    if (manager->HasMultipleConnections()) {
         StartParamUpdateTimer();
     }
 }
@@ -179,7 +179,7 @@ void SleCoexist::UpdateCustomParamDevice(const CoexistConnInfo& info)
 
 void SleCoexist::UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex)
 {
-    unit16_t targetInterval = (deviceIndex < CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM)
+    uint16_t targetInterval = (deviceIndex < CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM)
         ? static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL)
         : static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_EXT);
     if (info.intervalKnown && targetInterval == info.interval) {
