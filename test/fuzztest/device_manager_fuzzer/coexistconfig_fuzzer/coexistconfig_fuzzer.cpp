@@ -12,80 +12,201 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef SLE_COEXSIT_H
-#define SLE_COEXSIT_H
-
-#include "BaseDef.h"
-#include "nearlink_timer.h"
-#include "SleDefs.h"
-#include "cm.h"
+#include "SleCoexist.h"
+#include "IServiceManagerPlugin.h"
+#include "SleCoexistManager.h"
+#include "SleRemoteDeviceManager.h"
+#include "SleUtils.h"
+#include "ThreadUtil.h"
 #include "cm_api.h"
-#include "SleServiceFfrtLog.h"
+#include "interface_scan_service.h"
+#include "nearlink_def.h"
+#include "raw_address.h"
+#ifdef NEARLINK_POWER_MGR_ENABLE
+#include "power_mgr_client.h"
+#endif
 
-/*
- * @brief The nearlink system.
- */
 namespace OHOS {
 namespace Nearlink {
 
-struct CoexistConnInfo;
+SleCoexist::SleCoexist()
+{}
 
-/*
- * @brief SLE 共存控制适配器
- *
- * 负责定时器管理和触发共存参数更新
- * 数据管理已迁移到 SleCoexistManager
- */
-class SleCoexist : public std::enable_shared_from_this<SleCoexist> {
-public:
-    /**
-     * @brief Constructor.
-     */
-    SleCoexist();
+SleCoexist::~SleCoexist()
+{
+    StopParamUpdateTimer();
+}
 
-    /**
-     * @brief Destructor.
-     */
-    virtual ~SleCoexist();
+void SleCoexist::Init()
+{
+    HILOGD("[SleCoexist] Init");
+    selfWeak_ = shared_from_this();
+}
 
-    // 初始化
-    void Init();
+void SleCoexist::UpdateTimerCallback(std::weak_ptr<SleCoexist> sleCoexistImpl)
+{
+    DoInAdapterThread([sleCoexist = sleCoexistImpl.lock()]() {
+        NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
+        sleCoexist->UpdateConnParam();
+    });
+}
 
-    void ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param);
-    void ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr);
+void SleCoexist::StartParamUpdateTimer()
+{
+    HILOGD("[SleCoexist] Start timer");
+    StopParamUpdateTimer();
+    if (updateDuration_ > 0) {
+        if (updateTimer_ == nullptr) {
+            updateTimer_ = std::make_unique<NearlinkTimer>(
+                std::bind(&UpdateTimerCallback, selfWeak_));
+        }
+        updateTimer_->Start(updateDuration_);
+    }
+}
 
-private:
-    // 定时器回调
-    static void UpdateTimerCallback(std::weak_ptr<SleCoexist> sleCoexistImpl);
+void SleCoexist::StopParamUpdateTimer()
+{
+    HILOGD("[SleCoexist] Stop timer");
+    if (updateTimer_ != nullptr) {
+        updateTimer_->Stop();
+        updateTimer_ = nullptr;
+    }
+}
 
-    // 执行共存参数更新 (调用 Manager)
-    void UpdateConnParam();
+void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
+{
+    HILOGD("[SleCoexist] ConnectionParamChanged lcid=0x%{public}x, interval=0x%{public}x, latency=%{public}d,"
+        " timeout=%{public}d", param.lcid,
+        param.extension.interval, param.extension.latency, param.extension.supervisionTimeout);
+    NL_CHECK_RETURN(param.lcid < INVALID_LCID, "invalid icid");
+    CoexistConnInfo info;
+    info.lcid = param.lcid;
+    info.interval = param.extension.interval;
+    info.latency = param.extension.latency;
+    info.timeout = param.extension.supervisionTimeout;
+    info.intervalKnown = true;
+    (void)memcpy_s(&info.addr, sizeof(SLE_Addr_S), &param.addr, sizeof(SLE_Addr_S));
 
-    // 刷新设备外观及自定义参数标记
-    void RefreshAppearanceAndCustomFlag(const CoexistConnInfo& info);
+    SleCoexistManager::GetInstance()->UpdateConnectionInfo(info);
 
-    // 非调速设备仅需自定义参数时的处理
-    void UpdateCustomParamDevice(const CoexistConnInfo& info);
+    auto* manager = SleCoexistManager::GetInstance();
+    NL_CHECK_RETURN(manager, "manager is null");
+    int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
 
-    // 参与调速设备按序号分配目标间隔
-    void UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex);
+    // 检查是否有多个连接
+   RefreshAppearanceAndCustomFlag(info);
+    bool isScreenOn = true;
+#ifdef NEARLINK_POWER_MGR_ENABLE
+    isScreenOn = PowerMgr::PowerMgrClient::GetInstance().IsScreenOn();
+#endif
+    HILOGI("[SleCoexist] isScreen=%{public}d, isNeedCustomParam_=%{public}d, adjustDevCount=%{public}d",
+        isScreenOn, isNeedCustomParam_, adjustDevCount);
+    if (adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM || (isNeedCustomParam_ && isScreenOn)) {
+        StartParamUpdateTimer();
+    }
+}
 
-    // 发送连接参数到底层
-    void SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr);
+void SleCoexist::ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr)
+{
+    CoexistConnInfo info;
+    info.lcid = lcid;
+    info.interval = CM_CONN_PRIVATE_MIN_INTERVAL;
+    info.latency = CM_CONN_DEFAULT_LATENCY;
+    info.timeout = CM_CONN_PRIVATE_TIMEOUT;
+    info.intervalKnown = false; // 建链协商间隔不上报，实际间隔待参数更新事件确认
+    (void)memcpy_s(&info.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
+    SleCoexistManager::GetInstance()->UpdateConnectionInfo(info);
 
-    // 定时器控制
-    void StartParamUpdateTimer();
-    void StopParamUpdateTimer();
+    auto* manager = SleCoexistManager::GetInstance();
+    NL_CHECK_RETURN(manager, "manager is null");
+    // 新连接可能改变共存情况：已有多个连接时需要评估调整
+    HILOGI("[SleCoexist] ConnectionStatusChanged lcid=0x%{public}x, connCount=%{public}d",
+        lcid, manager->GetConnectionCount());
+    if (manager->HasMutipleConnections()) {
+        StartParamUpdateTimer();
+    }
+}
 
-    SLE_DISALLOW_COPY_AND_ASSIGN(SleCoexist);
+void SleCoexist::UpdateConnParam()
+{
+    HILOGD("[SleCoexist] Update params");
+    auto* manager = SleCoexistManager::GetInstance();
+    NL_CHECK_RETURN(manager, "manager is null");
+    // 检查是否有多个连接
+    if (!(manager->HasMultipleConnections() || isNeedCustomParam_)) {
+        HILOGD("[SleCoexist]not multiple connection");
+        return;
+    }
+    // 参与调整的设备：间隔未知（建链协商间隔不上报）或已知间隔小于等于4ms
+    // 建链时若已有一个其他连接，新设备间隔未知也需按策略分配，避免2ms设备长期不调整
+    int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
+    bool isNeedAdjustInterval = adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM;
+    // 遍历所有连接，前3个参与调整的设备分配4ms，第四个起分配7.5ms
+    int deviceIndex = 0;
+    manager->IterateConnInfo(
+        [sleCoexist = selfWeak_.lock(), &deviceIndex, isNeedAdjustInterval](const CoexistConnInfo& info) {
+        NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
+        sleCoexist->RefreshAppearanceAndCustomFlag(info);
+        bool isAdjustDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_THRED;
+        if (!isAdjustDevice) {
+            sleCoexist->UpdateCustomParamDevice(info);
+            return;
+        }
+        if (isNeedAdjustInterval) {
+            sleCoexist->UpdateAdjustDeviceParam(info);
+        }
+        deviceIndex++;
+    });
+}
 
-    std::unique_ptr<NearlinkTimer> updateTimer_ = nullptr;
-    int updateDuration_ = CM_CONN_UPDATE_DURATION; // ms
-    std::weak_ptr<SleCoexist> selfWeak_;
-    bool isNeedCustomParam_ = false;
-    int appearance_ = INVALID_APPEARANCE;
-};
-}  // namespace Nearlink
-}  // namespace OHOS
+void SleCoexist::RefreshAppearanceAndCustomFlag(const CoexistConnInfo& info)
+{
+    RawAddress device = RawAddress::ConvertToString(info.addr.addr);
+    appearance_ = SleRemoteDeviceManager::GetInstance()->GetDeviceAppearance(device);
+    if (appearance_ == INVALID_APPEARANCE) {
+        appearance_ = InterfaceScanService::GetInstance().GetDeviceAppearance(device.GetAddress());
+    }
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
+}
 
-#endif  // SLE_COEXSIT_H
+void SleCoexist::UpdateCustomParamDevice(const CoexistConnInfo& info)
+{
+    if (!isNeedCustomParam_) {
+        return;
+    }
+    SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL), info.timeout, info.latency, info.addr);
+}
+
+void SleCoexist::UpdateAdjustDeviceParam(const CoexistConnInfo& info, int deviceIndex)
+{
+    unit16_t targetInterval = (deviceIndex < CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM)
+        ? static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL)
+        : static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_EXT);
+    if (info.intervalKnown && targetInterval == info.interval) {
+        return;
+    }
+    SendConnectionParam(targetInterval, info.timeout, info.latency, info.addr);
+}
+
+void SleCoexist::SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr)
+{
+    CM_ConnectUpdateParamReq_S updateParam;
+    memset_s(&updateParam, sizeof(updateParam), 0x0, sizeof(updateParam));
+    memcpy_s(&updateParam.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
+    updateParam.intervalMin = interval;
+    updateParam.intervalMax = interval;
+    updateParam.txRxInterval = CM_CONN_EVENT_IFS;
+    updateParam.eventInterval = CM_CONN_EVENT_IFS;
+    updateParam.maxLatency = latency;
+    updateParam.supervisionTimeout = timeout;
+    updateParam.systemTimeUnit = CM_CONN_TIME_UNIT;
+    updateParam.txRxFlag = CM_CONN_T_TX_RX_FLAG;
+    if (isNeedCustomParam_) {
+        ServiceManagerPluginInterface::GetInstance()->UpdateCustomParam(updateParam.intervalMin,
+            updateParam.intervalMax, appearance_);
+    }
+    CM_ConnectUpdateParamReq(&updateParam);
+}
+
+} // namespace Nearlink
+} // namespace OHOS
