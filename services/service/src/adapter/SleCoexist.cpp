@@ -143,14 +143,14 @@ void SleCoexist::UpdateConnParam()
     bool isNeedAdjustInterval = adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM;
     // 规则3：芯片仅允许3个4ms高速连接，已有3个设备小于4ms（占满4+4+4）后，
     // 第4个起间隔小于7.5ms的设备需调整为7.5ms
-    bool isNeedAdjustExt = adjustDevCount >= CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM
+    bool isNeedAdjustExt = adjustDevCount >= CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM;
     int deviceCount = 0;
     manager->IterateConnInfo(
         [sleCoexist = selfWeak_.lock(), &deviceCount, isNeedAdjustInterval, isNeedAdjustExt](
             const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
         sleCoexist->RefreshAppearanceAndCustomFlag(info);
-        bool isFastSlotDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_THRED;
+        bool isFastSlotDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_EXT;
         if (!isFastSlotDevice) {
             sleCoexist->UpdateCustomParamDevice(info);
             return;
