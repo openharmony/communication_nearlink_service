@@ -189,13 +189,15 @@ void SleCoexist::UpdateFastSlotDeviceParam(const CoexistConnInfo& info, int devi
         }
         return;
     }
-    
-
-    uint16_t targetInterval = (deviceCount < CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM)
-        ? static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL)
-        : static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_EXT);
-    if (info.intervalKnown && targetInterval == info.interval) {
+    // 规则2：前3个槽位中，间隔未知或已知小于等于4ms的设备调整为4ms
+    // 规则1：仅1个此类设备时不调整
+    bool isHighSpeedDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_THRED;
+    if (!isNeedAdjustInterval || !isHighSpeedDevice) {
         return;
+    }
+    if (!info.intervalKnown || info.interval != CM_CONN_COEXIST_INTERAL) {
+        SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL), 
+                info.timeout, info.latency, info.addr)
     }
     SendConnectionParam(targetInterval, info.timeout, info.latency, info.addr);
 }
