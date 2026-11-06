@@ -94,14 +94,14 @@ void SleCoexist::ConnectionParamChanged(const CM_ConnectUpdateParamRsp_S &param)
     int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
 
     // 检查是否有多个连接
-   RefreshAppearanceAndCustomFlag(info);
+    RefreshAppearanceAndCustomFlag(info);
     bool isScreenOn = true;
 #ifdef NEARLINK_POWER_MGR_ENABLE
     isScreenOn = PowerMgr::PowerMgrClient::GetInstance().IsScreenOn();
 #endif
     HILOGI("[SleCoexist] isScreen=%{public}d, isNeedCustomParam_=%{public}d, adjustDevCount=%{public}d",
         isScreenOn, isNeedCustomParam_, adjustDevCount);
-    if (adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM || (isNeedCustomParam_ && isScreenOn)) {
+    if ((adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM) || (isNeedCustomParam_ && isScreenOn)) {
         StartParamUpdateTimer();
     }
 }
@@ -137,7 +137,7 @@ void SleCoexist::UpdateConnParam()
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
-    // 规则1/规则2:间隔未知或已知间隔小于等于4ms的设备数达到2个及以上，才将此类设备调整为4ms
+    // 规则1/规则2：间隔未知或已知间隔小于等于4ms的设备数达到2个及以上，才将此类设备调整为4ms
     // 建链时若已有一个其他连接，新设备间隔未知也需按策略分配，避免2ms设备长期不调整
     int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
     bool isNeedAdjustInterval = adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM;
@@ -150,7 +150,7 @@ void SleCoexist::UpdateConnParam()
             const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
         sleCoexist->RefreshAppearanceAndCustomFlag(info);
-        bool isFastSlotDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_EXT;
+        bool isFastSlotDevice = !info.intervalKnown || info.interval < CM_CONN_COEXIST_INTERAL_EXT;
         if (!isFastSlotDevice) {
             sleCoexist->UpdateCustomParamDevice(info);
             return;
@@ -167,7 +167,8 @@ void SleCoexist::RefreshAppearanceAndCustomFlag(const CoexistConnInfo& info)
     if (appearance_ == INVALID_APPEARANCE) {
         appearance_ = InterfaceScanService::GetInstance().GetDeviceAppearance(device.GetAddress());
     }
-    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_, appearance_, info.interval);
+    ServiceManagerPluginInterface::GetInstance()->IsNeedCustomParam(isNeedCustomParam_,
+        appearance_, info.interval);
 }
 
 void SleCoexist::UpdateCustomParamDevice(const CoexistConnInfo& info)
@@ -175,31 +176,31 @@ void SleCoexist::UpdateCustomParamDevice(const CoexistConnInfo& info)
     if (!isNeedCustomParam_) {
         return;
     }
-    SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL), info.timeout, info.latency, info.addr);
+    SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL),
+        info.timeout, info.latency, info.addr);
 }
 
 void SleCoexist::UpdateFastSlotDeviceParam(const CoexistConnInfo& info, int deviceCount,
-        bool isNeedAdjustInterval, bool isNeedAdjustExt)
+    bool isNeedAdjustInterval, bool isNeedAdjustExt)
 {
     // 规则3：已有3个设备小于4ms时，第4个起小于7.5ms的设备最高只能用7.5ms
     if (deviceCount >= CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM) {
         if (isNeedAdjustExt && (!info.intervalKnown || info.interval != CM_CONN_COEXIST_INTERAL_EXT)) {
-            SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_EXT), 
-                info.timeout, info.latency, info.addr)
+            SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_EXT),
+                info.timeout, info.latency, info.addr);
         }
         return;
     }
-    // 规则2：前3个槽位中，间隔未知或已知小于等于4ms的设备调整为4ms
+    // 规则2：前3个槽位中，间隔未知或已知间隔小于等于4ms的设备调整为4ms
     // 规则1：仅1个此类设备时不调整
     bool isHighSpeedDevice = !info.intervalKnown || info.interval <= CM_CONN_COEXIST_INTERAL_THRED;
     if (!isNeedAdjustInterval || !isHighSpeedDevice) {
         return;
     }
     if (!info.intervalKnown || info.interval != CM_CONN_COEXIST_INTERAL) {
-        SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL), 
-                info.timeout, info.latency, info.addr)
+        SendConnectionParam(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL),
+            info.timeout, info.latency, info.addr);
     }
-    SendConnectionParam(targetInterval, info.timeout, info.latency, info.addr);
 }
 
 void SleCoexist::SendConnectionParam(uint16_t interval, uint16_t timeout, uint16_t latency, const SLE_Addr_S& addr)
