@@ -85,7 +85,7 @@ napi_value NapiNearlinkManager::EnableWithOptions(napi_env env, napi_callback_in
         return NapiGetUndefinedRet(env);
     }
 
-    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_NONE;
+    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_EXCEPT_AUDIO_DEVICES;
     if (argc == ARGS_SIZE_ONE && argv[PARAM0] != nullptr) {
         napi_valuetype valueType = napi_undefined;
         NAPI_NL_ASSERT_RETURN_FALSE(env, napi_typeof(env, argv[PARAM0], &valueType) == napi_ok,

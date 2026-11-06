@@ -36,7 +36,7 @@ void enable()
 void enableWithOptions(::taihe::optional<::ohos::nearlink::manager::EnableOptions> const &options)
 {
     HILOGI("enter");
-    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_NONE;
+    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_EXCEPT_AUDIO_DEVICES;
     if (options.has_value() && options.value().autoConnPolicy.has_value()) {
         int32_t policyValue = static_cast<int32_t>(options.value().autoConnPolicy.value().get_value());
         ANI_NL_ASSERT_RETURN_VOID(

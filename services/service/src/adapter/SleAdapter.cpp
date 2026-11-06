@@ -3431,11 +3431,6 @@ void SleAdapter::PairStartChanged(const RawAddress &addr) const
 void SleAdapter::SendBgConnList() const
 {
     HILOG_COMM_INFO("[%{public}s:%{public}d]Send Bg List", __FUNCTION__, __LINE__);
-    if (!SleServiceManager::GetInstance()->IsEnableAutoConnectDevices()) {
-        // 开启星闪策略为不回连，不进行背景回连操作
-        HILOGI("No need to bg connect");
-        return;
-    }
     NearlinkSafeList<RawAddress> bgList;
     std::vector<std::string> reconnectList = SleReconnectManager::GetInstance().GetReconnectList();
     adapterProperties_->GetBgList(bgList, reconnectList);
@@ -3464,11 +3459,6 @@ void SleAdapter::ClearDeviceManufacturerAbility(const RawAddress &device) const
 void SleAdapter::SendDirectConnList() const
 {
     HILOGI("Send Direct Conn List");
-    if (!SleServiceManager::GetInstance()->IsEnableAutoConnectDevices()) {
-        // 开启星闪策略为不回连，不进行直连操作
-        HILOGI("No need to direct connect");
-        return;
-    }
     if (!SleServiceManager::GetInstance()->IsEnableAutoConnectUserDisconnectedDevices()) {
         // 芯片复位场景开启星闪，不回连用户主动断连的设备，不进行直连操作
         HILOGI("No need to direct connect");

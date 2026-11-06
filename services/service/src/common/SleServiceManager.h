@@ -327,7 +327,6 @@ public:
 
     bool IsEnableAutoConnectAudioDevices() const;
     bool IsEnableAutoConnectUserDisconnectedDevices() const;
-    bool IsEnableAutoConnectDevices() const;
 
     bool IsDisabling() const;
 

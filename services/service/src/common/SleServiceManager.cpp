@@ -599,11 +599,6 @@ bool SleServiceManager::IsEnableAutoConnectUserDisconnectedDevices() const
     return (autoConnPolicy_ != SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES);
 }
 
-bool SleServiceManager::IsEnableAutoConnectDevices() const
-{
-    return (autoConnPolicy_ != SleAutoConnectPolicy::AUTO_CONN_NONE);
-}
-
 int32_t SleServiceManager::EnableInner(const SleTransport transport, const SleEventType reason,
     const SwitchCallerInfo callerInfo, const SleAutoConnectPolicy autoConnPolicy) const
 {
