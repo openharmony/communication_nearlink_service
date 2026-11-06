@@ -335,7 +335,8 @@ napi_value NapiNearlinkManager::AutoConnectPolicyInit(napi_env env)
         "AUTO_CONN_GENERAL");
     SetNamedPropertyByInteger(env, policy, static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_AUDIO_DEVICES),
         "AUTO_CONN_EXCEPT_AUDIO_DEVICES");
-    SetNamedPropertyByInteger(env, policy, static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
+    SetNamedPropertyByInteger(env, policy,
+        static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
         "AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES");
     return policy;
 }
