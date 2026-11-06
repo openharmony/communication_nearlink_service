@@ -122,6 +122,7 @@ enum class SleAutoConnectPolicy : int {
     AUTO_CONN_GENERAL = 0, // 默认策略，开星闪后正常自动回连
     AUTO_CONN_EXCEPT_AUDIO_DEVICES, // 不回连音频设备
     AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES, // 不回连用户主动断连的设备
+    AUTO_CONN_NONE, // 开启星闪时不主动回连任何设备
 };
 
 /**
