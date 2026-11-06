@@ -42,6 +42,7 @@ napi_value NapiNearlinkManager::DefineManagerJSFunction(napi_env env, napi_value
     napi_property_descriptor desc[] = {
         DECLARE_NAPI_FUNCTION("getState", GetState),
         DECLARE_NAPI_FUNCTION("enable", Enable),
+        DECLARE_NAPI_FUNCTION("enableWithOptions", EnableWithOptions),
         DECLARE_NAPI_FUNCTION("disable", Disable),
         DECLARE_NAPI_FUNCTION("onStateChange", OnStateChange),
         DECLARE_NAPI_FUNCTION("offStateChange", OffStateChange),
@@ -69,6 +70,47 @@ napi_value NapiNearlinkManager::Enable(napi_env env, napi_callback_info info)
 {
     HILOGI("enter");
     NlErrCode err = NearlinkHost::GetInstance().EnableNl();
+    NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
+    return NapiGetUndefinedRet(env);
+}
+
+napi_value NapiNearlinkManager::EnableWithOptions(napi_env env, napi_callback_info info)
+{
+    HILOGI("enter");
+    size_t argc = ARGS_SIZE_ONE;
+    napi_value argv[ARGS_SIZE_ONE] = {nullptr};
+    napi_value thisVar = nullptr;
+    if (napi_get_cb_info(env, info, &argc, argv, &thisVar, nullptr) != napi_ok) {
+        HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+        return NapiGetUndefinedRet(env);
+    }
+
+    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL;
+    if (argc == ARGS_SIZE_ONE && argv[PARAM0] != nullptr) {
+        napi_valuetype valueType = napi_undefined;
+        NAPI_NL_ASSERT_RETURN_FALSE(env, napi_typeof(env, argv[PARAM0], &valueType) == napi_ok,
+            NL_ERR_INVALID_PARAM);
+        if (valueType == napi_object) {
+            napi_value policyValue = nullptr;
+            napi_get_named_property(env, argv[PARAM0], "autoConnPolicy", &policyValue);
+            napi_valuetype propType = napi_undefined;
+            NAPI_NL_ASSERT_RETURN_FALSE(env, napi_typeof(env, policyValue, &propType) == napi_ok,
+                NL_ERR_INVALID_PARAM);
+            if (propType == napi_number) {
+                int32_t policy = static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_GENERAL);
+                NAPI_NL_ASSERT_RETURN_FALSE(env, ParseInt32(env, policy, policyValue), NL_ERR_INVALID_PARAM);
+                NAPI_NL_ASSERT_RETURN_FALSE(env,
+                    policy >= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) &&
+                    policy <= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
+                    NL_ERR_INVALID_PARAM);
+                autoConnPolicy = static_cast<SleAutoConnectPolicy>(policy);
+            }
+        } else if (valueType != napi_undefined) {
+            HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+            return NapiGetUndefinedRet(env);
+        }
+    }
+    NlErrCode err = NearlinkHost::GetInstance().EnableNl(autoConnPolicy);
     NAPI_NL_ASSERT_RETURN_FALSE(env, err == NL_NO_ERROR, err);
     return NapiGetUndefinedRet(env);
 }
@@ -249,9 +291,11 @@ napi_value NapiNearlinkManager::ManagerPropertyValueInit(napi_env env, napi_valu
     HILOGD("enter");
     napi_value stateObj = TsNearlinkStateValueInit(env);
     napi_value connectionMode = ConnectionModeInit(env);
+    napi_value autoConnectPolicy = AutoConnectPolicyInit(env);
     napi_property_descriptor exportProperty[] = {
         DECLARE_NAPI_PROPERTY("NearlinkState", stateObj),
         DECLARE_NAPI_PROPERTY("ConnectionMode", connectionMode),
+        DECLARE_NAPI_PROPERTY("AutoConnectPolicy", autoConnectPolicy),
     };
     napi_define_properties(env, exports, sizeof(exportProperty) / sizeof(*exportProperty), exportProperty);
     HILOGI("end");
@@ -280,6 +324,20 @@ napi_value NapiNearlinkManager::ConnectionModeInit(napi_env env)
     SetNamedPropertyByInteger(env, reason, static_cast<int>(ConnectionMode::SLE_MODE_CONNECTABLE),
         "SLE_MODE_CONNECTABLE");
     return reason;
+}
+
+napi_value NapiNearlinkManager::AutoConnectPolicyInit(napi_env env)
+{
+    HILOGD("enter");
+    napi_value policy = nullptr;
+    napi_create_object(env, &policy);
+    SetNamedPropertyByInteger(env, policy, static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_GENERAL),
+        "AUTO_CONN_GENERAL");
+    SetNamedPropertyByInteger(env, policy, static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_AUDIO_DEVICES),
+        "AUTO_CONN_EXCEPT_AUDIO_DEVICES");
+    SetNamedPropertyByInteger(env, policy, static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
+        "AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES");
+    return policy;
 }
 
 EXTERN_C_START

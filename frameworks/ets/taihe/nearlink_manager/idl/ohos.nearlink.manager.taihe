@@ -30,7 +30,19 @@ enum ConnectionMode: i32{
     SLE_MODE_CONNECTABLE = 1
 }
 
+enum AutoConnectPolicy: i32{
+    AUTO_CONN_GENERAL = 0,
+    AUTO_CONN_EXCEPT_AUDIO_DEVICES = 1,
+    AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES = 2
+}
+
+struct EnableOptions {
+    autoConnPolicy: Optional<AutoConnectPolicy>;
+}
+
 function enable(): void;
+
+function enableWithOptions(options: Optional<EnableOptions>): void;
 
 function disable(): void;
 
