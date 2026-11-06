@@ -618,9 +618,11 @@ int32_t SleServiceManager::EnableInner(const SleTransport transport, const SleEv
     }
     pimpl->SetTargetState(SleStateID::STATE_TURN_ON);
     autoConnPolicy_ = autoConnPolicy;
+    HILOGI("enable nearlink, autoConnPolicy(%{public}d)", static_cast<int>(autoConnPolicy));
     UpdateNearlinkSwitchSystemParameter(transport, SleStateID::STATE_TURN_ON);
 
     std::string causationStr = GetDftSwitchEventCausationString(reason, callingName);
+    causationStr += ", autoConnPolicy=" + std::to_string(static_cast<int>(autoConnPolicy));
     if (state == SleStateID::STATE_TURN_OFF || state == SleStateID::STATE_TURN_HALF) {
         DftCacheSwitchInfo(SWITCH_OPEN, SWITCH_OPER_SUCCESS, causationStr);
         UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();
