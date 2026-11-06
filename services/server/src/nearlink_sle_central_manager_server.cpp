@@ -293,12 +293,12 @@ std::vector<NearlinkSleScanFilter> NearlinkSleCentralManagerServer::SetRssiFilte
         HILOGI("Need modify RSSI filter for Wallet Service");
         std::vector<NearlinkSleScanFilter> modifiedFilters;
         for (const auto& filter : filters) {
+            NearlinkSleScanFilter newFilter = filter;
             if (!filter.HasRssiThreshold()) {
                 HILOGI("set default RSSI filter for Wallet Service");
-                NearlinkSleScanFilter newFilter = filter;
                 newFilter.SetRssiThreshold(RSSI_WALLET_SCAN_RSSI_THRESHOLD);
-                modifiedFilters.push_back(newFilter);
             }
+            modifiedFilters.push_back(newFilter);
         }
         return modifiedFilters;
     }
