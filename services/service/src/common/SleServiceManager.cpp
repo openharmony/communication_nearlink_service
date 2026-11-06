@@ -619,7 +619,6 @@ int32_t SleServiceManager::EnableInner(const SleTransport transport, const SleEv
     }
     pimpl->SetTargetState(SleStateID::STATE_TURN_ON);
     autoConnPolicy_ = autoConnPolicy;
-    HILOGI("enable nearlink, autoConnPolicy(%{public}d)", static_cast<int>(autoConnPolicy));
     UpdateNearlinkSwitchSystemParameter(transport, SleStateID::STATE_TURN_ON);
 
     std::string causationStr = GetDftSwitchEventCausationString(reason, callingName);
