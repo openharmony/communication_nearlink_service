@@ -527,13 +527,10 @@ bool QosM::DeleteQos(const RawAddress &device, Qos qos, bool& isStopStream, bool
     }
 
     // 规则十二：QOS 10删除后，NOS更新cos
-    if (qosm.cos == NL_SLE_QOS_10) {
-        HILOGI("[ASCService]DeleteQos10 COS %{public}s, COS %{public}d NOS %{public}d",
+    if (qosm.cos == NL_SLE_QOS_10 && nos != NL_SLE_QOS_NONE) {
+        HILOGI("[ASCService]DeleteQos10 replace COS %{public}s, COS %{public}d NOS %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), qosm.cos, nos);
-        if (nos != NL_SLE_QOS_NONE) {
-            qosm.cos = nos;
-        }
-        return false;
+        qosm.cos = nos;
     }
 
     HILOGI("[ASCService]DeleteQos %{public}s, qos %{public}d COS %{public}d NOS %{public}d",
