@@ -175,6 +175,11 @@ uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
     return 0;
 }
 
+uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
+{
+    return 0;
+}
+
 void DLI_SetLocalFeatures(DLI_LocalFeatures_S *features)
 {
 }

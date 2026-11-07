@@ -77,6 +77,7 @@ namespace {
         0x0406, // DLI_GET_PUBLIC_ADDRESS：获取本端公共地址
         0x040C, // DLI_ADD_DEVICE_TO_ACCESS_FILTER_LIST：白名单添加设备（含地址）
         0x040D, // DLI_REMOVE_DEVICE_FROM_ACCESS_FILTER_LIST：白名单移除设备（含地址）
+        0x0420, // DLI_ADD_DEVICE_TO_ACCESS_FILTER_LIST_EXT：白名单添加设备扩展（含地址）
         0x0C02, // DLI_SET_ADVERTISING_PARAMETERS：广播参数（含广播标识）
         0x0C03, // DLI_SET_ADVERTISING_DATA：广播数据（用户内容）
         0x0C04, // DLI_SET_SCAN_RESPONSE_DATA：扫描响应数据（用户内容）
