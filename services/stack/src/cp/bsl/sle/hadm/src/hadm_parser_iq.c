@@ -119,19 +119,19 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     PARSER_DATA_BY_LEN(&(iqInfo->slemChmap), iqInfoFromDli, sizeof(HadmSlemChmap_S));
     // 2. 判断是否为多音
     uint16_t slemInfoTypeValue = *(uint16_t *)&iqInfo->slemInfoType;
-    uint8_t isBit10Set = ((slemInfoTypeValue >> 10) & 0x1);
-    iqInfo->isMultiTone = isBit10Set;
+    uint8_t isBit10MultiSet = ((slemInfoTypeValue >> 10) & 0x1);
+    iqInfo->isMultiTone = isBit10MultiSet;
     // 3. 计算 chnlNum
-    iqInfo->iqChnlNum = HadmGetChnlNum(&(iqInfo->slemChmap), isBit10Set);
+    iqInfo->iqChnlNum = HadmGetChnlNum(&(iqInfo->slemChmap), isBit10MultiSet);
     // 4. 解析 tofResult, rssi, iqBitLen
     PARSER_DATA_BY_LEN(&iqInfo->tofResult, iqInfoFromDli, sizeof(uint32_t));
     PARSER_DATA_BY_LEN(&iqInfo->rssi, iqInfoFromDli, sizeof(uint8_t));
     PARSER_DATA_BY_LEN(&iqInfo->iqBitLen, iqInfoFromDli, sizeof(uint8_t));
     // 5. 比特 10=1 时有 1 字节多音信息
-    if (isBit10Set) {
+    if (isBit10MultiSet) {
         iqInfoFromDli += sizeof(uint8_t);
     }
-    uint32_t needLen = HADM_IQ_FIXED_LEN + (isBit10Set ? HADM_IQ_MULTITONE_INFO_LEN : 0) +
+    uint32_t needLen = HADM_IQ_FIXED_LEN + (isBit10MultiSet ? HADM_IQ_MULTITONE_INFO_LEN : 0) +
         iqInfo->iqChnlNum * HADM_IQ_LEN + HADM_IQ_TAIL_LEN;
     if (dataLen < needLen) {
         NLSTK_LOG_ERROR("[HADM] iq report insufficient, dataLen(%zu) needLen(%u) iqChnlNum(%u)",
@@ -147,7 +147,8 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     }
     iqInfoFromDli += iqInfo->iqChnlNum * HADM_IQ_LEN;
     // 7. 解析尾部 (localId/remoteId/venderLen)
-    if (isBit10Set) {
+    uint8_t isBit14IdSet = (slemInfoTypeValue >> 14) & 0x1);
+    if (isBit14IdSet) {
         PARSER_DATA_BY_LEN(&iqInfo->localId, iqInfoFromDli, sizeof(uint8_t));
         PARSER_DATA_BY_LEN(&iqInfo->remoteId, iqInfoFromDli, sizeof(uint8_t));
         PARSER_DATA_BY_LEN(&iqInfo->venderLen, iqInfoFromDli, sizeof(uint8_t));
