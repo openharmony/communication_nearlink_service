@@ -1,0 +1,79 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+
+NL_HIBOX_TEST_DIR = "$NEARLINK_ROOT/test/unittest/services_test/hibox_test"
+
+config("hibox_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = [
+    "$NEARLINK_ROOT/services/hibox/include",
+    "$NEARLINK_ROOT/utils/include",
+  ]
+
+  defines = [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  cflags = [ "--coverage" ]
+  cflags_cc = [
+    "-fexceptions",
+    "--coverage",
+  ]
+  ldflags = [ "--coverage" ]
+}
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_hibox_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-DSO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  sources = [
+    "$NL_HIBOX_TEST_DIR/hibox_tlv_parse_test.cpp",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_audio.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_dts.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_local.c",
+  ]
+
+  configs = [ ":hibox_test_config" ]
+
+  external_deps = [
+    "bounds_checking_function:libsec_shared",
+    "c_utils:utils",
+    "googletest:gtest_main",
+    "hilog:libhilog",
+  ]
+
+  part_name = "nearlink_service"
+  subsystem_name = "communication"
+}
+
+group("nl_hibox_unittest") {
+  testonly = true
+  deps = [
+    ":nl_hibox_test",
+  ]
+}
