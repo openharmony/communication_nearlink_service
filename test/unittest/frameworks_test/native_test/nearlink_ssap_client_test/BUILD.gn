@@ -29,6 +29,7 @@ config("native_ssap_client_test_config") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/services/server/include",
+    "$NEARLINK_ROOT/test/unittest/frameworks_test/native_test",
   ]
 
   defines =  [

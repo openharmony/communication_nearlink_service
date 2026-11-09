@@ -19,6 +19,7 @@
 #include "token_setproc.h"
 
 #include "nearlink_access_token_mock.h"
+#include "nearlink_test_enable_wait.h"
 #include "nearlink_def.h"
 #include "nearlink_host.h"
 #include "nearlink_ssap_client.cpp"
@@ -174,8 +175,8 @@ void NearlinkSsapClientTest::SetUpTestCase()
         HILOGI("start enable nearlink");
         NlErrCode enableRet = NearlinkHost::GetInstance().EnableNl();
         ASSERT_EQ(NL_NO_ERROR, enableRet) << "EnableNl 失败：开关前提未建立，后续用例将连坐";
-        sleep(2); // sleep 2s
     }
+    ASSERT_TRUE(WaitForSleEnabled()) << "SLE 使能在 20s 内未完成，无法进入用例";
     HILOGI("SetUpTestCase end");
 }
 
