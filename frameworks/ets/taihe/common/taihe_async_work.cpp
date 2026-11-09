@@ -51,12 +51,8 @@ std::shared_ptr<TaiheAsyncWork> TaiheAsyncWorkFactory::CreateAsyncWork(ani_env *
     std::shared_ptr<TaiheAsyncWork> taiheAsyncWork(
         new TaiheAsyncWork(env, asyncWork, asyncCallback),
         [](TaiheAsyncWork *ptr) {
-            // 延迟到独立线程析构，保证析构不在调用者栈上执行：
-            // 1) 超时路径 Complete 只注册定时器、不擦除 map 项，该 work 之后由 map 独占持有；
-            // 2) 下一次同类异步操作在 TryPush 持 mutex_ 期间 map_.erase(it) 才释放最后一个引用。
-            // 若此处同步 delete，~TaiheAsyncWork 会在持锁区释放 func_ 闭包、并触发 ~TaiheAsyncCallback
-            // 中的 DetachCurrentThread，既可能在非递归锁内自死锁，也可能在 ANI 回调帧上 detach 卡死。
-            // 代价：析构时机与进程退出期不再确定，析构逻辑不得依赖已销毁的静态对象或 ANI VM。
+            // 直接 delete：最后一个引用已在锁外释放（见 TryPush 中的 stale），
+            // 析构不持锁执行，无需新建线程，析构时机保持确定。
             if (ptr == nullptr) {
                 return;
             }
