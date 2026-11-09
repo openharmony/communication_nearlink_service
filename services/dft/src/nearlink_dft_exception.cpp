@@ -290,6 +290,25 @@ static void DftReportDisconn(const std::string &addr, int32_t reason, const std:
     DftManagerReport(DFT_DISCONN_EXCEP, params.data(), params.size());
 }
 
+static void DftCacheSleAppNameParam(const std::string &addr, const std::string &callingName)
+{
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
+    params.emplace_back(CreateStrParamC(SLE_APP_NAME, callingName));
+    DftManagerCache(DFT_PAIR_EXCEP, params.data(), params.size());
+}
+
+static void DftReportConnTimeoutWindow(const std::string &addr, int32_t reason, const std::string &appName,
+    uint32_t failCount, const std::string &firstFailTime)
+{
+    DftCacheSleAppNameParam(addr, appName);
+    DftCachePairRssiAndChannelNoise(addr, INVALID_DISCONN_RSSI, "");
+    DftCachePairConnPath(addr, PAIR_CONN_PATH_ACB);
+    DftReportPairInfo(addr, PAIR_CONN_PATH_ACB, reason,
+        std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount) +
+        ", firstFailTime:" + firstFailTime);
+}
+
 void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 {
     int64_t nowMs = GetTimestamp();
@@ -305,6 +324,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
     }
     uint32_t failCount = 0;
     std::string firstFailTime;
+    std::string appName;
     bool needReport = false;
     // 确保统计记录存在，已存在时不覆盖
     ConnTimeoutRecord newRecord;
@@ -322,6 +342,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
         }
         needReport = true;
         firstFailTime = record.firstFailTime;
+        appName = record.appName;
         record.lastReportMs = nowMs;
         record.failCount = 0;
         record.firstFailTime.clear();
@@ -329,10 +350,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
     if (!needReport) {
         return;
     }
-    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
-    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
-    DftReportDisconn(addr, reason, firstFailTime);
+    DftReportConnTimeoutWindow(addr, reason, appName, failCount, firstFailTime);
 }
 
 void DftFlushConnTimeoutExcep(const std::string &addr)
@@ -340,6 +358,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
     int64_t nowMs = GetTimestamp();
     uint32_t failCount = 0;
     std::string firstFailTime;
+    std::string appName;
     bool needReport = false;
     g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
         if (record.failCount == 0) {
@@ -351,6 +370,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
         needReport = true;
         failCount = record.failCount;
         firstFailTime = record.firstFailTime;
+        appName = record.appName;
         record.failCount = 0;
         record.firstFailTime.clear();
         record.lastReportMs = nowMs;
@@ -358,10 +378,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
     if (!needReport) {
         return;
     }
-    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
-    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
-    DftReportDisconn(addr, DFT_CONNECTION_TIMEOUT, firstFailTime);
+    DftReportConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, appName, failCount, firstFailTime);
 }
 
 void DftConnStateChange(const std::string &addr, uint8_t state, uint32_t resaon)
@@ -757,10 +774,38 @@ void DftCacheDisconChipInfo(const std::string &addr, int32_t rssi, std::string c
 
 void DftCacheCallingName(const std::string &addr, const std::string &callingName)
 {
-    std::vector<DftParamC> params;
-    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
-    params.emplace_back(CreateStrParamC(SLE_APP_NAME, callingName));
-    DftManagerCache(DFT_PAIR_EXCEP, params.data(), params.size());
+    // 发起方与统计窗口归属者不同：过限频间隔则先冲刷上报旧窗口，随后窗口移交新发起方
+    if (!callingName.empty()) {
+        int64_t nowMs = GetTimestamp();
+        uint32_t failCount = 0;
+        std::string firstFailTime;
+        std::string oldAppName;
+        bool needReport = false;
+        // 确保统计记录存在，已存在时不覆盖
+        ConnTimeoutRecord newRecord;
+        newRecord.failCount = 0;
+        newRecord.lastReportMs = 0;
+        g_connTimeoutRecords.Insert(addr, newRecord);
+        g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+            if (record.appName == callingName) {
+                return; // 同一应用反复发起，窗口继续，不冲刷
+            }
+            oldAppName = record.appName;
+            if (record.failCount > 0 && (nowMs - record.lastReportMs) >= CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+                needReport = true; // 有未上报计数且已过限频间隔，先上报旧窗口
+                failCount = record.failCount;
+                firstFailTime = record.firstFailTime;
+                record.lastReportMs = nowMs;
+            }
+            record.failCount = 0;
+            record.firstFailTime.clear();
+            record.appName = callingName; // 窗口移交新发起方
+        });
+        if (needReport) {
+            DftReportConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
+        }
+    }
+    DftCacheSleAppNameParam(addr, callingName);
 }
 
 void DftSetConnectProfileTaskFlag(const std::string &addr)
