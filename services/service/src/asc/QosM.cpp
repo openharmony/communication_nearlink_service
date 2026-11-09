@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -276,6 +276,13 @@ bool QosM::AddQos(const RawAddress &device, Qos qos)
 
 bool QosM::JudgeQosPriority(const RawAddress &device, DevQosmStru& qosm, Qos nos)
 {
+    if (qosm.cos == NL_SLE_QOS_10 && !IsQosExist(device, NL_SLE_QOS_10)) {
+        qosm.cos = nos;
+        HILOGI("[ASCService]JudgeQosPriority %{public}s replace COS 10, NOS %{public}d",
+            GetEncryptAddr(device.GetAddress()).c_str(), nos);
+        return true;
+    }
+    
     uint8_t cosPriority = GetQosPriority(qosm.cos);
     uint8_t nosPriority = GetQosPriority(nos);
     if (cosPriority > nosPriority) {
@@ -520,11 +527,10 @@ bool QosM::DeleteQos(const RawAddress &device, Qos qos, bool& isStopStream, bool
     }
 
     // 规则十二：QOS 10删除后，NOS更新cos
-    if (qosm.cos == NL_SLE_QOS_10) {
-        HILOGI("[ASCService]DeleteQos10 COS %{public}s, COS %{public}d NOS %{public}d",
+    if (qosm.cos == NL_SLE_QOS_10 && nos != NL_SLE_QOS_NONE) {
+        HILOGI("[ASCService]DeleteQos10 replace COS %{public}s, COS %{public}d NOS %{public}d",
             GetEncryptAddr(device.GetAddress()).c_str(), qosm.cos, nos);
         qosm.cos = nos;
-        return false;
     }
 
     HILOGI("[ASCService]DeleteQos %{public}s, qos %{public}d COS %{public}d NOS %{public}d",
