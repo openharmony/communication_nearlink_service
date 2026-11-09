@@ -179,18 +179,22 @@ bool TaiheAsyncWorkMap::TryPush(TaiheAsyncType type, std::shared_ptr<TaiheAsyncW
         HILOGE("asyncWork is nullptr");
         return false;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = map_.find(type);
-    if (it != map_.end()) {
-        auto const &storedAsyncWork = it->second;
-        if (storedAsyncWork != nullptr && !storedAsyncWork->triggered_) {
-            HILOGE("Async work(%{public}d) hasn't been triggered", type);
-            return false;
+    std::shared_ptr<TaiheAsyncWork> stale;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = map_.find(type);
+        if (it != map_.end()) {
+            auto const &storedAsyncWork = it->second;
+            if (storedAsyncWork != nullptr && !storedAsyncWork->triggered_) {
+                HILOGE("Async work(%{public}d) hasn't been triggered", type);
+                return false;
+            }
+            HILOGI("Async work(%{public}d) hasn't been removed, but triggered, remove it", type);
+            stale = std::move(it->second);
+            map_.erase(it);
         }
-        HILOGI("Async work(%{public}d) hasn't been removed, but triggered, remove it", type);
-        map_.erase(it);
+        map_[type] = std::move(asyncWork);
     }
-    map_[type] = std::move(asyncWork);
     return true;
 }
 
