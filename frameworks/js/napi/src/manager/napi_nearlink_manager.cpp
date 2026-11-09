@@ -15,6 +15,8 @@
 
 #include "napi_nearlink_manager.h"
 
+#include <cmath>
+
 #include "log.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_host.h"
@@ -92,18 +94,35 @@ napi_value NapiNearlinkManager::EnableWithOptions(napi_env env, napi_callback_in
             NL_ERR_INVALID_PARAM);
         if (valueType == napi_object) {
             napi_value policyValue = nullptr;
-            napi_get_named_property(env, argv[PARAM0], "autoConnPolicy", &policyValue);
+            NAPI_NL_ASSERT_RETURN_FALSE(env,
+                napi_get_named_property(env, argv[PARAM0], "autoConnPolicy", &policyValue) == napi_ok,
+                NL_ERR_INVALID_PARAM);
             napi_valuetype propType = napi_undefined;
             NAPI_NL_ASSERT_RETURN_FALSE(env, napi_typeof(env, policyValue, &propType) == napi_ok,
                 NL_ERR_INVALID_PARAM);
+            // 属性给了但类型不是数字，按参数类型错误抛401；undefined 表示未指定，沿用默认策略
+            if (propType != napi_number && propType != napi_undefined) {
+                HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+                return NapiGetUndefinedRet(env);
+            }
             if (propType == napi_number) {
-                int32_t policy = static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_GENERAL);
-                NAPI_NL_ASSERT_RETURN_FALSE(env, ParseInt32(env, policy, policyValue), NL_ERR_INVALID_PARAM);
+                double policyNumber = 0;
                 NAPI_NL_ASSERT_RETURN_FALSE(env,
-                    policy >= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) &&
-                    policy <= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
-                    NL_ERR_INVALID_PARAM);
-                autoConnPolicy = static_cast<SleAutoConnectPolicy>(policy);
+                    napi_get_value_double(env, policyValue, &policyNumber) == napi_ok, NL_ERR_INVALID_PARAM);
+                // NaN、±Infinity 或小数不属于枚举类型，按参数类型错误抛401；
+                // 不能用napi_get_value_int32，其会截断（如4294967297变成1）
+                if (!std::isfinite(policyNumber) || policyNumber != std::trunc(policyNumber)) {
+                    HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+                    return NapiGetUndefinedRet(env);
+                }
+                // 取值不属于枚举值域，按参数校验失败抛401，与scanMode、frameType等枚举参数先例一致
+                if (policyNumber < static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) ||
+                    policyNumber >
+                        static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES)) {
+                    HandleSyncErr(env, NL_ERR_INVALID_PARAM);
+                    return NapiGetUndefinedRet(env);
+                }
+                autoConnPolicy = static_cast<SleAutoConnectPolicy>(static_cast<int32_t>(policyNumber));
             }
         } else if (valueType != napi_undefined) {
             HandleSyncErr(env, NL_ERR_INVALID_PARAM);
