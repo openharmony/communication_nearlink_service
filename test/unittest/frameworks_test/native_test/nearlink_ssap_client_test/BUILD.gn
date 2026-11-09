@@ -59,6 +59,8 @@ unit_test_external_deps = [
   "safwk:system_ability_fwk",
   "samgr:samgr_proxy",
   "init:libbegetutil",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtoken_setproc",
   "access_token:libpermsetproc_shared",
   "access_token:libnativetoken_shared",
 ]
