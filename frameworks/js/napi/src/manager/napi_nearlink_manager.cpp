@@ -110,12 +110,11 @@ napi_value NapiNearlinkManager::EnableWithOptions(napi_env env, napi_callback_in
                 NAPI_NL_ASSERT_RETURN_FALSE(env,
                     napi_get_value_double(env, policyValue, &policyNumber) == napi_ok, NL_ERR_INVALID_PARAM);
                 // NaN、±Infinity 或小数不属于枚举类型，按参数类型错误抛401；
-                // 不能用napi_get_value_int32，其会截断（如4294967297变成1）
                 if (!std::isfinite(policyNumber) || policyNumber != std::trunc(policyNumber)) {
                     HandleSyncErr(env, NL_ERR_INVALID_PARAM);
                     return NapiGetUndefinedRet(env);
                 }
-                // 取值不属于枚举值域，按参数校验失败抛401，与scanMode、frameType等枚举参数先例一致
+                // 取值不属于枚举值域，按参数校验失败抛401
                 if (policyNumber < static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) ||
                     policyNumber >
                         static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES)) {
