@@ -63,10 +63,7 @@ ohos_unittest("nl_scan_service_test") {
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
-  sources -= [
-    "$SERVICE_TDD_DIR/src/common/ProfileServiceManager.cpp",
-  ]
-  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_profile_service_manager.cpp" ]
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_permission_manager.cpp" ]
 
   deps = [
     "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
