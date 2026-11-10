@@ -54,6 +54,7 @@ ohos_unittest("nl_observer_adapter_test") {
   sources = [
     "$NEARLINK_ROOT/test/unittest/frameworks_test/native_test/observer_adapter_test/nearlink_observer_adapter_test.cpp",
     "$NEARLINK_ROOT/test/unittest/frameworks_test/native_test/observer_adapter_test/nearlink_host_observer_register_test.cpp",
+    "$NEARLINK_ROOT/test/unittest/frameworks_test/native_test/observer_adapter_test/nearlink_host_paired_devices_test.cpp",
   ]
 
   configs = [
