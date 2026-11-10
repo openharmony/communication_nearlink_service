@@ -1071,8 +1071,8 @@ TEST_F(DEVD_SCAN_TEST, ScanModeBatchAndFrame4Test)
     EXPECT_EQ(scanner4->scanSetting.interval, UINT16_MAX);
 }
 
-// 帧四时长过期后被清理：已过期项复位、未到期项保留、帧一参数不受牵连，
-// 同秒时按纳秒比较两侧均生效
+// 帧四时长清理：过期项经重布防路径同步清理、停止扫描直接清除自身帧四参数、
+// 帧一参数不受帧四清理牵连
 TEST_F(DEVD_SCAN_TEST, Frame4ExpireTest)
 {
     uint32_t scannerId1 = AllocScannerOk();
@@ -1085,7 +1085,7 @@ TEST_F(DEVD_SCAN_TEST, Frame4ExpireTest)
 
     struct timespec now = {0};
     ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &now), 0);
-    // scannerId1 置为严格过期；scannerId2 同秒但纳秒更大（未到期保留）
+    // scannerId1 置为严格过期；scannerId2 未到期，用于验证停止扫描清除自身参数
     SetScannerExpireTime(scannerId1, true, now.tv_sec - 1, 0);
     SetScannerExpireTime(scannerId2, true, now.tv_sec, now.tv_nsec + 500000000);
 
@@ -1098,7 +1098,8 @@ TEST_F(DEVD_SCAN_TEST, Frame4ExpireTest)
     EXPECT_EQ(scanner1->frame4ScanSetting.interval, UINT16_MAX); // 复位默认间隔
     NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
     ASSERT_NE(scanner2, nullptr);
-    EXPECT_TRUE(scanner2->frame4ScanSetting.hasDuration); // 未到期保留
+    EXPECT_FALSE(scanner2->frame4ScanSetting.hasDuration); // 停止扫描直接清除自身帧四参数
+    EXPECT_EQ(scanner2->frame4ScanSetting.interval, UINT16_MAX); // 复位默认间隔
     NLSTK_DevdScanner_S *scanner3 = FindScannerById(scannerId3);
     ASSERT_NE(scanner3, nullptr);
     EXPECT_TRUE(scanner3->scanSetting.hasDuration); // 帧一参数不受帧四清理牵连
@@ -1265,13 +1266,19 @@ TEST_F(DEVD_SCAN_TEST, ModuleRoutingTest)
     EXPECT_EQ(StartScanWithMode(emptyScanner, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_LOW_POWER, 0), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
 
+    // 帧一两段式广播按地址配对：广播段只入缓存不上报，扫描响应段到达后合并上报一次
+    DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
+    EXPECT_EQ(g_routingReportCount, 0); // 仅广播段，尚未上报
+    DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
+    EXPECT_EQ(g_routingReportCount, 1);
     DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
     DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
     EXPECT_EQ(g_routingReportCount, 2); // 仅计数模块累计，空回调模块命中后跳过
 
     NLSTK_DevdDeregScanModule(countingId); // 注销连带移除名下扫描器
     EXPECT_EQ(FindScannerById(countingScanner), nullptr);
-    DevdReportCbkStub(g_podsData1, sizeof(g_podsData1), false);
+    DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
+    DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
     EXPECT_EQ(g_routingReportCount, 2); // 已注销模块不再收到
 
     NLSTK_DevdDeregScanModule(emptyId);
