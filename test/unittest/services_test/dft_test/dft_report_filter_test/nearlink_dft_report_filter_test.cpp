@@ -644,7 +644,7 @@ HWTEST_F(DftReportFilterTest, DftAccurateSearchGuardTest001, TestSize.Level1)
     int cacheBefore = DftMockCacheCalls();
     int reportBefore = DftMockReportCalls();
     DftCacheAccurateSearchConnInfo("00:11:22:33:44:B1", DFT_ACB_CONN, DFT_CONN_SUCCESS);
-    DftReportAccurateSearchDisConnInfo("00:11:22:33:44:B1", DFT_MEASURE, DFT_CONN_FAILED, 1);
+    DftReportAccurateSearchConnFailInfo("00:11:22:33:44:B1", DFT_MEASURE, DFT_CONN_FAILED, 1);
     DftReportAccurateSearchMeasureInfo("other.caller", "00:11:22:33:44:B1", DFT_MEASURE,
         DFT_MEASURE_FINISHED, 0);
     ASSERT_EQ(DftMockCacheCalls(), cacheBefore);
