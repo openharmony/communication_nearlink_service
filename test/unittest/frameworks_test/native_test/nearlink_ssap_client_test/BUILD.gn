@@ -62,7 +62,6 @@ unit_test_external_deps = [
   "init:libbegetutil",
   "access_token:libaccesstoken_sdk",
   "access_token:libtoken_setproc",
-    "access_token:libperm_setproc",  # fix: spm* symbols live in this static lib (static deps do not propagate)
   "access_token:libpermsetproc_shared",
   "access_token:libnativetoken_shared",
 ]
