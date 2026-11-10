@@ -100,20 +100,17 @@ napi_value NapiNearlinkManager::EnableWithOptions(napi_env env, napi_callback_in
             napi_valuetype propType = napi_undefined;
             NAPI_NL_ASSERT_RETURN_FALSE(env, napi_typeof(env, policyValue, &propType) == napi_ok,
                 NL_ERR_INVALID_PARAM);
-            // undefined 与缺省等价，沿用默认策略；其余必须是 0/1/2 的整数，否则按参数错误抛401
+            // undefined 与缺省等价，沿用默认策略；其余入参类型不对、取值非法或不在枚举值域内，均按参数错误抛401
             if (propType != napi_undefined) {
                 double policyNumber = 0;
-                NAPI_NL_ASSERT_RETURN_FALSE(env, NapiIsNumber(env, policyValue) == napi_ok, NL_ERR_INVALID_PARAM);
                 NAPI_NL_ASSERT_RETURN_FALSE(env,
-                    napi_get_value_double(env, policyValue, &policyNumber) == napi_ok, NL_ERR_INVALID_PARAM);
-                // NaN、±Infinity、小数或不在枚举值域内，均按参数校验失败抛401
-                if (!std::isfinite(policyNumber) || policyNumber != std::trunc(policyNumber) ||
-                    policyNumber < static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) ||
-                    policyNumber >
-                        static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES)) {
-                    HandleSyncErr(env, NL_ERR_INVALID_PARAM);
-                    return NapiGetUndefinedRet(env);
-                }
+                    NapiIsNumber(env, policyValue) == napi_ok &&
+                    napi_get_value_double(env, policyValue, &policyNumber) == napi_ok &&
+                    std::isfinite(policyNumber) && policyNumber == std::trunc(policyNumber) &&
+                    policyNumber >= static_cast<double>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) &&
+                    policyNumber <= static_cast<double>(
+                        SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
+                    NL_ERR_INVALID_PARAM);
                 autoConnPolicy = static_cast<SleAutoConnectPolicy>(static_cast<int32_t>(policyNumber));
             }
         } else if (valueType != napi_undefined) {
