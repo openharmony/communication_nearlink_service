@@ -19,6 +19,7 @@
  * TLV 截断与入口守卫，另直测 TLV 遍历器的空数据与多 TLV 边界。
  */
 
+#define LOG_TAG "nearlink_test"  // fix: moved from target defines (clashed with product hibox .c LOG_TAG)
 #include <gtest/gtest.h>
 #include <cstring>
 #include <ostream>
