@@ -21,6 +21,7 @@
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileTws.h"
 #include "McpServerServiceManager.cpp"
+#include "ASCService.h"
 #include "log.h"
 #include "mock_avsession_manager.h"
 #include "mock_avsession_controller.h"
@@ -34,6 +35,10 @@ using namespace OHOS::AVSession;
 using ::testing::Return;
 using ::testing::_;
 using ::testing::Invoke;
+
+// 测试目的：跨 TU 注册表注入辅助——ProfileServiceManager.cpp 仅由 mcp_server_service_test.cpp 编译，
+// 本套件经此函数（定义在该 TU）写入 profile 注册表，避免重复编译引入符号冲突。
+void SetStartedProfile(SleTransport transport, const std::string &name, SleInterfaceProfile *profile);
 
 constexpr int MCP_SERVICE_UT_DELAY_50_MS = 50;
 constexpr int MCP_SERVICE_UT_DELAY_1200_MS = 1200;
@@ -52,6 +57,9 @@ public:
 void McpServerServiceManagerTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase McpServerServiceManagerTest start");
+    // 测试目的：注入 mock ASC 服务到 profile 注册表——IsActiveDevice/SendKeyEvent 产品实现经
+    // getAscProfileFunc_（读 PROFILE_NAME_ASC 注册表）取服务；无注入时前提失败返回 false（非产品缺陷）。
+    SetStartedProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_ASC, ASCService::GetService());
     Stub stub;
     stub.set(ADDR(AVSessionManager, GetInstance), MockAVSessionManager::StubGetInstance);
 
@@ -94,6 +102,8 @@ void McpServerServiceManagerTest::SetUpTestCase()
 void McpServerServiceManagerTest::TearDownTestCase()
 {
     HILOGI("TearDownTestCase McpServerServiceManagerTest");
+    // 测试目的：套件收尾解绑 ASC 注册表注入，避免影响同进程后续复跑。
+    SetStartedProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_ASC, nullptr);
     g_McpManager->DeInit();
     g_mockAVSessionController = nullptr;
 }
@@ -458,6 +468,9 @@ HWTEST_F(McpServerServiceManagerTest, ConvertAVPlaybackStateToMcpState001, TestS
 HWTEST_F(McpServerServiceManagerTest, CheckPlaybackStateChanged001, TestSize.Level1)
 {
     HILOGI("CheckPlaybackStateChanged001 start");
+    // 测试目的：重置播放状态基线——CheckPlaybackStateChanged 与进程级缓存的 currPlaybackState_ 比较；
+    // --gtest_repeat 同进程复跑时缓存已为 PLAY，先恢复默认基线，保证"PLAY 相对基线是变化"前提恒成立。
+    g_McpManager->pimpl->currPlaybackState_ = AVPlaybackState();
     AVPlaybackState state;
     state.SetState(AVPlaybackState::PLAYBACK_STATE_PLAY);
     bool ret = g_McpManager->pimpl->CheckPlaybackStateChanged(state);

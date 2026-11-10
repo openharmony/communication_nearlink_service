@@ -15,13 +15,40 @@
 #include "nlstk_micp_client.h"
 #include "nlstk_public_define.h"
 
+// 测试目的：NLSTK micp C-API 桩的调用计数器——用例以计数断言替代固定 sleep 等待，
+// 证明服务调用链确实到达栈层。
+static int g_micpConnectCalls = 0;
+static int g_micpDisconnectCalls = 0;
+
+namespace OHOS {
+namespace Nearlink {
+namespace TEST {
+void ResetMicStackMock()
+{
+    g_micpConnectCalls = 0;
+    g_micpDisconnectCalls = 0;
+}
+int GetMicpConnectCalls()
+{
+    return g_micpConnectCalls;
+}
+int GetMicpDisconnectCalls()
+{
+    return g_micpDisconnectCalls;
+}
+} // namespace TEST
+} // namespace Nearlink
+} // namespace OHOS
+
 uint32_t NLSTK_MicpConnect(SLE_Addr_S *addr)
 {
+    ++g_micpConnectCalls;
     return NLSTK_ERRCODE_SUCCESS;
 }
 
 uint32_t NLSTK_MicpDisconnect(SLE_Addr_S *addr)
 {
+    ++g_micpDisconnectCalls;
     return NLSTK_ERRCODE_SUCCESS;
 }
 
