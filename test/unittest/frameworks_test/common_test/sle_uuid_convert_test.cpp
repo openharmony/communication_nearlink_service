@@ -28,9 +28,9 @@
 using namespace OHOS::Nearlink;
 
 namespace {
-UUID128Bit SampleBytes()
+Uuid::UUID128Bit SampleBytes()
 {
-    UUID128Bit bytes = {};
+    Uuid::UUID128Bit bytes = {};
     for (size_t i = 0; i < bytes.size(); ++i) {
         bytes[i] = static_cast<uint8_t>(i + 1);
     }
@@ -41,7 +41,7 @@ UUID128Bit SampleBytes()
 /* 16 字节输入逐字节复制，与 128 位构造结果一致 */
 TEST(SleUuidConvertTest, ConvertFromBytesSleFullLength)
 {
-    const UUID128Bit bytes = SampleBytes();
+    const Uuid::UUID128Bit bytes = SampleBytes();
     Uuid converted = Uuid::ConvertFromBytesSle(bytes.data(), bytes.size());
     EXPECT_TRUE(converted == Uuid::ConvertFrom128Bits(bytes));
 }
@@ -49,7 +49,7 @@ TEST(SleUuidConvertTest, ConvertFromBytesSleFullLength)
 /* 输入不足 16 字节：返回默认空 UUID，不做任何复制 */
 TEST(SleUuidConvertTest, ConvertFromBytesSleShortInput)
 {
-    const UUID128Bit bytes = SampleBytes();
+    const Uuid::UUID128Bit bytes = SampleBytes();
     Uuid converted = Uuid::ConvertFromBytesSle(bytes.data(), bytes.size() - 1);
     EXPECT_TRUE(converted == Uuid());
 

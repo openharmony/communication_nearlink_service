@@ -39,7 +39,7 @@ constexpr uint32_t APPEARANCE_VALUE = 0x0940;
 SleScanResultImpl BuildRichResult()
 {
     SlePeripheralDevice device;
-    device.SetRssi(RSSI_VALUE);
+    device.SetRSSI(RSSI_VALUE);
     device.SetAdFlag(AD_FLAG);
     device.SetManufacturerData(MANUFACTURER_ID_A, "firmwareA");
     device.SetManufacturerData(MANUFACTURER_ID_B, "firmwareB");
