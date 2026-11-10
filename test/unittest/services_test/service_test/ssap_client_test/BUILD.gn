@@ -95,6 +95,10 @@ ohos_unittest("nl_ssap_client_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
+    "$SERVICE_TDD_DIR/src/common/ProfileServiceManager.cpp",
+  ]
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_profile_service_manager.cpp" ]
+  sources -= [
     "$NEARLINK_ROOT/services/service/src/ssap/ssap_client_service.cpp",
   ]
 
@@ -105,6 +109,7 @@ ohos_unittest("nl_ssap_client_service_test") {
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps
+  external_deps -= [ "access_token:libaccesstoken_sdk" ]
 
   part_name = "nearlink"
   subsystem_name = "communication"

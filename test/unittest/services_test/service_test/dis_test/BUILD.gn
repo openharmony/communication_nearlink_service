@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
 import("../../../../../test/utils/service_tdd.gni")
@@ -92,6 +91,10 @@ ohos_unittest("nl_dis_service_test") {
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
+  sources -= [
+    "$SERVICE_TDD_DIR/src/common/ProfileServiceManager.cpp",
+  ]
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_profile_service_manager.cpp" ]
 
   deps = unit_test_deps
 
@@ -104,6 +107,7 @@ ohos_unittest("nl_dis_service_test") {
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps
+  external_deps -= [ "access_token:libaccesstoken_sdk" ]
 
   part_name = "nearlink"
   subsystem_name = "communication"

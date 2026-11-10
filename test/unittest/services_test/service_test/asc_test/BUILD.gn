@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 import("//build/ohos.gni")
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
@@ -161,6 +160,10 @@ ohos_unittest("nl_asc_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
+    "$SERVICE_TDD_DIR/src/common/ProfileServiceManager.cpp",
+  ]
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_profile_service_manager.cpp" ]
+  sources -= [
     "$NEARLINK_ROOT/services/service/src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
     "$NEARLINK_ROOT/services/service/src/asc/ASCService.cpp",
     "$NEARLINK_ROOT/services/service/src/tws/TwsService.cpp",
@@ -184,6 +187,7 @@ ohos_unittest("nl_asc_service_test") {
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps
+  external_deps -= [ "access_token:libaccesstoken_sdk" ]
 
   part_name = "nearlink"
   subsystem_name = "communication"
