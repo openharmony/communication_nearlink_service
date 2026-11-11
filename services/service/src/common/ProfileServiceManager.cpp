@@ -15,6 +15,9 @@
 #include "ProfileServiceManager.h"
 
 #include <algorithm>
+#include <chrono>
+#include <future>
+#include <memory>
 
 #include "nearlink_def.h"
 #include "log.h"
@@ -32,6 +35,9 @@
 
 namespace OHOS {
 namespace Nearlink {
+/* 关闭时等待 profile 线程排空已入队任务的超时时间(ms)，避免异常任务长时间卡住停止流程 */
+constexpr int PROFILE_TASK_IDLE_TIMEOUT_MS = 2000;
+
 class ProfileServicesContextCallback : public utility::IContextCallback {
 public:
     explicit ProfileServicesContextCallback(ProfileServiceManager &psm) : psm_(psm){};
@@ -150,21 +156,60 @@ void ProfileServiceManager::Stop() const
 {
     LOG_INFO("start");
 
+    /* 先摘除查询入口：此后 GetProfileService 只能取到 nullptr，
+     * 新到的任务不会再拿到即将销毁的对象 */
+    std::vector<SleInterfaceProfile *> profiles = DetachStartedProfiles();
+    /* 立即清空查询表：避免排空等待期间 Find 命中空值，调用方解引用 nullptr */
+    pimpl->startedProfiles_.Clear();
+
+    /* 再排空已入队的异步任务：CCP 的 server 侧在 CCP 线程内按名取服务后立即使用，
+     * 摘链前入队的任务仍可能持有这些指针，需等其执行完再删除 */
+    if (!profiles.empty()) {
+        WaitProfileTasksIdle();
+    }
+
+    /* 排空在超时时间内完成时，删除是安全的；超时后仍按原逻辑删除，
+     * 此时若有任务长时间阻塞在外部调用中，恢复后可能访问已释放对象（已知残留） */
+    for (auto profile : profiles) {
+        delete profile;
+    }
+
+    pimpl->profilesState_.Clear();
+}
+
+std::vector<SleInterfaceProfile *> ProfileServiceManager::DetachStartedProfiles() const
+{
+    std::vector<SleInterfaceProfile *> profiles;
     for (auto &sp : GET_SUPPORT_PROFILES()) {
         SleInterfaceProfile *profile = nullptr;
         if (pimpl->startedProfiles_.Find(SleTransport::ADAPTER_SLB, sp.mName, profile)) {
             pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLB, sp.mName, nullptr);
-            delete profile;
         } else if (pimpl->startedProfiles_.Find(SleTransport::ADAPTER_SLE, sp.mName, profile)) {
             pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLE, sp.mName, nullptr);
-            delete profile;
         } else {
-            // Nothing to do
+            continue;
+        }
+        /* 同名单在配置中重复出现时，第二次命中的是刚被置空的键，跳过避免重复收集 */
+        if (profile != nullptr) {
+            profiles.push_back(profile);
         }
     }
+    return profiles;
+}
 
-    pimpl->startedProfiles_.Clear();
-    pimpl->profilesState_.Clear();
+void ProfileServiceManager::WaitProfileTasksIdle() const
+{
+    /* 用屏障任务排空 CCP 串行队列：屏障执行时，此前入队的任务均已结束。
+     * promise 以 shared_ptr 捕获，超时返回后屏障迟到执行也不会访问已销毁的栈对象。
+     * 只能约束“屏障之前已入队”的任务：投递本身无超时，屏障之后入队的任务不在范围内 */
+    auto idlePromise = std::make_shared<std::promise<void>>();
+    std::future<void> idleFuture = idlePromise->get_future();
+    DoInCcpThread([idlePromise]() { idlePromise->set_value(); });
+    auto waitRet = idleFuture.wait_for(std::chrono::milliseconds(PROFILE_TASK_IDLE_TIMEOUT_MS));
+    if (waitRet != std::future_status::ready) {
+        HILOGE("[ProfileServiceManager] wait ccp tasks idle timeout, %{public}d ms, delete anyway.",
+            PROFILE_TASK_IDLE_TIMEOUT_MS);
+    }
 }
 
 SleInterfaceProfile *ProfileServiceManager::GetProfileService(const std::string &name) const

@@ -187,6 +187,56 @@ ohos_shared_library("nearlink_framework") {
   subsystem_name = "communication"
 }
 
+# Call Control Profile client interface，供 call_manager 等消费方以 inner api 方式依赖。
+ohos_shared_library("nearlink_ccp_framework") {
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+
+  configs = [ ":nearlink_framework_config" ]
+
+  ldflags = [
+    "-flto",
+    "-Wl,--gc-sections",
+  ]
+
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    cfi_vcall_icall_only = true            # CFI optimization, limit CFI check scope
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-SO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = false
+  }
+
+  defines = [
+    "LOG_TAG = \"nearlink_ccp\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+
+  sources = [
+    "nearlink_ccp_client.cpp",
+    "../ipc/src/nearlink_ccp_client_proxy.cpp",
+  ]
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+    "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "ipc:ipc_core",
+    "samgr:samgr_proxy",
+  ]
+
+  public_configs = [":nl_framework_public"]
+
+  part_name = "nearlink_service"
+  innerapi_tags = [ "platformsdk" ]
+  subsystem_name = "communication"
+}
+
 ohos_shared_headers("ranging_alogorithm_headers") {
   include_dirs = [
     "$NEARLINK_ROOT/frameworks/ranging_alogorithm_adapter/include",

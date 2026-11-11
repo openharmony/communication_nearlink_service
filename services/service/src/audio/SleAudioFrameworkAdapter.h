@@ -55,7 +55,6 @@ public:
     bool IsAudioServiceActivate();
     bool IsNearlinkOut();
     bool IsBtOut();
-    bool IsInVoipCallKit();
     void RegisterCollaborativeAudioListener();
 
 private:

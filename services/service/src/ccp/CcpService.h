@@ -26,7 +26,6 @@
 #include "SleInterfaceAdapter.h"
 #include "ProfileServiceManager.h"
 #include "CcpDefines.h"
-#include "NearlinkCallPhoneState.h"
 #include "SleInterfaceProfileCcp.h"
 
 namespace OHOS {
@@ -61,11 +60,16 @@ public:
     void HandleHangUp(const RawAddress &device, int32_t instanceId, uint32_t requestId, uint8_t callId);
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
-    void HandlePhoneStateChange(const NearlinkCallPhoneState &phoneState);
-    void HandleVoipCallDetailChange(const Telephony::CallAttributeInfo &info);
-    void HandleCallDetailChange(const Telephony::CallAttributeInfo &info);
-    bool IsNearlinkActiveDevice(const RawAddress &reportAddr);
-    
+    void HandlePhoneStateChange(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
+    /* 蜂窝直调入口：NearlinkCcpClientServer 经 DoInCcpThread 投递调用 */
+    void PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
+        const std::string &number) override;
+    /* 蜂窝单路明细直调入口：仅蜂窝路（callType 非 TYPE_VOIP）的 DISCONNECTED 清理 callId 映射，
+     * VoIP 路及其余状态的明细由 PhoneStateChanged 承载 */
+    void CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType) override;
+    void HandleCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
+        const std::vector<Telephony::CallAttributeInfo> &callVec);
+
     void SetGeneralInstanceId(int32_t instanceId)
     {
         instanceId_ = instanceId;
@@ -77,14 +81,18 @@ public:
     void CreateVoipCallInfo();
 
 private:
+    /* 事件只携带 callId/callState，按 callId 反查通话列表补齐明细 */
+    Telephony::CallAttributeInfo BuildCallAttributeInfo(int32_t callId, int32_t callState,
+        const std::string &number, const std::vector<Telephony::CallAttributeInfo> &callVec);
     void ProcessCallDetailChange(const Telephony::CallAttributeInfo &info);
-    void ProcessCallStateInfo(std::vector<Telephony::CallAttributeInfo> callInfoVec);
+    void ProcessCallStateInfo(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
     void ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info);
     void ProcessCallTerminateInfo(const Telephony::CallAttributeInfo &info);
     CallFlagBits GetCallFlag(const Telephony::CallAttributeInfo &info);
     bool ProcessAccountInfo(std::shared_ptr<CallInOutInfoProp> prop, const Telephony::CallAttributeInfo &info);
     void NotifyAudioDeviceAction(const RawAddress &devAddr, int action);
     bool HasVoipCallId();
+    bool HasPhoneCallId();
 
     /* 通用通话控制实例ID */
     uint8_t instanceId_ {CCP_INSTANCE_ID};

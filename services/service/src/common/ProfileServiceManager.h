@@ -191,6 +191,9 @@ public:
     ~ProfileServiceManager();
 
 private:
+    std::vector<SleInterfaceProfile *> DetachStartedProfiles() const;
+    void WaitProfileTasksIdle() const;
+
     void CreateConfigSupportProfiles() const;
     void CreateClassicProfileServices() const;
     void CreateSleProfileServices() const;
