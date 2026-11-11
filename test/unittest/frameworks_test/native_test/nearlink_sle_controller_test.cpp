@@ -14,8 +14,11 @@
  */
 
 #include <gtest/gtest.h>
+#include "accesstoken_kit.h"
+#include "token_setproc.h"
 #include "nearlink_sle_controller.h"
 #include "nearlink_def.h"
+#include "nearlink_access_token_mock.h"
 #include "log.h"
 
 namespace OHOS {
@@ -34,6 +37,12 @@ public:
 void NearlinkSleControllerTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start NearlinkSleControllerTest.");
+    // 用例期望 calling-name 拦截返回 INTERNAL_ERROR；无 token 时会先被权限门拦成 201，须先建 token
+    NearlinkAccessTokenMock::SetNativeTokenInfo();
+    int permState = OHOS::Security::AccessToken::AccessTokenKit::VerifyAccessToken(
+        GetSelfTokenID(), "ohos.permission.ACCESS_NEARLINK");
+    ASSERT_EQ(OHOS::Security::AccessToken::PermissionState::PERMISSION_GRANTED, permState)
+        << "native token 前提未建立：SetNativeTokenInfo 后 ACCESS_NEARLINK 仍非 GRANTED";
 }
 
 void NearlinkSleControllerTest::TearDownTestCase()
