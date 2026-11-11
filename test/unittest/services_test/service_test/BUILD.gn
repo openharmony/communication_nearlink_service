@@ -182,6 +182,7 @@ group("nl_service_unittest") {
     "cdsm_test:nl_cdsm_unittest",
     "nl_cloud_pair_test:nl_cloud_pair_unittest",
     "nl_reconnect_manager_test:nl_reconnect_manager_unittest",
+    "reconnect_manager_test:nl_reconnect_adapter_probe_unittest",
     "nl_datatransfer_test:nl_datatransfer_unittest",
     "hadm_test:nl_hadm_service_unittest",
     "nearlink_adv_test:nl_adv_service_unittest",
