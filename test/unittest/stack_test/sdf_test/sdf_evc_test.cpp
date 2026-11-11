@@ -189,7 +189,10 @@ TEST_F(SdfEvcEnvTest, EventPostDeliversAndDelStops)
     ASSERT_EQ(SDF_EventAdd(&eFd, &param), SDF_OK);
     ASSERT_GE(eFd, 0);
 
+    // 连续投递会被合并成一次派发（事件循环每次唤醒只读一次计数并回调一次），
+    // 按产品实际语义串行投递、逐次等待回调到齐
     EXPECT_EQ(SDF_EventPost(eFd), SDF_OK);
+    EXPECT_TRUE(WaitDeadline(g_eventCalls, 1, 5000));
     EXPECT_EQ(SDF_EventPost(eFd), SDF_OK);
     EXPECT_TRUE(WaitDeadline(g_eventCalls, 2, 5000));
 
