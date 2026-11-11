@@ -42,9 +42,9 @@ function getLocalAddress(): String;
 
 function getLocalName(): String;
 
-function setConnectionMode(mode: ConnectionMode, duration: i32): void;
+@promise function setConnectionMode(mode: ConnectionMode, duration: i32): void;
  
-function factoryReset(): void;
+@promise function factoryReset(): void;
 
 function isNearLinkSupported(): bool;
 
