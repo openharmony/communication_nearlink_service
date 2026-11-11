@@ -951,17 +951,59 @@ static void CM_IOBQualityReportCbk(void *context, uint16_t status, DLI_ExecuteCm
     }
 }
 
+static void NotifyParamUpdateStatusError(CM_ICBConnectionState state, uint8_t id)
+{
+    CM_ICBConnection icbConn = {};
+    icbConn.state = state;
+    icbConn.errorCode = CM_ICB_STATUS_EVENT_FAILED;
+    icbConn.id = id;
+    NotifyUpperCallback(&icbConn);
+}
+
+static void NotifyParamUpdateSuccess(CM_ICBConnectionState state, ICGConnectionNode *channelNode,
+    uint16_t connHandle, uint16_t lcid, uint8_t labelId)
+{
+    CM_ICBConnection icbConn = {};
+    CM_ICBChannel channel = {};
+    icbConn.state = state;
+    icbConn.errorCode = CM_ICB_SUCCESS;
+    icbConn.isIMG = channelNode->type == CM_IMB;
+    icbConn.gHandle = channelNode->gHandle;
+    icbConn.id = channelNode->id;
+    icbConn.channelCnt = 1;
+    channel.connHandle = connHandle;
+    channel.lcid = lcid;
+    channel.labelId = labelId;
+    icbConn.channel = &channel;
+    NotifyUpperCallback(&icbConn);
+}
+
 static void CM_ParamUpdateCbk(CM_ICBType type, void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
 {
     CM_CHECK_RETURN(CM_ICBIsInited(), "icb mgr is not inited");
     CM_CHECK_RETURN(cmdRes != NULL && cmdRes->eventParameter != NULL, "param is null, type=%u", type);
 
+    CM_ICBConnectionState state = type == CM_IMB ? CM_ICB_STATE_IMG_UPDATED : CM_ICB_STATE_IOG_UPDATED;
+
+    // 命令错误链（cmdRes->cmdOpcode == DLI_CMD_ERROR_EVT）传入的是DLI_CommandErrorStru，没有connHandle/lcid字段，
+    // 不能按DLI_ICBParamUpdateEvt解析，否则会读取错位字段得到垃圾句柄；此时用发送命令时保存的context（含type/id）上报失败
+    if (cmdRes->cmdOpcode == DLI_CMD_ERROR_EVT) {
+        CM_CHECK_RETURN(cmdRes->size >= sizeof(DLI_CommandErrorStru), "param size is too small, size=%u, type=%u",
+            cmdRes->size, type);
+        DLI_CommandErrorStru *param = (DLI_CommandErrorStru *)cmdRes->eventParameter;
+        CM_LOGE("update param cmd error, type=%u, cmd: 0x%04X, status: 0x%04X", type, param->cmd, param->status);
+        CM_CHECK_RETURN(context != NULL, "context is null, don't notify param update status error!");
+        NotifyParamUpdateStatusError(state, ((DLI_ICGCbkParam *)context)->id);
+        return;
+    }
+
+    CM_CHECK_RETURN(cmdRes->size >= sizeof(DLI_ICBParamUpdateEvt), "param size is too small, size=%u, type=%u",
+        cmdRes->size, type);
     DLI_ICBParamUpdateEvt *param = (DLI_ICBParamUpdateEvt *)cmdRes->eventParameter;
     uint16_t connHandle = DECODE2BYTE_LITTLE((uint8_t *)&param->connHandle);
     uint16_t lcid = DECODE2BYTE_LITTLE((uint8_t *)&param->lcid);
     CM_LOGI("type=%u, status=%u, connHandle=%u, lcid=%u", type, status, connHandle, lcid);
 
-    CM_ICBConnectionState state = type == CM_IMB ? CM_ICB_STATE_IMG_UPDATED : CM_ICB_STATE_IOG_UPDATED;
     ICGConnectionNode *channelNode = NULL;
     ICGConnectionNode *temp = NULL;
     SDF_DListElmSafeForeach(channelNode, temp, &g_icgConnectionListHead, entry) {
@@ -973,19 +1015,7 @@ static void CM_ParamUpdateCbk(CM_ICBType type, void *context, uint16_t status, D
                 NotifySingleChannelCallback(state, CM_ICB_FAILED, connHandle, lcid, channelNode);
                 return;
             }
-            CM_ICBConnection icbConn = {};
-            CM_ICBChannel channel = {};
-            icbConn.state = state;
-            icbConn.errorCode = CM_ICB_SUCCESS;
-            icbConn.isIMG = channelNode->type == CM_IMB;
-            icbConn.gHandle = channelNode->gHandle;
-            icbConn.id = channelNode->id;
-            icbConn.channelCnt = 1;
-            channel.connHandle = connHandle;
-            channel.lcid = lcid;
-            channel.labelId = param->labelId;
-            icbConn.channel = &channel;
-            NotifyUpperCallback(&icbConn);
+            NotifyParamUpdateSuccess(state, channelNode, connHandle, lcid, param->labelId);
             return;
         }
     }
