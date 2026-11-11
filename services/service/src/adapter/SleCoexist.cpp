@@ -119,7 +119,6 @@ void SleCoexist::ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr)
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
     manager->UpdateConnectionInfo(info);
-    // 新连接可能改变共存情况：已有多个连接时需要评估调整
     HILOGI("[SleCoexist] ConnectionStatusChanged lcid=0x%{public}x, connCount=%{public}d",
         lcid, manager->GetConnectionCount());
 }
