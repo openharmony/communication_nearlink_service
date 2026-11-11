@@ -122,6 +122,8 @@ void DftCacheBgStartConn(const std::string &addr, int32_t deviceAppearance)
 {
     DftCacheConnInfoTime(addr, LAST_CONN_REQ_TIME);
     DftCachePairConnType(addr, NO_PAIR, BG_CONN);
+    // 背景回连超时归属名固定为NearlinkBgConn
+    DftCacheCallingName(addr, "NearlinkBgConn");
     DftCacheAcbStartConn(addr);
     DftCachePairAppearance(addr, deviceAppearance);
 }
@@ -791,8 +793,8 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
                 return; // 同一应用反复发起，窗口继续，不冲刷
             }
             oldAppName = record.appName;
-            if (record.failCount > 0 && (nowMs - record.lastReportMs) >= CONN_TIMEOUT_REPORT_INTERVAL_MS) {
-                needReport = true; // 有未上报计数且已过限频间隔，先上报旧窗口
+            if (record.failCount > 0) {
+                needReport = true; // 有未上报计数，先上报旧窗口
                 failCount = record.failCount;
                 firstFailTime = record.firstFailTime;
                 record.lastReportMs = nowMs;
