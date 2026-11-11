@@ -200,7 +200,8 @@ group("nl_service_unittest") {
     "icce_test:nl_icce_service_unittest",
     "dis_test:nl_dis_service_unittest",
     "bas_service_test:bas_service_unittest",
-    "battery_manager_test:nl_battery_manager_unittest"
+    "battery_manager_test:nl_battery_manager_unittest",
+    "antenna_mgr_test:nl_antenna_mgr_unittest",
   ]
   if (nearlink_service_kia_enable) {
     deps += [
