@@ -1,0 +1,36 @@
+{
+  global:
+    HiboxAudioMgmtReqComb;
+    HiboxAudioMgmtReqParse;
+    HiboxAudioMgmtRspComb;
+    HiboxAudioMgmtRspParse;
+    HiboxCombReqMsg;
+    HiboxCombRspMsg;
+    HiboxCombileMsg;
+    HiboxCombineTlv;
+    HiboxCommResultParse;
+    HiboxCommonResultComb;
+    HiboxCompareArrayToValue;
+    HiboxDeviceAbilityReqComb;
+    HiboxDtsMgmtReqComb;
+    HiboxDtsMgmtReqParse;
+    HiboxDtsMgmtRspComb;
+    HiboxDtsMgmtRspParse;
+    HiboxEarbudsNature;
+    HiboxHitwsManagerReqParse;
+    HiboxHitwsManagerRspComb;
+    HiboxL2cuDoCheckMic;
+    HiboxPairConnMgmtReqComb;
+    HiboxPairConnMgmtReqParse;
+    HiboxPairConnMgmtRspParse;
+    HiboxRecvCfmMsg;
+    HiboxRecvIndMsg;
+    HiboxRegisterProcess;
+    HiboxServiceManagerRspParse;
+    HiboxTlvParseHandler;
+    __cfi_check;
+    _fini;
+    _init;
+  local:
+    *;
+};
