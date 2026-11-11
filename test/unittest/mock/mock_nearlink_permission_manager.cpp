@@ -34,8 +34,7 @@ bool NearLinkPermissionManager::VerifyPermission(const std::string &permissionNa
 bool NearLinkPermissionManager::VerifyPermission(const std::string &permissionName, const uint32_t &callerToken)
 {
     (void)permissionName;
-    (void)callerToken;
-    return true;
+    return callerToken != 0;
 }
 
 int32_t NearLinkPermissionManager::VerifyMultiPermissions(const std::shared_ptr<NearLinkPermissionItem> &item)
@@ -46,13 +45,13 @@ int32_t NearLinkPermissionManager::VerifyMultiPermissions(const std::shared_ptr<
 
 int32_t NearLinkPermissionManager::GetNearlinkApiVersion()
 {
-    return 0;
+    return API_VERSION_INVALID;
 }
 
 int32_t NearLinkPermissionManager::GetNearlinkApiVersion(uint32_t tokenId)
 {
     (void)tokenId;
-    return 0;
+    return API_VERSION_INVALID;
 }
 
 std::string NearLinkPermissionManager::GetCallingName()
@@ -62,8 +61,7 @@ std::string NearLinkPermissionManager::GetCallingName()
 
 std::string NearLinkPermissionManager::GetCallingName(const uint32_t &tokenId)
 {
-    (void)tokenId;
-    return "nearlink_test";
+    return tokenId == 0 ? "" : "nearlink_test";
 }
 
 bool NearLinkPermissionManager::IsHapCaller(void)
@@ -112,13 +110,12 @@ bool NearLinkPermissionManager::IsSystemHap(uint64_t fullTokenId)
 
 bool NearLinkPermissionManager::IsUseRealAddr()
 {
-    return false;
+    return true;
 }
 
 bool NearLinkPermissionManager::IsUseRealAddr(const uint32_t &tokenId)
 {
-    (void)tokenId;
-    return false;
+    return tokenId != 0;
 }
 
 std::shared_ptr<NearLinkPermissionItem> NearLinkPermissionManager::CreateItem(bool isSystemApi,
