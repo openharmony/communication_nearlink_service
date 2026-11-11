@@ -904,6 +904,968 @@ HWTEST_F(SleProfileConnectTest, ClearAllAndSilentPortDisconnect_019, TestSize.Le
     EXPECT_TRUE(idle->GetSilentPortFlag());
 }
 
+// ===========================================================================
+// 套件二：ProfileServiceManager（业务启停编排 + 查询）
+// ===========================================================================
+class ProfileServiceManagerTest : public testing::Test {
+public:
+    void SetUp() override
+    {
+        SyncThreadsForTest();
+        ClearRegistry();
+    }
+
+    void TearDown() override
+    {
+        ClearRegistry();
+        ThreadUtil::GetInstance().InitThreadStateMap();
+    }
+
+    FakeProfile *NewFake(const std::string &name, int state, uint8_t stateMask = 0)
+    {
+        auto fake = std::make_unique<FakeProfile>(stateMask);
+        FakeProfile *raw = fake.get();
+        fakes_.push_back(std::move(fake));
+        Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLE, name, raw);
+        Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, name, static_cast<ServiceStateID>(state));
+        return raw;
+    }
+
+    static ProfileServiceManager &Psm()
+    {
+        return ProfileServiceManager::GetInstance();
+    }
+
+    static void ClearRegistry()
+    {
+        Psm().pimpl->startedProfiles_.Clear();
+        Psm().pimpl->profilesState_.Clear();
+    }
+
+    std::vector<std::unique_ptr<FakeProfile>> fakes_;
+};
+
+/**
+ * @tc.name: ProfileEnableAndAllEnabled_001
+ * @tc.desc: 业务使能：无已启动业务时直接报完成；有业务处于关闭态则先逐个拉起再判断
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableAndAllEnabled_001, TestSize.Level1)
+{
+    // 空表：全使能成立，直接上报完成
+    EXPECT_TRUE(Psm().IsAllEnabled(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().Enable(SleTransport::ADAPTER_SLE));
+
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_OFF));
+    EXPECT_FALSE(Psm().IsAllEnabled(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().Enable(SleTransport::ADAPTER_SLE));
+    EXPECT_EQ(1, hid->context_.enableCount);
+
+    // 只有启动表没有状态表：既不算全使能也不算全停用
+    ClearRegistry();
+    fakes_.clear();
+    auto orphan = std::make_unique<FakeProfile>();
+    fakes_.push_back(std::move(orphan));
+    FakeProfile *orphanRaw = static_cast<FakeProfile *>(fakes_.back().get());
+    Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, orphanRaw);
+    EXPECT_FALSE(Psm().IsAllEnabled(SleTransport::ADAPTER_SLE));
+    EXPECT_FALSE(Psm().IsAllDisabled(SleTransport::ADAPTER_SLE));
+}
+
+/**
+ * @tc.name: ProfileOnAllEnabledAndTurning_002
+ * @tc.desc: 全使能完成把该通道全部业务置为开启；翻转判定按是否还有中间态业务给出
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileOnAllEnabledAndTurning_002, TestSize.Level1)
+{
+    NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURNING_ON));
+    EXPECT_TRUE(Psm().IsProfilesTurning(SleTransport::ADAPTER_SLE));
+
+    Psm().OnAllEnabled(SleTransport::ADAPTER_SLE);
+    EXPECT_FALSE(Psm().IsProfilesTurning(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().IsAllEnabled(SleTransport::ADAPTER_SLE));
+
+    // 空表：翻转判定为否，全使能完成不做动作
+    ClearRegistry();
+    fakes_.clear();
+    EXPECT_FALSE(Psm().IsProfilesTurning(SleTransport::ADAPTER_SLE));
+    Psm().OnAllEnabled(SleTransport::ADAPTER_SLE);
+}
+
+/**
+ * @tc.name: ProfileEnableProfilesInherit_003
+ * @tc.desc: 拉起业务继承另一通道状态：对端已开直接置开、对端关中先挂起、
+ *           对端开中同步开中、对端未知则正常走开启流程
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableProfilesInherit_003, TestSize.Level1)
+{
+    const SleTransport other = SleTransport::ADAPTER_SLB;
+    const SleTransport self = SleTransport::ADAPTER_SLE;
+
+    auto onOther = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_OFF));
+    Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+    Psm().EnableProfiles(self);
+    ServiceStateID state = ServiceStateID::TURN_OFF;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+    EXPECT_EQ(0, onOther->context_.enableCount);
+
+    Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_OFF);
+    Psm().EnableProfiles(self);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::WAIT_TURN_ON, state);
+
+    Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_ON);
+    Psm().EnableProfiles(self);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+
+    // 对端无记录：正常开启
+    ClearRegistry();
+    fakes_.clear();
+    auto fresh = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_OFF));
+    Psm().EnableProfiles(self);
+    EXPECT_EQ(1, fresh->context_.enableCount);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+
+    // 已开启的业务不重复拉起
+    Psm().EnableProfiles(self);
+    EXPECT_EQ(1, fresh->context_.enableCount);
+}
+
+/**
+ * @tc.name: ProfileEnableComplete_004
+ * @tc.desc: 业务使能完成回调：双通道都在开启中则一起收口，未在开启中的通道不受影响，
+ *           返回失败的业务回落关闭态
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableComplete_004, TestSize.Level1)
+{
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURNING_ON));
+    Psm().pimpl->profilesState_.SetProfile(
+        SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_ON);
+
+    Psm().OnEnable(PROFILE_NAME_HID_HOST, true);
+    ServiceStateID state = ServiceStateID::TURN_OFF;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+
+    // 未在开启中：忽略
+    Psm().OnEnable(PROFILE_NAME_HID_HOST, false);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+
+    // 失败回落
+    auto mic = NewFake(PROFILE_NAME_MIC, static_cast<int>(ServiceStateID::TURNING_ON));
+    Psm().OnEnable(PROFILE_NAME_MIC, false);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+}
+
+/**
+ * @tc.name: ProfileDisableFlows_005
+ * @tc.desc: 业务停用：无启动业务直接报完成；开启中的业务先转关中再停用上下文；
+ *           对端通道仍在用的业务直接置关不调停用
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileDisableFlows_005, TestSize.Level1)
+{
+    EXPECT_TRUE(Psm().IsAllDisabled(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().Disable(SleTransport::ADAPTER_SLE));
+
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    EXPECT_FALSE(Psm().IsAllDisabled(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().Disable(SleTransport::ADAPTER_SLE));
+    EXPECT_EQ(1, hid->context_.disableCount);
+
+    // 对端仍在用：直接置关，不停用上下文
+    ClearRegistry();
+    fakes_.clear();
+    auto shared = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    Psm().pimpl->profilesState_.SetProfile(
+        SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+    Psm().DisableProfiles(SleTransport::ADAPTER_SLE);
+    EXPECT_EQ(0, shared->context_.disableCount);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+
+    // 已关闭的业务不停用
+    ClearRegistry();
+    fakes_.clear();
+    auto off = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_OFF));
+    Psm().DisableProfiles(SleTransport::ADAPTER_SLE);
+    EXPECT_EQ(0, off->context_.disableCount);
+}
+
+/**
+ * @tc.name: ProfileDisableCompleteAndWaitEnable_006
+ * @tc.desc: 业务停用完成回调把状态收口为关闭，另一通道挂起等待的业务随即重新拉起；
+ *           全停后状态表可整体复位
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileDisableCompleteAndWaitEnable_006, TestSize.Level1)
+{
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURNING_OFF));
+    Psm().pimpl->profilesState_.SetProfile(
+        SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::WAIT_TURN_ON);
+
+    Psm().OnDisable(PROFILE_NAME_HID_HOST, true);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+    EXPECT_EQ(1, hid->context_.enableCount);
+
+    Psm().OnAllDisabled(SleTransport::ADAPTER_SLE);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+
+    // 空表：复位无动作
+    ClearRegistry();
+    fakes_.clear();
+    Psm().OnAllDisabled(SleTransport::ADAPTER_SLE);
+}
+
+/**
+ * @tc.name: ProfileQueryConnectState_007
+ * @tc.desc: 业务连接态查询按状态掩码给出已连/连接中/断连中/断连；聚合查询排除SSAP两业务，
+ *           任一业务已连即整体已连
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileQueryConnectState_007, TestSize.Level1)
+{
+    uint32_t hidId = 0;
+    for (auto &info : SupportProfilesInfo::GetSupportProfiles()) {
+        if (info.mName == PROFILE_NAME_HID_HOST) {
+            hidId = info.mId;
+        }
+    }
+    ASSERT_NE(0U, hidId);
+
+    EXPECT_EQ(SleConnectState::DISCONNECTED, Psm().GetProfileServiceConnectState(hidId));
+    EXPECT_EQ(SleConnectState::DISCONNECTED, Psm().GetProfileServiceConnectState(0xFFF));
+    EXPECT_EQ(SleConnectState::DISCONNECTED, Psm().GetProfileServicesConnectState());
+
+    auto connected = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON),
+        PROFILE_STATE_CONNECTED);
+    EXPECT_EQ(SleConnectState::CONNECTED, Psm().GetProfileServiceConnectState(hidId));
+    connected->stateMask_ = PROFILE_STATE_CONNECTING;
+    EXPECT_EQ(SleConnectState::CONNECTING, Psm().GetProfileServiceConnectState(hidId));
+    connected->stateMask_ = PROFILE_STATE_DISCONNECTING;
+    EXPECT_EQ(SleConnectState::DISCONNECTING, Psm().GetProfileServiceConnectState(hidId));
+    connected->stateMask_ = 0;
+    EXPECT_EQ(SleConnectState::DISCONNECTED, Psm().GetProfileServiceConnectState(hidId));
+
+    // 聚合：SSAP已连不参与聚合
+    auto ssapClient = NewFake(PROFILE_NAME_SSAP_CLIENT, static_cast<int>(ServiceStateID::TURN_ON),
+        PROFILE_STATE_CONNECTED);
+    EXPECT_EQ(SleConnectState::DISCONNECTED, Psm().GetProfileServicesConnectState());
+    ssapClient->stateMask_ = PROFILE_STATE_CONNECTING;
+    connected->stateMask_ = PROFILE_STATE_CONNECTED;
+    EXPECT_EQ(SleConnectState::CONNECTED, Psm().GetProfileServicesConnectState());
+    connected->stateMask_ = PROFILE_STATE_CONNECTING;
+    EXPECT_EQ(SleConnectState::CONNECTING, Psm().GetProfileServicesConnectState());
+}
+
+/**
+ * @tc.name: ProfileQueryListAndUuids_008
+ * @tc.desc: 业务ID清单只含已启动业务；本机支持服务号清单收集开启态业务的UUID并去重
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileQueryListAndUuids_008, TestSize.Level1)
+{
+    NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    NewFake(PROFILE_NAME_MIC, static_cast<int>(ServiceStateID::TURN_ON));
+
+    auto list = Psm().GetProfileServicesList();
+    auto hasName = [&list](const std::string &name) {
+        for (auto id : list) {
+            if (SupportProfilesInfo::IdToName(id) == name) {
+                return true;
+            }
+        }
+        return false;
+    };
+    EXPECT_TRUE(hasName(PROFILE_NAME_HID_HOST));
+    EXPECT_TRUE(hasName(PROFILE_NAME_MIC));
+    EXPECT_FALSE(hasName(PROFILE_NAME_ASC));
+
+    std::vector<std::string> uuids;
+    Psm().GetProfileServicesSupportedUuids(uuids);
+    std::string hidUuid;
+    std::string micUuid;
+    for (auto &info : SupportProfilesInfo::GetSupportProfiles()) {
+        if (info.mName == PROFILE_NAME_HID_HOST) {
+            hidUuid = info.mUuid;
+        }
+        if (info.mName == PROFILE_NAME_MIC) {
+            micUuid = info.mUuid;
+        }
+    }
+    EXPECT_NE(uuids.end(), std::find(uuids.begin(), uuids.end(), hidUuid));
+    EXPECT_NE(uuids.end(), std::find(uuids.begin(), uuids.end(), micUuid));
+    EXPECT_EQ(2U, uuids.size());
+
+    // 关闭态业务与重复UUID不进清单
+    NewFake(PROFILE_NAME_DIS, static_cast<int>(ServiceStateID::TURN_OFF));
+    uuids.clear();
+    Psm().GetProfileServicesSupportedUuids(uuids);
+    EXPECT_EQ(2U, uuids.size());
+}
+
+/**
+ * @tc.name: ProfileSystemSupportServices_009
+ * @tc.desc: 本机支持服务集合按系统配置展开：基础业务恒在，音频业务随音频支持位，
+ *           车钥匙业务随系统参数
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileSystemSupportServices_009, TestSize.Level1)
+{
+    Psm().SetSystemSupportProfileServices();
+    auto supported = Psm().GetSystemSupportProfileServices();
+    auto has = [&supported](SleUuid uuid) { return supported.find(uuid) != supported.end(); };
+    EXPECT_TRUE(has(SleUuid::SLE_STANDARD_SERVICE_HID_UUID));
+    EXPECT_TRUE(has(SleUuid::UUID_BATTERY_SERVICE));
+    EXPECT_TRUE(has(SleUuid::UUID_DEVICE_INFORMATION_SERVICE));
+    EXPECT_TRUE(has(SleUuid::UUID_PORT_PROFILE_SERVICE));
+    EXPECT_TRUE(has(SleUuid::SLE_STANDARD_ASC_MGMT_UUID));
+    EXPECT_TRUE(has(SleUuid::SLE_STANDARD_SERVICE_CDSM_UUID));
+    EXPECT_TRUE(has(SleUuid::SLE_STANDARD_SERVICE_VCP_UUID));
+    EXPECT_TRUE(has(SleUuid::SLE_STANDARD_SERVICE_MIC_UUID));
+    EXPECT_EQ(OHOS::system::GetBoolParameter("const.nearlink.support.icce", false),
+        has(SleUuid::SLE_STANDARD_SERVICE_ICCE_UUID));
+}
+
+/**
+ * @tc.name: ProfileStartWithoutAdapter_010
+ * @tc.desc: 适配器未创建时启动业务管理器不创建任何业务，GetProfileService 查无返回空
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileStartWithoutAdapter_010, TestSize.Level1)
+{
+    Psm().Start();
+    SleInterfaceProfile *profile = nullptr;
+    EXPECT_FALSE(Psm().pimpl->startedProfiles_.Find(PROFILE_NAME_HID_HOST, profile));
+    EXPECT_EQ(nullptr, Psm().GetProfileService(PROFILE_NAME_HID_HOST));
+}
+
+// ===========================================================================
+// 套件三：SleServiceManager（开关参数、卫星限制、状态通知）
+// ===========================================================================
+class SleServiceManagerTest : public testing::Test {
+public:
+    static void SetUpTestCase()
+    {
+        // 只创建 adapter 对象，不启动协议栈固件
+        SleServiceManager::GetInstance()->CreateAdapters();
+        SleConfig::GetInstance().LoadConfigInfo();
+    }
+
+    static std::string GetSwitchParam()
+    {
+        return OHOS::system::GetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "");
+    }
+
+    static void SetSatellite(bool on, const std::string &timeText)
+    {
+        OHOS::system::SetParameter(SATELLITE_SWITCH_SYSTEM_PARAMETER_NAME, on ? "true" : "false");
+        OHOS::system::SetParameter(SATELLITE_START_SYSTEM_TIME_NAME, timeText);
+    }
+
+    void SetUp() override
+    {
+        SyncThreadsForTest();
+        auto *mgr = SleServiceManager::GetInstance();
+        savedSwitchParam_ = GetSwitchParam();
+        savedSateSwitch_ = OHOS::system::GetParameter(SATELLITE_SWITCH_SYSTEM_PARAMETER_NAME, "");
+        savedSateTime_ = OHOS::system::GetParameter(SATELLITE_START_SYSTEM_TIME_NAME, "");
+        savedMpxx_ = OHOS::system::GetParameter(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, "");
+        savedResetService_ = OHOS::system::GetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, "");
+        SetSatellite(false, "");
+
+        savedState_ = mgr->pimpl->state_.load();
+        savedSysState_ = mgr->pimpl->sysState_;
+        savedPolicy_ = mgr->autoConnPolicy_.load();
+        savedRestoreNeeded_ = mgr->isRestoreNeeded_.load();
+        savedDisableCaller_ = mgr->disableCallerInfo_;
+        savedCollaboration_ = SleCollaborationManager::GetInstance().isCollaborationOn_.load();
+        SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
+        mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+        mgr->pimpl->sysState_ = SYS_STATE_STOPPED;
+
+        ASSERT_TRUE(mgr->RegisterStateObserver(observer_));
+        ASSERT_TRUE(mgr->RegisterSystemStateObserver(sysObserver_));
+    }
+
+    void TearDown() override
+    {
+        auto *mgr = SleServiceManager::GetInstance();
+        mgr->DeregisterStateObserver(observer_);
+        mgr->DeregisterSystemStateObserver(sysObserver_);
+        mgr->pimpl->state_ = savedState_;
+        mgr->pimpl->sysState_ = savedSysState_;
+        mgr->autoConnPolicy_ = savedPolicy_;
+        mgr->isRestoreNeeded_ = savedRestoreNeeded_;
+        mgr->disableCallerInfo_ = savedDisableCaller_;
+        SleCollaborationManager::GetInstance().isCollaborationOn_ = savedCollaboration_;
+        UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();
+        mgr->switchDependency_ = nullptr;
+        mgr->pimpl->resetPromise_ = std::promise<void>();
+        mgr->pimpl->stopPromise_ = std::promise<void>();
+        NearlinkVerificationManager::GetInstance().ClearStrategies();
+        SetSatellite(!savedSateSwitch_.empty() && savedSateSwitch_ == "true", savedSateTime_);
+        OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, savedSwitchParam_);
+        if (!savedMpxx_.empty()) {
+            OHOS::system::SetParameter(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, savedMpxx_);
+        }
+        if (!savedResetService_.empty()) {
+            OHOS::system::SetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, savedResetService_);
+        }
+        ThreadUtil::GetInstance().InitThreadStateMap();
+    }
+
+    FakeAdapterStateObserver observer_;
+    FakeSystemStateObserver sysObserver_;
+    std::string savedSwitchParam_;
+    std::string savedSateSwitch_;
+    std::string savedSateTime_;
+    std::string savedMpxx_;
+    std::string savedResetService_;
+    SleStateID savedState_ = SleStateID::STATE_TURN_OFF;
+    std::string savedSysState_;
+    SleAutoConnectPolicy savedPolicy_ = SleAutoConnectPolicy::AUTO_CONN_GENERAL;
+    bool savedRestoreNeeded_ = false;
+    SwitchCallerInfo savedDisableCaller_;
+    bool savedCollaboration_ = false;
+};
+
+/**
+ * @tc.name: SwitchStateStable_001
+ * @tc.desc: 状态稳定性判定：开/关/半开三个稳态为真，过渡态与越界值为假
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchStateStable_001, TestSize.Level1)
+{
+    EXPECT_TRUE(SleServiceManager::IsStateStable(SleStateID::STATE_TURN_ON));
+    EXPECT_TRUE(SleServiceManager::IsStateStable(SleStateID::STATE_TURN_OFF));
+    EXPECT_TRUE(SleServiceManager::IsStateStable(SleStateID::STATE_TURN_HALF));
+    EXPECT_FALSE(SleServiceManager::IsStateStable(SleStateID::STATE_TURNING_ON));
+    EXPECT_FALSE(SleServiceManager::IsStateStable(SleStateID::STATE_TURNING_OFF));
+    EXPECT_FALSE(SleServiceManager::IsStateStable(static_cast<SleStateID>(-1)));
+}
+
+/**
+ * @tc.name: SwitchParameterParseAndUpdate_002
+ * @tc.desc: 开关系统参数解析：1为开、2为半开、其余为关、长度异常回退关；
+ *           参数写入按目标态落位，恢复挂起期间关态不覆盖参数
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchParameterParseAndUpdate_002, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->GetNearlinkSwitchStateFromSystemParameter());
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "2");
+    EXPECT_EQ(SleStateID::STATE_TURN_HALF, mgr->GetNearlinkSwitchStateFromSystemParameter());
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, mgr->GetNearlinkSwitchStateFromSystemParameter());
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "bad");
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, mgr->GetNearlinkSwitchStateFromSystemParameter());
+
+    mgr->UpdateNearlinkSwitchSystemParameter(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+    EXPECT_EQ("1", GetSwitchParam());
+    mgr->isRestoreNeeded_ = true;
+    mgr->UpdateNearlinkSwitchSystemParameter(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+    EXPECT_EQ("1", GetSwitchParam());
+    mgr->isRestoreNeeded_ = false;
+    mgr->UpdateNearlinkSwitchSystemParameter(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+    EXPECT_EQ("0", GetSwitchParam());
+    mgr->UpdateNearlinkSwitchSystemParameter(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_HALF);
+    EXPECT_EQ("2", GetSwitchParam());
+    // 目标态与参数一致时不改写；过渡态直接拒绝
+    mgr->UpdateNearlinkSwitchSystemParameter(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_HALF);
+    EXPECT_EQ("2", GetSwitchParam());
+}
+
+/**
+ * @tc.name: SatelliteRestriction_003
+ * @tc.desc: 卫星模式判定：开关串非法或关闭即为不受限；开关开启时按时间窗判定，
+ *           过期、未到点、非数字串都不受限，当前时刻在窗内才受限
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SatelliteRestriction_003, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+
+    // 开关关闭或非法：不受限
+    SetSatellite(false, "0");
+    EXPECT_FALSE(mgr->IsSleSwitchRestricted());
+    SetSatellite(true, "");
+    EXPECT_FALSE(mgr->IsSleSwitchRestricted());
+    SetSatellite(true, "abc");
+    EXPECT_FALSE(mgr->IsSleSwitchRestricted());
+
+    // 时间窗过期与未到点
+    SetSatellite(true, "0");
+    EXPECT_FALSE(mgr->IsSleSwitchRestricted());
+    SetSatellite(true, std::to_string(GetBootTimeNanoSec() + 1000000000000LL));
+    EXPECT_FALSE(mgr->IsSleSwitchRestricted());
+
+    // 当前时刻在窗内：受限
+    SetSatellite(true, std::to_string(GetBootTimeNanoSec()));
+    EXPECT_TRUE(mgr->IsSleSwitchRestricted());
+}
+
+/**
+ * @tc.name: SwitchEnableNeeded_004
+ * @tc.desc: 允许开星闪判定：受限或特定恢复调用方时不允许，普通调用方允许
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchEnableNeeded_004, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    SetSatellite(false, "");
+    EXPECT_TRUE(mgr->IsEnableNeeded(0, 0));
+
+    auto strategy = std::make_shared<SwitchControlStubStrategy>(true);
+    NearlinkVerificationManager::GetInstance().RegisterStrategy(strategy);
+    EXPECT_FALSE(mgr->IsEnableNeeded(0, 0));
+
+    NearlinkVerificationManager::GetInstance().ClearStrategies();
+    SetSatellite(true, std::to_string(GetBootTimeNanoSec()));
+    EXPECT_FALSE(mgr->IsEnableNeeded(0, 0));
+}
+
+/**
+ * @tc.name: SwitchEnableInnerStates_005
+ * @tc.desc: 开星闪任务按当前态分流：关/半开发起开流程并落参数，已开报无效操作，
+ *           过渡态直接成功；受限时拒绝
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchEnableInnerStates_005, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    const SwitchCallerInfo caller(0, 0);
+    SetSatellite(false, "");
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->EnableInner(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller,
+            SleAutoConnectPolicy::AUTO_CONN_GENERAL));
+    EXPECT_EQ("1", GetSwitchParam());
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
+        mgr->EnableInner(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller,
+            SleAutoConnectPolicy::AUTO_CONN_GENERAL));
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURNING_ON;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->EnableInner(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller,
+            SleAutoConnectPolicy::AUTO_CONN_GENERAL));
+
+    SetSatellite(true, std::to_string(GetBootTimeNanoSec()));
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
+        mgr->EnableInner(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller,
+            SleAutoConnectPolicy::AUTO_CONN_GENERAL));
+}
+
+/**
+ * @tc.name: SwitchDisableRouting_006
+ * @tc.desc: 关星闪入口：已关或正在关时拒绝；协同关闭走全关任务落参数0，
+ *           协同开启走半关任务落参数2
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchDisableRouting_006, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    for (auto state : {SleStateID::STATE_TURN_OFF, SleStateID::STATE_TURNING_OFF,
+             SleStateID::STATE_TURNING_HALF_TO_OFF}) {
+        mgr->pimpl->state_ = state;
+        EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION, mgr->Disable(SleTransport::ADAPTER_SLE,
+            SleEventType::SVC_TRIGGERED, SwitchCallerInfo(0, 0)));
+    }
+
+    // 协同关闭（默认态）：全关
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    EXPECT_EQ(NL_NO_ERROR, mgr->DisableTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED,
+        SwitchCallerInfo(0, 0)));
+    EXPECT_EQ("0", GetSwitchParam());
+
+    // 协同开启：半关
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    EXPECT_EQ(NL_NO_ERROR, mgr->DisableTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED,
+        SwitchCallerInfo(0, 0)));
+    EXPECT_EQ("2", GetSwitchParam());
+}
+
+/**
+ * @tc.name: SwitchToOffTaskStates_007
+ * @tc.desc: 全关任务：一般调用方落参数0，特定恢复调用方挂起恢复标志不落参数；
+ *           已关报无效操作，过渡态直接成功
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchToOffTaskStates_007, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    const SwitchCallerInfo caller(0, 0);
+    SetSatellite(false, "");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToOffTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+    EXPECT_EQ("0", GetSwitchParam());
+
+    // 特定调用方：保持参数，挂恢复标志
+    auto strategy = std::make_shared<SwitchControlStubStrategy>(true);
+    NearlinkVerificationManager::GetInstance().RegisterStrategy(strategy);
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToOffTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+    EXPECT_EQ("1", GetSwitchParam());
+    EXPECT_TRUE(mgr->isRestoreNeeded_.load());
+
+    NearlinkVerificationManager::GetInstance().ClearStrategies();
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
+        mgr->SwitchToOffTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURNING_OFF;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToOffTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+}
+
+/**
+ * @tc.name: SwitchToHalfTaskStates_008
+ * @tc.desc: 半关任务按状态分流：关态受限拒绝；开态先转关；关态正常转半开；
+ *           已半开报无效操作，过渡态直接成功
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchToHalfTaskStates_008, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    const SwitchCallerInfo caller(0, 0);
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    SetSatellite(true, std::to_string(GetBootTimeNanoSec()));
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
+        mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+    SetSatellite(false, "");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+    EXPECT_EQ("2", GetSwitchParam());
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, mgr->pimpl->stateMachine_->GetNextTargetState());
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_HALF;
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
+        mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURNING_ON;
+    EXPECT_EQ(NL_NO_ERROR,
+        mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
+}
+
+/**
+ * @tc.name: SwitchRestoreFromParameter_009
+ * @tc.desc: 按系统参数恢复：参数为开则重新走开流程，参数为半开且协同开启转半关、
+ *           协同关闭改落参数0，其余不恢复
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchRestoreFromParameter_009, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    EXPECT_EQ(NL_NO_ERROR, mgr->RestoreSleFromSystemParameter(
+        SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED));
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
+
+    // 半开 + 协同开启
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "2");
+    EXPECT_EQ(NL_NO_ERROR, mgr->RestoreSleFromSystemParameter(
+        SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED));
+    EXPECT_EQ("2", GetSwitchParam());
+
+    // 半开 + 协同关闭：参数改落0
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION, mgr->RestoreSleFromSystemParameter(
+        SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED));
+    EXPECT_EQ("0", GetSwitchParam());
+
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+    EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION, mgr->RestoreSleFromSystemParameter(
+        SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED));
+}
+
+/**
+ * @tc.name: SwitchRestoreSwitchStatus_010
+ * @tc.desc: 开机恢复：参数为开或半开走参数恢复；参数为关但协同开启则转半关；
+ *           无需恢复时挂卸载定时器不崩溃
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    mgr->RestoreSwitchStatus();
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
+
+    // 参数为关 + 协同开启：经延迟任务转半关
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    mgr->pimpl->stateMachine_->SetNextTargetState(SleStateID::STATE_TURN_OFF);
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+    mgr->RestoreSwitchStatus();
+    EXPECT_EQ("2", GetSwitchParam());
+
+    // 参数为关 + 协同关闭：不恢复
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
+    mgr->pimpl->stateMachine_->SetNextTargetState(SleStateID::STATE_TURN_OFF);
+    mgr->RestoreSwitchStatus();
+    EXPECT_EQ("2", GetSwitchParam());
+}
+
+/**
+ * @tc.name: SwitchCollaborationAndNeedHalf_011
+ * @tc.desc: 协同恢复入口只在关态发起半关；是否需要为协同转半开的判定按协同开关给出
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchCollaborationAndNeedHalf_011, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    mgr->RestoreSleFromCollaboration();
+    EXPECT_EQ("2", GetSwitchParam());
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+    mgr->RestoreSleFromCollaboration();
+    EXPECT_EQ("0", GetSwitchParam());
+
+    EXPECT_FALSE(mgr->IsNearlinkNeedTurnHalfFromCollaboration());
+    SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
+    EXPECT_TRUE(mgr->IsNearlinkNeedTurnHalfFromCollaboration());
+}
+
+/**
+ * @tc.name: SwitchDriverLoad_012
+ * @tc.desc: 驱动加载回调只在键值都匹配时兑现；等待驱动加载在参数已就绪时立即返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchDriverLoad_012, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->DriverLoadStatusChange(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, "fail");
+    mgr->DriverLoadStatusChange("other.key", "success");
+
+    OHOS::system::SetParameter(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, DRIVER_LOAD_SUCCESS);
+    mgr->WaitDriverLoadCompleted();
+
+    mgr->DriverLoadStatusChange(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, "success");
+}
+
+/**
+ * @tc.name: SwitchCausationString_013
+ * @tc.desc: 开关事件原因串：接口触发的记调用方名，其余记系统原因前缀
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SwitchCausationString_013, TestSize.Level1)
+{
+    EXPECT_EQ("satellite_service", GetDftSwitchEventCausationString(SleEventType::INTERFACE_TRIGGERED,
+        "satellite_service"));
+    std::string other = GetDftSwitchEventCausationString(SleEventType::SVC_TRIGGERED, "satellite_service");
+    EXPECT_NE(std::string::npos, other.find(GetReasonString(static_cast<int>(SleEventType::SVC_TRIGGERED))));
+}
+
+/**
+ * @tc.name: SysStateChangeAndExit_014
+ * @tc.desc: 系统状态变化：工厂复位中不上报，状态不变不通知，正常变化按开/关通知观察者；
+ *           退出态回调按状态兑现对应承诺
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SysStateChangeAndExit_014, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+
+    mgr->OnSysStateChange(SYS_STATE_FRESETTING);
+    EXPECT_EQ(SYS_STATE_FRESETTING, mgr->GetSysState());
+    EXPECT_TRUE(sysObserver_.changes.empty());
+
+    mgr->OnSysStateChange(SYS_STATE_STARTED);
+    ASSERT_EQ(1U, sysObserver_.changes.size());
+    EXPECT_EQ(SleSystemState::ON, sysObserver_.changes[0]);
+
+    mgr->OnSysStateChange(SYS_STATE_STARTED);
+    EXPECT_EQ(1U, sysObserver_.changes.size());
+
+    mgr->OnSysStateChange(SYS_STATE_STOPPING);
+    EXPECT_EQ(1U, sysObserver_.changes.size());
+    EXPECT_EQ(SYS_STATE_STOPPING, mgr->GetSysState());
+
+    mgr->OnSysStateExit(SYS_STATE_FRESETTING);
+    mgr->OnSysStateExit(SYS_STATE_STOPPING);
+    mgr->OnSysStateExit(SYS_STATE_STARTED);
+}
+
+/**
+ * @tc.name: AdapterStateChangeTaskAndNotify_015
+ * @tc.desc: 适配器状态变化：状态不变不通知，正常变化通知观察者并驱动系统状态机；
+ *           复位期间不通知观察者，开态迁移也可达
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, AdapterStateChangeTaskAndNotify_015, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
+    mgr->OnAdapterStateChange(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+    EXPECT_TRUE(observer_.stateChanges.empty());
+
+    mgr->OnAdapterStateChange(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_OFF);
+    ASSERT_EQ(1U, observer_.stateChanges.size());
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, observer_.stateChanges[0]);
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, mgr->GetState(SleTransport::ADAPTER_SLE));
+
+    // 复位期间：观察者不通知
+    mgr->pimpl->sysState_ = SYS_STATE_RESETTING;
+    mgr->OnAdapterStateChange(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+    EXPECT_EQ(1U, observer_.stateChanges.size());
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->GetState(SleTransport::ADAPTER_SLE));
+
+    // 开态迁移可达（连接计数由适配器连接流程维护，此处为无连接姿态）
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
+    mgr->OnAdapterStateChange(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
+    EXPECT_EQ(2U, observer_.stateChanges.size());
+}
+
+/**
+ * @tc.name: SysCheckAndStopService_016
+ * @tc.desc: 进入关态后的收尾：参数为关或恢复挂起时走卸载，参数为半开关半关回执，
+ *           参数为开（开关失败）时写复位参数触发服务重启
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SysCheckAndStopService_016, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->pimpl->sysState_ = SYS_STATE_STARTED;
+    SetSatellite(false, "");
+
+    // 参数为关 + 有调用方：回执关
+    mgr->disableCallerInfo_ = SwitchCallerInfo(5, 100);
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
+    mgr->CheckAndStopService();
+    ASSERT_EQ(1U, observer_.disableResponses.size());
+    EXPECT_FALSE(observer_.disableResponses[0].first);
+
+    // 参数为半开：回执半关
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "2");
+    mgr->CheckAndStopService();
+    ASSERT_EQ(2U, observer_.disableResponses.size());
+    EXPECT_TRUE(observer_.disableResponses[1].first);
+
+    // 参数为开：写复位参数
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
+    mgr->CheckAndStopService();
+    EXPECT_EQ("0", OHOS::system::GetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, ""));
+
+    // 恢复挂起：走卸载分支
+    mgr->isRestoreNeeded_ = true;
+    mgr->CheckAndStopService();
+}
+
+/**
+ * @tc.name: SysSendDisableResponse_017
+ * @tc.desc: 关星闪回执：无有效调用方不回执，有调用方按半关/关回执且只回一次
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SysSendDisableResponse_017, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+    mgr->disableCallerInfo_ = SwitchCallerInfo();
+    mgr->SendDisableResponse(true);
+    EXPECT_TRUE(observer_.disableResponses.empty());
+
+    mgr->disableCallerInfo_ = SwitchCallerInfo(7, 200);
+    mgr->SendDisableResponse(true);
+    ASSERT_EQ(1U, observer_.disableResponses.size());
+    EXPECT_TRUE(observer_.disableResponses[0].first);
+    EXPECT_EQ(200, observer_.disableResponses[0].second.callerUid);
+
+    mgr->SendDisableResponse(false);
+    EXPECT_EQ(1U, observer_.disableResponses.size());
+}
+
+/**
+ * @tc.name: SysAssortedEdges_018
+ * @tc.desc: 杂项边界：非启动态工厂复位返回失败，配置重载后可清理存储，
+ *           驱动复位回调注销按注册状态分流，关停接口在已停/停中不动作，
+ *           开关依赖对象创建后可释放
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleServiceManagerTest, SysAssortedEdges_018, TestSize.Level1)
+{
+    auto *mgr = SleServiceManager::GetInstance();
+
+    EXPECT_FALSE(mgr->FactoryReset());
+
+    EXPECT_TRUE(mgr->ClearAllStorage());
+
+    mgr->DeregisterDliResetCallback();
+    mgr->pimpl->dliFailureCallbacks.dliFailure = SleServiceManager::DliFailedReset;
+    mgr->DeregisterDliResetCallback();
+    EXPECT_EQ(nullptr, mgr->pimpl->dliFailureCallbacks.dliFailure);
+
+    mgr->pimpl->sysState_ = SYS_STATE_STOPPED;
+    mgr->Stop();
+    mgr->pimpl->sysState_ = SYS_STATE_STOPPING;
+    mgr->Stop();
+
+    mgr->WaitForAllSwitchDependency();
+    EXPECT_NE(nullptr, mgr->switchDependency_);
+}
+
 }  // namespace TEST
 }  // namespace Nearlink
 }  // namespace OHOS
