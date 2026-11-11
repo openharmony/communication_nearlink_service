@@ -184,6 +184,7 @@ group("nl_service_unittest") {
     "nl_reconnect_manager_test:nl_reconnect_manager_unittest",
     "reconnect_manager_test:nl_reconnect_adapter_probe_unittest",
     "remote_device_adapter_test:nl_remote_device_adapter_unittest",
+    "service_common_tail_test:nl_service_common_tail_unittest",
     "nl_datatransfer_test:nl_datatransfer_unittest",
     "hadm_test:nl_hadm_service_unittest",
     "nearlink_adv_test:nl_adv_service_unittest",
