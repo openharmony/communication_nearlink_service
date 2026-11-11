@@ -86,6 +86,20 @@ void CcpServiceTest::TearDownTestCase()
 void CcpServiceTest::SetUp()
 {
     HILOGI("SetUp CcpServiceTest.");
+    CcpService *ccpService = CcpService::GetService();
+    if (ccpService == nullptr) {
+        return;
+    }
+    /* CcpService 为进程级单例：每个用例开始前把通话映射归零，避免断言依赖用例注册顺序。
+     * 必须先清自造 VoIP 再清蜂窝：蜂窝挂断会按 voipIdSet_ 恢复 VoIP 状态，顺序颠倒会把 VoIP 状态带回来 */
+    if (ccpService->HasVoipCallId()) {
+        RawAddress devAddr("00:11:22:33:44:55");
+        ccpService->HandleVoipStop(devAddr);
+        std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    }
+    if (ccpService->HasPhoneCallId()) {
+        ClearPhoneCallMappings(ccpService);
+    }
 }
 
 void CcpServiceTest::TearDown()
@@ -283,7 +297,7 @@ HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
         static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED), "");
     /* callId=-1 只刷新全量状态，绝不能新增 VoIP 映射：喂入前后 HasVoipCallId() 必须一致 */
     EXPECT_EQ(voipBefore, ccpService->HasVoipCallId());
-    /* 本用例前无任何自造 VoIP 通话，期望干净态为 false */
+    /* SetUp 已将单例状态归零，期望干净态为 false */
     EXPECT_FALSE(ccpService->HasVoipCallId());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("PhoneStateChanged001 end");

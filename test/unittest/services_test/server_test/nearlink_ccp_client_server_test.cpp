@@ -17,7 +17,7 @@
 #include <thread>
 #include "nearlink_ccp_client_stub.h"
 #include "nearlink_ccp_client_server.h"
-#include "nearlink_ccp_interface_code.h"
+#include "nearlink_service_ipc_interface_code.h"
 #include "nearlink_ccp_export.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_native_token_mock.h"

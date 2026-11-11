@@ -192,7 +192,8 @@ public:
 
 private:
     std::vector<SleInterfaceProfile *> DetachStartedProfiles() const;
-    void WaitProfileTasksIdle() const;
+    /* 排空 CCP 队列：返回 true 表示屏障在超时内执行完，false 表示仍有任务未结束 */
+    bool WaitProfileTasksIdle() const;
 
     void CreateConfigSupportProfiles() const;
     void CreateClassicProfileServices() const;

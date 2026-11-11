@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <string>
 #include "iremote_broker.h"
-#include "nearlink_ccp_interface_code.h"
+#include "nearlink_service_ipc_interface_code.h"
 
 namespace OHOS {
 namespace Nearlink {

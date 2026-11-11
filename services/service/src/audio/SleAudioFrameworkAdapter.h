@@ -20,7 +20,6 @@
 #include "audio_engine_client_manager.h"
 #include "audio_stream_enum.h"
 #include "audio_collaborative_manager.h"
-#include "audio_system_client_policy_manager.h"
 
 #include "nearlink_types.h"
 #include "McpMessage.h"

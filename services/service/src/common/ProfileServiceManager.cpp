@@ -164,12 +164,20 @@ void ProfileServiceManager::Stop() const
 
     /* 再排空已入队的异步任务：CCP 的 server 侧在 CCP 线程内按名取服务后立即使用，
      * 摘链前入队的任务仍可能持有这些指针，需等其执行完再删除 */
-    if (!profiles.empty()) {
-        WaitProfileTasksIdle();
+    if (!profiles.empty() && !WaitProfileTasksIdle()) {
+        /* 排空超时：队列中仍可能有任务持有这些指针，当前线程直接删除会与任务并发，
+         * 改为投递到 CCP 队列尾部，卡住的任务恢复后必然先于删除执行；
+         * 线程若永久卡死，对象随进程退出回收，以少量泄漏换取无 UAF */
+        DoInCcpThread([profiles]() {
+            for (auto profile : profiles) {
+                delete profile;
+            }
+        });
+        pimpl->profilesState_.Clear();
+        return;
     }
 
-    /* 排空在超时时间内完成时，删除是安全的；超时后仍按原逻辑删除，
-     * 此时若有任务长时间阻塞在外部调用中，恢复后可能访问已释放对象（已知残留） */
+    /* 排空在超时时间内完成，此前入队的任务均已结束，当前线程删除是安全的 */
     for (auto profile : profiles) {
         delete profile;
     }
@@ -197,7 +205,7 @@ std::vector<SleInterfaceProfile *> ProfileServiceManager::DetachStartedProfiles(
     return profiles;
 }
 
-void ProfileServiceManager::WaitProfileTasksIdle() const
+bool ProfileServiceManager::WaitProfileTasksIdle() const
 {
     /* 用屏障任务排空 CCP 串行队列：屏障执行时，此前入队的任务均已结束。
      * promise 以 shared_ptr 捕获，超时返回后屏障迟到执行也不会访问已销毁的栈对象。
@@ -207,9 +215,11 @@ void ProfileServiceManager::WaitProfileTasksIdle() const
     DoInCcpThread([idlePromise]() { idlePromise->set_value(); });
     auto waitRet = idleFuture.wait_for(std::chrono::milliseconds(PROFILE_TASK_IDLE_TIMEOUT_MS));
     if (waitRet != std::future_status::ready) {
-        HILOGE("[ProfileServiceManager] wait ccp tasks idle timeout, %{public}d ms, delete anyway.",
+        HILOGE("[ProfileServiceManager] wait ccp tasks idle timeout, %{public}d ms, defer delete to ccp thread.",
             PROFILE_TASK_IDLE_TIMEOUT_MS);
+        return false;
     }
+    return true;
 }
 
 SleInterfaceProfile *ProfileServiceManager::GetProfileService(const std::string &name) const
