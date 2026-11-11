@@ -48,6 +48,7 @@
 static volatile bool g_cmIsInited = false;
 
 static bool CM_IsRemotePrivateFeatureSupport(SleLogicLink_S *link, uint16_t featureBit);
+static bool CM_IsRemoteStandardFeatureSupport(SleLogicLink_S *link, uint16_t featureBit);
 
 static void CM_FreeCommonReqParamData(void *arg)
 {
@@ -552,16 +553,13 @@ uint32_t CM_AddDeviceToAcceptFilterList(SLE_Addr_S *addr, bool isBypass)
             GET_ENC_ADDR(addr), sll->status);
     }
     uint32_t ret = DLI_SUCCESS;
-    if (DLI_IsSupportConnBypassAdv()) {
+    // 闭源接口返回true表示芯片支持白名单V2（0x0420），由DLI_AddDeviceToAcceptFilterListExt下发
+    if (DLI_IsSupportAccessFilterListExt()) {
         DLI_AddrExtStru addDevice = {0};
         (void)memcpy_s(addDevice.addr, SLE_ADDR_LEN, addr->addr, SLE_ADDR_LEN);
         addDevice.ext |= (uint8_t)isBypass;
-        if (DLI_GetExtFuncList()->addDeviceToAcceptFilterListExt == NULL) {
-            CM_LOGW("addDeviceToAcceptFilterListExt callback is null, use the default path");
-            return DLI_AddDeviceToAcceptFilterList(addr);
-        }
         CM_LOGD("add device to access filter list ext, addr: %s, ext:%hhu", GET_ENC_ADDR(addr), addDevice.ext);
-        ret = DLI_GetExtFuncList()->addDeviceToAcceptFilterListExt(&addDevice);
+        ret = DLI_AddDeviceToAcceptFilterListExt(&addDevice);
     } else {
         ret = DLI_AddDeviceToAcceptFilterList(addr);
     }
@@ -836,6 +834,24 @@ static void CM_NotifySubrateEvent(const SleLogicLink_S *link, const CM_SetACBSub
     CM_ExecuteEventCbk(CM_SLE_CBK_EVENT_SET_SUBRATE, (void *)&subrateParam);
 }
 
+static void CM_FillACBSubrateParam(DLI_ACBSubrateParam *subrateParam, const SleLogicLink_S *link,
+    const CM_SetACBSubrateParam *cmParam)
+{
+    subrateParam->lcid = link->lcid;
+    subrateParam->subrateMin = cmParam->subrate;
+    if (cmParam->onlySubrate) {
+        subrateParam->subrateMax = SLE_ACB_SUBRATE_MAX;
+        subrateParam->maxLatency = SLE_ACB_MAX_LATENCY;
+        subrateParam->continuationNum = SLE_ACB_CONTINUATION_NUM;
+        subrateParam->supervisionTimeout = SLE_ACB_SUPERVISION_TIMEOUT;
+    } else {
+        subrateParam->subrateMax = cmParam->subrateMax;
+        subrateParam->maxLatency = cmParam->maxLatency;
+        subrateParam->continuationNum = cmParam->continuationNum;
+        subrateParam->supervisionTimeout = cmParam->supervisionTimeout;
+    }
+}
+
 static void CM_SetRealACBSubrateInner(const CM_SetACBSubrateParam *cmParam,
     uint32_t (*setSubrate)(DLI_ACBSubrateParam *dliParam))
 {
@@ -847,7 +863,8 @@ static void CM_SetRealACBSubrateInner(const CM_SetACBSubrateParam *cmParam,
         return;
     }
 
-    bool isSubrateSupported = CM_IsRemotePrivateFeatureSupport(link, CM_PRIVATE_FEATURES_BIT_SUBRATE);
+    bool isSubrateSupported = CM_IsRemotePrivateFeatureSupport(link, CM_PRIVATE_FEATURES_BIT_SUBRATE) ||
+        CM_IsRemoteStandardFeatureSupport(link, CM_STANDARD_FEATURES_BIT_SUBRATE);
     if (!isSubrateSupported) {
         CM_LOGI("subrate is not supported, req subrate is %hu, cur subrate is %hu, reject",
             cmParam->subrate, link->subrate);
@@ -865,19 +882,7 @@ static void CM_SetRealACBSubrateInner(const CM_SetACBSubrateParam *cmParam,
     }
 
     DLI_ACBSubrateParam subrateParam = {};
-    subrateParam.lcid = link->lcid;
-    subrateParam.subrateMin = cmParam->subrate;
-    if (cmParam->onlySubrate) {
-        subrateParam.subrateMax = SLE_ACB_SUBRATE_MAX;
-        subrateParam.maxLatency = SLE_ACB_MAX_LATENCY;
-        subrateParam.continuationNum = SLE_ACB_CONTINUATION_NUM;
-        subrateParam.supervisionTimeout = SLE_ACB_SUPERVISION_TIMEOUT;
-    } else {
-        subrateParam.subrateMax = cmParam->subrateMax;
-        subrateParam.maxLatency = cmParam->maxLatency;
-        subrateParam.continuationNum = cmParam->continuationNum;
-        subrateParam.supervisionTimeout = cmParam->supervisionTimeout;
-    }
+    CM_FillACBSubrateParam(&subrateParam, link, cmParam);
 
     CM_LOGI("lcid:0x%04x, onlySubrate:%u, subrateMin:%u, subrateMax:%u, maxLatency:%u, continuationNum:%u, "
         "supervisionTimeout:%u", subrateParam.lcid, cmParam->onlySubrate, subrateParam.subrateMin,
@@ -907,6 +912,11 @@ uint32_t CM_InnerSetACBSubrate(const CM_SetACBSubrateInnerParam *param)
     SleLogicLink_S *link = SleLogicLinkGetByLcid(param->lcid);
     if (link == NULL) {
         CM_LOGE("logic link get failed, lcid: %u", param->lcid);
+        return CM_FAIL;
+    }
+    if (!CM_IsRemotePrivateFeatureSupport(link, CM_PRIVATE_FEATURES_BIT_SUBRATE) &&
+        !CM_IsRemoteStandardFeatureSupport(link, CM_STANDARD_FEATURES_BIT_SUBRATE)) {
+        CM_LOGE("peer does not support subrate, lcid: %u, subrate: %u", param->lcid, param->subrate);
         return CM_FAIL;
     }
     if (link->subrate == param->subrate) {
@@ -999,6 +1009,17 @@ static bool CM_IsRemotePrivateFeatureSupport(SleLogicLink_S *link, uint16_t feat
     return link->remotePrivateFeature[featureIndex] & (1 << (featureBit % BITS_OF_BYTE));
 }
 
+static bool CM_IsRemoteStandardFeatureSupport(SleLogicLink_S *link, uint16_t featureBit)
+{
+    uint16_t featureIndex = featureBit / BITS_OF_BYTE;
+    if (featureIndex >= CM_FEATURES_PARAM_LEN) {
+        CM_LOGE("featureIndex is invalid, index: %hu", featureIndex);
+        return false;
+    }
+
+    return link->features[featureIndex] & (1 << (featureBit % BITS_OF_BYTE));
+}
+
 bool CM_InnerGetRemotePrivateFeature(uint16_t lcid, uint16_t featureBit)
 {
     SleLogicLink_S *link = SleLogicLinkGetByLcid(lcid);
@@ -1008,4 +1029,15 @@ bool CM_InnerGetRemotePrivateFeature(uint16_t lcid, uint16_t featureBit)
     }
 
     return CM_IsRemotePrivateFeatureSupport(link, featureBit);
+}
+
+bool CM_InnerGetRemoteStandardFeature(uint16_t lcid, uint16_t featureBit)
+{
+    SleLogicLink_S *link = SleLogicLinkGetByLcid(lcid);
+    if (link == NULL) {
+        CM_LOGE("logic link get failed, lcid: %hu", lcid);
+        return false;
+    }
+
+    return CM_IsRemoteStandardFeatureSupport(link, featureBit);
 }

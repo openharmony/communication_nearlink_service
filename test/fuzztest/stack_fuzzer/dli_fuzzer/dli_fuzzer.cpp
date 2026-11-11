@@ -414,6 +414,7 @@ void FuzzDliExtWrapperApi(uint8_t *data, size_t size)
     addrExt.ext = provider.ConsumeIntegral<uint8_t>();
     (void)DLI_AddDeviceToAcceptFilterListExt(&addrExt);
     (void)DLI_AddDeviceToAcceptFilterListExt(nullptr);
+    (void)DLI_IsSupportAccessFilterListExt();
 
     DLI_FreqBandExtParam freqBand = {0};
     freqBand.trigType = provider.ConsumeIntegral<uint8_t>();

@@ -24,7 +24,11 @@
 extern "C" {
 #endif
 
-uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param);
+/**
+ * @brief  是否支持白名单V2命令（0x0420）
+ * @return true: 支持V2, false: 不支持V2，使用V1（0x040C）
+ */
+bool DLI_IsSupportAccessFilterListExt(void);
 
 uint32_t DLI_EnableFreqBandExt(DLI_FreqBandExtParam *param);
 
