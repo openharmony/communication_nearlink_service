@@ -115,16 +115,13 @@ void SleCoexist::ConnectionStatusChanged(uint16_t lcid, const SLE_Addr_S &addr)
     info.timeout = CM_CONN_PRIVATE_TIMEOUT;
     info.intervalKnown = false; // 建链协商间隔不上报，实际间隔待参数更新事件确认
     (void)memcpy_s(&info.addr, sizeof(SLE_Addr_S), &addr, sizeof(SLE_Addr_S));
-    SleCoexistManager::GetInstance()->UpdateConnectionInfo(info);
 
     auto* manager = SleCoexistManager::GetInstance();
     NL_CHECK_RETURN(manager, "manager is null");
+    manager->UpdateConnectionInfo(info);
     // 新连接可能改变共存情况：已有多个连接时需要评估调整
     HILOGI("[SleCoexist] ConnectionStatusChanged lcid=0x%{public}x, connCount=%{public}d",
         lcid, manager->GetConnectionCount());
-    if (manager->HasMultipleConnections()) {
-        StartParamUpdateTimer();
-    }
 }
 
 void SleCoexist::UpdateConnParam()
@@ -138,7 +135,7 @@ void SleCoexist::UpdateConnParam()
         return;
     }
     // 规则1/规则2：间隔未知或已知间隔小于等于4ms的设备数达到2个及以上，才将此类设备调整为4ms
-    // 建链时若已有一个其他连接，新设备间隔未知也需按策略分配，避免2ms设备长期不调整
+    // 间隔未知的设备不更新链接参数，带参数更新事件确认间隔后再参与调整
     int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
     bool isNeedAdjustInterval = adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM;
     // 规则3：芯片仅允许3个4ms高速连接，已有3个设备小于4ms（占满4+4+4）后，
@@ -149,8 +146,12 @@ void SleCoexist::UpdateConnParam()
         [sleCoexist = selfWeak_.lock(), &deviceCount, isNeedAdjustInterval, isNeedAdjustExt](
             const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
+        if (!info.intervalKnown) {
+            // 未知设备不更新链接参数
+            return;
+        }
         sleCoexist->RefreshAppearanceAndCustomFlag(info);
-        bool isFastSlotDevice = !info.intervalKnown || info.interval < CM_CONN_COEXIST_INTERAL_EXT;
+        bool isFastSlotDevice = info.interval < CM_CONN_COEXIST_INTERAL_EXT;
         if (!isFastSlotDevice) {
             sleCoexist->UpdateCustomParamDevice(info);
             return;
