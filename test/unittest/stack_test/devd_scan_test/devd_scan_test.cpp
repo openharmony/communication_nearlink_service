@@ -826,6 +826,7 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest002)
     int addCount = 0;
     int fakeHandle = 0;
     time_t armedMs = 0;
+    struct timespec armNow = {0};
     int *durationTimerPtr = &DEVD_STM_M(DevdGetStateMachine(), scanManager)->durationTimer;
     EXPECT_CALL(scheduleMock, ScheduleTimerAdd).WillRepeatedly(Invoke(
         [&](int *handle, SDF_TimerParam *param) -> uint32_t {
@@ -833,6 +834,7 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest002)
             if (handle == durationTimerPtr) { // 排除扫描 STM 内部定时器（CP_TimerAdd 同走此 mock）
                 addCount++;
                 armedMs = param->expires;
+                clock_gettime(CLOCK_REALTIME, &armNow);
             }
             return 0; // SDF_OK
         }));
@@ -841,9 +843,10 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest002)
     TEST_RunQueueStubSchedule();
 
     EXPECT_EQ(addCount, 1); // 移除参数路径仅重布防一次
-    // 到期定时器指向最早到期项 scannerId[3]（约 3598 秒，留 ±0.5 秒执行抖动余量）
-    EXPECT_GT(armedMs, (time_t)3597500);
-    EXPECT_LT(armedMs, (time_t)3598500);
+    // 到期定时器指向最早到期项 scannerId[3]：按布防时刻换算剩余毫秒，容差覆盖毫秒截断与补偿，
+    // 远小于相邻候选项 1 秒的间隔
+    time_t expectMs = (base - 2 - armNow.tv_sec) * 1000 - armNow.tv_nsec / 1000000;
+    EXPECT_NEAR(armedMs, expectMs, 10);
     ClearTimerMockExpectations(scheduleMock);
 }
 
@@ -869,6 +872,7 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest003)
     int addCount = 0;
     int fakeHandle = 0;
     time_t armedMs = 0;
+    struct timespec armNow = {0};
     int *durationTimerPtr = &DEVD_STM_M(DevdGetStateMachine(), scanManager)->durationTimer;
     EXPECT_CALL(scheduleMock, ScheduleTimerAdd).WillRepeatedly(Invoke(
         [&](int *handle, SDF_TimerParam *param) -> uint32_t {
@@ -876,6 +880,7 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest003)
             if (handle == durationTimerPtr) {
                 addCount++;
                 armedMs = param->expires;
+                clock_gettime(CLOCK_REALTIME, &armNow);
             }
             return 0;
         }));
@@ -884,8 +889,9 @@ TEST_F(DEVD_SCAN_TEST, ScanDurationTest003)
     TEST_RunQueueStubSchedule();
 
     EXPECT_EQ(addCount, 1);
-    EXPECT_GT(armedMs, (time_t)3597500);
-    EXPECT_LT(armedMs, (time_t)3598500);
+    // 同 ScanDurationTest002：按布防时刻换算最早到期项的剩余毫秒
+    time_t expectMs = (base - 2 - armNow.tv_sec) * 1000 - armNow.tv_nsec / 1000000;
+    EXPECT_NEAR(armedMs, expectMs, 10);
     ClearTimerMockExpectations(scheduleMock);
 }
 
