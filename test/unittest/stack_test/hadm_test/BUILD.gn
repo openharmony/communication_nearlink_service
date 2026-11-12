@@ -39,8 +39,6 @@ unit_test_deps = [
 unit_test_external_deps = [
   "c_utils:utils",
   "hilog:libhilog",
-  # shared_stack_source 引入 services/hardware/src/SleDliLayerAdapter.cpp，
-  # 其 iproxy_broker.h -> iremote_broker.h 需要 ipc 头文件路径（与 services/hardware 构建一致）
   "ipc:ipc_single",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
@@ -79,6 +77,7 @@ ohos_unittest("nl_stack_hadm_test") {
   }
   sources += [
     "hadm_test.cpp",
+    "hadm_linkmgr_iq_test.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_mock.cpp",
