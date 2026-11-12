@@ -52,9 +52,6 @@ public:
     // 检查是否有多个连接
     bool HasMultipleConnections();
 
-    // 获取当前连接数
-    int GetConnectionCount();
-
     // 清除所有连接信息
     void ClearAll();
 
