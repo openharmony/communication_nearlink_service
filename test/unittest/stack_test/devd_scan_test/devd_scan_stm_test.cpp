@@ -73,6 +73,7 @@ protected:
 
     void TearDown() override
     {
+        DevdCollabUnRegFunc(); // 用例体注销可能被断言中断，兜底防协同钩子跨用例残留
         NLSTK_DevdDeregScanModule(g_stmModuleId);
         g_stmModuleId = DEVD_MAX_MODULE_ID;
         DevdScanDeInit();
@@ -111,7 +112,7 @@ static const char *CurState(void)
 
 static bool InState(const char *name)
 {
-    return strncmp(CurState(), name, strlen(name)) == 0;
+    return strcmp(CurState(), name) == 0;
 }
 
 static NLSTK_DevdScanManager_S *Mgr(void)
@@ -171,7 +172,8 @@ TEST_F(DEVD_STM_TEST, StartingDispatchEvents)
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTING)));
 
-    InjectMsg(DEVD_START_ERR);
+    // 芯片使能扫描回执携带失败：经事件回调链转为启动失败事件
+    TEST_DevdInjectScanEvent(DEVD_CBK_EVENT_ENABLE_SCAN, 1);
     EXPECT_EQ(g_ssEvtCnt, 1);
     EXPECT_EQ(g_ssEvtCode, NLSTK_ERRCODE_FAIL);
     EXPECT_TRUE(g_ssEvtIsStart);
@@ -210,7 +212,8 @@ TEST_F(DEVD_STM_TEST, StoppingDispatchEvents)
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
 
-    InjectMsg(DEVD_STOP_ERR);
+    // 芯片禁用扫描回执携带失败：经事件回调链转为停止失败事件，回已启动态
+    TEST_DevdInjectScanEvent(DEVD_CBK_EVENT_DISABLE_SCAN, 1);
     EXPECT_EQ(g_ssEvtCnt, 1);
     EXPECT_EQ(g_ssEvtCode, NLSTK_ERRCODE_FAIL);
     EXPECT_FALSE(g_ssEvtIsStart);
@@ -242,6 +245,11 @@ TEST_F(DEVD_STM_TEST, StoppedUpdateVariants)
 {
     // 无任何扫描器：更新被忽略
     InjectMsg(DEVD_POTIENTIAL_UPDATE);
+    EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPED)));
+    EXPECT_EQ(g_ssEvtCnt, 0);
+
+    // 未知事件在停止态被忽略
+    InjectMsg(DEVD_POTIENTIAL_UPDATE + 100); // 不存在的事件号
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPED)));
     EXPECT_EQ(g_ssEvtCnt, 0);
 
@@ -292,10 +300,15 @@ TEST_F(DEVD_STM_TEST, StartedUpdateVariants)
     InjectMsg(DEVD_POTIENTIAL_UPDATE);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
 
-    // 协同判定要求续停：即使参数一致也迁移停止态
+    // 协同判定无需续停（返回假）：与未注册等价，不迁移
     NLSTK_DevdCollabScanFunc_S collab = {0};
-    collab.isNeedTryStopScanCollab = [](State *state) { (void)state; return true; };
+    collab.isNeedTryStopScanCollab = [](State *state) { (void)state; return false; };
     ASSERT_EQ(DevdCollabRegFunc(&collab), NLSTK_ERRCODE_SUCCESS);
+    InjectMsg(DEVD_POTIENTIAL_UPDATE);
+    EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
+
+    // 协同判定要求续停（返回真）：即使参数一致也迁移停止态
+    collab.isNeedTryStopScanCollab = [](State *state) { (void)state; return true; };
     g_testDevdStopScanSilent = 1;
     InjectMsg(DEVD_POTIENTIAL_UPDATE);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
@@ -342,7 +355,6 @@ TEST_F(DEVD_STM_TEST, StartedNoScannerStops)
 // 状态名接口：自定义区间内设置生效可查，区间外与空指针被拒绝，越界查询返回空串
 TEST_F(DEVD_STM_TEST, StateNameApiBoundaries)
 {
-    const char *savedName = DevdGetStmStateName(NLSTK_DEVD_STATE_USER_DEF_START);
     EXPECT_EQ(DevdSetStmStateName(NLSTK_DEVD_STATE_USER_DEF_START, "MyUserState"), NLSTK_ERRCODE_SUCCESS);
     EXPECT_STREQ(DevdGetStmStateName(NLSTK_DEVD_STATE_USER_DEF_START), "MyUserState");
 
@@ -352,8 +364,8 @@ TEST_F(DEVD_STM_TEST, StateNameApiBoundaries)
     EXPECT_STREQ(DevdGetStmStateName(NLSTK_DEVD_STATE_USER_DEF_END), "");
     EXPECT_STREQ(DevdGetStmStateName(0xFF), "");
 
-    // 全局状态名表无复位入口，用例结束前写回原值
-    EXPECT_EQ(DevdSetStmStateName(NLSTK_DEVD_STATE_USER_DEF_START, savedName), NLSTK_ERRCODE_SUCCESS);
+    // 用户区初始为空指针且该接口拒空，无复位入口，用哨兵空串写回防止悬垂
+    EXPECT_EQ(DevdSetStmStateName(NLSTK_DEVD_STATE_USER_DEF_START, ""), NLSTK_ERRCODE_SUCCESS);
 }
 
 // 协同状态只注册一半时构造失败，成对注册后协同状态并入状态机
@@ -436,12 +448,17 @@ TEST_F(DEVD_STM_TEST, CollabNotifyOnStateEntry)
     DevdCollabUnRegFunc();
 }
 
-// 扫描管理器重复初始化：旧状态机被析构，新状态机可用
+// 扫描管理器重复初始化：旧状态机被析构，模块表重建后可正常注册分配
 TEST_F(DEVD_STM_TEST, DoubleInitRebuilds)
 {
     ASSERT_EQ(DevdScanInit(), NLSTK_ERRCODE_SUCCESS);
     EXPECT_NE(DevdGetStateMachine(), nullptr);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPED)));
+
+    // 二次初始化后模块表清零，重新注册方可分配
+    NLSTK_DevdScanCbk_S scanCbk = {0};
+    scanCbk.onStartOrStopEvent = StartStopEventCbk;
+    ASSERT_EQ(NLSTK_DevdRegScanModule(&g_stmModuleId, &scanCbk), NLSTK_ERRCODE_SUCCESS);
     uint32_t scannerId = AllocScannerOk();
     EXPECT_NE(scannerId, DEVD_INVALID_SCANNER_ID);
     NLSTK_DevdRemoveScannerId(scannerId);

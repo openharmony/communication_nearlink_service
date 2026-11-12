@@ -24,16 +24,15 @@ extern "C" {
 
 #define TEST_DLI_STUB_MAX_PAYLOAD 64
 
-/* 扫描桩开关（定义在 devd_scan_test.cpp）：非零时对应命令入口直接返回失败 */
+/* 扫描桩开关：非零时对应命令入口直接返回失败 */
 extern uint8_t g_testDevdStartScanFail;
 extern uint8_t g_testDevdStopScanFail;
 /* 静默开关：命令成功但不下发完成事件，用于把状态机停在过渡态 */
 extern uint8_t g_testDevdStartScanSilent;
 extern uint8_t g_testDevdStopScanSilent;
-/* 以芯片事件身份注入一次扫描事件回调（封装套内桩捕获的事件回调表） */
+/* 以芯片事件身份注入一次扫描事件回调 */
 void TEST_DevdInjectScanEvent(uint8_t event, uint8_t result);
 
-/* DLI 桩控制（定义在 dli_cmd_stub.c） */
 void TEST_DevdDliStubReset(void);
 /* 回放开关：非零时命令经任务队列异步回放产品回调，status 为回放状态 */
 extern uint8_t g_dliStubSetAdvParamReply;

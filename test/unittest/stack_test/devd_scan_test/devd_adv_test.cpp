@@ -203,44 +203,54 @@ TEST_F(DEVD_ADV_TEST, SetAdvParamCbWithoutDataGoesIdle)
     EXPECT_EQ(g_dliStubSetAdvDataCnt, 0);
 }
 
-// 更新广播数据分片：超长数据依次按首片/中间片/尾片下发，发完回空闲并接管数据
+// 更新广播数据分片：超长数据按单包上限(251)依次首片/中间片/尾片下发，短数据一发即完整
 TEST_F(DEVD_ADV_TEST, UpdateAdvDataFragmentSequence)
 {
     uint8_t handle = CreateHandleOk();
     DLI_AdvCbkContext ctx = {.advHandle = handle};
 
-    // 首片：单包上限内取满
     DevdAdvNode_S *node = NodeOf(handle);
     ASSERT_NE(node, nullptr);
+    node->param = (DevdAdvParam_S *)SDF_MemZalloc(sizeof(DevdAdvParam_S)); // 下发入口要求已有正式参数
     node->isUpdateData = true;
     node->status = DEVD_SLE_STATUS_SET_ADV_DATA;
+
+    // 首片：数据超单包上限，从零起发取满一包
     node->tempData = CraftAdvData(3000, 0);
     ASSERT_NE(node->tempData, nullptr);
     DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
     EXPECT_EQ(g_advEvtCnt, 0); // 未发完不通知
     EXPECT_EQ(g_dliStubAdvDataOp, ADV_OPERATION_FRAGMENT_FIRST);
-    EXPECT_EQ(g_dliStubAdvDataLen, 2047);
-    EXPECT_EQ(node->dataOp.dataOffset, 2047);
+    EXPECT_EQ(g_dliStubAdvDataLen, 251);
+    EXPECT_EQ(node->dataOp.dataOffset, 251);
+    DevdFreeAdvData(node->tempData);
+    node->tempData = NULL;
 
-    // 中间片：剩余仍超单包上限
+    // 中间片：中段起点续发仍超单包
     node->tempData = CraftAdvData(5000, 0);
-    node->dataOp.dataOffset = 2047;
+    node->dataOp.dataOffset = 251;
     DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
     EXPECT_EQ(g_dliStubAdvDataOp, ADV_OPERATION_FRAGMENT_INTERMEDIATE);
-    EXPECT_EQ(g_dliStubAdvDataLen, 2047);
+    EXPECT_EQ(g_dliStubAdvDataLen, 251);
+    DevdFreeAdvData(node->tempData);
+    node->tempData = NULL;
 
-    // 尾片：恰好补齐
-    node->tempData = CraftAdvData(3000, 0);
-    node->dataOp.dataOffset = 2047;
+    // 尾片：剩余不足一包，恰好补齐
+    node->tempData = CraftAdvData(500, 0);
+    node->dataOp.dataOffset = 251;
     DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
     EXPECT_EQ(g_dliStubAdvDataOp, ADV_OPERATION_FRAGMENT_LAST);
-    EXPECT_EQ(g_dliStubAdvDataLen, 953);
+    EXPECT_EQ(g_dliStubAdvDataLen, 249);
+    DevdFreeAdvData(node->tempData);
+    node->tempData = NULL;
 
-    // 短数据一发即完整：回空闲、通知服务层、正式数据接管
+    // 短数据两轮回调走完整流程：先下发完整片，再收尾通知并接管数据
     node->tempData = CraftAdvData(5, 0);
     node->dataOp.dataOffset = 0;
     DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL);
     EXPECT_EQ(g_dliStubAdvDataOp, ADV_OPERATION_FRAGMENT_COMPLETE);
+    EXPECT_EQ(g_advEvtCnt, 0); // 首轮只下发不通知
+    DevdSetAdvDataCbk(&ctx, DLI_SUCCESS, NULL); // 次轮收尾
     EXPECT_EQ(g_advEvtCnt, 1);
     EXPECT_EQ(g_advEvtEvent, DEVD_CBK_EVENT_SET_ADV_DATA);
     EXPECT_EQ(node->status, DEVD_SLE_STATUS_IDLE);
@@ -439,17 +449,17 @@ TEST_F(DEVD_ADV_TEST, TblFreeAndQueryCombo)
     DevdAdvNode_S *node = NodeOf(handle);
     DevdAdvParam_S param = {0};
     EXPECT_EQ(DevdSaveAdvParamToTbl(node, &param), NLSTK_OK);
-    DevdAdvParam_S *first = node->tempParam;
-    EXPECT_EQ(DevdSaveAdvParamToTbl(node, &param), NLSTK_OK); // 重复保存不泄漏
     EXPECT_NE(node->tempParam, nullptr);
-    EXPECT_NE(node->tempParam, first);
+    EXPECT_EQ(DevdSaveAdvParamToTbl(node, &param), NLSTK_OK); // 重复保存旧块被释放
+    EXPECT_NE(node->tempParam, nullptr);
 
-    NLSTK_DevdSetAdvData_S setData = {0};
-    static uint8_t body[2] = {0x01, 0x02};
-    setData.advHandle = handle;
-    setData.data.advDataLen = sizeof(body);
-    setData.data.advData = body;
-    DevdFreeSetAdvData(&setData); // 带数据释放
+    // 带数据释放：堆构造后经产品入口释放
+    NLSTK_DevdSetAdvData_S *setData = (NLSTK_DevdSetAdvData_S *)SDF_MemZalloc(sizeof(NLSTK_DevdSetAdvData_S));
+    ASSERT_NE(setData, nullptr);
+    setData->data.advDataLen = 2;
+    setData->data.advData = (uint8_t *)SDF_MemZalloc(2);
+    ASSERT_NE(setData->data.advData, nullptr);
+    DevdFreeSetAdvData(setData);
 }
 
 // 扫描参数下发失败回报：临时参数释放、模块收到使能扫描失败

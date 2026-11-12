@@ -21,6 +21,8 @@
 #include "devd_cbk.h"
 #include "devd_scan_test_ctrl.h"
 
+// 链接闭包依赖编译器裁剪不可达节（cfgdb/cm 等保留源引用本桩未覆盖的 DLI 读命令）；链接报缺符号时优先在本桩补齐
+
 uint8_t g_dliStubSetAdvParamReply;
 uint16_t g_dliStubSetAdvParamStatus;
 uint8_t g_dliStubSetAdvDataReply;
@@ -73,6 +75,24 @@ void TEST_DevdDliStubReset(void)
     g_dliStubEnableAdvCnt = 0;
     g_dliStubSetScanParamCnt = 0;
     g_dliStubEnableScanCnt = 0;
+    g_dliStubAdvParamSecondFormat = 0;
+    g_dliStubAdvParamTimeout = 0;
+    g_dliStubAdvParamConnMin = 0;
+    g_dliStubAdvParamConnMax = 0;
+    g_dliStubAdvDataHandle = 0;
+    g_dliStubAdvDataOp = 0;
+    g_dliStubAdvDataLen = 0;
+    (void)memset_s(g_dliStubAdvDataPayload, TEST_DLI_STUB_MAX_PAYLOAD, 0, TEST_DLI_STUB_MAX_PAYLOAD);
+    g_dliStubScanRspHandle = 0;
+    g_dliStubScanRspOp = 0;
+    g_dliStubEnableAdvHandle = 0;
+    g_dliStubEnableAdvEnable = 0;
+    g_dliStubRemoveAdvHandle = 0;
+    g_dliStubScanParamFrameType = 0;
+    (void)memset_s(g_dliStubScanParamWindow, sizeof(g_dliStubScanParamWindow), 0, sizeof(g_dliStubScanParamWindow));
+    (void)memset_s(g_dliStubScanParamInterval, sizeof(g_dliStubScanParamInterval), 0,
+        sizeof(g_dliStubScanParamInterval));
+    g_dliStubEnableScanEnable = 0;
 }
 
 typedef struct {

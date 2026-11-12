@@ -154,18 +154,18 @@ TEST_F(DEVD_REPORT_TEST, OldFormatPencilData)
 {
     static const uint8_t uuid128[16] = {0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
         0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12};
-    static const uint8_t name[] = {'H', 'U', 'A', 'W', 'E', 'I', ' ', 'P', 'e', 'n', 'c', 'i', 'l', '9', '8', '7', '6'};
+    static const uint8_t name[17] = {'H', 'U', 'A', 'W', 'E', 'I', 'P', 'e', 'n', 'c', 'i', 'l', '9', '8', '7', '6', 'A'};
     static const uint8_t filler[12] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B};
-    static const uint8_t data[62] = {
-        0x03, 0x19, 0xC7, 0x03, 0x0F, 0x16, 0xEE, 0xFD, // 铅笔特征1
-        0x0F, 0x16, 0xEE, 0xFD,                         // 旧服务数据项头（值与特征字节拼成14字节）
-    };
-    // 旧格式按 长度-类型-值 排布，逐段拼装避免特征字节与后续项错位
-    uint8_t payload[62] = {0};
+    static const uint8_t head[6] = {0x03, 0x19, 0xC7, 0x03, 0x0F, 0x16};
+    static const uint8_t tail2[2] = {0xEE, 0xFD};
+    // 旧格式按 长度-类型-值 排布：特征头两字节兼作第一项的开头，逐段拼装避免错位
+    uint8_t payload[60] = {0};
     uint16_t pos = 0;
-    (void)memcpy_s(payload + pos, 10, data, 10);
-    pos = 10;
-    (void)memcpy_s(payload + pos, 12, filler, 12); // 补齐上项的14字节值
+    (void)memcpy_s(payload + pos, 6, head, 6); // 铅笔特征1
+    pos = 6;
+    (void)memcpy_s(payload + pos, 2, tail2, 2); // 第二项值前两字节
+    pos += 2;
+    (void)memcpy_s(payload + pos, 12, filler, 12); // 补齐第二项共14字节值
     pos += 12;
     payload[pos++] = 0x01; // 长度1仅类型字节：短项跳过
     payload[pos++] = 0x0A;
@@ -177,7 +177,7 @@ TEST_F(DEVD_REPORT_TEST, OldFormatPencilData)
     payload[pos++] = 0x06;
     (void)memcpy_s(payload + pos, 16, uuid128, 16);
     pos += 16;
-    ASSERT_EQ(pos, 62);
+    ASSERT_EQ(pos, 60);
 
     NLSTK_DevdAdvResult_S *result = Feed(g_devdAddr, payload, pos, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
     ASSERT_NE(result, nullptr);
@@ -194,33 +194,34 @@ TEST_F(DEVD_REPORT_TEST, OldFormatPencilData)
 // dis 服务数据内嵌设备信息：名称被提前解析，空数据与非法长度不崩溃
 TEST_F(DEVD_REPORT_TEST, DisServiceDataParse)
 {
+    // 16位uuid在空口为小端序，产品存储为 uuid[15]=首字节
     static const uint8_t dataA[] = {
-        0x03, 0x08, 0x06, 0x09,        // 16位服务数据 uuid 0x0906（dis）
-        0x05, 0x03, 'P', 'e', 'n',     // 内嵌类型5无效，跳过3字节
-        0x06, 0x03, 'D', 'i', 's',     // 内嵌名称
+        0x03, 0x0C, 0x09, 0x06,                          // 16位服务数据 uuid 0x0609（dis）
+        0x05, 0x03, 'P', 'e', 'n',                       // 内嵌类型5无效，跳过3字节
+        0x06, 0x03, 'D', 'i', 's',                       // 内嵌名称
     };
     NLSTK_DevdAdvResult_S *result = Feed(g_devdAddr, dataA, sizeof(dataA), TEST_EVT_SCANNABLE, TEST_FRAME_4);
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->localName.len, 3); // dis 名称先于常规名称解析
     EXPECT_EQ(result->localName.data[0], 'D');
-    FreeResult(result);
+    FreeAdvResult(result);
 
     // dis 服务数据负载为空：仅告警不解析
-    static const uint8_t dataB[] = {0x03, 0x02, 0x06, 0x09};
+    static const uint8_t dataB[] = {0x03, 0x02, 0x09, 0x06};
     result = Feed(g_devdAddr, dataB, sizeof(dataB), TEST_EVT_SCANNABLE, TEST_FRAME_4);
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->localName.len, 0);
-    FreeResult(result);
+    FreeAdvResult(result);
 
     // 内嵌长度越界：解析中止不越界读
-    static const uint8_t dataC[] = {0x03, 0x06, 0x06, 0x09, 0x06, 0x7F, 0x41, 0x42};
+    static const uint8_t dataC[] = {0x03, 0x06, 0x09, 0x06, 0x06, 0x7F, 0x41, 0x42};
     result = Feed(g_devdAddr, dataC, sizeof(dataC), TEST_EVT_SCANNABLE, TEST_FRAME_4);
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->localName.len, 0);
-    FreeResult(result);
+    FreeAdvResult(result);
 }
 
-// 帧一缓存：同地址新数据覆盖旧数据，超限逐出最旧缓存，未缓存地址的响应被丢弃
+// 帧一缓存：同地址新数据覆盖旧数据，超限逐出最旧缓存；响应段对无缓存地址自立成报
 TEST_F(DEVD_REPORT_TEST, CacheReplaceAndEvict)
 {
     static const uint8_t payload[] = {0x0B, 0x03, 'A', 'B', 'C'};
@@ -233,20 +234,24 @@ TEST_F(DEVD_REPORT_TEST, CacheReplaceAndEvict)
     EXPECT_EQ(Feed(addr, payload + 1, 3, TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
     NLSTK_DevdAdvResult_S *result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
     ASSERT_NE(result, nullptr);
-    EXPECT_EQ(result->advData.len, 2); // 命中同地址缓存
-    FreeResult(result);
+    EXPECT_EQ(result->advData.len, 3 + 2); // 命中缓存：广播段与响应段拼接
+    FreeAdvResult(result);
 
-    // 8个地址填满缓存（上限7），最早地址被逐出：其响应无法配对
+    // 8个地址填满缓存（上限7），最早地址被逐出
     for (uint8_t i = 0x10; i < 0x18; i++) {
         addr[5] = i;
         EXPECT_EQ(Feed(addr, payload, sizeof(payload), TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
     }
     addr[5] = 0x10;
-    EXPECT_EQ(Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1), nullptr); // 已被逐出
+    result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
+    ASSERT_NE(result, nullptr); // 被逐出后响应段自立新建缓存成报
+    EXPECT_EQ(result->advData.len, 2);
+    FreeAdvResult(result);
     addr[5] = 0x17;
     result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
-    ASSERT_NE(result, nullptr); // 最新的仍在
-    FreeResult(result);
+    ASSERT_NE(result, nullptr); // 最新的缓存命中拼接
+    EXPECT_EQ(result->advData.len, 5 + 2);
+    FreeAdvResult(result);
 }
 
 // 帧一两段式：广播段只入缓存，响应段拼接上报；空响应段沿用已缓存数据
@@ -262,9 +267,12 @@ TEST_F(DEVD_REPORT_TEST, Frame1TwoStageReport)
     EXPECT_EQ(result->txPower, 0x09);
     FreeResult(result);
 
-    // 响应段无缓存地址：直接丢弃
+    // 响应段到达无缓存地址：自立新建缓存并成报
     uint8_t otherAddr[6] = {0x99, 0x99, 0x99, 0x99, 0x99, 0x99};
-    EXPECT_EQ(Feed(otherAddr, rspPart, sizeof(rspPart), TEST_EVT_SCAN_RSP, TEST_FRAME_1), nullptr);
+    result = Feed(otherAddr, rspPart, sizeof(rspPart), TEST_EVT_SCAN_RSP, TEST_FRAME_1);
+    ASSERT_NE(result, nullptr);
+    EXPECT_EQ(result->advData.len, sizeof(rspPart));
+    FreeAdvResult(result);
 
     // 空响应段：沿用缓存直接上报
     EXPECT_EQ(Feed(g_devdAddr, advPart, sizeof(advPart), TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
@@ -366,7 +374,10 @@ TEST_F(DEVD_REPORT_TEST, ClearAdvCacheByAddr)
 
     EXPECT_EQ(Feed(addr, payload, sizeof(payload), TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
     ClearAdvDataCache((SLE_Addr_S *)addr);
-    EXPECT_EQ(Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1), nullptr); // 已被清除
+    result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
+    ASSERT_NE(result, nullptr); // 清除后响应段自立新建缓存
+    EXPECT_EQ(result->advData.len, 2);
+    FreeAdvResult(result);
 }
 
 // 解析结果的组合释放：空指针直接返回，带各字段结果可安全释放
@@ -388,6 +399,7 @@ static int8_t g_reportCaptureRssi = 0;
 static uint8_t g_reportCaptureEvt = 0;
 static uint8_t g_reportCaptureMod = 0;
 static uint8_t g_reportCaptureDStatus = 0;
+static uint16_t g_reportCaptureLen = 0;
 static void CaptureReportCbk(NLSTK_DevdAdvReportInfo_S *report)
 {
     g_reportCaptureCnt++;
@@ -395,6 +407,7 @@ static void CaptureReportCbk(NLSTK_DevdAdvReportInfo_S *report)
     g_reportCaptureEvt = report->extendParams.eventType;
     g_reportCaptureMod = report->extendParams.secondMod;
     g_reportCaptureDStatus = report->extendParams.dataStatus;
+    g_reportCaptureLen = report->dataLength;
 }
 
 TEST_F(DEVD_REPORT_TEST, ScanReportCbkDirectMatrix)
@@ -409,7 +422,7 @@ TEST_F(DEVD_REPORT_TEST, ScanReportCbkDirectMatrix)
     DevdSleScanReportCbk(NULL, 0, &badRes);
     EXPECT_EQ(g_reportCaptureCnt, 0);
 
-    // 合法事件：事件位拆解 + 调制参数界内查表
+    // 合法空载荷事件：事件位拆解 + 调制参数界内查表
     DLI_AdvReportEvt evt = {0};
     evt.eventType = 0x2A; // bit1 可扫描 + bit3 扫描响应 + bit5:0 数据状态 0b01
     evt.rssi = (uint8_t)-60;
@@ -423,11 +436,24 @@ TEST_F(DEVD_REPORT_TEST, ScanReportCbkDirectMatrix)
     EXPECT_EQ(g_reportCaptureCnt, 1);
     EXPECT_EQ(g_reportCaptureRssi, -60);
     EXPECT_EQ(g_reportCaptureEvt, 0x0A); // 低5位事件类型，高3位数据状态被拆走
-    EXPECT_NE(g_reportCaptureMod, 0);           // 界内查表得到调制方式
-    EXPECT_EQ(g_reportCaptureDStatus, 0x01);    // bit5:6 数据状态
+    EXPECT_EQ(g_reportCaptureMod, ADV_MOD_GFSK); // 调制表按码率1取高斯调制
+    EXPECT_EQ(g_reportCaptureDStatus, 0x01);     // bit5:6 数据状态
+    EXPECT_EQ(g_reportCaptureLen, 0);
+
+    // 非空载荷：数据逐字节拷贝
+    static const uint8_t body[3] = {0x01, 0x02, 0x03};
+    evt.dataLength = sizeof(body);
+    (void)memcpy_s(evt.data, sizeof(body), body, sizeof(body));
+    res.size = sizeof(DLI_AdvReportEvt) + evt.dataLength;
+    g_reportCaptureCnt = 0;
+    DevdSleScanReportCbk(NULL, 0, &res);
+    EXPECT_EQ(g_reportCaptureCnt, 1);
+    EXPECT_EQ(g_reportCaptureLen, sizeof(body));
 
     // 调制参数越界：不查表，保持默认
     evt.secondMcs = 0xFF;
+    evt.dataLength = 0;
+    res.size = sizeof(DLI_AdvReportEvt);
     g_reportCaptureCnt = 0;
     DevdSleScanReportCbk(NULL, 0, &res);
     EXPECT_EQ(g_reportCaptureCnt, 1);

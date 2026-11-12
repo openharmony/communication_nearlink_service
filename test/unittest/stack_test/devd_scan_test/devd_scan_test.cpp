@@ -292,6 +292,11 @@ protected:
         g_moduleId = DEVD_MAX_MODULE_ID;
         DevdScanDeInit();
         TEST_StackScheduleDeInit();
+        g_testDevdStartScanFail = 0;
+        g_testDevdStopScanFail = 0;
+        g_testDevdStartScanSilent = 0;
+        g_testDevdStopScanSilent = 0;
+        TEST_DevdDliStubReset();
     }
 
     // SetUpTestCase 在所有 TEST_F 测试开始前执行一次

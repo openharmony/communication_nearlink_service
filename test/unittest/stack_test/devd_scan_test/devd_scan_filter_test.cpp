@@ -76,8 +76,8 @@ static void AddServiceData(NLSTK_DevdAdvResult_S *result, const uint8_t *uuid, u
     ASSERT_NE(entry, nullptr);
     (void)memcpy_s(entry->uuid, SERVICE_UUID_LEN_128, g_baseUuidPrefix, sizeof(g_baseUuidPrefix));
     if (uuidIs16 != 0) {
-        entry->uuid[14] = uuid[0];
-        entry->uuid[15] = uuid[1];
+        entry->uuid[SERVICE_UUID_LEN_128 - 1] = uuid[0]; // 小端：末字节存首字节
+        entry->uuid[SERVICE_UUID_LEN_128 - 2] = uuid[1];
     } else {
         (void)memcpy_s(entry->uuid, SERVICE_UUID_LEN_128, uuid, SERVICE_UUID_LEN_128);
     }
@@ -92,8 +92,8 @@ static void AddServiceUuid(NLSTK_DevdAdvResult_S *result, const uint8_t *uuid, u
     ASSERT_NE(entry, nullptr);
     (void)memcpy_s(entry->uuid, SERVICE_UUID_LEN_128, g_baseUuidPrefix, sizeof(g_baseUuidPrefix));
     if (uuidIs16 != 0) {
-        entry->uuid[14] = uuid[0];
-        entry->uuid[15] = uuid[1];
+        entry->uuid[SERVICE_UUID_LEN_128 - 1] = uuid[0];
+        entry->uuid[SERVICE_UUID_LEN_128 - 2] = uuid[1];
     } else {
         (void)memcpy_s(entry->uuid, SERVICE_UUID_LEN_128, uuid, SERVICE_UUID_LEN_128);
     }
@@ -258,11 +258,11 @@ TEST_F(DEVD_FILTER_TEST, ServiceUuidMatrix)
     EXPECT_TRUE(DevdIsMatchFilters(result, vector));
     FreeFilterVector(vector);
 
-    // 启用但结果无uuid：拒绝
+    // 启用但结果无uuid：拒绝（过滤uuid按产品存储序：末字节存首字节）
     filter.hasServiceUuid = true;
     (void)memcpy_s(filter.serviceUuid, SERVICE_UUID_LEN_128, g_baseUuidPrefix, sizeof(g_baseUuidPrefix));
-    filter.serviceUuid[14] = uuid16[0];
-    filter.serviceUuid[15] = uuid16[1];
+    filter.serviceUuid[SERVICE_UUID_LEN_128 - 1] = uuid16[0];
+    filter.serviceUuid[SERVICE_UUID_LEN_128 - 2] = uuid16[1];
     vector = BuildFilterVector(&filter);
     EXPECT_FALSE(DevdIsMatchFilters(result, vector));
     FreeFilterVector(vector);
@@ -274,20 +274,19 @@ TEST_F(DEVD_FILTER_TEST, ServiceUuidMatrix)
     EXPECT_TRUE(DevdIsMatchFilters(result, vector));
     FreeFilterVector(vector);
 
-    // 掩码命中：比较位相同
+    // 掩码命中：仅比较末字节，另一字节故意不同
     (void)memset_s(filter.serviceUuidMask, SERVICE_UUID_LEN_128, 0, SERVICE_UUID_LEN_128);
     filter.hasServiceUuidMask = true;
-    filter.serviceUuidMask[14] = 0xFF;
-    filter.serviceUuidMask[15] = 0x00; // 只比低字节
-    filter.serviceUuid[15] = 0xAA;     // 高字节不同也应命中
+    filter.serviceUuidMask[SERVICE_UUID_LEN_128 - 1] = 0xFF;
+    filter.serviceUuid[SERVICE_UUID_LEN_128 - 2] = 0xAA;
     vector = BuildFilterVector(&filter);
     EXPECT_TRUE(DevdIsMatchFilters(result, vector));
+    FreeFilterVector(vector);
 
-    // 掩码失配：比较位不同
-    filter.serviceUuidMask[15] = 0xFF;
-    SDF_Vector_S *vectorB = BuildFilterVector(&filter);
-    EXPECT_FALSE(DevdIsMatchFilters(result, vectorB));
-    FreeFilterVector(vectorB);
+    // 掩码失配：两比较字节均参与且其一不同
+    filter.serviceUuidMask[SERVICE_UUID_LEN_128 - 2] = 0xFF;
+    vector = BuildFilterVector(&filter);
+    EXPECT_FALSE(DevdIsMatchFilters(result, vector));
     FreeFilterVector(vector);
 
     // 128位uuid整串比较
