@@ -321,6 +321,10 @@ bool XmlParse::Parse()
 bool XmlParse::Create(const std::string &path)
 {
     this->filePath_ = path;
+    if (pimpl->doc_ != NULL) {
+        xmlFreeDoc(pimpl->doc_);
+        pimpl->doc_ = NULL;
+    }
     xmlDocPtr xmp_meta = xmlNewDoc(BAD_CAST "1.0");
     xmlNodePtr root_node = xmlNewNode(nullptr, BAD_CAST "config");
     xmlDocSetRootElement(xmp_meta, root_node);
@@ -331,7 +335,7 @@ bool XmlParse::Create(const std::string &path)
         xmlFreeDoc(xmp_meta);
         return false;
     }
-    xmlFreeDoc(xmp_meta);
+    pimpl->doc_ = xmp_meta;
     LOG_INFO("CreateXml success.");
     return true;
 }
