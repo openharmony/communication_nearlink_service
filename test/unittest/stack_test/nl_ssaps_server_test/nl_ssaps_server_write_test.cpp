@@ -204,7 +204,7 @@ TEST_F(NlSsapsWriteTest, SingleWriteForbiddenByOperation)
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x0D, 0x03, 0x12, 0x00, 0x00, 0x01, 0x02};
-    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x12, 0x00, 0x08};
+    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x12, 0x00, 0x07};
     SendPdu(link, SSAPS_WriteReqHandle, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
@@ -216,7 +216,7 @@ TEST_F(NlSsapsWriteTest, SingleWriteDescTypeNotFound)
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x0D, 0x03, 0x11, 0x00, 0x03, 0x01, 0x02};
-    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x0E};
+    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x0D};
     SendPdu(link, SSAPS_WriteReqHandle, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
@@ -240,7 +240,7 @@ TEST_F(NlSsapsWriteTest, SingleWriteDescWithoutIndicationForbidden)
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x0D, 0x03, PROP_WITH_DESCS, 0x00, 0x04, 0x01, 0x02};
-    uint8_t rsp[] = {0x0E, 0x07, 0x01, PROP_WITH_DESCS, 0x00, 0x08};
+    uint8_t rsp[] = {0x0E, 0x07, 0x01, PROP_WITH_DESCS, 0x00, 0x07};
     SendPdu(link, SSAPS_WriteReqHandle, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
@@ -307,7 +307,7 @@ TEST_F(NlSsapsWriteTest, SingleWriteVerifyEchoOverMtuNoFrag)
         req[5 + i] = (uint8_t)i;
     }
     SendPdu(link, SSAPS_WriteReqHandle, req, sizeof(req));
-    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x11};
+    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x10};
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
 }
@@ -548,7 +548,7 @@ TEST_F(NlSsapsWriteTest, MultiWriteVerifyEchoOverMtuNoFrag)
         req[secondOff + 6 + i] = (uint8_t)i;
     }
     SendPdu(link, SSAPS_WriteReqHandle, req, (uint16_t)sizeof(req));
-    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x11};
+    uint8_t rsp[] = {0x0E, 0x07, 0x01, 0x11, 0x00, 0x10};
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
 }

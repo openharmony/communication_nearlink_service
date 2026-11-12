@@ -721,7 +721,7 @@ TEST_F(NlSsapsFindTest, V10PropertyMixOldTruncatedByMtu)
     DeleteTestLink();
 }
 
-// 老版本对端不按条目类型过滤：自定义条目类型请求仍返回标准+自定义两组（新格式组包）
+// 老版本对端不按条目类型过滤：自定义条目类型请求仍返回标准+自定义两组，响应类型恒为混合
 TEST_F(NlSsapsFindTest, V10PrimaryIgnoresItemTypeFilter)
 {
     AddStdServiceWithPropDesc();
@@ -729,7 +729,7 @@ TEST_F(NlSsapsFindTest, V10PrimaryIgnoresItemTypeFilter)
     SSAP_Link *link = CreateTestLink();
     g_nlSsapsDevType = CM_DEVTYPE_OLD;
     uint8_t req[] = {0x04, 0x09, 0x01, 0x00, 0xFF, 0x00}; // 首要服务+自定义条目类型
-    uint8_t rsp[32] = {0x05, 0x07,
+    uint8_t rsp[32] = {0x05, 0x0B,
         0x01, 0x10, 0x00, 0x11, 0x00, 0x02, 0x01, 0x02,
         0x81, 0x12, 0x00, 0x12, 0x00};
     (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_SVC_CUS_UUID, SSAP_UUID128_LEN);
