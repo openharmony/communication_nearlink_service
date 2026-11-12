@@ -10,7 +10,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+
 import("//build/test.gni")
 import("../../../../nearlink_config.gni")
 
@@ -85,6 +85,7 @@ group("dft_test") {
   testonly = true
   deps = [
     ":nearlink_dft_manager_test",
-    "dft_exception_test:dft_exception_test"
+    "dft_exception_test:dft_exception_test",
+    "dft_report_filter_test:dft_report_filter_test"
   ]
 }
