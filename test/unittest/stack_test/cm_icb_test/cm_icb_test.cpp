@@ -42,8 +42,11 @@ static void TEST_FreqBandListener(CM_FreqBandSwitchParam *param)
     return;
 }
 
+static int32_t g_testConnectionCallCount = 0;
+
 static void TEST_Connection(CM_ICBConnection *connection)
 {
+    g_testConnectionCallCount++;
     return;
 }
 
@@ -444,6 +447,7 @@ TEST_F(UT_CM_ICB_TEST, CM_IOGParamUpdateCbk)
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_SET_IOG_PARAM, (void *)&param, 0, &retParam), 0);
 
     (void)memset_s(tmp, sizeof(tmp), 0, sizeof(tmp));
+    retParam.size = sizeof(DLI_ICBParamUpdateEvt);
     retParam.eventParameter = evt;
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IOG_PARAM_UPDATE, (void *)&param, 1, &retParam), 0);
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IOG_PARAM_UPDATE, (void *)&param, 0, &retParam), 0);
@@ -576,9 +580,52 @@ TEST_F(UT_CM_ICB_TEST, CM_IMGParamUpdateCbk)
     (void)memset_s(&param, sizeof(DLI_ICGCbkParam), 0, sizeof(DLI_ICGCbkParam));
     (void)memset_s(&retParam, sizeof(DLI_ExecuteCmdRetParam), 0, sizeof(DLI_ExecuteCmdRetParam));
     (void)memset_s(tmp, sizeof(tmp), 0, sizeof(tmp));
+    retParam.size = sizeof(DLI_ICBParamUpdateEvt);
     retParam.eventParameter = evt;
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IMG_PARAM_UPDATE, (void *)&param, 1, &retParam), 0);
     EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IMG_PARAM_UPDATE, (void *)&param, 0, &retParam), 0);
+}
+
+TEST_F(UT_CM_ICB_TEST, CM_IOGParamUpdateErrorCbk)
+{
+    uint8_t tmp[100];
+    DLI_ICBParamUpdateEvt *evt = (DLI_ICBParamUpdateEvt *)tmp;
+    DLI_ExecuteCmdRetParam retParam;
+    DLI_ICGCbkParam param;
+    (void)memset_s(&param, sizeof(DLI_ICGCbkParam), 0, sizeof(DLI_ICGCbkParam));
+    (void)memset_s(&retParam, sizeof(DLI_ExecuteCmdRetParam), 0, sizeof(DLI_ExecuteCmdRetParam));
+    (void)memset_s(tmp, sizeof(tmp), 0, sizeof(tmp));
+    // 错误链（cmdOpcode == DLI_CMD_ERROR_EVT）下eventParameter是DLI_CommandErrorStru，无connHandle字段
+    // 不能按DLI_ICBParamUpdateEvt解析，需走失败上报（NotifyParamChangeFailedCbk）
+    evt->connHandle = 0xFFFF;
+    evt->lcid = 0xFFFF;
+    retParam.cmdOpcode = DLI_CMD_ERROR_EVT;
+    retParam.eventParameter = evt;
+    param.type = CM_IOB;
+    param.id = 1;
+    int32_t countBefore = g_testConnectionCallCount;
+    EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IOG_PARAM_UPDATE, (void *)&param, 0, &retParam), 0);
+    EXPECT_GT(g_testConnectionCallCount, countBefore);
+}
+
+TEST_F(UT_CM_ICB_TEST, CM_IMGParamUpdateErrorCbk)
+{
+    uint8_t tmp[100];
+    DLI_ICBParamUpdateEvt *evt = (DLI_ICBParamUpdateEvt *)tmp;
+    DLI_ExecuteCmdRetParam retParam;
+    DLI_ICGCbkParam param;
+    (void)memset_s(&param, sizeof(DLI_ICGCbkParam), 0, sizeof(DLI_ICGCbkParam));
+    (void)memset_s(&retParam, sizeof(DLI_ExecuteCmdRetParam), 0, sizeof(DLI_ExecuteCmdRetParam));
+    (void)memset_s(tmp, sizeof(tmp), 0, sizeof(tmp));
+    evt->connHandle = 0xFFFF;
+    evt->lcid = 0xFFFF;
+    retParam.cmdOpcode = DLI_CMD_ERROR_EVT;
+    retParam.eventParameter = evt;
+    param.type = CM_IMB;
+    param.id = 1;
+    int32_t countBefore = g_testConnectionCallCount;
+    EXPECT_EQ(TEST_DLI_EventCbkWithContext(DLI_CBK_IMG_PARAM_UPDATE, (void *)&param, 0, &retParam), 0);
+    EXPECT_GT(g_testConnectionCallCount, countBefore);
 }
 
 TEST_F(UT_CM_ICB_TEST, CM_IMBRejectReqCbk)

@@ -15,6 +15,9 @@
 
 #include <gtest/gtest.h>
 
+#include "accesstoken_kit.h"
+#include "token_setproc.h"
+
 #include "nearlink_access_token_mock.h"
 #include "nearlink_native_token_mock.h"
 #include "nearlink_def.h"
@@ -40,6 +43,11 @@ void NearlinkHostTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
+    // token 没生效时所有权限门 IPC 都返回 201，与产品行为失败无法区分，先断言前提
+    int permState = OHOS::Security::AccessToken::AccessTokenKit::VerifyAccessToken(
+        GetSelfTokenID(), "ohos.permission.ACCESS_NEARLINK");
+    ASSERT_EQ(OHOS::Security::AccessToken::PermissionState::PERMISSION_GRANTED, permState)
+        << "native token 前提未建立：SetNativeTokenInfo 后 ACCESS_NEARLINK 仍非 GRANTED";
 }
 
 void NearlinkHostTest::TearDownTestCase()

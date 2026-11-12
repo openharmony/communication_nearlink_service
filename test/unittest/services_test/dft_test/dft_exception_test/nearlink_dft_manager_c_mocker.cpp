@@ -40,6 +40,25 @@ void DftManagerStop(void)
     }
 }
 
+static int g_mockCacheCalls = 0;
+static int g_mockReportCalls = 0;
+
+extern "C" void DftMockerRecordReset(void)
+{
+    g_mockCacheCalls = 0;
+    g_mockReportCalls = 0;
+}
+
+extern "C" int DftMockerCacheCalls(void)
+{
+    return g_mockCacheCalls;
+}
+
+extern "C" int DftMockerReportCalls(void)
+{
+    return g_mockReportCalls;
+}
+
 void DftManagerReport(DftEventEnum eventId, const DftParamC params[], size_t size)
 {
     if (!IsValidExcep(eventId) || size > OHOS::HiviewDFX::MAX_PARAM_NUMBER) {
@@ -47,6 +66,7 @@ void DftManagerReport(DftEventEnum eventId, const DftParamC params[], size_t siz
         return;
     }
     HILOGD("DftManagerReport id=%{public}d size=%{public}lu", eventId, size);
+    g_mockReportCalls++;
     auto set = DftParam::ConvertToParamSet(eventId, params, size);
 }
 
@@ -61,6 +81,7 @@ void DftManagerCache(DftEventEnum eventId, const DftParamC params[], size_t size
         return;
     }
     HILOGD("DftManagerCache id=%{public}d size=%{public}lu", eventId, size);
+    g_mockCacheCalls++;
     auto set = DftParam::ConvertToParamSet(eventId, params, size);
     auto mgr = InterfaceDftManager::GetInstance();
     if (mgr) {

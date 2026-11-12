@@ -1,0 +1,73 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../../nearlink_config.gni")
+
+config("nl_hibox_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = [
+    "$NEARLINK_ROOT/services/hibox/include",
+    "$NEARLINK_ROOT/utils/include",
+  ]
+
+  defines = [
+    "LOG_DOMAIN = 0xD000151",
+  ]
+
+  cflags = [ "--coverage" ]
+  ldflags = [ "--coverage" ]
+}
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_hibox_local_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    cfi = true
+    boundary_sanitize = true
+    cfi_cross_dso = true
+    integer_overflow = true
+    ubsan = true
+    debug = true
+  }
+
+  sources = [
+    "$NEARLINK_ROOT/services/hibox/src/hibox_audio.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_dts.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_local.c",
+    "nl_hibox_test.cpp",
+  ]
+
+  configs = [ ":nl_hibox_unit_test_config" ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "bounds_checking_function:libsec_shared",
+    "googletest:gtest_main",
+  ]
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_hibox_local_unittest") {
+  testonly = true
+  deps = [
+    ":nl_hibox_local_test",
+  ]
+}
