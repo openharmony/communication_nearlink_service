@@ -147,7 +147,7 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     }
     iqInfoFromDli += iqInfo->iqChnlNum * HADM_IQ_LEN;
     // 7. 解析尾部 (localId/remoteId/venderLen)
-    uint8_t isBit14IdSet = (slemInfoTypeValue >> 14) & 0x1);
+    uint8_t isBit14IdSet = ((slemInfoTypeValue >> 14) & 0x1);
     if (isBit14IdSet) {
         PARSER_DATA_BY_LEN(&iqInfo->localId, iqInfoFromDli, sizeof(uint8_t));
         PARSER_DATA_BY_LEN(&iqInfo->remoteId, iqInfoFromDli, sizeof(uint8_t));
