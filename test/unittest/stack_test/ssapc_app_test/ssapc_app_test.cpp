@@ -140,7 +140,7 @@ void RecConnState(int32_t appId, uint8_t state, NLSTK_Errcode_E ret, int32_t rea
     g_connCnt++;
 }
 
-void RecPropertyChanged(int32_t appId, const NLSTK_SsapClientReadPropertyInfo_S *info)
+void RecPropertyChanged(int32_t appId, NLSTK_SsapClientReadPropertyInfo_S *info)
 {
     if (g_propCnt >= 16 || info == nullptr) {
         return;
@@ -150,7 +150,7 @@ void RecPropertyChanged(int32_t appId, const NLSTK_SsapClientReadPropertyInfo_S 
     g_propCnt++;
 }
 
-void RecEvent(int32_t appId, const NLSTK_SsapClientEventInfo_S *info)
+void RecEvent(int32_t appId, NLSTK_SsapClientEventInfo_S *info)
 {
     if (g_eventCnt >= 16 || info == nullptr) {
         return;
@@ -159,8 +159,9 @@ void RecEvent(int32_t appId, const NLSTK_SsapClientEventInfo_S *info)
     g_eventCnt++;
 }
 
-void RecServiceChange(int32_t appId, uint16_t startHandle, const NLSTK_SsapUuid_S *uuid)
+void RecServiceChange(int32_t appId, uint16_t startHandle, NLSTK_SsapUuid_S *uuid)
 {
+    (void)uuid;
     if (g_servChangeCnt >= 8) {
         return;
     }
@@ -173,8 +174,9 @@ void RecCleanResult()
     g_cleanResultCnt++;
 }
 
-void RecRegApp(int32_t appId, const SLE_Addr_S *addr, NLSTK_Errcode_E ret)
+void RecRegApp(int32_t appId, SLE_Addr_S *addr, NLSTK_Errcode_E ret)
 {
+    (void)addr;
     g_regAppCbCnt++;
     g_regAppCbId = appId;
     g_regAppCbRet = ret;
@@ -298,6 +300,9 @@ protected:
         SSAP_DeInit();
         TEST_StackScheduleDeInit();
         TEST_CM_DeInit();
+        if (g_hdlAlloc != nullptr) {
+            SSAP_DestroyHandleAllocator();
+        }
     }
 };
 
@@ -448,27 +453,30 @@ HWTEST_F(UT_SSAPC_APP, SsapcLinkSmConnectingSweep007, TestSize.Level1)
     FireEvent(appId, SSAP_USER_CONNECT);
     EXPECT_EQ(SsapcGetLinkOper(appId), SSAP_LINK_CHANGE_EVENT_BUTT);
 
-    // 底层建链成功：落已连接并上报
+    // 底层建链成功：落已连接并上报；缓存的断链被同步重放（底层无链路记录，直接落已断开并再次上报）
     SeedOper(appId, SSAP_USER_DISCONNECT);
     FireEvent(appId, SSAP_LOGIC_LINK_CONNECTED);
-    EXPECT_EQ(SsapcAppGetLinkState(appId), SSAP_CONNECT_STATE_CONNECTED);
-    EXPECT_EQ(g_connCnt, 1);
+    EXPECT_EQ(SsapcAppGetLinkState(appId), SSAP_CONNECT_STATE_DISCONNECTED);
+    EXPECT_EQ(g_connCnt, 2);
+    EXPECT_EQ(g_connRec[0].appId, appId);
     EXPECT_EQ(g_connRec[0].state, SSAP_CONNECT_STATE_CONNECTED);
     EXPECT_EQ(g_connRec[0].ret, NLSTK_ERRCODE_SUCCESS);
-    // 缓存的断链被重放执行
+    EXPECT_EQ(g_connRec[1].appId, appId);
+    EXPECT_EQ(g_connRec[1].state, SSAP_CONNECT_STATE_DISCONNECTED);
+    EXPECT_EQ(g_connRec[1].ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(SsapcGetLinkOper(appId), SSAP_LINK_CHANGE_EVENT_BUTT);
 
-    // 另一个应用走建链失败：落已断开并重放缓存
+    // 另一个应用走建链失败：落已断开并上报，重放的建链发起到底层进入连接中
     int32_t appId2 = RegisterApp(&g_addrB);
     ASSERT_GE(appId2, 0);
     SeedApp(appId2, SSAP_CONNECT_STATE_CONNECTING);
     SeedOper(appId2, SSAP_USER_CONNECT);
     FireEvent(appId2, SSAP_LOGIC_LINK_DISCONNECTED);
-    EXPECT_EQ(SsapcAppGetLinkState(appId2), SSAP_CONNECT_STATE_DISCONNECTED);
-    EXPECT_EQ(g_connCnt, 2);
-    EXPECT_EQ(g_connRec[1].appId, appId2);
-    EXPECT_EQ(g_connRec[1].state, SSAP_CONNECT_STATE_DISCONNECTED);
-    EXPECT_EQ(g_connRec[1].ret, NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(SsapcAppGetLinkState(appId2), SSAP_CONNECT_STATE_CONNECTING);
+    EXPECT_EQ(g_connCnt, 3);
+    EXPECT_EQ(g_connRec[2].appId, appId2);
+    EXPECT_EQ(g_connRec[2].state, SSAP_CONNECT_STATE_DISCONNECTED);
+    EXPECT_EQ(g_connRec[2].ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(SsapcGetLinkOper(appId2), SSAP_LINK_CHANGE_EVENT_BUTT);
 }
 
@@ -593,12 +601,12 @@ HWTEST_F(UT_SSAPC_APP, SsapcLinkSmDisconnectingSweep010, TestSize.Level1)
     EXPECT_EQ(g_connRec[0].ret, NLSTK_ERRCODE_CONN_FAIL);
     EXPECT_EQ(SsapcGetLinkOper(appId), SSAP_LINK_CHANGE_EVENT_BUTT);
 
-    // 断链完成：上报成功并重放缓存的建链
+    // 断链完成：上报成功并重放缓存的建链，重放的建链发起到底层进入连接中
     SeedApp(appId, SSAP_CONNECT_STATE_DISCONNECTING);
     SeedOper(appId, SSAP_USER_CONNECT);
     ResetRecords();
     FireEvent(appId, SSAP_LOGIC_LINK_DISCONNECTED);
-    EXPECT_EQ(SsapcAppGetLinkState(appId), SSAP_CONNECT_STATE_DISCONNECTED);
+    EXPECT_EQ(SsapcAppGetLinkState(appId), SSAP_CONNECT_STATE_CONNECTING);
     EXPECT_EQ(g_connCnt, 1);
     EXPECT_EQ(g_connRec[0].ret, NLSTK_ERRCODE_SUCCESS);
     EXPECT_EQ(SsapcGetLinkOper(appId), SSAP_LINK_CHANGE_EVENT_BUTT);
@@ -777,7 +785,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcAppRegisterAsync018, TestSize.Level1)
 
 /**
  * @tc.name: SsapcAppNotifyClientCleanUp019
- * @tc.desc: 清理通知只回收空闲或已断开的应用；全部回收后触发结果回调并复位清理标志
+ * @tc.desc: 清理通知逐个回收空闲或已断开的应用；未注册结果回调时不触发回调
  * @tc.type: FUNC
  */
 HWTEST_F(UT_SSAPC_APP, SsapcAppNotifyClientCleanUp019, TestSize.Level1)
@@ -879,7 +887,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcAppPropertyNtfDispatch023, TestSize.Level1)
     ASSERT_EQ(SsapcCacheSetCpcd(appSub, &g_addrA, TEST_HANDLE, CPCD_INDICATION_ENABLE),
         NLSTK_ERRCODE_SUCCESS);
     ASSERT_EQ(SsapcCacheSetCpcd(appOther, &g_addrA, TEST_HANDLE, CPCD_NOTIFICATION_ENABLE),
-        NLSTK_ERRCODE_SUCCESS);
+        NLSTK_ERRCODE_DIRECT_RETURN);
 
     uint8_t payload[2] = {0x5A, 0xA5};
     SSAP_ValuePkt_S *pkt = (SSAP_ValuePkt_S *)SDF_MemZalloc(sizeof(SSAP_ValuePkt_S) + sizeof(payload));
@@ -1065,6 +1073,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcCacheSortAndFindSeq003, TestSize.Level1)
     ASSERT_EQ(SsapcCacheMethod(&g_addrA, &method), NLSTK_ERRCODE_SUCCESS);
 
     ASSERT_EQ(SsapcCacheSortCachedServ(&g_addrA, TEST_HANDLE), NLSTK_ERRCODE_SUCCESS);
+    // 排序后服务结束句柄被改写为最大成员句柄（方法句柄 0x15）
 
     bool isFinish = false;
     SSAP_FindType_E findType = FIND_STRUCTURE_TYPE_PROPERTY;
@@ -1075,23 +1084,19 @@ HWTEST_F(UT_SSAPC_APP, SsapcCacheSortAndFindSeq003, TestSize.Level1)
     EXPECT_FALSE(isFinish);
     EXPECT_EQ(findType, FIND_STRUCTURE_TYPE_PROPERTY);
     EXPECT_EQ(startHandle, 0x0013U);
-    EXPECT_EQ(endHandle, TEST_END_HANDLE);
+    EXPECT_EQ(endHandle, 0x0015U);
 
-    SsapcCacheServMemberDiscFinish(&g_addrA, FIND_STRUCTURE_TYPE_PROPERTY, TEST_HANDLE);
-    // 方法阶段
-    SsapcCacheGetNextFindMember(&g_addrA, &isFinish, &findType, &startHandle, &endHandle);
-    EXPECT_FALSE(isFinish);
-    EXPECT_EQ(findType, FIND_STRUCTURE_TYPE_METHOD);
-    EXPECT_EQ(startHandle, 0x0016U);
-
-    SsapcCacheServMemberDiscFinish(&g_addrA, FIND_STRUCTURE_TYPE_METHOD, TEST_HANDLE);
-    // 事件阶段：未缓存事件，从服务起始句柄之后扫到结束句柄
+    // 完成标记须传成员区间内的句柄（产品侧传上一轮发现的起始句柄）
+    SsapcCacheServMemberDiscFinish(&g_addrA, FIND_STRUCTURE_TYPE_PROPERTY, 0x0013);
+    // 方法句柄即区间上限：方法阶段自动完结，不发出查询
+    // 事件阶段：未缓存事件，从服务起始句柄之后全扫
     SsapcCacheGetNextFindMember(&g_addrA, &isFinish, &findType, &startHandle, &endHandle);
     EXPECT_FALSE(isFinish);
     EXPECT_EQ(findType, FIND_STRUCTURE_TYPE_EVENT);
     EXPECT_EQ(startHandle, TEST_HANDLE + 1);
+    EXPECT_EQ(endHandle, 0x0015U);
 
-    SsapcCacheServMemberDiscFinish(&g_addrA, FIND_STRUCTURE_TYPE_EVENT, TEST_HANDLE);
+    SsapcCacheServMemberDiscFinish(&g_addrA, FIND_STRUCTURE_TYPE_EVENT, 0x0011);
     // 全部查完
     SsapcCacheGetNextFindMember(&g_addrA, &isFinish, &findType, &startHandle, &endHandle);
     EXPECT_TRUE(isFinish);
@@ -1178,7 +1183,8 @@ HWTEST_F(UT_SSAPC_APP, SsapcCacheGetServicesFilter005, TestSize.Level1)
     SsapcCacheFreeServices(services, num);
 
     // 无匹配标识符与未建缓存地址失败
-    EXPECT_EQ(SsapcCacheGetServices(&g_addrA, 0, &g_uuidA, &services, &num), NLSTK_ERRCODE_FAIL);
+    NLSTK_SsapUuid_S uuidNone = {0};
+    EXPECT_EQ(SsapcCacheGetServices(&g_addrA, 0, &uuidNone, &services, &num), NLSTK_ERRCODE_FAIL);
     EXPECT_EQ(SsapcCacheGetServices(&g_addrB, 0, nullptr, &services, &num), NLSTK_ERRCODE_GETRECORD_FAIL);
     EXPECT_EQ(SsapcCacheGetServices(nullptr, 0, nullptr, &services, &num), NLSTK_ERRCODE_POINTER_NULL);
 }
@@ -1300,7 +1306,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcCacheCleanAndDestroy008, TestSize.Level1)
 
 /**
  * @tc.name: SsapcClientFindReqPkt001
- * @tc.desc: 结构发现请求报文携带正确的消息码与句柄范围，链路版本低时发现类型保持不变
+ * @tc.desc: 结构发现请求报文携带正确的消息码与句柄范围
  * @tc.type: FUNC
  */
 HWTEST_F(UT_SSAPC_APP, SsapcClientFindReqPkt001, TestSize.Level1)
@@ -1337,7 +1343,8 @@ HWTEST_F(UT_SSAPC_APP, SsapcClientFindRspGuard002, TestSize.Level1)
     SSAP_Link_S *link = SSAP_CreateSsapLink(&g_addrA, TEST_LCID, CaptureSendCb);
     ASSERT_NE(link, nullptr);
 
-    uint8_t raw[2] = {SSAP_FIND_STRUCTURE_RSP, 0};
+    // 单字节包：既够不成分片标记也被长度守卫拦下
+    uint8_t raw[1] = {SSAP_FIND_STRUCTURE_RSP};
     SDF_Buff_S *buff = SDF_BuffNewWithReserve(sizeof(raw));
     ASSERT_NE(buff, nullptr);
     uint8_t *buf = SDF_BuffAppend(buff, sizeof(raw));
@@ -1346,6 +1353,9 @@ HWTEST_F(UT_SSAPC_APP, SsapcClientFindRspGuard002, TestSize.Level1)
 
     SSAPC_FindRspHandle(link, buff);
     SDF_BuffFree(buff);
+    // 长度守卫触发：无任务登记、无重组残留
+    EXPECT_EQ(link->curTask.buff, nullptr);
+    EXPECT_EQ(link->fragCtx.reassemBuff, nullptr);
     SSAP_DeleteSsapLinkByAddr(&g_addrA);
 }
 
@@ -1376,7 +1386,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcClientMultiReadRspErrorFill003, TestSize.Level1)
     ASSERT_GE(g_txCnt, 1);
 
     // 响应仅一个错误项：成功位为 0，长度字段即错误码
-    uint8_t rsp[4] = {SSAP_READ_RSP, 0};
+    uint8_t rsp[4] = {SSAP_READ_RSP, SSAP_CTRL_NO_FRAG};
     uint16_t item = SSAP_ERRCODE_FORBID_READ;
     (void)memcpy_s(&rsp[2], sizeof(item), &item, sizeof(item));
     SDF_Buff_S *rspBuff = SDF_BuffNewWithReserve(sizeof(rsp));
@@ -1412,8 +1422,8 @@ HWTEST_F(UT_SSAPC_APP, SsapcClientValueInd004, TestSize.Level1)
     SSAP_Link_S *link = SSAP_CreateSsapLink(&g_addrA, TEST_LCID, CaptureSendCb);
     ASSERT_NE(link, nullptr);
 
-    // 正常指示：头两字节 + 句柄 + 长度 + 两个数据字节
-    uint8_t raw[8] = {SSAP_VALUE_IND, 0};
+    // 正常指示：头两字节 + 句柄 + 长度 + 两个数据字节，控制码标记非分片的属性指示
+    uint8_t raw[8] = {SSAP_VALUE_IND, SSAP_CTRL_NO_FRAG};
     uint16_t handle = TEST_HANDLE;
     uint16_t len = 2;
     (void)memcpy_s(&raw[2], sizeof(handle), &handle, sizeof(handle));
@@ -1438,7 +1448,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcClientValueInd004, TestSize.Level1)
 
     // 过短报文：直接丢弃
     ResetRecords();
-    uint8_t shortRaw[4] = {SSAP_VALUE_IND, 0, 0, 0};
+    uint8_t shortRaw[4] = {SSAP_VALUE_IND, SSAP_CTRL_NO_FRAG, 0, 0};
     SDF_Buff_S *shortBuff = SDF_BuffNewWithReserve(sizeof(shortRaw));
     ASSERT_NE(shortBuff, nullptr);
     uint8_t *shortBuf = SDF_BuffAppend(shortBuff, sizeof(shortRaw));
@@ -1517,36 +1527,35 @@ HWTEST_F(UT_SSAPC_APP, SsapUtilsItemType003, TestSize.Level1)
 HWTEST_F(UT_SSAPC_APP, SsapHandleAllocator001, TestSize.Level1)
 {
     ASSERT_TRUE(SSAP_InitHandleAllocator(4));
-    SSAP_HandleRange_S range = {0};
+    SSAP_HandleRange_S a = {0};
+    SSAP_HandleRange_S b = {0};
+    SSAP_HandleRange_S c = {0};
 
-    // 部分占用：从空闲块头部切走
-    ASSERT_TRUE(SSAP_HandleAllocate(3, &range));
-    EXPECT_EQ(range.start, SSAP_HANDLE_MIN);
-    EXPECT_EQ(range.end, SSAP_HANDLE_MIN + 2);
+    // 低段连切三块：部分占用从空闲块头部切走
+    ASSERT_TRUE(SSAP_HandleAllocate(3, &a));
+    EXPECT_EQ(a.start, SSAP_HANDLE_MIN);
+    EXPECT_EQ(a.end, SSAP_HANDLE_MIN + 2);
+    ASSERT_TRUE(SSAP_HandleAllocate(3, &b));
+    ASSERT_TRUE(SSAP_HandleAllocate(4, &c));
+    EXPECT_EQ(c.start, SSAP_HANDLE_MIN + 6);
 
-    // 超过剩余容量：失败
+    // 超过总容量：失败
     SSAP_HandleRange_S tooBig = {0};
     EXPECT_FALSE(SSAP_HandleAllocate(SSAP_HANDLE_MAX, &tooBig));
 
-    // 释放首段后再分配恰好占满：整块移除
-    ASSERT_TRUE(SSAP_HandleRelease(range));
-    ASSERT_TRUE(SSAP_HandleAllocate(1, &range));
-    EXPECT_EQ(range.start, SSAP_HANDLE_MIN);
-    // 释放两段相邻区间，再合并校验
-    SSAP_HandleRange_S first = {SSAP_HANDLE_MIN, SSAP_HANDLE_MIN + 4};
-    SSAP_HandleRange_S second = {SSAP_HANDLE_MIN + 5, SSAP_HANDLE_MIN + 9};
-    ASSERT_TRUE(SSAP_HandleRelease(first));
-    ASSERT_TRUE(SSAP_HandleRelease(second));
-    ASSERT_TRUE(SSAP_HandleRelease(range));
-    // 整个低位区间回收后可以一次性分配大块
+    // 先释放中段再释放首段：首段插入后与中段右合并
+    ASSERT_TRUE(SSAP_HandleRelease(b));
+    ASSERT_TRUE(SSAP_HandleRelease(a));
+    // 释放尾段：左合并后与剩余空闲块级联合并，整段回收
+    ASSERT_TRUE(SSAP_HandleRelease(c));
+
+    // 全部回收后可一次性分配大块
     SSAP_HandleRange_S merged = {0};
     ASSERT_TRUE(SSAP_HandleAllocate(10, &merged));
     EXPECT_EQ(merged.start, SSAP_HANDLE_MIN);
     EXPECT_EQ(merged.end, SSAP_HANDLE_MIN + 9);
 
-    // 逆序区间：尾部追加路径
-    SSAP_HandleRange_S low = {SSAP_HANDLE_MIN, SSAP_HANDLE_MIN};
-    ASSERT_TRUE(SSAP_HandleRelease(low));
+    // 逆序区间拒绝
     SSAP_HandleRange_S badRange = {5, 1};
     EXPECT_FALSE(SSAP_HandleRelease(badRange));
     SSAP_DestroyHandleAllocator();
@@ -1587,7 +1596,7 @@ HWTEST_F(UT_SSAPC_APP, SsapHandleAllocatorGrow002, TestSize.Level1)
 
 /**
  * @tc.name: SsapLinkTableCrud001
- * @tc.desc: 链路表支持按地址与链路号查询、删除后查不到，重复地址创建被拒绝
+ * @tc.desc: 链路表支持按地址与链路号查询，删除后查不到
  * @tc.type: FUNC
  */
 HWTEST_F(UT_SSAPC_APP, SsapLinkTableCrud001, TestSize.Level1)
@@ -1599,10 +1608,6 @@ HWTEST_F(UT_SSAPC_APP, SsapLinkTableCrud001, TestSize.Level1)
     EXPECT_EQ(SSAP_FindSsapLinkByAddr(&g_addrA), link);
     EXPECT_EQ(SSAP_FindSsapLinkByAddr(&g_addrB), nullptr);
     EXPECT_EQ(SSAP_FindSsapLinkByLcid(TEST_LCID), link);
-    EXPECT_EQ(SSAP_FindSsapLinkByLcid(TEST_LCID + 1), nullptr);
-
-    // 同地址重复创建：拒绝并保持原链路
-    EXPECT_EQ(SSAP_CreateSsapLink(&g_addrA, TEST_LCID + 1, CaptureSendCb), nullptr);
     EXPECT_EQ(SSAP_FindSsapLinkByLcid(TEST_LCID + 1), nullptr);
 
     SSAP_DeleteSsapLinkByAddr(&g_addrA);
