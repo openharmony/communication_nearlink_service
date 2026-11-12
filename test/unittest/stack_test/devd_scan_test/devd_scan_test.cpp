@@ -18,6 +18,9 @@
 
 #include "stack_schedule_mock.h"
 #include "stack_schedule_stub.h"
+#include "stack_sdf_mem_mock.h"
+#include "stack_sdf_mem_stub.h"
+#include "devd_scan_test_ctrl.h"
 
 #include "sdf_string.h"
 #include "nlstk_log.h"
@@ -100,6 +103,18 @@ static uint8_t g_dataMask2[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00};
 
 static NLSTK_DevdSleScanExterCbk_S g_cbk = {0};
 
+uint8_t g_testDevdStartScanFail;
+uint8_t g_testDevdStopScanFail;
+uint8_t g_testDevdStartScanSilent;
+uint8_t g_testDevdStopScanSilent;
+
+void TEST_DevdInjectScanEvent(uint8_t event, uint8_t result)
+{
+    if (g_cbk.scanCbk != NULL) {
+        g_cbk.scanCbk(event, result);
+    }
+}
+
 NLSTK_Errcode_E NLSTK_DevdRegScanEventCbk(NLSTK_DevdSleScanExterCbk_S *scanEventCbk)
 {
     NLSTK_LOG_INFO("enter DevdRegScanEventCbkStub");
@@ -178,6 +193,14 @@ NLSTK_Errcode_E NLSTK_DevdSleStartScan(NLSTK_DevdSleScanParams_S *sleScanParams)
             return NLSTK_ERRCODE_PARAM_ERR;
         }
     }
+    if (g_testDevdStartScanFail != 0) {
+        SDF_MemFree(scanParams);
+        return NLSTK_ERRCODE_FAIL;
+    }
+    if (g_testDevdStartScanSilent != 0) {
+        SDF_MemFree(scanParams);
+        return NLSTK_ERRCODE_SUCCESS;
+    }
     if (TEST_SchedulePostTaskQueueStub(DevdSleStartScanInnerStub, scanParams, SDF_MemFree) != NLSTK_OK) {
         NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
         return NLSTK_ERRCODE_TASK_FAIL;
@@ -197,6 +220,12 @@ static void DevdSleEnableScanInnerStub(void *arg)
 NLSTK_Errcode_E NLSTK_DevdSleEnableScan(NLSTK_DevdSleScanEnable_S *sleScanEnable)
 {
     NLSTK_LOG_INFO("enter DevdSleEnableScanStub");
+    if (g_testDevdStopScanFail != 0) {
+        return NLSTK_ERRCODE_FAIL;
+    }
+    if (g_testDevdStopScanSilent != 0) {
+        return NLSTK_ERRCODE_SUCCESS;
+    }
     TEST_SchedulePostTaskQueueStub(DevdSleEnableScanInnerStub, NULL, NULL);
     return NLSTK_ERRCODE_SUCCESS;
 }
@@ -236,13 +265,20 @@ static void CountingReportCbk(NLSTK_DevdAdvResult_S *result)
 class DEVD_SCAN_TEST : public testing::Test {
 public:
     NiceMock<ScheduleMock> scheduleMock;
+    NiceMock<SdfMemMock> sdfMemMock;
 protected:
     // SetUP 在每一个 TEST_F 测试开始前执行一次
     void SetUp() override
     {
+        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(TEST_SDF_MemZalloc);
         TEST_ScheduleInit();
         EXPECT_CALL(scheduleMock, SchedulePostTask).WillRepeatedly(TEST_SchedulePostTaskQueueStub);
         EXPECT_CALL(scheduleMock, SchedulePostTaskBlocked).WillRepeatedly(TEST_SchedulePostTaskBlockedStub);
+        TEST_DevdDliStubReset();
+        g_testDevdStartScanFail = 0;
+        g_testDevdStopScanFail = 0;
+        g_testDevdStartScanSilent = 0;
+        g_testDevdStopScanSilent = 0;
         (void)DevdScanInit();
         NLSTK_DevdScanCbk_S scanCbk = {0};
         scanCbk.onScanCallback = DevdScanReportCallbackStub;
