@@ -401,29 +401,29 @@ TEST_F(NlSsapsFindTest, PropertyFindByServiceUuidTraverse)
     DeleteTestLink();
 }
 
-// 按属性UUID查属性：直接命中匹配属性；服务UUID按类型不符拒绝
+// 按属性UUID查属性：自定义UUID命中走自定义条目；服务UUID按新路径聚合返回该服务属性
 TEST_F(NlSsapsFindTest, PropertyFindByPropUuid)
 {
     AddSvcWithStdAndCusProp();
     SSAP_Link *link = CreateTestLink();
 
-    // 属性UUID命中：仅返回该属性
-    uint8_t reqProp[6 + SSAP_UUID128_LEN] = {0x06, 0x03, 0x01, 0x00, 0xFF, 0x00};
+    // 自定义属性UUID+自定义条目类型：命中该属性
+    uint8_t reqProp[6 + SSAP_UUID128_LEN] = {0x06, 0x0B, 0x01, 0x00, 0xFF, 0x00};
     for (int i = 0; i < SSAP_UUID128_LEN; i++) {
         reqProp[6 + i] = g_propCusUuid.uuid[SSAP_UUID128_LEN - 1 - i];
     }
-    uint8_t rsp[25] = {0x07, 0x03, 0x12, 0x00};
+    uint8_t rsp[25] = {0x07, 0x07, 0x12, 0x00};
     (void)memcpy_s(rsp + 4, SSAP_UUID128_LEN, R_PROP_CUS_UUID, SSAP_UUID128_LEN);
     rsp[20] = 0x01;
     rsp[24] = 0x00;
     SendFindReq(link, reqProp, sizeof(reqProp));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
 
-    // 服务UUID类型不符（属性查找要求属性UUID）
+    // 服务UUID：新路径按服务聚合，返回该服务下通过条目类型过滤的属性
     uint8_t reqSvc[] = {0x06, 0x03, 0x01, 0x00, 0xFF, 0x00, 0x02, 0x01};
-    uint8_t rspErr[] = {0x01, 0x00, 0x06, 0x01, 0x00, 0x0B};
+    uint8_t rspSvc[] = {0x07, 0x03, 0x11, 0x00, 0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01};
     SendFindReq(link, reqSvc, sizeof(reqSvc));
-    EXPECT_TRUE(RspEquals(rspErr, sizeof(rspErr)));
+    EXPECT_TRUE(RspEquals(rspSvc, sizeof(rspSvc)));
     DeleteTestLink();
 }
 
@@ -612,84 +612,128 @@ TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
     DeleteTestLink();
 }
 
-// 老版本对端：查首要服务返回老格式（无UUID），自定义服务在场时升级为混合分组
-TEST_F(NlSsapsFindTest, V10PrimaryFindStdAndMix)
+// 老版本对端按UUID查首要服务：命中标准服务返回老格式条目（无UUID）；类型不符与空窗口报未找到
+TEST_F(NlSsapsFindTest, V10PrimaryFindByUuidOldFormat)
 {
     AddStdServiceWithPropDesc();
     SSAP_Link *link = CreateTestLink();
     g_nlSsapsDevType = CM_DEVTYPE_OLD;
 
-    // 仅标准服务：老格式条目为句柄区间+成员位
-    uint8_t reqStd[] = {0x04, 0x01, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rspStd[] = {0x05, 0x03, 0x10, 0x00, 0x11, 0x00, 0x02};
-    SendFindReq(link, reqStd, sizeof(reqStd));
-    EXPECT_TRUE(RspEquals(rspStd, sizeof(rspStd)));
+    // 按服务UUID命中：老格式条目为句柄区间+成员位
+    uint8_t reqSvcUuid[] = {0x06, 0x01, 0x01, 0x00, 0xFF, 0x00, 0x02, 0x01};
+    uint8_t rspOld[] = {0x07, 0x03, 0x10, 0x00, 0x11, 0x00, 0x02};
+    SendFindReq(link, reqSvcUuid, sizeof(reqSvcUuid));
+    EXPECT_TRUE(RspEquals(rspOld, sizeof(rspOld)));
 
-    // 窗口无命中：老版本路径同样返回未找到
+    // 属性UUID类型不符：老版本路径同样拒绝
+    uint8_t reqPropUuid[] = {0x06, 0x01, 0x01, 0x00, 0xFF, 0x00, 0x03, 0x02};
+    uint8_t rspErr[] = {0x01, 0x00, 0x06, 0x01, 0x00, 0x0B};
+    SendFindReq(link, reqPropUuid, sizeof(reqPropUuid));
+    EXPECT_TRUE(RspEquals(rspErr, sizeof(rspErr)));
+
+    // 窗口越过全部服务：老版本列表为空报未找到
     uint8_t reqMiss[] = {0x04, 0x01, 0x13, 0x00, 0x14, 0x00};
     uint8_t rspMiss[] = {0x01, 0x00, 0x04, 0x13, 0x00, 0x0B};
     SendFindReq(link, reqMiss, sizeof(reqMiss));
     EXPECT_TRUE(RspEquals(rspMiss, sizeof(rspMiss)));
-
-    // 加入自定义服务后按混合分组，老格式条目均无UUID
-    AddCusServiceNoProp();
-    uint8_t reqMix[] = {0x04, 0x11, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rspMix[] = {0x05, 0x0B, 0x01, 0x10, 0x00, 0x11, 0x00, 0x02, 0x81, 0x12, 0x00, 0x12, 0x00, 0x00};
-    SendFindReq(link, reqMix, sizeof(reqMix));
-    EXPECT_TRUE(RspEquals(rspMix, sizeof(rspMix)));
     DeleteTestLink();
 }
 
-// 老版本对端：混合组包预算截断（MTU只够一个老格式条目）
-TEST_F(NlSsapsFindTest, V10PrimaryMixTruncatedByMtu)
+// 老版本对端按自定义服务UUID混合查：仅自定义服务命中，老格式混合分组（标准计数为零）
+TEST_F(NlSsapsFindTest, V10PrimaryMixOldFormatByCusUuid)
 {
     AddStdServiceWithPropDesc();
     AddCusServiceNoProp();
     SSAP_Link *link = CreateTestLink();
     g_nlSsapsDevType = CM_DEVTYPE_OLD;
-    link->mtu = 9; // 头2+双指示头2+老格式条目5
-    uint8_t req[] = {0x04, 0x11, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rsp[] = {0x05, 0x0B, 0x01, 0x10, 0x00, 0x11, 0x00, 0x02, 0x80};
+    uint8_t req[6 + SSAP_UUID128_LEN] = {0x06, 0x11, 0x01, 0x00, 0xFF, 0x00};
+    for (int i = 0; i < SSAP_UUID128_LEN; i++) {
+        req[6 + i] = g_svcCusUuid.uuid[SSAP_UUID128_LEN - 1 - i];
+    }
+    uint8_t rsp[] = {0x07, 0x0B, 0x00, 0x81, 0x12, 0x00, 0x12, 0x00, 0x00};
     SendFindReq(link, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
 }
 
-// 老版本对端：查属性返回老格式（无UUID），服务UUID按老协议不支持查属性
-TEST_F(NlSsapsFindTest, V10PropertyFindStdAndServiceUuidReject)
+// 老版本对端混合组包预算：两个同UUID自定义服务只装得下一个时截断
+TEST_F(NlSsapsFindTest, V10PrimaryMixOldTruncatedByMtu)
+{
+    AddStdServiceWithPropDesc();
+    AddCusServiceNoProp(); // 句柄0x12
+    AddCusServiceNoProp(); // 句柄0x13，与服务0x12同UUID，按UUID查同时命中
+    SSAP_Link *link = CreateTestLink();
+    g_nlSsapsDevType = CM_DEVTYPE_OLD;
+    link->mtu = 9; // 头2+双指示头2+老格式条目5，第二个条目装不下
+    uint8_t req[6 + SSAP_UUID128_LEN] = {0x06, 0x11, 0x01, 0x00, 0xFF, 0x00};
+    for (int i = 0; i < SSAP_UUID128_LEN; i++) {
+        req[6 + i] = g_svcCusUuid.uuid[SSAP_UUID128_LEN - 1 - i];
+    }
+    uint8_t rsp[] = {0x07, 0x0B, 0x00, 0x81, 0x12, 0x00, 0x12, 0x00, 0x00};
+    SendFindReq(link, req, sizeof(req));
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
+    DeleteTestLink();
+}
+
+// 老版本对端按属性UUID查属性：老格式条目无UUID（句柄+操作指示+描述符计数+类型）
+TEST_F(NlSsapsFindTest, V10PropertyOldFormatByPropUuid)
 {
     AddStdServiceWithPropDesc();
     SSAP_Link *link = CreateTestLink();
     g_nlSsapsDevType = CM_DEVTYPE_OLD;
+    uint8_t req[] = {0x06, 0x03, 0x01, 0x00, 0xFF, 0x00, 0x03, 0x02};
+    uint8_t rsp[] = {0x07, 0x03, 0x11, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01};
+    SendFindReq(link, req, sizeof(req));
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
+    DeleteTestLink();
+}
 
-    // 老格式属性条目：句柄+操作指示+描述符计数+描述符类型
-    uint8_t reqStd[] = {0x04, 0x03, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rspStd[] = {0x05, 0x03, 0x11, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01};
-    SendFindReq(link, reqStd, sizeof(reqStd));
-    EXPECT_TRUE(RspEquals(rspStd, sizeof(rspStd)));
-
-    // 老协议不支持按服务UUID查属性：类型不符未找到
+// 老版本对端按服务UUID查属性：老协议不支持，报未找到
+TEST_F(NlSsapsFindTest, V10PropertyServiceUuidReject)
+{
+    AddStdServiceWithPropDesc();
+    SSAP_Link *link = CreateTestLink();
+    g_nlSsapsDevType = CM_DEVTYPE_OLD;
     uint8_t reqSvcUuid[] = {0x06, 0x13, 0x01, 0x00, 0xFF, 0x00, 0x02, 0x01};
     uint8_t rspErr[] = {0x01, 0x00, 0x06, 0x01, 0x00, 0x0B};
     SendFindReq(link, reqSvcUuid, sizeof(reqSvcUuid));
     EXPECT_TRUE(RspEquals(rspErr, sizeof(rspErr)));
-
-    // 按属性UUID查（老格式响应走无UUID组包）
-    uint8_t reqPropUuid[] = {0x06, 0x03, 0x01, 0x00, 0xFF, 0x00, 0x03, 0x02};
-    SendFindReq(link, reqPropUuid, sizeof(reqPropUuid));
-    EXPECT_TRUE(RspEquals(rspStd, sizeof(rspStd)));
     DeleteTestLink();
 }
 
-// 老版本对端：属性混合组包预算截断
-TEST_F(NlSsapsFindTest, V10PropertyMixTruncatedByMtu)
+// 老版本对端属性混合组包预算：两个同UUID自定义属性只装得下一个时截断
+TEST_F(NlSsapsFindTest, V10PropertyMixOldTruncatedByMtu)
 {
-    AddSvcWithStdAndCusProp();
+    CacheService(g_svcStdUuid, ITEM_TYPE_STD_PRIMARY_SERVICE);
+    CacheProperty(g_propCusUuid, 0xAB, 0x01); // 属性0x11
+    CacheProperty(g_propCusUuid, 0xCD, 0x01); // 属性0x12，与0x11同UUID
+    SSAP_StartService(nullptr);
     SSAP_Link *link = CreateTestLink();
     g_nlSsapsDevType = CM_DEVTYPE_OLD;
-    link->mtu = 12; // 头2+双指示头2+老格式属性项8（基长7+描述符1）
-    uint8_t req[] = {0x04, 0x13, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rsp[] = {0x05, 0x0B, 0x01, 0x11, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01, 0x80};
+    link->mtu = 12; // 头2+双指示头2+老格式属性项7（无描述符），第二项装不下
+    uint8_t req[6 + SSAP_UUID128_LEN] = {0x06, 0x13, 0x01, 0x00, 0xFF, 0x00};
+    for (int i = 0; i < SSAP_UUID128_LEN; i++) {
+        req[6 + i] = g_propCusUuid.uuid[SSAP_UUID128_LEN - 1 - i];
+    }
+    uint8_t rsp[] = {0x07, 0x0B, 0x00, 0x81, 0x11, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00};
+    SendFindReq(link, req, sizeof(req));
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
+    DeleteTestLink();
+}
+
+// 老版本对端不按条目类型过滤：自定义条目类型请求仍返回标准+自定义两组（新格式组包）
+TEST_F(NlSsapsFindTest, V10PrimaryIgnoresItemTypeFilter)
+{
+    AddStdServiceWithPropDesc();
+    AddCusServiceNoProp();
+    SSAP_Link *link = CreateTestLink();
+    g_nlSsapsDevType = CM_DEVTYPE_OLD;
+    uint8_t req[] = {0x04, 0x09, 0x01, 0x00, 0xFF, 0x00}; // 首要服务+自定义条目类型
+    uint8_t rsp[32] = {0x05, 0x07,
+        0x01, 0x10, 0x00, 0x11, 0x00, 0x02, 0x01, 0x02,
+        0x81, 0x12, 0x00, 0x12, 0x00};
+    (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_SVC_CUS_UUID, SSAP_UUID128_LEN);
+    rsp[31] = 0x00;
     SendFindReq(link, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();

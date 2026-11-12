@@ -301,6 +301,7 @@ TEST_F(NlSsapsWriteTest, SingleWriteVerifyEchoOverMtuNoFrag)
 {
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
+    link->mtu = 200; // 链路默认MTU为协议最大值，压低后255字节回显才超限
     uint8_t req[2 + 3 + 250] = {0x0D, 0x23, 0x11, 0x00, 0x00};
     for (uint16_t i = 0; i < 250; i++) {
         req[5 + i] = (uint8_t)i;
@@ -324,14 +325,11 @@ TEST_F(NlSsapsWriteTest, SingleWriteVerifyEchoOverMtuWithFrag)
         req[5 + i] = (uint8_t)i;
     }
     SendPdu(link, SSAPS_WriteReqHandle, req, sizeof(req));
-    EXPECT_EQ(g_rspLen, 2 + 3 + 250);
-    EXPECT_EQ(g_rspCache[0], 0x0E);
-    EXPECT_EQ(g_rspCache[1], 0x03);
-    EXPECT_EQ(g_rspCache[2], 0x11);
-    EXPECT_EQ(g_rspCache[4], 0x00);
-    EXPECT_EQ(g_rspCache[5], 0x00);
-    EXPECT_EQ(g_rspCache[6], 0x01);
-    EXPECT_EQ(g_rspCache[254], 249);
+    uint8_t rsp[2 + 3 + 250] = {0x0E, 0x03, 0x11, 0x00, 0x00};
+    for (uint16_t i = 0; i < 250; i++) {
+        rsp[5 + i] = (uint8_t)i;
+    }
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
 }
 
@@ -532,6 +530,7 @@ TEST_F(NlSsapsWriteTest, MultiWriteVerifyEchoOverMtuNoFrag)
 {
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
+    link->mtu = 300; // 链路默认MTU为协议最大值，压低后510字节回显才超限
     // 两个条目各带248字节原值：回显总长必然超过MTU
     uint8_t req[2 + 254 + 254] = {0x0D, 0x27,
         0x11, 0x00, 0x01, 0x00, 0xF8, 0x00};
