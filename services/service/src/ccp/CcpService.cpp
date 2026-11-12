@@ -144,6 +144,11 @@ void CcpService::Disable()
 {
     DoInCcpThread([this]() {
         HILOGI("[CcpService] start disable ccp service");
+        // 清理通话缓存信息
+        pimpl->callIdMap_.Clear();
+        pimpl->callIdSet_.clear();
+        pimpl->voipIdSet_.clear();
+        pimpl->currentVoipCallId_ = INVALID_CCP_VOIP_ID;
         if (!pimpl->isEnabled_) {
             GetContext()->OnDisable(PROFILE_NAME_CCP, true);
             HILOGW("[CcpService]CcpService has already been shutdown before.");
@@ -282,8 +287,7 @@ void CcpService::CallDetailsChanged(int32_t callId, int32_t callState, int32_t c
     if (callState == static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_DISCONNECTED) &&
         callType != static_cast<int32_t>(Telephony::CallType::TYPE_VOIP)) {
         // 只有蜂窝通话需要走该流程，voip和ccp构造的场景由PhoneStateChanged处理
-        /* 守卫判的是表内有无蜂窝路，而非本事件归属：表空时直接返回，避免未知 callId 白占 index */
-        NL_CHECK_RETURN(HasPhoneCallId(), "[CcpService]no tellphone call, skip call details.");
+        NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(callId), "[CcpService]unknown callId, skip call details.");
         /* 挂断对象已从 telephony 对象表移除，列表反查不到 */
         Telephony::CallAttributeInfo info{};
         info.callId = callId;
@@ -508,6 +512,8 @@ void CcpService::ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info)
 void CcpService::ProcessCallTerminateInfo(const Telephony::CallAttributeInfo &info)
 {
     HILOGI("[CcpService]ProcessCallTerminateInfo: id=%{public}d, telStatus=%{public}d", info.callId, info.callState);
+    // 映射中没有该 callId，说明本次挂断已被另一入口处理过（或该路从未上报），避免重复处理挂断事件
+    NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(info.callId), "[CcpService]unknown callId %{public}d", info.callId);
     std::shared_ptr<CallTerminateInfoProp> prop = std::make_shared<CallTerminateInfoProp>();
     // 通话标识
     uint8_t callId = pimpl->GetIndexForCall(info.callId, info.callState);
@@ -535,11 +541,12 @@ void CcpService::HandleVoipStart(const RawAddress &device)
 {
     HILOGI("[CcpService]Enter");
     DoInCcpThread([this]() {
-        NL_CHECK_RETURN(!HasPhoneCallId(), "Now is in tellphone call, no need to create voip state.");
         // 避免自己造的这个callId和后续蜂窝的CallId重复，避开蜂窝的id区间
         int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
         pimpl->currentVoipCallId_ = voipId;
         pimpl->voipIdSet_.insert(voipId);
+        // 蜂窝通话期间来voip通话，voip流启动时只登记callId不建状态，待蜂窝挂断后由 ProcessCallTerminateInfo 补建
+        NL_CHECK_RETURN(!HasPhoneCallId(), "Now is in tellphone call, no need to create voip state.");
         CreateVoipCallInfo();
     });
 }

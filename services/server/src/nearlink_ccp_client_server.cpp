@@ -70,7 +70,8 @@ int32_t NearlinkCcpClientServer::PhoneStateChanged(int32_t callId, int32_t numAc
     }
     HILOGI("PhoneStateChanged callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, callState=%{public}d",
         callId, numActive, numHeld, callState);
-    // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方
+    // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方；
+    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方
     DoInCcpThread([callId, numActive, numHeld, callState, number]() {
         ProfileCcp *ccpService = static_cast<ProfileCcp *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
@@ -93,7 +94,8 @@ int32_t NearlinkCcpClientServer::CallDetailsChanged(int32_t callId, int32_t call
     }
     HILOGI("CallDetailsChanged callId=%{public}d, callState=%{public}d, callType=%{public}d",
         callId, callState, callType);
-    // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方
+    // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方；
+    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方
     DoInCcpThread([callId, callState, callType]() {
         ProfileCcp *ccpService = static_cast<ProfileCcp *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
