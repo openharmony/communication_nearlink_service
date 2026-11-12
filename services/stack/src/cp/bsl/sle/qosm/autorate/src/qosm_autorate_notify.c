@@ -210,6 +210,58 @@ static void QOSM_CorrectICGQosParam(QOSM_ICGInfo *icgInfo, CM_ICBChannel *channe
 }
 
 /*
+ * status event失败（错误链DLI_CMD_ERROR_EVT / DSP setLabelResult非0）处理：
+ * 收到该错误说明芯片/DSP侧切码率命令下发失败，此时需要停止切码率流程并清理相关标志位，
+ * 避免切码率流程卡死在“等待最终0x63事件”状态（该事件不会再来了）。
+ * 按升降方向区分处理：
+ *   升码率失败参照QOSM_LevelUpExceptionProc：重置Report状态即可，无需回滚；
+ *   降码率失败参照QOSM_LevelDownExceptionProc：先停定时器，再按触发来源（CALL/REPORT）重置参数并回滚到原档位。
+ * 由CM status event失败（QOSM_UpdateICG）与DSP bitrate report失败（QOSM_AudioDfxParseBitrateReport）共用
+ */
+static void QOSM_UpdateICGStatusFailProc(QOSM_ICGInfo *icgInfo, uint16_t errorCode)
+{
+    QOSM_LOGE("update icg param status event failed, errorCode=%u, qos id=%hhu, updateStatus=%hhu",
+        errorCode, icgInfo->icgId, icgInfo->updateStatus);
+    if (icgInfo->updateStatus == UPDATE_NONE) {
+        return;
+    }
+    if (icgInfo->upLevelDelayTimerId != QOSM_INVALID_TIMER_HANDLE) {
+        QOSM_LOGI("ignore dsp set label failure in up level delay window");
+        return;
+    }
+    // 触发来源：CALL（调用方触发，仅降码率）或REPORT（周期上报触发，升/降码率都可能）
+    bool isByReport = (icgInfo->updateStatus & UPDATE_BY_REPORT) != 0;
+    uint16_t direction = isByReport ? icgInfo->reportedDirection : icgInfo->updatedDirection;
+    uint8_t labelId = isByReport ? icgInfo->reportedLabelId : icgInfo->updatedLabelId;
+    bool isLevelUp = direction == LEVEL_UP;
+
+    // IMB且支持frame4时，向上层（ACTM/音频应用）上报切码率失败应答，由上层驱动DSP完成失败处理
+    QOSM_SendLabelChangeFailMsg(icgInfo, direction, labelId);
+    QOSM_ChangeLabelStopTimer(icgInfo);
+    icgInfo->updatedCnt = 0;
+
+    // 升码率失败（仅REPORT触发）：升芯片过程失败，重置Report状态即可，无需回滚（参照QOSM_LevelUpExceptionProc）
+    if (isLevelUp) {
+        QOSM_LOGE("upgrade level failed, reset report param");
+        QOSM_ResetReportParam(icgInfo);
+        QOSM_ResetAllICBAckRateOverCnt(icgInfo);
+        return;
+    }
+
+    // 降码率失败：按触发来源重置参数，再回滚到原档位（参照QOSM_LevelDownExceptionProc）
+    if (isByReport) {
+        QOSM_LOGE("downgrade level failed, reset report param");
+        QOSM_ResetReportParam(icgInfo);
+        QOSM_ResetAllICBAckRateOverCnt(icgInfo);
+    } else {
+        QOSM_LOGE("downgrade level failed, reset update param");
+        QOSM_ResetUpdateParam(icgInfo);
+    }
+    (void)QOSM_RollbackWhenDownLevel(icgInfo);
+    QOSM_LOGI("rollback qos param, qos id %hhu", icgInfo->qosId);
+}
+
+/*
  * 两个关键点：升码率由host调用dli、降码率由dsp调用dli
  * 其中：
  *     1、升码率只通过500ms周期上报（report）触发
@@ -217,10 +269,17 @@ static void QOSM_CorrectICGQosParam(QOSM_ICGInfo *icgInfo, CM_ICBChannel *channe
  */
 void QOSM_UpdateICG(CM_ICBConnection *connection)
 {
-    QOSM_CHECK_RETURN(connection->channelCnt != 0 && connection->channelCnt <= QOSM_AUTORATE_MAX_LINK_CNT,
-        "connection channel count: %u is invalid", connection->channelCnt);
+    QOSM_CHECK_RETURN(connection != NULL, "connection is NULL");
     QOSM_ICGInfo *icgInfo = QOSM_FindQosIcbInfoByIcgId(connection->id);
     QOSM_CHECK_RETURN(icgInfo != NULL, "icgInfo is NULL");
+
+    if (connection->errorCode == CM_ICB_STATUS_EVENT_FAILED) {
+        QOSM_UpdateICGStatusFailProc(icgInfo, connection->errorCode);
+        return;
+    }
+
+    QOSM_CHECK_RETURN(connection->channelCnt != 0 && connection->channelCnt <= QOSM_AUTORATE_MAX_LINK_CNT,
+        "connection channel count: %u is invalid", connection->channelCnt);
     QOSM_CHECK_RETURN(connection->errorCode == CM_ICB_SUCCESS, "errorCode=%u", connection->errorCode);
 
     if (icgInfo->updateStatus == UPDATE_NONE) {
@@ -238,9 +297,25 @@ void QOSM_UpdateICG(CM_ICBConnection *connection)
     if (icgInfo->updatedCnt < icgInfo->connectedCnt) {
         return;
     }
-    
+
     // 所有ICB链路都收到完成事件后，才更新ICG状态
     QOSM_UpdateICGComplete(icgInfo);
+}
+
+/*
+ * DSP bitrate report失败（setLabelResult非0）处理入口：
+ * DSP侧上报的bitrate report不含connHandle/qosId，是全局事件，
+ * 需遍历所有ICG，对处于切码率流程中的ICG执行失败清理
+ */
+static void QOSM_UpdateAllICGParamFailedInner(QOSM_ICGInfo *icgInfo, void *data)
+{
+    (void)data;
+    QOSM_UpdateICGStatusFailProc(icgInfo, CM_ICB_STATUS_EVENT_FAILED);
+}
+
+void QOSM_UpdateAllICGParamFailed(void)
+{
+    QOSM_ICGMgrIterate(QOSM_UpdateAllICGParamFailedInner, NULL);
 }
 
 static void QOSM_SetLevelAvailable(QOSM_ICGInfo *icgInfo, struct QosLevelLabel *level)

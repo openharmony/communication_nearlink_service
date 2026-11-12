@@ -74,5 +74,6 @@ group("nl_stack_test") {
     "ssaps_server_test:nl_stack_ssaps_server_unittest",
     "ssap_link_state_replay_test:nl_stack_ssap_link_state_replay_unittest",
     "ssap_test:nl_stack_ssap_unittest",
+    "sdf_test:nl_stack_sdf_unittest",
   ]
 }

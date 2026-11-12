@@ -64,7 +64,8 @@ typedef enum {
     CM_ICB_SUCCESS = 0,
     CM_IOB_FAILED,
     CM_IMB_FAILED,
-    CM_ICB_FAILED,
+    CM_ICB_FAILED, /* 非 status event 失败 */
+    CM_ICB_STATUS_EVENT_FAILED, /* status event 失败专用 */
 } CM_ICBErrorCode;
 
 /**
