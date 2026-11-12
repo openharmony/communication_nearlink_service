@@ -214,7 +214,8 @@ HWTEST_F(SleProfileConnectTest, ProfileConnectInstNextProfileOrder_001, TestSize
     inst->UpdateProfileState(PROFILE_NAME_BAS, static_cast<int>(SleConnectState::CONNECTED));
 
     EXPECT_EQ("", inst->GetNextDisconnectedProfile());
-    EXPECT_EQ(PROFILE_NAME_BAS, inst->GetNextConnectedProfile());
+    // 全部已连时按业务名字典序取首个
+    EXPECT_EQ(PROFILE_NAME_ASC, inst->GetNextConnectedProfile());
 
     auto empty = MakeInst(kAddrR);
     EXPECT_EQ("", empty->GetNextDisconnectedProfile());
@@ -352,12 +353,14 @@ HWTEST_F(SleProfileConnectTest, ProcessProfileConnectedChainNext_006, TestSize.L
 
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, inst->GetState());
     EXPECT_TRUE(calls_->notify.empty());
+    // 链式拉起下一个业务是 ASC，已发过一次组播安全配置
+    EXPECT_EQ(1, calls_->sendImgSecu);
 
-    // 直接驱动连接业务入口：仅音频流会触发组播安全配置
+    // 直接驱动连接业务入口：仅音频流会再次触发组播安全配置
     manager_->ConnectProfile(PROFILE_NAME_ASC, RawAddress(kAddrL));
-    EXPECT_EQ(1, calls_->sendImgSecu);
+    EXPECT_EQ(2, calls_->sendImgSecu);
     manager_->ConnectProfile(PROFILE_NAME_HID_HOST, RawAddress(kAddrL));
-    EXPECT_EQ(1, calls_->sendImgSecu);
+    EXPECT_EQ(2, calls_->sendImgSecu);
 }
 
 /**
@@ -373,6 +376,7 @@ HWTEST_F(SleProfileConnectTest, ProcessProfileConnectedInnerScenarios_007, TestS
     SetAppearance(kAddrL, DEVICE_SMART_WATCH);
     auto watchInst = GetInst(kAddrL);
     ASSERT_NE(nullptr, watchInst);
+    watchInst->AddSupportProfile(PROFILE_NAME_ASC);
     manager_->ProcessProfileConnected(PROFILE_NAME_DIS, RawAddress(kAddrL));
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, watchInst->GetState());
     EXPECT_TRUE(calls_->notify.empty());
@@ -382,6 +386,7 @@ HWTEST_F(SleProfileConnectTest, ProcessProfileConnectedInnerScenarios_007, TestS
     SetAppearance(kAddrM, DEVICE_CLASS_VEHICLE_LOCK);
     auto carKeyInst = GetInst(kAddrM);
     ASSERT_NE(nullptr, carKeyInst);
+    carKeyInst->AddSupportProfile(PROFILE_NAME_ASC);
     manager_->ProcessProfileConnected(PROFILE_NAME_DIS, RawAddress(kAddrM));
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, carKeyInst->GetState());
 
@@ -510,8 +515,9 @@ HWTEST_F(SleProfileConnectTest, SleConnectAllProfilePaths_009, TestSize.Level1)
     manager_->SleConnectAllProfile(RawAddress(kAddrM));
     EXPECT_FALSE(HasInst(kAddrM));
 
-    // 旧档案状态不允许：拒绝重连
+    // 旧档案状态不允许：拒绝重连（应用号须有效才能走到状态判断）
     InsertInst(kAddrU, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    GetInst(kAddrU)->SetAppId(30);
     manager_->SleConnectAllProfile(RawAddress(kAddrU));
     auto busy = GetInst(kAddrU);
     ASSERT_NE(nullptr, busy);
@@ -675,16 +681,14 @@ HWTEST_F(SleProfileConnectTest, SsapDiscoveredFailurePaths_013, TestSize.Level1)
     auto silentInst = GetInst(kAddrL);
     ASSERT_NE(nullptr, silentInst);
     silentInst->SetSilentPortFlag(true);
-    manager_->SsapServicesDiscoveredTask(
-        RawAddress(kAddrL), static_cast<int>(SsapStatus::SSAP_FAILURE) + 1);
+    manager_->SsapServicesDiscoveredTask(RawAddress(kAddrL), static_cast<int>(SsapStatus::SSAP_FAILURE));
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_UNUSED, silentInst->GetState());
     ASSERT_EQ(1U, calls_->notify.size());
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), NotifyNewState(0));
     EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_FAIL_SERVICE_DISCOVERY), NotifyReason(0));
 
     InsertInst(kAddrM, SLE_ADAPTER_PROF_CONN_STATE_DISCOVERING);
-    manager_->SsapServicesDiscoveredTask(
-        RawAddress(kAddrM), static_cast<int>(SsapStatus::SSAP_FAILURE) + 1);
+    manager_->SsapServicesDiscoveredTask(RawAddress(kAddrM), static_cast<int>(SsapStatus::SSAP_FAILURE));
     EXPECT_EQ(1, calls_->disconnectAcb);
     ASSERT_EQ(2U, calls_->notify.size());
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), NotifyNewState(1));
