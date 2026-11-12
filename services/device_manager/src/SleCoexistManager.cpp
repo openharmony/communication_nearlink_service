@@ -94,7 +94,7 @@ int SleCoexistManager::CountCoexistAdjustDevices(uint16_t intervalThreshold)
 {
     int count = 0;
     connInfoList_.Iterate([&count, intervalThreshold](const CoexistConnInfo& info) {
-        if (!info.intervalKnown || info.interval <= intervalThreshold) {
+        if (info.interval <= intervalThreshold) {
             count++;
         }
     });
@@ -105,11 +105,6 @@ int SleCoexistManager::CountCoexistAdjustDevices(uint16_t intervalThreshold)
 bool SleCoexistManager::HasMultipleConnections()
 {
     return connInfoList_.Size() > 1;
-}
-
-int SleCoexistManager::GetConnectionCount()
-{
-    return static_cast<int>(connInfoList_.Size());
 }
 
 void SleCoexistManager::ClearAll()
