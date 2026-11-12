@@ -640,13 +640,15 @@ TEST_F(NlSsapsFindTest, MethodFindMixStdAndCusGrouped)
     AddCusMethodServiceViaApi(g_regAppId);  // 方法0x14（自定义UUID）
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x04, 0x14, 0x01, 0x00, 0xFF, 0x00};
-    uint8_t rsp[34] = {0x05, 0x0B,
+    uint8_t rsp[36] = {0x05, 0x0B,
         0x01, 0x12, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x81, 0x14, 0x00};
     (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_PROP_CUS_UUID, SSAP_UUID128_LEN);
     rsp[31] = 0x00;
     rsp[32] = 0x00;
     rsp[33] = 0x00;
+    rsp[34] = 0x00;
+    rsp[35] = 0x00;
     SendFindReq(link, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
     DeleteTestLink();
