@@ -723,9 +723,11 @@ HWTEST_F(SleProfileConnectTest, SsapDiscoveredSuccessPaths_014, TestSize.Level1)
     manager_->SsapServicesDiscoveredTask(RawAddress(kAddrM), static_cast<int>(SsapStatus::SSAP_SUCCESS));
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_DISCONNECTING, empty->GetState());
     EXPECT_EQ(1, calls_->disconnectAcb);
-    ASSERT_GE(calls_->notify.size(), 1U);
-    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), calls_->notify.back()[0]);
-    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE), calls_->notify.back()[2]);
+    ASSERT_GE(calls_->notify.size(), 2U);
+    // 先报进入断连中，随后异常断连补报断连
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), calls_->notify[0][0]);
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE), calls_->notify[0][2]);
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), calls_->notify[1][0]);
 
     // HID可用：进入业务连接中
     InsertInst(kAddrR, SLE_ADAPTER_PROF_CONN_STATE_DISCOVERING);
@@ -1798,31 +1800,35 @@ HWTEST_F(SleServiceManagerTest, SysCheckAndStopService_016, TestSize.Level1)
     auto *mgr = SleServiceManager::GetInstance();
     mgr->pimpl->sysState_ = SYS_STATE_STARTED;
     SetSatellite(false, "");
+    // 卸载计数为进程级累积，按用例内增量断言
+    const int unloadBase = g_unloadSaCallCount.load();
 
-    // 参数为关 + 有调用方：回执关
+    // 参数为关 + 有调用方：回执关并走卸载
     mgr->disableCallerInfo_ = SwitchCallerInfo(5, 100);
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
     mgr->CheckAndStopService();
     ASSERT_EQ(1U, observer_.disableResponses.size());
     EXPECT_FALSE(observer_.disableResponses[0].first);
+    EXPECT_EQ(unloadBase + 1, g_unloadSaCallCount.load());
 
-    // 参数为半开：回执半关（回执为一次性语义，需重设调用方）
+    // 参数为半开：回执半关再卸载（回执为一次性语义，需重设调用方）
     mgr->disableCallerInfo_ = SwitchCallerInfo(6, 100);
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "2");
     mgr->CheckAndStopService();
-    EXPECT_EQ(1, g_unloadSaCallCount.load());
+    EXPECT_EQ(unloadBase + 2, g_unloadSaCallCount.load());
     ASSERT_EQ(2U, observer_.disableResponses.size());
     EXPECT_TRUE(observer_.disableResponses[1].first);
 
-    // 参数为开：写复位参数
+    // 参数为开：写复位参数，不走卸载
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
     mgr->CheckAndStopService();
     EXPECT_EQ("0", OHOS::system::GetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, ""));
+    EXPECT_EQ(unloadBase + 2, g_unloadSaCallCount.load());
 
     // 恢复挂起：走卸载分支
     mgr->isRestoreNeeded_ = true;
     mgr->CheckAndStopService();
-    EXPECT_EQ(2, g_unloadSaCallCount.load());
+    EXPECT_EQ(unloadBase + 3, g_unloadSaCallCount.load());
 }
 
 /**
