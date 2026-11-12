@@ -131,7 +131,12 @@ void TriggerCmDisconnectEvent()
 
 void TriggerCmReportFeatureEvent()
 {
-    CM_LogicLinkRemoteFeatures_S feaures = {.lcid = g_lcid, .features = {0, 0, 0, 0, 0, 0, 0, 0, 4, 0}};
+    // 测试目的：真实 CM 的远端特性上报回调携带对端地址（HadmCachePendingFeatures 按
+    // lcid+addr 缓存，连接上报后 HadmGetPendingFeatures 用连接地址比对重放）。此前缺省
+    // addr 全零，缓存地址与连接地址必然不匹配，重放被跳过，HADM_FEATURES_BEFORE_CONNECT_001
+    // 取不到已缓存的对端测距能力。补齐 addr 使事件与真实 CM 行为一致，不改期望值。
+    CM_LogicLinkRemoteFeatures_S feaures = {
+        .lcid = g_lcid, .addr = g_addr, .features = {0, 0, 0, 0, 0, 0, 0, 0, 4, 0}};
     TEST_CM_RemoteFeatureCbk(CM_MODULE_HADM, &feaures);
 }
 

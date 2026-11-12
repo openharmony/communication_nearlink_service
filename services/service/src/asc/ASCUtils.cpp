@@ -283,13 +283,17 @@ void ASCUtils::TransferProperty(const RawAddress& device, uint8_t num, NLSTK_Act
     }
 }
 
-uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos)
+uint8_t ASCUtils::GetDecodeBitDepth(const ASCToDSPInfo &ascToDspInfo, Qos cos, uint8_t bitDepth)
 {
-    if (cos == NL_SLE_QOS_5) {
-        return static_cast<uint8_t>(DSP_BITS_DEPTH_16); // 位宽
+    if (cos != NL_SLE_QOS_5) {
+        // 默认上下行一致
+        return ascToDspInfo.encodeBitDepth;
     }
-    // 默认上下行一致
-    return ascToDspInfo.encodeBitDepth;
+    // 双耳录音上行位深使用echo 8,E协商结果：仅24bit映射DSP 24位，其余(含未协商bitDepth为0)回退16bit
+    if (bitDepth == ASC_SAMPLE_DEPTH_24BIT) {
+        return static_cast<uint8_t>(DSP_BITS_DEPTH_24); // 位宽
+    }
+    return static_cast<uint8_t>(DSP_BITS_DEPTH_16); // 位宽
 }
 
 uint32_t ASCUtils::GetDecodeSampleRate(const ASCToDSPInfo &ascToDspInfo, Qos cos)

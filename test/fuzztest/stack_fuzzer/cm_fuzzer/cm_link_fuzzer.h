@@ -28,6 +28,11 @@ void FuzzCmLinkDeInit(void);
 
 void FuzzCmLinkApi(uint8_t *data, size_t size);
 
+// dyntrans 闭环窗口：每 input 与 FuzzCmLinkInit/FuzzCmLinkDeInit 内部配对使用
+uint32_t FuzzCmDynTransInit(void);
+
+void FuzzCmDynTransDeInit(void);
+
 #ifdef __cplusplus
 }
 #endif

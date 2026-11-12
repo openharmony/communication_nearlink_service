@@ -225,6 +225,14 @@ static void DevdScanReportCallbackStub(NLSTK_DevdAdvResult_S *result)
     }
 }
 
+// 路由计数回调：只递增计数，供按模块分发断言使用
+static int g_routingReportCount = 0;
+static void CountingReportCbk(NLSTK_DevdAdvResult_S *result)
+{
+    (void)result;
+    g_routingReportCount++;
+}
+
 class DEVD_SCAN_TEST : public testing::Test {
 public:
     NiceMock<ScheduleMock> scheduleMock;
@@ -704,4 +712,580 @@ TEST_F(DEVD_SCAN_TEST, ScanFilter004)
     DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
 
     SDF_MemFree(filter);
+}
+
+// ===================== 扫描时长与扫描模式矩阵用例 =====================
+#include "devd_scan_manager.h"
+#include "devd_scan_type.h"
+
+static uint32_t AllocScannerOk(void)
+{
+    uint32_t scannerId = DEVD_INVALID_SCANNER_ID;
+    EXPECT_EQ(NLSTK_DevdAllocScannerId(g_moduleId, &scannerId), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_NE(scannerId, DEVD_INVALID_SCANNER_ID);
+    return scannerId;
+}
+
+static NLSTK_Errcode_E StartScanWithDuration(uint32_t scannerId, uint8_t frameType, int32_t duration)
+{
+    NLSTK_DevdScanSetting_S setting = {0};
+    setting.scanMode = SCAN_MODE_BALANCED;
+    setting.frameType = frameType;
+    setting.duration = duration;
+    return NLSTK_DevdStartScan(scannerId, &setting, NULL, 0);
+}
+
+static NLSTK_Errcode_E StartScanWithMode(uint32_t scannerId, uint8_t frameType, int32_t scanMode,
+    int64_t reportDelayMillis)
+{
+    NLSTK_DevdScanSetting_S setting = {0};
+    setting.scanMode = scanMode;
+    setting.frameType = frameType;
+    setting.duration = 3600;
+    setting.reportDelayMillis = reportDelayMillis;
+    return NLSTK_DevdStartScan(scannerId, &setting, NULL, 0);
+}
+
+static NLSTK_DevdScanner_S *FindScannerById(uint32_t scannerId)
+{
+    NLSTK_DevdStateMachine_S *scanStm = DevdGetStateMachine();
+    if (scanStm == NULL) {
+        return NULL;
+    }
+    NLSTK_DevdScanManager_S *manager = DEVD_STM_M(scanStm, scanManager);
+    if (manager == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < manager->scanners->size; i++) {
+        NLSTK_DevdScanner_S *scanner = (NLSTK_DevdScanner_S *)SDF_VectorElementAt(manager->scanners, i);
+        if (scanner->scannerId == scannerId) {
+            return scanner;
+        }
+    }
+    return NULL;
+}
+
+// 直改内部 expireTime，构造确定性的秒/纳秒到期序列
+static void SetScannerExpireTime(uint32_t scannerId, bool frame4, time_t tvSec, long tvNsec)
+{
+    NLSTK_DevdScanner_S *scanner = FindScannerById(scannerId);
+    ASSERT_NE(scanner, nullptr);
+    NLSTK_DevdScanSettingInner_S *inner = frame4 ? &scanner->frame4ScanSetting : &scanner->scanSetting;
+    inner->expireTime.tv_sec = tvSec;
+    inner->expireTime.tv_nsec = tvNsec;
+}
+
+// 清空定时器 mock 期望并恢复队列 stub：TearDown 的 DeInit 还会触发 ScheduleTimerDel，
+// 不得进入捕获本用例局部变量的 lambda
+static void ClearTimerMockExpectations(NiceMock<ScheduleMock> &mock)
+{
+    ::testing::Mock::VerifyAndClearExpectations(&mock);
+    EXPECT_CALL(mock, SchedulePostTask).WillRepeatedly(TEST_SchedulePostTaskQueueStub);
+    EXPECT_CALL(mock, SchedulePostTaskBlocked).WillRepeatedly(TEST_SchedulePostTaskBlockedStub);
+}
+
+// 帧一/帧四各自配置 duration 后，仅各自的到期参数置位
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest001)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    uint32_t scannerId2 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId2, DEVD_SCAN_FRAME_TYPE_4, 20), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_TRUE(scanner1->scanSetting.hasDuration);
+    EXPECT_FALSE(scanner1->frame4ScanSetting.hasDuration);
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_FALSE(scanner2->scanSetting.hasDuration);
+    EXPECT_TRUE(scanner2->frame4ScanSetting.hasDuration);
+}
+
+// 多个帧一扫描并存时，到期定时器指向最早到期时间：首个直接入选、秒级更早者替换、
+// 同秒比纳秒、更晚者保留
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest002)
+{
+    uint32_t scannerId[6] = {0}; // 前 5 个为布景 scanner，第 6 个仅作移除触发
+    for (size_t i = 0; i < sizeof(scannerId) / sizeof(scannerId[0]); i++) {
+        scannerId[i] = AllocScannerOk();
+    }
+    for (size_t i = 0; i < sizeof(scannerId) / sizeof(scannerId[0]) - 1; i++) {
+        EXPECT_EQ(StartScanWithDuration(scannerId[i], DEVD_SCAN_FRAME_TYPE_1, 3600), NLSTK_ERRCODE_SUCCESS);
+    }
+    TEST_RunQueueStubSchedule();
+
+    time_t base = time(NULL) + 3600;
+    SetScannerExpireTime(scannerId[0], false, base, 900);   // 首个 duration 直接入选
+    SetScannerExpireTime(scannerId[1], false, base, 100);   // 同秒纳秒更小，替换
+    SetScannerExpireTime(scannerId[2], false, base, 500);   // 同秒纳秒更大，保留
+    SetScannerExpireTime(scannerId[3], false, base - 2, 0); // 秒级更早，替换为最终最早项
+    SetScannerExpireTime(scannerId[4], false, base - 1, 0); // 秒级更晚，保留
+
+    int addCount = 0;
+    int fakeHandle = 0;
+    time_t armedMs = 0;
+    struct timespec armNow = {0};
+    int *durationTimerPtr = &DEVD_STM_M(DevdGetStateMachine(), scanManager)->durationTimer;
+    EXPECT_CALL(scheduleMock, ScheduleTimerAdd).WillRepeatedly(Invoke(
+        [&](int *handle, SDF_TimerParam *param) -> uint32_t {
+            *handle = ++fakeHandle; // 模拟真实定时器框架分配句柄
+            if (handle == durationTimerPtr) { // 排除扫描 STM 内部定时器（CP_TimerAdd 同走此 mock）
+                addCount++;
+                armedMs = param->expires;
+                clock_gettime(CLOCK_REALTIME, &armNow);
+            }
+            return 0; // SDF_OK
+        }));
+
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId[5]), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    EXPECT_EQ(addCount, 1); // 移除参数路径仅重布防一次
+    // 到期定时器指向最早到期项 scannerId[3]：按布防时刻换算剩余毫秒，容差覆盖毫秒截断与补偿，
+    // 远小于相邻候选项 1 秒的间隔
+    time_t expectMs = (base - 2 - armNow.tv_sec) * 1000 - armNow.tv_nsec / 1000000;
+    EXPECT_NEAR(armedMs, expectMs, 10);
+    ClearTimerMockExpectations(scheduleMock);
+}
+
+// 帧四侧同 ScanDurationTest002：到期定时器指向最早到期时间
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest003)
+{
+    uint32_t scannerId[6] = {0};
+    for (size_t i = 0; i < sizeof(scannerId) / sizeof(scannerId[0]); i++) {
+        scannerId[i] = AllocScannerOk();
+    }
+    for (size_t i = 0; i < sizeof(scannerId) / sizeof(scannerId[0]) - 1; i++) {
+        EXPECT_EQ(StartScanWithDuration(scannerId[i], DEVD_SCAN_FRAME_TYPE_4, 3600), NLSTK_ERRCODE_SUCCESS);
+    }
+    TEST_RunQueueStubSchedule();
+
+    time_t base = time(NULL) + 3600;
+    SetScannerExpireTime(scannerId[0], true, base, 900);
+    SetScannerExpireTime(scannerId[1], true, base, 100);
+    SetScannerExpireTime(scannerId[2], true, base, 500);
+    SetScannerExpireTime(scannerId[3], true, base - 2, 0);
+    SetScannerExpireTime(scannerId[4], true, base - 1, 0);
+
+    int addCount = 0;
+    int fakeHandle = 0;
+    time_t armedMs = 0;
+    struct timespec armNow = {0};
+    int *durationTimerPtr = &DEVD_STM_M(DevdGetStateMachine(), scanManager)->durationTimer;
+    EXPECT_CALL(scheduleMock, ScheduleTimerAdd).WillRepeatedly(Invoke(
+        [&](int *handle, SDF_TimerParam *param) -> uint32_t {
+            *handle = ++fakeHandle;
+            if (handle == durationTimerPtr) {
+                addCount++;
+                armedMs = param->expires;
+                clock_gettime(CLOCK_REALTIME, &armNow);
+            }
+            return 0;
+        }));
+
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId[5]), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    EXPECT_EQ(addCount, 1);
+    // 同 ScanDurationTest002：按布防时刻换算最早到期项的剩余毫秒
+    time_t expectMs = (base - 2 - armNow.tv_sec) * 1000 - armNow.tv_nsec / 1000000;
+    EXPECT_NEAR(armedMs, expectMs, 10);
+    ClearTimerMockExpectations(scheduleMock);
+}
+
+// 同一扫描先后配置帧一/帧四时长：两类到期参数并存，各自按设置登记
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest004)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_4, 5), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_TRUE(scanner1->scanSetting.hasDuration);
+    EXPECT_TRUE(scanner1->frame4ScanSetting.hasDuration);
+}
+
+// 无任何扫描配置时长时，停止扫描/停止全部扫描不布防到期定时器
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest005)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_1, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule(); // duration==0 时启动路径不布防到期定时器
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId1), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    uint32_t scannerId2 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId2, DEVD_SCAN_FRAME_TYPE_4, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    EXPECT_EQ(NLSTK_DevdStopAllScan(), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_FALSE(scanner2->scanSetting.hasDuration);
+    EXPECT_FALSE(scanner2->frame4ScanSetting.hasDuration);
+}
+
+// 存在已过期的时长参数时同步触发到期处理：过期项被清理，未到期项保留并重布防
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest006)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    uint32_t scannerId2 = AllocScannerOk();
+    uint32_t scannerId3 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId2, DEVD_SCAN_FRAME_TYPE_1, 30), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    SetScannerExpireTime(scannerId1, false, time(NULL) - 2, 0); // 改为已过期
+
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId3), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_FALSE(scanner1->scanSetting.hasDuration); // 过期参数已被清理
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_TRUE(scanner2->scanSetting.hasDuration); // 未到期参数保留并重布防
+}
+
+// 定时器到期路径：按剩余最近到期时间重布防，且不误删新布防的定时器句柄
+TEST_F(DEVD_SCAN_TEST, ScanDurationTest007)
+{
+    int addCount = 0;
+    int delCount = 0;
+    int fakeHandle = 0;
+    int durHandle = NLSTK_DEVD_TIMER_NO_USED_HANDLE;
+    SDF_TimerCallback timerCbk = NULL;
+    void *timerArg = NULL;
+    int *durationTimerPtr = &DEVD_STM_M(DevdGetStateMachine(), scanManager)->durationTimer;
+    EXPECT_CALL(scheduleMock, ScheduleTimerAdd).WillRepeatedly(Invoke(
+        [&](int *handle, SDF_TimerParam *param) -> uint32_t {
+            *handle = ++fakeHandle;
+            if (handle == durationTimerPtr) { // 仅统计 duration 定时器，排除扫描 STM 内部定时器
+                durHandle = fakeHandle;
+                timerCbk = param->callback;
+                timerArg = param->args;
+                addCount++;
+            }
+            return 0; // SDF_OK
+        }));
+    EXPECT_CALL(scheduleMock, ScheduleTimerDel).WillRepeatedly(Invoke(
+        [&](int handle) {
+            if (handle == durHandle && durHandle != NLSTK_DEVD_TIMER_NO_USED_HANDLE) {
+                delCount++;
+                durHandle = NLSTK_DEVD_TIMER_NO_USED_HANDLE;
+            }
+        }));
+
+    uint32_t scannerId1 = AllocScannerOk();
+    uint32_t scannerId2 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule(); // 布防 #1
+    EXPECT_EQ(StartScanWithDuration(scannerId2, DEVD_SCAN_FRAME_TYPE_1, 20), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule(); // 删 #1 后布防 #2（更早的到期时间不变）
+    EXPECT_EQ(addCount, 2);
+    EXPECT_EQ(delCount, 1);
+    ASSERT_NE(timerCbk, nullptr);
+
+    timerCbk(timerArg); // 模拟定时器到期，走真实到期处理路径
+    TEST_RunQueueStubSchedule(); // 排空回调内 ProcessMessage 级联任务
+    EXPECT_EQ(addCount, 3); // 依剩余最近到期时间重布防
+    EXPECT_EQ(delCount, 1); // 到期回调路径不误删新句柄
+
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_TRUE(scanner1->scanSetting.hasDuration); // 未到期参数不被清理
+    // 清定时器期望：TearDown 的 DeInit 还会触发 ScheduleTimerDel，不得进入悬垂 lambda
+    ClearTimerMockExpectations(scheduleMock);
+}
+
+// 全部合法扫描模式 × 直接上报档：间隔与窗口按各模式默认档配置
+TEST_F(DEVD_SCAN_TEST, ScanModeMatrixTest)
+{
+    struct ModeExpect {
+        int32_t mode;
+        uint16_t window;
+        uint16_t interval;
+    };
+    const ModeExpect expects[] = {
+        { SCAN_MODE_LOW_POWER, SCAN_MODE_LOW_POWER_WINDOW, SCAN_MODE_LOW_POWER_INTERVAL },
+        { SCAN_MODE_BALANCED, SCAN_MODE_BALANCED_WINDOW, SCAN_MODE_BALANCED_INTERVAL },
+        { SCAN_MODE_LOW_LATENCY, SCAN_MODE_LOW_LATENCY_WINDOW, SCAN_MODE_LOW_LATENCY_INTERVAL },
+        { SCAN_MODE_FULL_SCAN, SCAN_MODE_FULL_SCAN_WINDOW, SCAN_MODE_FULL_SCAN_INTERVAL },
+        { SCAN_MODE_OP_P2_60_3000, SCAN_MODE_OP_P2_60_3000_WINDOW, SCAN_MODE_OP_P2_60_3000_INTERVAL },
+        { SCAN_MODE_OP_P10_30_300, SCAN_MODE_OP_P10_30_300_WINDOW, SCAN_MODE_OP_P10_30_300_INTERVAL },
+        { SCAN_MODE_OP_P10_60_600, SCAN_MODE_OP_P10_60_600_WINDOW, SCAN_MODE_OP_P10_60_600_INTERVAL },
+        { SCAN_MODE_OP_P25_60_240, SCAN_MODE_OP_P25_60_240_WINDOW, SCAN_MODE_OP_P25_60_240_INTERVAL },
+        { SCAN_MODE_OP_P50_100_200, SCAN_MODE_OP_P50_100_200_WINDOW, SCAN_MODE_OP_P50_100_200_INTERVAL },
+        { SCAN_MODE_OP_P50_240_480, SCAN_MODE_OP_P50_240_480_WINDOW, SCAN_MODE_OP_P50_240_480_INTERVAL },
+        { SCAN_MODE_OP_P50_480_960, SCAN_MODE_OP_P50_480_960_WINDOW, SCAN_MODE_OP_P50_480_960_INTERVAL },
+        { SCAN_MODE_OP_P100_240_240, SCAN_MODE_OP_P100_240_240_WINDOW, SCAN_MODE_OP_P100_240_240_INTERVAL },
+        { SCAN_MODE_OP_P100_1000_1000, SCAN_MODE_OP_P100_1000_1000_WINDOW, SCAN_MODE_OP_P100_1000_1000_INTERVAL },
+    };
+    for (size_t i = 0; i < sizeof(expects) / sizeof(expects[0]); i++) {
+        uint32_t scannerId = AllocScannerOk();
+        EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_1, expects[i].mode, 0), NLSTK_ERRCODE_SUCCESS);
+        TEST_RunQueueStubSchedule();
+        NLSTK_DevdScanner_S *scanner = FindScannerById(scannerId);
+        ASSERT_NE(scanner, nullptr) << "mode " << expects[i].mode;
+        EXPECT_EQ(scanner->scanSetting.window, expects[i].window) << "mode " << expects[i].mode;
+        EXPECT_EQ(scanner->scanSetting.interval, expects[i].interval) << "mode " << expects[i].mode;
+    }
+}
+
+// 批量上报档（reportDelay > 0）按批量档间隔配置；帧四侧同样生效；
+// MONITOR 模式不进入模式配置；非法模式不写入任何配置
+TEST_F(DEVD_SCAN_TEST, ScanModeBatchAndFrame4Test)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithMode(scannerId1, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_LOW_POWER, 500),
+        NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_EQ(scanner1->scanSetting.window, SCAN_MODE_BATCH_LOW_POWER_WINDOW);
+    EXPECT_EQ(scanner1->scanSetting.interval, SCAN_MODE_BATCH_LOW_POWER_INTERVAL);
+
+    uint32_t scannerId2 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithMode(scannerId2, DEVD_SCAN_FRAME_TYPE_4, SCAN_MODE_BALANCED, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_EQ(scanner2->frame4ScanSetting.window, SCAN_MODE_BALANCED_WINDOW);
+    EXPECT_EQ(scanner2->frame4ScanSetting.interval, SCAN_MODE_BALANCED_INTERVAL);
+
+    // MONITOR 模式视为停止该扫描：监听由软件过滤承担，不写入模式配置
+    uint32_t scannerId3 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithMode(scannerId3, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_MONITOR, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    NLSTK_DevdScanner_S *scanner3 = FindScannerById(scannerId3);
+    ASSERT_NE(scanner3, nullptr);
+    EXPECT_EQ(scanner3->scanSetting.interval, UINT16_MAX); // 复位默认值，未写入模式配置
+
+    // 非法模式走默认分支：不写入任何配置
+    uint32_t scannerId4 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithMode(scannerId4, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_INVALID, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    NLSTK_DevdScanner_S *scanner4 = FindScannerById(scannerId4);
+    ASSERT_NE(scanner4, nullptr);
+    EXPECT_EQ(scanner4->scanSetting.interval, UINT16_MAX);
+}
+
+// 帧四时长清理：过期项经重布防路径同步清理、停止扫描直接清除自身帧四参数、
+// 帧一参数不受帧四清理牵连
+TEST_F(DEVD_SCAN_TEST, Frame4ExpireTest)
+{
+    uint32_t scannerId1 = AllocScannerOk();
+    uint32_t scannerId2 = AllocScannerOk();
+    uint32_t scannerId3 = AllocScannerOk();
+    EXPECT_EQ(StartScanWithDuration(scannerId1, DEVD_SCAN_FRAME_TYPE_4, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId2, DEVD_SCAN_FRAME_TYPE_4, 30), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId3, DEVD_SCAN_FRAME_TYPE_1, 30), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    struct timespec now = {0};
+    ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &now), 0);
+    // scannerId1 置为严格过期；scannerId2 未到期，用于验证停止扫描清除自身参数
+    SetScannerExpireTime(scannerId1, true, now.tv_sec - 1, 0);
+    SetScannerExpireTime(scannerId2, true, now.tv_sec, now.tv_nsec + 500000000);
+
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId2), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId1);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_FALSE(scanner1->frame4ScanSetting.hasDuration); // 过期清理
+    EXPECT_EQ(scanner1->frame4ScanSetting.interval, UINT16_MAX); // 复位默认间隔
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId2);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_FALSE(scanner2->frame4ScanSetting.hasDuration); // 停止扫描直接清除自身帧四参数
+    EXPECT_EQ(scanner2->frame4ScanSetting.interval, UINT16_MAX); // 复位默认间隔
+    NLSTK_DevdScanner_S *scanner3 = FindScannerById(scannerId3);
+    ASSERT_NE(scanner3, nullptr);
+    EXPECT_TRUE(scanner3->scanSetting.hasDuration); // 帧一参数不受帧四清理牵连
+}
+
+// 扫描模块表：多次注册取不同槽位、注销后槽位可复用、满表后注册失败
+TEST_F(DEVD_SCAN_TEST, ScanModuleSlotTest)
+{
+    uint8_t moduleId[DEVD_MAX_MODULE_ID] = {0};
+    for (uint8_t i = 0; i + 1 < DEVD_MAX_MODULE_ID; i++) { // SetUp 已占一个槽
+        NLSTK_DevdScanCbk_S scanCbk = {0};
+        scanCbk.onScanCallback = DevdScanReportCallbackStub;
+        EXPECT_EQ(NLSTK_DevdRegScanModule(&moduleId[i], &scanCbk), NLSTK_ERRCODE_SUCCESS);
+        EXPECT_LT(moduleId[i], DEVD_MAX_MODULE_ID);
+    }
+    // 模块表已满：再注册返回无效模块号
+    uint8_t extraId = DEVD_MAX_MODULE_ID;
+    NLSTK_DevdScanCbk_S scanCbk = {0};
+    scanCbk.onScanCallback = DevdScanReportCallbackStub;
+    EXPECT_NE(NLSTK_DevdRegScanModule(&extraId, &scanCbk), NLSTK_ERRCODE_SUCCESS);
+    // 注销后槽位可复用
+    NLSTK_DevdDeregScanModule(moduleId[0]);
+    uint8_t reusedId = DEVD_MAX_MODULE_ID;
+    EXPECT_EQ(NLSTK_DevdRegScanModule(&reusedId, &scanCbk), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(reusedId, moduleId[0]);
+    for (uint8_t i = 1; i + 1 < DEVD_MAX_MODULE_ID; i++) {
+        NLSTK_DevdDeregScanModule(moduleId[i]);
+    }
+}
+
+// 全部合法扫描模式 × 批量上报档：批量窗口/间隔按各模式批量档配置
+TEST_F(DEVD_SCAN_TEST, ScanModeBatchMatrixTest)
+{
+    struct ModeExpect {
+        int32_t mode;
+        uint16_t batchWindow;
+        uint16_t batchInterval;
+    };
+    const ModeExpect expects[] = {
+        { SCAN_MODE_LOW_POWER, SCAN_MODE_BATCH_LOW_POWER_WINDOW, SCAN_MODE_BATCH_LOW_POWER_INTERVAL },
+        { SCAN_MODE_BALANCED, SCAN_MODE_BATCH_BALANCED_WINDOW, SCAN_MODE_BATCH_BALANCED_INTERVAL },
+        { SCAN_MODE_LOW_LATENCY, SCAN_MODE_BATCH_LOW_LATENCY_WINDOW, SCAN_MODE_BATCH_LOW_LATENCY_INTERVAL },
+        { SCAN_MODE_FULL_SCAN, SCAN_MODE_BATCH_FULL_SCAN_WINDOW, SCAN_MODE_BATCH_FULL_SCAN_INTERVAL },
+        { SCAN_MODE_OP_P2_60_3000, SCAN_MODE_BATCH_OP_P2_60_3000_WINDOW, SCAN_MODE_BATCH_OP_P2_60_3000_INTERVAL },
+        { SCAN_MODE_OP_P10_30_300, SCAN_MODE_BATCH_OP_P10_30_300_WINDOW, SCAN_MODE_BATCH_OP_P10_30_300_INTERVAL },
+        { SCAN_MODE_OP_P10_60_600, SCAN_MODE_BATCH_OP_P10_60_600_WINDOW, SCAN_MODE_BATCH_OP_P10_60_600_INTERVAL },
+        { SCAN_MODE_OP_P25_60_240, SCAN_MODE_BATCH_OP_P25_60_240_WINDOW, SCAN_MODE_BATCH_OP_P25_60_240_INTERVAL },
+        { SCAN_MODE_OP_P50_100_200, SCAN_MODE_BATCH_OP_P50_100_200_WINDOW, SCAN_MODE_BATCH_OP_P50_100_200_INTERVAL },
+        { SCAN_MODE_OP_P50_240_480, SCAN_MODE_BATCH_OP_P50_240_480_WINDOW, SCAN_MODE_BATCH_OP_P50_240_480_INTERVAL },
+        { SCAN_MODE_OP_P50_480_960, SCAN_MODE_BATCH_OP_P50_480_960_WINDOW, SCAN_MODE_BATCH_OP_P50_480_960_INTERVAL },
+        { SCAN_MODE_OP_P100_240_240, SCAN_MODE_BATCH_OP_P100_240_240_WINDOW, SCAN_MODE_BATCH_OP_P100_240_240_INTERVAL },
+        { SCAN_MODE_OP_P100_1000_1000, SCAN_MODE_BATCH_OP_P100_1000_1000_WINDOW, SCAN_MODE_BATCH_OP_P100_1000_1000_INTERVAL },
+    };
+    for (size_t i = 0; i < sizeof(expects) / sizeof(expects[0]); i++) {
+        uint32_t scannerId = AllocScannerOk();
+        EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_1, expects[i].mode, 1000),
+            NLSTK_ERRCODE_SUCCESS) << "mode " << expects[i].mode;
+        TEST_RunQueueStubSchedule();
+        NLSTK_DevdScanner_S *scanner = FindScannerById(scannerId);
+        ASSERT_NE(scanner, nullptr) << "mode " << expects[i].mode;
+        EXPECT_EQ(scanner->scanSetting.window, expects[i].batchWindow) << "mode " << expects[i].mode;
+        EXPECT_EQ(scanner->scanSetting.interval, expects[i].batchInterval) << "mode " << expects[i].mode;
+    }
+}
+
+// 帧四侧多模式窗口/间隔核对；监听模式视为停止，帧一帧四两侧参数同时复位
+TEST_F(DEVD_SCAN_TEST, ScanModeFrame4AndMonitorTest)
+{
+    uint32_t scannerId = AllocScannerOk();
+    EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_BALANCED, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_4, SCAN_MODE_LOW_LATENCY, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    NLSTK_DevdScanner_S *scanner = FindScannerById(scannerId);
+    ASSERT_NE(scanner, nullptr);
+    EXPECT_EQ(scanner->frame4ScanSetting.window, SCAN_MODE_LOW_LATENCY_WINDOW);
+    EXPECT_EQ(scanner->frame4ScanSetting.interval, SCAN_MODE_LOW_LATENCY_INTERVAL);
+
+    EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_4, SCAN_MODE_OP_P100_1000_1000, 1000),
+        NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    scanner = FindScannerById(scannerId);
+    ASSERT_NE(scanner, nullptr);
+    EXPECT_EQ(scanner->frame4ScanSetting.window, SCAN_MODE_BATCH_OP_P100_1000_1000_WINDOW);
+    EXPECT_EQ(scanner->frame4ScanSetting.interval, SCAN_MODE_BATCH_OP_P100_1000_1000_INTERVAL);
+
+    EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_4, SCAN_MODE_FULL_SCAN, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    scanner = FindScannerById(scannerId);
+    ASSERT_NE(scanner, nullptr);
+    EXPECT_EQ(scanner->frame4ScanSetting.window, SCAN_MODE_FULL_SCAN_WINDOW);
+    EXPECT_EQ(scanner->frame4ScanSetting.interval, SCAN_MODE_FULL_SCAN_INTERVAL);
+
+    EXPECT_EQ(StartScanWithMode(scannerId, DEVD_SCAN_FRAME_TYPE_4, SCAN_MODE_MONITOR, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    scanner = FindScannerById(scannerId);
+    ASSERT_NE(scanner, nullptr);
+    EXPECT_EQ(scanner->scanSetting.interval, UINT16_MAX);
+    EXPECT_EQ(scanner->frame4ScanSetting.interval, UINT16_MAX);
+    EXPECT_FALSE(scanner->scanSetting.hasDuration);
+    EXPECT_FALSE(scanner->frame4ScanSetting.hasDuration);
+}
+
+// 同秒到期比较矩阵：帧一/帧四两侧各配"纳秒不更大/更大"两个扫描器，第五个的停止动作触发同步清理
+TEST_F(DEVD_SCAN_TEST, ScanExpireSameSecondTest)
+{
+    struct timespec now = {0};
+    ASSERT_EQ(clock_gettime(CLOCK_REALTIME, &now), 0);
+    uint32_t scannerId[5] = {0};
+    for (size_t i = 0; i < sizeof(scannerId) / sizeof(scannerId[0]); i++) {
+        scannerId[i] = AllocScannerOk();
+    }
+    EXPECT_EQ(StartScanWithDuration(scannerId[0], DEVD_SCAN_FRAME_TYPE_4, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId[1], DEVD_SCAN_FRAME_TYPE_4, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId[2], DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithDuration(scannerId[3], DEVD_SCAN_FRAME_TYPE_1, 10), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    SetScannerExpireTime(scannerId[0], true, now.tv_sec, 0); // 帧四同秒纳秒不更大 → 清理
+    SetScannerExpireTime(scannerId[1], true, now.tv_sec, now.tv_nsec + 500000000); // 帧四同秒纳秒更大 → 保留
+    SetScannerExpireTime(scannerId[2], false, now.tv_sec, 0); // 帧一同侧
+    SetScannerExpireTime(scannerId[3], false, now.tv_sec, now.tv_nsec + 500000000);
+
+    EXPECT_EQ(NLSTK_DevdStopScan(scannerId[4]), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    NLSTK_DevdScanner_S *scanner0 = FindScannerById(scannerId[0]);
+    ASSERT_NE(scanner0, nullptr);
+    EXPECT_FALSE(scanner0->frame4ScanSetting.hasDuration);
+    EXPECT_EQ(scanner0->frame4ScanSetting.interval, UINT16_MAX);
+    NLSTK_DevdScanner_S *scanner1 = FindScannerById(scannerId[1]);
+    ASSERT_NE(scanner1, nullptr);
+    EXPECT_TRUE(scanner1->frame4ScanSetting.hasDuration);
+    EXPECT_EQ(scanner1->frame4ScanSetting.interval, SCAN_MODE_BALANCED_INTERVAL);
+    NLSTK_DevdScanner_S *scanner2 = FindScannerById(scannerId[2]);
+    ASSERT_NE(scanner2, nullptr);
+    EXPECT_FALSE(scanner2->scanSetting.hasDuration);
+    EXPECT_EQ(scanner2->scanSetting.interval, UINT16_MAX);
+    NLSTK_DevdScanner_S *scanner3 = FindScannerById(scannerId[3]);
+    ASSERT_NE(scanner3, nullptr);
+    EXPECT_TRUE(scanner3->scanSetting.hasDuration);
+    EXPECT_EQ(scanner3->scanSetting.interval, SCAN_MODE_BALANCED_INTERVAL);
+}
+
+// 扫描上报按模块分发：计数模块收到、空回调模块跳过；注销模块连带移除名下扫描器且不再收到上报
+TEST_F(DEVD_SCAN_TEST, ModuleRoutingTest)
+{
+    g_routingReportCount = 0;
+    uint8_t countingId = DEVD_MAX_MODULE_ID;
+    uint8_t emptyId = DEVD_MAX_MODULE_ID;
+    NLSTK_DevdScanCbk_S countingCbk = {0};
+    countingCbk.onScanCallback = CountingReportCbk;
+    NLSTK_DevdScanCbk_S emptyCbk = {0}; // 回调允许留空
+    EXPECT_EQ(NLSTK_DevdRegScanModule(&countingId, &countingCbk), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(NLSTK_DevdRegScanModule(&emptyId, &emptyCbk), NLSTK_ERRCODE_SUCCESS);
+
+    uint32_t countingScanner = DEVD_INVALID_SCANNER_ID;
+    EXPECT_EQ(NLSTK_DevdAllocScannerId(countingId, &countingScanner), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithMode(countingScanner, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_BALANCED, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+    uint32_t emptyScanner = DEVD_INVALID_SCANNER_ID;
+    EXPECT_EQ(NLSTK_DevdAllocScannerId(emptyId, &emptyScanner), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(StartScanWithMode(emptyScanner, DEVD_SCAN_FRAME_TYPE_1, SCAN_MODE_LOW_POWER, 0), NLSTK_ERRCODE_SUCCESS);
+    TEST_RunQueueStubSchedule();
+
+    // 帧一两段式广播按地址配对：广播段只入缓存不上报，扫描响应段到达后合并上报一次
+    DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
+    EXPECT_EQ(g_routingReportCount, 0); // 仅广播段，尚未上报
+    DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
+    EXPECT_EQ(g_routingReportCount, 1);
+    DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
+    DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
+    EXPECT_EQ(g_routingReportCount, 2); // 仅计数模块累计，空回调模块命中后跳过
+
+    NLSTK_DevdDeregScanModule(countingId); // 注销连带移除名下扫描器
+    EXPECT_EQ(FindScannerById(countingScanner), nullptr);
+    DevdReportCbkStub(g_mouseData1, sizeof(g_mouseData1), false);
+    DevdReportCbkStub(g_pencilData1, sizeof(g_pencilData1), true);
+    EXPECT_EQ(g_routingReportCount, 2); // 已注销模块不再收到
+
+    NLSTK_DevdDeregScanModule(emptyId);
 }

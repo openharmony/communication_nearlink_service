@@ -109,6 +109,7 @@
                 ],
                 "fwk_group": [
                     "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework",
+                    "//foundation/communication/nearlink_service/frameworks/native/base:nearlink_framework_base",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/manager:manager",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/constant:constant",
                     "//foundation/communication/nearlink_service/frameworks/js/napi/src/remoteDevice:remotedevice",
@@ -150,6 +151,9 @@
                         "header_files": []
                     },
                     "name": "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework"
+                },
+                {
+                    "name": "//foundation/communication/nearlink_service/frameworks/native/base:nearlink_framework_base"
                 },
                 {
                     "name": "//foundation/communication/nearlink_service/utils:nearlink_utils"

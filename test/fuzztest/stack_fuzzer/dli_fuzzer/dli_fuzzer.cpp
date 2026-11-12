@@ -27,6 +27,7 @@
 #include "dli_secu_event.h"
 #include "dli_nbc_event.h"
 #include "dli_reg_ext_func.h"
+#include "dli_ext_func_wrapper.h"
 #include "sdf_mem.h"
 #include "sdf_evc.h"
 #include "sdf_thread.h"
@@ -174,6 +175,15 @@ static const DLI_EventCallbackInfo EventCbks[] = {
 
 namespace OHOS {
 SleDliThreadUtil &g_dliThreadUtil = SleDliThreadUtil::GetInstance();
+/* FUZZ-009 维护：最近直调命令的 opcode，供 FUZZ-011 CMD_STATUS/ERROR 结构化回执联动。 */
+static uint16_t g_fuzzLastCmdOpcode = 0;
+
+/* DLI 投递回调（recvAcbHandler）：消费并释放 buff（真实场景由 DTAP_DataRecv 消费）。 */
+void FuzzDliRecvAcbHandler(uint16_t lcid, SDF_Buff_S *buf)
+{
+    (void)lcid;
+    SDF_BuffFree(buf);
+}
 
 void FuzzRecvEventProc(uint8_t *data, size_t size)
 {
@@ -207,11 +217,343 @@ void FuzzRecvEventProc(uint8_t *data, size_t size)
             SDF_MemFree(evt);
             continue;
         }
+        if ((event[idx] == DLI_CMD_STATUS_EVT || event[idx] == DLI_CMD_ERROR_EVT) &&
+            size >= sizeof(DLI_CommandStatus)) {
+            /* FUZZ-011: 结构化构造——opcode 取自刚发送命令（g_fuzzLastCmdOpcode，
+             * FuzzDliSyncCmdApi 维护），status 成功/失败两档。 */
+            DLI_CommandStatus evt = {0};
+            evt.cmdOpcode = g_fuzzLastCmdOpcode;
+            evt.numDliCommandPackets = provider.ConsumeIntegral<uint8_t>();
+            evt.status = provider.ConsumeBool() ? 0 : 1;
+            RecvEventHandler(event[idx], nullptr, (uint8_t *)&evt, sizeof(evt));
+            continue;
+        }
+        if (event[idx] == DLI_NUMBER_OF_COMPLETED_PACKETS_EVT &&
+            size >= sizeof(DLI_NumberOfCompletedPacketsEvt)) {
+            /* FUZZ-011: NOCP 结构化——经 DLI_RunCmdCbk 分发注册回调（配额消费方
+             * DTAP 未在本进程 Init，配额路径在 dtap_fuzzer 的 FuzzFireNocp 生效）。 */
+            DLI_NumberOfCompletedPacketsEvt evt = {0};
+            evt.connHandle = provider.ConsumeIntegral<uint16_t>();
+            evt.numCompletedPackets = provider.ConsumeIntegral<uint8_t>();
+            RecvEventHandler(event[idx], nullptr, (uint8_t *)&evt, sizeof(evt));
+            continue;
+        }
         if (size >= sizeof(DLI_ControllerData)) {
             RecvEventHandler(event[idx], nullptr, data, size);
         }
     }
     DLI_LOGI("FuzzRecvEventProc exit");
+}
+
+/* FUZZ-009: 同步链路命令族 11 API 直调——此前全仓零真实调用（仅 adv/sm 工程 stub）。
+ * 计数字段 icbCnt/paramCnt/channelCnt 按 0/1/2/SLE_ICB_MAX_NUM 四档驱动双重循环；
+ * 每 API 配 (NULL,cbk)/(param,NULL) 变体；opcode 记入 g_fuzzLastCmdOpcode 供
+ * FUZZ-011 的 CMD_STATUS/ERROR 结构化回执联动。 */
+void FuzzDliSyncCmdApi(uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+    static const uint8_t cntTable[] = {0, 1, 2, SLE_ICB_MAX_NUM};
+    uint8_t cnt = cntTable[provider.ConsumeIntegral<uint8_t>() % sizeof(cntTable)];
+
+    DLI_ICBParam icbParams[SLE_ICB_MAX_NUM] = {{0}};
+    DLI_ICBParam::DLI_ICB icbInners[SLE_ICB_MAX_NUM][SLE_ICB_MAX_NUM] = {}; /* PR331 修复：产品按 paramCnt 把 param 当数组遍历（dli_cmd.c:1130），须每链路 paramCnt 个连续结构 */
+    DLI_ICBChannel channels[SLE_ICB_MAX_NUM] = {{0}};
+    for (uint8_t i = 0; i < SLE_ICB_MAX_NUM; i++) {
+        icbParams[i].id = provider.ConsumeIntegral<uint8_t>();
+        icbParams[i].param = icbInners[i]; /* 行首即 paramCnt 个连续内层结构（dli_cmd.c:1130 按 param[j] 索引） */
+        icbInners[i][0].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i][0].maxSduT2G = provider.ConsumeIntegral<uint16_t>();
+        icbInners[i][0].rtnG2T = provider.ConsumeIntegral<uint8_t>();
+        icbInners[i][0].rtnT2G = provider.ConsumeIntegral<uint8_t>();
+        channels[i].connHandle = provider.ConsumeIntegral<uint16_t>();
+        channels[i].lcid = provider.ConsumeIntegral<uint16_t>();
+    }
+    DLI_ICGCbkParam cbkParam = {0};
+    cbkParam.type = provider.ConsumeIntegral<uint8_t>();
+    cbkParam.id = provider.ConsumeIntegral<uint8_t>();
+    cbkParam.direction = provider.ConsumeIntegral<uint8_t>();
+    cbkParam.connHandleNum = cnt;
+    for (uint8_t i = 0; i < cnt && i < SLE_ICB_MAX_NUM; i++) {
+        cbkParam.connHandle[i] = channels[i].connHandle;
+    }
+
+    DLI_ICGParam icgParam = {0};
+    icgParam.type = provider.ConsumeIntegral<uint8_t>();
+    icgParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
+    icgParam.id = provider.ConsumeIntegral<uint8_t>();
+    icgParam.sduIntervalG2T = provider.ConsumeIntegral<uint32_t>();
+    icgParam.sduIntervalT2G = provider.ConsumeIntegral<uint32_t>();
+    icgParam.maxLatencyG2T = provider.ConsumeIntegral<uint16_t>();
+    icgParam.maxLatencyT2G = provider.ConsumeIntegral<uint16_t>();
+    icgParam.icbCnt = cnt;
+    icgParam.paramCnt = cnt;
+    icgParam.icbParam = icbParams;
+    g_fuzzLastCmdOpcode = icgParam.opCode;
+    (void)DLI_SetICGParam(&icgParam, &cbkParam);
+    (void)DLI_SetICGParam(nullptr, &cbkParam);
+    (void)DLI_SetICGParam(&icgParam, nullptr);
+
+    DLI_ICGAutorateParam autorate = {0};
+    autorate.type = provider.ConsumeIntegral<uint8_t>();
+    autorate.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
+    autorate.id = provider.ConsumeIntegral<uint8_t>();
+    autorate.labelId = provider.ConsumeIntegral<uint8_t>();
+    autorate.icbInterval = provider.ConsumeIntegral<uint16_t>();
+    autorate.paramCnt = cnt;
+    DLI_ICBAutorateParam autorateParams[SLE_ICB_MAX_NUM] = {{0}};
+    for (uint8_t i = 0; i < SLE_ICB_MAX_NUM; i++) {
+        autorateParams[i].maxSduG2T = provider.ConsumeIntegral<uint16_t>();
+        autorateParams[i].frameG2T = provider.ConsumeIntegral<uint8_t>();
+        autorateParams[i].phyG2T = provider.ConsumeIntegral<uint8_t>();
+    }
+    autorate.icbParam = autorateParams;
+    g_fuzzLastCmdOpcode = autorate.opCode;
+    (void)DLI_SetICGAutorateParam(&autorate, &cbkParam);
+    (void)DLI_SetICGAutorateParam(nullptr, &cbkParam);
+
+    DLI_ICBConnectionParam connParam = {0};
+    connParam.type = provider.ConsumeIntegral<uint8_t>();
+    connParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
+    connParam.id = provider.ConsumeIntegral<uint8_t>();
+    connParam.labelId = provider.ConsumeIntegral<uint8_t>();
+    connParam.channelCnt = cnt;
+    connParam.channel = channels;
+    g_fuzzLastCmdOpcode = connParam.opCode;
+    (void)DLI_CreateICB(&connParam, &cbkParam);
+    (void)DLI_CreateICB(nullptr, &cbkParam);
+
+    DLI_DisconnectParam discParam = {0};
+    discParam.connHandle = channels[0].connHandle;
+    discParam.reason = provider.ConsumeIntegral<uint8_t>();
+    g_fuzzLastCmdOpcode = DLI_DISCONNECT;
+    (void)DLI_DisconnectICB(&discParam, &cbkParam);
+    (void)DLI_DisconnectICB(nullptr, &cbkParam);
+
+    DLI_AcceptICBReqParam acceptParam = {0};
+    acceptParam.type = provider.ConsumeIntegral<uint8_t>();
+    acceptParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
+    acceptParam.connHandle = channels[0].connHandle;
+    g_fuzzLastCmdOpcode = acceptParam.opCode;
+    (void)DLI_AcceptICBReq(&acceptParam);
+    (void)DLI_AcceptICBReq(nullptr);
+
+    DLI_RejectICBReqParam rejectParam = {};
+    rejectParam.opCode = static_cast<DLI_CmdOpcode>(provider.ConsumeIntegral<uint16_t>());
+    rejectParam.regOpCode = static_cast<DLI_RegOpcode>(provider.ConsumeIntegral<uint8_t>());
+    rejectParam.id = provider.ConsumeIntegral<uint8_t>();
+    rejectParam.connHandle = channels[0].connHandle;
+    rejectParam.reason = provider.ConsumeIntegral<uint8_t>();
+    g_fuzzLastCmdOpcode = rejectParam.opCode;
+    (void)DLI_RejectICBReq(&rejectParam);
+    (void)DLI_RejectICBReq(nullptr);
+
+    uint8_t codecConfig[8] = {0};
+    for (uint8_t i = 0; i < sizeof(codecConfig); i++) {
+        codecConfig[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    DLI_SetupICBDataPathParam pathParam = {0};
+    pathParam.connHandle = channels[0].connHandle;
+    pathParam.direction = provider.ConsumeIntegral<uint8_t>();
+    pathParam.pathId = provider.ConsumeIntegral<uint8_t>();
+    pathParam.codec.codecId = provider.ConsumeIntegral<uint8_t>();
+    pathParam.codec.vendorId = provider.ConsumeIntegral<uint16_t>();
+    pathParam.controllerDelay = provider.ConsumeIntegral<uint32_t>();
+    pathParam.codecConfigLen = sizeof(codecConfig);
+    pathParam.codecConfigData = codecConfig;
+    g_fuzzLastCmdOpcode = DLI_SETUP_ICB_DATA_PATH;
+    (void)DLI_SetupICBDataPath(&pathParam, &cbkParam);
+    (void)DLI_SetupICBDataPath(nullptr, &cbkParam);
+
+    DLI_RemoveICBDataPathParam delPathParam = {0};
+    delPathParam.connHandle = channels[0].connHandle;
+    delPathParam.direction = provider.ConsumeIntegral<uint8_t>();
+    g_fuzzLastCmdOpcode = DLI_REMOVE_ICB_DATA_PATH;
+    (void)DLI_RemoveICBDataPath(&delPathParam, &cbkParam);
+    (void)DLI_RemoveICBDataPath(&delPathParam, nullptr);
+
+    uint16_t removeOp = provider.ConsumeIntegral<uint16_t>();
+    g_fuzzLastCmdOpcode = removeOp;
+    (void)DLI_RemoveICGParam(static_cast<DLI_CmdOpcode>(removeOp), &cbkParam);
+    (void)DLI_RemoveICGParam(static_cast<DLI_CmdOpcode>(removeOp), nullptr);
+
+    DLI_CmdParams cmdParams = {0};
+    cmdParams.cmd = provider.ConsumeIntegral<uint16_t>();
+    cmdParams.event = provider.ConsumeIntegral<uint16_t>();
+    cmdParams.inParam = &icgParam;
+    cmdParams.paramLen = (uint16_t)sizeof(icgParam);
+    cmdParams.cbk = MockDliCbk;
+    cmdParams.cbkContext = nullptr;
+    cmdParams.cbkContextLen = 0;
+    g_fuzzLastCmdOpcode = cmdParams.cmd;
+    (void)DLI_SetCmd(&cmdParams);
+    (void)DLI_SetCmd(nullptr);
+
+    DLI_IMGEncryptParam imgParam = {0};
+    imgParam.handler = provider.ConsumeIntegral<uint16_t>();
+    imgParam.algo = provider.ConsumeIntegral<uint8_t>();
+    for (uint8_t i = 0; i < SLE_IMG_ENCRYPTION_IV_LEN; i++) {
+        imgParam.iv[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    for (uint8_t i = 0; i < SLE_IMG_ENCRYPTION_GROUP_KEY_LEN; i++) {
+        imgParam.key[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    g_fuzzLastCmdOpcode = DLI_ENABLE_IMG_ENCRYPTION;
+    (void)DLI_EnableIMGEncryption(&imgParam);
+    (void)DLI_EnableIMGEncryption(nullptr);
+}
+
+/* FUZZ-010: adapter 层 11 个包装函数直调（计划口径 8 已按代码修正为 11）。
+ * 判空行（funcList 未注册时 WARN+return 0）无条件命中，覆盖即得。 */
+void FuzzDliExtWrapperApi(uint8_t *data, size_t size)
+{
+    FuzzedDataProvider provider(data, size);
+    DLI_AddrExtStru addrExt = {};
+    for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+        addrExt.addr[i] = provider.ConsumeIntegral<uint8_t>();
+    }
+    addrExt.ext = provider.ConsumeIntegral<uint8_t>();
+    (void)DLI_AddDeviceToAcceptFilterListExt(&addrExt);
+    (void)DLI_AddDeviceToAcceptFilterListExt(nullptr);
+    (void)DLI_IsSupportAccessFilterListExt();
+
+    DLI_FreqBandExtParam freqBand = {0};
+    freqBand.trigType = provider.ConsumeIntegral<uint8_t>();
+    (void)DLI_EnableFreqBandExt(&freqBand);
+    (void)DLI_EnableFreqBandExt(nullptr);
+
+    DLI_ACBEnableSubrateParam acbEnable = {0};
+    acbEnable.subrateMin = provider.ConsumeIntegral<uint16_t>();
+    acbEnable.subrateMax = provider.ConsumeIntegral<uint16_t>();
+    acbEnable.maxLatency = provider.ConsumeIntegral<uint16_t>();
+    acbEnable.continuationNum = provider.ConsumeIntegral<uint16_t>();
+    acbEnable.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+    (void)DLI_ACBEnableSubrate(&acbEnable);
+    (void)DLI_ACBEnableSubrate(nullptr);
+
+    DLI_LocalPrivateFeatures features = {0};
+    features.bitValue = provider.ConsumeIntegral<uint8_t>();
+    (void)DLI_SetLocalPrivateFeatures(&features);
+    (void)DLI_SetLocalPrivateFeatures(nullptr);
+
+    DLI_ACBSubrateParam acbSubrate = {0};
+    acbSubrate.lcid = provider.ConsumeIntegral<uint16_t>();
+    acbSubrate.subrateMin = provider.ConsumeIntegral<uint16_t>();
+    acbSubrate.subrateMax = provider.ConsumeIntegral<uint16_t>();
+    acbSubrate.maxLatency = provider.ConsumeIntegral<uint16_t>();
+    acbSubrate.continuationNum = provider.ConsumeIntegral<uint16_t>();
+    acbSubrate.supervisionTimeout = provider.ConsumeIntegral<uint16_t>();
+    (void)DLI_ACBSetSubrate(&acbSubrate);
+    (void)DLI_ACBSetSubrate(nullptr);
+
+    DLI_SetConnFramePowerLevelParam powerLevel = {0};
+    powerLevel.frameType = provider.ConsumeIntegral<uint8_t>();
+    powerLevel.txPower = provider.ConsumeIntegral<int8_t>();
+    (void)DLI_SetConnFramePowerLevel(&powerLevel);
+    (void)DLI_SetConnFramePowerLevel(nullptr);
+
+    (void)DLI_ReadLocalPrivateFeatures();
+
+    DLI_ICGAutorateParam autorateExt = {0};
+    autorateExt.type = provider.ConsumeIntegral<uint8_t>();
+    autorateExt.paramCnt = 0;
+    bool mcast = provider.ConsumeBool();
+    DLI_ICGCbkParam cbkExt = {0};
+    (void)DLI_SetICGAutorateParamExt(&autorateExt, mcast, &cbkExt);
+    (void)DLI_SetICGAutorateParamExt(nullptr, mcast, nullptr);
+
+    DLI_ICGLabelParam labelExt = {0};
+    labelExt.type = provider.ConsumeIntegral<uint8_t>();
+    labelExt.icbCnt = 0;
+    (void)DLI_SetICGLabelExt(&labelExt, mcast, &cbkExt);
+    (void)DLI_SetICGLabelExt(nullptr, mcast, nullptr);
+
+    DLI_ICBConnectionParam connExt = {0};
+    connExt.type = provider.ConsumeIntegral<uint8_t>();
+    connExt.channelCnt = 0;
+    (void)DLI_CreateICBExt(&connExt, mcast, &cbkExt);
+    (void)DLI_CreateICBExt(nullptr, mcast, nullptr);
+
+    DLI_ICGUpdatedParam updatedExt = {0};
+    updatedExt.type = provider.ConsumeIntegral<uint8_t>();
+    updatedExt.icbCnt = 0;
+    (void)DLI_UpdateICGParamExt(&updatedExt, mcast, &cbkExt);
+    (void)DLI_UpdateICGParamExt(nullptr, mcast, nullptr);
+}
+
+/* FUZZ-011: 等时/加密/频段事件族——头部结构体对齐的半结构化构造（照 AdvReport
+ * 模板：头部 fuzz 字节拷入 + 尾部载荷），事件码追加喂入 RecvEventHandler。 */
+typedef struct {
+    uint16_t evt;
+    size_t hdrSize;
+} DLI_StructEvtStru;
+
+static const DLI_StructEvtStru g_structEvtTable[] = {
+    {DLI_IOB_CONNECT_REQ_EVT, sizeof(DLI_ICBConnectReqEvt)},
+    {DLI_IOB_ESTABLISHED_EVT, sizeof(DLI_ICBEstablishedEvt)},
+    {DLI_IOB_PARAM_REPORT_EVT, sizeof(DLI_IOBQualityReportEvt)},
+    {DLI_IOG_LABEL_REPORT_EVT, sizeof(DLI_ICGLabelReportEvt)},
+    {DLI_IOG_UPDATE_PARAM_EVT, sizeof(DLI_ICBParamUpdateEvt)},
+    {DLI_IMB_CONNECT_REQ_EVT, sizeof(DLI_ICBConnectReqEvt)},
+    {DLI_IMB_ESTABLISHED_EVT, sizeof(DLI_ICBEstablishedEvt)},
+    {DLI_IMB_PARAM_REPORT_EVT, sizeof(DLI_IOBQualityReportEvt)},
+    {DLI_IMG_LABEL_REPORT_EVT, sizeof(DLI_ICGLabelReportEvt)},
+    {DLI_IMG_UPDATE_PARAM_EVT, sizeof(DLI_ICBParamUpdateEvt)},
+    {DLI_ENCRYPTION_CHANGE_EVT, sizeof(DLI_EncryptChangeEvt)},
+    {DLI_FREQ_BAND_SWITCH_VENDOR_EVENT, sizeof(DLI_FreqBandSwitchEvt)},
+};
+
+void FuzzRecvStructEvtProc(uint8_t *data, size_t size)
+{
+    for (size_t idx = 0; idx < sizeof(g_structEvtTable) / sizeof(g_structEvtTable[0]); idx++) {
+        if (size < g_structEvtTable[idx].hdrSize) {
+            continue;
+        }
+        DLI_LOGI("FuzzRecvStructEvtProc evt=0x%02X", g_structEvtTable[idx].evt);
+        RecvEventHandler(g_structEvtTable[idx].evt, nullptr, data, size);
+    }
+}
+
+/* DEVD 报告解析确定性序列：同地址 ADV_IND + SCAN_RSP 两帧驱动缓存合并；
+ * 帧载荷携带铅笔广播签名（g_pencilAdvertstingData1/2），触发旧解析识别分支；
+ * 末尾补一帧 dataLength=0 的长度边界帧。地址取自 fuzz 输入保持可变异。 */
+void FuzzAdvReportSameAddrFrames(uint8_t *data, size_t size)
+{
+    static const uint8_t pencilSig1[] = {0x03, 0x19, 0xC7, 0x03, 0x0F, 0x16, 0xEE, 0xFD};
+    static const uint8_t pencilSig2[] = {0x12, 0x09, 0x48, 0x55, 0x41, 0x57, 0x45, 0x49,
+        0x20, 0x4D, 0x2D, 0x50, 0x65, 0x6E, 0x63, 0x69, 0x6C, 0x20, 0x33};
+    if (size < SLE_ADDR_LEN) {
+        return;
+    }
+    const struct {
+        uint8_t eventType;
+        const uint8_t *payload;
+        uint16_t payloadLen;
+    } frames[] = {
+        {0x03, pencilSig1, sizeof(pencilSig1)},   /* connectable+scannable，完整广播帧 */
+        {0x08, pencilSig2, sizeof(pencilSig2)},   /* scan response，完整响应帧 */
+        {0x03, nullptr, 0},                        /* 长度边界：空载荷帧 */
+    };
+    for (size_t f = 0; f < sizeof(frames) / sizeof(frames[0]); f++) {
+        size_t evtSize = sizeof(DLI_AdvReportEvt) + frames[f].payloadLen;
+        DLI_AdvReportEvt *evt = (DLI_AdvReportEvt *)SDF_MemZalloc(evtSize);
+        if (evt == nullptr) {
+            continue;
+        }
+        evt->eventType = frames[f].eventType;
+        evt->addrType = data[0] % 2;
+        for (int i = 0; i < SLE_ADDR_LEN; i++) {
+            evt->addr[i] = data[i]; /* 同地址：三帧一致，驱动缓存合并 */
+        }
+        evt->primFrameType = 0;
+        evt->secondPhy = 0;
+        evt->rssi = static_cast<uint8_t>(0xC0); /* -64dBm 合法值 */
+        evt->dataLength = static_cast<uint8_t>(frames[f].payloadLen);
+        if (frames[f].payloadLen != 0) {
+            (void)memcpy_s(evt->data, frames[f].payloadLen, frames[f].payload, frames[f].payloadLen);
+        }
+        RecvEventHandler(DLI_ADVERTISING_REPORT_EVT, nullptr, (uint8_t *)evt, evtSize);
+        SDF_MemFree(evt);
+    }
 }
 
 void FuzzReadRemoteMeasureCaps(uint8_t *data, size_t size)
@@ -492,6 +834,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         advData->advHandle = provider.ConsumeIntegral<uint8_t>();
         advData->operation = provider.ConsumeIntegral<uint8_t>();
         advData->selection = 0;
+        advData->advDataLen = (uint8_t)remainData.size();
         (void)memcpy_s(advData->advData, remainData.size(), remainData.data(), remainData.size());
         DLI_SetAdvData(advData);
         SDF_MemFree(advData);
@@ -504,6 +847,7 @@ void FuzzSetAdvData(uint8_t *data, size_t size)
         scanRspData->advHandle = provider.ConsumeIntegral<uint8_t>();
         scanRspData->operation = provider.ConsumeIntegral<uint8_t>();
         scanRspData->selection = 0;
+        scanRspData->scanRspDataLen = (uint8_t)remainData.size();
         (void)memcpy_s(scanRspData->scanRspData, remainData.size(), remainData.data(), remainData.size());
         DLI_SetScanRspData(scanRspData);
         SDF_MemFree(scanRspData);
@@ -587,7 +931,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     dliCallback.postOtherThread = CP_PostTask;
     dliCallback.postOtherBlockedThread = CP_PostTaskBlocked;
     dliCallback.dftReportKill = NULL;
-    dliCallback.recvAcbHandler = NULL;
+    /* recvAcbHandler 必须非空：DLI_SetCallback 三必选字段任一 NULL 即拒绝（dli_layer_
+     * callback.c:58-63），DLI_Init/事件注册表（g_commInnerCbkList/g_cmInnerCbkList）
+     * 随之失效，RecvEventHandler 分发空转。no-op 消费并释放投递 buff。 */
+    dliCallback.recvAcbHandler = OHOS::FuzzDliRecvAcbHandler;
     DLI_SetCallback(&dliCallback);
     DLI_Init();
 
@@ -612,6 +959,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     for (uint16_t i = 0; i < LEN_EXTEND_MUL; i++) {
         (void)memcpy_s(fuzzData + size * i, size, data, size);
     }
+    OHOS::FuzzAdvReportSameAddrFrames(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzReadRemoteMeasureCaps(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzEnableEncryption(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzReadRemoteVersion(static_cast<uint8_t *>(fuzzData), inputLen);
@@ -637,7 +985,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     OHOS::FuzzDisconnect(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzUpdateConnectionParam(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::SendNonParamMethod();
+    OHOS::FuzzDliSyncCmdApi(static_cast<uint8_t *>(fuzzData), inputLen);
+    OHOS::FuzzDliExtWrapperApi(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzRecvEventProc(static_cast<uint8_t *>(fuzzData), inputLen);
+    OHOS::FuzzRecvStructEvtProc(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzEventApiTest(static_cast<uint8_t *>(fuzzData), inputLen);
     OHOS::FuzzDliLastApi();
     OHOS::g_dliThreadUtil.DestroyQueue();

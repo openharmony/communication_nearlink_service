@@ -40,5 +40,11 @@ bool NearlinkSystemConfig::IsDualRecordSupported()
     return false;
 }
 
+// 覆盖 IsFrame4Supported 方法(门控走拒绝分支,配合精确断言)
+bool NearlinkSystemConfig::IsFrame4Supported()
+{
+    return false;
+}
+
 } // namespace Nearlink
 } // namespace OHOS

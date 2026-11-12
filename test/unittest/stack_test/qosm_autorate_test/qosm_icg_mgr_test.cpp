@@ -320,6 +320,11 @@ bool CM_InnerGetRemotePrivateFeature(uint16_t lcid, uint16_t featureBit)
     return true;
 }
 
+bool CM_InnerGetRemoteStandardFeature(uint16_t lcid, uint16_t featureBit)
+{
+    return false;
+}
+
 uint32_t CP_PostTask(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
 {
     if (cb != nullptr) {

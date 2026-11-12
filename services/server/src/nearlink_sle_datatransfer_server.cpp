@@ -21,6 +21,7 @@
 #include "SleInterfaceDataTransfer.h"
 #include "SleInterfaceManager.h"
 #include "SleInterfaceAdapterSub.h"
+#include "nearlink_system_config.h"
 #include "log.h"
 #include "ipc_skeleton.h"
 #include "nearlink_remote_container.h"
@@ -31,6 +32,8 @@
 #include "nearlink_common_event_helper.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_raw_address.h"
+#include "nearlink_def.h"
+#include "nearlink_app_wakeup_ue.h"
 #ifdef NEARLINK_KIA_ENABLE
 #include "SleKiaManager.h"
 #endif
@@ -65,10 +68,10 @@ struct NearlinkSleDataTransferServer::impl {
 struct NearlinkSleDataTransferServer::impl::SleDataTransferRemoteInfo {
     SleDataTransferRemoteInfo() : pid(0), uid(0), tokenId(SLE_DATATRANSFER_INVALID_ID)
     {}
-    SleDataTransferRemoteInfo(int32_t pid, int32_t uid, uint64_t tokenId) : pid(pid), uid(uid), tokenId(tokenId)
+    SleDataTransferRemoteInfo(int64_t pid, int64_t uid, uint64_t tokenId) : pid(pid), uid(uid), tokenId(tokenId)
     {}
-    int32_t pid;
-    int32_t uid;
+    int64_t pid;
+    int64_t uid;
     uint64_t tokenId;
     std::set<uint16_t> ports {};
 };
@@ -86,14 +89,14 @@ public:
             auto it = std::find_if(vec_.begin(), vec_.end(), [remote](const auto &obj) { return obj.first == remote; });
             NL_CHECK_RETURN(it != vec_.end(), "remote info unexpectedly not found");
             tokenId = it->second.tokenId;
-            HILOGI("tokenId: %{public}lu, pid: %{public}d, uid: %{public}d",
+            HILOGI("tokenId: %{public}lu, pid: %{public}ld, uid: %{public}ld",
                 it->second.tokenId, it->second.pid, it->second.uid);
             vec_.erase(it);
         }
         SleInterfaceDataTransfer::GetInstance().ClearCacheByTokenId(tokenId);
     }
 
-    void AddDtPort(int32_t pid, int32_t uid, uint64_t tokenId, uint16_t portId)
+    void AddDtPort(int64_t pid, int64_t uid, uint64_t tokenId, uint16_t portId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
         bool has = false;
@@ -106,7 +109,7 @@ public:
         NL_CHECK_RETURN(has, "remote info unexpectedly not found");
     }
 
-    void RemoveDtPort(int32_t pid, int32_t uid, uint64_t tokenId, uint16_t portId)
+    void RemoveDtPort(int64_t pid, int64_t uid, uint64_t tokenId, uint16_t portId)
     {
         std::lock_guard<std::mutex> lk(vecMutex_);
         bool has = false;
@@ -119,9 +122,10 @@ public:
         NL_CHECK_RETURN(has, "remote info unexpectedly not found");
     }
 
-    bool CheckApp(int32_t pid, int32_t uid, uint64_t tokenId, uint16_t portId)
+    bool CheckApp(int64_t pid, int64_t uid, uint64_t tokenId, uint16_t portId)
     {
-        HILOGI("tokenId: %{public}lu, pid: %{public}d, uid: %{public}d, portId: %{public}d", tokenId, pid, uid, portId);
+        HILOGI("tokenId: %{public}lu, pid: %{public}ld, uid: %{public}ld, portId: %{public}d",
+            tokenId, pid, uid, portId);
         std::lock_guard<std::mutex> lk(vecMutex_);
         auto it = std::find_if(vec_.begin(), vec_.end(), [pid, uid, tokenId](const auto &obj) {
             return obj.second.pid == pid && obj.second.uid == uid && obj.second.tokenId == tokenId; });
@@ -154,6 +158,10 @@ public:
             std::string randomAddr = GetRandomAddr(realAddr, info.tokenId);
             NearlinkSleDataTransferConnectionParams params(connectionParams);
             params.SetAddress(randomAddr);
+            if (connectionParams.GetState() == static_cast<int32_t>(SleConnectState::CONNECTED)) {
+                NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(info.tokenId), info.uid,
+                    info.pid, AppBehaviorType::PORT_CALLBACK);
+            }
             observer->OnConnectionStateChanged(params, fd);
             NearlinkHelper::NearlinkCommonEventHelper::PublishSleDataTransferEvent(connectionParams.GetState(),
                 connectionParams.GetAddress(), connectionParams.GetUuid(),
@@ -227,12 +235,12 @@ NearlinkSleDataTransferServer::~NearlinkSleDataTransferServer()
 
 NlErrCode NearlinkSleDataTransferServer::CreatePort(const std::string &uuid, uint16_t &port)
 {
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
 #ifdef NEARLINK_KIA_ENABLE
-    NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pid),
-        NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");
+    NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER,
+        static_cast<int32_t>(pid)), NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");
 #endif
 #ifdef NEARLINK_EDM_ENABLE
     NL_CHECK_RETURN_RET(SleEdmManager::GetInstance()->IsAllowedConnect(ALLOW_PROTOCOL_TYPE_DATA_TRANSFER),
@@ -241,13 +249,15 @@ NlErrCode NearlinkSleDataTransferServer::CreatePort(const std::string &uuid, uin
     port = SleInterfaceDataTransfer::GetInstance().CreatePort(uuid);
     NL_CHECK_RETURN_RET(port != 0, NL_ERR_INTERNAL_ERROR, "Alloc port fail.");
     pimpl->remoteContainer_->AddDtPort(pid, uid, tokenId, port);
+    NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(tokenId), uid, pid,
+        AppBehaviorType::PORT_TRANSFER);
     return NL_NO_ERROR;
 }
 
 NlErrCode NearlinkSleDataTransferServer::DestroyPort(const std::string &uuid, uint16_t port)
 {
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, port), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
@@ -259,14 +269,22 @@ NlErrCode NearlinkSleDataTransferServer::DestroyPort(const std::string &uuid, ui
 NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnectionParams &params)
 {
     HILOGD("enter");
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
+    uint8_t frameType = params.GetFrameType();
+    NL_CHECK_RETURN_RET(frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1) ||
+        frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4),
+        NL_ERR_INVALID_PARAM, "invalid frameType.");
+    if (frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4)) {
+        NL_CHECK_RETURN_RET(NearlinkSystemConfig::IsFrame4Supported(), NL_ERR_API_NOT_SUPPORT,
+            "frame4 port connection is not supported.");
+    }
 #ifdef NEARLINK_KIA_ENABLE
-    NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER, pid),
-        NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");
+    NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER,
+        static_cast<int32_t>(pid)), NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");
 #endif
 #ifdef NEARLINK_EDM_ENABLE
     NL_CHECK_RETURN_RET(SleEdmManager::GetInstance()->IsAllowedConnect(ALLOW_PROTOCOL_TYPE_DATA_TRANSFER),
@@ -275,6 +293,8 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(params.address_, realAddr);
     params.address_ = realAddr;
+    NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(tokenId), uid, pid,
+        AppBehaviorType::PORT_TRANSFER);
     SleInterfaceDataTransfer::GetInstance().Connect(params);
     return NL_NO_ERROR;
 }
@@ -282,11 +302,13 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
 NlErrCode NearlinkSleDataTransferServer::Disconnect(NearlinkSleDataTransferConnectionParams &params)
 {
     HILOGI("enter");
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
+    NearlinkAppWakeupUe::GetInstance().RecordByToken(static_cast<uint32_t>(tokenId), uid, pid,
+        AppBehaviorType::PORT_TRANSFER);
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(params.address_, realAddr);
     params.address_ = realAddr;
@@ -298,8 +320,8 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
     NearlinkSleDataTransferConnectionParams &params, int32_t &connState)
 {
     HILOGD("enter");
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
@@ -313,8 +335,8 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
 NlErrCode NearlinkSleDataTransferServer::SocketEmptyMsg(uint16_t portId, std::string address)
 {
     HILOGI("enter");
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, portId), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
@@ -326,10 +348,10 @@ NlErrCode NearlinkSleDataTransferServer::SocketEmptyMsg(uint16_t portId, std::st
 NlErrCode NearlinkSleDataTransferServer::RegisterSleDataTransferCallback(
     const sptr<INearlinkSleDataTransferCallback> &callback)
 {
-    int32_t pid = IPCSkeleton::GetCallingPid();
-    int32_t uid = IPCSkeleton::GetCallingUid();
+    int64_t pid = IPCSkeleton::GetCallingPid();
+    int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
-    HILOGI("DT pid: %{public}d, uid: %{public}d, tokenId: %{public}lu", pid, uid, tokenId);
+    HILOGI("DT pid: %{public}ld, uid: %{public}ld, tokenId: %{public}lu", pid, uid, tokenId);
     NL_CHECK_RETURN_RET(callback, NL_ERR_INVALID_PARAM, "cb is null.");
     // 同一应用重新注册（如进程重启后旧回调条目残留未清理）时，先移除旧条目，
     // 避免连接成功回调同时分发给新旧两个 remote，导致同一 fd 在 proxy 侧被重复 close。
@@ -361,8 +383,8 @@ NlErrCode NearlinkSleDataTransferServer::DeregisterSleDataTransferCallback(
 {
     HILOGI("enter");
     NL_CHECK_RETURN_RET(callback, NL_ERR_IMPL_ERROR, "cb is null.");
-    int32_t callingPid = IPCSkeleton::GetCallingPid();
-    int32_t callingUid = IPCSkeleton::GetCallingUid();
+    int64_t callingPid = IPCSkeleton::GetCallingPid();
+    int64_t callingUid = IPCSkeleton::GetCallingUid();
     uint64_t callingTokenId = IPCSkeleton::GetCallingFullTokenID();
     impl::SleDataTransferRemoteInfo info = pimpl->remoteContainer_->RetrieveRemoteInfo(callback->AsObject());
     NL_CHECK_RETURN_RET(info.pid == callingPid && info.uid == callingUid && info.tokenId == callingTokenId,

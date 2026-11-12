@@ -539,13 +539,7 @@ void CdsmService::UpdateCdsmData(CdsmCallBackData &dataBlock)
     };
     cdsmList_.GetValueAndOpt(dataBlock.cdmsGroupId, updataCdsm);
 
-    for (auto &memInfo : dataBlock.memberInfo) {
-        // report地址,已经在建联的时候设置过了,这里只处理非report地址
-        if (memInfo.memberAddr != reportAddr) {
-            SetPeerDeviceTypeToControllerInner(memInfo.memberAddr);
-        }
-    }
-
+    SetPeerDeviceTypeToControllerInner(dataBlock, reportAddr);
     /* 调用Adapter接口，避免死锁cdsmList_ */
     if (isNeedClear) {
         SleInterfaceAdapter *sleAdapter = SleInterfaceManager::GetInstance()->GetAdapter(ADAPTER_SLE);
@@ -568,11 +562,7 @@ void CdsmService::CdsmServiceCreateNewCdsm(CdsmCallBackData &dataBlock)
     CreateNewCdsmGroupInfoInner(reportAddr, dataBlock.cdmsGroupId, dataBlock.memberInfo,
         IsVendorDevice(dataBlock.currentAddr));
     // 等上面的成员信息都更新完成后，再触发，否则会查不到
-    for (auto memInfo : dataBlock.memberInfo) {
-        if (memInfo.memberAddr != reportAddr) { // report地址，已经在建联的时候设置过了；这里只处理非report地址
-            SetPeerDeviceTypeToControllerInner(memInfo.memberAddr);
-        }
-    }
+    SetPeerDeviceTypeToControllerInner(dataBlock, reportAddr);
 }
 
 bool CdsmService::IsVendorDevice(const RawAddress &device)
@@ -582,12 +572,25 @@ bool CdsmService::IsVendorDevice(const RawAddress &device)
     return businessType == SLE_PRIVATE_AUDIO_BUSINESS_TYPE;
 }
 
-void CdsmService::SetPeerDeviceTypeToControllerInner(const RawAddress &device)
+void CdsmService::SetPeerDeviceTypeToControllerInner(const CdsmCallBackData &dataBlock, const RawAddress &reportAddr)
 {
-    NL_CHECK_RETURN(!IsVendorDevice(device), "[cdsm Service]private device has set device type to control.");
-    HILOGI("[Cdsm Service]do set common peer device type to controller %{public}s",
-        GetEncryptAddr(device.GetAddress()).c_str());
-    IRemoteDeviceQuery::GetInstance()->SetPeerDeviceTypeToController(device);
+    bool isVendor = false;
+    for (const auto &memInfo : dataBlock.memberInfo) {
+        // 合作集中存在member为vendor设备，则判定合作集所有member均为vendor设备
+        if (IsVendorDevice(memInfo.memberAddr)) {
+            isVendor = true;
+            break;
+        }
+    }
+    NL_CHECK_RETURN(!isVendor, "[cdsm Serice]private device has set device type to controller");
+    // 后续仅处理非vendor设备
+    for (const auto &memInfo : dataBlock.memberInfo) {
+        if (memInfo.memberAddr != reportAddr) { // report地址，已经在建联的时候设置过了；这里只处理非report地址
+            HILOGI("[Cdsm Service]do set common peer device type to controller %{public}s",
+                GetEncryptAddr(memInfo.memberAddr.GetAddress()).c_str());
+            IRemoteDeviceQuery::GetInstance()->SetPeerDeviceTypeToController(memInfo.memberAddr);
+        }
+    }
 }
 
 void CdsmService::CdsmServiceCallBackDataProc(CdsmCallBackData dataBlock)

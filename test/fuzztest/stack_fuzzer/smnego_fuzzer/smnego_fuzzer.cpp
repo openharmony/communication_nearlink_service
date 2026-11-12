@@ -20,6 +20,8 @@
 #include "securec.h"
 #include "nai_log.h"
 #include "sdf_mem.h"
+#include "sle_crypto.h"
+#include "nlstk_sm_api.h"
 #include "nlstk_init_api.h"
 #include "cpfwk_log.h"
 #include "cm_api.h"
@@ -28,6 +30,7 @@
 #include "sm_nego.h"
 #include "sm_noentry.h"
 #include "sm_slink.h"
+#include "sm_struct.h"
 #include "sm_stm.h"
 #include "sm.h"
 #include "sdf_map.h"
@@ -110,6 +113,25 @@ namespace OHOS {
         memcpy_s(slink->tNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_tNodeRb1, SM_RANDOM_NUMBER_R_LEN);
 
         SmNegoStart(slink);
+
+        /* 多状态配对序列：同一 slink 上依次喂入协商五类报文（pkg 长度取
+         * 128B 覆盖各报文结构最小长度校验），驱动 Recv* 处理链与状态迁移，
+         * 替代「Start 后立即释放链路」。 */
+        uint8_t negoPkt[128] = {0};
+        for (size_t i = 0; i < sizeof(negoPkt); i++) {
+            negoPkt[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        static const uint16_t negoSeq[] = {
+            SM_NEGO_PAIRING_START,
+            SM_NEGO_PAIRING_REQUEST,
+            SM_NEGO_PAIRING_RESPONSE,
+            SM_NEGO_PAIRING_CONFIRM,
+            SM_NEGO_PAIRING_INIT_INFO,
+        };
+        for (size_t i = 0; i < sizeof(negoSeq) / sizeof(negoSeq[0]); i++) {
+            SmNegoPkgDispatcher(negoSeq[i], slink, negoPkt, sizeof(negoPkt));
+        }
+
         SmSLinkDtor(slink);
         SDF_MemFree(newAddr);
     }
@@ -126,6 +148,14 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void) argv;
     NLSTK_InitStack();
     NLSTK_EnableStack();
+    NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
+        .randNumFunc = Crypto_RandNumGenerate,
+        .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
+        .secKeyFunc = Crypto_SecKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
+    };
+    NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;
 }
 

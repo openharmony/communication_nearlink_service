@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-typedef uint32_t (*DLI_AddDeviceToAcceptFilterListExtPtr)(DLI_AddrExtStru *param);
+typedef bool (*DLI_IsSupportAccessFilterListExtPtr)(void);
 typedef uint32_t (*DLI_EnableFreqBandExtPtr)(DLI_FreqBandExtParam *param);
 typedef uint32_t (*DLI_ACBEnableSubratePtr)(DLI_ACBEnableSubrateParam *param);
 typedef uint32_t (*DLI_SetLocalPrivateFeaturesPtr)(DLI_LocalPrivateFeatures *features);
@@ -40,7 +40,7 @@ typedef uint32_t (*DLI_UpdateICGParamPtr)(DLI_ICGUpdatedParam *param, bool mcast
 typedef uint32_t (*DLI_SetImgAcbInfoPtr)(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam);
 
 typedef struct {
-    DLI_AddDeviceToAcceptFilterListExtPtr addDeviceToAcceptFilterListExt;
+    DLI_IsSupportAccessFilterListExtPtr isSupportAccessFilterListExt;
     DLI_EnableFreqBandExtPtr enableFreqBandExt;
     DLI_ACBEnableSubratePtr acbEnableSubrate;
     DLI_SetLocalPrivateFeaturesPtr setLocalPrivateFeatures;

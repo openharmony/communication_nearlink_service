@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "nearlink_test_enable_wait.h"
 
 #include "nearlink_access_token_mock.h"
 #include "nearlink_def.h"
@@ -44,8 +45,8 @@ void NearlinkCdsmClientTest::SetUpTestCase()
     if (!NearlinkHost::GetInstance().IsSleEnabled()) {
         HILOGI("start enable nearlink");
         NearlinkHost::GetInstance().EnableNl();
-        sleep(2);
     }
+    ASSERT_TRUE(WaitForSleEnabled()) << "SLE 使能在 20s 内未完成，无法进入用例";
     HILOGI("SetUpTestCase end");
 }
 

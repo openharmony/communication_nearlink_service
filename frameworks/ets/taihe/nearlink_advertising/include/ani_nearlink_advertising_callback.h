@@ -44,11 +44,6 @@ enum AdvertisingState {
     STOPPED = 2,  //  advertising state is stopped
 };
 
-enum FrameType {
-    FRAME_TYPE_1 = 1,  // 无线帧类型 1
-    FRAME_TYPE_4 = 4   // 无线帧类型 4
-};
-
 const char *const  REGISTER_ADVERTISING_STATE_INFO_NAME = "advertisingStateChange";
 
 class AniNearlinkAdvertisingCallback : public SleAdvertiseCallback {

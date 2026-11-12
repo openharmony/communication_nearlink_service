@@ -43,6 +43,8 @@ enum class ScanDuty {
     SCAN_MODE_LOW_LATENCY = 2  // Scan using highest duty cycle
 };
 
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
+
 std::shared_ptr<SleCentralManager> SleCentralManagerGetInstance(void)
 {
     static std::shared_ptr<SleCentralManager> instance =
@@ -144,7 +146,7 @@ static TaiheStatus ParseScanFilterRssiParameters(::ohos::nearlink::scan::ScanFil
         auto rssiValue = filter.rssi.value();
         if (rssiValue < SCAN_RSSI_MIN || rssiValue > SCAN_RSSI_MAX) {
             HILOGE("rssi should in range of -128 to 127, inclusive.");
-            HandleSyncErr(NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(NL_ERR_INVALID_INTEGER);
             return TAIHE_INVALID_ARG;
         }
         sleScanFilter.SetRssiThreshold(static_cast<int8_t>(rssiValue));
@@ -209,11 +211,25 @@ static TaiheStatus CheckFilterScanParams(::ohos::nearlink::scan::Filters const& 
         if (scanOptions.duration.has_value()) {
             int32_t duration = scanOptions.duration.value();
             if (duration < SCAN_DURATION_MIN || duration > SCAN_DURATION_MAX) {
-                HandleSyncErr(NL_ERR_INVALID_INTERGER);
+                HandleSyncErr(NL_ERR_INVALID_INTEGER);
                 HILOGE("duration should in range of 10 to 60 (sec), inclusive.");
                 return TAIHE_INVALID_ARG;
             }
             outSettings.SetDuration(duration);
+        }
+        if (scanOptions.frameType.has_value()) {
+            ConstantFrameType frameType = scanOptions.frameType.value();
+            int32_t frameTypeValue = frameType.get_value();
+            HILOGI("frameType: %{public}d", frameTypeValue);
+            if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+                frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
+                HILOGE("Invalid frameType: %{public}d", frameTypeValue);
+                return TAIHE_INVALID_ARG;
+            }
+            uint8_t nativeFrameType = (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) ?
+                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_4) :
+                static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
+            outSettings.SetFrameType(nativeFrameType);
         }
     }
     return TAIHE_OK;

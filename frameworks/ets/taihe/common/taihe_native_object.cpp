@@ -288,6 +288,20 @@ ani_ref TaiheNativeSsapProperty::ToTaiheValue(ani_env *env) const
     return reinterpret_cast<ani_ref>(object);
 }
 
+ani_ref TaiheNativeSsapPropertyArray::ToTaiheValue(ani_env *env) const
+{
+    std::vector<SsapProperty> properties = properties_;
+    ani_array array = {};
+    ani_ref undefinedRef = {};
+    env->GetUndefined(&undefinedRef);
+    env->Array_New(properties.size(), undefinedRef, &array);
+    for (size_t i = 0; i < properties.size(); i++) {
+        ani_object item = ConvertPropertyToAni(env, properties[i]);
+        env->Array_Set(array, i, item);
+    }
+    return reinterpret_cast<ani_ref>(array);
+}
+
 ani_ref TaiheNativeSsapMethod::ToTaiheValue(ani_env *env) const
 {
     ani_object object = ConvertMethodToAni(env, const_cast<SsapMethod &>(method_));

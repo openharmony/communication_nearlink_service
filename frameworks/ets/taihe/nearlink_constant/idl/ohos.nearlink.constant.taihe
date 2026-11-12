@@ -106,3 +106,8 @@ enum ConnectionInterval: i32{
     LOW_SPEED_INTERVAL_300 = 8,
     LOW_SPEED_INTERVAL_500 = 9
 }
+
+enum FrameType: i32 {
+    FRAME_TYPE_1 = 1,
+    FRAME_TYPE_4 = 4
+}

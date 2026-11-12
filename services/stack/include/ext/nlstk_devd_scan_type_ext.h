@@ -205,7 +205,9 @@ typedef struct {
     bool hasRssiThreshold;
     int8_t rssiThreshold;
     bool isSensorHubChannel;
-    bool advIndReport;
+    uint8_t advFrameType; /*!< 过滤器匹配的广播帧类型,取值 NLSTK_DevdAdvFrameType_E(0x00帧1/0x01帧4),
+                               与结果帧型同编码;由服务层按扫描设置逐条写入(ScanUtils.h),
+                               栈内构造的通配过滤器不参与帧型比较 */
     bool meshInfoReport;
 
     // 下面字段上层应用不需要关注

@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "nearlink_test_enable_wait.h"
 
 #include "nearlink_access_token_mock.h"
 #include "nearlink_def.h"
@@ -49,8 +50,8 @@ void SleDataTransferTest::SetUpTestCase()
     if (!NearlinkHost::GetInstance().IsSleEnabled()) {
         HILOGI("start enable nearlink");
         NearlinkHost::GetInstance().EnableNl();
-        sleep(2);
     }
+    ASSERT_TRUE(WaitForSleEnabled()) << "SLE 使能在 20s 内未完成，无法进入用例";
     HILOGI("SetUpTestCase end");
 }
 
@@ -161,6 +162,28 @@ HWTEST_F(SleDataTransferTest, Connect001, TestSize.Level1)
     EXPECT_EQ(NL_NO_ERROR, ret);
     sleep(1);
     HILOGI("Connect001 end");
+}
+
+/**
+ * @tc.number: ConnectFrameTypeInvalid001
+ * @tc.name: Connect
+ * @tc.desc: Connect with invalid frame type
+ */
+HWTEST_F(SleDataTransferTest, ConnectFrameTypeInvalid001, TestSize.Level1)
+{
+    HILOGI("ConnectFrameTypeInvalid001 start");
+    std::string uuid = "060D";
+    std::string address = "00:00:00:00:00:00";
+    std::shared_ptr<SleDataTransferCallbackTest> callback = std::make_shared<SleDataTransferCallbackTest>();
+    std::shared_ptr<SleDataTransfer> instance = SleDataTransfer::CreateSleDataTransfer();
+    ConnectionParams param;
+    param.SetAddress(address);
+    param.SetUuid(uuid);
+    param.SetTransMode(static_cast<uint8_t>(ConnectionParams::PortTransMode::TRANSPORT_MODE_BASIC));
+    param.SetFrameType(static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_INVALID));
+    NlErrCode ret = instance->Connect(param);
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, ret);
+    HILOGI("ConnectFrameTypeInvalid001 end");
 }
 
 

@@ -111,6 +111,7 @@ const std::string SLE_UUID_HILINK = "37BEA880-FC70-11EA-B720-00000000FDEE"; /* H
  */
 enum class SleFeatureSupported : int32_t {
     SLE_RADIO_FRAME_TYPE_4 = 0,
+    SLE_RANGING = 1,
 };
 
 /**

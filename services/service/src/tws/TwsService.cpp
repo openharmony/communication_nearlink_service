@@ -541,7 +541,15 @@ void TwsService::UpdateClientDataOrCreate(uint8_t dataType, TwsClientData &clien
     dataInstance->UpdateData(dataType, clientData);
 }
 
-/* 音频流状态变化上报 */
+/*
+ * 音频流状态变化上报接口说明
+ * 1、音频框架只有一个接口，本函数按 ASC 流类型表逐项填充 streamData 后调用；当前仅媒体和通话会更新对应流状态，其余流原样透传
+ * 2、当前新来的状态和前一次状态比较：如果新来的状态是INVALID, 需要和前一次保持一致
+ * 3、当前仅当媒体和通话都是INVALID时，该流程直接return，不会下发给音频框架
+ * 4、当且仅当媒体和通话都为AVAILABLE时action置ACTION_ENABLE_FROM_REMOTE(2)，此场景音频框架认为通话和媒体均可用
+ * 5、其余情形（任一路为 INVALID 或 DISABLE）action 置 ACTION_DISABLE_FROM_REMOTE(3)，
+ *    音频框架遍历streamData，由对应流的状态决定媒体或通话是否可用      
+ */
 void TwsService::OnProfileStateChange(TwsClientData &clientData)
 {
     uint8_t preMediaState = static_cast<uint8_t>(TwsStreamUsability::AVAILABLE);

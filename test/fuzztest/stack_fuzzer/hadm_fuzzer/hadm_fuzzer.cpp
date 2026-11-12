@@ -315,6 +315,9 @@ namespace OHOS {
     void FuzzHADMEvtReportLocalCsCaps(void)
     {
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_READ_LOCAL_MEASURE_CAPS];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_ReadLocalCsCapsEvt evt = {0};
         (void)memset_s(evt.caps, sizeof(evt.caps), 0, sizeof(evt.caps));
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -327,6 +330,9 @@ namespace OHOS {
     void FuzzHADMEvtReportRemoteCsCaps(void)
     {
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_READ_REMOTE_MEASURE_CAPS];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_ReadRemoteCsCapsEvt evt = {0};
         evt.status = 0;
         evt.connHandle = 0;
@@ -340,7 +346,12 @@ namespace OHOS {
 
     void FuzzHADMEvtReportSetConfig(void)
     {
+        /* g_hadmCbkList 由 mock DLI_CmdCbkReg 在 HadmInit 时按
+         * hadm_listen_dli.c 注册表填充；未注册时跳过避免空指针。 */
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_CONFIG_PARAM];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -353,6 +364,9 @@ namespace OHOS {
     void FuzzHADMEvtReportSetEnable(void)
     {
         DLI_ExecuteCmdCbk cbk = g_hadmCbkList[DLI_CBK_SET_MEASURE_EN];
+        if (cbk == nullptr) {
+            return;
+        }
         DLI_CommandStatus evt = {0};
         evt.status = 0;
         DLI_ExecuteCmdRetParam cmdRes = {0};
@@ -360,6 +374,101 @@ namespace OHOS {
         cmdRes.eventParameter = &evt;
         cmdRes.size = (uint32_t)(sizeof(DLI_CommandStatus));
         cbk(nullptr, 0, &cmdRes);
+    }
+
+    /* FUZZ-013: 固定地址全生命周期——原时序三断：建链后即清 vector、随机 addr
+     * 对不上 linkCb、features 全零 peerSupport=NO。单输入内走完整：
+     * CONNECTED(固定 addr/lcid 建 linkCb) → features[8]|=0x4（能力协商触发
+     * 状态机，hadm_listen_cm.c:74-77）→ Start→SetParam/Enable→GetState/
+     * AddrInfo→Stop → DISCONNECTED（清 pending+free linkCb）。变体（字节取
+     * 四档）：0=peerSupport=NO / 1=标准 / 2=第二条 linkCb（并行上限分支）/
+     * 3=pending features 先于 CONNECTED（缓存重放路径）。 */
+    void FuzzHadmLinkLifecycle(const uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+        SLE_Addr_S addr = {0};
+        addr.type = PUBLIC_ADDRESS;
+        for (uint8_t i = 0; i < SLE_ADDR_LEN; i++) {
+            addr.addr[i] = fdp.ConsumeIntegral<uint8_t>();
+        }
+        uint16_t lcid = fdp.ConsumeIntegral<uint16_t>();
+        uint8_t variant = fdp.ConsumeIntegral<uint8_t>() % 4;
+
+        /* 注：TestOneInput 开头 HadmInit 已建 g_hadmLinkCbVec（hadm_init.c:52）；
+         * 此处不得再 InitSoundingCbManager（直接覆盖 vector 确定性泄漏），
+         * 也不得中途 DeInit（置 NULL 后同输入后续 FuzzSetMeasure/FuzzTestHadmApi
+         * 深路径全部早退）。 */
+
+        if (variant == 3) {
+            CM_LogicLinkRemoteFeatures_S pf = {0};
+            pf.lcid = lcid;
+            pf.addr = addr;
+            pf.features[8] = 0x4;
+            MockCMExecLogicLinkRemoteFeaturesCbks(&pf); /* 无 linkCb → 缓存 pending */
+        }
+
+        CM_LogicLinkState_S conn = {0};
+        conn.result = CM_LINK_STATE_CONNECTED;
+        conn.lcid = lcid;
+        conn.addr = addr;
+        MockCMExecLogicLinkCbks(&conn); /* HadmAllocLinkCb（同地址复用仅更新 lcid） */
+
+        if (variant == 2) {
+            CM_LogicLinkState_S conn2 = {0};
+            conn2.result = CM_LINK_STATE_CONNECTED;
+            conn2.lcid = (uint16_t)(lcid + 1);
+            conn2.addr = addr;
+            conn2.addr.addr[0] = (uint8_t)(conn2.addr.addr[0] + 1);
+            MockCMExecLogicLinkCbks(&conn2); /* 第二条 linkCb → 并行测距上限分支 */
+        }
+
+        CM_LogicLinkRemoteFeatures_S rf = {0};
+        rf.lcid = lcid;
+        rf.addr = addr;
+        rf.features[8] = (variant == 0) ? 0x0 : 0x4;
+        MockCMExecLogicLinkRemoteFeaturesCbks(&rf); /* ReadRemoteFeatureCbk → 状态机 */
+
+        HadmConnectionParam_S connParam = {0};
+        HadmSoundingParam_S soundParam = {0};
+        HadmStartSounding(&addr, &connParam, &soundParam);
+        HadmSetMeasureParam(lcid, &soundParam);
+        HadmSetMeasureEnable(lcid, 1);
+        uint8_t state = 0;
+        HadmGetSoundingState(&addr, &state);
+        SLE_Addr_S soundingAddrs[4] = {{0}}; /* 出参数组（variant 2 时最多 2 条链路） */
+        HadmGetSoundingAddrInfo(soundingAddrs, 4);
+        HadmStopSounding(&addr);
+
+        CM_LogicLinkState_S disc = {0};
+        disc.result = CM_LINK_STATE_DISCONNECTED;
+        disc.lcid = lcid;
+        disc.addr = addr;
+        MockCMExecLogicLinkCbks(&disc); /* 清 pending → 状态机 → HadmFreeLinkCb */
+    }
+
+    /* FUZZ-015: 错误分支族——NULL/边界参数直调产品校验分支
+     * （hadm_api.c:24/:43-44/:72/:88-89/:130-133；GetAddrsByLcid 查不存在
+     * lcid；PopLastDliCmd 空表）。注意 expectRspType 传有效指针（产品侧
+     * 无 NULL 检查，空表分支在其解引用之前返回）。 */
+    void FuzzHadmErrBranches(const uint8_t *data, size_t size)
+    {
+        FuzzedDataProvider fdp(data, size);
+        (void)fdp;
+        HadmRegCbk(nullptr);
+        HadmStartSounding(nullptr, nullptr, nullptr);
+        HadmStopSounding(nullptr);
+        HadmGetSoundingState(nullptr, nullptr);
+        HadmGetSoundingAddrInfo(nullptr, 0);
+        SLE_Addr_S addr = {0};
+        uint8_t state = 0;
+        HadmGetSoundingState(&addr, &state); /* 不存在 linkCb 的地址 */
+        HadmGetSoundingAddrInfo(&addr, 4);
+        uint16_t expectRspType = 0;
+        HadmPopLastDliCmd(&expectRspType); /* 空表路径（先于解引用返回） */
+        SLE_Addr_S foundAddr = {0};
+        HadmGetAddrsByLcid(0xFFFF, &foundAddr); /* 不存在 lcid → CAN_NOT_FIND */
+        HadmGetAddrsByLcid(0xFFFF, nullptr); /* NULL 出参 → memcpy_s 空参返回 */
+        HadmFreeIqInfo(nullptr);
     }
 
     void FuzzTestHadmApi(const uint8_t* data, size_t size)
@@ -430,6 +539,11 @@ namespace OHOS {
         uint32_t maxNum = fdp.ConsumeIntegral<uint32_t>();
         HadmGetSoundingAddrInfo(&addr, maxNum);
 
+        /* 量测配置/使能命令完成上报（原死代码接入）：走
+         * hadm_listen_dli.c EvtReportSetCsConfig/EvtReportSetCsEnable 路径。 */
+        FuzzHADMEvtReportSetConfig();
+        FuzzHADMEvtReportSetEnable();
+
         HadmDeInitLinkCbManager();
     }
 
@@ -463,7 +577,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void) argc;
     (void) argv;
-    HadmInit();
+    /* HadmInit 移至 LLVMFuzzerTestOneInput 开头，与末尾 HadmDeInit 按输入配对。 */
     return 0;
 }
 
@@ -474,7 +588,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     std::vector<uint8_t> fuzzVec = fdp.ConsumeBytes<uint8_t>(size);
     uint8_t *fuzzData = fuzzVec.data();
     size_t fuzzSize = fuzzVec.size();
+    /* 与末尾 HadmDeInit 按输入配对：DeInit 会清 g_hadmDliCmdVec/回调注册，
+     * 只在 Initialize 里 Init 一次会使第 2 条输入起深路径全部早退（红蓝对抗实证）。 */
+    (void)HadmInit();
     OHOS::FuzzGeneralEvtRegisterCbks(static_cast<uint8_t *>(fuzzData), fuzzSize);
+    OHOS::FuzzHadmLinkLifecycle(fuzzData, fuzzSize);
+    OHOS::FuzzHadmErrBranches(fuzzData, fuzzSize);
     OHOS::FuzzSetMeasure(fuzzData, fuzzSize);
     OHOS::FuzzTestHadmApi(fuzzData, fuzzSize);
     OHOS::FuzzTestHadmConfig(fuzzData, fuzzSize);

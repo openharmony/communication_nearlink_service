@@ -39,6 +39,8 @@ std::shared_ptr<SleAdvertiser> SleAdvertiserGetInstance(void)
     return instance;
 }
 
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
+
 uint8_t ConvertPowerMode(int32_t powerParam)
 {
     uint8_t txPowerMode = static_cast<uint8_t>(SleAdvertiserTxPowerLevel::SLE_ADV_TX_POWER_LOW);
@@ -67,7 +69,7 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
         if (interval < static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MIN) ||
             interval > static_cast<uint32_t>(AdvInterval::ADV_INTERVAL_MAX)) {
             HILOGE("Invalid interval: %{public}d", interval);
-            HandleSyncErr(NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(NL_ERR_INVALID_INTEGER);
             return TaiheStatus::TAIHE_INVALID_ARG;
         }
         HILOGI("interval: %{public}d", interval);
@@ -88,6 +90,20 @@ static TaiheStatus ParseAdvertisingSettingsParameters(const ::ohos::nearlink::ad
         bool isConnectable = input.isConnectable.value();
         HILOGI("isConnectable: %{public}d", isConnectable);
         outSettings.SetConnectable(isConnectable);
+    }
+    if (input.frameType.has_value()) {
+        ConstantFrameType frameType = input.frameType.value();
+        int32_t frameTypeValue = frameType.get_value();
+        HILOGI("frameType: %{public}d", frameTypeValue);
+        if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+            frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
+            HILOGE("Invalid frameType: %{public}d", frameTypeValue);
+            return TaiheStatus::TAIHE_INVALID_ARG;
+        }
+        uint8_t nativeFrameType = (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) ?
+            static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4) :
+            static_cast<uint8_t>(SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1);
+        outSettings.SetPrimaryFrameType(nativeFrameType);
     }
     return TaiheStatus::TAIHE_OK;
 }

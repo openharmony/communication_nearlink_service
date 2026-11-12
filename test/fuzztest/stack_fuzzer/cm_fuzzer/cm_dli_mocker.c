@@ -16,6 +16,17 @@
 #include "cm_dli_mocker.h"
 #include "dli_errno.h"
 
+// PR-10：反注册按 module 清空 cm_fuzzer_util 的表槽（CM_DliAdapterDeinit/CM_DeInit 路径），
+// 避免 DeInit 后旧表残留继续接事件
+void CmFuzzerUtilClearModuleTable(ModuleType module);
+
+void DLI_CmdCbkUnReg(const ModuleType module, const DLI_CbkLineStru *table, const uint32_t size)
+{
+    (void)table;
+    (void)size;
+    CmFuzzerUtilClearModuleTable(module);
+}
+
 uint32_t DLI_CreateConnection(uint8_t version, uint16_t localIndex, DLI_ConnectionCreateParam *param)
 {
     return DLI_SUCCESS;
@@ -76,10 +87,6 @@ uint32_t DLI_SetDataLength(DLI_SetDataLenParam *param)
     return DLI_SUCCESS;
 }
 
-void DLI_CmdCbkUnReg(const ModuleType module, const DLI_CbkLineStru *table, const uint32_t size)
-{
-}
-
 uint32_t DLI_ReadAcceptFilterListSize(void)
 {
     return DLI_SUCCESS;
@@ -108,6 +115,11 @@ uint32_t DLI_ReadLocalMeasureCaps(void)
 uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
 {
     return 0;
+}
+
+uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
+{
+    return DLI_SUCCESS;
 }
 
 uint32_t DLI_RemoveDeviceFromAcceptFilterList(SLE_Addr_S *addr)

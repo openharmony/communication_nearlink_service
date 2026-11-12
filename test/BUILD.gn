@@ -47,6 +47,7 @@ group("nearlink_fuzztest") {
     "fuzztest/native/nearlinkobservermap_fuzzer:NearlinkObserverMapFuzzTest",
     "fuzztest/hadmclient_fuzzer:HadmClientFuzzTest",
     "fuzztest/host_fuzzer:HostFuzzTest",
+    "fuzztest/slhost_fuzzer:SlHostFuzzTest",
     "fuzztest/hidhost_fuzzer:HidHostFuzzTest",
     "fuzztest/lisserver_fuzzer:LisServerFuzzTest",
     "fuzztest/disserver_fuzzer:DisServerFuzzTest",
@@ -59,5 +60,14 @@ group("nearlink_fuzztest") {
     "fuzztest/cloudpair_fuzzer:CloudPairFuzzTest",
     "fuzztest/slecontroller_fuzzer:SleControllerFuzzTest",
     "fuzztest/device_manager_fuzzer:DeviceManagerFuzz",
+    "fuzztest/ipcapi_fuzzer:IpcApiFuzzTest",
+    "fuzztest/bas_fuzzer:BasStmFuzzTest",
+    "fuzztest/mic_fuzzer:MicServiceFuzzTest",
+    "fuzztest/vas_fuzzer:VasServiceFuzzTest",
+    "fuzztest/icceservice_fuzzer:IcceServiceDirectFuzzTest",
+    "fuzztest/adapterstate_fuzzer:AdapterStateFuzzTest",
+    "fuzztest/devicebattery_fuzzer:DeviceBatteryFuzzTest",
+    "fuzztest/adaptercfg_fuzzer:AdapterCfgFuzzTest",
+    "fuzztest/bnlproxy_fuzzer:BnlProxyFuzzTest",
   ]
 }

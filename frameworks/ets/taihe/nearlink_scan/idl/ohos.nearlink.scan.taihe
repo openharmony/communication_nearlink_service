@@ -14,6 +14,7 @@
  */
 
 from ohos.nearlink.constant use DeviceClass;
+from ohos.nearlink.constant use FrameType;
 
 @!namespace("@ohos.nearlink.scan", "scan")
 @!sts_inject("""
@@ -38,6 +39,7 @@ struct ScanResults {
     deviceName: String;
     isConnectable: bool;
     deviceClass: Optional<DeviceClass>;
+    frameType: Optional<FrameType>;
 }
 
 struct ScanFilters {
@@ -52,6 +54,7 @@ struct ScanFilters {
 struct ScanOptions {
     scanMode: Optional<ScanMode>;
     duration: Optional<i32>;
+    frameType: Optional<FrameType>;
 }
 
 enum ScanMode: i32 {

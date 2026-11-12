@@ -13,390 +13,152 @@
  * limitations under the License.
  */
 
-#include <string>
-
-#include "nearlink_raw_address.h"
-#include "nearlink_def.h"
-#include "nearlink_host.h"
-#include "nearlink_host_proxy.h"
-#include "log_util.h"
-#include "iservice_registry.h"
-#include "system_ability_definition.h"
 #include "nearlink_remote_device.h"
-#include "nearlink_utils.h"
-#include "i_nearlink_sle_controller.h"
-#include "nearlink_sa_manager.h"
+#include "nearlink_base_remote_device.h"
 
 namespace OHOS {
 namespace Nearlink {
-namespace {
-constexpr uint8_t PASS_CODE_LEN = 6;
-}
 
-sptr<NearlinkHostProxy> GetHostProxy()
+NearlinkRemoteDevice::NearlinkRemoteDevice() : base_()
 {
-    sptr<ISystemAbilityManager> samgr = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
-    NL_CHECK_RETURN_RET(samgr, nullptr, "GetSystemAbilityManager fail");
-    sptr<IRemoteObject> remote = samgr->GetSystemAbility(NEARLINK_HOST_SYS_ABILITY_ID);
-    NL_CHECK_RETURN_RET(remote, nullptr, "GetSystemAbility fail");
-
-    sptr<NearlinkHostProxy> hostProxy = new (std::nothrow) NearlinkHostProxy(remote);
-    return hostProxy;
-}
-
-bool IsRemoteProfileSupported(const std::string &address, int32_t transport, std::string profUuid)
-{
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    std::vector<std::string> uuids;
-    NlErrCode ret = hostProxy->GetDeviceUuids(transport, address, uuids);
-    if (ret != NL_NO_ERROR) {
-        HILOGE("get device uuids failed, ret=%{public}d", ret);
-        return true;
-    }
-    if (uuids.empty()) {
-        HILOGW("device uuids is empty, cannot determine profile supported, allow request");
-        return true;
-    }
-    ConvertUuidToUpperCase(profUuid);
-    for (auto &uuid : uuids) {
-        std::string remoteUuid = uuid;
-        ConvertUuidToUpperCase(remoteUuid);
-        if (remoteUuid == profUuid) {
-            return true;
-        }
-    }
-    return false;
 }
 
 NearlinkRemoteDevice::NearlinkRemoteDevice(const std::string &addr, const int transport)
+    : base_(addr, transport)
 {
-    address_ = addr;
-    transport_ = transport;
 }
 
-bool NearlinkRemoteDevice::IsValidNearlinkRemoteDevice() const
+NearlinkRemoteDevice::NearlinkRemoteDevice(const NearlinkBaseRemoteDevice &base)
+    : base_(base)
 {
-    if (!IsValidAddress(address_)) {
-        HILOGI("invalid nearlink addr, address_: %{public}s", GetEncryptAddr(address_).c_str());
-        return false;
-    }
-
-    if ((transport_ != static_cast<int>(NlTransportType::NL_TRANSPORT_SLB)) &&
-        (transport_ != static_cast<int>(NlTransportType::NL_TRANSPORT_SLE))) {
-        HILOGI("invalid transport type.");
-        return false;
-    }
-    return true;
 }
 
-int NearlinkRemoteDevice::GetTransportType() const
-{
-    return transport_;
-}
+NearlinkRemoteDevice::~NearlinkRemoteDevice() = default;
 
 NlErrCode NearlinkRemoteDevice::GetDeviceName(std::string &name) const
 {
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetDeviceName(transport_, address_, name);
+    return base_.GetDeviceName(name);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceAlias(std::string &alias) const
 {
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->GetDeviceAlias(transport_, address_, alias);
+    return base_.GetDeviceAlias(alias);
 }
 
-NlErrCode NearlinkRemoteDevice::SetDeviceAlias(const std::string &alias)
+NlErrCode NearlinkRemoteDevice::SetDeviceAlias(const std::string &aliasName)
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->SetDeviceAlias(transport_, address_, alias);
+    return base_.SetDeviceAlias(aliasName);
 }
 
 NlErrCode NearlinkRemoteDevice::GetPairState(int &pairState) const
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetPairState(transport_, address_, pairState);
+    return base_.GetPairState(pairState);
 }
 
 NlErrCode NearlinkRemoteDevice::StartPair()
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->StartPair(transport_, address_);
+    return base_.StartPair();
 }
 
 NlErrCode NearlinkRemoteDevice::StartCrediblePair()
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->StartCrediblePair(transport_, address_);
+    return base_.StartCrediblePair();
 }
 
 NlErrCode NearlinkRemoteDevice::CancelDevicePairing()
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->CancelPairing(transport_, address_);
-}
-
-NlErrCode NearlinkRemoteDevice::SetPairingPassCode(const std::string &passCode)
-{
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    NL_CHECK_RETURN_RET(IsValidPassCode(passCode), NL_ERR_INVALID_PARAM, "passCode invalid.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->SetPairingPassCode(transport_, address_, passCode);
+    return base_.CancelDevicePairing();
 }
 
 NlErrCode NearlinkRemoteDevice::SetPairingConfirmation(bool cfm)
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->SetPairingConfirmation(transport_, address_, cfm);
+    return base_.SetPairingConfirmation(cfm);
+}
+
+NlErrCode NearlinkRemoteDevice::SetPairingPassCode(const std::string &passCode)
+{
+    return base_.SetPairingPassCode(passCode);
 }
 
 NlErrCode NearlinkRemoteDevice::IsBondedFromLocal(bool &isBondedFromLocal) const
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->IsBondedFromLocal(transport_, address_, isBondedFromLocal);
+    return base_.IsBondedFromLocal(isBondedFromLocal);
 }
 
 NlErrCode NearlinkRemoteDevice::IsAcbConnected(bool &isAcbConnected) const
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->IsAcbConnected(transport_, address_, isAcbConnected);
+    return base_.IsAcbConnected(isAcbConnected);
 }
 
 NlErrCode NearlinkRemoteDevice::IsAcbEncrypted(bool &isAcbEncrypted) const
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->IsAcbEncrypted(transport_, address_, isAcbEncrypted);
-}
-
-NlErrCode NearlinkRemoteDevice::GetDeviceUuids(std::vector<std::string> &uuids) const
-{
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetDeviceUuids(transport_, address_, uuids);
-}
-
-NlErrCode NearlinkRemoteDevice::PairRequestReply(bool accept)
-{
-    HILOGI("enter, accept: %{public}d", accept);
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(IS_SLE_ENABLED(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->PairRequestReply(transport_, address_, accept);
-}
-
-NlErrCode NearlinkRemoteDevice::UpdateConnectInterval(ConnectionInterval intervalType) const
-{
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(
-        NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT, "nearlink is not support.");
-    NL_CHECK_RETURN_RET(((intervalType <= ConnectionInterval::LOW_SPEED_INTERVAL_500) &&
-                            ((intervalType >= ConnectionInterval::HIGH_SPEED_INTERVAL_4_5))),
-        NL_ERR_INVALID_PARAM,
-        "intervalType invalid");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<INearlinkSleController> proxy = GetProxy<INearlinkSleController>(NEARLINK_SLE_CONTROLLER_SERVER);
-    NL_CHECK_RETURN_RET(proxy, NL_ERR_UNAVAILABLE_PROXY, "proxy is nullptr.");
-
-    NlErrCode errCode = proxy->UpdateConnectInterval(address_, static_cast<int32_t>(intervalType));
-    NL_CHECK_RETURN_RET(errCode == NL_NO_ERROR, errCode,
-        "UpdateConnectInterval failed, error code: %{public}d", errCode);
-    HILOGI("intervalType = %{public}d", intervalType);
-    return errCode;
-}
-
-NlErrCode NearlinkRemoteDevice::ReadRemoteRssiValue()
-{
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->ReadRemoteRssiValue(address_);
-}
-
-NlErrCode NearlinkRemoteDevice::GetDeviceAppearance(int &appearance) const
-{
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetDeviceAppearance(address_, appearance);
+    return base_.IsAcbEncrypted(isAcbEncrypted);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceProductId(uint16_t &productId) const
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device.");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->GetDeviceProductId(address_, productId);
+    return base_.GetDeviceProductId(productId);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceVendorId(uint16_t &vendorId) const
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device.");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-    return hostProxy->GetDeviceVendorId(address_, vendorId);
+    return base_.GetDeviceVendorId(vendorId);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceModel(DeviceModel &model) const
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    NearlinkDeviceModel deviceModel;
-    NlErrCode ret = hostProxy->GetDeviceModel(address_, deviceModel);
-    NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, ret, "get device model failed, ret=%{public}d", ret);
-    model = deviceModel;
-    return NL_NO_ERROR;
+    return base_.GetDeviceModel(model);
 }
 
 NlErrCode NearlinkRemoteDevice::GetDeviceInformation(DeviceInformation &information) const
 {
-    HILOGD("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_INTERNAL_ERROR, "fails: no proxy");
-
-    NearlinkDeviceInformation deviceInformation;
-    NlErrCode ret = hostProxy->GetDeviceInformation(address_, deviceInformation);
-    NL_CHECK_RETURN_RET(ret == NL_NO_ERROR, ret, "get device infomation failed, ret=%{public}d", ret);
-    information = deviceInformation;
-    return NL_NO_ERROR;
+    return base_.GetDeviceInformation(information);
 }
+
+NlErrCode NearlinkRemoteDevice::GetDeviceUuids(std::vector<std::string> &uuids) const
+{
+    return base_.GetDeviceUuids(uuids);
+}
+
+NlErrCode NearlinkRemoteDevice::PairRequestReply(bool accept)
+{
+    return base_.PairRequestReply(accept);
+}
+
+int NearlinkRemoteDevice::GetTransportType() const
+{
+    return base_.GetTransportType();
+}
+
+NlErrCode NearlinkRemoteDevice::UpdateConnectInterval(ConnectionInterval interval) const
+{
+    return base_.UpdateConnectInterval(interval);
+}
+
+NlErrCode NearlinkRemoteDevice::ReadRemoteRssiValue()
+{
+    return base_.ReadRemoteRssiValue();
+}
+
+bool NearlinkRemoteDevice::IsValidNearlinkRemoteDevice() const
+{
+    return base_.IsValidNearlinkRemoteDevice();
+}
+
+NlErrCode NearlinkRemoteDevice::GetDeviceAppearance(int &appearance) const
+{
+    return base_.GetDeviceAppearance(appearance);
+}
+
 NlErrCode NearlinkRemoteDevice::GetAcbState(int &acbState) const
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetAcbState(address_, acbState);
+    return base_.GetAcbState(acbState);
 }
 
 NlErrCode NearlinkRemoteDevice::GetBatteryLevel()
 {
-    HILOGI("enter");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsNearlinkSupport(), NL_ERR_API_NOT_SUPPORT,
-        "nearlink is not support.");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsBasSupported(), NL_ERR_FEATURE_NOT_SUPPORT,
-                        "Battery service is not supported.");
-    NL_CHECK_RETURN_RET(IsValidNearlinkRemoteDevice(), NL_ERR_INTERNAL_ERROR, "Invalid remote device");
-    NL_CHECK_RETURN_RET(NearlinkHost::GetInstance().IsSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
-    NL_CHECK_RETURN_RET(IsRemoteProfileSupported(address_, transport_, SLE_UUID_BAS_PROFILE),
-        NL_ERR_PEER_NOT_SUPPORT_BATTERY_SERVICE, "remote device does not support BAS service.");
-    sptr<NearlinkHostProxy> hostProxy = GetHostProxy();
-    NL_CHECK_RETURN_RET(hostProxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "fails: no proxy");
-    return hostProxy->GetBatteryLevel(address_);
+    return base_.GetBatteryLevel();
 }
 
-bool NearlinkRemoteDevice::IsValidPassCode(const std::string& passCode)
-{
-    if (passCode.length() != PASS_CODE_LEN) {
-        return false;
-    }
-    for (char c : passCode) {
-        if (!std::isdigit(static_cast<unsigned char>(c))) {
-            return false;
-        }
-    }
-    return true;
-}
 }  // namespace Nearlink
 }  // namespace OHOS

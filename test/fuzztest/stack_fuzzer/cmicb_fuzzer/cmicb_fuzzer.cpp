@@ -15,10 +15,12 @@
 
 #include "cmicb_fuzzer.h"
 #include "fuzzer/FuzzedDataProvider.h"
+#include "cm_api.h"
 #include "cm_icb_api.h"
 #include "cm_icb_inner_api.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
+#include "nlstk_schedule.h"
 #include "sdf_evc.h"
 #include "sdf_mem.h"
 #include "sdf_thread.h"
@@ -265,16 +267,29 @@ void FuzzIcbRegisterConnectionCbk(const uint8_t *fuzzData, size_t size)
     (void)CM_UnregisterICBConnectionCbk();
 }
 
+/* PR-3 批次A（CM-10/11/12）：事件闭环与边界组入口，实现见 cmicb_evt_fuzzer.cpp */
+void FuzzIcbEventLoop(const uint8_t *fuzzData, size_t size);
+void FuzzIcgBoundaryParams(const uint8_t *fuzzData, size_t size);
+
 }  // namespace OHOS
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
-    NLSTK_InitStack();
-    NLSTK_EnableStack();
+    /* ext 插件依赖真实芯片，fuzzer 进程内 InitStack 中途回滚（nlstk_init.c FAIL_EXT
+     * →ScheduleDisable→g_schedule=NULL）。CM_Init/CM_Enable 内部经 CP_PostTaskBlocked
+     * 投递，必须先重建线程池/调度器，否则投递失败、CM_ICBInit 不执行（红蓝对抗实证）。 */
+    bool stackInited = NLSTK_InitStack() == NLSTK_ERRCODE_SUCCESS;
     (void)SDF_ThreadInit(10);
     (void)SDF_EvcInit();
+    if (stackInited) {
+        (void)NLSTK_EnableStack();
+    } else {
+        (void)ScheduleEnable();
+        (void)CM_Init();
+        (void)CM_Enable();
+    }
     CM_ICBCallback cb = {0};
     cb.connectionCbk = OHOS::IcbConnectionCbkImpl;
     cb.labelReportCbk = OHOS::IcbLabelReportCbkImpl;
@@ -294,6 +309,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
+    /* 批次A：先跑事件闭环与边界组（自带节点清理）。若其建节点后旧的 FuzzIcgSetParam
+     * 偶发"icg channel has been set"拒绝，属真实合法拒绝，无需处理。 */
+    OHOS::FuzzIcbEventLoop(fuzzData, size);
+    OHOS::FuzzIcgBoundaryParams(fuzzData, size);
     OHOS::FuzzIcgSetParam(fuzzData, size);
     OHOS::FuzzIcgSetAutorateParam(fuzzData, size);
     OHOS::FuzzIcgRemoveParam(fuzzData, size);

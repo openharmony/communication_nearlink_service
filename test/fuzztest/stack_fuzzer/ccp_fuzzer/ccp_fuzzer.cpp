@@ -200,6 +200,83 @@ void FuzzCcpUpdateCcsProperty(const uint8_t *fuzzData, size_t size)
     }
 }
 
+/* 与 FuzzCcpUpdateCcsProperty 相同的属性载荷分支，但 property/instanceId 来自外部，
+ * 保证与创建时的 instanceId 一致 */
+void FuzzCcpUpdateCcsPropertyById(FuzzedDataProvider &fdp, int32_t instanceId)
+{
+    NLSTK_CcpCcsPropertyType_E property = static_cast<NLSTK_CcpCcsPropertyType_E>(
+        fdp.ConsumeIntegral<uint8_t>() % NLSTK_CCP_CCS_MAX_PROPERTY);
+    uint8_t varBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t userBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t aliasBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t callIdBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t networkIdBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t callStatusBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    uint8_t callFlagBuf[FUZZ_CCP_MAX_CALL_CNT] = {0};
+    switch (property) {
+        case NLSTK_CCP_CCS_INSTANCE_NAME:
+        case NLSTK_CCP_CCS_PROTOCOL_SUPPORT:
+        case NLSTK_CCP_CCS_NETWORK_SELECTION: {
+            NLSTK_VariableData_S var = {0};
+            FillVariableData(fdp, var, varBuf);
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &var);
+            break;
+        }
+        case NLSTK_CCP_CCS_INSTANCE_ICON: {
+            NLSTK_CcpInstanceIcon_S icon = {0};
+            icon.type = fdp.ConsumeIntegral<uint8_t>();
+            icon.len = FillBytes(fdp, varBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            icon.icon = varBuf;
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &icon);
+            break;
+        }
+        case NLSTK_CCP_CCS_FEATURE_STATUS:
+        case NLSTK_CCP_CCS_MEDIA_INSTANCE_ID: {
+            uint8_t value = fdp.ConsumeIntegral<uint8_t>();
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &value);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALLIN_OUT_INFO: {
+            NLSTK_CcpCallInOutInfo_S info = {0};
+            info.callId = fdp.ConsumeIntegral<uint8_t>();
+            info.networkId = fdp.ConsumeIntegral<uint8_t>();
+            info.callFlag = fdp.ConsumeIntegral<uint8_t>();
+            info.userInfo.len = FillBytes(fdp, userBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            info.userInfo.data = userBuf;
+            info.userAlias.len = FillBytes(fdp, aliasBuf, FUZZ_CCP_VAR_DATA_MAX_LEN);
+            info.userAlias.data = aliasBuf;
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &info);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALL_STATUS: {
+            NLSTK_CcpCallStatues_S status = {0};
+            status.callCount = fdp.ConsumeIntegral<uint8_t>() % FUZZ_CCP_MAX_CALL_CNT;
+            status.callId = callIdBuf;
+            status.networkId = networkIdBuf;
+            status.callStatus = callStatusBuf;
+            status.callFlag = callFlagBuf;
+            for (uint8_t i = 0; i < status.callCount; i++) {
+                callIdBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                networkIdBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                callStatusBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+                callFlagBuf[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &status);
+            break;
+        }
+        case NLSTK_CCP_CCS_CALL_TERMINATION: {
+            NLSTK_CcpCallTermination_S term = {0};
+            term.callId = fdp.ConsumeIntegral<uint8_t>();
+            term.terminateReason = fdp.ConsumeIntegral<uint8_t>();
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, &term);
+            break;
+        }
+        default:
+            (void)NLSTK_CcpUpdateCcsProperty(instanceId, property, nullptr);
+            break;
+    }
+}
+
 void FuzzCcpDeleteCcsInstance(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
@@ -238,6 +315,59 @@ void FuzzCcpVasState(const uint8_t *fuzzData, size_t size)
     (void)NLSTK_CcpUpdateVasState(state);
 }
 
+
+/* 单输入内状态一致性：instanceId 由调用方指定并贯穿 创建→控制结果→授权结果→
+ * 属性更新→删除；VAS 单例服务同 requestId 贯穿创建→控制→状态授权→更新→删除。 */
+void FuzzCcpConsistentSequence(const uint8_t *fuzzData, size_t size)
+{
+    FuzzedDataProvider fdp(fuzzData, size);
+    NLSTK_CcpCallControlInfo_S info;
+    (void)memset_s(&info, sizeof(info), 0, sizeof(info));
+    uint8_t nameBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    uint8_t protoBuf[FUZZ_CCP_VAR_DATA_MAX_LEN] = {0};
+    FillVariableData(fdp, info.instanceName, nameBuf);
+    info.type = NLSTK_CCP_CALL_CONTROL_COMMON_SERVICE;
+    info.featureStatus = fdp.ConsumeIntegral<uint8_t>();
+    FillVariableData(fdp, info.protocolSupport, protoBuf);
+    info.mediaInstanceId = static_cast<int32_t>(1 + fdp.ConsumeIntegral<uint8_t>() % 255);
+    info.callRequestSupport = fdp.ConsumeIntegral<uint16_t>();
+    info.instanceIconFlag = false;
+    info.networkSelectionFlag = false;
+    info.startCcsInst = StartCcsInstImpl;
+    info.authorize = CcsAuthorizeImpl;
+    for (int i = 0; i < NLSTK_CCP_CCS_MAX_PROPERTY; i++) {
+        info.propertyRights[i] = fdp.ConsumeIntegral<uint8_t>();
+    }
+    int32_t instanceId = info.mediaInstanceId;
+    uint32_t requestId = fdp.ConsumeIntegral<uint32_t>();
+    uint8_t errorCode = fdp.ConsumeIntegral<uint8_t>();
+    NLSTK_CcpCcsPropertyType_E authorizeProperty = static_cast<NLSTK_CcpCcsPropertyType_E>(
+        fdp.ConsumeIntegral<uint8_t>() % NLSTK_CCP_CCS_MAX_PROPERTY);
+
+    (void)NLSTK_CcpCreateCcsInstance(&info);
+    NLSTK_CcpCallControlResult(requestId, instanceId, errorCode);
+    (void)NLSTK_CcpCcsAuthorizeResult(requestId, instanceId, authorizeProperty, errorCode);
+    FuzzCcpUpdateCcsPropertyById(fdp, instanceId);
+    (void)NLSTK_CcpDeleteCcsInstance(instanceId);
+
+    NLSTK_CcpVasInfo_S vasInfo;
+    (void)memset_s(&vasInfo, sizeof(vasInfo), 0, sizeof(vasInfo));
+    vasInfo.state = fdp.ConsumeIntegral<uint8_t>();
+    vasInfo.stateRight = fdp.ConsumeIntegral<uint8_t>();
+    vasInfo.startService = VasStartServiceImpl;
+    vasInfo.authorize = VasStateAuthorizeImpl;
+    uint8_t vasOpCode = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t vasState = fdp.ConsumeIntegral<uint8_t>();
+    (void)NLSTK_CcpCreateVoiceAssistantService(&vasInfo);
+    (void)NLSTK_CcpVasControlResult(requestId, vasOpCode, errorCode);
+    (void)NLSTK_CcpVasStateAuthorizeResult(requestId, errorCode);
+    (void)NLSTK_CcpUpdateVasState(vasState);
+    (void)NLSTK_CcpDeleteVoiceAssistantService();
+
+    /* 保留非法参数路径：instanceId=0 */
+    (void)NLSTK_CcpUpdateCcsProperty(0, authorizeProperty, nullptr);
+}
+
 }  // namespace OHOS
 
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
@@ -262,15 +392,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzCcpCreateCcsInstance(fuzzData, size);
-    OHOS::FuzzCcpCallControlResult(fuzzData, size);
-    OHOS::FuzzCcpCcsAuthorizeResult(fuzzData, size);
-    OHOS::FuzzCcpUpdateCcsProperty(fuzzData, size);
-    OHOS::FuzzCcpDeleteCcsInstance(fuzzData, size);
-    OHOS::FuzzCcpCreateVas(fuzzData, size);
-    OHOS::FuzzCcpVasControlResult(fuzzData, size);
-    OHOS::FuzzCcpVasState(fuzzData, size);
-    (void)NLSTK_CcpDeleteVoiceAssistantService();
+    OHOS::FuzzCcpConsistentSequence(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

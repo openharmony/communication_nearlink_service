@@ -38,6 +38,7 @@ namespace Nearlink {
 /**
  * @brief Represents framework SLE controller.
  */
+class NearlinkBaseSleController;
 class NEARLINK_API NearlinkSleController {
 public:
     /**
@@ -90,7 +91,7 @@ private:
     NearlinkSleController();
     ~NearlinkSleController();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkSleController);
-    NEARLINK_DECLARE_IMPL();
+    NearlinkBaseSleController &impl_;
 };
 
 } // namespace Nearlink

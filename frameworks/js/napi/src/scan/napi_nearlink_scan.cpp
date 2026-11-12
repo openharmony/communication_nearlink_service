@@ -116,7 +116,7 @@ static napi_status ParseScanParameters(
     if (exist) {
         HILOGI("Scan duration is %{public}d", duration);
         if (duration < SCAN_DURATION_MIN || duration > SCAN_DURATION_MAX) {
-            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
             HILOGE("duration should in range of 10 to 60 (sec), inclusive.");
             return napi_invalid_arg;
         }
@@ -126,8 +126,8 @@ static napi_status ParseScanParameters(
     NAPI_NL_CALL_RETURN(NapiParseObjectInt32Optional(env, scanArg, "frameType", frameTypeValue, exist));
     if (exist) {
         HILOGI("Scan frameType is %{public}d", frameTypeValue);
-        if (frameTypeValue < static_cast<int32_t>(FrameType::FRAME_TYPE_1) ||
-            frameTypeValue > static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
+        if (frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_1) &&
+            frameTypeValue != static_cast<int32_t>(FrameType::FRAME_TYPE_4)) {
             HILOGE("Invalid scan frameType: %{public}d", frameTypeValue);
             return napi_invalid_arg;
         }
@@ -218,7 +218,7 @@ static napi_status ParseScanFilterRssiParameters(
     if (exist) {
         HILOGI("Scan rssi is %{public}d", rssi);
         if (rssi < SCAN_RSSI_MIN || rssi > SCAN_RSSI_MAX) {
-            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTERGER);
+            HandleSyncErr(env, NlErrCode::NL_ERR_INVALID_INTEGER);
             HILOGE("rssi should in range of -128 to 127, inclusive.");
             return napi_invalid_arg;
         }
@@ -449,16 +449,8 @@ napi_value NapiNearlinkScan::PropertyInit(napi_env env, napi_value exports)
     SetNamedPropertyByInteger(
         env, scanDutyObj, static_cast<int32_t>(ScanDuty::SCAN_MODE_LOW_POWER), "SCAN_MODE_LOW_POWER");
 
-    napi_value frameTypeObj = nullptr;
-    napi_create_object(env, &frameTypeObj);
-    SetNamedPropertyByInteger(env, frameTypeObj,
-        static_cast<int32_t>(FrameType::FRAME_TYPE_1), "FRAME_TYPE_1");
-    SetNamedPropertyByInteger(env, frameTypeObj,
-        static_cast<int32_t>(FrameType::FRAME_TYPE_4), "FRAME_TYPE_4");
-
     napi_property_descriptor exportFuncs[] = {
         DECLARE_NAPI_PROPERTY("ScanMode", scanDutyObj),
-        DECLARE_NAPI_PROPERTY("FrameType", frameTypeObj),
     };
     napi_define_properties(env, exports, sizeof(exportFuncs) / sizeof(*exportFuncs), exportFuncs);
     return exports;

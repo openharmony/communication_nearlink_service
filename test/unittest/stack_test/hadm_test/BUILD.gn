@@ -39,6 +39,9 @@ unit_test_deps = [
 unit_test_external_deps = [
   "c_utils:utils",
   "hilog:libhilog",
+  # shared_stack_source 引入 services/hardware/src/SleDliLayerAdapter.cpp，
+  # 其 iproxy_broker.h -> iremote_broker.h 需要 ipc 头文件路径（与 services/hardware 构建一致）
+  "ipc:ipc_single",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.1",
   "hdf_core:libhdf_utils",

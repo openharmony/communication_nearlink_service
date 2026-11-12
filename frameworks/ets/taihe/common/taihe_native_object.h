@@ -81,6 +81,16 @@ private:
     SsapProperty property_;
 };
 
+class TaiheNativeSsapPropertyArray : public TaiheNativeObject {
+public:
+    explicit TaiheNativeSsapPropertyArray(const std::vector<SsapProperty> &properties) : properties_(properties) {}
+    ~TaiheNativeSsapPropertyArray() override = default;
+
+    ani_ref ToTaiheValue(ani_env *env) const override;
+private:
+    std::vector<SsapProperty> properties_;
+};
+
 class TaiheNativeSsapMethod : public TaiheNativeObject {
 public:
     explicit TaiheNativeSsapMethod(const SsapMethod &method) : method_(method) {}

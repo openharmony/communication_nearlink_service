@@ -79,6 +79,8 @@ void ActmReportAvailableStreamType(ActmRemoteDevice_S *device, uint32_t streamTy
 
 void ActmDeviceOffline(ActmRemoteDevice_S *device, bool remove);
 
+void AddDeviceToGroup(ActmRemoteDevice_S *device, uint16_t groupId);
+
 #ifdef __cplusplus
 }
 #endif

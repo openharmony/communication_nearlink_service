@@ -19,6 +19,7 @@
 #include "nearlink_errorcode.h"
 #include "nearlink_host.h"
 #include "nearlink_remote_device.h"
+#include "nearlink_utils.h"
 #include "ani_nearlink_utils.h"
 #include "ani_nearlink_error.h"
 #include "ani_nearlink_ssap_utils.h"
@@ -70,6 +71,34 @@ bool SsapClientImpl::Close()
     return result;
 }
 
+::taihe::array<::ohos::nearlink::ssap::Service> SsapClientImpl::GetServicesByUuid(
+    const ::ohos::nearlink::ssap::Service &service)
+{
+    HILOGI("enter");
+    ::taihe::array<::ohos::nearlink::ssap::Service> result {};
+    ANI_NL_ASSERT_RETURN(client_ != nullptr, NL_ERR_INTERNAL_ERROR, result);
+    // 仅解析并校验serviceUuid, 规格定义其余字段不参与定位, 避免误报参数错误
+    std::string serviceUuid = std::string(service.serviceUuid);
+    ANI_NL_ASSERT_RETURN(IsValidUuid(serviceUuid), NL_ERR_INVALID_UUID, result);
+    ConvertUuidToUpperCase(serviceUuid);
+    ANI_NL_ASSERT_RETURN(!CheckBaseUuid(serviceUuid), NL_ERR_STANDARD_UUID_NOT_ALLOWED, result);
+    UUID uuid = UUID::FromString(serviceUuid);
+    NlErrCode err = client_->FindStructureByUuid(uuid);
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
+    std::vector<SsapService> foundServices;
+    err = client_->GetServicesByUuid(uuid, foundServices);
+    ANI_NL_ASSERT_RETURN(err == NL_NO_ERROR, err, result);
+    std::vector<::ohos::nearlink::ssap::Service> taiheServices;
+    for (const auto &found : foundServices) {
+        taiheServices.emplace_back(ConvertServiceToTaihe(found));
+    }
+    if (!taiheServices.empty()) {
+        result = ::taihe::array<::ohos::nearlink::ssap::Service>(
+            ::taihe::copy_data_t{}, taiheServices.data(), taiheServices.size());
+    }
+    return result;
+}
+
 uintptr_t SsapClientImpl::ReadProperty(const ::ohos::nearlink::ssap::Property &property)
 {
     HILOGI("enter");
@@ -90,6 +119,31 @@ uintptr_t SsapClientImpl::ReadProperty(const ::ohos::nearlink::ssap::Property &p
     ANI_NL_ASSERT_RETURN(asyncWork, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
     ANI_NL_ASSERT_RETURN(callback_ != nullptr, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
     bool success = callback_->asyncPromiseMap_.TryPush(TaiheAsyncType::SSAP_CLIENT_READ_PROPERTY, asyncWork);
+    ANI_NL_ASSERT_RETURN(success, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
+    asyncWork->Run();
+    return reinterpret_cast<uintptr_t>(asyncWork->GetRet());
+}
+
+uintptr_t SsapClientImpl::ReadPropertiesByUuid(const ::ohos::nearlink::ssap::Property &property)
+{
+    HILOGI("enter");
+    ANI_NL_ASSERT_RETURN(client_ != nullptr, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
+    AniSsapProperty aniProperty;
+    int32_t ret = ConvertPropertyToNative(property, aniProperty);
+    ANI_NL_ASSERT_RETURN(ret == NL_NO_ERROR, ret, reinterpret_cast<uintptr_t>(nullptr));
+    SsapProperty nativeProperty(0, aniProperty.propertyUuid_, aniProperty.operation_, 0);
+    auto func = [ssapClient = client_, nativeProperty]() mutable {
+        HILOGI("start read properties by uuid");
+        NlErrCode err = ssapClient->ReadPropertiesByUuid(nativeProperty);
+        return TaiheAsyncWorkRet(err);
+    };
+
+    ani_env *env = taihe::get_env();
+    ANI_NL_ASSERT_RETURN(env, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
+    auto asyncWork = TaiheAsyncWorkFactory::CreateAsyncWork(env, nullptr, func);
+    ANI_NL_ASSERT_RETURN(asyncWork, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
+    ANI_NL_ASSERT_RETURN(callback_ != nullptr, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
+    bool success = callback_->asyncPromiseMap_.TryPush(TaiheAsyncType::SSAP_CLIENT_READ_PROPERTIES_BY_UUID, asyncWork);
     ANI_NL_ASSERT_RETURN(success, NL_ERR_INTERNAL_ERROR, reinterpret_cast<uintptr_t>(nullptr));
     asyncWork->Run();
     return reinterpret_cast<uintptr_t>(asyncWork->GetRet());

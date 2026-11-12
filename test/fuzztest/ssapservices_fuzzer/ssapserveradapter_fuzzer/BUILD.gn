@@ -44,6 +44,7 @@ ohos_fuzztest("SsapServerAdapterFuzzTest") {
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/server/include",
     "$NEARLINK_ROOT/services/service/src/permission",
+    "$NEARLINK_ROOT/services/common/include",
     "$NEARLINK_ROOT/services/service/src/ssap",
     "$NEARLINK_ROOT/services/service/include",
     "$NEARLINK_ROOT/services/service/common",

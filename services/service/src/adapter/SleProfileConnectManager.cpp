@@ -1260,6 +1260,17 @@ bool SleProfileConnectManager::GetSilentPortState(const RawAddress &device) cons
     return profConnInst->GetSilentPortFlag();
 }
 
+void SleProfileConnectManager::SetSilentPortState(const RawAddress &device, bool isSilentPort) const
+{
+    std::shared_ptr<SleProfileConnectInst> profConnInst = nullptr;
+    if (!pimpl->SleProfileConnectInstSafeList_.GetValue(device.GetAddress(), profConnInst)) {
+        LOG_DEBUG("device:%{public}s, not find SleProfileConnectInst!",
+                  GetEncryptAddr(device.GetAddress()).c_str());
+        return;
+    }
+    profConnInst->SetSilentPortFlag(isSilentPort);
+}
+
 InterfaceProfileSsapClient *SleProfileConnectManager::GetSsapClientService() const
 {
     return static_cast<InterfaceProfileSsapClient *>

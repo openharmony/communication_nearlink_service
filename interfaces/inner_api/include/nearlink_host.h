@@ -257,8 +257,12 @@ public:
 /**
  * @brief Represents framework host device.
  *
+ * 说明：仅声明未实现（无任何定义）的接口（如 GetLocalSupportedUuids/GetLocalProfileUuids/
+ * GetLocalDeviceAppearance/SetLocalDeviceAppearance）不建立桥接转发（拆分前框架亦未导出）。
+ * 
  * @since 6
  */
+class NearlinkBaseHost;
 class NEARLINK_API NearlinkHost {
 public:
     /**
@@ -429,14 +433,6 @@ public:
      *         returns <b>false</b> if nearlink is not support to caller.
      */
     bool IsNearlinkSupport() const;
-
-    /**
-     * @brief Check whether nearlink frame4 is supported. Caller needn't ensure nearlink is on.
-     *
-     * @return Returns <b>true</b> if nearlink frame4 is support to caller;
-     *         returns <b>false</b> if nearlink frame4 is not support to caller.
-     */
-    bool IsNearlinkSupportFrame4() const;
 
     /**
      * @brief Check whether nearlink audio is Support.
@@ -660,11 +656,12 @@ public:
      */
     bool IsBasSupported();
 private:
+    bool IsNearlinkSupportFrame4() const;
+
     NearlinkHost();
     ~NearlinkHost();
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkHost);
-    struct impl;
-    std::shared_ptr<impl> pimpl;
+    NearlinkBaseHost &impl_;
 };
 
 } // namespace Nearlink

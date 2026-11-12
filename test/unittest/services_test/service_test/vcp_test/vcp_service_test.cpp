@@ -14,7 +14,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <thread>
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 #include "SleServiceManager.h"
 #include "nearlink_access_token_mock.h"
 #include "VcpService.h"
@@ -37,8 +39,6 @@ public:
 };
 
 namespace {
-constexpr int VCP_SERVICE_UT_DELAY_50_MS = 50;
-constexpr int VCP_SERVICE_TDD_DELAY_1000_MS = 1000;
 VcpClientObserverCommon g_vcpServiceObserver_;
 }
 
@@ -48,15 +48,15 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    std::unique_ptr<VcpService> service_;
 };
 
 void NearlinkVcpServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase NearlinkVcpServiceTest start");
-    NearlinkAccessTokenMock::SetNativeTokenInfo();
-    SleInterfaceManager::GetInstance()->Start();
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_TDD_DELAY_1000_MS));
+    // VCP service tests own their service; vendor stack startup is an integration dependency.
     HILOGI("SetUpTestCase NearlinkVcpServiceTest end");
 }
 
@@ -68,11 +68,22 @@ void NearlinkVcpServiceTest::TearDownTestCase()
 void NearlinkVcpServiceTest::SetUp()
 {
     HILOGI("SetUp NearlinkVcpServiceTest.");
+    // VCP tasks execute synchronously in the test thread; no sleep is needed after calls.
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_VCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    service_ = std::make_unique<VcpService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_VCP, service_.get());
+    ASSERT_EQ(service_.get(), VcpService::GetService());
 }
 
 void NearlinkVcpServiceTest::TearDown()
 {
     HILOGI("TearDown NearlinkVcpServiceTest.");
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_VCP, nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /**
@@ -84,7 +95,7 @@ HWTEST_F(NearlinkVcpServiceTest, GetService001, TestSize.Level1)
 {
     HILOGI("GetService001 start");
     VcpService* vcpService = VcpService::GetService();
-    EXPECT_NE(nullptr, vcpService);
+    ASSERT_NE(nullptr, vcpService);
     HILOGI("GetService001 end");
 }
 
@@ -97,12 +108,12 @@ HWTEST_F(NearlinkVcpServiceTest, Disable001, TestSize.Level1)
 {
     HILOGI("Disable001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     vcpService->Disable();
     EXPECT_NE(nullptr, vcpService);
 
     vcpService->Disable();
     EXPECT_NE(nullptr, vcpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Disable001 end");
 }
 
@@ -115,12 +126,12 @@ HWTEST_F(NearlinkVcpServiceTest, Enable001, TestSize.Level1)
 {
     HILOGI("Enable001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     vcpService->Enable();
     EXPECT_NE(nullptr, vcpService);
 
     vcpService->Enable();
     EXPECT_NE(nullptr, vcpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Enable001 end");
 }
 
@@ -133,6 +144,7 @@ HWTEST_F(NearlinkVcpServiceTest, RegisterObserver001, TestSize.Level1)
 {
     HILOGI("RegisterObserver001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     vcpService->RegisterObserver(g_vcpServiceObserver_);
     EXPECT_NE(nullptr, vcpService);
     HILOGI("RegisterObserver001 end");
@@ -147,6 +159,7 @@ HWTEST_F(NearlinkVcpServiceTest, DeregisterObserver001, TestSize.Level1)
 {
     HILOGI("DeregisterObserver001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     vcpService->DeregisterObserver(g_vcpServiceObserver_);
     EXPECT_NE(nullptr, vcpService);
     HILOGI("DeregisterObserver001 end");
@@ -161,6 +174,7 @@ HWTEST_F(NearlinkVcpServiceTest, SetDeviceAbsoluteVolume001, TestSize.Level1)
 {
     HILOGI("SetDeviceAbsoluteVolume001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t volumeInvalid = -1;
@@ -176,7 +190,6 @@ HWTEST_F(NearlinkVcpServiceTest, SetDeviceAbsoluteVolume001, TestSize.Level1)
     vcpService->SetDeviceAbsoluteVolume(*device, volumeFive,
         static_cast<uint8_t>(VolumeStreamType::SLE_STREAM_CALL));
     EXPECT_NE(nullptr, vcpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("SetDeviceAbsoluteVolume001 end");
 }
 
@@ -189,6 +202,7 @@ HWTEST_F(NearlinkVcpServiceTest, GetDeviceMediaVolume001, TestSize.Level1)
 {
     HILOGI("GetDeviceMediaVolume001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t mediaVolume = vcpService->GetDeviceMediaVolume(*device);
@@ -205,6 +219,7 @@ HWTEST_F(NearlinkVcpServiceTest, GetDeviceCallVolume001, TestSize.Level1)
 {
     HILOGI("GetDeviceCallVolume001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t callVolume = vcpService->GetDeviceCallVolume(*device);
@@ -221,11 +236,11 @@ HWTEST_F(NearlinkVcpServiceTest, SwitchAbsVolumeDevice001, TestSize.Level1)
 {
     HILOGI("SwitchAbsVolumeDevice001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     vcpService->SwitchAbsVolumeDevice(*device, true);
     EXPECT_NE(nullptr, vcpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("SwitchAbsVolumeDevice001 end");
 }
 
@@ -238,6 +253,7 @@ HWTEST_F(NearlinkVcpServiceTest, SetAllStreamVolume001, TestSize.Level1)
 {
     HILOGI("SetAllStreamVolume001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     vcpService->SetAllStreamVolume(*device);
@@ -254,6 +270,7 @@ HWTEST_F(NearlinkVcpServiceTest, GetConnectState001, TestSize.Level1)
 {
     HILOGI("GetConnectState001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     int connectState = vcpService->GetConnectState();
     EXPECT_EQ(0, connectState);
     HILOGI("GetConnectState001 end");
@@ -268,6 +285,7 @@ HWTEST_F(NearlinkVcpServiceTest, Connect001, TestSize.Level1)
 {
     HILOGI("Connect001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int ret = vcpService->Connect(*device);
@@ -284,6 +302,7 @@ HWTEST_F(NearlinkVcpServiceTest, Disconnect001, TestSize.Level1)
 {
     HILOGI("Disconnect001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int ret = vcpService->Disconnect(*device);
@@ -300,6 +319,7 @@ HWTEST_F(NearlinkVcpServiceTest, GetConnectDevices001, TestSize.Level1)
 {
     HILOGI("GetConnectDevices001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::list<RawAddress> connectedDevices = vcpService->GetConnectDevices();
     EXPECT_NE(nullptr, vcpService);
     HILOGI("GetConnectDevices001 end");
@@ -314,11 +334,13 @@ HWTEST_F(NearlinkVcpServiceTest, ProcessVolumeChangeEvent001, TestSize.Level1)
 {
     HILOGI("ProcessVolumeChangeEvent001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::string addrOther = "00:11:22:33:44:66";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t volume = 0;
     ASCService *ascService = ASCService::GetService();
+    ASSERT_NE(nullptr, ascService);
     ascService->SetActiveSinkDevice(NearlinkRawAddress(addrOther), 0);
     vcpService->ProcessVolumeChangeEvent(*device, volume);
     EXPECT_NE(nullptr, vcpService);
@@ -331,7 +353,6 @@ HWTEST_F(NearlinkVcpServiceTest, ProcessVolumeChangeEvent001, TestSize.Level1)
     ascService->SetIsCallingFlag(true);
     vcpService->ProcessVolumeChangeEvent(*device, volume);
     EXPECT_NE(nullptr, vcpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessVolumeChangeEvent001 end");
 }
 
@@ -344,6 +365,7 @@ HWTEST_F(NearlinkVcpServiceTest, NotifyStateChanged001, TestSize.Level1)
 {
     HILOGI("NotifyStateChanged001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     vcpService->NotifyStateChanged(*device, static_cast<int>(SleConnectState::CONNECTED),
@@ -361,6 +383,7 @@ HWTEST_F(NearlinkVcpServiceTest, NotifyVolumeChanged001, TestSize.Level1)
 {
     HILOGI("NotifyVolumeChanged001 start");
     VcpService* vcpService = VcpService::GetService();
+    ASSERT_NE(nullptr, vcpService);
     std::string addr = "00:11:22:33:44:55";
     std::string addrOther = "00:11:22:33:44:66";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
@@ -374,6 +397,7 @@ HWTEST_F(NearlinkVcpServiceTest, NotifyVolumeChanged001, TestSize.Level1)
     streamVolumes.emplace_back(mediaStreamVolume);
 
     ASCService *ascService = ASCService::GetService();
+    ASSERT_NE(nullptr, ascService);
     ascService->SetActiveSinkDevice(NearlinkRawAddress(addrOther), 0);
     vcpService->NotifyVolumeChanged(*device, streamVolumes);
     EXPECT_NE(nullptr, vcpService);
@@ -385,7 +409,7 @@ HWTEST_F(NearlinkVcpServiceTest, NotifyVolumeChanged001, TestSize.Level1)
 
     ascService->SetIsCallingFlag(true);
     vcpService->NotifyVolumeChanged(*device, streamVolumes);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::VCP_SERVICE_UT_DELAY_50_MS));
+    EXPECT_NE(nullptr, vcpService);
     HILOGI("NotifyVolumeChanged001 end");
 }
 

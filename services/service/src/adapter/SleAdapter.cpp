@@ -100,7 +100,8 @@ constexpr int ENABLE_RETRY_MAX = 3;
 
 static const std::set<int> SLE_DISCONN_REASONS_NEED_BG_CONN = {
     NLSTK_SLE_CONNECTION_TIMEOUT, NLSTK_SLE_CONNECTION_FAILED_TO_BE_ESTABLISHED,
-    NLSTK_SLE_CONNECTION_TERMINATED_MIC_FAILURE, NLSTK_SLE_REMOTE_USER_TERMINATED_CONNECTION
+    NLSTK_SLE_CONNECTION_TERMINATED_MIC_FAILURE, NLSTK_SLE_REMOTE_USER_TERMINATED_CONNECTION,
+    NLSTK_SLE_COMMAND_TIMEOUT
 };
 
 static const std::set<int> SLE_ACB_PREVIOUS_STATE = {
@@ -2102,6 +2103,7 @@ void SleAdapter::DisconnectionCompleteTask(uint16_t lcid, const RawAddress &peer
     if (!InterfaceCloudPairService::GetInstance().IsPreparingRepair(peerAddr)) {
         pimpl->sleProfileConnectManager_.NotifyAcbDisconnected(peerAddr);
     }
+    pimpl->sleProfileConnectManager_.SetSilentPortState(peerAddr, false);
     OnAcbStateChanged(peerAddr, static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED), reason);
 
     CdsmService *cdsmService = CdsmService::GetService();
@@ -3304,6 +3306,10 @@ bool SleAdapter::IsFeatureSupported(int32_t feature) const
 {
     if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4)) {
         return NearlinkSystemConfig::IsFrame4Supported();
+    }
+    // 测距能力以芯片上报的本地能力位为准（SleFeature::IsRangSupported）
+    if (feature == static_cast<int32_t>(SleFeatureSupported::SLE_RANGING)) {
+        return SleFeature::GetInstance().IsRangSupported();
     }
     return false;
 }

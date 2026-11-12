@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,6 +132,7 @@ public:
 
     int GetProfileConnState(const RawAddress &device) const;
     bool GetSilentPortState(const RawAddress &device) const;
+    void SetSilentPortState(const RawAddress &device, bool isSilentPort) const;
     void StopTimerIfRePair( const RawAddress &device);
 
 private:

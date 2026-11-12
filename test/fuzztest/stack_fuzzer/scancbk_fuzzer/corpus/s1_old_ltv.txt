@@ -1,0 +1,1 @@
+scancbk FuzzScanRegCbk 从文件尾向前消费: [L-1]=dataLength(%6<=5), 随后 addrType/addr[6]/rssi/data[d]/eventType/dataStatus/directAddrType/directAddr[6]/primPhy/secondPhy/secondMod/secondPilotRatio/secondPolar/primFrameType/secondFrameType; 特征: data=旧格式铅笔签名前缀 03 19 C7 03 0F(受 %6 截断)

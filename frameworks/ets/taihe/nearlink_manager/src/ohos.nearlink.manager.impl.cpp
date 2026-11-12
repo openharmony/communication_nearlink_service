@@ -95,15 +95,21 @@ bool isNearLinkSupported()
     return NearlinkHost::GetInstance().IsNearlinkSupport();
 }
 
+bool isFrameType4Supported()
+{
+    HILOGI("enter");
+    return NearlinkHost::GetInstance().IsFeatureSupported(SleFeatureSupported::SLE_RADIO_FRAME_TYPE_4);
+}
+
 void setConnectionMode(::ohos::nearlink::manager::ConnectionMode mode, int duration)
 {
     HILOGI("enter");
     int32_t connectionMode = mode.get_value();
     if (connectionMode < 0 || connectionMode > 1) {
-        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTEGER);
     }
     if (duration < 0) {
-        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTERGER);
+        ANI_NL_ASSERT_RETURN_VOID(false, NL_ERR_INVALID_INTEGER);
     }
     NlErrCode err = NearlinkHost::GetInstance().SetConnectionMode(connectionMode, duration);
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
@@ -162,6 +168,7 @@ TH_EXPORT_CPP_API_getPairedDevices(getPairedDevices);
 TH_EXPORT_CPP_API_getLocalAddress(getLocalAddress);
 TH_EXPORT_CPP_API_getLocalName(getLocalName);
 TH_EXPORT_CPP_API_isNearLinkSupported(isNearLinkSupported);
+TH_EXPORT_CPP_API_isFrameType4Supported(isFrameType4Supported);
 TH_EXPORT_CPP_API_setConnectionMode(setConnectionMode);
 TH_EXPORT_CPP_API_factoryReset(factoryReset);
 TH_EXPORT_CPP_API_OnStateChange(OnStateChange);

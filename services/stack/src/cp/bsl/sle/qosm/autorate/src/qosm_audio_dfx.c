@@ -25,6 +25,7 @@
 #include "qosm_autorate_def.h"
 #include "qosm_autorate_report.h"
 #include "qosm_icg_types.h"
+#include "qosm_autorate_notify.h"
 #include "qosm_errno.h"
 #include "cm_icb_def.h"
 #include "cm_errno.h"
@@ -563,6 +564,11 @@ static void QOSM_AudioDfxParseBitrateReport(const uint8_t *buf, uint32_t len)
     STREAM_TO_UINT32(bitrateChangeResult, p);
     setLabelResult = buf[sizeof(uint32_t)];
     QOSM_LOGI("bitrate change result %u, set label result status %u", bitrateChangeResult, setLabelResult);
+    // setLabelResult非0表示DSP侧切label失败，对应status event失败，需走失败处理流程停止切码率并清理标志位
+    if (setLabelResult != 0) {
+        QOSM_LOGE("dsp set label failed, setLabelResult=%u, stop autorate flow", setLabelResult);
+        QOSM_UpdateAllICGParamFailed();
+    }
     int error = bitrateChangeResult == 0 ? (int)setLabelResult : (int)bitrateChangeResult;
     for (uint32_t i = 0; i < g_qosmAudioDfx.bitrateChangeFailCnt; i++) {
         if (g_qosmAudioDfx.bitrateChangeFail[i].error == error) {

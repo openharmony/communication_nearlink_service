@@ -92,6 +92,7 @@ ohos_unittest("nl_ccp_service_test") {
       "$NL_UNIT_TEST_DIR/service_test/ccp_test/ccp_system_interface_test.cpp",
       "$NL_UNIT_TEST_DIR/service_test/ccp_test/ccp_stack_adapter_test.cpp",
       "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_system_config.cpp",
+      "$MOCK_HOST_SERVER_FILE_TDD/mock_system_ability_manager_client.cpp",
     ]
   }
   sources += [
@@ -105,6 +106,7 @@ ohos_unittest("nl_ccp_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
     "$NEARLINK_ROOT/services/service/src/ccp/CcpStackAdapter.cpp",
   ]
 

@@ -22,6 +22,8 @@ namespace OHOS {
 namespace Nearlink {
 namespace {
     std::set<std::string> g_mockVendorAudioAddr;
+    std::set<std::string> g_mockVendorBusinessTypeAddr;
+    int g_mockSetPeerDeviceTypeCount = 0;
 }
 
 void SetMockVendorAudioDevice(const std::string &addr)
@@ -32,6 +34,26 @@ void SetMockVendorAudioDevice(const std::string &addr)
 void ClearMockVendorAudioDevice()
 {
     g_mockVendorAudioAddr.clear();
+}
+
+void SetMockVendorBusinessTypeDevice(const std::string &addr)
+{
+    g_mockVendorBusinessTypeAddr.insert(addr);
+}
+
+void ClearMockVendorBusinessTypeDevice()
+{
+    g_mockVendorBusinessTypeAddr.clear();
+}
+
+int GetMockSetPeerDeviceTypeCount()
+{
+    return g_mockSetPeerDeviceTypeCount;
+}
+
+void ClearMockSetPeerDeviceTypeCount()
+{
+    g_mockSetPeerDeviceTypeCount = 0;
 }
 
 SleRemoteDeviceAdapter::SleRemoteDeviceAdapter()
@@ -191,6 +213,9 @@ int SleRemoteDeviceAdapter::GetAcbState(const std::string &address)
 int SleRemoteDeviceAdapter::GetManufacturerBusinessType(const RawAddress &device)
 {
     HILOGI("[SleRemoteDeviceAdapter Mocker] GetManufacturerBusinessType addr:%{public}s", device.GetAddress().c_str());
+    if (g_mockVendorBusinessTypeAddr.count(device.GetAddress()) > 0) {
+        return SLE_PRIVATE_AUDIO_BUSINESS_TYPE;
+    }
     return 0;
 }
 
@@ -460,6 +485,28 @@ void SleRemoteDeviceAdapter::GetDeviceTypeInfo(const RawAddress &device, SLE_Add
 void SleRemoteDeviceAdapter::SetPeerDeviceTypeToController(const RawAddress &device)
 {
     HILOGI("[SleRemoteDeviceAdapter Mocker] SetPeerDeviceTypeToController addr:%{public}s", device.GetAddress().c_str());
+    g_mockSetPeerDeviceTypeCount++;
+}
+
+void SleRemoteDeviceAdapter::SleAddPeerList(const RawAddress &device)
+{
+    HILOGI("[SleRemoteDeviceAdapter Mocker] SleAddPeerList addr:%{public}s", device.GetAddress().c_str());
+}
+
+void SleRemoteDeviceAdapter::ClearPeerDeviceGroupId()
+{
+    HILOGI("[SleRemoteDeviceAdapter Mocker] ClearPeerDeviceGroupId");
+}
+
+void SleRemoteDeviceAdapter::SaveHidManufacturerAbilityFromAdv(const RawAddress &rawAddr)
+{
+    HILOGI("[SleRemoteDeviceAdapter Mocker] SaveHidManufacturerAbilityFromAdv addr:%{public}s",
+        rawAddr.GetAddress().c_str());
+}
+
+void SleRemoteDeviceAdapter::RestorePairedDevicesAbility2Cfgdb()
+{
+    HILOGI("[SleRemoteDeviceAdapter Mocker] RestorePairedDevicesAbility2Cfgdb");
 }
 
 void SleRemoteDeviceAdapter::AddBgConnDevice(const std::string &address)

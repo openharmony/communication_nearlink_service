@@ -17,6 +17,7 @@ group("stackfuzz") {
   deps += [
     "hadm_fuzzer:HadmFuzzTest",
     "dli_fuzzer:DliFuzzTest",
+    "DliHw_fuzzer:DliHwFuzzTest",
     "dlilayer_fuzzer:DliLayerFuzzTest",
     "sm_fuzzer:SmFuzzTest",
     "smcbknego_fuzzer:SmCbknegoFuzzTest",
@@ -70,6 +71,7 @@ group("stackfuzz") {
     "qosmautorate_fuzzer:QosmAutorateFuzzTest",
     "mcp_fuzzer:McpFuzzTest",
     "cmicb_fuzzer:CmIcbFuzzTest",
+    "sdf_fuzzer:SdfFuzzTest",
     "cdsmstack_fuzzer:CdsmStackFuzzTest",
     "ccp_fuzzer:CcpFuzzTest",
     "bas_fuzzer:BasFuzzTest",
@@ -77,5 +79,7 @@ group("stackfuzz") {
     "micp_fuzzer:MicpFuzzTest",
     "cfgdb_fuzzer:CfgdbFuzzTest",
     "disclient_fuzzer:DisClientFuzzTest",
+    "smstm_fuzzer:SmStmFuzzTest",
+    "ssape2e_fuzzer:SsapE2eFuzzTest",
   ]
 }

@@ -38,6 +38,8 @@ enum class TransferMode {
     RELIABLE = 1,      // datatransfer reliable mode
 };
 
+using ConstantFrameType = ::ohos::nearlink::constant::FrameType;
+
 std::shared_ptr<SleDataTransfer> SleDataTransferGetInstance(void)
 {
     static std::shared_ptr<SleDataTransfer> instance = SleDataTransfer::CreateSleDataTransfer();
@@ -107,6 +109,27 @@ static TaiheStatus ParseTransMode(const ::ohos::nearlink::dataTransfer::Connecti
     }
     return TaiheStatus::TAIHE_OK;
 }
+
+static TaiheStatus ParseFrameType(const ::ohos::nearlink::dataTransfer::ConnectionParams &params, uint8_t &outFrameType)
+{
+    outFrameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1);
+    if (!params.frameType.has_value()) {
+        return TaiheStatus::TAIHE_OK;
+    }
+    ConstantFrameType frameType = params.frameType.value();
+    int32_t frameTypeValue = frameType.get_value();
+    HILOGI("frameType: %{public}d", frameTypeValue);
+    if (frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_1 &&
+        frameType.get_key() != ConstantFrameType::key_t::FRAME_TYPE_4) {
+        HILOGE("Invalid frameType: %{public}d", frameTypeValue);
+        HandleSyncErr(NL_ERR_INVALID_PARAM);
+        return TaiheStatus::TAIHE_INVALID_ARG;
+    }
+    if (frameType.get_key() == ConstantFrameType::key_t::FRAME_TYPE_4) {
+        outFrameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4);
+    }
+    return TaiheStatus::TAIHE_OK;
+}
 } // namespace
 
 void CreatePort(const taihe::string_view &uuid)
@@ -150,6 +173,10 @@ void Connect(const ::ohos::nearlink::dataTransfer::ConnectionParams &params)
     TaiheStatus status = ParseTransMode(params, transMode);
     ANI_NL_ASSERT_RETURN_VOID(status == TAIHE_OK, NL_ERR_INVALID_PARAM);
     nativeParams.SetTransMode(transMode);
+    uint8_t frameType = static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1);
+    TaiheStatus frameStatus = ParseFrameType(params, frameType);
+    ANI_NL_ASSERT_RETURN_VOID(frameStatus == TAIHE_OK, NL_ERR_INVALID_PARAM);
+    nativeParams.SetFrameType(frameType);
 
     NlErrCode err = sleDataTransfer->Connect(nativeParams);
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);

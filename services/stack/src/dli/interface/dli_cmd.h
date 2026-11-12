@@ -169,6 +169,13 @@ uint32_t DLI_ClearAcceptFilterList(void);
 uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr);
 
 /**
+ * @brief  增加白名单列表设备扩展（V2，0x0420）
+ * @param  [in]  < param > 要增加的白名单列表地址及扩展信息
+ * @return DLI_SUCCESS: 成功, OTHER: 失败
+ */
+uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param);
+
+/**
  * @brief  删除白名单列表设备
  * @param  [in]  < addr > 设备信息
  * @return 0: 成功, OTHER: 失败
@@ -425,12 +432,6 @@ uint32_t DLI_SetCmd(DLI_CmdParams *params);
  */
 uint32_t DLI_RegisterSnoopSensitiveOpcodes(const uint16_t *cmdOpcodes, uint32_t cmdNum,
     const uint16_t *evtOpcodes, uint32_t evtNum);
-
-/**
- * @brief  是否支持bypass自动回连特性
- * @return true: 支持, false: 不支持
- */
-bool DLI_IsSupportConnBypassAdv(void);
 
 uint8_t DLI_GetPhyCountByFrameType(uint8_t frameType);
 #ifdef __cplusplus

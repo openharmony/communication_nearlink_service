@@ -247,9 +247,9 @@ public:
     void SetSensorHubChannel(bool isSensorHubChannel);
 
     bool IsSensorHubChannel() const;
-    void SetAdvIndReport(bool advIndReport);
+    void SetFrameType(uint8_t frameType);
 
-    bool GetAdvIndReport() const;
+    uint8_t GetFrameType() const;
     
     void SetRssiThreshold(int8_t rssi);
 
@@ -284,7 +284,7 @@ private:
     uint8_t action_ = -1;
     int8_t rssiThreshold_ = RSSI_DEFAULT_THRESHOLD;
     bool isSensorHubChannel_ = false;
-    bool advIndReport_ = false;
+    uint8_t frameType_ = static_cast<uint8_t>(SleScanFrameType::SLE_SCAN_FRAME_TYPE_1);
 };
 }  // namespace Sle
 }  // namespace OHOS

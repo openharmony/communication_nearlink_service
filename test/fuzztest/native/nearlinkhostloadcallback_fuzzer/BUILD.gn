@@ -31,6 +31,7 @@ ohos_fuzztest("NearlinkHostLoadCallBackFuzzTest") {
   include_dirs = [
     "$NEARLINK_ROOT/utils/include",
     "$NEARLINK_ROOT/frameworks/inner/include",
+    "$NEARLINK_ROOT/frameworks/native",
     "$NEARLINK_ROOT/interfaces/inner_api/include",
     "$NEARLINK_ROOT/services/ipc/include",
     "$NEARLINK_ROOT/services/server/include",

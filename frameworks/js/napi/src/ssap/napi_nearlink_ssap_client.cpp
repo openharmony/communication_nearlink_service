@@ -116,7 +116,7 @@ void NapiNearlinkSsapClient::DefineSsapClientJSClass(napi_env env, napi_value ex
         DECLARE_NAPI_FUNCTION("requestMtuSize", RequestMtuSize),
         DECLARE_NAPI_FUNCTION("readProperty", ReadProperty),
         DECLARE_NAPI_FUNCTION("callMethod", CallMethod),
-        DECLARE_NAPI_FUNCTION("readPropertyByUuid", ReadPropertyByUuid),
+        DECLARE_NAPI_FUNCTION("readPropertiesByUuid", ReadPropertiesByUuid),
         DECLARE_NAPI_FUNCTION("writeProperty", WriteProperty),
         DECLARE_NAPI_FUNCTION("readDescriptor", ReadDescriptor),
         DECLARE_NAPI_FUNCTION("writeDescriptor", WriteDescriptor),
@@ -404,25 +404,29 @@ napi_value NapiNearlinkSsapClient::GetServicesByUuid(napi_env env, napi_callback
     auto status = CheckSsapClientArgc(env, info, &client, argv, &argc);
     NAPI_NL_ASSERT_RETURN_FALSE(env, status == napi_ok, NL_ERR_INVALID_PARAM);
 
-    NapiSsapService napiSsapService;
-    auto parseStatus = NapiParseSsapService(env, argv[PARAM0], napiSsapService);
-    NAPI_NL_ASSERT_RETURN_FALSE(env, parseStatus == NlErrCode::NL_NO_ERROR, parseStatus);
+    // 仅解析并校验serviceUuid, 规格定义其余字段不参与定位, 避免误报参数错误
+    auto keyStatus = NapiCheckObjectPropertiesName(env, argv[PARAM0],
+        {"serviceUuid", "properties", "methods", "events"});
+    NAPI_NL_ASSERT_RETURN_FALSE(env, keyStatus == napi_ok, NL_ERR_INVALID_PARAM);
+    std::string serviceUuid {};
+    auto parseStatus = NapiParseObjectUuid(env, argv[PARAM0], "serviceUuid", serviceUuid);
+    NAPI_NL_ASSERT_RETURN_FALSE(env, parseStatus == napi_ok, NL_ERR_INVALID_UUID);
+    NAPI_NL_ASSERT_RETURN_FALSE(env, !CheckBaseUuid(serviceUuid), NL_ERR_STANDARD_UUID_NOT_ALLOWED);
+    UUID uuid = UUID::FromString(serviceUuid);
     std::shared_ptr<SsapClient> ssapClient = client->GetClient();
     NAPI_NL_ASSERT_RETURN_FALSE(env, ssapClient != nullptr, NL_ERR_INTERNAL_ERROR);
 
-    auto func = [ssapClient, napiSsapService]() {
+    auto func = [ssapClient, uuid]() {
         HILOGI("start discover services by uuid");
-        int ret = ssapClient->FindStructureByUuid(napiSsapService.uuid_);
+        int ret = ssapClient->FindStructureByUuid(uuid);
         if (ret != NL_NO_ERROR) {
             return NapiAsyncWorkRet(ret, nullptr);
         }
-        std::shared_ptr<SsapService> service = ssapClient->GetService(napiSsapService.uuid_);
-        if (!service) {
-            HILOGE("service not found");
-            return NapiAsyncWorkRet(NL_ERR_INVALID_PARAM, nullptr);
-        }
         std::vector<SsapService> services;
-        services.push_back(*service);
+        NlErrCode err = ssapClient->GetServicesByUuid(uuid, services);
+        if (err != NL_NO_ERROR) {
+            return NapiAsyncWorkRet(err, nullptr);
+        }
         auto object = std::make_shared<NapiNativeSsapServiceArray>(services);
         return NapiAsyncWorkRet(NL_NO_ERROR, object);
     };
@@ -566,10 +570,10 @@ napi_value NapiNearlinkSsapClient::CallMethod(napi_env env, napi_callback_info i
     return asyncWork->GetRet();
 }
 
-napi_value NapiNearlinkSsapClient::ReadPropertyByUuid(napi_env env, napi_callback_info info)
+napi_value NapiNearlinkSsapClient::ReadPropertiesByUuid(napi_env env, napi_callback_info info)
 {
     HILOGI("enter");
-    std::shared_ptr<AsyncWorkContext> context = std::make_shared<AsyncWorkContext>("ReadPropertyByUuid", 0, false);
+    std::shared_ptr<AsyncWorkContext> context = std::make_shared<AsyncWorkContext>("ReadPropertiesByUuid", 0, false);
     NapiNearlinkSsapClient *client = nullptr;
     size_t argc = ARGS_SIZE_ONE;
     napi_value argv[ARGS_SIZE_ONE] = {};
@@ -584,14 +588,9 @@ napi_value NapiNearlinkSsapClient::ReadPropertyByUuid(napi_env env, napi_callbac
     SsapProperty property(0, napiSsapProperty.propertyUuid_, napiSsapProperty.operation_, 0);
 
     auto func = [ssapClient, property]() mutable {
-        HILOGI("start read property");
-        NlErrCode err = ssapClient->ReadPropertyByUuid(property);
-        if (err != NL_NO_ERROR) {
-            return NapiAsyncWorkRet(err, nullptr);
-        }
-        std::vector<SsapProperty> properties;
-        auto object = std::make_shared<NapiNativeSsapPropertyArray>(properties);
-        return NapiAsyncWorkRet(err, object);
+        HILOGI("start read properties by uuid");
+        NlErrCode err = ssapClient->ReadPropertiesByUuid(property);
+        return NapiAsyncWorkRet(err, nullptr);
     };
 
     auto asyncWork = NapiAsyncWorkFactory::CreateAsyncWork(env, info, func, context, ASYNC_WORK_NEED_CALLBACK);

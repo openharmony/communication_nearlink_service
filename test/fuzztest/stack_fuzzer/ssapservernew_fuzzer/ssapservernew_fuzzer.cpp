@@ -27,6 +27,7 @@
 #include "sdf_evc.h"
 #include "nai_log.h"
 #include "nlstk_init_api.h"
+#include "nlstk_schedule.h"
 #include "cm_api.h"
 #include "sle_logic_link_mgr.h"
 #include "cm_signaling_version.h"
@@ -68,6 +69,17 @@ static NLSTK_SsapUuid_S g_uuid2Net = {0x10, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 
     0x05, 0x04, 0x03, 0x02, 0x01};
 static NLSTK_SsapUuid_S g_uuid4Net = {0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
     0x06, 0x07, 0x08, 0x09, 0x10};
+
+/* 句柄域推导常量（遗留 Cache/StartService 路径）：分配规则见 ssaps_service.c:281-328/56-68 ——
+ * handleNum = 1 + 属性数（描述符不计数、不分配句柄，仅挂在属性向量下），服务声明取区间 start，
+ * 属性依次 start+1..；g_curHandle 自 SSAP_INIT_HANDLE=0x10 单调前移（ssaps_service.c:45）。
+ * SSAPS_ServiceDeInit 复位 g_curHandle=0x10（ssaps_service.c:387）但仅由栈级 SSAP_DeInit 触发
+ * （ssap_manager.c:698），本工程每输入只跑 SSAP_LinkInit/LinkDeInit 不复位 → 下列布局对首个
+ * 输入精确（AddService1: 0x10~0x12；AddService2: 0x13~0x14），后续输入游标每输入前移
+ * +15（Handle1/3/4 各消费 5 句柄），常量退化为确定性扰动范围；以实施 SHA 为准。 */
+static const uint16_t SVC1_HANDLE = 0x10;       /* AddService1 服务声明；属性2=0x12（未单列常量） */
+static const uint16_t SVC1_PROP1_HANDLE = 0x11; /* AddService1 属性1；AddService2 服务声明=0x13（未单列常量） */
+static const uint16_t SVC2_PROP1_HANDLE = 0x14; /* AddService2 属性（end=0x14） */
 
 namespace OHOS {
     static void AddService1()
@@ -134,6 +146,61 @@ namespace OHOS {
         SSAP_CacheProperty(propertyParam2);
         SDF_MemFree(propertyParam2);
         SSAP_StartService(NULL);
+    }
+
+    /* ===== app 路径：方法真实入缓存（遗留 Cache 族无方法，ssaps_service.h:49-53） ===== */
+    /* onAddService 回调实录句柄：AddService 成功后由 SsapServerAppStartServiceCallBack
+     * （ssaps_server_app.c:307）在调度线程回填真实方法句柄 */
+    static uint16_t g_appMethodHandle = 0;
+
+    static void SsapServerFuzzOnAddService(int32_t appId, SSAP_Service_S *service, NLSTK_Errcode_E ret)
+    {
+        (void)appId;
+        /* 异常分支 service==NULL（SsapServerAppAddServiceExceptionCallBack），不覆盖实录值 */
+        if (service == nullptr || ret != NLSTK_ERRCODE_SUCCESS || service->methods == nullptr ||
+            service->methods->size == 0) {
+            return;
+        }
+        SSAP_Method_S *method = (SSAP_Method_S *)SDF_VectorElementAt(service->methods, 0);
+        if (method != nullptr) {
+            g_appMethodHandle = method->handle;
+        }
+    }
+
+    /* RegApp(阻塞)+AddService(异步)：服务经 SsapServerAddService 入 g_services，句柄由
+     * SSAP_HandleAllocate 首适自 0x10 分配（ssaps_service.c:226-279，与遗留 g_curHandle
+     * 游标互不相干）：1 属性+1 方法 → 服务/属性/方法三连句柄。返回 appId（<0 失败）。
+     * 随后用阻塞的 CheckServiceExistByUuid 作 FIFO 屏障（同 worker 尾插保序，
+     * sdf_worker.c SDF_AddWork/SDF_WorkerRunOnce）：其返回即 AddService 已执行完毕、
+     * 真实方法句柄已实录。 */
+    static int32_t SsapServerAppMethodCache(void)
+    {
+        int32_t srvAppId = -1;
+        NLSTK_SsapAppServerCb_S cb = {};
+        cb.onAddService = SsapServerFuzzOnAddService;
+        if (NLSTK_SsapServerRegApp(&cb, &srvAppId) != NLSTK_ERRCODE_SUCCESS || srvAppId < 0) {
+            return -1;
+        }
+        NLSTK_SsapServicePropertyParam_S property = {};
+        property.type = ITEM_TYPE_STD_PROPERTY;
+        (void)memcpy_s(&property.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid4, sizeof(NLSTK_SsapUuid_S));
+        property.operation.operationValue = 1;
+        NLSTK_SsapServiceMethodParam_S method = {};
+        method.type = ITEM_TYPE_STD_METHOD;
+        (void)memcpy_s(&method.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
+        NLSTK_ServiceParam_S service = {};
+        service.serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+        (void)memcpy_s(&service.serviceStatement.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2,
+            sizeof(NLSTK_SsapUuid_S));
+        service.servicePropertyNum = 1;
+        service.property = &property;
+        service.serviceMethodNum = 1;
+        service.method = &method;
+        g_appMethodHandle = 0;
+        (void)NLSTK_SsapServerAddService(srvAppId, &service);
+        bool isExist = false;
+        (void)NLSTK_SsapServerCheckServiceExistByUuid(srvAppId, &service.serviceStatement.uuid, &isExist);
+        return srvAppId;
     }
 
     SSAP_BufferedOperation_S *SsapServerFuzzGet(uint8_t *data, size_t size)
@@ -207,17 +274,68 @@ namespace OHOS {
 
         SDF_BuffFree(sdfBuff);
 
+        /* 结构化 find 变体：句柄域三态（空范围/边界句柄/交叉跨服务）× findType(PROPERTY/METHOD)，
+         * 上面 buf 直填 fuzz 字节的 find 保留为扰动路径；itemType=MIX 使 CheckFindItemType 恒真
+         * （ssaps_server_find.c:65-78），命中与否只取决于句柄域。 */
+        int32_t srvAppId = SsapServerAppMethodCache();
+        SDF_Buff_S *findBuff = (SDF_Buff_S *)SDF_MemZalloc(sizeof(SDF_Buff_S) + sizeof(SSAP_PduFindStructReq_S));
+        if (findBuff != nullptr) {
+            findBuff->buffLen = sizeof(SSAP_PduFindStructReq_S);
+            findBuff->dataLen = sizeof(SSAP_PduFindStructReq_S);
+            SSAP_PduFindStructReq_S *findReq = (SSAP_PduFindStructReq_S *)SDF_DataOffset(findBuff);
+            findReq->msgCode = SSAP_FIND_STRUCTURE_REQ;
+            findReq->ctrl.itemType = FIND_ITEM_TYPE_MIX;
+            findReq->ctrl.findType = (provider.ConsumeIntegral<uint8_t>() % FUZZ_TWO) == 0 ?
+                FIND_STRUCTURE_TYPE_PROPERTY : FIND_STRUCTURE_TYPE_METHOD;
+            /* 边界态句柄：METHOD 且方法已实录时用真实方法句柄（命中），否则推导属性句柄 */
+            uint16_t bndHandle = (findReq->ctrl.findType == FIND_STRUCTURE_TYPE_METHOD &&
+                g_appMethodHandle != 0) ? g_appMethodHandle : SVC1_PROP1_HANDLE;
+            for (int state = 0; state < FUZZ_THREE; state++) {
+                if (state == 0) { /* 空范围：命中为空，走 ITEM_INEXIST 分支 */
+                    findReq->startHandle = 0x01;
+                    findReq->endHandle = SVC1_HANDLE - 1;
+                } else if (state == 1) { /* 边界：start=end=方法/属性句柄 */
+                    findReq->startHandle = bndHandle;
+                    findReq->endHandle = bndHandle;
+                } else { /* 交叉跨服务：SVC1 服务声明 ~ SVC2 属性 */
+                    findReq->startHandle = SVC1_HANDLE;
+                    findReq->endHandle = SVC2_PROP1_HANDLE;
+                }
+                SSAPS_FindReqHandle(link, findBuff);
+            }
+            if (srvAppId >= 0 && g_appMethodHandle != 0) {
+                /* 真实方法句柄精确命中：FindMethodList 非空 → 响应组包路径
+                 * （ssaps_server_find.c:1052-1077/:1106+），否则遗留服务恒 ITEM_INEXIST */
+                findReq->ctrl.findType = FIND_STRUCTURE_TYPE_METHOD;
+                findReq->startHandle = g_appMethodHandle;
+                findReq->endHandle = g_appMethodHandle;
+                SSAPS_FindReqHandle(link, findBuff);
+            }
+            SDF_MemFree(findBuff);
+        }
+
         sdfBuff = (SDF_Buff_S *)SDF_MemZalloc(sizeof(SDF_Buff_S) + sizeof(SSAP_PduCallMethodReq_S));
         sdfBuff->buffLen = sizeof(SSAP_PduCallMethodReq_S);
         sdfBuff->dataLen = sizeof(SSAP_PduCallMethodReq_S);
         buf = SDF_DataOffset(sdfBuff);
         SSAP_PduCallMethodReq_S *callMethodMsg = (SSAP_PduCallMethodReq_S *)buf;
         callMethodMsg->ctrl.fragment = 0x03;
+        if (srvAppId >= 0 && g_appMethodHandle != 0) {
+            /* 真实方法句柄优先：GetMethodByHandle 命中 → 方法调用入队/回调分发路径
+             * （ssaps_server.c:1204-1227）；下方 fuzz handle 保留为错误路径 */
+            callMethodMsg->handle = g_appMethodHandle;
+            SSAPS_MethodCmdHandle(link, sdfBuff);
+        }
         callMethodMsg->handle = provider.ConsumeIntegral<uint16_t>();
 
         SSAPS_MethodCmdHandle(link, sdfBuff);
         SDF_MemFree(sdfBuff);
 
+        if (srvAppId >= 0) {
+            /* 收尾注销：清 app 服务并归还句柄区间（SsapServerCleanAppService →
+             * SSAPS_RemoveService → SSAP_HandleRelease），句柄分配器恢复基线 */
+            NLSTK_SsapServerDeregisterApplication(srvAppId);
+        }
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
         SleLogicLinkRemove(node);
     }
@@ -305,7 +423,9 @@ namespace OHOS {
         sdfBuff->dataLen = SSAP_READ_REQ_PDU_LEN;
         SSAP_PduReadReq_S *readReq = (SSAP_PduReadReq_S *)SDF_DataOffset(sdfBuff);
         Ssap_PduReadReqItem_S *readReqItem = (Ssap_PduReadReqItem_S *)(readReq->items);
-        readReqItem->handle = (size % FUZZ_EIGHT);
+        /* 半数输入用推导属性句柄（首输入精确命中真实属性），size%8 保留为扰动路径 */
+        readReqItem->handle = provider.ConsumeIntegral<uint8_t>() >= 0x80 ? SVC1_PROP1_HANDLE :
+            (size % FUZZ_EIGHT);
         SSAPS_ReadReqHandle(link, sdfBuff);
 
         /* hisi old dev */
@@ -392,6 +512,251 @@ namespace OHOS {
         SSAPS_ValueInd(link, static_cast<void *>(testData));
         SDF_MemFree(testData);
         SSAP_DeleteSsapLinkByAddr(&sleAddr);
+    }
+
+    /* ===== SS-S1 服务端深路径（ssaps_server.c miss 262 / ssaps_server_write.c miss 205）：
+     * 多值读（含授权属性拒绝 + 真实多值序列化）、单/多值写（可写属性经 app 路径实录真实句柄，
+     * 子项校验/长度越界）、取消写、指示确认、方法 REQ 族、pending vector 推取。 */
+    static uint16_t g_deepPropHandle = 0;
+    static uint16_t g_deepMethodHandle = 0;
+    static void SsapServerDeepOnAddService(int32_t appId, SSAP_Service_S *service, NLSTK_Errcode_E ret)
+    {
+        (void)appId;
+        if (service == nullptr || ret != NLSTK_ERRCODE_SUCCESS) {
+            return;
+        }
+        if (service->properties != nullptr && service->properties->size > 0) {
+            SSAP_Property_S *property = (SSAP_Property_S *)SDF_VectorElementAt(service->properties, 0);
+            if (property != nullptr) {
+                g_deepPropHandle = property->handle;
+            }
+        }
+        if (service->methods != nullptr && service->methods->size > 0) {
+            SSAP_Method_S *method = (SSAP_Method_S *)SDF_VectorElementAt(service->methods, 0);
+            if (method != nullptr) {
+                g_deepMethodHandle = method->handle;
+            }
+        }
+    }
+
+    /* 注册带可写属性（READ|WRITE）+ 方法的服务；阻塞屏障等 onAddService 实录真实句柄 */
+    static int32_t SsapServerDeepAppCache(void)
+    {
+        int32_t srvAppId = -1;
+        NLSTK_SsapAppServerCb_S cb = {};
+        cb.onAddService = SsapServerDeepOnAddService;
+        if (NLSTK_SsapServerRegApp(&cb, &srvAppId) != NLSTK_ERRCODE_SUCCESS || srvAppId < 0) {
+            return -1;
+        }
+        NLSTK_SsapServicePropertyParam_S property = {};
+        property.type = ITEM_TYPE_STD_PROPERTY;
+        (void)memcpy_s(&property.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid4, sizeof(NLSTK_SsapUuid_S));
+        property.operation.operationValue = SSAP_OPERATE_INDICATION_READ | SSAP_OPERATE_INDICATION_WRITE;
+        property.permission.permissionValue = SSAP_PERMISSION_NO_NEED;
+        NLSTK_SsapServiceMethodParam_S method = {};
+        method.type = ITEM_TYPE_STD_METHOD;
+        (void)memcpy_s(&method.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid3, sizeof(NLSTK_SsapUuid_S));
+        NLSTK_ServiceParam_S service = {};
+        service.serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+        (void)memcpy_s(&service.serviceStatement.uuid, sizeof(NLSTK_SsapUuid_S), &g_uuid2,
+            sizeof(NLSTK_SsapUuid_S));
+        service.servicePropertyNum = 1;
+        service.property = &property;
+        service.serviceMethodNum = 1;
+        service.method = &method;
+        g_deepPropHandle = 0;
+        g_deepMethodHandle = 0;
+        (void)NLSTK_SsapServerAddService(srvAppId, &service);
+        bool isExist = false;
+        (void)NLSTK_SsapServerCheckServiceExistByUuid(srvAppId, &service.serviceStatement.uuid, &isExist);
+        return srvAppId;
+    }
+
+    static SDF_Buff_S *SsapSrvFuzzBuff(const uint8_t *bytes, uint32_t len)
+    {
+        SDF_Buff_S *buff = SDF_BuffNew(len);
+        if (buff == nullptr) {
+            return nullptr;
+        }
+        uint8_t *buf = SDF_BuffAppend(buff, len);
+        if (buf == nullptr || memcpy_s(buf, len, bytes, len) != EOK) {
+            SDF_BuffFree(buff);
+            return nullptr;
+        }
+        return buff;
+    }
+
+    void FuzzSsapServerDeep(uint8_t *data, size_t size)
+    {
+        if (data == nullptr || size < SLE_ADDR_LEN) {
+            return;
+        }
+        FuzzedDataProvider provider(data, size);
+        AddService1();
+        AddService2();
+        SLE_Addr_S sleAddr;
+        (void)memcpy_s(sleAddr.addr, SLE_ADDR_LEN, data, SLE_ADDR_LEN);
+        sleAddr.type = PUBLIC_ADDRESS;
+        SleLogicLinkInit();
+        SleLogicLink_S *node = SleLogicLinkAdd(&sleAddr);
+        if (node == nullptr) {
+            return;
+        }
+        node->lcid = 0x6D11;
+        SSAP_Link_S *link = SSAP_CreateSsapLink(&sleAddr, node->lcid, SendFunc);
+        if (link == nullptr) {
+            SleLogicLinkRemove(node);
+            return;
+        }
+        int32_t srvAppId = SsapServerDeepAppCache();
+
+        /* —— 请求族域表主驱动（取代原 deny/ok/wr×4/ack/method×2/rbu 常量模板全量重放，
+         * 模板语义下沉 corpus seed_srv_*）：每轮 FDP 选一族；句柄域走
+         * {实录句柄, 0, 0x99 非法档, fdp%0x20} 域表 FDP 选择；子项数/长度/值域全 FDP —— */
+        static const uint8_t SRV_FAM_TABLE[] = {
+            SSAP_READ_REQ,        /* 0: 多值读（含授权拒绝 + 真实序列化 :427-447/:456-641）*/
+            SSAP_WRITE_REQ,       /* 1: 写族（ssaps_server_write.c 单/多/取消/子项校验）*/
+            SSAP_VALUE_ACK,       /* 2: 指示确认（:1116-1141）*/
+            SSAP_CALL_METHOD_REQ, /* 3: 方法 REQ（:1275 → MethodHandle→MethodExecute）*/
+            SSAP_READ_BY_UUID_REQ, /* 4: 多值处理（multiProcessing 组包 :923-1014）*/
+        };
+        uint8_t famIdx = provider.ConsumeIntegral<uint8_t>() % (sizeof(SRV_FAM_TABLE) / sizeof(SRV_FAM_TABLE[0]));
+        uint8_t handleRaw = provider.ConsumeIntegral<uint8_t>() % 0x20;
+        uint8_t handleIdx = provider.ConsumeIntegral<uint8_t>() % 4;
+        /* 句柄域表：实录可写属性/方法句柄（真实注册回录）、0 档、0x99 非法档、FDP 小域档 */
+        uint16_t propTable[4] = {g_deepPropHandle, 0, 0x99, handleRaw};
+        uint16_t methTable[4] = {g_deepMethodHandle, 0, 0x99, handleRaw};
+        uint16_t handle = propTable[handleIdx];
+        uint8_t req[7 + SSAP_UUID128_LEN]; /* RBU req：头 7 + uuid16 */
+        uint32_t reqLen = 2;
+        req[0] = SRV_FAM_TABLE[famIdx];
+        req[1] = 0x03;
+        void (*handler)(SSAP_Link_S *, SDF_Buff_S *) = SSAPS_ReadReqHandle;
+        switch (famIdx) {
+            case 0: {
+                /* 多值读：条目数 FDP（1..3，>1 走 CheckMultiReadAuthNeed/ReadMultiHandleReq），
+                 * 条目 = handle2 + type1，句柄取域表值 */
+                uint8_t itemNum = (uint8_t)(provider.ConsumeIntegral<uint8_t>() % 3 + 1);
+                for (uint8_t i = 0; i < itemNum; i++) {
+                    req[2 + 3 * i] = (uint8_t)(handle & 0xFF);
+                    req[3 + 3 * i] = (uint8_t)(handle >> 8);
+                    req[4 + 3 * i] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                }
+                reqLen = 2 + 3 * itemNum;
+                break;
+            }
+            case 1: {
+                /* 写族四档 FDP：单值写（真实可写句柄成功路径）/多值写（子项校验+执行+回环）/
+                 * 取消写单包（oper=CANCEL<<3|NO_FRAG）/子项数 0（INVALID_HANDLE 结果项） */
+                uint8_t writeTier = provider.ConsumeIntegral<uint8_t>() % 4;
+                if (writeTier == 0) { /* 单值写：{handle2, type1, value} */
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    req[4] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                    uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                    for (uint8_t i = 0; i < valLen; i++) {
+                        req[5 + i] = provider.ConsumeIntegral<uint8_t>();
+                    }
+                    reqLen = 5 + valLen;
+                } else if (writeTier == 1) { /* 多值写：{handle2, subNum, subs{type1, len2, value}} */
+                    req[1] = 0x07;
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    uint8_t subNum = provider.ConsumeIntegral<uint8_t>() % 3;
+                    req[4] = subNum;
+                    uint32_t off = 5;
+                    for (uint8_t s = 0; s < subNum && off + 3 < sizeof(req); s++) {
+                        req[off++] = provider.ConsumeIntegral<uint8_t>(); /* type */
+                        uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                        req[off++] = valLen; /* 声明长度域（LE 2B，超实际值 → INVALID_PDU 档） */
+                        req[off++] = provider.ConsumeIntegral<uint8_t>() % 0x40;
+                        for (uint8_t i = 0; i < valLen && off < sizeof(req); i++) {
+                            req[off++] = provider.ConsumeIntegral<uint8_t>();
+                        }
+                    }
+                    reqLen = off;
+                } else if (writeTier == 2) { /* 取消写单包：ctrl = CANCEL<<3|NO_FRAG */
+                    req[1] = 0x13;
+                    req[2] = 0x00;
+                    reqLen = 3;
+                } else { /* 子项数 0 → INVALID_HANDLE 结果项（:653-657） */
+                    req[1] = 0x07;
+                    req[2] = (uint8_t)(handle & 0xFF);
+                    req[3] = (uint8_t)(handle >> 8);
+                    req[4] = 0x00;
+                    reqLen = 5;
+                }
+                handler = SSAPS_WriteReqHandle;
+                break;
+            }
+            case 2: {
+                /* 指示确认：结果域 FDP（RECV_SUCCESS/RECV_FAIL → 应用回调 :1116-1141） */
+                req[2] = provider.ConsumeIntegral<uint8_t>() % 2;
+                reqLen = 3;
+                handler = SSAPS_ValueAckHandle;
+                break;
+            }
+            case 3: {
+                /* 方法 REQ：{handle2, 参数值}，句柄取方法域表（实录方法句柄命中 / 非法错误响应） */
+                uint16_t methHandle = methTable[handleIdx];
+                req[2] = (uint8_t)(methHandle & 0xFF);
+                req[3] = (uint8_t)(methHandle >> 8);
+                uint8_t valLen = provider.ConsumeIntegral<uint8_t>() % 4;
+                for (uint8_t i = 0; i < valLen; i++) {
+                    req[4 + i] = provider.ConsumeIntegral<uint8_t>();
+                }
+                reqLen = 4 + valLen;
+                handler = SSAPS_MethodReqHandle;
+                break;
+            }
+            default: {
+                /* 按 UUID 读多值（link->multiProcessing=true → AddMultiOneItem 组包）：
+                 * 句柄域铺底 + uuid16 全 FDP（匹配/不匹配双档） */
+                req[1] = SSAP_READ_BY_CUSTOM_UUID_CONTROL;
+                req[2] = 0x10;
+                req[3] = 0x00;
+                req[4] = 0xFF;
+                req[5] = 0xFF;
+                req[6] = 0x00;
+                for (int i = 0; i < SSAP_UUID128_LEN; i++) {
+                    req[7 + i] = provider.ConsumeIntegral<uint8_t>();
+                }
+                reqLen = 7 + SSAP_UUID128_LEN;
+                handler = SSAPS_ReadByUuidReqHandle;
+                link->multiProcessing = true; /* 域铺底：多值处理组包路径 */
+                break;
+            }
+        }
+        SDF_Buff_S *famBuff = SsapSrvFuzzBuff(req, reqLen);
+        if (famBuff != nullptr) {
+            handler(link, famBuff);
+            SDF_BuffFree(famBuff);
+        }
+        link->multiProcessing = false;
+        /* —— 7. pending vector 推/取/清（ssaps_server.c:133-194，授权挂起队列机制）—— */
+        {
+            SSAP_BufferedOperation_S *operation = (SSAP_BufferedOperation_S *)SDF_MemZalloc(
+                sizeof(SSAP_BufferedOperation_S) + 2);
+            if (operation != nullptr) {
+                operation->value.len = 2;
+                operation->value.value[0] = 0x11;
+                operation->value.value[1] = 0x22;
+                (void)memcpy_s(&operation->addr, sizeof(SLE_Addr_S), &sleAddr, sizeof(SLE_Addr_S));
+                if (SSAPS_PushOperationPenddingVector(operation)) {
+                    size_t idx = 0;
+                    (void)SSAPS_PopOperationPenddingVector(operation->requestId, &idx);
+                    (void)SSAPS_PopOperationPenddingVector(0x7FFF, &idx); /* 未命中 → NULL 分支 */
+                }
+                SDF_MemFree(operation);
+                SSAPS_CleanPendingVectorByAddr(&sleAddr);
+            }
+        }
+
+        if (srvAppId >= 0) {
+            NLSTK_SsapServerDeregisterApplication(srvAppId);
+        }
+        SSAP_DeleteSsapLinkByAddr(&sleAddr);
+        SleLogicLinkRemove(node);
     }
 
     void FuzzSsapServerApi(uint8_t *data, size_t size)
@@ -521,6 +886,7 @@ namespace OHOS {
         FuzzSsapServerHandle2(data, size);
         FuzzSsapSendAndRecvPkt(data, size);
         FuzzSsapServerApi(data, size);
+        FuzzSsapServerDeep(data, size);
         FuzzSsapServerAsyncApi(data, size);
         SSAP_LinkDeInit();
     }
@@ -536,15 +902,23 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     ret = NLSTK_InitStack();
     if (ret != 0) {
         NAI_LOG_ERROR("NAI_InitStack failed, ret:%{public}d", ret);
-        return 1;
+    } else {
+        NAI_LOG_INFO("NAI_InitStack success");
+        res = NLSTK_EnableStack();
+        if (res != 0) {
+            NAI_LOG_ERROR("NLSTK_EnableStack failed, ret:%{public}d", res);
+        } else {
+            NAI_LOG_INFO("NLSTK_EnableStack success");
+        }
     }
-    NAI_LOG_INFO("NAI_InitStack success");
-    res = NLSTK_EnableStack();
-    if (res != 0) {
-        NAI_LOG_ERROR("NLSTK_EnableStack failed, ret:%{public}d", res);
-        return 1;
-    }
-    NAI_LOG_INFO("NLSTK_EnableStack success");
+    /* 补调度三件套（幂等保障，成功/失败分支均可达）：app 路径 RegApp/Deregister 走
+     * SchedulePostTaskBlocked、AddService 走 SchedulePostTask，调度器不活则 appId 恒 -1；
+     * InitStack/EnableStack 失败回滚会销毁调度器（nlstk_init.c:510/:533），失败分支不再
+     * early-return（返回值不拦 libFuzzer 继续跑输入）——照 ssapappserverapi_fuzzer.cpp:210-230
+     * / uapi 先例；ScheduleEnable 幂等（nlstk_schedule.c:65-71）。 */
+    (void)SDF_ThreadInit(10);
+    (void)SDF_EvcInit();
+    (void)ScheduleEnable();
     NAI_LOG_INFO("ssapservernew_fuzzer init success");
     return 0;
 }

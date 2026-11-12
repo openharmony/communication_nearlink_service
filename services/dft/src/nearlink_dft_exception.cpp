@@ -63,6 +63,8 @@ constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
 constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该默认值进行大数据上报
+// 同一设备一小时内最多上报一次
+constexpr const int64_t CONN_TIMEOUT_REPORT_INTERVAL_MS = 3600000;
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
 static NearlinkSafeMap<std::string, std::string> g_dftTaskMap;
@@ -81,6 +83,9 @@ static NearlinkSafeMap<uint32_t, std::string> g_scanPkgMap;     // <scannerId, p
 constexpr const uint16_t CDSM_AUDIO_DEVICE_NUM = 2;
 static uint16_t g_streamCountSuccess = 0;
 static bool g_airplaneModeFlag = false;
+static NearlinkSafeMap<std::string, ConnTimeoutRecord> g_connTimeoutRecords; // <addr, 建链超时失败限频统计>
+static void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason);
+static void DftFlushConnTimeoutExcep(const std::string &addr);
 
 void DftCacheAcbStartConn(const std::string &addr)
 {
@@ -100,11 +105,14 @@ void DftCacheAcbDisConn(const std::string &addr, const std::string &callingName)
 void DftCacheAcbFinishConn(const std::string &addr, uint32_t result, int32_t reason, uint32_t count, uint16_t lcid)
 {
     if (result == CM_STATE_DISCONNECTED && lcid == DFT_INVALID_LCID && reason == DFT_CONNECTION_TIMEOUT) {
-        DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-        DftCacheDisconnInfoMsg(addr, DFT_DISCONN_CONNTIMEOUT);
+        DftDealConnTimeoutExcep(addr, reason);
+    } else {
+        DftConnStateChange(addr, result, reason);
+        if (result == CM_STATE_DISCONNECTED) {
+            DftFlushConnTimeoutExcep(addr);
+        }
     }
 
-    DftConnStateChange(addr, result, reason);
     DftDealAccurateSearchConnInfo(addr, result, reason);
     DftCachePairAcbFinish(addr, result, reason, count);
     DftDealMultideviceInfo(addr, result);
@@ -255,7 +263,7 @@ void DftCacheConnInfoTime(const std::string &addr, DftConnInfoParamEnum paramId)
     DftManagerCache(DFT_CONN_INFO, params.data(), params.size());
 }
 
-static void DftReportDisconn(const std::string &addr, int32_t reason)
+static void DftReportDisconn(const std::string &addr, int32_t reason, const std::string &disconnTime = "")
 {
     std::vector<DftParamC> refKeys;
     refKeys.emplace_back(CreateStrParamC(PEER_INFO_ADDR, addr));
@@ -263,7 +271,7 @@ static void DftReportDisconn(const std::string &addr, int32_t reason)
     DftSubEventRefC peerInfoRef = {DFT_PEER_INFO, refKeys.data(), refKeys.size()};
     DftSubEventRefC connInfoRef = {DFT_CONN_INFO, refKeys.data(), refKeys.size()};
 
-    std::string time = GetMillTime(true);
+    std::string time = disconnTime.empty() ? GetMillTime(true) : disconnTime;
     std::vector<DftParamC> params;
     params.emplace_back(CreateStrParamC(DISCONN_PEER_ADDR, addr));
     params.emplace_back(CreateUi16ParamC(DISCONN_PEER_TYPE, static_cast<int>(NlTransportType::NL_TRANSPORT_SLE)));
@@ -280,6 +288,80 @@ static void DftReportDisconn(const std::string &addr, int32_t reason)
         g_sceneFlag = false;
     }
     DftManagerReport(DFT_DISCONN_EXCEP, params.data(), params.size());
+}
+
+void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
+{
+    int64_t nowMs = GetTimestamp();
+    std::vector<std::string> expiredAddrs;
+    g_connTimeoutRecords.Iterate([&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            expiredAddrs.push_back(key);
+        }
+    });
+    for (const auto &expiredAddr : expiredAddrs) {
+        g_connTimeoutRecords.Erase(expiredAddr);
+    }
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    bool needReport = false;
+    // 确保统计记录存在，已存在时不覆盖
+    ConnTimeoutRecord newRecord;
+    newRecord.failCount = 0;
+    newRecord.lastReportMs = 0;
+    g_connTimeoutRecords.Insert(addr, newRecord);
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0) {
+            record.firstFailTime = GetMillTime(true);
+        }
+        record.failCount++;
+        failCount = record.failCount;
+        if (record.lastReportMs != 0 && (nowMs - record.lastReportMs) < CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            return;
+        }
+        needReport = true;
+        firstFailTime = record.firstFailTime;
+        record.lastReportMs = nowMs;
+        record.failCount = 0;
+        record.firstFailTime.clear();
+    });
+    if (!needReport) {
+        return;
+    }
+    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
+    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
+    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
+    DftReportDisconn(addr, reason, firstFailTime);
+}
+
+void DftFlushConnTimeoutExcep(const std::string &addr)
+{
+    int64_t nowMs = GetTimestamp();
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    bool needReport = false;
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0) {
+            return;
+        }
+        if (record.lastReportMs != 0 && (nowMs - record.lastReportMs) < CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            return;
+        }
+        needReport = true;
+        failCount = record.failCount;
+        firstFailTime = record.firstFailTime;
+        record.failCount = 0;
+        record.firstFailTime.clear();
+        record.lastReportMs = nowMs;
+    });
+    if (!needReport) {
+        return;
+    }
+    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
+    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
+    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
+    DftReportDisconn(addr, DFT_CONNECTION_TIMEOUT, firstFailTime);
 }
 
 void DftConnStateChange(const std::string &addr, uint8_t state, uint32_t resaon)
@@ -760,6 +842,7 @@ void DftReportUnPairFailInfo(const std::string &addr, int32_t status, uint16_t r
 
 void DftReportUnPairSuccessInfo(const std::string &addr, int32_t status, uint16_t result)
 {
+    g_connTimeoutRecords.Erase(addr);
     if (DftUnpairTaskFind(addr)) {
         std::string time = GetMillTime(true);
         std::vector<DftParamC> params;

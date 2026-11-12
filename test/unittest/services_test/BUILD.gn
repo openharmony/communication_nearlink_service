@@ -19,6 +19,7 @@ group("nl_services_test") {
     "server_test:nl_server_unittest",
     "service_test:nl_service_unittest",
     "dft_test:dft_test",
+    "hibox_test:nl_hibox_unittest",
     "parameter_test:nearlink_parameter_unittest",
   ]
 }

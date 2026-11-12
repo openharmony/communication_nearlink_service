@@ -23,6 +23,9 @@
 #include "sdf_mem.h"
 #include "sdf_thread.h"
 #include "securec.h"
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 typedef struct SlePkt {
     uint8_t *data;
@@ -37,12 +40,22 @@ int SleSendDliPacket(const SlePkt *packet)
 
 namespace OHOS {
 
+/* 单输入内状态一致性：创建成功后的 streamId 由事件回调异步交付，
+ * 在此捕获供同一次输入内的后续 Config/Start/Open/Change/Release 复用。 */
+static std::atomic<uint8_t> g_lastEvent { UCHAR_MAX };
+static std::atomic<uint8_t> g_lastResult { UCHAR_MAX };
+static std::atomic<uint8_t> g_streamId { 0 };
+
+static constexpr int WAIT_EVENT_TIMEOUT_MS = 100;
+
 static void ActmEventCbkImpl(SLE_Addr_S *addr, uint8_t eventType, uint8_t result, void *param)
 {
     (void)addr;
-    (void)eventType;
-    (void)result;
-    (void)param;
+    if (eventType == NLSTK_ACTM_EVENT_CREATE_STREAM && result == NLSTK_ACTM_SUCCESS && param != nullptr) {
+        g_streamId.store(reinterpret_cast<NLSTK_ActmStreamInfo_S *>(param)->streamId);
+    }
+    g_lastResult.store(result);
+    g_lastEvent.store(eventType);
 }
 
 static void ActmPropCbkImpl(SLE_Addr_S *addr, uint8_t num, NLSTK_ActmProp_S *prop)
@@ -105,130 +118,126 @@ static void FillActmConfig(FuzzedDataProvider &fdp, NLSTK_ActmConfig_S &config)
     config.dst = fdp.ConsumeIntegral<uint16_t>();
 }
 
-void FuzzActmCreateStream(const uint8_t *fuzzData, size_t size)
+/* 调度器为单线程 FIFO，任务按投递序执行；事件回调在任务内同步触发，
+ * 等待目标事件即等价于等待该步任务完成（有界超时，超时走未命中分支）。 */
+static bool WaitActmEvent(uint8_t event)
 {
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmStreamParam_S param = {0};
-    FillAddr(fdp, addr);
-    param.pointType = fdp.ConsumeIntegral<uint8_t>();
-    param.commType = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_ActmCreateStream(&addr, &param);
+    for (int waited = 0; waited < WAIT_EVENT_TIMEOUT_MS; waited++) {
+        if (g_lastEvent.load() == event) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return g_lastEvent.load() == event;
 }
 
-void FuzzActmConfigAudioStream(const uint8_t *fuzzData, size_t size)
+static void FillConfigParam(NLSTK_ActmConfigParam_S &param, uint8_t streamId, uint8_t pointType,
+    NLSTK_ActmConfig_S &srcConfig, NLSTK_ActmConfig_S &sinkConfig)
+{
+    param.streamId = streamId;
+    param.srcConfig = ((pointType & NLSTK_ACTM_SOURCE_POINT) != 0) ? &srcConfig : nullptr;
+    param.sinkConfig = ((pointType & NLSTK_ACTM_SINK_POINT) != 0) ? &sinkConfig : nullptr;
+    param.isImg = false;
+}
+
+void FuzzActmConsistentSequence(const uint8_t *fuzzData, size_t size)
 {
     FuzzedDataProvider fdp(fuzzData, size);
     SLE_Addr_S addr = {0};
     FillAddr(fdp, addr);
+    /* pointType ∈ {SOURCE, SINK, SOURCE|SINK}，保证 Config 派生点类型与创建时一致 */
+    uint8_t pointType = static_cast<uint8_t>(1 + fdp.ConsumeIntegral<uint8_t>() % 3);
+    NLSTK_ActmStreamParam_S createParam = {0};
+    createParam.pointType = pointType;
+    createParam.commType = fdp.ConsumeIntegral<uint8_t>();
     NLSTK_ActmConfig_S srcConfig;
     NLSTK_ActmConfig_S sinkConfig;
     (void)memset_s(&srcConfig, sizeof(srcConfig), 0, sizeof(srcConfig));
     (void)memset_s(&sinkConfig, sizeof(sinkConfig), 0, sizeof(sinkConfig));
     FillActmConfig(fdp, srcConfig);
     FillActmConfig(fdp, sinkConfig);
-    NLSTK_ActmConfigParam_S param = {0};
-    param.groupId = fdp.ConsumeIntegral<uint32_t>();
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    param.srcConfig = &srcConfig;
-    param.sinkConfig = &sinkConfig;
-    param.isImg = false;
-    param.encp.cryptAlgo = fdp.ConsumeIntegral<uint8_t>();
-    param.encp.giv = fdp.ConsumeIntegral<uint64_t>();
-    for (int i = 0; i < NLSTK_GROUP_KEY_LEN; i++) {
-        param.encp.groupKey[i] = fdp.ConsumeIntegral<uint8_t>();
-    }
-    (void)NLSTK_ActmConfigAudioStream(&addr, &param);
-}
+    uint8_t changeOp = static_cast<uint8_t>(fdp.ConsumeIntegral<uint8_t>() % 2); /* STOP/TRANS */
+    uint8_t direction = fdp.ConsumeIntegral<uint8_t>() % 2;
+    uint8_t autorateQosIndex = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t autorateLabelId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t autorateMsgType = fdp.ConsumeIntegral<uint8_t>();
+    uint32_t autorateResult = fdp.ConsumeIntegral<uint32_t>();
+    uint64_t bitrate = fdp.ConsumeIntegral<uint64_t>();
+    uint8_t invalidStreamId = fdp.ConsumeIntegral<uint8_t>();
+    uint8_t invalidChangeOp = static_cast<uint8_t>(2 + fdp.ConsumeIntegral<uint8_t>() % 2); /* API 外非法 op */
 
-void FuzzActmStartAudioStream(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
-    NLSTK_ActmConfigParam_S param = {0};
-    param.groupId = fdp.ConsumeIntegral<uint32_t>();
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    param.srcConfig = nullptr;
-    param.sinkConfig = nullptr;
-    param.isImg = false;
-    (void)NLSTK_ActmStartAudioStream(&addr, &param);
-}
-
-void FuzzActmOpenAudioStream(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmOpenParam_S param = {0};
-    FillAddr(fdp, addr);
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_ActmOpenAudioStream(&addr, &param);
-}
-
-void FuzzActmChangeAudioStream(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmChangeParam_S param = {0};
-    FillAddr(fdp, addr);
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    param.op = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_ActmChangeAudioStream(&addr, &param);
-}
-
-void FuzzActmReleaseAudioStream(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmReleaseParam_S param = {0};
-    FillAddr(fdp, addr);
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_ActmReleaseAudioStream(&addr, &param);
-}
-
-void FuzzActmSetDirection(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
-    uint8_t direction = fdp.ConsumeIntegral<uint8_t>();
-    (void)NLSTK_ActmSetDirection(&addr, direction);
-}
-
-void FuzzActmUpdateBitrate(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmBitrateParam_S param = {0};
-    FillAddr(fdp, addr);
-    param.streamId = fdp.ConsumeIntegral<uint8_t>();
-    param.bitrate = fdp.ConsumeIntegral<uint64_t>();
-    (void)NLSTK_ActmUpdateBitrate(&addr, &param);
-}
-
-void FuzzActmRecvAutoRateMsg(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    NLSTK_ActmAutoRateRecvMsg_S param = {0};
-    FillAddr(fdp, addr);
-    param.qosId = fdp.ConsumeIntegral<uint8_t>();
-    param.labelId = fdp.ConsumeIntegral<uint8_t>();
-    param.qosIndex = fdp.ConsumeIntegral<uint8_t>();
-    param.msgType = fdp.ConsumeIntegral<uint8_t>();
-    param.result = fdp.ConsumeIntegral<uint32_t>();
-    (void)NLSTK_ActmRecvAutoRateMsg(&addr, &param);
-}
-
-void FuzzActmDisconnectAndRead(const uint8_t *fuzzData, size_t size)
-{
-    FuzzedDataProvider fdp(fuzzData, size);
-    SLE_Addr_S addr = {0};
-    FillAddr(fdp, addr);
-    uint8_t streamId = fdp.ConsumeIntegral<uint8_t>();
+    /* 步骤 0：ReadRemoteProp 内部 ActmCreateRemoteDevice 建立设备（FIFO 先于后续任务） */
     (void)NLSTK_ActmReadRemoteProp(&addr);
+
+    /* 步骤 1：创建流并等待回调交付 streamId */
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmCreateStream(&addr, &createParam);
+    uint8_t streamId = 0;
+    if (WaitActmEvent(NLSTK_ACTM_EVENT_CREATE_STREAM) && g_lastResult.load() == NLSTK_ACTM_SUCCESS) {
+        streamId = g_streamId.load();
+    }
+
+    /* 步骤 2~8：同一 addr/streamId/pointType 贯穿配置、传输、开流、变更、速率 */
+    NLSTK_ActmConfigParam_S configParam = {0};
+    FillConfigParam(configParam, streamId, pointType, srcConfig, sinkConfig);
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmConfigAudioStream(&addr, &configParam);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_CONFIG);
+
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmStartAudioStream(&addr, &configParam);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_TRANS);
+
+    NLSTK_ActmOpenParam_S openParam = {0};
+    openParam.streamId = streamId;
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmOpenAudioStream(&addr, &openParam);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_OPEN);
+
+    NLSTK_ActmChangeParam_S changeParam = {0};
+    changeParam.streamId = streamId;
+    changeParam.op = changeOp;
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmChangeAudioStream(&addr, &changeParam);
+    (void)WaitActmEvent(changeOp == NLSTK_ACTM_STREAM_TRANS ? NLSTK_ACTM_EVENT_TRANS : NLSTK_ACTM_EVENT_STOP);
+
+    NLSTK_ActmBitrateParam_S bitrateParam = {0};
+    bitrateParam.streamId = streamId;
+    bitrateParam.bitrate = bitrate;
+    (void)NLSTK_ActmUpdateBitrate(&addr, &bitrateParam);
+
+    NLSTK_ActmAutoRateRecvMsg_S autorateParam = {0};
+    autorateParam.qosIndex = autorateQosIndex;
+    autorateParam.labelId = autorateLabelId;
+    autorateParam.msgType = autorateMsgType;
+    autorateParam.result = autorateResult;
+    (void)NLSTK_ActmRecvAutoRateMsg(&addr, &autorateParam);
+
+    (void)NLSTK_ActmSetDirection(&addr, direction);
+
+    /* 步骤 9：确定性清理（释放→删除→断开） */
+    NLSTK_ActmReleaseParam_S releaseParam = {0};
+    releaseParam.streamId = streamId;
+    g_lastEvent.store(UCHAR_MAX);
+    (void)NLSTK_ActmReleaseAudioStream(&addr, &releaseParam);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_RELEASE);
+
+    g_lastEvent.store(UCHAR_MAX);
     (void)NLSTK_ActmDeleteStream(&addr, streamId);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_DELETE_STREAM);
+
+    g_lastEvent.store(UCHAR_MAX);
     (void)NLSTK_ActmDisconnect(&addr);
+    (void)WaitActmEvent(NLSTK_ACTM_EVENT_DISCONNECTED);
+
+    /* 保留非法参数路径：未知 streamId 与 API 外 op 值 */
+    NLSTK_ActmReleaseParam_S badRelease = {0};
+    badRelease.streamId = invalidStreamId;
+    (void)NLSTK_ActmReleaseAudioStream(&addr, &badRelease);
+    NLSTK_ActmChangeParam_S badChange = {0};
+    badChange.streamId = streamId;
+    badChange.op = invalidChangeOp;
+    (void)NLSTK_ActmChangeAudioStream(&addr, &badChange);
 }
 
 }  // namespace OHOS
@@ -263,16 +272,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
     (void)memcpy_s(fuzzData, size, data, size);
-    OHOS::FuzzActmCreateStream(fuzzData, size);
-    OHOS::FuzzActmConfigAudioStream(fuzzData, size);
-    OHOS::FuzzActmStartAudioStream(fuzzData, size);
-    OHOS::FuzzActmOpenAudioStream(fuzzData, size);
-    OHOS::FuzzActmChangeAudioStream(fuzzData, size);
-    OHOS::FuzzActmReleaseAudioStream(fuzzData, size);
-    OHOS::FuzzActmSetDirection(fuzzData, size);
-    OHOS::FuzzActmUpdateBitrate(fuzzData, size);
-    OHOS::FuzzActmRecvAutoRateMsg(fuzzData, size);
-    OHOS::FuzzActmDisconnectAndRead(fuzzData, size);
+    OHOS::FuzzActmConsistentSequence(fuzzData, size);
     SDF_MemFree(fuzzData);
     return 0;
 }

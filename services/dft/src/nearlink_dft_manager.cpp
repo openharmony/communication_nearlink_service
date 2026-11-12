@@ -21,6 +21,7 @@
 #include "securec.h"
 #include "log.h"
 #include "nearlink_utils.h"
+#include "nearlink_app_wakeup_ue.h"
 #include "nearlink_dft_car_key_loader.h"
 
 namespace OHOS {
@@ -417,15 +418,18 @@ void NearlinkDftManager::Start(void)
 
 void NearlinkDftManager::Stop(void)
 {
-    std::lock_guard<ffrt::shared_mutex> lock(pimpl_->mutex_);
-    if (!pimpl_->queue_) {
-        HILOGI("already stop");
-        return;
+    {
+        std::lock_guard<ffrt::shared_mutex> lock(pimpl_->mutex_);
+        if (!pimpl_->queue_) {
+            HILOGI("already stop");
+            return;
+        }
+        HILOGD("stop dft ffrt");
+        pimpl_->queue_ = nullptr;
+        pimpl_->cache_.clear();
+        pimpl_->eventLru_.clear();
     }
-    HILOGD("stop dft ffrt");
-    pimpl_->queue_ = nullptr;
-    pimpl_->cache_.clear();
-    pimpl_->eventLru_.clear();
+    NearlinkAppWakeupUe::GetInstance().Shutdown();
 }
 
 void NearlinkDftManager::Report(DftEventEnum eventId, const ParamTypeSet &set)

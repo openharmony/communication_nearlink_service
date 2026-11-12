@@ -36,6 +36,7 @@ public:
     static napi_value SetConnectionMode(napi_env env, napi_callback_info info);
     static napi_value FactoryReset(napi_env env, napi_callback_info info);
     static napi_value IsNearLinkSupported(napi_env env, napi_callback_info info);
+    static napi_value IsFrameType4Supported(napi_env env, napi_callback_info info);
 private:
     static napi_value ManagerPropertyValueInit(napi_env env, napi_value exports);
     static napi_value TsNearlinkStateValueInit(napi_env env);

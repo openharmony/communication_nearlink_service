@@ -123,6 +123,7 @@ static void QOSM_StopAddConnectionTimer(struct QosICBInfo *link)
 
 static void QOSM_DestroyQosICGInfo(QOSM_ICGInfo *icgInfo)
 {
+    QOSM_LOGI("enter");
     if (icgInfo == NULL) {
         return;
     }
@@ -176,7 +177,8 @@ static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *pa
     icgInfo->isResetParam = isResetParam;
 
     icgInfo->supportSubrate =
-        CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_SUBRATE);
+        CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_SUBRATE) ||
+        CM_InnerGetRemoteStandardFeature(param->autorateParam.lcid[0], CM_STANDARD_FEATURES_BIT_SUBRATE);
     icgInfo->supportAutorate =
         CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_AUTORATE);
     QOSM_LOGI("supportSubrate: %d, supportAutorate: %d", icgInfo->supportSubrate, icgInfo->supportAutorate);
@@ -873,6 +875,7 @@ static void QOSM_StopICB(CM_ICBConnection *connection)
 
 static void QOSM_ExecuteDelayParamTask(QOSM_ICGInfo *icgInfo)
 {
+    QOSM_LOGI("enter");
     if (icgInfo->delaySetParam != NULL) {
         QOSM_LOGI("now set param, icg type: %u, id: %u", icgInfo->icbType, icgInfo->icgId);
         if (icgInfo->isAutorate) {

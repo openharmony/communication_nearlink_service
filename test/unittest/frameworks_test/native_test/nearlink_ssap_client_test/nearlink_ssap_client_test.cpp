@@ -15,7 +15,11 @@
 
 #include <gtest/gtest.h>
 
+#include "accesstoken_kit.h"
+#include "token_setproc.h"
+
 #include "nearlink_access_token_mock.h"
+#include "nearlink_test_enable_wait.h"
 #include "nearlink_def.h"
 #include "nearlink_host.h"
 #include "nearlink_ssap_client.cpp"
@@ -104,7 +108,12 @@ public:
     }
     void OnPropertyChanged(const SsapProperty &property) {}
     void OnPropertyReadResult(const SsapProperty &property, int ret) {}
-    void OnPropertiesReadResult(const std::vector<SsapProperty> &properties, int ret) {}
+    void OnPropertiesReadResult(const std::vector<SsapProperty> &properties, int ret)
+    {
+        lastProperties_ = properties;
+        lastRet_ = ret;
+        propertiesReadResultCount_++;
+    }
     void OnReadRemoteRssiValueResult(int rssi, int status) {}
     void OnPropertyWriteResult(const SsapProperty &property, int ret) {}
     void OnMethodCallResult(const SsapMethod &method, int ret) {}
@@ -115,6 +124,11 @@ public:
     void OnServicesDiscoveredByUuid(int status, const UUID &uuid) {}
     void OnConnectionParameterChanged(int interval, int latency, int timeout, int status) {}
     void OnSetPropertyNotifyResult(const SsapProperty &property, int enable, int ret) {}
+
+    // 记录OnPropertiesReadResult收参, 供OnReadPropertiesByUuid分支用例断言
+    std::vector<SsapProperty> lastProperties_ {};
+    int lastRet_ = 0;
+    int propertiesReadResultCount_ = 0;
 };
 
 class NearlinkClientServerCallbackStubTest : public NearlinkSsapClientCallbackStub {
@@ -152,11 +166,17 @@ void NearlinkSsapClientTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase start");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
+    // token 或开关没建立时，所有用例都会以 201/SLE_OFF 连坐失败，先断言前提把问题定位在源头
+    int permState = OHOS::Security::AccessToken::AccessTokenKit::VerifyAccessToken(
+        GetSelfTokenID(), "ohos.permission.ACCESS_NEARLINK");
+    ASSERT_EQ(OHOS::Security::AccessToken::PermissionState::PERMISSION_GRANTED, permState)
+        << "native token 前提未建立：SetNativeTokenInfo 后 ACCESS_NEARLINK 仍非 GRANTED";
     if (!NearlinkHost::GetInstance().IsSleEnabled()) {
         HILOGI("start enable nearlink");
-        NearlinkHost::GetInstance().EnableNl();
-        sleep(2); // sleep 2s
+        NlErrCode enableRet = NearlinkHost::GetInstance().EnableNl();
+        ASSERT_EQ(NL_NO_ERROR, enableRet) << "EnableNl 失败：开关前提未建立，后续用例将连坐";
     }
+    ASSERT_TRUE(WaitForSleEnabled()) << "SLE 使能在 20s 内未完成，无法进入用例";
     HILOGI("SetUpTestCase end");
 }
 
@@ -246,6 +266,41 @@ HWTEST_F(NearlinkSsapClientTest, FindStructure001, TestSize.Level1)
     servicePtr = ssapClient_->GetService(serviceUuid);
     EXPECT_EQ(servicePtr, nullptr);
     HILOGI("FindStructure001 end");
+}
+
+/**
+ * @tc.name: GetServicesByUuid001
+ * @tc.desc: Test SsapClient::GetServicesByUuid with no matching service.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, GetServicesByUuid001, TestSize.Level1)
+{
+    HILOGI("GetServicesByUuid001 start");
+    NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    sleep(SLEEP_TIME);
+    UUID serviceUuid = UUID::FromString(SERVICE_UUID_STRING);
+    std::vector<SsapService> services {};
+    ret = ssapClient_->GetServicesByUuid(serviceUuid, services);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    EXPECT_TRUE(services.empty());
+    HILOGI("GetServicesByUuid001 end");
+}
+
+/**
+ * @tc.name: GetServicesByUuid002
+ * @tc.desc: Test SsapClient::GetServicesByUuid before register.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, GetServicesByUuid002, TestSize.Level1)
+{
+    HILOGI("GetServicesByUuid002 start");
+    // 未Connect注册, isRegisterSucceeded_为false, 返回内部错误
+    UUID serviceUuid = UUID::FromString(SERVICE_UUID_STRING);
+    std::vector<SsapService> services {};
+    NlErrCode ret = ssapClient_->GetServicesByUuid(serviceUuid, services);
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, ret);
+    HILOGI("GetServicesByUuid002 end");
 }
 
 /**
@@ -470,7 +525,7 @@ HWTEST_F(NearlinkSsapClientTest, OnCallMethod001, TestSize.Level1)
 
 /**
  * @tc.name: OnReadPropertiesByUuid001
- * @tc.desc:
+ * @tc.desc: Test OnReadPropertiesByUuid when service not found in cache.
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid001, TestSize.Level1)
@@ -479,11 +534,75 @@ HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid001, TestSize.Level1)
     NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
     EXPECT_EQ(NL_NO_ERROR, ret);
 
-    int32_t retValue = 0;
+    // 缓存未命中不丢弃已读数据: 透传原始成功码并构建结果(服务uuid留空)
+    int32_t retValue = static_cast<int32_t>(SsapStatus::SSAP_SUCCESS);
     NearlinkSsapPropertyParcel property {};
     std::vector<NearlinkSsapPropertyParcel> properties {1, property};
     clientCallback_->OnReadPropertiesByUuid(retValue, properties);
+    EXPECT_EQ(1, ssapClientcallback_->propertiesReadResultCount_);
+    EXPECT_EQ(retValue, ssapClientcallback_->lastRet_);
+    EXPECT_EQ(size_t(1), ssapClientcallback_->lastProperties_.size());
     HILOGI("OnReadPropertiesByUuid001 end");
+}
+
+/**
+ * @tc.name: OnReadPropertiesByUuid002
+ * @tc.desc: Test OnReadPropertiesByUuid failure passthrough.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid002, TestSize.Level1)
+{
+    HILOGI("OnReadPropertiesByUuid002 start");
+    NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+
+    int32_t retValue = static_cast<int32_t>(SsapStatus::SSAP_NO_ENTRY);
+    NearlinkSsapPropertyParcel property {};
+    std::vector<NearlinkSsapPropertyParcel> properties {1, property};
+    clientCallback_->OnReadPropertiesByUuid(retValue, properties);
+    EXPECT_EQ(1, ssapClientcallback_->propertiesReadResultCount_);
+    EXPECT_TRUE(ssapClientcallback_->lastProperties_.empty());
+    EXPECT_EQ(retValue, ssapClientcallback_->lastRet_);
+    HILOGI("OnReadPropertiesByUuid002 end");
+}
+
+/**
+ * @tc.name: OnReadPropertiesByUuid003
+ * @tc.desc: Test OnReadPropertiesByUuid success path.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientTest, OnReadPropertiesByUuid003, TestSize.Level1)
+{
+    HILOGI("OnReadPropertiesByUuid003 start");
+    NlErrCode ret = ssapClient_->Connect(ssapClientcallback_);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+
+    // 预置包含目标属性的服务缓存
+    SsapService ssapService = CreateSsapService();
+    NearlinkSsapServiceParcel serviceParcel = CreateSsapServiceParcel(ssapService);
+    std::vector<NearlinkSsapServiceParcel> serviceParcelVec {1, serviceParcel};
+    ssapClient_->pimpl->BuildServiceList(serviceParcelVec);
+
+    NearlinkSsapPropertyParcel property {};
+    property.uuid_ = Uuid::ConvertFromString(PROPERTY_UUID_STRING);
+    property.opInd_ = static_cast<uint32_t>(SsapProperty::OperationIndication::OPERATION_READ);
+    const uint8_t value[3] = {1, 1, 1}; // 与CreateSsapService的属性值一致
+    property.value_ = std::vector<uint8_t>(value, value + sizeof(value));
+    std::vector<NearlinkSsapPropertyParcel> properties {1, property};
+    clientCallback_->OnReadPropertiesByUuid(static_cast<int32_t>(SsapStatus::SSAP_SUCCESS), properties);
+    EXPECT_EQ(1, ssapClientcallback_->propertiesReadResultCount_);
+    EXPECT_EQ(static_cast<int32_t>(SsapStatus::SSAP_SUCCESS), ssapClientcallback_->lastRet_);
+    EXPECT_EQ(size_t(1), ssapClientcallback_->lastProperties_.size());
+    EXPECT_TRUE(ssapClientcallback_->lastProperties_[0].GetUuid().Equals(
+        UUID::FromString(PROPERTY_UUID_STRING)));
+    EXPECT_TRUE(ssapClientcallback_->lastProperties_[0].GetServiceUuid().Equals(
+        UUID::FromString(SERVICE_UUID_STRING)));
+    size_t valueLen = 0;
+    // GetValue返回unique_ptr引用, 绑定引用避免触发已删除的拷贝构造
+    const auto &valuePtr = ssapClientcallback_->lastProperties_[0].GetValue(&valueLen);
+    EXPECT_EQ(size_t(3), valueLen);
+    EXPECT_NE(nullptr, valuePtr.get());
+    HILOGI("OnReadPropertiesByUuid003 end");
 }
 
 /**

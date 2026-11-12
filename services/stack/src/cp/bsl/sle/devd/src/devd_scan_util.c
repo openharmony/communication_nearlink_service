@@ -82,6 +82,10 @@ bool CheckFiltersLegal(NLSTK_DevdScanFilter_S *filters, uint16_t filtersNum)
         NLSTK_CHECK_RETURN(filters != NULL, false, "[DEVDS] filters is null");
     }
     for (uint16_t i = 0; i < filtersNum; i++) {
+        if (filters[i].advFrameType != ADV_FRAME_TYPE_1 && filters[i].advFrameType != ADV_FRAME_TYPE_4) {
+            NLSTK_LOG_ERROR("[DEVDS] filters i:%hu advFrameType:%hhu invalid", i, filters[i].advFrameType);
+            return false;
+        }
         if ((filters[i].name.len != 0) ^ (filters[i].name.data != NULL)) {
             NLSTK_LOG_ERROR("[DEVDS] filters i:%hu name.len:%hu", i, filters[i].name.len);
             return false;

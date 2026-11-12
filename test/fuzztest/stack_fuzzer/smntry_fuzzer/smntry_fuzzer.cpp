@@ -60,6 +60,100 @@ typedef enum {
 
 namespace OHOS {
 
+    /* PR-10 SM-D7: 免输入真材料——固定向量(与族内其余 fuzzer 同源) + 真算 DHKey,
+     * 供 Continue 腿的 DHKey/LinkKey 派生 */
+    static const uint8_t g_ntryFuzzPrivKey[SM_PRIVATE_KEY_LEN] = {
+        0x72, 0x53, 0x01, 0x65, 0x9f, 0xe0, 0xdb, 0xf1, 0xdf, 0x65, 0x55, 0x1b, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    static const uint8_t g_ntryFuzzGPubKey[SM_PUBLIC_KEY_LEN] = {
+        0x5b, 0x75, 0xdf, 0xb2, 0x5d, 0x78, 0xa0, 0x74, 0xa4, 0x37, 0x8d, 0xad, 0xc9, 0x02, 0x1e, 0xd1,
+        0xd6, 0x2e, 0x42, 0xb8, 0xe7, 0x76, 0x88, 0x07, 0x95, 0x04, 0x83, 0x95, 0x37, 0x13, 0x81, 0xd5,
+        0x85, 0x8d, 0xda, 0xbd, 0x99, 0xad, 0x9c, 0x2b, 0x6a, 0x16, 0x8e, 0x43, 0xcd, 0x7a, 0x6f, 0xc4,
+        0xfd, 0x65, 0x72, 0x11, 0x7d, 0x62, 0xb1, 0xd1, 0x0c, 0x14, 0x59, 0x82, 0x13, 0xfe, 0x3c, 0x9c,
+    };
+    static const uint8_t g_ntryFuzzTPubKey[SM_PUBLIC_KEY_LEN] = {
+        0xc6, 0x0a, 0xe7, 0x16, 0xbd, 0x4a, 0x16, 0xa8, 0xdd, 0x7c, 0x8b, 0x22, 0x4d, 0x62, 0x82, 0x20,
+        0xc1, 0xc6, 0x53, 0xec, 0x4e, 0x33, 0x87, 0xcb, 0x7c, 0xc8, 0x5f, 0xfb, 0x4f, 0x59, 0x05, 0x70,
+        0x7a, 0x3c, 0xfc, 0x3c, 0xfc, 0xfc, 0x8d, 0xba, 0xc3, 0x4e, 0x8f, 0x8a, 0x0d, 0xcf, 0x40, 0xe9,
+        0x8a, 0x2d, 0x40, 0xfb, 0xc1, 0xf0, 0x7b, 0x97, 0x1d, 0xc1, 0x27, 0xb1, 0xa1, 0xa6, 0x23, 0x11,
+    };
+    static const uint8_t g_ntryFuzzRa[SM_RANDOM_NUMBER_R_LEN] = {
+        0x2f, 0x18, 0x0c, 0x05, 0x68, 0x0c, 0xe0, 0x94, 0x5d, 0xe2, 0xe6, 0x66, 0x6e, 0xf5, 0xf8, 0x97,
+    };
+
+    static void FuzzNtryPrepSLink(SmSLink_S *slink, SmNodeType_E role)
+    {
+        slink->role = role;
+        slink->negoParams.authMethod = SM_AUTH_NO_ENTRY;
+        slink->negoParams.codeAlgoCap[SM_KEY_DERIV_ALGO_ABILITY] = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2;
+        slink->negoParams.codeAlgoCap[SM_KEY_NEGO_ALGO_ABILITY] = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2;
+        (void)memcpy_s(slink->gNode.pubKey, SM_PUBLIC_KEY_LEN, g_ntryFuzzGPubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->tNode.pubKey, SM_PUBLIC_KEY_LEN, g_ntryFuzzTPubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(slink->priKey, SM_PRIVATE_KEY_LEN, g_ntryFuzzPrivKey, SM_PRIVATE_KEY_LEN);
+        (void)memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, g_ntryFuzzRa, SM_RANDOM_NUMBER_R_LEN);
+        NLSTK_SmKeyPair_S keyPair = {
+            .algo = SM_KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2,
+        };
+        (void)memcpy_s(keyPair.priKey, SM_PRIVATE_KEY_LEN, g_ntryFuzzPrivKey, SM_PRIVATE_KEY_LEN);
+        (void)memcpy_s(keyPair.localPubKey, SM_PUBLIC_KEY_LEN, g_ntryFuzzGPubKey, SM_PUBLIC_KEY_LEN);
+        (void)memcpy_s(keyPair.remotePubKey, SM_PUBLIC_KEY_LEN, g_ntryFuzzTPubKey, SM_PUBLIC_KEY_LEN);
+        (void)SmGenDhKey(&keyPair, slink->dhKey, SM_DHKEY_LEN);
+    }
+
+    /* PR-10 SM-D7: 免输入 Ra/Rb 合法报文腿 + DHKEY 先到缓存分支(内部直调铺垫)。
+     * slink 刻意不入 g_slinkMap(同 smpscode R1 手法)。 */
+    void FuzzSMNtryRaRbLegs(const uint8_t* fuzzData, size_t size)
+    {
+        FuzzedDataProvider fdp(fuzzData, size);
+        SLE_Addr_S addr = {
+            .type = PUBLIC_ADDRESS,
+            .addr = {0x00, 0x01, 0x0c, 0xb3, 0x33, 0x47},
+        };
+        /* T 收 Ra: 存 Ra -> 发 Rb -> 北向请求回调 + 等输入; 截断 -> size 守卫 */
+        SmSLink_S *tSlink = SmSLinkCtor(&addr);
+        if (tSlink != nullptr) {
+            FuzzNtryPrepSLink(tSlink, SM_T_NODE);
+            tSlink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_T 分支 */
+            SmAuthRandomAMsg_S raMsg = {0};
+            (void)memcpy_s(raMsg.authData, SM_RANDOM_NUMBER_R_LEN, g_ntryFuzzRa, SM_RANDOM_NUMBER_R_LEN);
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_RAND_NUM_RA, tSlink, (const uint8_t *)&raMsg, sizeof(raMsg));
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_RAND_NUM_RA, tSlink,
+                (const uint8_t *)&raMsg, sizeof(raMsg) - 1);
+            /* DHKEY 先到缓存分支: uapi 定时器占用 -> 报文缓存; 用户确认后 Continue 真算 DH/LinkKey 并回放 */
+            SmAuthDhkeyMsg_S dhMsg = {0};
+            for (int i = 0; i < SM_OCTETS_16; i++) {
+                dhMsg.authData[i] = fdp.ConsumeIntegral<uint8_t>();
+            }
+            /* 先删 Ra 腿经 SmSLinkWaitUapiInput 挂上的真实 30s 定时器, 否则假句柄覆盖后
+             * timerfd 悬垂(args 指向本 slink), 30s 后 evc 线程 WaitTimeoutCbk 读已 Dtor 的 slink -> UAF(红队 P0-2) */
+            SmSLinkWaitDelUapiTimer(tSlink);
+            tSlink->uapiTimerHandle = 0x7FFF0000; /* 假句柄: 仅制造占用语义, Dtor 删除时为安全空操作 */
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_G_NODE_DHKEY, tSlink, (const uint8_t *)&dhMsg, sizeof(dhMsg));
+            SmNoEntryContinueNoentry(tSlink);
+            static bool fuzzNtryTLogged = false;
+            if (!fuzzNtryTLogged) {
+                CP_LOG_ERROR("[FUZZ]SM-D7 T legs done, state=%d", (int)tSlink->curStateIndex);
+                fuzzNtryTLogged = true;
+            }
+            SmSLinkDtor(tSlink);
+        }
+
+        /* G 收 T 确认码(内容不校验) -> 发 Ra; G 收 Rb -> 北向请求回调 + 等输入; 截断腿 */
+        SmSLink_S *gSlink = SmSLinkCtor(&addr);
+        if (gSlink != nullptr) {
+            FuzzNtryPrepSLink(gSlink, SM_G_NODE);
+            gSlink->curStateIndex = SM_STATE_AUTH; /* SmDftReport 事件分流走 AUTH_G 分支 */
+            SmAuthTCfmMsg_S cfmMsg = {0};
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_T_NODE_CFM, gSlink, (const uint8_t *)&cfmMsg, sizeof(cfmMsg));
+            SmAuthRandomBMsg_S rbMsg = {0};
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_RAND_NUM_RB, gSlink, (const uint8_t *)&rbMsg, sizeof(rbMsg));
+            SmNoEntryAuthPkgDispatcher(SM_AUTH_RAND_NUM_RB, gSlink,
+                (const uint8_t *)&rbMsg, sizeof(rbMsg) - 1);
+            SmSLinkDtor(gSlink);
+        }
+    }
+
     void FuzzSMNegoStart(const uint8_t* fuzzData, size_t size)
     {
         FuzzedDataProvider fdp(fuzzData, size);
@@ -122,6 +216,7 @@ namespace OHOS {
             .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
             .secKeyFunc = Crypto_SecKeyGenerate,
             .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
         };
         NLSTK_SmRegAlgoFuncs(&algoFuncs);
 
@@ -272,6 +367,7 @@ namespace OHOS {
 
     void FuzzSMApi(const uint8_t *fuzzData, size_t size)
     {
+        FuzzSMNtryRaRbLegs(fuzzData, size);
         FuzzSMNegoStart(fuzzData, size);
         FuzzSMNtryAuthPkg(fuzzData, size);
         FuzzSMNtryAuthPkgWithRegAlgo(fuzzData, size);
@@ -287,6 +383,15 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv)
     (void)SDF_EvcInit();
     NLSTK_InitStack();
     NLSTK_EnableStack();
+    /* PR-10 SM-D7: 初始化即注册真算法, Ra/Rb/DHKEY 缓存腿不再依赖用例中途注册 */
+    NLSTK_SmCryptoAlgoFuncs_S algoFuncs = {
+        .randNumFunc = Crypto_RandNumGenerate,
+        .pubPriKeyFunc = Crypto_PubPriKeyPairGenerate,
+        .secKeyFunc = Crypto_SecKeyGenerate,
+        .derivedKeyFunc = Crypto_DerivedKeyGenerate,
+        .sha256HashFunc = Crypto_Sha256,
+    };
+    NLSTK_SmRegAlgoFuncs(&algoFuncs);
     return 0;
 }
 

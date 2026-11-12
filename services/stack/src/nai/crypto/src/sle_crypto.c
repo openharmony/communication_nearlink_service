@@ -61,69 +61,69 @@ static EVP_PKEY *RawKeyPairToPkey(uint8_t pri[CRYPTO_PRIVATE_KEY_LEN], uint8_t p
 static EVP_PKEY *RawPubkeyTopkey(uint8_t pub[CRYPTO_PUBLIC_KEY_LEN]);
 static bool DeriveDhKey(EVP_PKEY *keyPair, EVP_PKEY *remoteKey, uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
 
-static void RandNumGenerate(uint8_t *out, uint8_t len);
-static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
-static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
+static bool RandNumGenerate(uint8_t *out, uint8_t len);
+static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN]);
+static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN]);
-static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac);
-static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
+static bool AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac);
+static bool GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash);
 
 /*****************************************************************************************
                                     Interfaces
 *****************************************************************************************/
 
-void Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
+bool Crypto_RandNumGenerate(uint8_t *out, uint8_t len)
 {
-    RandNumGenerate(out, len);
+    return RandNumGenerate(out, len);
 }
 
-void Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
+bool Crypto_PubPriKeyPairGenerate(NLSTK_SmKeyPair_S *keyPair)
 {
     switch (keyPair->algo) {
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE1:
-            break;
+            NAI_LOG_ERROR("Key negotiation algorithm KE1 is not supported.");
+            return false;
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2:
-            ECDH_PubPriKeyGenerate(keyPair->priKey, keyPair->localPubKey);
-            break;
+            return ECDH_PubPriKeyGenerate(keyPair->priKey, keyPair->localPubKey);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
-void Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
+bool Crypto_SecKeyGenerate(NLSTK_SmKeyPair_S *keyPair, uint8_t *secKey, uint8_t secKeyLen)
 {
-    NAI_CHECK_LOG_RETURN_VOID(secKeyLen == CRYPTO_SEC_KEY_LEN, "security key generate failed.");
+    NAI_CHECK_LOG_RETURN(secKeyLen == CRYPTO_SEC_KEY_LEN, false, "security key generate failed.");
     switch (keyPair->algo) {
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE1:
-            break;
+            NAI_LOG_ERROR("Key negotiation algorithm KE1 is not supported.");
+            return false;
         case KEY_NEGOTIATION_ALGORITHM_ABILITY_KE2:
-            ECDH_SecKeyGenerate(keyPair->priKey, keyPair->localPubKey, keyPair->remotePubKey, secKey);
-            break;
+            return ECDH_SecKeyGenerate(keyPair->priKey, keyPair->localPubKey, keyPair->remotePubKey, secKey);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
-void Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
+bool Crypto_DerivedKeyGenerate(NLSTK_SmDerivedMac_S *input, uint8_t *output, uint8_t outputLen)
 {
-    NAI_CHECK_LOG_RETURN_VOID(outputLen == CRYPTO_AES_CMAC_KEY_LEN, "Derived key generate failed.");
+    NAI_CHECK_LOG_RETURN(outputLen == CRYPTO_AES_CMAC_KEY_LEN, false, "Derived key generate failed.");
     switch (input->algo) {
         case KEY_DERIVATION_ALGORITHM_ABILITY_HA1:
-            break;
+            NAI_LOG_ERROR("Key derivation algorithm HA1 is not supported.");
+            return false;
         case KEY_DERIVATION_ALGORITHM_ABILITY_HA2:
-            AES_CMAC_KeyGenerate(input->key, input->buff, input->buffSize, output);
-            break;
+            return AES_CMAC_KeyGenerate(input->key, input->buff, input->buffSize, output);
         default:
             NAI_LOG_ERROR("Algo input is invalid.");
-            break;
+            return false;
     }
 }
 
-void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
+bool Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
 {
-    GenSha256Hash(value, shaHash);
+    return GenSha256Hash(value, shaHash);
 }
 
 /*****************************************************************************************
@@ -134,16 +134,18 @@ void Crypto_Sha256(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
  *  \param  out  指向输出缓冲区的指针，用于存放生成的随机数。
  *  \param  len  指定需要生成的随机数的长度（字节数）。
  */
-static void RandNumGenerate(uint8_t *out, uint8_t len)
+static bool RandNumGenerate(uint8_t *out, uint8_t len)
 {
     size_t left = len;
+    uint8_t *outStart = out;
     int fd;
     fd = open("/dev/urandom", O_RDONLY);
     if (fd < 0) {
         fd = open("/dev/random", O_RDONLY);
         if (fd < 0) {
             NAI_LOG_ERROR("Failed to generate random num, fail to open file.");
-            return;
+            (void)memset_s(outStart, len, 0, len);
+            return false;
         }
     }
     while (left > 0) {
@@ -152,12 +154,14 @@ static void RandNumGenerate(uint8_t *out, uint8_t len)
         if (ret <= 0) {
             close(fd);
             NAI_LOG_ERROR("Failed to generate random num, fail to read file.");
-            return;
+            (void)memset_s(outStart, len, 0, len);
+            return false;
         }
         left -= (size_t)ret;
         out += ret;
     }
     close(fd);
+    return true;
 }
 
 /** 此函数用于生成一对公私钥，并将其分别存储到 priKey 和 pubKey 缓冲区。
@@ -165,8 +169,9 @@ static void RandNumGenerate(uint8_t *out, uint8_t len)
  *  \param  priKey  存储生成的私钥。
  *  \param  pubKey  存储生成的公钥。
  */
-static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN])
+static bool ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t pubKey[CRYPTO_PUBLIC_KEY_LEN])
 {
+    bool ret = false;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     uint8_t findKey = 0;
@@ -186,25 +191,28 @@ static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
             } else {
                 // 不满足压缩格式要求，删除密钥
                 EVP_PKEY_free(pkey);
+                pkey = NULL;
             }
         }
         /* 重复到达上限仍然没有找到符合要求的随机数，报错退出。（大概率原因是随机数异常） */
         if (findKey == 0) {
             NAI_LOG_ERROR("Fail to get proper key pair.");
-            EVP_PKEY_CTX_free(ctx);
-            EVP_PKEY_free(pkey);
-            return;
+            break;
         }
         /* 获取随机公私钥对公钥和私钥原文 */
         if (!GenKeyPairToBuff(pkey, priKey, pubKey)) {
             NAI_LOG_ERROR("Fail to generate proper key pair to buff.");
-            EVP_PKEY_CTX_free(ctx);
-            EVP_PKEY_free(pkey);
-            return;
+            break;
         }
+        ret = true;
     } while (0);
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(pkey);
+    if (!ret) {
+        (void)memset_s(priKey, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
+        (void)memset_s(pubKey, CRYPTO_PUBLIC_KEY_LEN, 0, CRYPTO_PUBLIC_KEY_LEN);
+    }
+    return ret;
 }
 
 /** 此函数用于生成 Diffie-Hellman 密钥（dhKey），其中包含本地私钥和公钥、远程公钥的输入，并最终计算出共享的密钥。
@@ -214,7 +222,7 @@ static void ECDH_PubPriKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8
  *  \param  remotePubKey    对端公钥。
  *  \param  dhKey           最终生成的 Diffie-Hellman 共享密钥。
  */
-static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
+static bool ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t localPubKey[CRYPTO_PUBLIC_KEY_LEN],
                                 uint8_t remotePubKey[CRYPTO_PUBLIC_KEY_LEN], uint8_t secKey[CRYPTO_SEC_KEY_LEN])
 {
     uint8_t tempPri[CRYPTO_PRIVATE_KEY_LEN];
@@ -235,14 +243,16 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
     if (local == NULL) {
         NAI_LOG_ERROR("Raw local key pair error.");
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
     EVP_PKEY *remote = RawPubkeyTopkey(tempRemotePub);
     if (remote == NULL) {
         NAI_LOG_ERROR("remote pubkey to pkey error.");
         EVP_PKEY_free(local);
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
 
     uint8_t tempDhKey[CRYPTO_SEC_KEY_LEN] = {0};
@@ -252,7 +262,8 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
         EVP_PKEY_free(remote);
         (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
         (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
-        return;
+        (void)memset_s(secKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+        return false;
     }
 
     EndianReverseOctets(tempDhKey, CRYPTO_SEC_KEY_LEN);
@@ -262,6 +273,7 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
     EVP_PKEY_free(remote);
     (void)memset_s(tempPri, CRYPTO_PRIVATE_KEY_LEN, 0, CRYPTO_PRIVATE_KEY_LEN);
     (void)memset_s(tempDhKey, CRYPTO_SEC_KEY_LEN, 0, CRYPTO_SEC_KEY_LEN);
+    return true;
 }
 
 /** 该函数实现了基于 AES-CMAC (Cipher-based Message Authentication Code) 算法的消息认证码（MAC）计算。
@@ -271,13 +283,13 @@ static void ECDH_SecKeyGenerate(uint8_t priKey[CRYPTO_PRIVATE_KEY_LEN], uint8_t 
  *  \param  buffSize    输入数据的大小（字节数）。
  *  \param  mac         输出的消息认证码，计算得到的 128 位结果。
  */
-static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac)
+static bool AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, uint8_t *mac)
 {
     uint8_t keyReversed[CRYPTO_AES_CMAC_KEY_LEN];
     uint8_t *inputReversed = malloc(buffSize);
     if (inputReversed == NULL) {
         NAI_LOG_ERROR("Memory allocation error.");
-        return;
+        return false;
     }
 
     (void)memcpy_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, key, CRYPTO_AES_CMAC_KEY_LEN);
@@ -291,21 +303,21 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
         NAI_LOG_ERROR("CMAC_CTX_new error.");
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     if (CMAC_Init(ctx, keyReversed, CRYPTO_AES_CMAC_KEY_LEN, EVP_aes_128_cbc(), NULL) != 1) {
         NAI_LOG_ERROR("CMAC_Init error.");
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     if (CMAC_Update(ctx, inputReversed, buffSize) != 1) {
         NAI_LOG_ERROR("EVP_CMAC_Update error.");
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     size_t macLen = 0;
     if (CMAC_Final(ctx, mac, &macLen) != 1) {
@@ -313,12 +325,13 @@ static void AES_CMAC_KeyGenerate(uint8_t *key, uint8_t *buff, size_t buffSize, u
         CMAC_CTX_free(ctx);
         (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
         free(inputReversed);
-        return;
+        return false;
     }
     EndianReverseOctets(mac, macLen);
     CMAC_CTX_free(ctx);
     (void)memset_s(keyReversed, CRYPTO_AES_CMAC_KEY_LEN, 0, CRYPTO_AES_CMAC_KEY_LEN);
     free(inputReversed);
+    return true;
 }
 
 /*****************************************************************************************
@@ -564,21 +577,22 @@ static bool DeriveDhKey(EVP_PKEY *keyPair, EVP_PKEY *remoteKey, uint8_t dhKey[CR
     return ret;
 }
 
-static void GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
+static bool GenSha256Hash(NLSTK_VariableData_S *value, NLSTK_SmSha256Hash *shaHash)
 {
-    NAI_CHECK_LOG_RETURN_VOID(value != NULL && value->data != NULL && value->len != 0 && shaHash != NULL,
+    NAI_CHECK_LOG_RETURN(value != NULL && value->data != NULL && value->len != 0 && shaHash != NULL, false,
         "Gen Sha256 input invalid");
     SHA256_CTX sha256;
     if (SHA256_Init(&sha256) != 1) {
         NAI_LOG_ERROR("SHA256_Init failed.");
-        return;
+        return false;
     }
     if (SHA256_Update(&sha256, value->data, value->len) != 1) {
         NAI_LOG_ERROR("SHA256_Update failed.");
-        return;
+        return false;
     }
     if (SHA256_Final(shaHash->sha256Hash, &sha256) != 1) {
         NAI_LOG_ERROR("SHA256_Final failed.");
-        return;
+        return false;
     }
+    return true;
 }

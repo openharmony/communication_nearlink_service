@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,7 +10,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 import("//build/ohos.gni")
 import("//build/test.gni")
 import("../../../../../nearlink_config.gni")
@@ -144,6 +143,8 @@ ohos_unittest("nl_asc_service_test") {
   sources = [
     "$NL_UNIT_TEST_DIR/service_test/asc_test/nearlink_asc_service_test.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_cdsm_service.cpp",
+    "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_profile_service_manager.cpp",
+    "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_nlstk_actm.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_sle_adapter.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_tws_service.cpp",
     "$NL_UNIT_TEST_DIR/service_test/asc_test/mock_audio_spatialization_manager.cpp",
@@ -160,6 +161,7 @@ ohos_unittest("nl_asc_service_test") {
   configs += ["${nearlink_test_utils_path}:test_utils_config"]
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_permission_manager.cpp" ]
   sources -= [
     "$NEARLINK_ROOT/services/service/src/ServiceManagerPluginLoader/ServiceManagerPluginLoader.cpp",
     "$NEARLINK_ROOT/services/service/src/asc/ASCService.cpp",
@@ -168,6 +170,7 @@ ohos_unittest("nl_asc_service_test") {
     "$NEARLINK_ROOT/services/service/src/adapter/SleAdapter.cpp",
     "$NEARLINK_ROOT/services/service/src/audio/SleAudioFrameworkAdapter.cpp",
     "$NEARLINK_ROOT/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps
@@ -184,6 +187,14 @@ ohos_unittest("nl_asc_service_test") {
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps
+  external_deps -= [
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+  ]
+  external_deps += [
+    "access_token:libtokensetproc_shared",
+    "access_token:libpermsetproc_shared",
+  ]
 
   part_name = "nearlink"
   subsystem_name = "communication"
