@@ -23,7 +23,6 @@ config("nl_hibox_unit_test_config") {
   ]
 
   defines = [
-    "LOG_TAG = \"nearlink_test\"",
     "LOG_DOMAIN = 0xD000151",
   ]
 
