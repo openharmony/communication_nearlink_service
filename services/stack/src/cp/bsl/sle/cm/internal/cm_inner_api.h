@@ -162,6 +162,14 @@ uint32_t CM_InnerSetACBSubrate(const CM_SetACBSubrateInnerParam *param);
  */
 bool CM_InnerGetRemotePrivateFeature(uint16_t lcid, uint16_t featureBit);
 
+/**
+ * @brief  获取对端设备的标准特性，内部接口，运行在CP线程
+ * @param  [in] lcid : 异步链路唯一标识
+ * @param  [in] featureBit : 特性位图
+ * @return true：特性支持，false : 特性不支持
+ */
+bool CM_InnerGetRemoteStandardFeature(uint16_t lcid, uint16_t featureBit);
+
 #ifdef __cplusplus
 }
 #endif

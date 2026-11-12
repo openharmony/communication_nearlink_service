@@ -31,8 +31,8 @@ void DLI_RegisterExtFunc(void *soHandle)
         return;
     }
 
-    g_dliFuncList.addDeviceToAcceptFilterListExt =
-        (DLI_AddDeviceToAcceptFilterListExtPtr)dlsym(soHandle, "DLI_AddDeviceToAcceptFilterListExt");
+    g_dliFuncList.isSupportAccessFilterListExt =
+        (DLI_IsSupportAccessFilterListExtPtr)dlsym(soHandle, "DLI_IsSupportAccessFilterListExt");
     g_dliFuncList.enableFreqBandExt = (DLI_EnableFreqBandExtPtr)dlsym(soHandle, "DLI_EnableFreqBandExt");
     g_dliFuncList.acbEnableSubrate = (DLI_ACBEnableSubratePtr)dlsym(soHandle, "DLI_ACBEnableSubrate");
     g_dliFuncList.setLocalPrivateFeatures =

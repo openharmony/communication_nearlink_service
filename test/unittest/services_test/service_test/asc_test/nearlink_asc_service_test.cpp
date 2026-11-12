@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <stdio.h>
+#include <unistd.h>
 #include <gtest/gtest.h>
 #include <thread>
 #include <string>
@@ -63,6 +65,24 @@ extern void SetMockBtOut(bool isBtOut);
 extern void ClearMockVendorAudioDevice();
 extern void ClearMockAudioFwkState();
 
+// 测试目的：跑完所有用例后干净退出。先 fflush stdout/stderr 保住管道缓冲里的汇总行，
+// 再按失败用例数 _exit（保留原退出码语义），跳过静态对象析构，避开 ffrt worker
+// 在进程退出阶段回调已析构对象导致的环境级竞态崩溃。
+// R6（登记册）：_exit 会跳过 gcov 运行时的 atexit 写盘，asc 覆盖率将全部漏采。
+// 退出前显式 __gcov_dump() 把计数器落盘到 .gcda（clang coverage profile 运行时符号）。
+extern "C" void __gcov_dump(void);
+
+class CleanExitListener : public testing::EmptyTestEventListener {
+public:
+    void OnTestProgramEnd(const testing::UnitTest &) override
+    {
+        fflush(stdout);
+        fflush(stderr);
+        __gcov_dump();
+        _exit(testing::UnitTest::GetInstance()->failed_test_count() > 0 ? 1 : 0);
+    }
+};
+
 class ASCServiceTest : public testing::Test {
 public:
     ASCServiceTest() = default;
@@ -80,6 +100,8 @@ void ASCServiceTest::SetUpTestCase()
     OHOS::Nearlink::NearlinkAccessTokenMock::SetNativeTokenInfo();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::HOST_SERVER_TDD_DELAY_1000_MS));
+    // 注册干净退出监听器：汇总输出刷出后直接按失败数退出，避开 ffrt 退出竞态
+    testing::UnitTest::GetInstance()->listeners().Append(new CleanExitListener());
 }
 
 void ASCServiceTest::TearDownTestCase()
@@ -98,6 +120,8 @@ void ASCServiceTest::TearDown()
     // 无论断言成败均清理
     ClearMockVendorAudioDevice();
     ClearMockAudioFwkState();
+    // 排空用例触发的异步回调（50ms），错开 ffrt worker 退出窗口，缓解收尾竞态
+    usleep(50000);
 }
 
 /**
@@ -516,6 +540,12 @@ HWTEST_F(ASCServiceTest, OnConnectionStateChanged_002, TestSize.Level1)
     ASCService *asc = ASCService::GetService();
     asc->RegisterObserver(g_ascServiceObserver_);
     RawAddress device = RawAddress(deviceStr);
+    // 测试前提显式化（repeat 安全）：被测服务是 mock ProfileServiceManager 返回的静态实例，
+    // 设备状态跨用例/跨轮残留（如 CbkReadPropFail_001 依设计经 ReportConnectStateChanged
+    // 写入 NL_SLE_ASC_DISCONNECTED），--gtest_repeat=2 第二轮会继承该值导致本断言误判。
+    // 此处播种为 GetASCStatus 无记录时的默认值 NL_SLE_ASC_ENABLED，与首轮行为完全一致，
+    // 被测语义不变：断连失败上报（cmd=DISCONN 且 result!=0）不得把状态改为 DISCONNECTED。
+    asc->SetASCStatus(device, NL_SLE_ASC_ENABLED);
     asc->OnConnectionStateChanged(device, NL_SLE_ASC_CONN_CMD_DISCONN, NL_SLE_ASC_ERROR_JUDGE_RECFG_STATE_ERROR, 0);
     EXPECT_EQ(false, NL_SLE_ASC_DISCONNECTED == asc->GetASCStatus(device));
     HILOGI("OnConnectionStateChanged_002 end");
@@ -532,6 +562,12 @@ HWTEST_F(ASCServiceTest, ReportConnectStateChanged_001, TestSize.Level1)
     ASCService *asc = ASCService::GetService();
     asc->RegisterObserver(g_ascServiceObserver_);
     RawAddress device = RawAddress(deviceStr);
+    // 测试前提显式化（repeat 安全）：被测服务是 mock ProfileServiceManager 返回的静态实例，
+    // 设备状态跨用例/跨轮残留（如 CbkReadPropFail_001 依设计经 ReportConnectStateChanged
+    // 写入 NL_SLE_ASC_DISCONNECTED），--gtest_repeat=2 第二轮会继承该值导致本断言误判。
+    // 此处播种为 GetASCStatus 无记录时的默认值 NL_SLE_ASC_ENABLED，与首轮行为完全一致，
+    // 被测语义不变：断连失败上报（cmd=DISCONN 且 result!=0）不得把状态改为 DISCONNECTED。
+    asc->SetASCStatus(device, NL_SLE_ASC_ENABLED);
     asc->ReportConnectStateChanged(device, NL_SLE_ASC_CONN_CMD_DISCONN, NL_SLE_ASC_ERROR_JUDGE_RECFG_STATE_ERROR, 0);
     EXPECT_EQ(false, NL_SLE_ASC_DISCONNECTED == asc->GetASCStatus(device));
     HILOGI("ReportConnectStateChanged_001 end");
@@ -4195,6 +4231,8 @@ HWTEST_F(ASCServiceTest, OnSpatializationEnabledChangeForAnyDevice_001, TestSize
     audioDeviceDescriptor = nullptr;
     callback_->OnSpatializationEnabledChangeForAnyDevice(audioDeviceDescriptor, true);
     HILOGI("OnSpatializationEnabledChangeForAnyDevice_001 end");
+    // spatial 回调有异步收尾，等 50ms 错开 ffrt worker 退出窗口
+    usleep(50000);
 }
 
 /**
@@ -4237,6 +4275,8 @@ HWTEST_F(ASCServiceTest, OnHeadTrackingEnabledChangeForAnyDevice_001, TestSize.L
     audioDeviceDescriptor = nullptr;
     callback_->OnHeadTrackingEnabledChangeForAnyDevice(audioDeviceDescriptor, true);
     HILOGI("OnHeadTrackingEnabledChangeForAnyDevice_001 end");
+    // spatial 回调有异步收尾，等 50ms 错开 ffrt worker 退出窗口
+    usleep(50000);
 }
 
 /**

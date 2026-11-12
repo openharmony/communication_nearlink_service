@@ -72,6 +72,8 @@ unit_test_external_deps = [
   "init:libbegetutil",
   "googletest:gmock_main",
   "ffrt:libffrt",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtoken_setproc",
   "access_token:libpermsetproc_shared",
   "access_token:libnativetoken_shared",
 ]

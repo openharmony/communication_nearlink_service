@@ -33,6 +33,18 @@
 
 static bool g_dspIsOn = false;
 
+void QOSM_SendLabelChangeFailMsg(QOSM_ICGInfo *icgInfo, uint16_t direction, uint8_t labelId)
+{
+    if (icgInfo == NULL) {
+        QOSM_LOGE("icgInfo is null");
+        return;
+    }
+    if (QOSM_GetICBTypeByIndex(icgInfo->qosIndex) == CM_IMB && icgInfo->isSupportFrame4) {
+        QOSM_LOGI("%s change label id error", direction == LEVEL_UP ? "upwards" : "downward");
+        QOSM_SendAutoRateMsg(icgInfo, direction, labelId, CHANGE_LABEL_ID_RSP, QOSM_FAIL);
+    }
+}
+
 void QOSM_LevelDownProc(QOSM_ICGInfo *icgInfo, bool isByReport)
 {
     if (icgInfo == NULL) {

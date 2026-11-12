@@ -111,6 +111,7 @@ ohos_unittest("nl_service_test") {
   configs += ["$NEARLINK_ROOT/test/utils:test_utils_config"]
   configs += ["$NEARLINK_ROOT/test/utils:service_tdd_config"]
   sources += shared_service_source
+  sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_permission_manager.cpp" ]
   sources -= [
     "$NEARLINK_ROOT/services/service/src/common/SleDataShareCheckUtils.cpp",
     "$NEARLINK_ROOT/services/service/src/common/SleCommonEventSubscriber.cpp",
@@ -126,6 +127,14 @@ ohos_unittest("nl_service_test") {
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps
+  external_deps -= [
+    "access_token:libaccesstoken_sdk",
+    "access_token:libtokenid_sdk",
+  ]
+  external_deps += [
+    "access_token:libtokensetproc_shared",
+    "access_token:libpermsetproc_shared",
+  ]
 
   part_name = "nearlink"
   subsystem_name = "communication"
@@ -182,6 +191,7 @@ group("nl_service_unittest") {
     "cdsm_test:nl_cdsm_unittest",
     "nl_cloud_pair_test:nl_cloud_pair_unittest",
     "nl_reconnect_manager_test:nl_reconnect_manager_unittest",
+    "reconnect_manager_test:nl_reconnect_adapter_probe_unittest",
     "nl_datatransfer_test:nl_datatransfer_unittest",
     "hadm_test:nl_hadm_service_unittest",
     "nearlink_adv_test:nl_adv_service_unittest",
@@ -199,7 +209,8 @@ group("nl_service_unittest") {
     "icce_test:nl_icce_service_unittest",
     "dis_test:nl_dis_service_unittest",
     "bas_service_test:bas_service_unittest",
-    "battery_manager_test:nl_battery_manager_unittest"
+    "battery_manager_test:nl_battery_manager_unittest",
+    "antenna_mgr_test:nl_antenna_mgr_unittest",
   ]
   if (nearlink_service_kia_enable) {
     deps += [

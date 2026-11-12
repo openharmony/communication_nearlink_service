@@ -882,6 +882,11 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_InnerSetACBSubrate_1)
 {
     UapiCmLinkInitTest();
     UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
+        // 模拟对端标准特性集bit72支持subrate
+        SleLogicLink_S *link = SleLogicLinkGetByLcid(handle);
+        ASSERT_NE(link, nullptr);
+        link->features[CM_STANDARD_FEATURES_BIT_SUBRATE / 8] |=
+            (uint8_t)(1U << (CM_STANDARD_FEATURES_BIT_SUBRATE % 8));
         CM_SetACBSubrateInnerParam param = {0};
         param.lcid = handle;
         param.subrate = UT_NLSTK_DEFAULT_SUBRATE;
@@ -904,6 +909,11 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_InnerSetACBSubrate_3)
 {
     UapiCmLinkInitTest();
     UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
+        // 模拟对端标准特性集bit72支持subrate
+        SleLogicLink_S *link = SleLogicLinkGetByLcid(handle);
+        ASSERT_NE(link, nullptr);
+        link->features[CM_STANDARD_FEATURES_BIT_SUBRATE / 8] |=
+            (uint8_t)(1U << (CM_STANDARD_FEATURES_BIT_SUBRATE % 8));
         CM_SetACBSubrateInnerParam param = {0};
         param.lcid = handle;
         param.subrate = UT_NLSTK_DEFAULT_SUBRATE;
@@ -919,6 +929,18 @@ TEST_F(UT_CM_CONCURRENT_CONN_API, CM_InnerSetACBSubrate_4)
     UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
         CM_SetACBSubrateInnerParam param = {0};
         param.lcid = CM_INVALID_LCID;
+        param.subrate = UT_NLSTK_DEFAULT_SUBRATE;
+        EXPECT_EQ(CM_InnerSetACBSubrate(&param), CM_FAIL);
+    });
+}
+
+TEST_F(UT_CM_CONCURRENT_CONN_API, CM_InnerSetACBSubrate_5)
+{
+    UapiCmLinkInitTest();
+    UT_CM_ExecuteTestcaseFunc([](uint16_t handle) {
+        // 对端私有subrate和标准subrate均不支持，拒绝下发
+        CM_SetACBSubrateInnerParam param = {0};
+        param.lcid = handle;
         param.subrate = UT_NLSTK_DEFAULT_SUBRATE;
         EXPECT_EQ(CM_InnerSetACBSubrate(&param), CM_FAIL);
     });

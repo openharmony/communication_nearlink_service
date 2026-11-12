@@ -26,6 +26,9 @@
 #include "CdsmService.h"
 #include "SleUtils.h"
 #include "log.h"
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 
 
 namespace OHOS {
@@ -33,8 +36,6 @@ namespace Nearlink {
 namespace TEST {
 using namespace testing;
 using namespace testing::ext;
-
-constexpr int DELAY_LITTLE_MS = 100;
 
 class MockCdsmService : public CdsmService {
 public:
@@ -53,30 +54,47 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    // 测试目的：fixture 持有自有 TwsService 实例（dis 样板），
+    // 不再依赖厂商栈启动链（裸进程 StartTask/slem_initialize 必败，GetService() 返回 nullptr）。
+    std::unique_ptr<TwsService> service_;
 };
 
 void NearlinkTwsTest::SetUpTestCase()
 {
+    // 测试目的：删除 Start()（裸进程必败且返回值被忽略）与固定 sleep；
+    // 服务实例改由每例 SetUp 自建并注入注册表，token 设置保留。
     HILOGI("SetUpTestCase start NearlinkTwsTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
-    SleInterfaceManager::GetInstance()->Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }
 
 void NearlinkTwsTest::TearDownTestCase()
 {
     HILOGI("TearDownTestCase NearlinkTwsTest");
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
 }
 
 void NearlinkTwsTest::SetUp()
 {
     HILOGI("SetUp NearlinkTwsTest.");
+    // 测试目的：与产品注册路径同构（ProfileServiceManager SetProfile）直接注入自有服务，
+    // 使 GetService() 命中；NOT_SWITCH_THREAD 让服务任务在测试线程同步执行，无需 sleep。
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_TWS, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    service_ = std::make_unique<TwsService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_TWS, service_.get());
+    ASSERT_EQ(service_.get(), TwsService::GetService());
 }
 
 void NearlinkTwsTest::TearDown()
 {
     HILOGI("TearDown NearlinkTwsTest.");
+    // 测试目的：先解绑注册表再销毁服务，并恢复线程调度默认态，防单例状态跨例残留。
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_TWS, nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /**
@@ -90,7 +108,6 @@ HWTEST_F(NearlinkTwsTest, ConnectTws001, TestSize.Level1)
     MockTwsClient twsClient("11:22:33:44:55:66");
     twsClient.SetAppid(-5);
     twsClient.ConnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:ConnectTws001 end");
 }
 
@@ -106,7 +123,6 @@ HWTEST_F(NearlinkTwsTest, ConnectTws002, TestSize.Level1)
     twsClient.SetAppid(1);
     twsClient.SetState(TwsClientState::TWS_STATE_CONNECTED);
     twsClient.ConnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:ConnectTws002 end");
 }
 
@@ -122,7 +138,6 @@ HWTEST_F(NearlinkTwsTest, ConnectTws003, TestSize.Level1)
     twsClient.SetAppid(1);
     twsClient.SetState(TwsClientState::TWS_STATE_DISCONNECTED);
     twsClient.ConnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:ConnectTws003 end");
 }
 
@@ -137,7 +152,6 @@ HWTEST_F(NearlinkTwsTest, DisconnectTws001, TestSize.Level1)
     MockTwsClient twsClient("11:22:33:44:55:66");
     twsClient.SetAppid(-5);
     twsClient.DisconnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:DisconnectTws001 end");
 }
 
@@ -153,7 +167,6 @@ HWTEST_F(NearlinkTwsTest, DisconnectTws002, TestSize.Level1)
     twsClient.SetAppid(1);
     twsClient.SetState(TwsClientState::TWS_STATE_CONNECTED);
     twsClient.DisconnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:DisconnectTws002 end");
 }
 
@@ -169,7 +182,6 @@ HWTEST_F(NearlinkTwsTest, DisconnectTws003, TestSize.Level1)
     twsClient.SetAppid(1);
     twsClient.SetState(TwsClientState::TWS_STATE_DISCONNECTED);
     twsClient.DisconnectTws();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:DisconnectTws003 end");
 }
 
@@ -186,7 +198,6 @@ HWTEST_F(NearlinkTwsTest, SendData001, TestSize.Level1)
     twsClient.SetState(TwsClientState::TWS_STATE_DISCONNECTED);
     std::vector<uint8_t> data = {0,1,2,3,4};
     twsClient.SendData(data);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:SendData001 end");
 }
 
@@ -203,7 +214,6 @@ HWTEST_F(NearlinkTwsTest, SendData002, TestSize.Level1)
     twsClient.SetState(TwsClientState::TWS_STATE_CONNECTED);
     std::vector<uint8_t> data = {};
     twsClient.SendData(data);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:SendData002 end");
 }
 
@@ -220,7 +230,6 @@ HWTEST_F(NearlinkTwsTest, SendData003, TestSize.Level1)
     twsClient.SetState(TwsClientState::TWS_STATE_CONNECTED);
     std::vector<uint8_t> data = {0,1,2,3,4};
     twsClient.SendData(data);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:SendData003 end");
 }
 
@@ -234,7 +243,6 @@ HWTEST_F(NearlinkTwsTest, SaveTwsServicePropertyInfo001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:SaveTwsServicePropertyInfo001 start");
     MockTwsClient twsClient("11:22:33:44:55:66");
     twsClient.SaveTwsServicePropertyInfo();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:SaveTwsServicePropertyInfo001 end");
 }
 
@@ -249,7 +257,6 @@ HWTEST_F(NearlinkTwsTest, TwsSendManufacturerAbility001, TestSize.Level1)
     MockTwsClient twsClient("11:22:33:44:55:66");
     RawAddress device("11:22:33:44:55:66");
     twsClient.TwsSendManufacturerAbility(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsSendManufacturerAbility001 end");
 }
 
@@ -264,7 +271,6 @@ HWTEST_F(NearlinkTwsTest, OnConnectionStateChangedTask001, TestSize.Level1)
     MockTwsClient twsClient("11:22:33:44:55:66");
     RawAddress device("11:22:33:44:55:66");
     twsClient.OnConnectionStateChangedTask(static_cast<uint8_t>(SleConnectState::CONNECTED));
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:OnConnectionStateChangedTask001 end");
 }
 
@@ -279,7 +285,6 @@ HWTEST_F(NearlinkTwsTest, OnPropertyChangedTask001, TestSize.Level1)
     MockTwsClient twsClient("11:22:33:44:55:66");
     Property property(0);
     twsClient.OnPropertyChangedTask(property);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:OnPropertyChangedTask001 end");
 }
 
@@ -295,7 +300,6 @@ HWTEST_F(NearlinkTwsTest, OnPropertyChanged001, TestSize.Level1)
     twsClientInstance->Init(twsClientInstance);
     Property property(0);
     twsClientInstance->ssapCallback_->OnPropertyChanged(property);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:OnPropertyChanged001 end");
 }
 
@@ -310,7 +314,6 @@ HWTEST_F(NearlinkTwsTest, OnConnectionStateChanged001, TestSize.Level1)
     std::shared_ptr<TwsClient> twsClientInstance = std::make_shared<TwsClient>("11:22:33:44:55:66");
     twsClientInstance->Init(twsClientInstance);
     twsClientInstance->ssapCallback_->OnConnectionStateChanged(1, 0);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:OnConnectionStateChanged001 end");
 }
 
@@ -324,9 +327,9 @@ HWTEST_F(NearlinkTwsTest, Connect001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:Connect001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     int ret = twsService->Connect(device);
     EXPECT_EQ(ret, NL_NO_ERROR);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:Connect001 end");
 }
 
@@ -340,9 +343,9 @@ HWTEST_F(NearlinkTwsTest, TwsGetDeviceNature001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:TwsGetDeviceNature001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     std::list<RawAddress> devlist = twsService->GetConnectDevices();
     uint8_t nature = twsService->TwsGetDeviceNature(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsGetDeviceNature001 end");
 }
 
@@ -356,8 +359,8 @@ HWTEST_F(NearlinkTwsTest, TwsGetDeviceAudioMusicType001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:TwsGetDeviceAudioMusicType001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     uint8_t mediaState = twsService->TwsGetDeviceAudioMusicType(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsGetDeviceAudioMusicType001 end");
 }
 
@@ -371,9 +374,9 @@ HWTEST_F(NearlinkTwsTest, GetTwsAudioDelay001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:GetTwsAudioDelay001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     uint32_t audioDelay;
     twsService->GetTwsAudioDelay(device, audioDelay);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:GetTwsAudioDelay001 end");
 }
 
@@ -387,9 +390,9 @@ HWTEST_F(NearlinkTwsTest, TwsGetDeviceWearStatus001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:TwsGetDeviceWearStatus001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     TwsDevWearStatus wearStatus;
     twsService->TwsGetDeviceWearStatus(device, wearStatus);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsGetDeviceWearStatus001 end");
 }
 
@@ -403,8 +406,8 @@ HWTEST_F(NearlinkTwsTest, TwsUpdateDeviceDefaultRole001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:TwsUpdateDeviceDefaultRole001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->TwsUpdateDeviceDefaultRole(device, static_cast<uint8_t>(TwsRoleType::ROLE_TYPE_PRIMARY));
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsUpdateDeviceDefaultRole001 end");
 }
 
@@ -418,8 +421,8 @@ HWTEST_F(NearlinkTwsTest, ProcPauseRecordMap001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:ProcPauseRecordMap001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->ProcPauseRecordMap();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:ProcPauseRecordMap001 end");
 }
 
@@ -433,8 +436,8 @@ HWTEST_F(NearlinkTwsTest, UpdateHangUpTimeStamp001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:UpdateHangUpTimeStamp001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->UpdateHangUpTimeStamp(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateHangUpTimeStamp001 end");
 }
 
@@ -448,8 +451,8 @@ HWTEST_F(NearlinkTwsTest, SendProfileConnected001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:SendProfileConnected001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->SendProfileConnected(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:SendProfileConnected001 end");
 }
 
@@ -463,8 +466,8 @@ HWTEST_F(NearlinkTwsTest, NotifyStateChanged001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:NotifyStateChanged001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->NotifyStateChanged(device, TwsClientState::TWS_STATE_CONNECTED, TwsClientState::TWS_STATE_CONNECTED);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:NotifyStateChanged001 end");
 }
 
@@ -478,8 +481,8 @@ HWTEST_F(NearlinkTwsTest, NotifyStateChanged002, TestSize.Level1)
     HILOGI("NearlinkTwsTest:NotifyStateChanged002 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->NotifyStateChanged(device, TwsClientState::TWS_STATE_CONNECTED, TwsClientState::TWS_STATE_DISCONNECTED);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:NotifyStateChanged002 end");
 }
 
@@ -494,8 +497,8 @@ HWTEST_F(NearlinkTwsTest, NotifyStateChanged003, TestSize.Level1)
     RawAddress device("11:22:33:44:55:66");
 
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->NotifyStateChanged(device, TwsClientState::TWS_STATE_CONNECTED, TwsClientState::TWS_STATE_DISCONNECTED);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:NotifyStateChanged003 end");
 }
 
@@ -520,8 +523,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent001, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent001 end");
 }
 
@@ -546,8 +549,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent002, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent002 end");
 }
 
@@ -572,8 +575,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent003, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent003 end");
 }
 
@@ -598,8 +601,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent004, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent004 end");
 }
 
@@ -624,8 +627,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent005, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent005 end");
 }
 
@@ -650,8 +653,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent006, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent006 end");
 }
 
@@ -676,8 +679,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent007, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent007 end");
 }
 
@@ -702,8 +705,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent008, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent008 end");
 }
 
@@ -730,8 +733,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent009, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent009 end");
 }
 
@@ -758,8 +761,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent010, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent010 end");
 }
 
@@ -784,8 +787,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent011, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent011 end");
 }
 
@@ -810,8 +813,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent012, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent012 end");
 }
 
@@ -836,8 +839,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent013, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent013 end");
 }
 
@@ -862,8 +865,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent014, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent014 end");
 }
 
@@ -892,8 +895,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent015, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent015 end");
 }
 
@@ -920,8 +923,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent016, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent016 end");
 }
 
@@ -948,8 +951,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent017, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent017 end");
 }
 
@@ -974,8 +977,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent018, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent014 end");
 }
 
@@ -1000,8 +1003,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent019, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent004 end");
 }
 
@@ -1026,8 +1029,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent020, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_REQ;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent014 end");
 }
 
@@ -1052,8 +1055,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent021, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent014 end");
 }
 
@@ -1078,8 +1081,8 @@ HWTEST_F(NearlinkTwsTest, PostEvent022, TestSize.Level1)
 
     event.msgDirect_ = TWS_MSG_DIRECT_RSP;
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->PostEvent(event);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:PostEvent004 end");
 }
 
@@ -1093,9 +1096,9 @@ HWTEST_F(NearlinkTwsTest, UpdateDeviceWearState001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:UpdateDeviceWearState001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     TwsWearStateData wearData;
     twsService->UpdateDeviceWearState(device, wearData);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateDeviceWearState001 end");
 }
 
@@ -1109,11 +1112,11 @@ HWTEST_F(NearlinkTwsTest, UpdateClientData001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:UpdateClientData001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     uint8_t dataType = static_cast<uint8_t>(TwsHiBoxMsgType::HIBOX_ROLE_TYPE);
     TwsClientData isoHandoverData(device);
     isoHandoverData.roleType_ = static_cast<uint8_t>(TwsRoleType::ROLE_TYPE_PRIMARY);
     twsService->UpdateClientData(dataType, isoHandoverData);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateClientData001 end");
 }
 
@@ -1127,8 +1130,8 @@ HWTEST_F(NearlinkTwsTest, GetReportAddr001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:GetReportAddr001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     RawAddress reportAddr = twsService->GetReportAddr(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:GetReportAddr001 end");
 }
 
@@ -1142,8 +1145,8 @@ HWTEST_F(NearlinkTwsTest, ResetVirtualAutoSwitch001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:ResetVirtualAutoSwitch001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->ResetVirtualAutoSwitch(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:ResetVirtualAutoSwitch001 end");
 }
 
@@ -1157,8 +1160,8 @@ HWTEST_F(NearlinkTwsTest, RecoverDataFromConf001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:RecoverDataFromConf001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->RecoverDataFromConf(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:RecoverDataFromConf001 end");
 }
 
@@ -1172,8 +1175,8 @@ HWTEST_F(NearlinkTwsTest, GetPrimaryAddr001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:GetPrimaryAddr001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     RawAddress primaryAddr = twsService->GetPrimaryAddr(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:GetPrimaryAddr001 end");
 }
 
@@ -1198,9 +1201,9 @@ HWTEST_F(NearlinkTwsTest, TwsServiceSendReqInner001, TestSize.Level1)
     event.serviceData_ = std::move(abilityInfo);
 
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     twsService->TwsServiceSendReqInner(event);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:TwsServiceSendReqInner001 end");
 }
 
@@ -1214,9 +1217,9 @@ HWTEST_F(NearlinkTwsTest, Disconnect001, TestSize.Level1)
     HILOGI("NearlinkTwsTest:Disconnect001 start");
     RawAddress device("11:22:33:44:55:66");
     TwsService *twsService = TwsService::GetService();
+    ASSERT_NE(twsService, nullptr);
     std::list<RawAddress> devlist = twsService->GetConnectDevices();
     twsService->Disconnect(device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:Disconnect001 end");
 }
 
@@ -1233,7 +1236,6 @@ HWTEST_F(NearlinkTwsTest, GetReportAddr_001, TestSize.Level1)
     RawAddress device("11:22:33:44:55:66");
     RawAddress reportAddr = twsService->GetReportAddr(device);
     EXPECT_EQ(reportAddr.GetAddress(), device.GetAddress());
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:GetReportAddr_001 end");
 }
 
@@ -1248,7 +1250,6 @@ HWTEST_F(NearlinkTwsTest, UpdateDualRecordAbility_001, TestSize.Level1)
     TwsService *twsService = TwsService::GetService();
     ASSERT_NE(twsService, nullptr);
     twsService->UpdateDualRecordAbility();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateDualRecordAbility_001 end");
 }
 
@@ -1263,7 +1264,6 @@ HWTEST_F(NearlinkTwsTest, UpdateDualKaraokeAbility_001, TestSize.Level1)
     TwsService *twsService = TwsService::GetService();
     ASSERT_NE(twsService, nullptr);
     twsService->UpdateDualKaraokeAbility();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateDualKaraokeAbility_001 end");
 }
 
@@ -1278,7 +1278,6 @@ HWTEST_F(NearlinkTwsTest, UpdateVoiceCallFrameFourAndAutoRateAbility_001, TestSi
     TwsService *twsService = TwsService::GetService();
     ASSERT_NE(twsService, nullptr);
     twsService->UpdateVoiceCallFrameFourAndAutoRateAbility();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_LITTLE_MS));
     HILOGI("NearlinkTwsTest:UpdateVoiceCallFrameFourAndAutoRateAbility_001 end");
 }
 

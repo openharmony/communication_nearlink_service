@@ -35,12 +35,50 @@
 #include "dli_def.h"
 #include "devd_cbk.h"
 #include <thread>
+#include <dlfcn.h>
+#include <cstdio>
 #include "common_ext_func_wrapper.h"
 
 namespace OHOS {
 namespace Nearlink {
 namespace TEST {
 using namespace testing::ext;
+
+namespace {
+// Background (end-of-process SIGSEGV, exit code 139 after the gtest summary):
+// TearDown() -> NLSTK_DeinitStack() dlcloses the two firmware stack libraries
+// loaded by the stack init chain. That unload cascade leaves the musl loader
+// state inconsistent, and when the process later returns from main(), system
+// library teardown (libipc_single logging via HiLogPrint in its exit path)
+// branches through the reverted GOT slot and dies with SIGSEGV (pc=0) before
+// the coverage dump finishes. A production process keeps these system
+// libraries mapped until it dies, so keep one extra dlopen reference for the
+// whole test process: the fixture still runs the full deinit logic above,
+// only the final unmapping of the two libraries is prevented.
+#ifdef __aarch64__
+constexpr const char *STACK_LIBS_PINNED[] = {
+    "/system/lib64/libnearlink_stack_ext.z.so",
+    "/system/lib64/libnearlink_stack_base.z.so",
+};
+#else
+constexpr const char *STACK_LIBS_PINNED[] = {
+    "/system/lib/libnearlink_stack_ext.z.so",
+    "/system/lib/libnearlink_stack_base.z.so",
+};
+#endif
+
+void PinStackLibrariesForProcessLifetime()
+{
+    for (const char *lib : STACK_LIBS_PINNED) {
+        void *handle = dlopen(lib, RTLD_NOW | RTLD_GLOBAL);
+        if (handle == nullptr) {
+            fprintf(stderr, "devd_test: cannot pin %s: %s\n", lib, dlerror());
+        }
+        // handle is intentionally leaked so the reference count never drops
+        // to zero before the process exits.
+    }
+}
+} // namespace
 
 class DEVD_Test : public testing::Test {
 protected:
@@ -60,7 +98,9 @@ protected:
 
     // SetUpTestCase 在所有 TEST_F 测试开始前执行一次
     static void SetUpTestCase()
-    {}
+    {
+        PinStackLibrariesForProcessLifetime();
+    }
 
     // TearDownTestCase 在所有 TEST_F 测试完成后执行一次
     static void TearDownTestCase()

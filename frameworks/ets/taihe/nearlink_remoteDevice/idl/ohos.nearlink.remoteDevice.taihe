@@ -45,13 +45,13 @@ interface RemoteDevice {
 
     @promise SetPairingPasscode(passcode: String): void;
 
-    @promise SetPairingConfirmation(accept: bool): void;
+    SetPairingConfirmation(accept: bool): void;
 
     @promise Connect(): void;
 
     @promise Disconnect(): void;
 
-    @promise SetDeviceAlias(alias: String): void;
+    SetDeviceAlias(alias: String): void;
 
     GetDeviceAlias(): String;
     GetDeviceModel(): DeviceModel;

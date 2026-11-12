@@ -14,7 +14,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <thread>
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 #include "CcpService.h"
 #include "CcpDefines.h"
 #include "SleInterfaceManager.h"
@@ -30,24 +32,21 @@ using namespace OHOS::Telephony;
 using ::testing::Return;
 using ::testing::_;
 
-namespace {
-constexpr int CCP_SERVICE_UT_DELAY_50_MS = 50;
-constexpr int CCP_SERVICE_UT_DELAY_1000_MS = 1000;
-}
-
 class CcpServiceTest : public testing::Test {
 public:
     static void SetUpTestCase();
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    std::unique_ptr<CcpService> service_;
 };
 
 void CcpServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase CcpServiceTest start");
-    SleInterfaceManager::GetInstance()->Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_1000_MS));
+    // CCP service tests own their service; vendor stack startup is an integration dependency.
     HILOGI("SetUpTestCase CcpServiceTest end");
 }
 
@@ -59,11 +58,22 @@ void CcpServiceTest::TearDownTestCase()
 void CcpServiceTest::SetUp()
 {
     HILOGI("SetUp CcpServiceTest.");
+    // CCP tasks execute synchronously in the test thread; no sleep is needed after calls.
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    service_ = std::make_unique<CcpService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, service_.get());
+    ASSERT_EQ(service_.get(), CcpService::GetService());
 }
 
 void CcpServiceTest::TearDown()
 {
     HILOGI("TearDown CcpServiceTest.");
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /**
@@ -75,7 +85,7 @@ HWTEST_F(CcpServiceTest, GetService001, TestSize.Level1)
 {
     HILOGI("GetService001 start");
     CcpService* ccpService = CcpService::GetService();
-    EXPECT_NE(nullptr, ccpService);
+    ASSERT_NE(nullptr, ccpService);
     HILOGI("GetService001 end");
 }
 
@@ -88,12 +98,12 @@ HWTEST_F(CcpServiceTest, Disable001, TestSize.Level1)
 {
     HILOGI("Disable001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     ccpService->Disable();
     EXPECT_NE(nullptr, ccpService);
 
     ccpService->Disable();
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Disable001 end");
 }
 
@@ -106,12 +116,12 @@ HWTEST_F(CcpServiceTest, Enable001, TestSize.Level1)
 {
     HILOGI("Enable001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     ccpService->Enable();
     EXPECT_NE(nullptr, ccpService);
 
     ccpService->Enable();
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Enable001 end");
 }
 
@@ -124,6 +134,7 @@ HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
 {
     HILOGI("HandleAnswer001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t instanceId = 0;
@@ -132,7 +143,6 @@ HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
 
     ccpService->HandleAnswer(*device, instanceId, requestId, callId);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleAnswer001 end");
 }
 
@@ -145,6 +155,7 @@ HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
 {
     HILOGI("HandleHangUp001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t instanceId = 0;
@@ -159,7 +170,6 @@ HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
     callId = 1;
     ccpService->HandleHangUp(*device, instanceId, requestId, callId);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleHangUp001 end");
 }
 
@@ -172,12 +182,12 @@ HWTEST_F(CcpServiceTest, HandleAuthorize001, TestSize.Level1)
 {
     HILOGI("HandleAuthorize001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     int32_t instanceId = 0;
     uint32_t requestId = 0;
     int32_t property = 0;
     ccpService->HandleAuthorize(instanceId, requestId, property);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleAuthorize001 end");
 }
 
@@ -190,6 +200,7 @@ HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 {
     HILOGI("HandlePhoneStateChange001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     NearlinkCallPhoneState phoneState;
     phoneState.SetActiveNum(0);
     phoneState.SetHeldNum(0);
@@ -198,7 +209,6 @@ HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 
     ccpService->HandlePhoneStateChange(phoneState);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandlePhoneStateChange001 end");
 }
 
@@ -211,6 +221,7 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 {
     HILOGI("HandleCallDetailChange001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     CallAttributeInfo callAttributeInfo;
 
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DIALING;
@@ -232,7 +243,6 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
     callAttributeInfo.callState = TelCallState::CALL_STATUS_UNKNOWN;
     ccpService->HandleCallDetailChange(callAttributeInfo);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleCallDetailChange001 end");
 }
 
@@ -245,6 +255,7 @@ HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
 {
     HILOGI("HandleVoipStop001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
@@ -253,7 +264,6 @@ HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
 
     ccpService->HandleVoipStop(*device);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleVoipStop001 end");
 }
 
@@ -266,6 +276,7 @@ HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
 {
     HILOGI("HandleVoipStart001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
@@ -274,7 +285,6 @@ HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
 
     ccpService->HandleVoipStart(*device);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleVoipStart001 end");
 }
 
@@ -287,9 +297,9 @@ HWTEST_F(CcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
 {
     HILOGI("TryResumeCurrentCalls001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     ccpService->TryResumeCurrentCalls();
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("TryResumeCurrentCalls001 end");
 }
 
@@ -302,12 +312,12 @@ HWTEST_F(CcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
 {
     HILOGI("NotifyAudioDeviceAction001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int action = 0;
     ccpService->NotifyAudioDeviceAction(*device, action);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceAction001 end");
 }
 
@@ -320,6 +330,7 @@ HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
 {
     HILOGI("ProcessCallStateInfo001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::vector<Telephony::CallAttributeInfo> callInfoVec;
     CallAttributeInfo callAttributeInfo;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
@@ -327,7 +338,6 @@ HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
 
     ccpService->ProcessCallStateInfo(callInfoVec);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessCallStateInfo001 end");
 }
 
@@ -340,6 +350,7 @@ HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
 {
     HILOGI("ProcessAccountInfo001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
     prop->callId = 1;
     prop->callFlag = 0;
@@ -347,7 +358,6 @@ HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
     ccpService->ProcessAccountInfo(prop, callAttributeInfo);
     EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessAccountInfo001 end");
 }
 
@@ -364,7 +374,6 @@ HWTEST_F(CcpServiceTest, IsNearlinkActiveDevice001, TestSize.Level1)
     RawAddress reportAddr("11:22:33:44:55:66");
     bool ret = ccpService->IsNearlinkActiveDevice(reportAddr);
     EXPECT_FALSE(ret);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("IsNearlinkActiveDevice001 end");
 }
 
@@ -380,7 +389,6 @@ HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Leve
     ASSERT_NE(ccpService, nullptr);
     RawAddress devAddr("11:22:33:44:55:66");
     ccpService->NotifyAudioDeviceAction(devAddr, 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 end");
 }
 
