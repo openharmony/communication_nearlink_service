@@ -43,6 +43,7 @@
 #include "cm.h"
 #include "log.h"
 #include "nearlink_def.h"
+#include "nearlink_utils.h"
 #include "nearlink_device_model.h"
 #include "parameters.h"
 #include "sle_service_data.h"

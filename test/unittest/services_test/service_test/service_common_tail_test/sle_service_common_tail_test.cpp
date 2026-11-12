@@ -101,7 +101,7 @@ void ServiceCommonTailTest::TearDown()
     collaboration.cachedCollaborationEventVec_.clear();
     SleHiviewUe::GetInstance().isHiviewUeOn_.store(true);
     NLSTK_CfgdbLocalFeatures_S zeroFeature = {};
-    SleFeature::SetLocalFeature(&zeroFeature);
+    SleFeature::GetInstance().SetLocalFeature(&zeroFeature);
     ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
@@ -452,16 +452,16 @@ HWTEST_F(ServiceCommonTailTest, CommonEventSubscriber_001, TestSize.Level1)
  */
 HWTEST_F(ServiceCommonTailTest, SleFeatureRange_001, TestSize.Level1)
 {
-    EXPECT_FALSE(SleFeature::IsRangSupported());
+    EXPECT_FALSE(SleFeature::GetInstance().IsRangSupported());
 
     NLSTK_CfgdbLocalFeatures_S param = {};
     param.feats[NEARLINK_FEATURE_INDEX_8] = NEARLINK_FEATURE_RANGE;
-    SleFeature::SetLocalFeature(&param);
-    EXPECT_TRUE(SleFeature::IsRangSupported());
+    SleFeature::GetInstance().SetLocalFeature(&param);
+    EXPECT_TRUE(SleFeature::GetInstance().IsRangSupported());
 
     NLSTK_CfgdbLocalFeatures_S zero = {};
-    SleFeature::SetLocalFeature(&zero);
-    EXPECT_FALSE(SleFeature::IsRangSupported());
+    SleFeature::GetInstance().SetLocalFeature(&zero);
+    EXPECT_FALSE(SleFeature::GetInstance().IsRangSupported());
 }
 } // namespace TEST
 } // namespace Nearlink
