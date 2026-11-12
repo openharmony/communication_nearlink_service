@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "nearlink_test"  // single definition (target defines clashes with product hibox .c)
 #include <gtest/gtest.h>
 #include <cstring>
 
@@ -665,7 +666,7 @@ HWTEST_F(HiboxAudioTest, HiboxAudioMgmtReqParseTest004, TestSize.Level1)
     ParseMsgBuf msg;
     ClearMsg(msg);
     HiBoxNearlinkDualRecCaps caps;
-    (void)memset_s(&caps, 0, sizeof(caps));
+    (void)memset_s(&caps, sizeof(caps), 0, sizeof(caps));
     caps.codecNum = DEVICE_DUAL_REC_CODEC_NUM;
     caps.param[0].codecId = 0x21;
     caps.param[0].sampleRate = 0xAC44;
