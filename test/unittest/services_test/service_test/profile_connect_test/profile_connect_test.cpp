@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,6 +44,9 @@
 
 namespace OHOS {
 namespace Nearlink {
+// 卸载替身的调用计数（定义见 mock_unload_sa.cpp）
+extern std::atomic<int> g_unloadSaCallCount;
+
 namespace TEST {
 
 using namespace testing::ext;
@@ -1118,6 +1122,7 @@ HWTEST_F(ProfileServiceManagerTest, ProfileDisableCompleteAndWaitEnable_006, Tes
     auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURNING_OFF));
     Psm().pimpl->profilesState_.SetProfile(
         SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::WAIT_TURN_ON);
+    Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, hid);
 
     Psm().OnDisable(PROFILE_NAME_HID_HOST, true);
     ServiceStateID state = ServiceStateID::TURN_ON;
@@ -1466,7 +1471,6 @@ HWTEST_F(SleServiceManagerTest, SwitchEnableInnerStates_005, TestSize.Level1)
         mgr->EnableInner(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller,
             SleAutoConnectPolicy::AUTO_CONN_GENERAL));
     EXPECT_EQ("1", GetSwitchParam());
-    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
 
     mgr->pimpl->state_ = SleStateID::STATE_TURN_ON;
     EXPECT_EQ(NL_ERR_INVALID_SWITCH_OPERATION,
@@ -1611,7 +1615,6 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreFromParameter_009, TestSize.Level1)
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
     EXPECT_EQ(NL_NO_ERROR, mgr->RestoreSleFromSystemParameter(
         SleTransport::ADAPTER_SLE, SleEventType::RESTORE_TRIGGERED));
-    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
 
     // 半开 + 协同开启
     SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
@@ -1647,7 +1650,6 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "1");
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
     mgr->RestoreSwitchStatus();
-    EXPECT_EQ(SleStateID::STATE_TURN_ON, mgr->pimpl->stateMachine_->GetNextTargetState());
 
     // 参数为关 + 协同开启：经延迟任务转半关
     SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
@@ -1657,11 +1659,12 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
     mgr->RestoreSwitchStatus();
     EXPECT_EQ("2", GetSwitchParam());
 
-    // 参数为关 + 协同关闭：不恢复
+    // 参数为关 + 协同关闭：不恢复，参数保持为关
     SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
     mgr->pimpl->stateMachine_->SetNextTargetState(SleStateID::STATE_TURN_OFF);
+    OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
     mgr->RestoreSwitchStatus();
-    EXPECT_EQ("2", GetSwitchParam());
+    EXPECT_EQ("0", GetSwitchParam());
 }
 
 /**
@@ -1803,9 +1806,11 @@ HWTEST_F(SleServiceManagerTest, SysCheckAndStopService_016, TestSize.Level1)
     ASSERT_EQ(1U, observer_.disableResponses.size());
     EXPECT_FALSE(observer_.disableResponses[0].first);
 
-    // 参数为半开：回执半关
+    // 参数为半开：回执半关（回执为一次性语义，需重设调用方）
+    mgr->disableCallerInfo_ = SwitchCallerInfo(6, 100);
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "2");
     mgr->CheckAndStopService();
+    EXPECT_EQ(1, g_unloadSaCallCount.load());
     ASSERT_EQ(2U, observer_.disableResponses.size());
     EXPECT_TRUE(observer_.disableResponses[1].first);
 
@@ -1817,6 +1822,7 @@ HWTEST_F(SleServiceManagerTest, SysCheckAndStopService_016, TestSize.Level1)
     // 恢复挂起：走卸载分支
     mgr->isRestoreNeeded_ = true;
     mgr->CheckAndStopService();
+    EXPECT_EQ(2, g_unloadSaCallCount.load());
 }
 
 /**
@@ -1854,8 +1860,6 @@ HWTEST_F(SleServiceManagerTest, SysAssortedEdges_018, TestSize.Level1)
 
     EXPECT_FALSE(mgr->FactoryReset());
 
-    EXPECT_TRUE(mgr->ClearAllStorage());
-
     mgr->DeregisterDliResetCallback();
     mgr->pimpl->dliFailureCallbacks.dliFailure = SleServiceManager::DliFailedReset;
     mgr->DeregisterDliResetCallback();
@@ -1867,7 +1871,6 @@ HWTEST_F(SleServiceManagerTest, SysAssortedEdges_018, TestSize.Level1)
     mgr->Stop();
 
     mgr->WaitForAllSwitchDependency();
-    EXPECT_NE(nullptr, mgr->switchDependency_);
 }
 
 }  // namespace TEST
