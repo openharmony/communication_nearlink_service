@@ -31,6 +31,21 @@
 namespace OHOS {
 namespace Nearlink {
 
+namespace {
+/* 协议定义（CcpDefines.h）：NEARLINK_CCP_ID_MIN/MAX(0x01~0xff) 为通话标识区间，INVALID_CCP_VOIP_ID(-1) 表示无特定通话；
+   跨模块无公共头可引用，修改时需同步 */
+constexpr int32_t STUB_CALL_ID_MIN = 0x01;
+constexpr int32_t STUB_CALL_ID_MAX = 0xff;
+constexpr int32_t STUB_INVALID_CALL_ID = -1;
+constexpr int32_t STUB_CALL_TYPE_MIN = 0;
+constexpr int32_t STUB_CALL_TYPE_MAX = 6;
+/* 与 call_manager_base.h 的 TelCallState 枚举保持一致（CALL_STATUS_UNKNOWN=-1 ~ CALL_STATUS_ANSWERED=9） */
+constexpr int32_t STUB_CALL_STATE_MIN = -1;
+constexpr int32_t STUB_CALL_STATE_MAX = 9;
+constexpr int32_t STUB_CALL_NUM_MIN = 0;
+constexpr int32_t STUB_CALL_NUM_MAX = 0xff;
+}
+
 NearlinkCcpClientStub::NearlinkCcpClientStub()
 {
     HILOGI("enter");
@@ -60,12 +75,29 @@ int32_t NearlinkCcpClientStub::OnRemoteRequest(
 int32_t NearlinkCcpClientStub::PhoneStateChangedInner(NearlinkCcpClientStub *stub, MessageParcel &data,
                                                       MessageParcel &reply)
 {
-    int32_t callId = data.ReadInt32();
-    int32_t numActive = data.ReadInt32();
-    int32_t numHeld = data.ReadInt32();
-    int32_t callState = data.ReadInt32();
-    std::string number = data.ReadString();
+    /* 报文完整性预检 */
+    constexpr size_t intPartSize = sizeof(int32_t) * 4;
+    NL_CHECK_RETURN_RET(data.GetReadableBytes() >= intPartSize, ERR_INVALID_VALUE,
+        "truncated payload: readable=%{public}d", static_cast<int32_t>(data.GetReadableBytes()));
 
+    int32_t callId = data.ReadInt32();
+    NL_CHECK_RETURN_RET((callId >= STUB_CALL_ID_MIN && callId <= STUB_CALL_ID_MAX) ||
+        callId == STUB_INVALID_CALL_ID, ERR_INVALID_VALUE, "invalid callId=%{public}d", callId);
+
+    int32_t numActive = data.ReadInt32();
+    NL_CHECK_RETURN_RET(numActive >= STUB_CALL_NUM_MIN && numActive <= STUB_CALL_NUM_MAX,
+        ERR_INVALID_VALUE, "invalid numActive=%{public}d", numActive);
+
+    int32_t numHeld = data.ReadInt32();
+    NL_CHECK_RETURN_RET(numHeld >= STUB_CALL_NUM_MIN && numHeld <= STUB_CALL_NUM_MAX,
+        ERR_INVALID_VALUE, "invalid numHeld=%{public}d", numHeld);
+
+    int32_t callState = data.ReadInt32();
+    /* CallState 合法域：-1(UNKNOWN) ~ 9(ANSWERED) */
+    NL_CHECK_RETURN_RET(callState >= STUB_CALL_STATE_MIN && callState <= STUB_CALL_STATE_MAX,
+        ERR_INVALID_VALUE, "invalid callState=%{public}d", callState);
+
+    std::string number = data.ReadString();
     int32_t result = stub->PhoneStateChanged(callId, numActive, numHeld, callState, number);
     if (!reply.WriteInt32(result)) {
         HILOGE("reply writing failed.");
@@ -77,9 +109,24 @@ int32_t NearlinkCcpClientStub::PhoneStateChangedInner(NearlinkCcpClientStub *stu
 int32_t NearlinkCcpClientStub::CallDetailsChangedInner(NearlinkCcpClientStub *stub, MessageParcel &data,
                                                        MessageParcel &reply)
 {
+    /* 报文完整性预检：3 个 int32 */
+    constexpr size_t intPartSize = sizeof(int32_t) * 3;
+    NL_CHECK_RETURN_RET(data.GetReadableBytes() >= intPartSize, ERR_INVALID_VALUE,
+        "truncated payload: readable=%{public}d", static_cast<int32_t>(data.GetReadableBytes()));
+
     int32_t callId = data.ReadInt32();
+    NL_CHECK_RETURN_RET((callId >= STUB_CALL_ID_MIN && callId <= STUB_CALL_ID_MAX) ||
+        callId == STUB_INVALID_CALL_ID, ERR_INVALID_VALUE, "invalid callId=%{public}d", callId);
+
     int32_t callState = data.ReadInt32();
+    /* CallState 合法域：-1(UNKNOWN) ~ 9(ANSWERED) */
+    NL_CHECK_RETURN_RET(callState >= STUB_CALL_STATE_MIN && callState <= STUB_CALL_STATE_MAX,
+        ERR_INVALID_VALUE, "invalid callState=%{public}d", callState);
+
     int32_t callType = data.ReadInt32();
+    /* 仅受理已知 callType（TYPE_CS ~ TYPE_BLUETOOTH），范围外的值不得穿透到业务层按蜂窝处理 */
+    NL_CHECK_RETURN_RET(callType >= STUB_CALL_TYPE_MIN && callType <= STUB_CALL_TYPE_MAX,
+        ERR_INVALID_VALUE, "invalid callType=%{public}d", callType);
 
     int32_t result = stub->CallDetailsChanged(callId, callState, callType);
     if (!reply.WriteInt32(result)) {

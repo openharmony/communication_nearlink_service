@@ -628,13 +628,21 @@ HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
 {
     HILOGI("ProcessCallStateInfo001 start");
     CcpService* ccpService = CcpService::GetService();
+    /* 蜂窝 callId 必须为正：喂 0 会在映射表留下 HasPhoneCallId/HasVoipCallId 都清不到的 key=0 条目 */
+    constexpr int32_t callId = 1;
     std::vector<Telephony::CallAttributeInfo> callInfoVec;
     CallAttributeInfo callAttributeInfo{};
+    callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
     callInfoVec.push_back(callAttributeInfo);
 
     ccpService->ProcessCallStateInfo(callInfoVec);
     EXPECT_NE(nullptr, ccpService);
+    EXPECT_TRUE(ccpService->HasPhoneCallId());
+
+    /* 清场：映射由本用例建立，结尾自行归还，避免残留影响后续用例 */
+    ClearPhoneCallMappings(ccpService);
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessCallStateInfo001 end");
 }

@@ -81,17 +81,13 @@ uint8_t CcpService::impl::GetIndexForCall(const int32_t callId, const Telephony:
     for (uint8_t i = NEARLINK_CCP_ID_MIN; i < NEARLINK_CCP_ID_MAX; i++) {
         if (callIdSet_.find(i) == callIdSet_.end()) {
             info.callId = i;
+            info.status = callStatus;
             callIdSet_.insert(info.callId);
+            // 传入的callId为key，本地自增后的id为value
+            callIdMap_.EnsureInsert(callId, info);
             break;
         }
     }
-    if (info.callId == 0) {
-        HILOGE("[CcpService]GetIndexForCall: no available callId, telCallId=%{public}d", callId);
-        return 0;
-    }
-    // 传入的callId为key，本地自增后的id为value
-    info.status = callStatus;
-    callIdMap_.EnsureInsert(callId, info);
     HILOGI("[CcpService]GetIndexForCall: telCallId=%{public}d, newCallId=%{public}d", callId, info.callId);
     return info.callId;
 }
@@ -383,8 +379,8 @@ void CcpService::TryResumeCurrentCalls()
         // 恢复时不需要考虑VoIP，因为耳机会重连走重新起流
         std::vector<Telephony::CallAttributeInfo> callVec = CcpSystemInterface::GetInstance().GetCurrentCallList();
         for (auto &callAttr : callVec) {
-            // 过滤掉 VoIP 通话
-            if (callAttr.callType == Telephony::CallType::TYPE_VOIP) {
+            // 过滤掉未接入蜂窝call kit的 VoIP 通话
+            if (callAttr.callId < 0) {
                 continue;
             }
             ProcessCallDetailChange(callAttr);
@@ -407,14 +403,7 @@ void CcpService::ProcessCallStateInfo(const std::vector<Telephony::CallAttribute
             continue;
         }
         // 通话标识
-        uint8_t callId = pimpl->GetIndexForCall(callAttr.callId, callAttr.callState);
-        if (callId == 0) {
-            HILOGE("[CcpService]callId exhausted, drop state: telCallId=%{public}d, used=%{public}d/%{public}d",
-                callAttr.callId, static_cast<int32_t>(pimpl->callIdSet_.size()),
-                static_cast<int32_t>(NEARLINK_CCP_ID_MAX - NEARLINK_CCP_ID_MIN));
-            continue;
-        }
-        singleCallState.callId = callId;
+        singleCallState.callId = pimpl->GetIndexForCall(callAttr.callId, callAttr.callState);
         // 通话状态
         singleCallState.callStatus = static_cast<uint8_t>(iter->second);
         // 通话标记
@@ -496,7 +485,6 @@ void CcpService::ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info)
     std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
     /**< 通话标识 */
     uint8_t callId = pimpl->GetIndexForCall(info.callId, info.callState);
-    NL_CHECK_RETURN(callId != 0, "[CcpService]no available callId, skip callId=%{public}d", info.callId);
     prop->callId = static_cast<uint8_t>(callId);
     /**< 通话标记 */
     CallFlagBits flag = GetCallFlag(info);
@@ -517,14 +505,6 @@ void CcpService::ProcessCallTerminateInfo(const Telephony::CallAttributeInfo &in
     std::shared_ptr<CallTerminateInfoProp> prop = std::make_shared<CallTerminateInfoProp>();
     // 通话标识
     uint8_t callId = pimpl->GetIndexForCall(info.callId, info.callState);
-    if (callId == 0) {
-        HILOGE("[CcpService]callId exhausted, drop terminate: telCallId=%{public}d, used=%{public}d/%{public}d",
-            info.callId, static_cast<int32_t>(pimpl->callIdSet_.size()),
-            static_cast<int32_t>(NEARLINK_CCP_ID_MAX - NEARLINK_CCP_ID_MIN));
-        // 挂断仍需清理原始callId映射，避免残留后持续占用
-        pimpl->RemoveCallIndex(info.callId);
-        return;
-    }
     prop->callId = static_cast<uint8_t>(callId);
     // 原因(no use)
     prop->terminateReason = 0x01;  // CallManage当前无法提供确切的断开原因
