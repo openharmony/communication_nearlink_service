@@ -39,8 +39,15 @@ struct RouteFlagInfo {
     uint32_t streamUsage;
     AudioStandard::RendererState status;
     std::string bundleName;
-    bool silentMode;
-    bool onMute = false; // 普通静音流记忆（OnMute/OnData上报），跨管道重建保留
+    bool silentMode = false;   // 特殊静音流（应用主动静音，pipe上报刷新）
+    bool dataMuted = false;    // 数据静音记忆（OnData上报），跨管道重建保留
+    bool volumeMuted = false;  // 音量静音记忆（OnMute上报），跨管道重建保留
+};
+
+/* 普通静音流的两个独立来源维度，各自上报各自恢复，互不覆盖 */
+enum class StreamMuteDimension : uint8_t {
+    DATA,
+    VOLUME,
 };
 
 class SleAudioFrameworkAdapter {
@@ -72,7 +79,7 @@ private:
     void RemoveMemberRouteFlagList(const uint32_t &flag);
     const std::vector<RouteFlagInfo> &GetRouteFlagList() const;
     std::string GetBundleName(uint32_t streamId);
-    void SetStreamMuted(uint32_t streamId, bool muted);
+    void SetStreamMuted(uint32_t streamId, StreamMuteDimension dimension, bool muted);
     void ClearRouteFlagList();
     bool isCallStreamType(uint32_t streamUsage);
     std::shared_ptr<NearlinkTimer> GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL type);

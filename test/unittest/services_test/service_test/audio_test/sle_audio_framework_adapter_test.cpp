@@ -93,7 +93,7 @@ void SleAudioFrameworkAdapterTest::TearDown()
 
 RouteFlagInfo CreateRouteFlagInfo(uint32_t routeFlag, uint32_t streamId,
     uint32_t streamUsage, AudioStandard::RendererState status, const std::string& bundleName,
-    bool silentMode = false, bool onMute = false)
+    bool silentMode = false, bool dataMuted = false, bool volumeMuted = false)
 {
     return RouteFlagInfo {
         .routeFlag = routeFlag,
@@ -102,7 +102,8 @@ RouteFlagInfo CreateRouteFlagInfo(uint32_t routeFlag, uint32_t streamId,
         .status = status,
         .bundleName = bundleName,
         .silentMode = silentMode,
-        .onMute = onMute,
+        .dataMuted = dataMuted,
+        .volumeMuted = volumeMuted,
     };
 }
 
@@ -426,7 +427,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList003, TestSize.Level1)
 /**
  * @tc.number: UpdateRouteFlagList004
  * @tc.name:
- * @tc.desc: 测试普通静音流记忆跨管道重建保留与清除
+ * @tc.desc: 测试静音记忆跨管道重建保留与清除，数据/音量两维度独立互不覆盖
  */
 HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
 {
@@ -442,15 +443,28 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
         "com.merge.test");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
 
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::DATA, true);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
     EXPECT_EQ(list.size(), LIST_SIZE_ONE);
-    EXPECT_TRUE(list[TEST_INDEX_0].onMute);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
 
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, false);
+    // 数据维度静音期间，音量维度恢复不得清除数据维度记忆（W2回归）
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::VOLUME, false);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
-    EXPECT_FALSE(list[TEST_INDEX_0].onMute);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
+
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::VOLUME, true);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::DATA, false);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
     HILOGI("UpdateRouteFlagList004 end");
 }
 
@@ -567,9 +581,10 @@ HWTEST_F(SleAudioFrameworkAdapterTest, HandleVolumeMuteStateInner001, TestSize.L
     const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
 
     adapter.HandleVolumeMuteStateInner(DEFAULT_STREAM_ID, true);
-    EXPECT_TRUE(list[TEST_INDEX_0].onMute);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
     adapter.HandleVolumeMuteStateInner(DEFAULT_STREAM_ID, false);
-    EXPECT_FALSE(list[TEST_INDEX_0].onMute);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
     HILOGI("HandleVolumeMuteStateInner001 end");
 }
 
@@ -591,11 +606,12 @@ HWTEST_F(SleAudioFrameworkAdapterTest, HandleDataTransferStateInner001, TestSize
     info.sessionId = DEFAULT_STREAM_ID;
     info.stateChangeType = AudioStandard::DataTransferStateChangeType::DATA_TRANS_STOP;
     adapter.HandleDataTransferStateInner(info);
-    EXPECT_TRUE(list[TEST_INDEX_0].onMute);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
 
     info.stateChangeType = AudioStandard::DataTransferStateChangeType::DATA_TRANS_RESUME;
     adapter.HandleDataTransferStateInner(info);
-    EXPECT_FALSE(list[TEST_INDEX_0].onMute);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
     HILOGI("HandleDataTransferStateInner001 end");
 }
 
@@ -627,7 +643,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange001, TestSize
         DEFAULT_STREAM_ID + TWO,
         "com.notify.muted");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, StreamMuteDimension::VOLUME, true);
 
     adapter.NotifyMcpRendererStateChange();
     HILOGI("NotifyMcpRendererStateChange001 end");
@@ -657,7 +673,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange002, TestSize
         DEFAULT_STREAM_ID + 1,
         "com.allmuted.normal");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteDimension::VOLUME, true);
 
     adapter.NotifyMcpRendererStateChange();
     HILOGI("NotifyMcpRendererStateChange002 end");
