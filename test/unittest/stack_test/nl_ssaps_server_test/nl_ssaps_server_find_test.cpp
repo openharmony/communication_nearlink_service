@@ -262,6 +262,21 @@ static void AddMethodOnlyServicesViaApi(int32_t appId, uint16_t count)
     }
 }
 
+// 追加一个仅含自定义UUID方法的标准服务（句柄紧随其后）
+static void AddCusMethodServiceViaApi(int32_t appId)
+{
+    NLSTK_SsapServiceMethodParam_S method = {
+        .type = ITEM_TYPE_STD_METHOD,
+        .uuid = g_propCusUuid,
+    };
+    NLSTK_ServiceParam_S svcParam = {
+        .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE},
+        .serviceMethodNum = 1,
+        .method = &method,
+    };
+    ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
+}
+
 // 查首要服务：句柄窗口命中标准服务、窗口只含自定义服务时被条目类型过滤，返回未找到
 TEST_F(NlSsapsFindTest, PrimaryFindWindowAndItemTypeFilter)
 {
@@ -367,6 +382,12 @@ TEST_F(NlSsapsFindTest, PropertyFindItemTypeFilter)
     (void)memcpy_s(rspMix + 14, 23, rspCus + 2, 23);
     SendFindReq(link, reqMix, sizeof(reqMix));
     EXPECT_TRUE(RspEquals(rspMix, sizeof(rspMix)));
+
+    // 自定义条目预算不足：MTU装不下任何条目时仅剩响应头
+    link->mtu = 10;
+    SendFindReq(link, reqCus, sizeof(reqCus));
+    uint8_t rspCusTrunc[] = {0x05, 0x07};
+    EXPECT_TRUE(RspEquals(rspCusTrunc, sizeof(rspCusTrunc)));
     DeleteTestLink();
 }
 
@@ -612,6 +633,40 @@ TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
     DeleteTestLink();
 }
 
+// 混合模式查方法：标准与自定义方法分组携带，各自带指示头
+TEST_F(NlSsapsFindTest, MethodFindMixStdAndCusGrouped)
+{
+    AddServiceWithMethodViaApi();           // 方法0x12（标准UUID）
+    AddCusMethodServiceViaApi(g_regAppId);  // 方法0x14（自定义UUID）
+    SSAP_Link *link = CreateTestLink();
+    uint8_t req[] = {0x04, 0x14, 0x01, 0x00, 0xFF, 0x00};
+    uint8_t rsp[34] = {0x05, 0x0B,
+        0x01, 0x12, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x81, 0x14, 0x00};
+    (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_PROP_CUS_UUID, SSAP_UUID128_LEN);
+    rsp[31] = 0x00;
+    rsp[32] = 0x00;
+    rsp[33] = 0x00;
+    SendFindReq(link, req, sizeof(req));
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
+    DeleteTestLink();
+}
+
+// 查服务结构：带方法的服务返回服务+属性+方法三类条目，方法条目带类型与保留位
+TEST_F(NlSsapsFindTest, StructureFindWithMethodItem)
+{
+    AddServiceWithMethodViaApi();
+    SSAP_Link *link = CreateTestLink();
+    uint8_t req[] = {0x04, 0x00, 0x01, 0x00, 0xFF, 0x00};
+    uint8_t rsp[] = {0x05, 0x03,
+        0x10, 0x00, 0x00, 0x02, 0x01, 0x00,
+        0x11, 0x00, 0x02, 0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01,
+        0x12, 0x00, 0x03, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+    SendFindReq(link, req, sizeof(req));
+    EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
+    DeleteTestLink();
+}
+
 // 老版本对端按UUID查首要服务：命中标准服务返回老格式条目（无UUID）；类型不符与空窗口报未找到
 TEST_F(NlSsapsFindTest, V10PrimaryFindByUuidOldFormat)
 {
@@ -698,6 +753,12 @@ TEST_F(NlSsapsFindTest, V10PropertyServiceUuidReject)
     uint8_t rspErr[] = {0x01, 0x00, 0x06, 0x01, 0x00, 0x0B};
     SendFindReq(link, reqSvcUuid, sizeof(reqSvcUuid));
     EXPECT_TRUE(RspEquals(rspErr, sizeof(rspErr)));
+
+    // 不带UUID查属性：老版本入口仍按新格式组包（仅按UUID查才走老格式）
+    uint8_t reqNoUuid[] = {0x04, 0x03, 0x01, 0x00, 0xFF, 0x00};
+    uint8_t rspNewFmt[] = {0x05, 0x03, 0x11, 0x00, 0x03, 0x02, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01};
+    SendFindReq(link, reqNoUuid, sizeof(reqNoUuid));
+    EXPECT_TRUE(RspEquals(rspNewFmt, sizeof(rspNewFmt)));
     DeleteTestLink();
 }
 
