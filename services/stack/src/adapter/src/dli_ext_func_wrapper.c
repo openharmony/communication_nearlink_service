@@ -17,6 +17,7 @@
 
 #include "dli_reg_ext_func.h"
 #include "adapter_log.h"
+#include "dli_errno.h"
 #include "parameter_wrapper.h"
 
 bool DLI_IsSupportAccessFilterListExt(void)
@@ -145,7 +146,7 @@ uint32_t DLI_SetImgAcbInfoExt(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkPa
     DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
     if (funcList == NULL || funcList->setImgAcbInfo == NULL) {
         ADAPTER_LOGW("get func setImgAcbInfo failed");
-        return 0;
+        return DLI_UNKNOWN_COMMAND;
     }
     return funcList->setImgAcbInfo(param, cbkParam);
 }
