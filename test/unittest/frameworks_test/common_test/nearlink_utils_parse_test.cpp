@@ -98,10 +98,10 @@ TEST(NearlinkUtilsParseTest, ConvertStrToIntMatrix)
     EXPECT_FALSE(ConvertStrToInt("a12", value));
 }
 
-/* UUID 大写化只转换 a-f 区间字母，其余字符原样 */
+/* UUID 大写化只转换 a-f 区间字母，g 及其后的字母与数字原样 */
 TEST(NearlinkUtilsParseTest, ConvertUuidToUpperCaseOnlyHexLetters)
 {
     std::string text = "0a1b-cDeF-ghij";
     ConvertUuidToUpperCase(text);
-    EXPECT_EQ(text, "0A1B-CDEF-gHIJ");
+    EXPECT_EQ(text, "0A1B-CDEF-ghij");
 }

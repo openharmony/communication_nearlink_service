@@ -132,7 +132,7 @@ HWTEST_F(SleServiceDataTest, SetGetInfo001, TestSize.Level1)
  * 厂商数据/服务数据/服务 UUID 的重复插入去重。
  */
 namespace {
-/* 追加一段 TV 结构：类型一字节 + 按字典长度的取值 */
+/* 追加类型字节与值区：DIS 的值区自带长度字节，HiLink 的值区不带（长度查产品字典） */
 void AppendTv(std::string &payload, uint8_t type, const std::string &value)
 {
     payload.push_back(static_cast<char>(type));
@@ -235,7 +235,8 @@ HWTEST_F(SleServiceDataTest, ParseDisServiceData001, TestSize.Level1)
     device.SetServiceDataUUID(Uuid::ConvertFromString(SLE_UUID_DIS), payload);
     device.ParseSleServiceData();
     EXPECT_EQ(device.GetName(), "phone");
-    EXPECT_EQ(device.GetAppearance(), 0);
+    /* 外观长度错配被跳过，外观保持未设置的无效值 */
+    EXPECT_EQ(device.GetAppearance(), SLE_INVALID_APPEARANCE);
 
     /* 外观长度正确：按小端四字节读入 */
     SlePeripheralDevice appearanceDev;
@@ -292,12 +293,12 @@ HWTEST_F(SleServiceDataTest, ParseHiLinkNearby001, TestSize.Level1)
     std::string payload;
     /* 版本、主业务=靠近发现、扩展业务 */
     payload.append(std::string("\x01\x01\x00", 3));
-    AppendTv(payload, SLE_HILINK_MODEL_ID, std::string("\x03\x01\x02\x03", 4));
-    AppendTv(payload, SLE_HILINK_NEW_MODEL_ID, std::string("\x04\x11\x22\x33\x44", 5));
-    AppendTv(payload, SLE_HILINK_SUB_MODEL_ID, std::string("\x01\x11", 2));
+    AppendTv(payload, SLE_HILINK_MODEL_ID, std::string("\x01\x02\x03", 3));
+    AppendTv(payload, SLE_HILINK_NEW_MODEL_ID, std::string("\x11\x22\x33\x44", 4));
+    AppendTv(payload, SLE_HILINK_SUB_MODEL_ID, std::string("\x11", 1));
     /* 图标广播为小端，解析时反转 */
-    AppendTv(payload, SLE_HILINK_ICON_ID, std::string("\x02\x34\x12", 3));
-    AppendTv(payload, SLE_HILINK_BLE_ADV_ADDR, std::string("\x06\x11\x22\x33\x44\x55\x66", 7));
+    AppendTv(payload, SLE_HILINK_ICON_ID, std::string("\x34\x12", 2));
+    AppendTv(payload, SLE_HILINK_BLE_ADV_ADDR, std::string("\x11\x22\x33\x44\x55\x66", 6));
     device.SetServiceDataUUID(Uuid::ConvertFromString(SLE_UUID_HILINK), payload);
     device.ParseSleServiceData();
 
@@ -338,17 +339,17 @@ HWTEST_F(SleServiceDataTest, ParseHiLinkNearby002, TestSize.Level1)
     SlePeripheralDevice unknownType;
     std::string unknownPayload;
     unknownPayload.append(std::string("\x01\x01\x00", 3));
-    AppendTv(unknownPayload, 0x7F, std::string("\x01\x01", 2));
-    AppendTv(unknownPayload, SLE_HILINK_MODEL_ID, std::string("\x03\x01\x02\x03", 4));
+    AppendTv(unknownPayload, 0x7F, std::string("\x01", 1));
+    AppendTv(unknownPayload, SLE_HILINK_MODEL_ID, std::string("\x01\x02\x03", 3));
     unknownType.SetServiceDataUUID(Uuid::ConvertFromString(SLE_UUID_HILINK), unknownPayload);
     unknownType.ParseSleServiceData();
     EXPECT_EQ(unknownType.GetModelId(), "");
 
-    /* 合法类型声明长度超出剩余数据：中止 */
+    /* 合法类型剩余数据不足字典长度：中止 */
     SlePeripheralDevice overrun;
     std::string overrunPayload;
     overrunPayload.append(std::string("\x01\x01\x00", 3));
-    AppendTv(overrunPayload, SLE_HILINK_MODEL_ID, std::string("\x03\x01", 2));
+    AppendTv(overrunPayload, SLE_HILINK_MODEL_ID, std::string("\x01", 1));
     overrun.SetServiceDataUUID(Uuid::ConvertFromString(SLE_UUID_HILINK), overrunPayload);
     overrun.ParseSleServiceData();
     EXPECT_EQ(overrun.GetModelId(), "");
@@ -406,7 +407,7 @@ HWTEST_F(SleServiceDataTest, ServiceDataUuid16And128001, TestSize.Level1)
 {
     SlePeripheralDeviceParseAdvData parseAdvData;
 
-    /* 16位：长度2只有UUID；长度5带3字节数据体 */
+    /* 16 位：长度 2 只有 UUID，数据体为空 */
     uint8_t uuid16Only[2] = {0xEE, 0xFD};
     parseAdvData.payload = uuid16Only;
     parseAdvData.length = sizeof(uuid16Only);
@@ -415,13 +416,16 @@ HWTEST_F(SleServiceDataTest, ServiceDataUuid16And128001, TestSize.Level1)
     ASSERT_EQ(dev16.GetServiceDataUUID().size(), 1U);
     EXPECT_EQ(dev16.GetServiceData(0), "");
 
-    uint8_t uuid16WithBody[5] = {0xEE, 0xFD, 'x', 'y', 'z'};
+    /* 16 位带 3 字节数据体：换一个新 uuid 的独立设备验证（同 uuid 重登记会被去重） */
+    uint8_t uuid16WithBody[5] = {0xEF, 0xFD, 'x', 'y', 'z'};
     parseAdvData.payload = uuid16WithBody;
     parseAdvData.length = sizeof(uuid16WithBody);
-    dev16.SetServiceDataUUID16Bits(parseAdvData);
-    EXPECT_EQ(dev16.GetServiceData(0), "xyz");
+    SlePeripheralDevice dev16Body;
+    dev16Body.SetServiceDataUUID16Bits(parseAdvData);
+    ASSERT_EQ(dev16Body.GetServiceDataUUID().size(), 1U);
+    EXPECT_EQ(dev16Body.GetServiceData(0), "xyz");
 
-    /* 128位：长度16只有UUID；长度18带2字节数据体 */
+    /* 128 位：长度 16 只有 UUID，数据体为空 */
     uint8_t uuid128Only[16] = {0};
     uuid128Only[15] = 0x01;
     parseAdvData.payload = uuid128Only;
@@ -431,14 +435,17 @@ HWTEST_F(SleServiceDataTest, ServiceDataUuid16And128001, TestSize.Level1)
     ASSERT_EQ(dev128.GetServiceDataUUID().size(), 1U);
     EXPECT_EQ(dev128.GetServiceData(0), "");
 
+    /* 128 位带 2 字节数据体：独立设备验证 */
     uint8_t uuid128WithBody[18] = {0};
     uuid128WithBody[15] = 0x02;
     uuid128WithBody[16] = 'o';
     uuid128WithBody[17] = 'k';
     parseAdvData.payload = uuid128WithBody;
     parseAdvData.length = sizeof(uuid128WithBody);
-    dev128.SetServiceDataUUID128Bits(parseAdvData);
-    EXPECT_EQ(dev128.GetServiceData(0), "ok");
+    SlePeripheralDevice dev128Body;
+    dev128Body.SetServiceDataUUID128Bits(parseAdvData);
+    ASSERT_EQ(dev128Body.GetServiceDataUUID().size(), 1U);
+    EXPECT_EQ(dev128Body.GetServiceData(0), "ok");
 
     /* 长度不足UUID宽度：不入 */
     uint8_t tooShort[1] = {0xEE};
