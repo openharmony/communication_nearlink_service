@@ -338,19 +338,17 @@ void SleAdapterServiceTest::InjectScanResult(const std::string &addr, int busine
 void SleAdapterServiceTest::InjectCloudDevice(const std::string &reportAddr, const std::string &memberAddr,
     int cloudPairState)
 {
-    NearlinkCloudPairDevice dev;
-    dev.SetBtAddr(kBtAddr);
-    dev.SetDeviceName("cloudEar");
-    dev.SetToken(std::vector<uint8_t>(kTokenLen, 0x01));
-    dev.SetReportAddr(reportAddr);
-    dev.SetMembersAddr({reportAddr, memberAddr});
-    std::vector<NearlinkCloudPairDevice> cloudDeviceInfos = {dev};
+    // 直插云缓存表：真实下云链路会按合作集一致性做游离态分类，
+    // 分类走向与本套件的被测分支无关，内存注入保证云态确定可控
+    auto downDevice = std::make_shared<DownCloudPairDevice>();
+    downDevice->SetBtAddr(kBtAddr);
+    downDevice->SetDeviceName("cloudEar");
+    downDevice->SetToken(std::vector<uint8_t>(kTokenLen, 0x01));
+    downDevice->SetReportAddr(reportAddr);
+    downDevice->SetMembersAddr({reportAddr, memberAddr});
     auto &cloud = static_cast<SleCloudPairService &>(InterfaceCloudPairService::GetInstance());
-    ASSERT_TRUE(cloud.UpdateCloudDeviceInfoList(cloudDeviceInfos));
-    cloud.cloudDevicesMap_.GetValueAndOpt(reportAddr,
-        [cloudPairState](const std::string &, std::shared_ptr<DownCloudPairDevice> &value) {
-            value->SetCloudPairState(cloudPairState);
-        });
+    cloud.cloudDevicesMap_.EnsureInsert(reportAddr, downDevice);
+    downDevice->SetCloudPairState(cloudPairState);
 }
 
 void SleAdapterServiceTest::SetSleSwitchState(SleStateID state)
@@ -1400,10 +1398,17 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_005, TestSize.Level1)
     DeviceModel model;
     model.SetModelId("777");
 
+    // 型号落盘只对设备表中已注册的设备生效，先预建设备
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
     Adapter().UpdateDeviceModelInfo(kMouseM, model, "");
     EXPECT_EQ("777", SleConfig::GetInstance().GetDeviceModelId(kMouseM));
 
     InjectCdsmGroup(601, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
     Adapter().UpdateDeviceModelInfo(kHeadsetR, model, "");
     EXPECT_EQ("777", SleConfig::GetInstance().GetDeviceModelId(kHeadsetR));
     EXPECT_EQ("777", SleConfig::GetInstance().GetDeviceModelId(kHeadsetL));
@@ -1473,8 +1478,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_008, TestSize.Level1)
     Adapter().SetSleConnectionModeTask(
         static_cast<int>(SLEConnectionMode::CONNECTION_MODE_UNCONNECTABLE), 3);
     EXPECT_EQ(nullptr, Adapter().pimpl->sleConnectableTimer_);
-    EXPECT_EQ(static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE),
-        Adapter().pimpl->sleConnectableHandle_.load());
+    // 句柄由停止广播的异步结果回调复位（见 Device_009），同步调用后仍保持原值
+    EXPECT_EQ(5, Adapter().pimpl->sleConnectableHandle_.load());
 
     // 非法模式值被拒绝
     Adapter().SetSleConnectionModeTask(99, 3);
