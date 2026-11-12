@@ -19,15 +19,15 @@
 #include "adapter_log.h"
 #include "parameter_wrapper.h"
 
-uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
+bool DLI_IsSupportAccessFilterListExt(void)
 {
     DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->addDeviceToAcceptFilterListExt == NULL) {
-        ADAPTER_LOGW("get func addDeviceToAcceptFilterListExt failed");
-        return 0;
+    if (funcList == NULL || funcList->isSupportAccessFilterListExt == NULL) {
+        ADAPTER_LOGW("get func isSupportAccessFilterListExt failed");
+        return false;
     }
 
-    return funcList->addDeviceToAcceptFilterListExt(param);
+    return funcList->isSupportAccessFilterListExt();
 }
 
 uint32_t DLI_EnableFreqBandExt(DLI_FreqBandExtParam *param)

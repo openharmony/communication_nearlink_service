@@ -35,6 +35,7 @@ void QOSM_ICGMgrParamNotify(void *param);
 
 void QOSM_UpdateICG(CM_ICBConnection *connection);
 void QOSM_UpdateICGComplete(QOSM_ICGInfo *icgInfo);
+void QOSM_UpdateAllICGParamFailed(void);
 
 bool QOSM_IsLevelSupported(QOSM_ICGInfo *icgInfo, struct QosLevelLabel *level, QOSM_QosLevel targetLevel);
 void QOSM_CopySupportedBitrate(QOSM_ICGInfo *icgInfo, const uint16_t *supportedBitrate,

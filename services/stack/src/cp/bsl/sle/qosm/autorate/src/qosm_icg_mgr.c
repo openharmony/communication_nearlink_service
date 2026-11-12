@@ -175,7 +175,8 @@ static void QOSM_SetQosICGInfo(QOSM_ICGInfo *icgInfo, const QOSM_ICGMgrParam *pa
     icgInfo->isResetParam = isResetParam;
 
     icgInfo->supportSubrate =
-        CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_SUBRATE);
+        CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_SUBRATE) ||
+        CM_InnerGetRemoteStandardFeature(param->autorateParam.lcid[0], CM_STANDARD_FEATURES_BIT_SUBRATE);
     icgInfo->supportAutorate =
         CM_InnerGetRemotePrivateFeature(param->autorateParam.lcid[0], CM_PRIVATE_FEATURES_BIT_AUTORATE);
     QOSM_LOGI("supportSubrate: %d, supportAutorate: %d", icgInfo->supportSubrate, icgInfo->supportAutorate);

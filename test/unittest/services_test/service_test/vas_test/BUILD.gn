@@ -83,6 +83,7 @@ ohos_unittest("nl_vas_service_test") {
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/vas_test/vas_service_test.cpp",
     "$NEARLINK_ROOT/test/unittest/services_test/service_test/vas_test/vas_stack_adapter_test.cpp",
     "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_system_config.cpp",
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_system_ability_manager_client.cpp",
   ]
   sources += [
     "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_host_server.cpp",
@@ -94,6 +95,7 @@ ohos_unittest("nl_vas_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources -= [
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
     "$NEARLINK_ROOT/services/service/src/vas/VasStackAdapter.cpp",
   ]
 

@@ -16,6 +16,8 @@
 #include <chrono>
 #include <thread>
 #include <gtest/gtest.h>
+#include <memory>
+#include "ThreadUtil.h"
 #include "MicClientStackAdapter.h"
 #include "MicService.h"
 #include "log.h"
@@ -29,6 +31,10 @@ void OnMicpConnectEventCbk(
     SLE_Addr_S *addr, NLSTK_MicpConnectState_E curState, NLSTK_MicpConnectState_E preState, uint8_t errorCode);
 void OnMicpMicStateCbk(SLE_Addr_S *addr, uint8_t micState);
 
+// 测试目的：跨 TU 注册表注入辅助——ProfileServiceManager.cpp 仅由 mic_service_test.cpp 编译，
+// 本套件经此函数（定义在该 TU）注入/解绑 MIC 服务实例。
+void SetMicStartedProfile(MicService *profile);
+
 namespace {
     constexpr int MIC_SERVICE_UT_DELAY_50_MS = 50;
     RawAddress g_mockDevice = RawAddress("00:11:22:33:44:55");
@@ -41,6 +47,11 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    // 测试目的：用例自持真实 MicService 实例——adapter 回调内部经 GetService() 找服务，
+    // 用例也直接对其断言/调用；不依赖 vendor 栈启动链。
+    std::unique_ptr<MicService> service_;
 };
 
 void NearlinkMicClientStackAdapterTest::SetUpTestCase()
@@ -56,11 +67,22 @@ void NearlinkMicClientStackAdapterTest::TearDownTestCase()
 void NearlinkMicClientStackAdapterTest::SetUp()
 {
     HILOGI("SetUp NearlinkMicClientStackAdapterTest.");
+    // 测试目的：MIC 任务同步执行 + 注册表注入服务实例（绕过 Start 链），
+    // 使 adapter 回调内部的 GetService() 与用例断言都能命中真实服务。
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_MIC, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    service_ = std::make_unique<MicService>();
+    SetMicStartedProfile(service_.get());
+    ASSERT_EQ(service_.get(), MicService::GetService());
 }
 
 void NearlinkMicClientStackAdapterTest::TearDown()
 {
     HILOGI("TearDown NearlinkMicClientStackAdapterTest.");
+    // 测试目的：先解绑注册表再销毁服务，最后恢复线程调度默认态。
+    SetMicStartedProfile(nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /*

@@ -40,10 +40,6 @@
 #define DEFAULT_FRAME_TYPE_4_CONN_SCAN_INTERVAL 480
 #define SCAN_PHY_COUNTT_MAX 2
 
-// 新增Bit72定义, 增加白名单列表设备V2特性是否支持
-#define DLI_LOCAL_FEATURE_INDEX_9 9
-#define DLI_LOCAL_FEATURE_IS_SUPPORT_CONN_BYPASS_ADV 0x01
-
 // 系统初始化阶段由NBC模块读取本端特性在回调后进行设置才能读取，否则无效
 static DLI_LocalFeatures_S g_dliLocalFeatures = { 0 };
 
@@ -594,13 +590,19 @@ uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
     return ret;
 }
 
-bool DLI_IsSupportConnBypassAdv(void)
+uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
 {
-    if ((g_dliLocalFeatures.feats[DLI_LOCAL_FEATURE_INDEX_9] &
-        DLI_LOCAL_FEATURE_IS_SUPPORT_CONN_BYPASS_ADV) == DLI_LOCAL_FEATURE_IS_SUPPORT_CONN_BYPASS_ADV) {
-        return true;
-    }
-    return false;
+    DLI_CHECK_RETURN_RET(param != NULL, DLI_STACK_PARAMS_ERRNO, "param is null");
+
+    uint32_t ret = DLI_ExecuteCommand(DLI_ADD_DEVICE_TO_ACCESS_FILTER_LIST_EXT,
+        DLI_CMD_COMPLETE_EVT,
+        param,
+        sizeof(DLI_AddrExtStru),
+        DLI_GetCbk(DLI_CBK_ADD_DEV_TO_ACCESS_FLT_LIST),
+        NULL,
+        0);
+    DLI_LOGD("add device to accept filter list ext ret = %u", ret);
+    return ret;
 }
 
 uint32_t DLI_RemoveDeviceFromAcceptFilterList(SLE_Addr_S *addr)
