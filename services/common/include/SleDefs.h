@@ -140,7 +140,6 @@ constexpr int CM_CONN_COEXIST_INTERAL_THRED = MIN_CONN_INTERVAL;
 #else
 constexpr int CM_CONN_COEXIST_INTERAL_THRED = 0x20;
 #endif
-constexpr int CM_CONN_COEXIST_INTERAL = 0x20;
 constexpr int CM_CONN_COEXIST_INTERAL_LOW = 0X3C; // 0X3C * 0.125 = 7.5ms
 constexpr int CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM = 3;
 constexpr int CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM = 2; // 小于等于4ms的设备数达到2个及以上才调整间隔
