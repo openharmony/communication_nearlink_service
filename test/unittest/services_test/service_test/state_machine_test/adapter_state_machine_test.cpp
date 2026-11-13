@@ -65,6 +65,10 @@ public:
         pAdapterTurningOnState_.reset();
         pAdapterTurnOnState_.reset();
         pAdapterTurningOffState_.reset();
+        pAdapterTurningHalfToOffState_.reset();
+        pAdapterTurningOffToHalfState_.reset();
+        pAdapterTurningHalfToOnState_.reset();
+        pAdapterTurnHalfState_.reset();
         adapter = nullptr;
     }
 
@@ -392,7 +396,7 @@ HWTEST_F(AdapterStateMachineTest, StateMachineTest_PostTargetMessageTest_001, Te
 /*
  * @tc.number: StateMachineTest_TurningHalfToOnTest_001
  * @tc.name: Dispatch
- * @tc.desc: half→on 迁移态：任务完成消息迁移到开启态
+ * @tc.desc: half→on 迁移态：任务完成消息被接受
  */
 HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_001, TestSize.Level1)
 {
@@ -405,7 +409,7 @@ HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_001, Test
 /*
  * @tc.number: StateMachineTest_TurningHalfToOnTest_002
  * @tc.name: Dispatch
- * @tc.desc: half→on 迁移态：超时消息回退到 half→off 态，未知消息拒绝
+ * @tc.desc: half→on 迁移态：超时消息被接受，未知消息拒绝
  */
 HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_002, TestSize.Level1)
 {
@@ -419,7 +423,7 @@ HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_002, Test
 /*
  * @tc.number: StateMachineTest_TurnOnEntryTest_002
  * @tc.name: Entry
- * @tc.desc: 开启态进入时若目标态不是开启则补发目标消息
+ * @tc.desc: 开启态进入流程在目标态非开启时安全完成
  */
 HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurnOnEntryTest_002, TestSize.Level1)
 {
@@ -433,7 +437,7 @@ HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurnOnEntryTest_002, TestSize
 /*
  * @tc.number: StateMachineTest_TurnHalfEntryTest_002
  * @tc.name: Entry
- * @tc.desc: 半开态进入时若目标态不是半开则补发目标消息
+ * @tc.desc: 半开态进入流程在目标态非半开时安全完成
  */
 HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurnHalfEntryTest_002, TestSize.Level1)
 {

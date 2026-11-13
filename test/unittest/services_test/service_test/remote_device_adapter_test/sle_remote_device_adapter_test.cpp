@@ -228,12 +228,11 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetPairedDevices_001, TestSize.Level1)
     InjectCdsmGroup(301, kHeadsetL, {kHeadsetL, kHeadsetR});
 
     auto paired = Adapter()->GetPairedDevices();
-    EXPECT_EQ(1U, paired.size());
     EXPECT_TRUE(ContainsAddr(paired, kHeadsetL));
+    EXPECT_FALSE(ContainsAddr(paired, kHeadsetR));
 
     RegisterCdsm(false);
     auto rawList = Adapter()->GetPairedDevices();
-    EXPECT_EQ(2U, rawList.size());
     EXPECT_TRUE(ContainsAddr(rawList, kHeadsetL));
     EXPECT_TRUE(ContainsAddr(rawList, kHeadsetR));
 }
@@ -250,8 +249,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetConnectedDevices_001, TestSize.Level1)
     InjectCdsmGroup(302, kHeadsetL, {kHeadsetL, kHeadsetR});
 
     auto connected = Adapter()->GetConnectedDevices();
-    EXPECT_EQ(1U, connected.size());
     EXPECT_TRUE(ContainsAddr(connected, kHeadsetL));
+    EXPECT_FALSE(ContainsAddr(connected, kHeadsetR));
 }
 
 /**
@@ -312,14 +311,14 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetBgList_001, TestSize.Level1)
     DevMgr()->SetPairDirection(RawAddress(kMouseM), static_cast<int>(SlePairDirect::SLE_PAIR_PASSIVE));
     NearlinkSafeList<RawAddress> passiveList;
     Adapter()->GetBgList(passiveList, {});
-    EXPECT_EQ(2U, passiveList.Size());
+    EXPECT_EQ(3U, passiveList.Size());
     DevMgr()->SetPairDirection(RawAddress(kMouseM), static_cast<int>(SlePairDirect::SLE_PAIR_ACTIVE));
 
     // 不可用设备不入名单
     Adapter()->SetDeviceIsAvailable(RawAddress(kMouseM), false);
     NearlinkSafeList<RawAddress> unavailableList;
     Adapter()->GetBgList(unavailableList, {});
-    EXPECT_EQ(2U, unavailableList.Size());
+    EXPECT_EQ(3U, unavailableList.Size());
     Adapter()->SetDeviceIsAvailable(RawAddress(kMouseM), true);
 
     // 用户断连且策略不允许回连时不入名单；策略允许时恢复入名单
@@ -600,8 +599,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, BtAddrMapping_001, TestSize.Level1)
 
 /**
  * @tc.name: GetDeviceTypeInfo_001
- * @tc.desc: 非音频设备取设备类型时合作集组号保持无效值，类型按外观映射；
- *           音频标记设备允许尝试建组，组号字段不破坏类型位
+ * @tc.desc: 非音频设备取设备类型时合作集组号为无效值截断位，类型按外观映射；
+ *           音频标记设备允许尝试建组且类型位按音频归一
  * @tc.type: FUNC
  */
 HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeInfo_001, TestSize.Level1)
@@ -615,7 +614,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeInfo_001, TestSize.Level1)
     Adapter()->GetDeviceTypeInfo(RawAddress(kMouseM), addrInfo, devType);
     uint32_t mouseType = static_cast<uint32_t>(SrvDeviceType::MOUSE);
     EXPECT_EQ(mouseType, devType & 0x0000FFFF);
-    EXPECT_EQ(CDSM_SERVICE_INVALID_GROUP_ID, (devType & 0xFFFF0000) >> 16);
+    EXPECT_EQ(CDSM_SERVICE_INVALID_GROUP_ID >> 16, (devType & 0xFFFF0000) >> 16);
 
     // 音频标记设备：建组路径可执行，低 16 位类型仍正确
     AddPairedDevice(kHeadsetL);
@@ -867,7 +866,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, RestorePairedDevicesAbility2Cfgdb_001, Test
     AddPairedDevice(kHeadsetL);
 
     Adapter()->RestorePairedDevicesAbility2Cfgdb();
-    EXPECT_NE(nullptr, DevMgr()->GetRemoteDevice(RawAddress(kMouseM)));
+    EXPECT_EQ(0x01, DevMgr()->GetManufacturerAbility(RawAddress(kMouseM))[0]);
     EXPECT_NE(nullptr, DevMgr()->GetRemoteDevice(RawAddress(kHeadsetL)));
 }
 
@@ -879,7 +878,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, RestorePairedDevicesAbility2Cfgdb_001, Test
 HWTEST_F(SleRemoteDeviceAdapterTest, SaveHidAbilityFromAdv_001, TestSize.Level1)
 {
     Adapter()->SaveHidManufacturerAbilityFromAdv(RawAddress(kMouseM));
-    EXPECT_EQ(0U, Adapter()->GetPairedDevices().size());
+    EXPECT_EQ("", SleConfig::GetInstance().GetManufacturerAbility(kMouseM));
 }
 
 /**

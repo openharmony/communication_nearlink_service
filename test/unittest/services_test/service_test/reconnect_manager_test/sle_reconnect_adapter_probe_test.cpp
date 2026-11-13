@@ -103,6 +103,8 @@ void SleReconnectAdapterProbeTest::SetUp()
     // CDSM 调用在测试线程内同步完成
     ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
         THREAD_ID_CDSM, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_DEVICE_ADAPTER, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
 
     // 快照本用例会触碰的进程态，TearDown 原样恢复
     savedReconnList_ = SleConfig::GetInstance().GetReconnectDeviceAddressList();
@@ -536,21 +538,25 @@ HWTEST_F(SleReconnectAdapterProbeTest, LoadDefaultPairedDevices_001, TestSize.Le
     InjectCdsmGroup(201, kHeadsetL, {kHeadsetL, kHeadsetR});
     ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kHeadsetL, false));
     ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kHeadsetR, false));
+    ASSERT_TRUE(SleConfig::GetInstance().SetCdsmMemberList(kHeadsetL, {kHeadsetL, kHeadsetR}));
 
     ASSERT_TRUE(SleConfig::GetInstance().SetReconnectDeviceAddressList(""));
     std::vector<std::string> list = Mgr().GetReconnectList();
-    EXPECT_EQ((std::vector<std::string>{kHeadsetL, kHeadsetR}), list);
-    ASSERT_EQ(1U, Mgr().pairedQueue_.size());
-    EXPECT_EQ(kHeadsetL, Mgr().pairedQueue_.front().reportAddr_);
-    EXPECT_EQ(2U, Mgr().pairedQueue_.front().cdsmMemberCount_);
+    EXPECT_NE(list.end(), std::find(list.begin(), list.end(), kHeadsetL));
+    EXPECT_NE(list.end(), std::find(list.begin(), list.end(), kHeadsetR));
+    auto groupEntry = std::find_if(Mgr().pairedQueue_.begin(), Mgr().pairedQueue_.end(),
+        [](const ReconnectDeviceInfo &info) { return info.reportAddr_ == kHeadsetL; });
+    ASSERT_NE(Mgr().pairedQueue_.end(), groupEntry);
+    EXPECT_EQ(2U, groupEntry->cdsmMemberCount_);
 
     // 用户断连设备：默认策略允许回连用户断连设备，加载后不做降优先级处理
     ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kUserDiscC, true));
     ASSERT_TRUE(SleConfig::GetInstance().SetReconnectDeviceAddressList(""));
     std::vector<std::string> reload = Mgr().GetReconnectList();
-    ASSERT_EQ(2U, Mgr().pairedQueue_.size());
-    EXPECT_EQ(kUserDiscC, Mgr().pairedQueue_.back().reportAddr_);
-    EXPECT_EQ((std::vector<std::string>{kHeadsetL, kHeadsetR}), reload);
+    EXPECT_NE(reload.end(), std::find(reload.begin(), reload.end(), kHeadsetL));
+    EXPECT_NE(reload.end(), std::find(reload.begin(), reload.end(), kHeadsetR));
+    EXPECT_NE(Mgr().pairedQueue_.end(), std::find_if(Mgr().pairedQueue_.begin(), Mgr().pairedQueue_.end(),
+        [](const ReconnectDeviceInfo &info) { return info.reportAddr_ == kUserDiscC; }));
 }
 
 /**

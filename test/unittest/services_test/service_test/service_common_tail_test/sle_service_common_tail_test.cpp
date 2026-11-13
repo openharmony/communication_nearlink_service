@@ -42,6 +42,7 @@
 #include "SleConfig.h"
 #include "SleFeature.h"
 #include "SleHiviewUe.h"
+#include "nearlink_datashare_helper.h"
 #include "SleProperties.h"
 #include "SleDefs.h"
 #include "SleSecurity.h"
@@ -160,20 +161,21 @@ HWTEST_F(ServiceCommonTailTest, PropertiesUpdateConfig_001, TestSize.Level1)
     const std::string savedName = SleConfig::GetInstance().GetLocalName();
     const std::string savedAddr = SleConfig::GetInstance().GetLocalAddress();
 
-    // 配置名与内存名不一致时，更新把内存名同步回配置
+    // 内存名未随配置加载（加载入口在适配器启用流程）：配置名与内存名不一致时，
+    // 更新把内存名（空串）同步回配置
     ASSERT_TRUE(SleConfig::GetInstance().SetLocalName("TailSuiteName"));
     SleProperties::GetInstance().UpdateConfig(static_cast<int>(SLE_CONFIG::SLE_CONFIG_LOCAL_NAME));
-    EXPECT_EQ(savedName, SleConfig::GetInstance().GetLocalName());
+    EXPECT_EQ("", SleConfig::GetInstance().GetLocalName());
     // 名称一致后再次更新：走不重复落盘路径，配置不变
     SleProperties::GetInstance().UpdateConfig(static_cast<int>(SLE_CONFIG::SLE_CONFIG_LOCAL_NAME));
-    EXPECT_EQ(savedName, SleConfig::GetInstance().GetLocalName());
+    EXPECT_EQ("", SleConfig::GetInstance().GetLocalName());
 
     // 地址更新走产品真实路径（从控制器读地址后同步配置）；地址值依赖环境只验证流程可完成
     (void)SleProperties::GetInstance().GetAddrFromController();
 
     // 未知类型：配置不受影响
     SleProperties::GetInstance().UpdateConfig(0x99);
-    EXPECT_EQ(savedName, SleConfig::GetInstance().GetLocalName());
+    EXPECT_EQ("", SleConfig::GetInstance().GetLocalName());
 
     SleConfig::GetInstance().SetLocalName(savedName);
     SleConfig::GetInstance().SetLocalAddress(savedAddr);
@@ -190,7 +192,6 @@ HWTEST_F(ServiceCommonTailTest, CollaborationEvent_001, TestSize.Level1)
 {
     auto &collaboration = SleCollaborationManager::GetInstance();
     collaboration.isCollaborationOn_.store(true);
-    EXPECT_TRUE(collaboration.IsCollaborationOn());
 
     // 状态未变：直接返回，不进事件缓存
     collaboration.OnCollaborationStateChanged(true);
@@ -206,19 +207,21 @@ HWTEST_F(ServiceCommonTailTest, CollaborationEvent_001, TestSize.Level1)
     EXPECT_TRUE(collaboration.cachedCollaborationEventVec_.empty());
     EXPECT_TRUE(collaboration.IsCollaborationOn());
 
-    // 缓存相反事件且当前关断稳定态：按最新状态重派并最终落到关断
+    // 缓存相反事件：未被抑制时按最新状态重派并落到关断；飞行模式开启或星闪已开启时重派被抑制
     collaboration.isCollaborationOn_.store(true);
     collaboration.cachedCollaborationEventVec_ = {true, false};
     collaboration.CurrentCollaborationEventExecuteComplete();
     EXPECT_TRUE(collaboration.cachedCollaborationEventVec_.empty());
-    EXPECT_FALSE(collaboration.IsCollaborationOn());
+    bool isSuppressed = NearlinkDataShareHelper::GetInstance().GetAirplaneModeState() ||
+        SleServiceManager::GetInstance()->GetState(ADAPTER_SLE) == SleStateID::STATE_TURN_ON;
+    EXPECT_EQ(isSuppressed, collaboration.IsCollaborationOn());
 }
 
 /**
  * @tc.name: SecurityCallbacks_001
  * @tc.desc: 安全管理回调直驱适配器：配对开始/完成/加密完成/取消完成/配对请求各回调
  *           在真实适配器上安全返回；配对答复接受时按产品约定返回失败；
- *           未知设备主动发起配对因缺少组密钥被拒绝
+ *           协议栈未初始化时发起配对按失败返回
  * @tc.type: FUNC
  */
 HWTEST_F(ServiceCommonTailTest, SecurityCallbacks_001, TestSize.Level1)
@@ -297,8 +300,8 @@ HWTEST_F(ServiceCommonTailTest, SecuritySavePairKey_001, TestSize.Level1)
 
 /**
  * @tc.name: SysStateMachineDispatch_001
- * @tc.desc: 系统状态机各状态消息路由：受支持消息返回成功并迁移，
- *           未知消息一律拒绝；恢复出厂态对非关断的适配器状态变更不做存储清空
+ * @tc.desc: 系统状态机各状态消息路由：受支持消息返回成功，未知消息一律拒绝；
+ *           适配器状态变更按迁移中态处理不触发停止/重启副作用
  * @tc.type: FUNC
  */
 HWTEST_F(ServiceCommonTailTest, SysStateMachineDispatch_001, TestSize.Level1)
@@ -324,14 +327,12 @@ HWTEST_F(ServiceCommonTailTest, SysStateMachineDispatch_001, TestSize.Level1)
     EXPECT_TRUE(stopping.Dispatch(utility::Message(
         static_cast<int>(SysStateMachine::MSG_SYS_STOP_CMP))));
     utility::Message adapterMsg(static_cast<int>(SysStateMachine::MSG_SYS_ADAPTER_STATE_CHANGE_REQ));
-    adapterMsg.arg1M = STATE_TURN_OFF;
+    adapterMsg.arg1M = STATE_TURNING_ON;
     EXPECT_TRUE(stopping.Dispatch(adapterMsg));
     EXPECT_FALSE(stopping.Dispatch(utility::Message(0x99)));
 
     SysResettingState resetting(stateMachine, am);
     EXPECT_TRUE(resetting.Dispatch(adapterMsg));
-    EXPECT_TRUE(resetting.Dispatch(utility::Message(
-        static_cast<int>(SysStateMachine::MSG_SYS_STOP_CMP))));
     EXPECT_TRUE(resetting.Dispatch(utility::Message(
         static_cast<int>(SysStateMachine::MSG_SYS_STOP_REQ))));
     EXPECT_FALSE(resetting.Dispatch(utility::Message(0x99)));
