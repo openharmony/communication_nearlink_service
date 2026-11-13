@@ -59,6 +59,7 @@ static void SyncThreadsForTest()
     util.threadStateMap_.EnsureInsert(THREAD_ID_CDSM, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
     util.threadStateMap_.EnsureInsert(THREAD_ID_DIS, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
     util.threadStateMap_.EnsureInsert(THREAD_ID_DEVICE_ADAPTER, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    util.threadStateMap_.EnsureInsert(THREAD_ID_TWS, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
 }
 
 static void SetStartedProfile(const std::string &name, SleInterfaceProfile *profile)
@@ -73,8 +74,8 @@ class SleProfileConnectTest : public testing::Test {
 public:
     static void SetUpTestCase()
     {
-        // 只加载配置文件，不创建 adapter——本套件不依赖固件栈
-        SleConfig::GetInstance().LoadConfigInfo();
+        // 只加载配置文件，不创建 adapter——本套件不依赖固件栈；加载失败则后续落盘会以默认值覆盖
+        ASSERT_TRUE(SleConfig::GetInstance().LoadConfigInfo());
     }
 
     void SetUp() override
@@ -473,7 +474,7 @@ HWTEST_F(SleProfileConnectTest, ProcessProfileDisconnectedPaths_008, TestSize.Le
     manager_->ProcessProfileDisconnected(PROFILE_NAME_BAS, RawAddress(lastAddr));
     ASSERT_EQ(1U, calls_->allDiscAddrs.size());
     EXPECT_EQ(lastAddr, calls_->allDiscAddrs[0]);
-    // EXPECT_FALSE lastAddr
+    EXPECT_FALSE(HasInst(lastAddr));
     ASSERT_EQ(1U, calls_->notify.size());
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), NotifyNewState(0));
 }
@@ -776,6 +777,7 @@ HWTEST_F(SleProfileConnectTest, SsapDiscoveredTwsAndIcce_015, TestSize.Level1)
             Uuid::ConvertFrom16Bits(static_cast<uint16_t>(SleUuid::SLE_STANDARD_SERVICE_ICCE_UUID)));
         InsertInst(kAddrR, SLE_ADAPTER_PROF_CONN_STATE_DISCOVERING);
         auto carKeyInst = GetInst(kAddrR);
+        ASSERT_NE(nullptr, carKeyInst);
         ssap_->services = {icceSvc};
         SetAppearance(kAddrR, DEVICE_CLASS_VEHICLE_LOCK);
         manager_->SsapServicesDiscoveredTask(RawAddress(kAddrR), static_cast<int>(SsapStatus::SSAP_SUCCESS));
@@ -1029,6 +1031,7 @@ HWTEST_F(ProfileServiceManagerTest, ProfileEnableProfilesInherit_003, TestSize.L
     Psm().EnableProfiles(self);
     ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
     EXPECT_EQ(ServiceStateID::WAIT_TURN_ON, state);
+    EXPECT_EQ(0, onOther->context_.enableCount);
 
     Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_ON);
     Psm().EnableProfiles(self);
@@ -1313,6 +1316,9 @@ public:
         SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
         mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
         mgr->pimpl->sysState_ = SYS_STATE_STOPPED;
+        // 摘除真实适配器状态机：开关任务链不再驱动真机开链（snoop/NBC/slem_enable/复位参数写入）
+        savedStateMachine_ = mgr->pimpl->stateMachine_;
+        mgr->pimpl->stateMachine_ = nullptr;
 
         ASSERT_TRUE(mgr->RegisterStateObserver(observer_));
         ASSERT_TRUE(mgr->RegisterSystemStateObserver(sysObserver_));
@@ -1331,17 +1337,15 @@ public:
         SleCollaborationManager::GetInstance().isCollaborationOn_ = savedCollaboration_;
         UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();
         mgr->switchDependency_ = nullptr;
+        mgr->pimpl->stateMachine_ = savedStateMachine_;
         mgr->pimpl->resetPromise_ = std::promise<void>();
         mgr->pimpl->stopPromise_ = std::promise<void>();
+        mgr->pimpl->driverLoadPromise_ = std::promise<void>();
         NearlinkVerificationManager::GetInstance().ClearStrategies();
         SetSatellite(!savedSateSwitch_.empty() && savedSateSwitch_ == "true", savedSateTime_);
         OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, savedSwitchParam_);
-        if (!savedMpxx_.empty()) {
-            OHOS::system::SetParameter(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, savedMpxx_);
-        }
-        if (!savedResetService_.empty()) {
-            OHOS::system::SetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, savedResetService_);
-        }
+        OHOS::system::SetParameter(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, savedMpxx_);
+        OHOS::system::SetParameter(RESET_SERVICE_SYSTEM_PARAMETER_NAME, savedResetService_);
         ThreadUtil::GetInstance().InitThreadStateMap();
     }
 
@@ -1358,6 +1362,7 @@ public:
     bool savedRestoreNeeded_ = false;
     SwitchCallerInfo savedDisableCaller_;
     bool savedCollaboration_ = false;
+    std::shared_ptr<AdapterStateMachine> savedStateMachine_;
 };
 
 /**
@@ -1502,6 +1507,9 @@ HWTEST_F(SleServiceManagerTest, SwitchEnableInnerStates_005, TestSize.Level1)
  */
 HWTEST_F(SleServiceManagerTest, SwitchDisableRouting_006, TestSize.Level1)
 {
+    if (NearlinkDataShareHelper::GetInstance().GetAirplaneModeState()) {
+        GTEST_SKIP() << "airplane mode on";
+    }
     auto *mgr = SleServiceManager::GetInstance();
     mgr->pimpl->sysState_ = SYS_STATE_STARTED;
     SetSatellite(false, "");
@@ -1555,6 +1563,7 @@ HWTEST_F(SleServiceManagerTest, SwitchToOffTaskStates_007, TestSize.Level1)
         mgr->SwitchToOffTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
     EXPECT_EQ("1", GetSwitchParam());
     EXPECT_TRUE(mgr->isRestoreNeeded_.load());
+    mgr->isRestoreNeeded_ = false;
 
     NearlinkVerificationManager::GetInstance().ClearStrategies();
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
@@ -1589,7 +1598,6 @@ HWTEST_F(SleServiceManagerTest, SwitchToHalfTaskStates_008, TestSize.Level1)
     EXPECT_EQ(NL_NO_ERROR,
         mgr->SwitchToHalfTask(SleTransport::ADAPTER_SLE, SleEventType::SVC_TRIGGERED, caller));
     EXPECT_EQ("2", GetSwitchParam());
-    EXPECT_EQ(SleStateID::STATE_TURN_OFF, mgr->pimpl->stateMachine_->GetNextTargetState());
 
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
     EXPECT_EQ(NL_NO_ERROR,
@@ -1648,6 +1656,9 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreFromParameter_009, TestSize.Level1)
  */
 HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
 {
+    if (NearlinkDataShareHelper::GetInstance().GetAirplaneModeState()) {
+        GTEST_SKIP() << "airplane mode on";
+    }
     auto *mgr = SleServiceManager::GetInstance();
     mgr->pimpl->sysState_ = SYS_STATE_STARTED;
     SetSatellite(false, "");
@@ -1659,14 +1670,12 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
     // 参数为关 + 协同开启：经延迟任务转半关
     SleCollaborationManager::GetInstance().isCollaborationOn_ = true;
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
-    mgr->pimpl->stateMachine_->SetNextTargetState(SleStateID::STATE_TURN_OFF);
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
     mgr->RestoreSwitchStatus();
     EXPECT_EQ("2", GetSwitchParam());
 
     // 参数为关 + 协同关闭：不恢复，参数保持为关
     SleCollaborationManager::GetInstance().isCollaborationOn_ = false;
-    mgr->pimpl->stateMachine_->SetNextTargetState(SleStateID::STATE_TURN_OFF);
     OHOS::system::SetParameter(NEARLINK_SWITCH_SYSTEM_PARAMETER_NAME, "0");
     mgr->RestoreSwitchStatus();
     EXPECT_EQ("0", GetSwitchParam());
@@ -1679,6 +1688,9 @@ HWTEST_F(SleServiceManagerTest, SwitchRestoreSwitchStatus_010, TestSize.Level1)
  */
 HWTEST_F(SleServiceManagerTest, SwitchCollaborationAndNeedHalf_011, TestSize.Level1)
 {
+    if (NearlinkDataShareHelper::GetInstance().GetAirplaneModeState()) {
+        GTEST_SKIP() << "airplane mode on";
+    }
     auto *mgr = SleServiceManager::GetInstance();
     mgr->pimpl->sysState_ = SYS_STATE_STARTED;
     SetSatellite(false, "");
@@ -1712,6 +1724,7 @@ HWTEST_F(SleServiceManagerTest, SwitchDriverLoad_012, TestSize.Level1)
     mgr->WaitDriverLoadCompleted();
 
     mgr->DriverLoadStatusChange(PARAM_NAME_FOR_STEP_MPXX_DIR_MODE, "success");
+    mgr->WaitDriverLoadCompleted();
 }
 
 /**
@@ -1789,7 +1802,8 @@ HWTEST_F(SleServiceManagerTest, AdapterStateChangeTaskAndNotify_015, TestSize.Le
     mgr->pimpl->sysState_ = SYS_STATE_STARTED;
     mgr->pimpl->state_ = SleStateID::STATE_TURN_OFF;
     mgr->OnAdapterStateChange(SleTransport::ADAPTER_SLE, SleStateID::STATE_TURN_ON);
-    EXPECT_EQ(2U, observer_.stateChanges.size());
+    ASSERT_EQ(2U, observer_.stateChanges.size());
+    EXPECT_EQ(SleStateID::STATE_TURN_ON, observer_.stateChanges[1]);
 }
 
 /**
