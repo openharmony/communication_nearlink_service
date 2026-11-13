@@ -67,7 +67,7 @@ private:
     // 非调速设备仅需自定义参数时的处理
     void UpdateCustomParamDevice(const CoexistConnInfo& info);
 
-    // 占用高速槽位的设备（间隔未知或小于7.5ms）按槽位分配目标间隔
+    // 占用高速槽位的设备（间隔小于7.5ms）按槽位分配目标间隔
     void UpdateFastSlotDeviceParam(const CoexistConnInfo& info, int deviceCount,
         bool isNeedAdjustInterval, bool isNeedAdjustExt);
 
