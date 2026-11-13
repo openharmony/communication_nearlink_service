@@ -14,7 +14,7 @@
  */
 
 // 目标: frameworks/native/nearlink_ssap_descriptor.cpp 零覆盖分支
-// 瞄准行: 54/65/73(拷贝构造与赋值的深拷贝/清空分支), 102(SetValue 空参拒绝分支)
+// 覆盖: 拷贝构造与赋值的深拷贝/清空分支, SetValue 空参拒绝分支
 
 #include <gtest/gtest.h>
 #include <cstring>

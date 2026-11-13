@@ -14,7 +14,7 @@
  */
 
 // 目标: frameworks/native/nearlink_ssap_property.cpp 零覆盖分支
-// 瞄准行: 74/85/96(拷贝构造与赋值的深拷贝/清空分支), 115(GetDescriptor 类型命中分支), 181(GetValue 空出参分支)
+// 覆盖: 拷贝构造与赋值的深拷贝/清空分支, GetDescriptor 类型命中分支, GetValue 空出参分支
 
 #include <gtest/gtest.h>
 #include <cstring>

@@ -15,8 +15,7 @@
 
 // 目标: frameworks/native/nearlink_ssap_server.cpp 零覆盖分支(进程内驱动, 不依赖真实 SLE 栈)
 // 手法: 编入产品源文件(private=public) 直接取用 impl 层回调桩 serviceCallback_, 用记录型
-//       Fake SsapServerCallback 在进程内驱动 On* 回调与 pimpl 内部函数, 瞄准 120/150/299/344/514
-//       行分支; 网关后(需真实代理/SLE 使能)的分支不在本套用例范围
+//       Fake SsapServerCallback 在进程内驱动 On* 回调与 pimpl 内部函数; 网关后(需真实代理/SLE 使能)的分支不在本套用例范围
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -251,7 +250,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkCreate001, TestSize.Level1)
 
 /**
  * @tc.name: SsapServerFrameworkInitTwice001
- * @tc.desc: impl::Init 二次调用守卫分支(行299 真腿): 已注册直接返回, 回调桩不重建
+ * @tc.desc: impl::Init 二次调用守卫分支: 已注册直接返回, 回调桩不重建
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkInitTwice001, TestSize.Level1)
@@ -352,7 +351,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnAddService001, TestSize.L
 
 /**
  * @tc.name: SsapServerFrameworkOnPropertyReadRequestHit001
- * @tc.desc: 回调桩 OnPropertyReadRequest uuid 命中分支(行120 真腿): 回调带 serviceUuid
+ * @tc.desc: 回调桩 OnPropertyReadRequest uuid 命中分支: 回调带 serviceUuid
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyReadRequestHit001, TestSize.Level1)
@@ -367,7 +366,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyReadRequestHit001
 
 /**
  * @tc.name: SsapServerFrameworkOnPropertyReadRequestMiss002
- * @tc.desc: 回调桩 OnPropertyReadRequest uuid 未命中分支(行120 假腿): 请求被丢弃, 不回调
+ * @tc.desc: 回调桩 OnPropertyReadRequest uuid 未命中分支: 请求被丢弃, 不回调
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyReadRequestMiss002, TestSize.Level1)
@@ -381,7 +380,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyReadRequestMiss00
 
 /**
  * @tc.name: SsapServerFrameworkOnPropertyWriteRequestHit001
- * @tc.desc: 回调桩 OnPropertyWriteRequest uuid 命中分支(行150 真腿): 值与 serviceUuid 透传
+ * @tc.desc: 回调桩 OnPropertyWriteRequest uuid 命中分支: 值与 serviceUuid 透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyWriteRequestHit001, TestSize.Level1)
@@ -397,7 +396,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyWriteRequestHit00
 
 /**
  * @tc.name: SsapServerFrameworkOnPropertyWriteRequestMiss002
- * @tc.desc: 回调桩 OnPropertyWriteRequest uuid 未命中分支(行150 假腿): 请求被丢弃
+ * @tc.desc: 回调桩 OnPropertyWriteRequest uuid 未命中分支: 请求被丢弃
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnPropertyWriteRequestMiss002, TestSize.Level1)
@@ -467,7 +466,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkOnMtuAndNotify001, TestSize
 
 /**
  * @tc.name: SsapServerFrameworkFindConnectedDevice001
- * @tc.desc: pimpl FindConnectedDevice 比较分支(行344): 地址+传输命中, 任一不匹配返回空
+ * @tc.desc: pimpl FindConnectedDevice 比较分支: 地址+传输命中, 任一不匹配返回空
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkFindConnectedDevice001, TestSize.Level1)
@@ -489,7 +488,7 @@ HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkFindConnectedDevice001, Tes
 
 /**
  * @tc.name: SsapServerFrameworkFindPropertyByUuid001
- * @tc.desc: FindPropertyByUuid 命中/未命中分支(行514): 命中写出句柄
+ * @tc.desc: FindPropertyByUuid 命中/未命中分支: 命中写出句柄
  * @tc.type: FUNC
  */
 HWTEST_F(SsapServerFrameworkTest, SsapServerFrameworkFindPropertyByUuid001, TestSize.Level1)

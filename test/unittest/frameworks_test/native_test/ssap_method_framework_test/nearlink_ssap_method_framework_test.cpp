@@ -14,7 +14,7 @@
  */
 
 // 目标: frameworks/native/nearlink_ssap_method.cpp 零覆盖分支
-// 瞄准行: 57/65(拷贝构造 parameter_/result_ 深拷贝分支), 76/85/93(赋值自赋值与深拷贝分支)
+// 覆盖: 拷贝构造 parameter_/result_ 深拷贝分支, 赋值自赋值与深拷贝分支
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -242,7 +242,7 @@ HWTEST_F(SsapMethodFrameworkTest, MethodSetParameterReject001, TestSize.Level1)
 
 /**
  * @tc.name: MethodSetParameterMaxLength002
- * @tc.desc: SetParameter 恰好最大长度(0x1000)被接受, 超过被拒绝
+ * @tc.desc: SetParameter 恰好最大长度(0x1000)被接受
  * @tc.type: FUNC
  */
 HWTEST_F(SsapMethodFrameworkTest, MethodSetParameterMaxLength002, TestSize.Level1)

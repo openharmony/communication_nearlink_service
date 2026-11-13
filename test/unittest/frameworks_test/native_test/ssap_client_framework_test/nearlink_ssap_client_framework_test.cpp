@@ -15,8 +15,7 @@
 
 // 目标: frameworks/native/nearlink_ssap_client.cpp 零覆盖分支(进程内驱动, 不依赖真实 SLE 栈)
 // 手法: 编入产品源文件(private=public) 直接构造 impl 层回调桩, 用记录型 Fake SsapClientCallback
-//       在进程内驱动 On* 回调与 pimpl 内部函数, 瞄准 106/131/159/183/189/213/219/247/281/322/328/
-//       336/414/577/599/931/935/1062/1076 行分支; 网关后(需真实代理/SLE 使能)的分支不在本套用例范围
+//       在进程内驱动 On* 回调与 pimpl 内部函数; 网关后(需真实代理/SLE 使能)的分支不在本套用例范围
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -394,7 +393,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnConnStateConnected001, Te
 
 /**
  * @tc.name: SsapClientFrameworkOnConnStateDisconnected002
- * @tc.desc: 回调桩 OnConnectionStateChanged(DISCONNECTED): 触发 CleanConnectionInfo(行106),
+ * @tc.desc: 回调桩 OnConnectionStateChanged(DISCONNECTED): 触发 CleanConnectionInfo,
  *           isFinding 置位时发出 OnServicesDiscovered(SSAP_FAILURE)
  * @tc.type: FUNC
  */
@@ -450,7 +449,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnConnStateNoCallback001, T
 
 /**
  * @tc.name: SsapClientFrameworkOnPropertyChangedHit001
- * @tc.desc: 回调桩 OnPropertyChanged 命中分支(行131): 更新缓存属性值并带 serviceUuid 透传
+ * @tc.desc: 回调桩 OnPropertyChanged 命中分支: 更新缓存属性值并带 serviceUuid 透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnPropertyChangedHit001, TestSize.Level1)
@@ -472,7 +471,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnPropertyChangedHit001, Te
 
 /**
  * @tc.name: SsapClientFrameworkOnPropertyChangedMiss002
- * @tc.desc: 回调桩 OnPropertyChanged 未命中分支(行131 假腿): 无缓存也透传, serviceUuid 为空
+ * @tc.desc: 回调桩 OnPropertyChanged 未命中分支: 无缓存也透传, serviceUuid 为空
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnPropertyChangedMiss002, TestSize.Level1)
@@ -487,7 +486,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnPropertyChangedMiss002, T
 
 /**
  * @tc.name: SsapClientFrameworkOnEventNotifiedHit001
- * @tc.desc: 回调桩 OnEventNotified 命中分支(行159): 以缓存事件 uuid/serviceUuid 透传
+ * @tc.desc: 回调桩 OnEventNotified 命中分支: 以缓存事件 uuid/serviceUuid 透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnEventNotifiedHit001, TestSize.Level1)
@@ -517,7 +516,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnEventNotifiedMiss002, Tes
 
 /**
  * @tc.name: SsapClientFrameworkOnReadPropertySuccessHit001
- * @tc.desc: 回调桩 OnReadProperty 成功+uuid 命中(行183/189 真腿): 值与 serviceUuid 透传
+ * @tc.desc: 回调桩 OnReadProperty 成功+uuid 命中: 值与 serviceUuid 透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertySuccessHit001, TestSize.Level1)
@@ -533,7 +532,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertySuccessHit001
 
 /**
  * @tc.name: SsapClientFrameworkOnReadPropertyFailKeepsValue002
- * @tc.desc: 回调桩 OnReadProperty 失败(行183 假腿): 不回填值仍透传结果
+ * @tc.desc: 回调桩 OnReadProperty 失败: 不回填值仍透传结果
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertyFailKeepsValue002, TestSize.Level1)
@@ -547,7 +546,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertyFailKeepsValu
 
 /**
  * @tc.name: SsapClientFrameworkOnReadPropertyUuidMiss003
- * @tc.desc: 回调桩 OnReadProperty uuid 未命中(行189 假腿): 结果被丢弃, 不透传
+ * @tc.desc: 回调桩 OnReadProperty uuid 未命中: 结果被丢弃, 不透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertyUuidMiss003, TestSize.Level1)
@@ -561,7 +560,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertyUuidMiss003, 
 
 /**
  * @tc.name: SsapClientFrameworkOnCallMethodSuccessHit001
- * @tc.desc: 回调桩 OnCallMethod 成功+句柄命中(行213/219 真腿): result 与 serviceUuid 透传
+ * @tc.desc: 回调桩 OnCallMethod 成功+句柄命中: result 与 serviceUuid 透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnCallMethodSuccessHit001, TestSize.Level1)
@@ -576,7 +575,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnCallMethodSuccessHit001, 
 
 /**
  * @tc.name: SsapClientFrameworkOnCallMethodFail002
- * @tc.desc: 回调桩 OnCallMethod 失败(行213 假腿): result 不回填仍透传
+ * @tc.desc: 回调桩 OnCallMethod 失败: result 不回填仍透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnCallMethodFail002, TestSize.Level1)
@@ -589,7 +588,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnCallMethodFail002, TestSi
 
 /**
  * @tc.name: SsapClientFrameworkOnCallMethodHandleMiss003
- * @tc.desc: 回调桩 OnCallMethod 句柄未命中(行219 假腿): 结果被丢弃, 不透传
+ * @tc.desc: 回调桩 OnCallMethod 句柄未命中: 结果被丢弃, 不透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnCallMethodHandleMiss003, TestSize.Level1)
@@ -632,7 +631,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertiesByUuidEmpty
 
 /**
  * @tc.name: SsapClientFrameworkOnReadPropertiesByUuidHit003
- * @tc.desc: 回调桩 OnReadPropertiesByUuid 成功+uuid 命中(行247 真腿): 结果列表带 serviceUuid
+ * @tc.desc: 回调桩 OnReadPropertiesByUuid 成功+uuid 命中: 结果列表带 serviceUuid
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertiesByUuidHit003, TestSize.Level1)
@@ -652,7 +651,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertiesByUuidHit00
 
 /**
  * @tc.name: SsapClientFrameworkOnReadPropertiesByUuidMiss004
- * @tc.desc: 回调桩 OnReadPropertiesByUuid uuid 未命中(行247 假腿): 数据不丢弃, serviceUuid 留空
+ * @tc.desc: 回调桩 OnReadPropertiesByUuid uuid 未命中: 数据不丢弃, serviceUuid 留空
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertiesByUuidMiss004, TestSize.Level1)
@@ -671,7 +670,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadPropertiesByUuidMiss0
 
 /**
  * @tc.name: SsapClientFrameworkOnWritePropertySuccess001
- * @tc.desc: 回调桩 OnWriteProperty 成功(行281 真腿): 值回填且写类型为 PROPERTY_WRITE_REQ
+ * @tc.desc: 回调桩 OnWriteProperty 成功: 值回填且写类型为 PROPERTY_WRITE_REQ
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnWritePropertySuccess001, TestSize.Level1)
@@ -685,7 +684,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnWritePropertySuccess001, 
 
 /**
  * @tc.name: SsapClientFrameworkOnWritePropertyFail002
- * @tc.desc: 回调桩 OnWriteProperty 失败(行281 假腿): 值不回填仍透传
+ * @tc.desc: 回调桩 OnWriteProperty 失败: 值不回填仍透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnWritePropertyFail002, TestSize.Level1)
@@ -715,7 +714,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnSetPropertyNotify001, Tes
 
 /**
  * @tc.name: SsapClientFrameworkOnReadDescriptorHit001
- * @tc.desc: 回调桩 OnReadDescriptor 成功+句柄命中(行322/328 真腿): serviceUuid/propertyUuid/值透传
+ * @tc.desc: 回调桩 OnReadDescriptor 成功+句柄命中: serviceUuid/propertyUuid/值透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadDescriptorHit001, TestSize.Level1)
@@ -737,7 +736,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadDescriptorHit001, Tes
 
 /**
  * @tc.name: SsapClientFrameworkOnReadDescriptorFail002
- * @tc.desc: 回调桩 OnReadDescriptor 失败(行322 假腿): 值不回填仍透传
+ * @tc.desc: 回调桩 OnReadDescriptor 失败: 值不回填仍透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadDescriptorFail002, TestSize.Level1)
@@ -754,7 +753,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadDescriptorFail002, Te
 
 /**
  * @tc.name: SsapClientFrameworkOnReadDescriptorMiss003
- * @tc.desc: 回调桩 OnReadDescriptor 句柄未命中(行336): 仅告警仍透传, uuid 留空
+ * @tc.desc: 回调桩 OnReadDescriptor 句柄未命中: 仅告警仍透传, uuid 留空
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnReadDescriptorMiss003, TestSize.Level1)
@@ -812,7 +811,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnMtuAndConnParam001, TestS
 
 /**
  * @tc.name: SsapClientFrameworkOnServicesDiscovered001
- * @tc.desc: 回调桩 OnServicesDiscovered: isFinding 置位时(行577 真腿)回调并复位, 未置位不回调
+ * @tc.desc: 回调桩 OnServicesDiscovered: isFinding 置位时回调并复位, 未置位不回调
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnServicesDiscovered001, TestSize.Level1)
@@ -829,7 +828,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnServicesDiscovered001, Te
 
 /**
  * @tc.name: SsapClientFrameworkOnServicesDiscoveredByUuid001
- * @tc.desc: 回调桩 OnServicesDiscoveredByUuid: isFinding 置位时(行599 真腿)回调并复位
+ * @tc.desc: 回调桩 OnServicesDiscoveredByUuid: isFinding 置位时回调并复位
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnServicesDiscoveredByUuid001, TestSize.Level1)
@@ -847,7 +846,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnServicesDiscoveredByUuid0
 
 /**
  * @tc.name: SsapClientFrameworkOnServicesRediscovered001
- * @tc.desc: 回调桩 OnServicesRediscovered: parcel 列表构建为 SsapService 后整体透传(行414)
+ * @tc.desc: 回调桩 OnServicesRediscovered: parcel 列表构建为 SsapService 后整体透传
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkOnServicesRediscovered001, TestSize.Level1)
@@ -920,6 +919,15 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkBuildServiceListInclude001,
     std::shared_ptr<SsapService> includedSvc = ssapClient_->pimpl->FindService(includeHandle);
     ASSERT_NE(nullptr, includedSvc);
     EXPECT_TRUE(includedSvc->GetUuid().Equals(includeUuid));
+    // 主服务的 include 成员里必须挂有被包含服务本体(句柄为 includeHandle),
+    // 该成员由第二阶段按 startHandle_ 回链挂入, 第一阶段自建的桩句柄为 0, 两者可区分
+    bool linkedFromParcel = false;
+    for (const auto &member : mainSvc->GetIncludedServices()) {
+        if (member->GetHandle() == includeHandle) {
+            linkedFromParcel = true;
+        }
+    }
+    EXPECT_TRUE(linkedFromParcel);
 }
 
 /**
@@ -950,7 +958,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkFindService001, TestSize.Le
 
 /**
  * @tc.name: SsapClientFrameworkGetHandleHit001
- * @tc.desc: GetHandle 全命中(行931/935 真腿): 返回 true 且写出属性句柄
+ * @tc.desc: GetHandle 全命中: 返回 true 且写出属性句柄
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandleHit001, TestSize.Level1)
@@ -963,7 +971,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandleHit001, TestSize.L
 
 /**
  * @tc.name: SsapClientFrameworkGetHandleServiceMiss002
- * @tc.desc: GetHandle 服务 uuid 未命中(行931 真腿提前返回): 返回 false
+ * @tc.desc: GetHandle 服务 uuid 未命中: 返回 false
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandleServiceMiss002, TestSize.Level1)
@@ -975,7 +983,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandleServiceMiss002, Te
 
 /**
  * @tc.name: SsapClientFrameworkGetHandlePropertyMiss003
- * @tc.desc: GetHandle 服务命中但属性 uuid 未命中(行935 假腿): 返回 false
+ * @tc.desc: GetHandle 服务命中但属性 uuid 未命中: 返回 false
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandlePropertyMiss003, TestSize.Level1)
@@ -987,7 +995,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkGetHandlePropertyMiss003, T
 
 /**
  * @tc.name: SsapClientFrameworkFindPropertyByUuid001
- * @tc.desc: FindPropertyByUuid(行1062): 命中写出句柄返回 true, 未命中返回 false
+ * @tc.desc: FindPropertyByUuid: 命中写出句柄返回 true, 未命中返回 false
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkFindPropertyByUuid001, TestSize.Level1)
@@ -1003,7 +1011,7 @@ HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkFindPropertyByUuid001, Test
 
 /**
  * @tc.name: SsapClientFrameworkFindMethodByUuid001
- * @tc.desc: FindMethodByUuid(行1076): 命中写出句柄返回 true, 未命中返回 false
+ * @tc.desc: FindMethodByUuid: 命中写出句柄返回 true, 未命中返回 false
  * @tc.type: FUNC
  */
 HWTEST_F(SsapClientFrameworkTest, SsapClientFrameworkFindMethodByUuid001, TestSize.Level1)
