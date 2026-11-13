@@ -561,6 +561,11 @@ typedef struct {
 } DLI_FreqBandExtParam;
 
 typedef struct {
+    uint16_t imgHandle;                 /*!< IMG组播连接句柄 */
+    uint16_t acbHandle;                 /*!< 对端ACB连接句柄 */
+} DLI_ImgAcbInfoParam;
+
+typedef struct {
     uint16_t subrateMin;                /* 基础周期的最小倍数 */
     uint16_t subrateMax;                /* 基础周期的最大倍数 */
     uint16_t maxLatency;                /* T侧跳过基础周期的个数，默认值0 */
