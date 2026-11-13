@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include <unistd.h>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -88,6 +89,9 @@ public:
 HWTEST_F(NearlinkHostPairedDevicesTest, GetPairedDevicesSleOn001, TestSize.Level1)
 {
     HILOGI("NearlinkHostPairedDevicesTest: GetPairedDevicesSleOn001 start");
+    if (getuid() == 0) {
+        GTEST_SKIP() << "root 运行环境下 hap token 借用与权限门行为和非 root 运行不一致, 用例前提不成立";
+    }
     ScopedIpcToken ipcToken;
     ASSERT_NE(0u, ipcToken.IpcToken()) << "未取到 settings token，权限门 IPC 前提缺失";
     if (!NearlinkHost::GetInstance().IsSleEnabled()) {
@@ -115,6 +119,9 @@ HWTEST_F(NearlinkHostPairedDevicesTest, GetPairedDevicesSleOn001, TestSize.Level
 HWTEST_F(NearlinkHostPairedDevicesTest, GetPairedDevicesPermissionDenied001, TestSize.Level1)
 {
     HILOGI("NearlinkHostPairedDevicesTest: GetPairedDevicesPermissionDenied001 start");
+    if (getuid() == 0) {
+        GTEST_SKIP() << "root 运行环境下权限门行为和非 root 运行不一致, 拒绝腿前提不成立";
+    }
     // SLE 前置自持：不依赖同套件其他用例的开启副作用
     if (!NearlinkHost::GetInstance().IsSleEnabled()) {
         HILOGI("start enable nearlink");
