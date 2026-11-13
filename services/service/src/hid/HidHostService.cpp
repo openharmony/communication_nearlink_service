@@ -288,15 +288,19 @@ int HidHostService::HidHostSendReport(std::string device, uint8_t type, uint16_t
 {
     LOG_INFO("[HIDH Service]:start ");
     size_t len = report.size() / 2;
-    if (len <= 0) {
+    if (len == 0) {
         LOG_ERROR("[HIDH Service]: size is invalid!");
         return HID_HOST_FAILURE;
     }
-    uint8_t hexbuf[len];	 
-     NL_CHECK_RETURN_RET(SleUtils::ConvertHexStringToInt(report, hexbuf, len), HID_HOST_FAILURE,
+    if (len > UINT16_MAX) {
+        LOG_ERROR("[HIDH Service]: report size out of range, len(%{public}zu)", len);
+        return HID_HOST_FAILURE;
+    }
+    std::vector<uint8_t> hexbuf(len);
+    NL_CHECK_RETURN_RET(SleUtils::ConvertHexStringToInt(report, hexbuf.data(), static_cast<int>(len)), HID_HOST_FAILURE,
         "[HIDH Service]: string is invalid!");
 
-    return HidHostSendReport(device, type, len, hexbuf);
+    return HidHostSendReport(device, type, static_cast<uint16_t>(len), hexbuf.data());
 }
 
 int HidHostService::HidHostSetReport(std::string device, uint8_t type, uint16_t size, const uint8_t* report)
