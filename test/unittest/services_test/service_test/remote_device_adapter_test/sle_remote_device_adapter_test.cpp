@@ -290,6 +290,10 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetBgList_001, TestSize.Level1)
     AddPairedDevice(kHeadsetR);
     AddPairedDevice(kMouseM);
     AddPairedDevice(kWatchW);
+    Adapter()->SetDeviceIsAvailable(RawAddress(kHeadsetL), true);
+    Adapter()->SetDeviceIsAvailable(RawAddress(kHeadsetR), true);
+    Adapter()->SetDeviceIsAvailable(RawAddress(kMouseM), true);
+    Adapter()->SetDeviceIsAvailable(RawAddress(kWatchW), true);
     Device(kWatchW)->SetIsUserDisconnected(true);
 
     // 全部合格 + 空回连列表：不做过滤
@@ -432,7 +436,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, DeviceNameAndAlias_001, TestSize.Level1)
     AddPairedDevice(kMouseM);
 
     EXPECT_EQ("", Adapter()->GetDeviceName(RawAddress(kMouseM)));
-    ASSERT_TRUE(DevMgr()->SetName(RawAddress(kMouseM), "MouseName"));
+    ASSERT_TRUE(Adapter()->SetName(RawAddress(kMouseM), "MouseName"));
     EXPECT_EQ("MouseName", Adapter()->GetDeviceName(RawAddress(kMouseM)));
 
     EXPECT_EQ("", Adapter()->GetAliasName(RawAddress(kMouseM)));
@@ -444,9 +448,9 @@ HWTEST_F(SleRemoteDeviceAdapterTest, DeviceNameAndAlias_001, TestSize.Level1)
     AddPairedDevice(kHeadsetR);
     ASSERT_TRUE(Adapter()->SetName(RawAddress(kHeadsetR), "CoopName"));
     ASSERT_TRUE(Adapter()->SetAliasName(RawAddress(kHeadsetR), "CoopAlias"));
-    EXPECT_EQ("CoopName", DevMgr()->GetDeviceName(RawAddress(kHeadsetL)));
-    EXPECT_EQ("CoopName", DevMgr()->GetDeviceName(RawAddress(kHeadsetR)));
-    EXPECT_EQ("CoopAlias", DevMgr()->GetAliasName(RawAddress(kHeadsetL)));
+    EXPECT_EQ("CoopName", Adapter()->GetDeviceName(RawAddress(kHeadsetL)));
+    EXPECT_EQ("CoopName", Adapter()->GetDeviceName(RawAddress(kHeadsetR)));
+    EXPECT_EQ("CoopAlias", Adapter()->GetAliasName(RawAddress(kHeadsetL)));
 }
 
 /**
@@ -460,14 +464,14 @@ HWTEST_F(SleRemoteDeviceAdapterTest, SetAppearance_001, TestSize.Level1)
     ASSERT_TRUE(Adapter()->SetAppearance(RawAddress(kMouseM),
         static_cast<int>(DeviceClassForService::DEVICE_MOUSE)));
     EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
-        DevMgr()->GetDeviceAppearance(RawAddress(kMouseM)));
+        Adapter()->GetDeviceAppearance(RawAddress(kMouseM)));
 
     InjectCdsmGroup(306, kHeadsetL, {kHeadsetL, kHeadsetR});
     AddPairedDevice(kHeadsetR);
     ASSERT_TRUE(Adapter()->SetAppearance(RawAddress(kHeadsetR),
         static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE)));
     EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE),
-        DevMgr()->GetDeviceAppearance(RawAddress(kHeadsetL)));
+        Adapter()->GetDeviceAppearance(RawAddress(kHeadsetL)));
 }
 
 /**
@@ -559,6 +563,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, DeviceModelInfo_001, TestSize.Level1)
     saved.SetSubModelId("sub-1");
     Adapter()->SaveDeviceModelInfo(kMouseM, saved, "new-1");
 
+    ASSERT_NE(nullptr, Device(kMouseM));
+    EXPECT_EQ("model-1", Device(kMouseM)->GetModelId());
     DeviceModel cached;
     std::string cachedNewModelId;
     Adapter()->FindDeviceModelInfoInCache(RawAddress(kMouseM), cached, cachedNewModelId);
@@ -607,7 +613,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeInfo_001, TestSize.Level1)
     SLE_Addr_S addrInfo = {};
     uint32_t devType = 0;
     Adapter()->GetDeviceTypeInfo(RawAddress(kMouseM), addrInfo, devType);
-    uint32_t mouseType = static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_MOUSE);
+    uint32_t mouseType = static_cast<uint32_t>(SrvDeviceType::MOUSE);
     EXPECT_EQ(mouseType, devType & 0x0000FFFF);
     EXPECT_EQ(CDSM_SERVICE_INVALID_GROUP_ID, (devType & 0xFFFF0000) >> 16);
 
@@ -617,7 +623,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeInfo_001, TestSize.Level1)
     SLE_Addr_S audioAddrInfo = {};
     uint32_t audioDevType = 0;
     Adapter()->GetDeviceTypeInfo(RawAddress(kHeadsetL), audioAddrInfo, audioDevType);
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_OTHER),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::AUDIO),
         audioDevType & 0x0000FFFF);
 }
 
@@ -633,23 +639,23 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeFromAppearance_001, TestSize.L
     auto toType = [this, &addr](int appearance) -> uint32_t {
         return Adapter()->GetDeviceTypeFromAppearance(addr, appearance);
     };
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_WATCH),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::WATCH),
         toType(static_cast<int>(DeviceClassForService::DEVICE_SMART_WATCH)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_KEYBOARD),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::KEYBOARD),
         toType(static_cast<int>(DeviceClassForService::DEVICE_KEYBOARD)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_MOUSE),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::MOUSE),
         toType(static_cast<int>(DeviceClassForService::DEVICE_MOUSE)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_PEN),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::PEN),
         toType(static_cast<int>(DeviceClassForService::DEVICE_STYLUS)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_HANDLE),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::HANDLE),
         toType(static_cast<int>(DeviceClassForService::DEVICE_HANDLE)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_AUDIO),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::AUDIO),
         toType(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE)));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_OTHER), toType(0x123456));
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::OTHER), toType(0x123456));
 
     AddPairedDevice(kMouseM);
     DevMgr()->SetIsAudioDeviceFlag(RawAddress(kMouseM));
-    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::DEVICE_TYPE_AUDIO),
+    EXPECT_EQ(static_cast<uint32_t>(SrvDeviceType::AUDIO),
         toType(static_cast<int>(DeviceClassForService::DEVICE_KEYBOARD)));
 }
 
@@ -743,7 +749,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, IsCdsmMemberPair_001, TestSize.Level1)
     EXPECT_FALSE(Adapter()->IsCdsmMemberPair(RawAddress(kHeadsetL), RawAddress(kHeadsetL)));
 
     // 私有音频设备：不通过
-    Device(kHeadsetL)->SetManufacturerBusiness(SLE_PRIVATE_AUDIO_BUS_TYPE);
+    Device(kHeadsetL)->SetManufacturerBusiness(SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
     EXPECT_FALSE(Adapter()->IsCdsmMemberPair(RawAddress(kHeadsetR), RawAddress(kHeadsetL)));
 }
 
