@@ -469,6 +469,39 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
 }
 
 /**
+ * @tc.number: PipeCloseIncrementalRemove001
+ * @tc.name:
+ * @tc.desc: 测试按管道标识增量移除：关闭一条管道只删本管道条目，其他管道流与其静音记忆保留
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, PipeCloseIncrementalRemove001, TestSize.Level1)
+{
+    HILOGI("PipeCloseIncrementalRemove001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe1Streams;
+    pipe1Streams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID, "com.pipe1");
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe2Streams;
+    pipe2Streams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1, "com.pipe2");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, pipe1Streams);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG + 1, pipe2Streams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteDimension::VOLUME, true);
+
+    adapter.RemoveMemberRouteFlagList(DEFAULT_ROUTE_FLAG);
+    const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
+    EXPECT_EQ(list.size(), LIST_SIZE_ONE);
+    EXPECT_EQ(list[TEST_INDEX_0].streamId, DEFAULT_STREAM_ID + 1);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+    HILOGI("PipeCloseIncrementalRemove001 end");
+}
+
+/**
  * @tc.number: JudgeEmptyStream001
  * @tc.name:
  * @tc.desc:
