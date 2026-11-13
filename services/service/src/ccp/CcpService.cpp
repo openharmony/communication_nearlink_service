@@ -266,7 +266,7 @@ CallFlagBits CcpService::GetCallFlag(const CallAttributeInfo &info)
 void CcpService::PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
     const std::string &number)
 {
-    // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准， 调用方传入值不参与状态计算
+    // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准，调用方传入值不参与状态计算
     HILOGI("[CcpService]PhoneStateChanged: numActive=%{public}d, numHeld=%{public}d, state=%{public}d, "
         "callId=%{public}d", numActive, numHeld, callState, callId);
     // 一次查询同时用于全量状态与单路明细，避免重复 IPC
