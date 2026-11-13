@@ -17,9 +17,8 @@
 // 手法: 编入产品源文件(private=public) 直达 pimpl; 用产品 Stub 派生的 Mock 服务注入
 //       NearlinkBaseSaManager::profileRemoteMap_; 直驱回调桩 OnConnectionStateChanged
 //       状态矩阵(CONNECTED/DISCONNECTED/其他 x fd 有效/无效), 直调 ReceivedData 与
-//       socketpair+worker 线端到端; 覆盖 95/102/110/117/225/229/463/468/583/594/599 行分支。
-//       225 的 transfer==nullptr 腿结构不可达(lambda 弱引用过期要求 impl 先亡, 而回调
-//       存储于 impl 自身的 PortSocketManager 中), 不设用例。
+//       socketpair+worker 线端到端; 回调里的 transfer 判空分支结构不可达(弱引用过期
+//       要求 impl 先亡, 而回调存储于 impl 自身的 PortSocketManager 中), 不设用例。
 
 #include <gtest/gtest.h>
 #include <sys/socket.h>
@@ -31,6 +30,7 @@
 #include <vector>
 
 #include "nearlink_access_token_mock.h"
+#include "nearlink_test_enable_wait.h"
 
 #include "nearlink_base_sa_manager.h"
 #include "nearlink_sle_datatransfer_stub.h"
@@ -47,6 +47,7 @@ using namespace testing::ext;
 namespace {
 const std::string TEST_DEVICE_ADDR = "11:22:33:44:55:66";
 const std::string TEST_UUID = "060D";
+const std::string TEST_UUID_CUSTOM = "8f1d3a2e-5b4c-4d6e-9f0a-1b2c3d4e5f60";
 constexpr uint16_t TEST_PORT = 9;
 constexpr uint16_t TEST_MTU = 256;
 constexpr int POLL_INTERVAL_MS = 50;
@@ -95,21 +96,31 @@ public:
         return NL_NO_ERROR;
     }
 
+    int connectCount = 0;
+    uint16_t lastConnectPort = 0;
+    int disconnectCount = 0;
+    uint16_t lastDisconnectPort = 0;
+    int getStateCount = 0;
+    uint16_t lastGetStatePort = 0;
+
     NlErrCode Connect(NearlinkSleDataTransferConnectionParams &params) override
     {
-        (void)params;
+        connectCount++;
+        lastConnectPort = params.GetPort();
         return NL_NO_ERROR;
     }
 
     NlErrCode Disconnect(NearlinkSleDataTransferConnectionParams &params) override
     {
-        (void)params;
+        disconnectCount++;
+        lastDisconnectPort = params.GetPort();
         return NL_NO_ERROR;
     }
 
     NlErrCode GetConnectionState(NearlinkSleDataTransferConnectionParams &params, int32_t &connState) override
     {
-        (void)params;
+        getStateCount++;
+        lastGetStatePort = params.GetPort();
         connState = static_cast<int32_t>(SleConnectState::CONNECTED);
         return NL_NO_ERROR;
     }
@@ -182,11 +193,16 @@ public:
     static void SetUpTestCase()
     {
         NearlinkAccessTokenMock::SetNativeTokenInfo();
+        if (!NearlinkHost::GetInstance().IsSleEnabled()) {
+            NearlinkHost::GetInstance().EnableNl();
+        }
+        ASSERT_TRUE(WaitForSleEnabled()) << "SLE enable not finished in 20s";
         InjectMockDataTransferService();
     }
 
     static void TearDownTestCase()
     {
+        NearlinkBaseSaManager::GetInstance().profileRemoteMap_.Erase(SLE_DATATRANSFER_SERVER);
         g_mockService = nullptr;
     }
 
@@ -245,7 +261,7 @@ public:
 /**
  * @tc.number: SleDataTransferFramework_DataParams_001
  * @tc.name: DataParams 拷贝构造深拷贝矩阵
- * @tc.desc: 非空源深拷贝(583 true 腿)/空源置空(583 false 腿)
+ * @tc.desc: 非空源深拷贝/空源置空
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_DataParams_001, TestSize.Level1)
 {
@@ -276,7 +292,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_DataParams_001, 
 /**
  * @tc.number: SleDataTransferFramework_DataParams_002
  * @tc.name: DataParams 赋值矩阵
- * @tc.desc: 自赋值不变(594 false 腿)/赋非空深拷贝(599 true 腿)/赋空重置(599 false 腿)
+ * @tc.desc: 自赋值不变/赋非空深拷贝/赋空重置
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_DataParams_002, TestSize.Level1)
 {
@@ -326,7 +342,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_DataParams_003, 
 /**
  * @tc.number: SleDataTransferFramework_OnConnStateChanged_001
  * @tc.name: 未注册端口连接事件被丢弃
- * @tc.desc: 端口不在 callbacks_: 不触达框架回调(95 true 腿), fd=-1 不关闭
+ * @tc.desc: 端口不在 callbacks_: 不触达框架回调, fd=-1 不关闭
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChanged_001, TestSize.Level1)
 {
@@ -339,7 +355,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChang
 /**
  * @tc.number: SleDataTransferFramework_OnConnStateChanged_002
  * @tc.name: 未注册端口携带有效 fd 时关闭 fd
- * @tc.desc: 端口未注册且 fd 有效 -> fdsan 关闭该 fd(95 true 腿 + fd 关闭腿)
+ * @tc.desc: 端口未注册且 fd 有效 -> fdsan 关闭该 fd
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChanged_002, TestSize.Level1)
 {
@@ -356,7 +372,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChang
 /**
  * @tc.number: SleDataTransferFramework_OnConnStateChanged_003
  * @tc.name: CONNECTED 无 fd: 仅转发状态
- * @tc.desc: 已连接但 fd=-1: 不建 socket(102/117 的 fd==-1 腿), 回调收到状态与 mtu
+ * @tc.desc: 已连接但 fd=-1: 不建 socket, 回调收到状态与 mtu
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChanged_003, TestSize.Level1)
 {
@@ -388,8 +404,8 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChang
 /**
  * @tc.number: SleDataTransferFramework_OnConnStateChanged_005
  * @tc.name: CONNECTED 有效 fd: 建 socket + 监听 + 工作线程
- * @tc.desc: 已连接且 fd 有效: SetSocketDataTransfer 落地(102 true 腿), Listen/RunThread
- *           启动(117 true 腿), SendData 可写通
+ * @tc.desc: 已连接且 fd 有效: SetSocketDataTransfer 落地, Listen/RunThread
+ *           启动, SendData 可写通
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChanged_005, TestSize.Level1)
 {
@@ -413,7 +429,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChang
 /**
  * @tc.number: SleDataTransferFramework_OnConnStateChanged_006
  * @tc.name: DISCONNECTED: 销毁对端端口
- * @tc.desc: 断连状态走 DestroyPeerPort(110 true 腿): 先建后断, socket 被回收
+ * @tc.desc: 断连状态走 DestroyPeerPort: 先建后断, socket 被回收
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChanged_006, TestSize.Level1)
 {
@@ -437,7 +453,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_OnConnStateChang
 /**
  * @tc.number: SleDataTransferFramework_ReceivedData_001
  * @tc.name: 直调 ReceivedData: 已注册端口小包分发
- * @tc.desc: 反序列化成功 -> 回调 OnReceiveData(463 true 腿), 小于阈值不触发 SocketEmptyMsg(468 false 腿)
+ * @tc.desc: 反序列化成功 -> 回调 OnReceiveData, 小于阈值不触发 SocketEmptyMsg
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_001, TestSize.Level1)
 {
@@ -464,7 +480,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_001
 /**
  * @tc.number: SleDataTransferFramework_ReceivedData_002
  * @tc.name: 直调 ReceivedData: 大包超过上报阈值
- * @tc.desc: 读回字节数 >= SOCKET_BUFFER_THRESHOLD_REPORT -> 通知服务侧腾空(468 true 腿)
+ * @tc.desc: 读回字节数 >= SOCKET_BUFFER_THRESHOLD_REPORT -> 通知服务侧腾空
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_002, TestSize.Level1)
 {
@@ -493,7 +509,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_002
 /**
  * @tc.number: SleDataTransferFramework_ReceivedData_003
  * @tc.name: 直调 ReceivedData: 垃圾数据反序列化失败
- * @tc.desc: 非法字节流 -> 返回 false(229 false 腿等价路径)
+ * @tc.desc: 非法字节流 -> 返回 false
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_003, TestSize.Level1)
 {
@@ -514,7 +530,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_003
 /**
  * @tc.number: SleDataTransferFramework_ReceivedData_004
  * @tc.name: 直调 ReceivedData: 弱引用过期回调不分发
- * @tc.desc: 端口对应 weak_ptr 已过期 -> 不触达回调但整体成功(463 false 腿)
+ * @tc.desc: 端口对应 weak_ptr 已过期 -> 不触达回调但整体成功
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_004, TestSize.Level1)
 {
@@ -543,7 +559,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_004
  * @tc.number: SleDataTransferFramework_SocketLoop_001
  * @tc.name: socket 工作线程端到端: 数据到达触发读取回调
  * @tc.desc: CONNECTED 建链后对端写入序列化数据, worker 线程读取并进入框架回调链
- *           (225 transfer 非空腿 + 229 成功腿)
+ *
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_SocketLoop_001, TestSize.Level1)
 {
@@ -567,7 +583,7 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_SocketLoop_001, 
 /**
  * @tc.number: SleDataTransferFramework_SocketLoop_002
  * @tc.name: socket 工作线程端到端: 垃圾数据不崩溃
- * @tc.desc: 对端写入非法字节流, worker 读取后 ReceivedData 失败(229 失败腿), 线程继续存活
+ * @tc.desc: 对端写入非法字节流, worker 读取后 ReceivedData 失败, 线程继续存活
  */
 HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_SocketLoop_002, TestSize.Level1)
 {
@@ -589,6 +605,171 @@ HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_SocketLoop_002, 
     EXPECT_EQ(4U, fakeCallback_->lastDataSize_);
 
     ClosePeerFd(sv[1]);
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_PortLifecycle_001
+ * @tc.name: CreatePort/DestroyPort 注册与销毁闭环
+ * @tc.desc: 未注册销毁被拒; 创建成功建立 uuid 到端口映射; 重复创建被拒; 销毁后映射与回调被清理
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_PortLifecycle_001, TestSize.Level1)
+{
+    EXPECT_EQ(NL_ERR_DATATRANSFER_NO_REGISTER, dt_->DestroyPort(TEST_UUID_CUSTOM));
+
+    g_mockService->createPortRet = NL_NO_ERROR;
+    g_mockService->createPortOut = TEST_PORT;
+    EXPECT_EQ(NL_NO_ERROR, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    uint16_t port = 0;
+    EXPECT_TRUE(dt_->pimpl->uuidAndPort_.GetValue(TEST_UUID_CUSTOM, port));
+    EXPECT_EQ(TEST_PORT, port);
+
+    EXPECT_EQ(NL_ERR_DATATRANSFER_DUPLICATE_REGISTER, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    EXPECT_EQ(NL_NO_ERROR, dt_->DestroyPort(TEST_UUID_CUSTOM));
+    EXPECT_FALSE(dt_->pimpl->uuidAndPort_.GetValue(TEST_UUID_CUSTOM, port));
+    std::weak_ptr<SleDataTransferCallback> remain;
+    EXPECT_FALSE(dt_->pimpl->callbacks_.GetValue(TEST_PORT, remain));
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_PortLifecycle_002
+ * @tc.name: CreatePort 服务端返回零端口: 现状返回成功且不建立映射
+ * @tc.desc: 服务端返回成功码但端口为 0: 错误码被掩盖且未注册(已登记产品缺陷清单, 产品修复后本断言需同步改为期望错误码)
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_PortLifecycle_002, TestSize.Level1)
+{
+    g_mockService->createPortRet = NL_NO_ERROR;
+    g_mockService->createPortOut = 0;
+    EXPECT_EQ(NL_NO_ERROR, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    uint16_t port = 1; // 哨兵: 未注册应查不到
+    EXPECT_FALSE(dt_->pimpl->uuidAndPort_.GetValue(TEST_UUID_CUSTOM, port));
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_PortLifecycle_003
+ * @tc.name: Connect/Disconnect 按注册映射端口透传
+ * @tc.desc: 未注册 uuid 返回内部错误; 注册后连接/断开把 uuid 映射出的端口带给服务端
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_PortLifecycle_003, TestSize.Level1)
+{
+    ConnectionParams unregistered;
+    unregistered.SetAddress(TEST_DEVICE_ADDR);
+    unregistered.SetUuid(TEST_UUID_CUSTOM);
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, dt_->Connect(unregistered));
+
+    g_mockService->createPortRet = NL_NO_ERROR;
+    g_mockService->createPortOut = TEST_PORT;
+    ASSERT_EQ(NL_NO_ERROR, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    g_mockService->connectCount = 0;
+    g_mockService->disconnectCount = 0;
+    ConnectionParams params;
+    params.SetAddress(TEST_DEVICE_ADDR);
+    params.SetUuid(TEST_UUID_CUSTOM);
+    EXPECT_EQ(NL_NO_ERROR, dt_->Connect(params));
+    EXPECT_EQ(1, g_mockService->connectCount);
+    EXPECT_EQ(TEST_PORT, g_mockService->lastConnectPort);
+
+    EXPECT_EQ(NL_NO_ERROR, dt_->Disconnect(params));
+    EXPECT_EQ(1, g_mockService->disconnectCount);
+    EXPECT_EQ(TEST_PORT, g_mockService->lastDisconnectPort);
+
+    EXPECT_EQ(NL_NO_ERROR, dt_->DestroyPort(TEST_UUID_CUSTOM));
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_PortLifecycle_004
+ * @tc.name: GetConnectionState 透传服务端连接状态
+ * @tc.desc: 未注册 uuid 返回内部错误; 注册后按映射端口查询并回写服务端状态
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_PortLifecycle_004, TestSize.Level1)
+{
+    ConnStateParams unregistered;
+    unregistered.SetAddress(TEST_DEVICE_ADDR);
+    unregistered.SetUuid(TEST_UUID_CUSTOM);
+    int32_t state = -1;
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, dt_->GetConnectionState(unregistered, state));
+
+    g_mockService->createPortRet = NL_NO_ERROR;
+    g_mockService->createPortOut = TEST_PORT;
+    ASSERT_EQ(NL_NO_ERROR, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    g_mockService->getStateCount = 0;
+    ConnStateParams params;
+    params.SetAddress(TEST_DEVICE_ADDR);
+    params.SetUuid(TEST_UUID_CUSTOM);
+    state = -1;
+    EXPECT_EQ(NL_NO_ERROR, dt_->GetConnectionState(params, state));
+    EXPECT_EQ(1, g_mockService->getStateCount);
+    EXPECT_EQ(TEST_PORT, g_mockService->lastGetStatePort);
+    EXPECT_EQ(static_cast<int32_t>(SleConnectState::CONNECTED), state);
+
+    EXPECT_EQ(NL_NO_ERROR, dt_->DestroyPort(TEST_UUID_CUSTOM));
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_PortLifecycle_005
+ * @tc.name: WriteData 公共写路径: 参数校验与端到端落 socket
+ * @tc.desc: 未注册 uuid 返回内部错误; 空数据被拒; 注册并建链后写入成功, 对端收到完整序列化帧
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_PortLifecycle_005, TestSize.Level1)
+{
+    const uint8_t frame[4] = {0x11, 0x22, 0x33, 0x44};
+    DataParams unregistered(TEST_DEVICE_ADDR, TEST_UUID_CUSTOM);
+    unregistered.SetData(frame, sizeof(frame));
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, dt_->WriteData(unregistered));
+
+    g_mockService->createPortRet = NL_NO_ERROR;
+    g_mockService->createPortOut = TEST_PORT;
+    ASSERT_EQ(NL_NO_ERROR, dt_->CreatePort(TEST_UUID_CUSTOM, fakeCallback_));
+
+    DataParams emptyData(TEST_DEVICE_ADDR, TEST_UUID_CUSTOM);
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, dt_->WriteData(emptyData));
+
+    int sv[2] = {-1, -1};
+    MakeTaggedSocketPair(sv);
+    int peerFlags = fcntl(sv[1], F_GETFL, 0);
+    fcntl(sv[1], F_SETFL, peerFlags | O_NONBLOCK);
+    NearlinkSleDataTransferConnectionParams connected = MakeConnParams(TEST_PORT,
+        static_cast<int32_t>(SleConnectState::CONNECTED));
+    dt_->pimpl->callbackImp_->OnConnectionStateChanged(connected, sv[0]);
+    ASSERT_EQ(1, fakeCallback_->connCount_);
+
+    DataParams params(TEST_DEVICE_ADDR, TEST_UUID_CUSTOM);
+    params.SetData(frame, sizeof(frame));
+    EXPECT_EQ(NL_NO_ERROR, dt_->WriteData(params));
+
+    const size_t expectLen = MakeSerializedPayload(TEST_PORT, sizeof(frame)).size();
+    uint8_t peerBuf[SOCKET_BUFFER_SIZE];
+    ASSERT_TRUE(WaitFor([sv, expectLen, &peerBuf]() {
+        return read(sv[1], peerBuf, sizeof(peerBuf)) == static_cast<ssize_t>(expectLen);
+    })) << "peer frame timeout";
+
+    EXPECT_EQ(NL_NO_ERROR, dt_->DestroyPort(TEST_UUID_CUSTOM));
+    ClosePeerFd(sv[1]);
+}
+
+/**
+ * @tc.number: SleDataTransferFramework_ReceivedData_005
+ * @tc.name: 直调 ReceivedData: 端口未注册直接失败
+ * @tc.desc: 端口不在 callbacks_: 反序列化成功也返回 false
+ */
+HWTEST_F(SleDataTransferFrameworkTest, SleDataTransferFramework_ReceivedData_005, TestSize.Level1)
+{
+    constexpr uint16_t unknownPort = TEST_PORT + 8;
+    int sv[2] = {-1, -1};
+    MakeTaggedSocketPair(sv);
+    std::vector<uint8_t> payload = MakeSerializedPayload(unknownPort, 4);
+    ASSERT_EQ(static_cast<ssize_t>(payload.size()), write(sv[1], payload.data(), payload.size()));
+
+    auto input = std::make_shared<InputStream>(sv[0]);
+    EXPECT_FALSE(dt_->pimpl->ReceivedData(input, unknownPort, TEST_DEVICE_ADDR));
+    EXPECT_EQ(0, fakeCallback_->receiveCount_);
+
+    ClosePeerFd(sv[1]);
+    fdsan_close_with_tag(sv[0], NEARLINK_FDSAN_TAG_SOCKET);
 }
 } // namespace TEST
 } // namespace Nearlink

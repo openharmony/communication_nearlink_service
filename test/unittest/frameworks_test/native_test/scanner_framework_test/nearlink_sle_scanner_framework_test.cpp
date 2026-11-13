@@ -16,8 +16,8 @@
 // 目标: frameworks/native/nearlink_sle_scanner.cpp 零覆盖分支(进程内驱动, 不依赖真实扫描栈)
 // 手法: 编入产品源文件(private=public) 直达 pimpl; 用产品 Stub 派生的 Mock 服务注入
 //       NearlinkBaseSaManager::profileRemoteMap_(GetProxy 命中 map 即返回本地 Stub,
-//       NewInstance 走 AsInterface 直连虚表, 无 IPC 无真实栈), 瞄准 94/141/184-215/248/434
-//       行分支; 141 的 false 腿(make_shared 后判空)结构不可达, 不设用例。
+//       NewInstance 走 AsInterface 直连虚表, 无 IPC 无真实栈);
+//       make_shared 后判空分支结构不可达, 不设用例。
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -44,7 +44,7 @@ constexpr uint16_t TEST_MANUFACTURER_ID = 0x1234;
 constexpr uint32_t TEST_DEVICE_CLASS = 0x0804;
 constexpr uint8_t PRIM_FRAME_TYPE_1 = 0x00; // SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_1
 constexpr uint8_t PRIM_FRAME_TYPE_4 = 0x01; // SleAdvertiserPrimaryFrameType::SLE_ADV_PRI_FRAME_TYPE_4
-constexpr uint8_t PRIM_FRAME_TYPE_INVALID = 0x05; // 非法帧型, 触发告警腿并回退 TYPE_1
+constexpr uint8_t PRIM_FRAME_TYPE_INVALID = 0x05; // 非法帧型, 触发告警分支并回退 TYPE_1
 
 // Mock 服务: 派生产品 Stub, 覆写全部接口方法为受控返回+调用记录; 注入后 GetProxy 直连本对象
 class MockSleCentralManagerService : public NearlinkSleCentralManagerStub {
@@ -246,7 +246,7 @@ HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_OnScanCallback_002, TestSi
 /**
  * @tc.number: SleScannerFramework_OnScanCallback_003
  * @tc.name: OnScanCallback 非法 primFrameType 回退 TYPE_1
- * @tc.desc: 原始帧型 0x05 走告警腿, 转换结果仍回退为 SLE_SCAN_FRAME_TYPE_1
+ * @tc.desc: 原始帧型 0x05 走告警分支, 转换结果仍回退为 SLE_SCAN_FRAME_TYPE_1
  */
 HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_OnScanCallback_003, TestSize.Level1)
 {
@@ -280,7 +280,7 @@ HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_OnStartOrStopScanEvent_001
 /**
  * @tc.number: SleScannerFramework_ConvertSleScanFilter_001
  * @tc.name: 过滤器组合矩阵: 全字段填充转换
- * @tc.desc: 直调 impl::ConvertSleScanFilter, 全部 Has 与 empty 判定走 true 腿并核对逐字段映射
+ * @tc.desc: 直调 impl::ConvertSleScanFilter, 全部 Has 与 empty 判定均命中并核对逐字段映射
  */
 HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_ConvertSleScanFilter_001, TestSize.Level1)
 {
@@ -324,7 +324,7 @@ HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_ConvertSleScanFilter_001, 
 /**
  * @tc.number: SleScannerFramework_ConvertSleScanFilter_002
  * @tc.name: 过滤器组合矩阵: 裸过滤器转换
- * @tc.desc: 默认构造过滤器, 全部 Has 与 empty 判定走 false 腿, 可选字段不写入
+ * @tc.desc: 默认构造过滤器, 全部 Has 与 empty 判定均不命中, 可选字段不写入
  */
 HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_ConvertSleScanFilter_002, TestSize.Level1)
 {
@@ -373,7 +373,7 @@ HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_StartScanWithFilter_001, T
 /**
  * @tc.number: SleScannerFramework_StartScanWithFilter_002
  * @tc.name: FRAME_TYPE_1 设置下过滤器帧型保持默认
- * @tc.desc: 设置帧型 TYPE_1 时不改写过滤器 frameType(false 腿)
+ * @tc.desc: 设置帧型 TYPE_1 时不改写过滤器 frameType
  */
 HWTEST_F(SleScannerFrameworkTest, SleScannerFramework_StartScanWithFilter_002, TestSize.Level1)
 {

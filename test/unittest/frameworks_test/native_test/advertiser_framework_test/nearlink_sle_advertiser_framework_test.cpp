@@ -16,8 +16,7 @@
 // 目标: frameworks/native/nearlink_sle_advertiser.cpp 零覆盖分支(进程内驱动, 不依赖真实广播栈)
 // 手法: 编入产品源文件(private=public) 直达 pimpl; 用产品 Stub 派生的 Mock 服务注入
 //       NearlinkBaseSaManager::profileRemoteMap_(GetProxy 命中 map 即返回本地 Stub,
-//       NewInstance 走 AsInterface 直连虚表), 覆盖 79/83/96/108/120/141/265/273/310/
-//       325/327/337/339/377 行分支; 回调桩直驱 + StartAdvertisingImp 受控矩阵。
+//       NewInstance 走 AsInterface 直连虚表); 回调桩直驱 + StartAdvertisingImp 受控矩阵。
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -271,7 +270,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_Callback_001, TestSi
 /**
  * @tc.number: SleAdvertiserFramework_Callback_002
  * @tc.name: 五类结果回调: 未注册 handle 不转发
- * @tc.desc: callbackSptr 为空的腿: 未注册 handle 静默返回, 不触达框架回调
+ * @tc.desc: callbackSptr 为空: 未注册 handle 静默返回, 不触达框架回调
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_Callback_002, TestSize.Level1)
 {
@@ -294,7 +293,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_Callback_002, TestSi
 /**
  * @tc.number: SleAdvertiserFramework_Callback_003
  * @tc.name: 弱引用过期回调不转发
- * @tc.desc: map 中 weak_ptr 已过期 -> lock 为空 -> callbackSptr 空腿
+ * @tc.desc: map 中 weak_ptr 已过期 -> lock 为空 -> callbackSptr 为空
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_Callback_003, TestSize.Level1)
 {
@@ -353,7 +352,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_Callback_005, TestSi
 
 /**
  * @tc.number: SleAdvertiserFramework_GetAdvHandleImp_001
- * @tc.name: handle 查找: 相等/不相等两腿
+ * @tc.name: handle 查找: 相等/不相等两种情况
  * @tc.desc: map 中回调相等返回 handle; 不相等继续遍历最终返回无效 handle
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_GetAdvHandleImp_001, TestSize.Level1)
@@ -374,7 +373,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_GetAdvHandleImp_001,
 /**
  * @tc.number: SleAdvertiserFramework_TotalBytes_001
  * @tc.name: 广播数据字节数: flags/厂商数据/包含名/包含发射功率
- * @tc.desc: 直调 GetAdvertiserTotalBytes: includeDeviceName/includeTxPower 两腿 + 各字段长度算术
+ * @tc.desc: 直调 GetAdvertiserTotalBytes: includeDeviceName/includeTxPower 两种组合 + 各字段长度算术
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_TotalBytes_001, TestSize.Level1)
 {
@@ -433,7 +432,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_001, TestS
 /**
  * @tc.number: SleAdvertiserFramework_ImpMatrix_002
  * @tc.name: StartAdvertisingImp 矩阵: 新 handle 服务返回无效 handle
- * @tc.desc: GetAdvertiserHandle 成功但 handle 仍为无效 -> 失败腿, 回调收到失败
+ * @tc.desc: GetAdvertiserHandle 成功但 handle 仍为无效 -> 失败路径, 回调收到失败
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_002, TestSize.Level1)
 {
@@ -456,7 +455,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_002, TestS
 /**
  * @tc.number: SleAdvertiserFramework_ImpMatrix_003
  * @tc.name: StartAdvertisingImp 矩阵: 新 handle 启动失败回滚注册
- * @tc.desc: StartAdvertising 返回错误且 isNewHandle -> 注册被擦除(339 true 腿)
+ * @tc.desc: StartAdvertising 返回错误且 isNewHandle -> 注册被擦除
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_003, TestSize.Level1)
 {
@@ -479,7 +478,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_003, TestS
 /**
  * @tc.number: SleAdvertiserFramework_ImpMatrix_004
  * @tc.name: StartAdvertisingImp 矩阵: 旧 handle 启动失败保留注册
- * @tc.desc: StartAdvertising 返回错误且非新 handle -> 注册保留(339 false 腿)
+ * @tc.desc: StartAdvertising 返回错误且非新 handle -> 注册保留
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_004, TestSize.Level1)
 {
@@ -525,7 +524,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_ImpMatrix_005, TestS
 /**
  * @tc.number: SleAdvertiserFramework_StartAdvertising_001
  * @tc.name: 公共入口: 已注册回调复用 handle
- * @tc.desc: callbacks_ 已有该回调 -> 377 true 腿: 不取新号, 以旧 handle 走非新路径
+ * @tc.desc: callbacks_ 已有该回调: 不取新号, 以旧 handle 走非新路径
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_StartAdvertising_001, TestSize.Level1)
 {
@@ -554,7 +553,7 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_StartAdvertising_001
 /**
  * @tc.number: SleAdvertiserFramework_StartAdvertising_002
  * @tc.name: 公共入口: 新回调取新号
- * @tc.desc: callbacks_ 无该回调 -> 377 false 腿: 以新 handle 路径取号启动
+ * @tc.desc: callbacks_ 无该回调: 以新 handle 路径取号启动
  */
 HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_StartAdvertising_002, TestSize.Level1)
 {
@@ -591,6 +590,22 @@ HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_StartAdvertising_003
         advertiser_->StartAdvertising(settings, advData, scanResponse, 0, nullptr));
     EXPECT_EQ(0, g_mockService->startAdvCount);
 }
+/**
+ * @tc.number: SleAdvertiserFramework_AutoStop_001
+ * @tc.name: OnAutoStopAdvEvent 摘除已注册回调
+ * @tc.desc: 自动停止事件擦除该 handle 的回调注册; 未注册 handle 静默返回不崩溃
+ */
+HWTEST_F(SleAdvertiserFrameworkTest, SleAdvertiserFramework_AutoStop_001, TestSize.Level1)
+{
+    advertiser_->pimpl->callbacks_.EnsureInsert(TEST_HANDLE, fakeCallback_);
+    advertiser_->pimpl->callbackImp_->OnAutoStopAdvEvent(TEST_HANDLE);
+    std::weak_ptr<SleAdvertiseCallback> remain;
+    EXPECT_FALSE(advertiser_->pimpl->callbacks_.GetValue(TEST_HANDLE, remain));
+
+    advertiser_->pimpl->callbackImp_->OnAutoStopAdvEvent(TEST_HANDLE + 99); // 未注册 handle: 静默返回
+    SUCCEED();
+}
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS
