@@ -16,7 +16,8 @@
 /*
  * 被测对象 SleAdapter 与其依赖（合作集服务、配置、远程设备表、扫描缓存、云配对缓存）
  * 均为真实例，仅注入内存数据；SM 下行接口用成功桩（mock_nlstk_sm.cpp）。
- * 运行约束：仅在测试机执行——用例会发布 nearlink 公共事件并触碰配置文件（TearDown 恢复）；
+ * 运行约束：仅在专用测试机执行——用例会发布 nearlink 公共事件并触碰配置文件（TearDown 恢复）；
+ * 恢复出厂设置用例会清空整机配对配置并删除设备档案文件，超出夹具恢复能力；
  * 建议星闪服务停用后运行，合成地址假定不与真实配对设备冲突。
  * 测试编译单元包含 4 个产品源文件以访问内部注册表与状态（已从共享构建源排除）。
  */
@@ -217,6 +218,8 @@ void SleAdapterServiceTest::SetUp()
 
     // 清空本套件会触碰的进程态
     SleRemoteDeviceAdapter::GetInstance()->RemoveAllPeripheralDevices();
+    // 扫描缓存按地址键控留存，跨用例残留会改变按序查找的命中项
+    static_cast<ScanService &>(InterfaceScanService::GetInstance()).pimpl->sleScanResults_.Clear();
     SleReconnectManager::GetInstance().pairedQueue_.clear();
     SleReconnectManager::GetInstance().inBgListDevices_.clear();
     SleReconnectManager::GetInstance().bgConnMaxNum_ = RECONNECT_ACCEPT_LIST_MAX_SIZE;
@@ -260,6 +263,7 @@ void SleAdapterServiceTest::TearDown()
     SleConfig::GetInstance().Save();
     InterfaceCloudPairService::GetInstance().ClearCloudDeviceMap(false);
     SleRemoteDeviceAdapter::GetInstance()->RemoveAllPeripheralDevices();
+    static_cast<ScanService &>(InterfaceScanService::GetInstance()).pimpl->sleScanResults_.Clear();
 
     auto &pimpl = *adapter_->pimpl;
     pimpl.credibleDevice_.Clear();
@@ -1079,7 +1083,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_011, TestSize.Level1)
 
 /**
  * @tc.name: SleAdapter_Conn_012
- * @tc.desc: 全部 profile 断开后按缓存的断连上下文决定是否回连，随后清空缓存
+ * @tc.desc: 全部 profile 断开后消费缓存的断连上下文（无上下文直接跳过），随后清空缓存
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_012, TestSize.Level1)
@@ -1088,13 +1092,12 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_012, TestSize.Level1)
     // 无缓存上下文：直接返回
     Adapter().OnAllProfileDisconnected(RawAddress(kMouseM));
 
-    // 有缓存上下文且满足回连：进入后台回连名单，随后上下文被清空
+    // 有缓存上下文且满足回连：后台回连经协议栈通道下发（无栈必败、不落内存表），
+    // 可断言的副作用是消费后清空缓存上下文
     AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
-    SleReconnectManager::GetInstance().OnDeviceStartPair(RawAddress(kMouseM));
     Adapter().SetAcbDisConnReasonTask(kMouseM, NLSTK_SLE_CONNECTION_TIMEOUT);
     Adapter().OnAllProfileDisconnected(RawAddress(kMouseM));
-    EXPECT_EQ(1U, SleReconnectManager::GetInstance().inBgListDevices_.count(kMouseM));
     EXPECT_EQ(0, Adapter().GetAcbDisConnReasonTask(kMouseM));
 }
 
