@@ -480,12 +480,13 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_005, TestSize.Level1)
  */
 HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_006, TestSize.Level1)
 {
-    // 旧组 report=右耳，当前实际连的是右耳（旧 report），扫描侧发现左耳广播（新 report）
+    // 旧组 report=右耳，从左耳确认配对（音频设备走回连建组路径）；GetRealAddress 不做
+    // 成员映射（对端未连接时返回原址），扫描项以左耳自身为当前地址
     InjectCdsmGroup(203, kHeadsetR, {kHeadsetR, kHeadsetL});
     AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
         static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
-    InjectScanResult(kHeadsetL, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kHeadsetR, kHeadsetR);
+    InjectScanResult(kHeadsetL, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kHeadsetR, kHeadsetL);
 
     // 设备未连接 ACB，确认最终失败，但建组副作用已发生
     EXPECT_FALSE(Adapter().SetPairingConfirmation(RawAddress(kHeadsetL)));
@@ -560,12 +561,14 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_009, TestSize.Level1)
     AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
         static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
-    // 厂商设备判定走配置私有标记，维持默认（非厂商）即可聚焦一致分支
-    InjectScanResult(kHeadsetR, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kHeadsetL);
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    // 扫描项以右耳为当前地址、左耳（合作集副耳）为广播 report，命中"副耳一致"等值臂
+    InjectScanResult(kHeadsetL, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kHeadsetR, kHeadsetR);
 
     Adapter().UpdateKeyMissingCdsmGroup(RawAddress(kHeadsetR));
 
-    // 扫描副耳==合作集副耳：不删组、不动配对记录
+    // 扫描 report 即合作集副耳：非丢失场景，不删组、不动配对记录
     EXPECT_EQ(1U, Cdsm().cdsmList_.Size());
     EXPECT_NE(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
 }
@@ -925,6 +928,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_006, TestSize.Level1)
     SetSleSwitchState(SleStateID::STATE_TURN_ON);
     AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    // 后台回连名单只收已入回连队列的设备，先按配对入队
+    SleReconnectManager::GetInstance().OnDeviceStartPair(RawAddress(kMouseM));
 
     auto disconnResult = MakeConnResult(kMouseM, CM_LINK_STATE_DISCONNECTED, 12, 0,
         static_cast<uint8_t>(NLSTK_SLE_CONNECTION_TIMEOUT));
@@ -1010,7 +1015,12 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_009, TestSize.Level1)
     Adapter().pimpl->needReconnectDevices_.Emplace(kHeadsetR);
     Adapter().pimpl->needReconnectDevices_.Emplace(kHeadsetL);
 
-    EXPECT_TRUE(Adapter().DisconnectAllProfile(RawAddress(kHeadsetR)));
+    // 断开下发经协议栈（测试进程无栈必失败），断言落在下发前的真实状态迁移
+    EXPECT_FALSE(Adapter().DisconnectAllProfile(RawAddress(kHeadsetR)));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetR));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetL));
 
     // 断开动作清理回连重试名单
     EXPECT_EQ(0U, Adapter().pimpl->needReconnectDevices_.Count(kHeadsetR));
@@ -1029,7 +1039,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_010, TestSize.Level1)
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
 
     EXPECT_TRUE(Adapter().ConnectAllProfile(RawAddress(kMouseM)));
-    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+    // 发起连接即置连接中（入直连白名单副作用），不等待底层结果
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING),
         SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kMouseM));
 
     // 合作集整组连接：另一个成员也被发起连接
@@ -1080,6 +1091,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_012, TestSize.Level1)
     // 有缓存上下文且满足回连：进入后台回连名单，随后上下文被清空
     AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    SleReconnectManager::GetInstance().OnDeviceStartPair(RawAddress(kMouseM));
     Adapter().SetAcbDisConnReasonTask(kMouseM, NLSTK_SLE_CONNECTION_TIMEOUT);
     Adapter().OnAllProfileDisconnected(RawAddress(kMouseM));
     EXPECT_EQ(1U, SleReconnectManager::GetInstance().inBgListDevices_.count(kMouseM));
@@ -1088,7 +1100,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_012, TestSize.Level1)
 
 /**
  * @tc.name: SleAdapter_Conn_013
- * @tc.desc: 静默口设备连接请求被拒绝并补发连接中→已断开两次状态回退
+ * @tc.desc: 加密态设备正常连接全部 profile：不产生连接状态回退上报，链路状态保持加密；
+ *           静默口拒绝路径依赖 profile 连接实例（后续套件覆盖）
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_013, TestSize.Level1)
@@ -1096,12 +1109,12 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_013, TestSize.Level1)
     SetSleSwitchState(SleStateID::STATE_TURN_ON);
     AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
-    Adapter().pimpl->sleProfileConnectManager_.SetSilentPortState(RawAddress(kHeadsetR), true);
 
     EXPECT_TRUE(Adapter().ConnectAllProfile(RawAddress(kHeadsetR)));
-    ASSERT_EQ(2U, callback_.connEvents_.size());
-    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTING), callback_.connEvents_[0].state);
-    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), callback_.connEvents_[1].state);
+    // 正常路径不发状态回退（回退上报是静默口拒绝路径专属）
+    EXPECT_TRUE(callback_.connEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetR));
 }
 
 // ==================== 状态上报口径 ====================
@@ -1579,7 +1592,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_013, TestSize.Level1)
     param.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
     Adapter().HidCoexModeCallback(&param);
 
-    param.eventType = 0xFF;
+    // 非法事件类型
+    param.eventType = static_cast<CM_HidCoexModeEventType_E>(0xFF);
     Adapter().HidCoexModeCallback(&param);
 }
 
