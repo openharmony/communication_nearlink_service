@@ -233,7 +233,7 @@ HWTEST_F(SleProfileConnectTest, ProfileConnectInstNextProfileOrder_001, TestSize
  */
 HWTEST_F(SleProfileConnectTest, ProfileConnectInstStateNaming_002, TestSize.Level1)
 {
-    using Inst = SleProfileConnectManager::SleProfileConnectInst;
+    auto inst = MakeInst(kAddrL);
     const std::string stateNames[] = {
         "SLE_ADAPTER_PROF_CONN_STATE_UNUSED",
         "SLE_ADAPTER_PROF_CONN_STATE_ACB_CONNECTING",
@@ -244,9 +244,9 @@ HWTEST_F(SleProfileConnectTest, ProfileConnectInstStateNaming_002, TestSize.Leve
         "SLE_ADAPTER_PROF_CONN_STATE_DISCONNECTING",
     };
     for (size_t i = 0; i < sizeof(stateNames) / sizeof(stateNames[0]); i++) {
-        EXPECT_EQ(stateNames[i], Inst::GetProfileConnectionStateName(static_cast<int>(i)));
+        EXPECT_EQ(stateNames[i], inst->GetProfileConnectionStateName(static_cast<int>(i)));
     }
-    EXPECT_EQ("", Inst::GetProfileConnectionStateName(99));
+    EXPECT_EQ("", inst->GetProfileConnectionStateName(99));
 
     auto &mgr = *manager_;
     const std::pair<int, SleConnectState> converts[] = {
@@ -723,11 +723,14 @@ HWTEST_F(SleProfileConnectTest, SsapDiscoveredSuccessPaths_014, TestSize.Level1)
     manager_->SsapServicesDiscoveredTask(RawAddress(kAddrM), static_cast<int>(SsapStatus::SSAP_SUCCESS));
     EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_DISCONNECTING, empty->GetState());
     EXPECT_EQ(1, calls_->disconnectAcb);
-    ASSERT_GE(calls_->notify.size(), 2U);
-    // 先报进入断连中，随后异常断连补报断连
+    // 先报进入断连中，随后异常断连补报断连；两条通知的原因均为无可行业务
+    ASSERT_EQ(2U, calls_->notify.size());
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), calls_->notify[0][0]);
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTING), calls_->notify[0][1]);
     EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE), calls_->notify[0][2]);
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), calls_->notify[1][0]);
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), calls_->notify[1][1]);
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_FAIL_NO_AVAILABLE_SERVICE), calls_->notify[1][2]);
 
     // HID可用：进入业务连接中
     InsertInst(kAddrR, SLE_ADAPTER_PROF_CONN_STATE_DISCOVERING);

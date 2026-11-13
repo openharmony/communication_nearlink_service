@@ -92,6 +92,12 @@ public:
 // SSAP 客户端假件：注册/连接/发现返回值可配，发现结果服务列表可注入
 class FakeSsapClientService : public InterfaceProfileSsapClient {
 public:
+    int Connect(const RawAddress &device) override { return 0; }
+    int Disconnect(const RawAddress &device) override { return 0; }
+    std::list<RawAddress> GetConnectDevices() override { return {}; }
+    int GetConnectState() override { return 0; }
+    utility::Context *GetContext() override { return &context_; }
+
     int RegisterApplication(const std::shared_ptr<InterfaceSsapClientCallback> &callback, const RawAddress &addr,
         uint8_t transport, uint8_t secureReq) override
     {
@@ -158,6 +164,7 @@ public:
         return 0;
     }
 
+    TestProfileContext context_;
     int registerAppId = 10;
     int connectRet = static_cast<int>(ReturnValue::RET_NO_ERROR);
     int discoverRet = static_cast<int>(ReturnValue::RET_NO_ERROR);
