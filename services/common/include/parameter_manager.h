@@ -27,7 +27,6 @@ class ParameterManager {
 public:
     static uint8_t Get5GFeatureEnable();
     static uint8_t GetDevicePowerLevel();
-    static uint8_t GetMuteControlEnable();
 
     static void RegisterProvider(std::shared_ptr<ParameterProviderInterface> provider);
     static std::shared_ptr<ParameterProviderInterface> GetProvider();

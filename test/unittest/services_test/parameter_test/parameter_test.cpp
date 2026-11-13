@@ -63,14 +63,6 @@ TEST_F(ParameterTest, TestDefaultProviderGetDevicePowerLevel)
     EXPECT_LE(value, 255);
 }
 
-TEST_F(ParameterTest, TestDefaultProviderGetMuteControlEnable)
-{
-    auto& provider = DefaultParameterProvider::GetInstance();
-    uint8_t value = provider.GetMuteControlEnable();
-    EXPECT_GE(value, 0);
-    EXPECT_LE(value, 255);
-}
-
 TEST_F(ParameterTest, TestDefaultProviderUpdate5GFeatureEnable)
 {
     auto& provider = DefaultParameterProvider::GetInstance();
@@ -89,16 +81,6 @@ TEST_F(ParameterTest, TestDefaultProviderUpdateDevicePowerLevel)
     
     provider.UpdateDevicePowerLevel(75);
     EXPECT_EQ(provider.GetDevicePowerLevel(), 75);
-}
-
-TEST_F(ParameterTest, TestDefaultProviderUpdateMuteControlEnable)
-{
-    auto& provider = DefaultParameterProvider::GetInstance();
-    provider.UpdateMuteControlEnable(SLE_SUPPORT_AND_OPEN);
-    EXPECT_EQ(provider.GetMuteControlEnable(), SLE_SUPPORT_AND_OPEN);
-    
-    provider.UpdateMuteControlEnable(SLE_SUPPORT_AND_CLOSE);
-    EXPECT_EQ(provider.GetMuteControlEnable(), SLE_SUPPORT_AND_CLOSE);
 }
 
 TEST_F(ParameterTest, TestDefaultProviderCallbackRegistration)
@@ -152,17 +134,6 @@ TEST_F(ParameterTest, TestParameterManagerGetDevicePowerLevel)
     
     uint8_t value = ParameterManager::GetDevicePowerLevel();
     EXPECT_EQ(value, 180);
-}
-
-TEST_F(ParameterTest, TestParameterManagerGetMuteControlEnable)
-{
-    DefaultParameterProvider::GetInstance().UpdateMuteControlEnable(SLE_SUPPORT_AND_OPEN);
-    auto provider = std::shared_ptr<ParameterProviderInterface>(&DefaultParameterProvider::GetInstance(),
-                                                                        [](ParameterProviderInterface*) {});
-    ParameterManager::RegisterProvider(provider);
-    
-    uint8_t value = ParameterManager::GetMuteControlEnable();
-    EXPECT_EQ(value, SLE_SUPPORT_AND_OPEN);
 }
 
 TEST_F(ParameterTest, TestParameterManagerProviderReplacement)
@@ -272,11 +243,6 @@ TEST_F(ParameterTest, TestMultipleParameterUpdates)
     provider.UpdateDevicePowerLevel(20);
     EXPECT_EQ(provider.GetDevicePowerLevel(), 20);
     EXPECT_EQ(provider.Get5GFeatureEnable(), 10);
-    
-    provider.UpdateMuteControlEnable(30);
-    EXPECT_EQ(provider.GetMuteControlEnable(), 30);
-    EXPECT_EQ(provider.Get5GFeatureEnable(), 10);
-    EXPECT_EQ(provider.GetDevicePowerLevel(), 20);
 }
 
 TEST_F(ParameterTest, TestBoundaryValues)
@@ -291,7 +257,4 @@ TEST_F(ParameterTest, TestBoundaryValues)
     
     provider.UpdateDevicePowerLevel(0);
     EXPECT_EQ(provider.GetDevicePowerLevel(), 0);
-    
-    provider.UpdateMuteControlEnable(255);
-    EXPECT_EQ(provider.GetMuteControlEnable(), 255);
 }

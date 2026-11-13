@@ -35,11 +35,6 @@ uint8_t DefaultParameterProvider::GetDevicePowerLevel() const
     return devicePowerLevel_.load(std::memory_order_acquire);
 }
 
-uint8_t DefaultParameterProvider::GetMuteControlEnable() const
-{
-    return muteControlEnable_.load(std::memory_order_acquire);
-}
-
 void DefaultParameterProvider::RegisterParameterChangedCallback(ParameterChangedCallback callback)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -60,11 +55,6 @@ void DefaultParameterProvider::Update5GFeatureEnable(uint8_t value)
 void DefaultParameterProvider::UpdateDevicePowerLevel(uint8_t value)
 {
     devicePowerLevel_.store(value, std::memory_order_release);
-}
-
-void DefaultParameterProvider::UpdateMuteControlEnable(uint8_t value)
-{
-    muteControlEnable_.store(value, std::memory_order_release);
 }
 
 void DefaultParameterProvider::TriggerInitialization()

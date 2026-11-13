@@ -33,7 +33,6 @@ public:
 
     virtual uint8_t Get5GFeatureEnable() const = 0;
     virtual uint8_t GetDevicePowerLevel() const = 0;
-    virtual uint8_t GetMuteControlEnable() const = 0;
 
     using ParameterChangedCallback = std::function<void(int paramType)>;
     virtual void RegisterParameterChangedCallback(ParameterChangedCallback callback) {}
@@ -41,7 +40,6 @@ public:
 
     virtual void Update5GFeatureEnable(uint8_t value) {}
     virtual void UpdateDevicePowerLevel(uint8_t value) {}
-    virtual void UpdateMuteControlEnable(uint8_t value) {}
 
     virtual void TriggerInitialization() {}
 };
