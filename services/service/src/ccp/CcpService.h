@@ -81,8 +81,8 @@ public:
     void CreateVoipCallInfo();
 
 private:
-    /* 事件只携带 callId/callState，按 callId 反查通话列表补齐明细 */
-    Telephony::CallAttributeInfo BuildCallAttributeInfo(int32_t callId, int32_t callState,
+    /* 事件只携带 callId/callState，按 callId 反查通话列表补齐单路通话明细 */
+    Telephony::CallAttributeInfo FilterCallAttributeInfo(int32_t callId, int32_t callState,
         const std::string &number, const std::vector<Telephony::CallAttributeInfo> &callVec);
     void ProcessCallDetailChange(const Telephony::CallAttributeInfo &info);
     void ProcessCallStateInfo(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
