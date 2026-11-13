@@ -81,7 +81,9 @@ public:
      *        or NL_CCP_ERR_UNAVAILABLE_PROXY, which callers may treat as
      *        degraded.
      *
-     * @param[in] callId id of the changed call, -1 means no specific call.
+     * @param[in] callId id of the changed call; -1 means no specific call, any
+     *            other value not less than -1 is accepted and mapped to a local
+     *            short id by the service.
      * @param[in] numActive number of active calls, diagnostic only; the service
      *            re-queries the authoritative call list instead of using this value.
      * @param[in] numHeld number of held calls, diagnostic only; the service
@@ -107,7 +109,9 @@ public:
      *        mapping of the given callId; details of the other states are carried by
      *        PhoneStateChanged and VoIP calls are not handled here.
      *
-     * @param[in] callId id of the changed call, -1 means no specific call and is skipped.
+     * @param[in] callId id of the changed call; -1 means no specific call and is
+     *            skipped, any other value not less than -1 is accepted and mapped
+     *            to a local short id by the service.
      * @param[in] callState state of the changed call.
      * @param[in] callType call type of the changed call, the value is the same as Telephony::CallType.
      *            A VoIP call type is ignored by this interface.

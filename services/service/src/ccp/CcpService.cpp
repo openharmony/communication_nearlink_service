@@ -379,10 +379,6 @@ void CcpService::TryResumeCurrentCalls()
         // 恢复时不需要考虑VoIP，因为耳机会重连走重新起流
         std::vector<Telephony::CallAttributeInfo> callVec = CcpSystemInterface::GetInstance().GetCurrentCallList();
         for (auto &callAttr : callVec) {
-            // 过滤掉未接入蜂窝call kit的 VoIP 通话
-            if (callAttr.callId < 0) {
-                continue;
-            }
             ProcessCallDetailChange(callAttr);
         }
         ProcessCallStateInfo(callVec);
@@ -403,7 +399,12 @@ void CcpService::ProcessCallStateInfo(const std::vector<Telephony::CallAttribute
             continue;
         }
         // 通话标识
-        singleCallState.callId = pimpl->GetIndexForCall(callAttr.callId, callAttr.callState);
+        uint8_t callId = pimpl->GetIndexForCall(callAttr.callId, callAttr.callState);
+        if (callId == 0) {
+            HILOGW("[CcpService]invalid callId=%{public}d", callAttr.callId);
+            continue;
+        }
+        singleCallState.callId = callId;
         // 通话状态
         singleCallState.callStatus = static_cast<uint8_t>(iter->second);
         // 通话标记
@@ -485,6 +486,7 @@ void CcpService::ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info)
     std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
     /**< 通话标识 */
     uint8_t callId = pimpl->GetIndexForCall(info.callId, info.callState);
+    NL_CHECK_RETURN(callId != 0, "[CcpService]invalid callId=%{public}d", info.callId);
     prop->callId = static_cast<uint8_t>(callId);
     /**< 通话标记 */
     CallFlagBits flag = GetCallFlag(info);

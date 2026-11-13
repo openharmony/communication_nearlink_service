@@ -245,7 +245,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged003, TestSize.Level1
 /**
  * @tc.number: PhoneStateChanged004
  * @tc.name:
- * @tc.desc: callId 为 0 不属于协议受理范围（1~255 或 -1），stub 在转服务前直接拒绝，不投递到 CCP 线程
+ * @tc.desc: callId 为 0 在解码层受理范围内（>= -1），不拦截，正常投递到 CCP 线程
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged004, TestSize.Level1)
 {
@@ -259,7 +259,9 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged004, TestSize.Level1)
     data.WriteInt32(0);
     data.WriteString("10086");
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
-    EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
+    EXPECT_EQ(NO_ERROR, ret);
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_EQ(ExpectedCcpPushResult(), result);
     HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged004 end");
 }
 
@@ -348,7 +350,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged008, TestSize.Level1)
 /**
  * @tc.number: PhoneStateChanged009
  * @tc.name:
- * @tc.desc: callId 超出协议上界（255）时拒绝，与 004（下界 0）构成双向覆盖
+ * @tc.desc: callId=256（超出本仓短编号区间的蜂窝真实标识）仍受理：解码层不设上界，折算交给业务层
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged009, TestSize.Level1)
 {
@@ -362,7 +364,9 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged009, TestSize.Level1)
     data.WriteInt32(0);
     data.WriteString("10086");
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
-    EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
+    EXPECT_EQ(NO_ERROR, ret);
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_EQ(ExpectedCcpPushResult(), result);
     HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged009 end");
 }
 
@@ -385,6 +389,49 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged010, TestSize.Level1)
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
     EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
     HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged010 end");
+}
+
+/**
+ * @tc.number: PhoneStateChanged011
+ * @tc.name:
+ * @tc.desc: callId 低于受理下界（-1）时拒绝，与 004（0）/009（256）的受理路径构成双向覆盖
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged011, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged011 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(-2);
+    data.WriteInt32(0);
+    data.WriteInt32(0);
+    data.WriteInt32(0);
+    data.WriteString("10086");
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
+    EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged011 end");
+}
+
+/**
+ * @tc.number: PhoneStateChanged012
+ * @tc.name:
+ * @tc.desc: 号码字符串区截断（长度头声称 3 个字符、内容仅 4 字节）时拒绝，变长字段不得以空串穿透
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged012, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged012 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(1);
+    data.WriteInt32(0);
+    data.WriteInt32(0);
+    data.WriteInt32(0);
+    data.WriteInt32(3);
+    data.WriteInt32(0);
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
+    EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged012 end");
 }
 
 /**
@@ -441,6 +488,46 @@ HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged006, TestSize.Level1
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
     EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
     HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged006 end");
+}
+
+/**
+ * @tc.number: CallDetailsChanged007
+ * @tc.name:
+ * @tc.desc: callId=256（超出本仓短编号区间的蜂窝真实标识）仍受理：解码层不设上界，折算交给业务层
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged007, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged007 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(256);
+    data.WriteInt32(6);
+    data.WriteInt32(0);
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_EQ(ExpectedCcpPushResult(), result);
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged007 end");
+}
+
+/**
+ * @tc.number: CallDetailsChanged008
+ * @tc.name:
+ * @tc.desc: callId 低于受理下界（-1）时拒绝，与 007（256）的受理路径构成双向覆盖
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged008, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged008 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(-2);
+    data.WriteInt32(6);
+    data.WriteInt32(0);
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
+    EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged008 end");
 }
 
 } // namespace TEST
