@@ -321,10 +321,6 @@ bool XmlParse::Parse()
 bool XmlParse::Create(const std::string &path)
 {
     this->filePath_ = path;
-    if (pimpl->doc_ != NULL) {
-        xmlFreeDoc(pimpl->doc_);
-        pimpl->doc_ = NULL;
-    }
     xmlDocPtr xmp_meta = xmlNewDoc(BAD_CAST "1.0");
     xmlNodePtr root_node = xmlNewNode(nullptr, BAD_CAST "config");
     xmlDocSetRootElement(xmp_meta, root_node);
@@ -334,6 +330,9 @@ bool XmlParse::Create(const std::string &path)
         LOG_ERROR("CreateXml fail: %{public}s", xmlErrMessage.c_str());
         xmlFreeDoc(xmp_meta);
         return false;
+    }
+    if (pimpl->doc_ != NULL) {
+        xmlFreeDoc(pimpl->doc_);
     }
     pimpl->doc_ = xmp_meta;
     LOG_INFO("CreateXml success.");
