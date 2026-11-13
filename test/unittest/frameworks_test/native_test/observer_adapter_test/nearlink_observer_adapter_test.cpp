@@ -307,6 +307,15 @@ HWTEST_F(NearlinkObserverAdapterTest, HostAdapterNullObserver001, TestSize.Level
     adapter->OnPairConfirmed(device, 5, 6);
     adapter->OnDeviceNameChanged("name-1");
     adapter->OnDeviceAddrChanged(TEST_DEVICE_ADDR2);
+    // 空腿回调已把过期条目自摘除: 同 weak 显式再摘不崩溃, 注册表此后仍可正常注册与取回
+    EraseHostObserver(weakFake);
+    auto renewed = std::make_shared<FakeHostObserver>();
+    auto renewedAdapter = WrapHostObserver(renewed);
+    ASSERT_NE(nullptr, renewedAdapter);
+    std::shared_ptr<NearlinkBaseHostObserver> unwrapped;
+    EXPECT_TRUE(UnwrapHostObserver(renewed, unwrapped));
+    EXPECT_EQ(renewedAdapter, unwrapped);
+    EraseHostObserver(renewed);
     HILOGI("NearlinkObserverAdapterTest: HostAdapterNullObserver001 end");
 }
 
@@ -461,11 +470,14 @@ HWTEST_F(NearlinkObserverAdapterTest, RemoteDeviceAdapterNullObserver001, TestSi
 {
     HILOGI("NearlinkObserverAdapterTest: RemoteDeviceAdapterNullObserver001 start");
     std::shared_ptr<NearlinkBaseRemoteDeviceObserver> adapter;
+    std::weak_ptr<NearlinkRemoteDeviceObserver> weakFake;
     {
         auto fake = std::make_shared<FakeRemoteDeviceObserver>();
         adapter = WrapRemoteDeviceObserver(fake);
         ASSERT_NE(nullptr, adapter);
+        weakFake = fake;
     }
+    EXPECT_TRUE(weakFake.expired());
     NearlinkBaseRemoteDevice device(TEST_DEVICE_ADDR, 1);
     std::vector<UUID> uuids = {UUID(0x1122)};
     adapter->OnAcbStateChanged(device, 1, 2);
@@ -477,6 +489,15 @@ HWTEST_F(NearlinkObserverAdapterTest, RemoteDeviceAdapterNullObserver001, TestSi
     adapter->OnRemoteAliasChanged(device, "dev-alias");
     adapter->OnReadRemoteRssiEvent(device, -60, 0);
     adapter->OnLinkFreqBandChanged(device, 2);
+    // 空腿回调已把过期条目自摘除: 同 weak 显式再摘不崩溃, 注册表此后仍可正常注册与取回
+    EraseRemoteDeviceObserver(weakFake);
+    auto renewed = std::make_shared<FakeRemoteDeviceObserver>();
+    auto renewedAdapter = WrapRemoteDeviceObserver(renewed);
+    ASSERT_NE(nullptr, renewedAdapter);
+    std::shared_ptr<NearlinkBaseRemoteDeviceObserver> unwrapped;
+    EXPECT_TRUE(UnwrapRemoteDeviceObserver(renewed, unwrapped));
+    EXPECT_EQ(renewedAdapter, unwrapped);
+    EraseRemoteDeviceObserver(renewed);
     HILOGI("NearlinkObserverAdapterTest: RemoteDeviceAdapterNullObserver001 end");
 }
 

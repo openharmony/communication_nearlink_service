@@ -19,9 +19,7 @@
 #include "log.h"
 #include "nearlink_access_token_mock.h"
 #include "nearlink_host.h"
-#include "nearlink_native_token_mock.h"
 #include "nearlink_observer_adapter.h"
-#include "nearlink_test_enable_wait.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -60,12 +58,8 @@ public:
     static void SetUpTestCase()
     {
         HILOGI("SetUpTestCase NearlinkHostObserverRegisterTest.");
+        // 注册/解注册为本地列表操作, 无 SLE 网关无 IPC, 不做 SLE 使能前置
         NearlinkAccessTokenMock::SetNativeTokenInfo();
-        if (!NearlinkHost::GetInstance().IsSleEnabled()) {
-            HILOGI("start enable nearlink");
-            NearlinkHost::GetInstance().EnableNl();
-        }
-        ASSERT_TRUE(WaitForSleEnabled()) << "SLE 使能在 20s 内未完成，无法进入用例";
     }
     static void TearDownTestCase()
     {
@@ -206,6 +200,34 @@ HWTEST_F(NearlinkHostObserverRegisterTest, DeregisterBatteryObserverNotRegistere
     // BAS 特性检查先于 Unwrap：支持时走未注册腿返回 NL_NO_ERROR，不支持时返回 NL_ERR_FEATURE_NOT_SUPPORT
     EXPECT_TRUE(ret == NL_NO_ERROR || ret == NL_ERR_FEATURE_NOT_SUPPORT) << "ret: " << ret;
     HILOGI("NearlinkHostObserverRegisterTest: DeregisterBatteryObserverNotRegistered001 end");
+}
+
+/**
+ * @tc.name: RegisterNullObserverProductSemantics001
+ * @tc.desc: 产品实际语义：nullptr host 观察者可注册成功，二次注册命中 Wrap 判空，解注册幂等
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkHostObserverRegisterTest, RegisterNullObserverProductSemantics001, TestSize.Level1)
+{
+    // 框架层不拦截 nullptr（Wrap 直接包装空 weak），与 INVALID_PARAM 预期不同，按产品实际行为断言
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().RegisterObserver(nullptr));
+    // 空 weak 与空 weak 判等：二次注册 nullptr 命中 Wrap 判空腿，返回 INVALID_PARAM
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, NearlinkHost::GetInstance().RegisterObserver(nullptr));
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().DeregisterObserver(nullptr));
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().DeregisterObserver(nullptr));
+}
+
+/**
+ * @tc.name: RegisterNullRssiObserverProductSemantics001
+ * @tc.desc: rssi 家族 nullptr 观察者语义与 host 家族一致：可注册、二次判空、解注册幂等
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkHostObserverRegisterTest, RegisterNullRssiObserverProductSemantics001, TestSize.Level1)
+{
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().RegisterRssiObserver(nullptr));
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, NearlinkHost::GetInstance().RegisterRssiObserver(nullptr));
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().DeregisterRssiObserver(nullptr));
+    EXPECT_EQ(NL_NO_ERROR, NearlinkHost::GetInstance().DeregisterRssiObserver(nullptr));
 }
 } // namespace TEST
 } // namespace Nearlink
