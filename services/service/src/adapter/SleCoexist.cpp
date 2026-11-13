@@ -129,8 +129,7 @@ void SleCoexist::UpdateConnParam()
         HILOGD("[SleCoexist]not multiple connection");
         return;
     }
-    // 规则1/规则2：间隔未知或已知间隔小于等于4ms的设备数达到2个及以上，才将此类设备调整为4ms
-    // 间隔未知的设备不更新链接参数，带参数更新事件确认间隔后再参与调整
+    // 规则1/规则2：间隔小于等于4ms的设备数达到2个及以上，才将此类设备调整为4ms
     int adjustDevCount = manager->CountCoexistAdjustDevices(CM_CONN_COEXIST_INTERAL_THRED);
     bool isNeedAdjustInterval = adjustDevCount >= CM_CONN_COEXIST_MIN_ADJUST_DEV_NUM;
     // 规则3：芯片仅允许3个4ms高速连接，已有3个设备小于4ms（占满4+4+4）后，
