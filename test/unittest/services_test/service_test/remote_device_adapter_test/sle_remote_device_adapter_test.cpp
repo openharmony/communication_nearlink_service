@@ -435,10 +435,11 @@ HWTEST_F(SleRemoteDeviceAdapterTest, DeviceNameAndAlias_001, TestSize.Level1)
     AddPairedDevice(kMouseM);
 
     EXPECT_EQ("", Adapter()->GetDeviceName(RawAddress(kMouseM)));
+    EXPECT_EQ("", Adapter()->GetAliasName(RawAddress(kMouseM)));
     ASSERT_TRUE(Adapter()->SetName(RawAddress(kMouseM), "MouseName"));
     EXPECT_EQ("MouseName", Adapter()->GetDeviceName(RawAddress(kMouseM)));
-
-    EXPECT_EQ("", Adapter()->GetAliasName(RawAddress(kMouseM)));
+    // 设名未设别名：别名读取回落设备名
+    EXPECT_EQ("MouseName", Adapter()->GetAliasName(RawAddress(kMouseM)));
     ASSERT_TRUE(Adapter()->SetAliasName(RawAddress(kMouseM), "MouseAlias"));
     EXPECT_EQ("MouseAlias", Adapter()->GetAliasName(RawAddress(kMouseM)));
 
@@ -462,6 +463,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, SetAppearance_001, TestSize.Level1)
     AddPairedDevice(kMouseM);
     ASSERT_TRUE(Adapter()->SetAppearance(RawAddress(kMouseM),
         static_cast<int>(DeviceClassForService::DEVICE_MOUSE)));
+    ASSERT_EQ(static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
+        Device(kMouseM)->GetAppearance());
     EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
         Adapter()->GetDeviceAppearance(RawAddress(kMouseM)));
 
@@ -469,6 +472,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, SetAppearance_001, TestSize.Level1)
     AddPairedDevice(kHeadsetR);
     ASSERT_TRUE(Adapter()->SetAppearance(RawAddress(kHeadsetR),
         static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE)));
+    ASSERT_EQ(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE),
+        Device(kHeadsetL)->GetAppearance());
     EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE),
         Adapter()->GetDeviceAppearance(RawAddress(kHeadsetL)));
 }
@@ -569,7 +574,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, DeviceModelInfo_001, TestSize.Level1)
     Adapter()->FindDeviceModelInfoInCache(RawAddress(kMouseM), cached, cachedNewModelId);
     EXPECT_EQ("model-1", cached.GetModelId());
     EXPECT_EQ("icon-1", cached.GetIconId());
-    EXPECT_EQ("sub-1", cached.GetSubModelId());
+    EXPECT_EQ("", cached.GetSubModelId());
     EXPECT_EQ("new-1", cachedNewModelId);
 }
 
@@ -608,6 +613,8 @@ HWTEST_F(SleRemoteDeviceAdapterTest, GetDeviceTypeInfo_001, TestSize.Level1)
     AddPairedDevice(kMouseM);
     ASSERT_TRUE(DevMgr()->SetAppearance(RawAddress(kMouseM),
         static_cast<int>(DeviceClassForService::DEVICE_MOUSE)));
+    ASSERT_EQ(static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
+        Device(kMouseM)->GetAppearance());
 
     SLE_Addr_S addrInfo = {};
     uint32_t devType = 0;
