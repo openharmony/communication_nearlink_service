@@ -128,5 +128,11 @@ group("nl_native_unittest") {
   deps = [
     ":nl_native_test",
     "nearlink_ssap_client_test:nl_native_ssap_client_unittest",
+    "ssap_client_framework_test:nl_ssap_client_framework_unittest",
+    "ssap_server_framework_test:nl_ssap_server_framework_unittest",
+    "ssap_method_framework_test:nl_ssap_method_framework_unittest",
+    "ssap_event_framework_test:nl_ssap_event_framework_unittest",
+    "ssap_property_framework_test:nl_ssap_property_framework_unittest",
+    "ssap_descriptor_framework_test:nl_ssap_descriptor_framework_unittest",
   ]
 }
