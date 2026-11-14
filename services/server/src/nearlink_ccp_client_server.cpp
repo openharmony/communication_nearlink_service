@@ -81,9 +81,8 @@ int32_t NearlinkCcpClientServer::PhoneStateChanged(int32_t callId, int32_t numAc
     HILOGI("PhoneStateChanged callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, callState=%{public}d",
         callId, numActive, numHeld, callState);
     // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方；
-    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方：
-    // 丢事件的窗口仅在预判通过后、任务执行前服务销毁的瞬间，下一次通话事件会全量纠正，
-    // 末次事件丢失由对端连接断开自愈
+    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方；
+    // 该窗口位于预判通过后、任务执行前，串行队列积压时可能被拉长；
     DoInCcpThread([callId, numActive, numHeld, callState, number]() {
         ProfileCcp *ccpService = static_cast<ProfileCcp *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
@@ -112,9 +111,8 @@ int32_t NearlinkCcpClientServer::CallDetailsChanged(int32_t callId, int32_t call
     HILOGI("CallDetailsChanged callId=%{public}d, callState=%{public}d, callType=%{public}d",
         callId, callState, callType);
     // 立即回包，业务逻辑投递到 CCP 串行线程执行，避免阻塞蜂窝调用方；
-    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方：
-    // 丢事件的窗口仅在预判通过后、任务执行前服务销毁的瞬间，下一次通话事件会全量纠正，
-    // 末次事件丢失由对端连接断开自愈
+    // 执行期若服务对象已销毁，任务只记录日志并丢弃，失败不回报调用方；
+    // 该窗口位于预判通过后、任务执行前，串行队列积压时可能被拉长；
     DoInCcpThread([callId, callState, callType]() {
         ProfileCcp *ccpService = static_cast<ProfileCcp *>(
             SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP));
