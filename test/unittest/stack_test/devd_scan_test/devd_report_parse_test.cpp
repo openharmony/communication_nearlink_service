@@ -364,16 +364,18 @@ TEST_F(DEVD_REPORT_TEST, ClearAdvCacheByAddr)
     static const uint8_t payload[] = {0x0B, 0x03, 'A', 'B', 'C'};
     uint8_t addr[6] = {0};
     (void)memcpy_s(addr, 6, g_devdAddr, 6);
+    SLE_Addr_S properAddr = {0};
+    (void)memcpy_s(properAddr.addr, SLE_ADDR_LEN, addr, SLE_ADDR_LEN);
     EXPECT_EQ(Feed(addr, payload, sizeof(payload), TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
 
-    uint8_t emptyAddr[6] = {0};
-    ClearAdvDataCache((SLE_Addr_S *)emptyAddr); // 未缓存地址
+    SLE_Addr_S emptyAddr = {0};
+    ClearAdvDataCache(&emptyAddr); // 未缓存地址
     NLSTK_DevdAdvResult_S *result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
     ASSERT_NE(result, nullptr); // 缓存未被误删
     FreeResult(result);
 
     EXPECT_EQ(Feed(addr, payload, sizeof(payload), TEST_EVT_SCANNABLE, TEST_FRAME_1), nullptr);
-    ClearAdvDataCache((SLE_Addr_S *)addr);
+    ClearAdvDataCache(&properAddr);
     result = Feed(addr, payload, 2, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
     ASSERT_NE(result, nullptr); // 清除后响应段自立新建缓存
     EXPECT_EQ(result->advData.len, 2);
@@ -422,16 +424,18 @@ TEST_F(DEVD_REPORT_TEST, ScanReportCbkDirectMatrix)
     DevdSleScanReportCbk(NULL, 0, &badRes);
     EXPECT_EQ(g_reportCaptureCnt, 0);
 
-    // 合法空载荷事件：事件位拆解 + 调制参数界内查表
-    DLI_AdvReportEvt evt = {0};
-    evt.eventType = 0x2A; // bit1 可扫描 + bit3 扫描响应 + bit5:0 数据状态 0b01
-    evt.rssi = (uint8_t)-60;
-    evt.secondMcs = 1;    // 界内：查调制表
-    evt.dataLength = 0;
-    (void)memcpy_s(evt.addr, SLE_ADDR_LEN, g_devdAddr, SLE_ADDR_LEN);
+    // 合法空载荷事件：事件位拆解 + 调制参数界内查表（柔性数组结构带尾随缓冲）
+    static const uint8_t body[3] = {0x01, 0x02, 0x03};
+    uint8_t evtBuf[sizeof(DLI_AdvReportEvt) + sizeof(body)] = {0};
+    DLI_AdvReportEvt *evt = (DLI_AdvReportEvt *)evtBuf;
+    evt->eventType = 0x2A; // bit1 可扫描 + bit3 扫描响应 + bit5:0 数据状态 0b01
+    evt->rssi = (uint8_t)-60;
+    evt->secondMcs = 1;    // 界内：查调制表
+    evt->dataLength = 0;
+    (void)memcpy_s(evt->addr, SLE_ADDR_LEN, g_devdAddr, SLE_ADDR_LEN);
     struct DLI_ExecuteCmdRetParam res = {0};
-    res.eventParameter = &evt;
-    res.size = sizeof(DLI_AdvReportEvt) + evt.dataLength;
+    res.eventParameter = evt;
+    res.size = sizeof(DLI_AdvReportEvt) + evt->dataLength;
     DevdSleScanReportCbk(NULL, 0, &res);
     EXPECT_EQ(g_reportCaptureCnt, 1);
     EXPECT_EQ(g_reportCaptureRssi, -60);
@@ -441,18 +445,17 @@ TEST_F(DEVD_REPORT_TEST, ScanReportCbkDirectMatrix)
     EXPECT_EQ(g_reportCaptureLen, 0);
 
     // 非空载荷：数据逐字节拷贝
-    static const uint8_t body[3] = {0x01, 0x02, 0x03};
-    evt.dataLength = sizeof(body);
-    (void)memcpy_s(evt.data, sizeof(body), body, sizeof(body));
-    res.size = sizeof(DLI_AdvReportEvt) + evt.dataLength;
+    evt->dataLength = sizeof(body);
+    (void)memcpy_s(evt->data, sizeof(body), body, sizeof(body));
+    res.size = sizeof(DLI_AdvReportEvt) + evt->dataLength;
     g_reportCaptureCnt = 0;
     DevdSleScanReportCbk(NULL, 0, &res);
     EXPECT_EQ(g_reportCaptureCnt, 1);
     EXPECT_EQ(g_reportCaptureLen, sizeof(body));
 
     // 调制参数越界：不查表，保持默认
-    evt.secondMcs = 0xFF;
-    evt.dataLength = 0;
+    evt->secondMcs = 0xFF;
+    evt->dataLength = 0;
     res.size = sizeof(DLI_AdvReportEvt);
     g_reportCaptureCnt = 0;
     DevdSleScanReportCbk(NULL, 0, &res);
