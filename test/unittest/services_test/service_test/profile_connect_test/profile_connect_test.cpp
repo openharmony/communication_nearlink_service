@@ -722,9 +722,9 @@ HWTEST_F(SleProfileConnectTest, SsapDiscoveredSuccessPaths_014, TestSize.Level1)
     ASSERT_NE(nullptr, empty);
     ssap_->services.clear();
     manager_->SsapServicesDiscoveredTask(RawAddress(kAddrM), static_cast<int>(SsapStatus::SSAP_SUCCESS));
-    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_DISCONNECTING, empty->GetState());
+    // 异常断连因无存活业务把档案收口为空闲；进入断连中的迁移由首条通知证明
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_UNUSED, empty->GetState());
     EXPECT_EQ(1, calls_->disconnectAcb);
-    // 先报进入断连中，随后异常断连补报断连；两条通知的原因均为无可行业务
     ASSERT_EQ(2U, calls_->notify.size());
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), calls_->notify[0][0]);
     EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTING), calls_->notify[0][1]);
