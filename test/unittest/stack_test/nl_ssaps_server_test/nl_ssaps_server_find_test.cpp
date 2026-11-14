@@ -242,7 +242,25 @@ static void AddServiceWithMethodViaApi()
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 }
 
-// 再追加 count 个仅含一个方法的标准服务（方法UUID末字节区分），句柄紧随其后
+// 北向服务至少要带一个属性：属性数组传空指针会被无条件拒绝，纯方法服务加不进服务库
+static uint8_t g_methodSvcPropData[1] = {0x66};
+static NLSTK_SsapServicePropertyParam_S g_methodSvcProp = {
+    .operation = {.operationValue = 0x01},
+    .val = {.len = 1, .data = g_methodSvcPropData},
+};
+
+static void MakeMethodServiceParam(const NLSTK_SsapServiceMethodParam_S *method, NLSTK_ServiceParam_S *svcParam)
+{
+    g_methodSvcProp.uuid = g_propStdUuid;
+    svcParam->serviceStatement.uuid = g_svcStdUuid;
+    svcParam->serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
+    svcParam->servicePropertyNum = 1;
+    svcParam->property = &g_methodSvcProp;
+    svcParam->serviceMethodNum = 1;
+    svcParam->method = method;
+}
+
+// 再追加 count 个带属性与一个方法的标准服务（方法UUID末字节区分），句柄紧随其后
 static void AddMethodOnlyServicesViaApi(int32_t appId, uint16_t count)
 {
     for (uint16_t i = 0; i < count; i++) {
@@ -253,27 +271,21 @@ static void AddMethodOnlyServicesViaApi(int32_t appId, uint16_t count)
             .type = ITEM_TYPE_STD_METHOD,
             .uuid = methodUuid,
         };
-        NLSTK_ServiceParam_S svcParam = {
-            .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE},
-            .serviceMethodNum = 1,
-            .method = &method,
-        };
+        NLSTK_ServiceParam_S svcParam = {};
+        MakeMethodServiceParam(&method, &svcParam);
         ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
     }
 }
 
-// 追加一个仅含自定义UUID方法的标准服务（句柄紧随其后）
+// 追加一个带属性与自定义UUID方法的标准服务（句柄紧随其后）
 static void AddCusMethodServiceViaApi(int32_t appId)
 {
     NLSTK_SsapServiceMethodParam_S method = {
         .type = ITEM_TYPE_STD_METHOD,
         .uuid = g_propCusUuid,
     };
-    NLSTK_ServiceParam_S svcParam = {
-        .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE},
-        .serviceMethodNum = 1,
-        .method = &method,
-    };
+    NLSTK_ServiceParam_S svcParam = {};
+    MakeMethodServiceParam(&method, &svcParam);
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 }
 
@@ -533,9 +545,17 @@ TEST_F(NlSsapsFindTest, StructureFindServiceDescriptorFromApi)
     cb.onAddService = OnAddServiceStub;
     int32_t appId = -1;
     ASSERT_EQ(NLSTK_SsapServerRegApp(&cb, &appId), NLSTK_ERRCODE_SUCCESS);
+    uint8_t propData[1] = {0x77};
+    NLSTK_SsapServicePropertyParam_S prop = {
+        .uuid = g_propStdUuid,
+        .operation = {.operationValue = 0x01},
+        .val = {.len = 1, .data = propData},
+    };
     NLSTK_ServiceParam_S svcParam = {
         .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE,
                              .descriptorNum = 1, .descriptors = &servDesc},
+        .servicePropertyNum = 1,
+        .property = &prop,
     };
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 
@@ -616,12 +636,12 @@ TEST_F(NlSsapsFindTest, MethodFindByUuidVariants)
 TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
 {
     AddServiceWithMethodViaApi();
-    AddMethodOnlyServicesViaApi(g_regAppId, 1); // 第二个服务的方法句柄0x14、UUID末两字节0x30,0x00
+    AddMethodOnlyServicesViaApi(g_regAppId, 1); // 第二个服务（0x13-0x15）的方法句柄0x15、UUID末两字节0x30,0x00
     SSAP_Link *link = CreateTestLink();
 
     // 第二个服务的方法UUID：遍历跳过第一个服务后命中
     uint8_t reqSecond[] = {0x06, 0x04, 0x01, 0x00, 0xFF, 0x00, 0x00, 0x30};
-    uint8_t rspSecond[] = {0x07, 0x03, 0x14, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t rspSecond[] = {0x07, 0x03, 0x15, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00};
     SendFindReq(link, reqSecond, sizeof(reqSecond));
     EXPECT_TRUE(RspEquals(rspSecond, sizeof(rspSecond)));
 
@@ -637,12 +657,12 @@ TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
 TEST_F(NlSsapsFindTest, MethodFindMixStdAndCusGrouped)
 {
     AddServiceWithMethodViaApi();           // 方法0x12（标准UUID）
-    AddCusMethodServiceViaApi(g_regAppId);  // 方法0x14（自定义UUID）
+    AddCusMethodServiceViaApi(g_regAppId);  // 方法0x15（自定义UUID）
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x04, 0x14, 0x01, 0x00, 0xFF, 0x00};
     uint8_t rsp[36] = {0x05, 0x0B,
         0x01, 0x12, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x81, 0x14, 0x00};
+        0x81, 0x15, 0x00};
     (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_PROP_CUS_UUID, SSAP_UUID128_LEN);
     rsp[31] = 0x00;
     rsp[32] = 0x00;

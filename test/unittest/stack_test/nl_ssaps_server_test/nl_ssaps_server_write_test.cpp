@@ -502,7 +502,7 @@ TEST_F(NlSsapsWriteTest, MultiWriteCmdLenZeroSubItemSkipped)
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
     uint8_t cmd[] = {0x0C, 0x07,
-        0x11, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x01};
+        0x11, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01};
     SendPdu(link, SSAPS_WriteCmdHandle, cmd, sizeof(cmd));
     EXPECT_EQ(g_rspLen, 0);
     uint8_t updated[1] = {0x01};
