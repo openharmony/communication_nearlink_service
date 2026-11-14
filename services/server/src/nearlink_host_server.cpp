@@ -154,10 +154,8 @@ struct NearlinkHostServer::impl {
     std::set<std::string> batteryReqAddrs_;
 
     std::map<std::string, sptr<IRemoteObject>> servers_;
-    /* 由 createServers 在局部构造完成后于锁内整体替换，GetProfile 持同一把锁读取；
-       写侧不修改已发布容器，读侧只会看到上一版或新一版的完整集合；
-       若将来支持热增删单个服务，增删操作同样需持有该锁 */
-    std::mutex sleServersMutex_;
+    /* 只在 OnStart→Init→createServers 内写入，Publish 之后仅读；
+       重启窗口内与 GetProfile 可能并发，若将来支持热增删服务需改为线程安全容器 */
     std::map<std::string, sptr<IRemoteObject>> sleServers_;
 
     // whether nearlink SA should be reloaded when service stopped
@@ -165,8 +163,8 @@ struct NearlinkHostServer::impl {
 
 private:
     bool createServers();
-    bool createPluginServer(std::map<std::string, sptr<IRemoteObject>> &servers);
-    bool createAudioServers(std::map<std::string, sptr<IRemoteObject>> &servers);
+    bool createPluginServer();
+    bool createAudioServers();
 };
 
 struct NearlinkHostServer::impl::NearlinkHostRemoteInfo {
@@ -667,64 +665,55 @@ bool NearlinkHostServer::impl::createServers()
 {
     HILOGI("starts");
 
-    /* 先构造局部容器，全部成功后再整体替换，失败时保留原有集合 */
-    std::map<std::string, sptr<IRemoteObject>> servers;
-
     sptr<NearlinkSleAdvertiserServer> sleAdvertiser = new (std::nothrow) NearlinkSleAdvertiserServer();
     NL_CHECK_RETURN_RET(sleAdvertiser, false, "sleAdvertiser is nullptr");
-    servers[SLE_ADVERTISER_SERVER] = sleAdvertiser->AsObject();
+    sleServers_[SLE_ADVERTISER_SERVER] = sleAdvertiser->AsObject();
 
     sptr<NearlinkSleCentralManagerServer> sleCentralManger = new (std::nothrow) NearlinkSleCentralManagerServer();
     NL_CHECK_RETURN_RET(sleCentralManger, false, "sleCentralManger is nullptr");
-    servers[SLE_CENTRAL_MANAGER_SERVER] = sleCentralManger->AsObject();
+    sleServers_[SLE_CENTRAL_MANAGER_SERVER] = sleCentralManger->AsObject();
 
     sptr<NearlinkCloudPairServer> nearlinkCloudPair = new (std::nothrow) NearlinkCloudPairServer();
     NL_CHECK_RETURN_RET(nearlinkCloudPair, false, "nearlinkCloudPair is nullptr");
-    servers[CLOUD_PAIR_SERVER] = nearlinkCloudPair->AsObject();
+    sleServers_[CLOUD_PAIR_SERVER] = nearlinkCloudPair->AsObject();
 
     sptr<NearlinkSsapClientServer> sleSsapClient = new (std::nothrow) NearlinkSsapClientServer();
     NL_CHECK_RETURN_RET(sleSsapClient, false, "sleSsapClient is nullptr");
-    servers[PROFILE_SSAP_CLIENT] = sleSsapClient->AsObject();
+    sleServers_[PROFILE_SSAP_CLIENT] = sleSsapClient->AsObject();
 
     sptr<NearlinkSsapServerServer> ssapServer = new (std::nothrow) NearlinkSsapServerServer();
     NL_CHECK_RETURN_RET(ssapServer, false, "ssapServer is nullptr");
-    servers[PROFILE_SSAP_SERVER] = ssapServer->AsObject();
+    sleServers_[PROFILE_SSAP_SERVER] = ssapServer->AsObject();
 
     sptr<NearlinkHadmClientServer> hadmClientServer = new (std::nothrow) NearlinkHadmClientServer();
     NL_CHECK_RETURN_RET(hadmClientServer, false, "hadmClientServer is nullptr");
-    servers[NEARLINK_HADM_CLIENT_SERVER] = hadmClientServer->AsObject();
+    sleServers_[NEARLINK_HADM_CLIENT_SERVER] = hadmClientServer->AsObject();
 
     sptr<NearlinkHidHostServer> hidHostServer = new (std::nothrow) NearlinkHidHostServer();
     NL_CHECK_RETURN_RET(hidHostServer, false, "hidHostServer is nullptr");
-    servers[PROFILE_HID_HOST_SERVER] = hidHostServer->AsObject();
+    sleServers_[PROFILE_HID_HOST_SERVER] = hidHostServer->AsObject();
 
     sptr<NearlinkSleDataTransferServer> sleDatatransfer = new (std::nothrow) NearlinkSleDataTransferServer();
     NL_CHECK_RETURN_RET(sleDatatransfer, false, "sleDatatransfer is nullptr");
-    servers[SLE_DATATRANSFER_SERVER] = sleDatatransfer->AsObject();
+    sleServers_[SLE_DATATRANSFER_SERVER] = sleDatatransfer->AsObject();
 
     sptr<NearlinkSleControllerServer> sleControllerServer = new (std::nothrow) NearlinkSleControllerServer();
     NL_CHECK_RETURN_RET(sleControllerServer, false, "sleControllerServer is nullptr");
-    servers[NEARLINK_SLE_CONTROLLER_SERVER] = sleControllerServer->AsObject();
+    sleServers_[NEARLINK_SLE_CONTROLLER_SERVER] = sleControllerServer->AsObject();
 
-    if (!createPluginServer(servers)) {
+    if (!createPluginServer()) {
         return false;
     }
 
-    if (NearlinkSystemConfig::IsAudioSupported() && !createAudioServers(servers)) {
+    if (NearlinkSystemConfig::IsAudioSupported() && !createAudioServers()) {
         return false;
     }
 
-    const size_t serverCount = servers.size();
-    {
-        std::lock_guard<std::mutex> lock(sleServersMutex_);
-        sleServers_.swap(servers);
-    }
-    /* 旧集合随 servers 在锁外析构 */
-    HILOGI("sleServers_ constructed, size is %{public}zu;", serverCount);
+    HILOGI("sleServers_ constructed, size is %{public}zu;", sleServers_.size());
     return true;
 }
 
-bool NearlinkHostServer::impl::createPluginServer(std::map<std::string, sptr<IRemoteObject>> &servers)
+bool NearlinkHostServer::impl::createPluginServer()
 {
     HILOGI("starts");
 
@@ -742,7 +731,7 @@ bool NearlinkHostServer::impl::createPluginServer(std::map<std::string, sptr<IRe
         return false;
     }
 
-    bool ret = createPluginServerByDlsym(servers);
+    bool ret = createPluginServerByDlsym(sleServers_);
 
     ManufacturerAbilityLoader::GetInstance().Load();
     ParameterManager::LoadProvider();
@@ -750,29 +739,29 @@ bool NearlinkHostServer::impl::createPluginServer(std::map<std::string, sptr<IRe
     return ret;
 }
 
-bool NearlinkHostServer::impl::createAudioServers(std::map<std::string, sptr<IRemoteObject>> &servers)
+bool NearlinkHostServer::impl::createAudioServers()
 {
     HILOGI("starts");
 
     sptr<NearlinkASCServer> audioServer = new (std::nothrow) NearlinkASCServer();
     NL_CHECK_RETURN_RET(audioServer, false, "audioServer is nullptr");
-    servers[PROFILE_ASC] = audioServer->AsObject();
+    sleServers_[PROFILE_ASC] = audioServer->AsObject();
 
     sptr<NearlinkVcpClientServer> vcpClientServer = new (std::nothrow) NearlinkVcpClientServer();
     NL_CHECK_RETURN_RET(vcpClientServer, false, "vcpClientServer is nullptr");
-    servers[PROFILE_VCP_SERVER] = vcpClientServer->AsObject();
+    sleServers_[PROFILE_VCP_SERVER] = vcpClientServer->AsObject();
 
     sptr<NearlinkCcpClientServer> ccpClientServer = new (std::nothrow) NearlinkCcpClientServer();
     NL_CHECK_RETURN_RET(ccpClientServer, false, "ccpClientServer is nullptr");
-    servers[PROFILE_CCP_SERVER] = ccpClientServer->AsObject();
+    sleServers_[PROFILE_CCP_SERVER] = ccpClientServer->AsObject();
 
     sptr<NearlinkTwsClientServer> twsClientServer = new (std::nothrow) NearlinkTwsClientServer();
     NL_CHECK_RETURN_RET(twsClientServer, false, "twsClientServer is nullptr");
-    servers[NEARLINK_TWS_CLIENT_SERVER] = twsClientServer->AsObject();
+    sleServers_[NEARLINK_TWS_CLIENT_SERVER] = twsClientServer->AsObject();
 
     sptr<NearlinkCdsmClientServer> cdsmClientServer = new (std::nothrow) NearlinkCdsmClientServer();
     NL_CHECK_RETURN_RET(cdsmClientServer, false, "cdsmClientServer is nullptr");
-    servers[PROFILE_CDSM_CLIENT_SERVER] = cdsmClientServer->AsObject();
+    sleServers_[PROFILE_CDSM_CLIENT_SERVER] = cdsmClientServer->AsObject();
 
     return true;
 }
@@ -870,11 +859,10 @@ void NearlinkHostServer::OnStop()
 NlErrCode NearlinkHostServer::GetProfile(const std::string &name, sptr<IRemoteObject> &remoteProfile)
 {
     HILOGD("seraching %{public}s ", name.c_str());
-    std::lock_guard<std::mutex> lock(pimpl->sleServersMutex_);
     auto it = pimpl->sleServers_.find(name);
     if (it != pimpl->sleServers_.end()) {
         HILOGD("server serached %{public}s ", name.c_str());
-        remoteProfile = it->second;
+        remoteProfile = pimpl->sleServers_[name];
     }
     return NL_NO_ERROR;
 }

@@ -89,11 +89,6 @@ public:
         ResetLocked();
     }
 
-    bool IsAvailable()
-    {
-        return GetProxy() != nullptr;
-    }
-
     template <typename Call>
     int32_t PushWithRetry(Call call)
     {
@@ -105,7 +100,7 @@ public:
         }
         int32_t ret = call(proxy);
         if (ret == NL_CCP_ERR_SLE_OFF) {
-            /* 服务侧判定星闪已关闭：丢弃缓存，下一次 IsAvailable 会重新探测 */
+            /* 服务侧判定星闪已关闭：丢弃缓存，下一次推送会重新探测 */
             Invalidate();
             return ret;
         }
@@ -233,13 +228,6 @@ NearlinkCcpClient *NearlinkCcpClient::GetProfile()
     return &instance;
 }
 
-bool NearlinkCcpClient::IsAvailable()
-{
-    std::shared_ptr<impl> implPtr = std::atomic_load(&pimpl);
-    NL_CHECK_RETURN_RET(implPtr != nullptr, false, "ccp impl is unavailable.");
-    return implPtr->IsAvailable();
-}
-
 int32_t NearlinkCcpClient::PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld,
     int32_t callState, const std::string &number)
 {
@@ -269,7 +257,7 @@ NearlinkCcpClient::~NearlinkCcpClient()
 {
     HILOGI("enter");
     /* 本对象是进程级静态单例（见 GetProfile），正常只随进程退出析构；
-       三个入口用 atomic_load 读取，避免与这里的写入构成数据竞争；
+       两个入口用 atomic_load 读取，避免与这里的写入构成数据竞争；
        析构后仍不得再调用公开接口 */
     std::atomic_store(&pimpl, std::shared_ptr<impl>());
 }

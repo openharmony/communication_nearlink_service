@@ -57,29 +57,7 @@ public:
     static NearlinkCcpClient *GetProfile();
 
     /**
-     * @brief Check whether CCP service is available.
-     *        The ccp proxy is cached after the first successful lookup; returning
-     *        true therefore costs no IPC. When the lookup fails (nearlink is off
-     *        or the proxy is not ready) the host is re-probed at most once per
-     *        retry interval instead of on every call state change.
-     *        Note that true only means the client proxy is reachable; it does
-     *        not promise that a push will be accepted. When the server side
-     *        CCP service object is missing (for example the product has no CCP
-     *        profile configured), the push interfaces still return
-     *        NL_CCP_ERR_UNAVAILABLE_PROXY.
-     *
-     * @return Returns true if CCP service is available, otherwise false.
-     * @since 6
-     */
-    bool IsAvailable();
-
-    /**
      * @brief Push phone call state changed to CCP service.
-     *        The cached proxy is reused, so a healthy push costs one IPC.
-     *        When nearlink is switched off, or the CCP service object is not
-     *        ready, the service drops the push and returns NL_CCP_ERR_SLE_OFF
-     *        or NL_CCP_ERR_UNAVAILABLE_PROXY, which callers may treat as
-     *        degraded.
      *
      * @param[in] callId id of the changed call; -1 means no specific call, any
      *            other value not less than -1 is accepted and mapped to a local
@@ -90,14 +68,10 @@ public:
      *            re-queries the authoritative call list instead of using this value.
      * @param[in] callState current phone call state.
      * @param[in] number call number.
-     * @return 0 when the push is accepted, which only means the request has been
-     *         queued for asynchronous handling, not that the call state has been
-     *         processed; otherwise NL_CCP_ERR_SLE_OFF when nearlink is off,
-     *         NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the CCP service
-     *         object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED when the IPC
-     *         transaction fails. NL_CCP_ERR_UNAVAILABLE_PROXY is a degradation
-     *         signal rather than a retryable failure: recovery is left to the
-     *         next call event, so callers should not retry in a loop.
+     * @return 0 when the push is queued for asynchronous handling, not the call
+     *         state being processed; non-zero on failure: NL_CCP_ERR_SLE_OFF when
+     *         nearlink is off, NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the
+     *         service object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED on IPC failure.
      * @since 6
      */
     int32_t PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
@@ -114,15 +88,10 @@ public:
      *            to a local short id by the service.
      * @param[in] callState state of the changed call.
      * @param[in] callType call type of the changed call, the value is the same as Telephony::CallType.
-     *            A VoIP call type is ignored by this interface.
-     * @return 0 when the push is accepted, which only means the request has been
-     *         queued for asynchronous handling, not that the call state has been
-     *         processed; otherwise NL_CCP_ERR_SLE_OFF when nearlink is off,
-     *         NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the CCP service
-     *         object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED when the IPC
-     *         transaction fails. NL_CCP_ERR_UNAVAILABLE_PROXY is a degradation
-     *         signal rather than a retryable failure: recovery is left to the
-     *         next call event, so callers should not retry in a loop.
+     * @return 0 when the push is queued for asynchronous handling, not the call
+     *         state being processed; non-zero on failure: NL_CCP_ERR_SLE_OFF when
+     *         nearlink is off, NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the
+     *         service object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED on IPC failure.
      * @since 6
      */
     int32_t CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType);
