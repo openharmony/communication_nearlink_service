@@ -331,7 +331,10 @@ bool XmlParse::Create(const std::string &path)
         xmlFreeDoc(xmp_meta);
         return false;
     }
-    xmlFreeDoc(xmp_meta);
+    if (pimpl->doc_ != NULL) {
+        xmlFreeDoc(pimpl->doc_);
+    }
+    pimpl->doc_ = xmp_meta;
     LOG_INFO("CreateXml success.");
     return true;
 }
