@@ -17,6 +17,7 @@ group("nl_frameworks_test") {
   testonly = true
   deps = [ 
     "native_test:nl_native_unittest",
+    "native_test/observer_adapter_test:nl_observer_adapter_unittest",
     "common_test:nl_common_unittest",
   ]
 }
