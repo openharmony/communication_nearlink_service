@@ -31,8 +31,8 @@ void DLI_RegisterExtFunc(void *soHandle)
         return;
     }
 
-    g_dliFuncList.addDeviceToAcceptFilterListExt =
-        (DLI_AddDeviceToAcceptFilterListExtPtr)dlsym(soHandle, "DLI_AddDeviceToAcceptFilterListExt");
+    g_dliFuncList.isSupportAccessFilterListExt =
+        (DLI_IsSupportAccessFilterListExtPtr)dlsym(soHandle, "DLI_IsSupportAccessFilterListExt");
     g_dliFuncList.enableFreqBandExt = (DLI_EnableFreqBandExtPtr)dlsym(soHandle, "DLI_EnableFreqBandExt");
     g_dliFuncList.acbEnableSubrate = (DLI_ACBEnableSubratePtr)dlsym(soHandle, "DLI_ACBEnableSubrate");
     g_dliFuncList.setLocalPrivateFeatures =
@@ -47,6 +47,7 @@ void DLI_RegisterExtFunc(void *soHandle)
     g_dliFuncList.setICGLabel = (DLI_SetICGLabelPtr)dlsym(soHandle, "DLI_SetICGLabel");
     g_dliFuncList.createICBExt = (DLI_CreateICBExtPtr)dlsym(soHandle, "DLI_CreateICB");
     g_dliFuncList.updateICGParam = (DLI_UpdateICGParamPtr)dlsym(soHandle, "DLI_UpdateICGParam");
+    g_dliFuncList.setImgAcbInfo = (DLI_SetImgAcbInfoPtr)dlsym(soHandle, "DLI_SetImgAcbInfo");
     ADAPTER_LOGI("dli register ext func finished");
 }
 

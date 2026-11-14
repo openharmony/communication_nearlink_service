@@ -51,8 +51,8 @@ std::shared_ptr<TaiheAsyncWork> TaiheAsyncWorkFactory::CreateAsyncWork(ani_env *
     std::shared_ptr<TaiheAsyncWork> taiheAsyncWork(
         new TaiheAsyncWork(env, asyncWork, asyncCallback),
         [](TaiheAsyncWork *ptr) {
-            // 同步析构，不派发 detached 线程：避免进程退出期与静态析构（如 TaiheTimer::Shutdown）
-            // 竞态，并保证析构与最后一个引用释放线程之间具有 happens-before 语义。
+            // 直接 delete：最后一个引用已在锁外释放（见 TryPush 中的 stale），
+            // 析构不持锁执行，无需新建线程，析构时机保持确定。
             if (ptr == nullptr) {
                 return;
             }
@@ -175,18 +175,22 @@ bool TaiheAsyncWorkMap::TryPush(TaiheAsyncType type, std::shared_ptr<TaiheAsyncW
         HILOGE("asyncWork is nullptr");
         return false;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = map_.find(type);
-    if (it != map_.end()) {
-        auto const &storedAsyncWork = it->second;
-        if (storedAsyncWork != nullptr && !storedAsyncWork->triggered_) {
-            HILOGE("Async work(%{public}d) hasn't been triggered", type);
-            return false;
+    std::shared_ptr<TaiheAsyncWork> stale;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = map_.find(type);
+        if (it != map_.end()) {
+            auto const &storedAsyncWork = it->second;
+            if (storedAsyncWork != nullptr && !storedAsyncWork->triggered_) {
+                HILOGE("Async work(%{public}d) hasn't been triggered", type);
+                return false;
+            }
+            HILOGI("Async work(%{public}d) hasn't been removed, but triggered, remove it", type);
+            stale = std::move(it->second);
+            map_.erase(it);
         }
-        HILOGI("Async work(%{public}d) hasn't been removed, but triggered, remove it", type);
-        map_.erase(it);
+        map_[type] = std::move(asyncWork);
     }
-    map_[type] = std::move(asyncWork);
     return true;
 }
 

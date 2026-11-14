@@ -25,6 +25,8 @@
 #include "qosm_autorate_def.h"
 #include "qosm_errno.h"
 #include "qosm_table_mgr.h"
+#include "cm_def.h"
+#include "cm_errno.h"
 #include "securec.h"
 #include "qosm_autorate_test_log.h"
 #include "common_ext_func_wrapper.h"
@@ -101,9 +103,21 @@ bool QOSM_ExecuteBitrateChangeDecision(uint16_t connHandle, uint16_t qosIndex, u
     return false;
 }
 
+void QOSM_UpdateAllICGParamFailed(void)
+{
+    // stub：nl_stack_qosm_audio_dfx_test不编译qosm_autorate_notify.c，此处仅满足链接
+}
+
 void QOSM_PrintQualityReportParam(CM_ICBQuality *param)
 {
     (void)param;
+}
+
+uint32_t CM_GetLogicLinkByLcid(uint16_t lcid, CM_LogicLink_S *logicLink)
+{
+    (void)lcid;
+    (void)logicLink;
+    return CM_NOT_FOUND;
 }
 
 uint32_t CP_PostTaskBlocked(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)

@@ -49,6 +49,7 @@ unit_test_external_deps = [
   "googletest:gmock_main",
   "hisysevent:libhisysevent",
   "hisysevent:libhisyseventmanager",
+  "ipc:ipc_core",
 ]
 
 test_out_path = "nearlink_service/nearlink_service"

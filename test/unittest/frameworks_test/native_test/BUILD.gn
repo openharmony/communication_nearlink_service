@@ -72,6 +72,8 @@ unit_test_external_deps = [
   "init:libbegetutil",
   "googletest:gmock_main",
   "ffrt:libffrt",
+  "access_token:libaccesstoken_sdk",
+  "access_token:libtoken_setproc",
   "access_token:libpermsetproc_shared",
   "access_token:libnativetoken_shared",
 ]
@@ -126,6 +128,12 @@ group("nl_native_unittest") {
   deps = [
     ":nl_native_test",
     "nearlink_ssap_client_test:nl_native_ssap_client_unittest",
+    "ssap_client_framework_test:nl_ssap_client_framework_unittest",
+    "ssap_server_framework_test:nl_ssap_server_framework_unittest",
+    "ssap_method_framework_test:nl_ssap_method_framework_unittest",
+    "ssap_event_framework_test:nl_ssap_event_framework_unittest",
+    "ssap_property_framework_test:nl_ssap_property_framework_unittest",
+    "ssap_descriptor_framework_test:nl_ssap_descriptor_framework_unittest",
     "scanner_framework_test:nl_scanner_framework_unittest",
     "advertiser_framework_test:nl_advertiser_framework_unittest",
     "datatransfer_framework_test:nl_datatransfer_framework_unittest",

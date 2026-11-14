@@ -95,11 +95,7 @@ static void QOSM_UpgradeLevelTimeout(void *arg)
     if (icgInfo == NULL) {
         return;
     }
-    if (QOSM_GetICBTypeByIndex(icgInfo->qosIndex) == CM_IMB && icgInfo->isSupportFrame4) {
-        QOSM_LOGI("upwards change label id error");
-        QOSM_SendAutoRateMsg(icgInfo, icgInfo->reportedDirection, icgInfo->reportedLabelId,
-            CHANGE_LABEL_ID_RSP, QOSM_FAIL);
-    }
+    QOSM_SendLabelChangeFailMsg(icgInfo, icgInfo->reportedDirection, icgInfo->reportedLabelId);
     QOSM_LevelUpExceptionProc(qosId);
 }
 
@@ -113,14 +109,11 @@ static void QOSM_DowngradeLevelTimeout(void *arg)
         return;
     }
 
-    if (QOSM_GetICBTypeByIndex(icgInfo->qosIndex) == CM_IMB && icgInfo->isSupportFrame4) {
-        uint16_t direction = (icgInfo->updateStatus & UPDATE_BY_REPORT) != 0 ?
-            icgInfo->reportedDirection : icgInfo->updatedDirection;
-        uint8_t lableId = (icgInfo->updateStatus & UPDATE_BY_REPORT) != 0 ?
-            icgInfo->reportedLabelId : icgInfo->updatedLabelId;
-        QOSM_LOGI("downward change label id error");
-        QOSM_SendAutoRateMsg(icgInfo, direction, lableId, CHANGE_LABEL_ID_RSP, QOSM_FAIL);
-    }
+    uint16_t direction = (icgInfo->updateStatus & UPDATE_BY_REPORT) != 0 ?
+        icgInfo->reportedDirection : icgInfo->updatedDirection;
+    uint8_t lableId = (icgInfo->updateStatus & UPDATE_BY_REPORT) != 0 ?
+        icgInfo->reportedLabelId : icgInfo->updatedLabelId;
+    QOSM_SendLabelChangeFailMsg(icgInfo, direction, lableId);
     QOSM_LevelDownExceptionProc(qosId);
 }
 
@@ -197,6 +190,7 @@ static void QOSM_LevelUpingContinueProcess(QOSM_ICGInfo *icgInfo)
             QOSM_LOGI("reset report param");
             QOSM_ResetReportParam(icgInfo);
         }
+        QOSM_LOGI("notify bitrate upgraded done and no need report to dsp");
     }
 
     // 媒体：通知dsp升码率后重置reportedQosParam；通话：感知到对端dsp升码率成功后再重置reportedQosParam

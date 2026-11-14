@@ -88,6 +88,7 @@ ohos_fuzztest("QOSMDFXFuzzTest") {
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/include",
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/interface",
     "$NEW_STACK_DIR/cp/bsl/sle/cm/icb/include",
+    "$NEW_STACK_DIR/cp/bsl/sle/cm/interface",
     "$NEARLINK_ROOT/services/stack/src/dli/interface",
     "$NEARLINK_ROOT/services/stack/src/sdf/interface",
     "$NEARLINK_ROOT/services/stack/src/adapter/include",

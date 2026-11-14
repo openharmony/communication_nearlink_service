@@ -17,17 +17,18 @@
 
 #include "dli_reg_ext_func.h"
 #include "adapter_log.h"
+#include "dli_errno.h"
 #include "parameter_wrapper.h"
 
-uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
+bool DLI_IsSupportAccessFilterListExt(void)
 {
     DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
-    if (funcList == NULL || funcList->addDeviceToAcceptFilterListExt == NULL) {
-        ADAPTER_LOGW("get func addDeviceToAcceptFilterListExt failed");
-        return 0;
+    if (funcList == NULL || funcList->isSupportAccessFilterListExt == NULL) {
+        ADAPTER_LOGW("get func isSupportAccessFilterListExt failed");
+        return false;
     }
 
-    return funcList->addDeviceToAcceptFilterListExt(param);
+    return funcList->isSupportAccessFilterListExt();
 }
 
 uint32_t DLI_EnableFreqBandExt(DLI_FreqBandExtParam *param)
@@ -138,4 +139,14 @@ uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCb
         return 0;
     }
     return funcList->updateICGParam(param, mcast, cbkParam);
+}
+
+uint32_t DLI_SetImgAcbInfoExt(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam)
+{
+    DLI_ExtFuncList *funcList = DLI_GetExtFuncList();
+    if (funcList == NULL || funcList->setImgAcbInfo == NULL) {
+        ADAPTER_LOGW("get func setImgAcbInfo failed");
+        return DLI_UNKNOWN_COMMAND;
+    }
+    return funcList->setImgAcbInfo(param, cbkParam);
 }

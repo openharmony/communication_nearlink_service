@@ -46,6 +46,9 @@ public:
     // 遍历所有连接信息
     void IterateConnInfo(std::function<void(const CoexistConnInfo&)> callback);
 
+    // 统计参与共存调整的设备数（间隔小于等于阈值）
+    int CountCoexistAdjustDevices(uint16_t intervalThreshold);
+
     // 检查是否有多个连接
     bool HasMultipleConnections();
 

@@ -131,6 +131,16 @@ uint32_t DLI_AddDeviceToAcceptFilterList(SLE_Addr_S *addr)
     return 0;
 }
 
+uint32_t DLI_AddDeviceToAcceptFilterListExt(DLI_AddrExtStru *param)
+{
+    return 0;
+}
+
+bool DLI_IsSupportAccessFilterListExt(void)
+{
+    return false;
+}
+
 void DLI_SetLocalFeatures(DLI_LocalFeatures_S *features)
 {
 }
@@ -361,6 +371,11 @@ uint32_t DLI_CreateICBExt(DLI_ICBConnectionParam *param, bool mcast, DLI_ICGCbkP
 }
 
 uint32_t DLI_UpdateICGParamExt(DLI_ICGUpdatedParam *param, bool mcast, DLI_ICGCbkParam *cbkParam)
+{
+    return 0;
+}
+
+uint32_t DLI_SetImgAcbInfoExt(DLI_ImgAcbInfoParam *param, DLI_ICGCbkParam *cbkParam)
 {
     return 0;
 }

@@ -146,7 +146,7 @@ struct QosLevelLabel {
     uint8_t labelId;                  /* 非AutorateParam的labelId，由芯片生成 */
 };
 
-typedef struct {
+typedef struct QosICGInfo {
     SDF_DListEntry_S entry;
     uint8_t qosId;                        /* 由于全局只有一个调用方，所以qosId充当icgId */
     uint8_t icgId;                        /* ICG唯一标识 */
@@ -162,6 +162,7 @@ typedef struct {
     bool setAutorateParamFailed;         /* true表示SetAutorateParam有一个及以上失败 */
     bool isResetParam;                    /* true表示icg在reset param，此时remove param事件里不做任何处理 */
     bool isRemovingParam;                 /* true表示icg正在remove param */
+    bool isImgAcbInfoReported;            /* true表示本次组播会话已上报过组成员ACB信息 */
 
     QOSM_ICGMgrParam *delaySetParam;      /* 未超时时设置参数需要的参数 */
     int delayParamTaskTimerId;            /* 初始值设为QOSM_INVALID_TIMER_HANDLE，表示未设置定时器 */

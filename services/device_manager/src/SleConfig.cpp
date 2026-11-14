@@ -109,7 +109,7 @@ SleConfig::~SleConfig()
 bool SleConfig::IsRawLinkKeyCharValid(const char* linkkeyChar, const uint8_t linkKeyLen) const
 {
     NL_CHECK_RETURN_RET(linkKeyLen == RAW_LINK_KEY_STR_LENGTH, false,
-        "[SleConfig] linkKeyStr len is invalid, len(%{public}zu)", linkKeyLen);
+        "[SleConfig] linkKeyStr len is invalid, len(%{public}u)", linkKeyLen);
     for (size_t i = 0; i < linkKeyLen; ++i) {
         NL_CHECK_RETURN_RET(isxdigit(linkkeyChar[i]), false, "[SleConfig] digit check failed.");
     }
@@ -119,7 +119,7 @@ bool SleConfig::IsRawLinkKeyCharValid(const char* linkkeyChar, const uint8_t lin
 bool SleConfig::IsRawCloudDeviceTokenCharValid(const char* tokenChar, const uint8_t tokenLen) const
 {
     NL_CHECK_RETURN_RET(tokenLen == RAW_CLOUD_PAIR_TOKEN_LENGTH, false,
-        "[SleConfig] cloudDeviceToken len is invalid, len(%{public}zu)", tokenLen);
+        "[SleConfig] cloudDeviceToken len is invalid, len(%{public}u)", tokenLen);
     for (size_t i = 0; i < tokenLen; ++i) {
         NL_CHECK_RETURN_RET(isxdigit(tokenChar[i]), false, "[SleConfig] digit check failed.");
     }
