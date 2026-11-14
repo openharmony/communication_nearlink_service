@@ -24,9 +24,12 @@
 #include "sdf_mem.h"
 #include "qosm_autorate_def.h"
 #include "qosm_autorate_report.h"
+#include "qosm_icg_types.h"
 #include "qosm_autorate_notify.h"
 #include "qosm_errno.h"
 #include "cm_icb_def.h"
+#include "cm_errno.h"
+#include "cm_logic_link_api.h"
 #include "securec.h"
 
 #define DECODE_TABLE_LEN 256
@@ -772,6 +775,20 @@ static void QOSM_AudioDfxProcessDspData(const char *dftInfo)
     SDF_MemFree(decodeBuf);
 }
 
+void QOSM_AudioDfxInfoSet(struct QOSM_AudioDfxInfo *dfxInfo, QOSM_ICGInfo *icgInfo)
+{
+    if (icgInfo->qosParam != NULL) {
+        dfxInfo->startBitrate = icgInfo->qosParam->downwardBitrate;
+    }
+
+    dfxInfo->codecType = (icgInfo->qosIndex == QOSM_QOSINDEX_CALL ||
+        icgInfo->qosIndex == QOSM_QOSINDEX_VOICE_ASSISTANT) ? QOSM_AUDIO_DFX_CODEC_TYPE_BOTH :
+        (icgInfo->qosIndex == QOSM_QOSINDEX_HD_RECORDING) ? QOSM_AUDIO_DFX_CODEC_TYPE_DECODER :
+        QOSM_AUDIO_DFX_CODEC_TYPE_ENCODER;
+    dfxInfo->dspStatusCb = QOSM_DspStatusCbk;
+    dfxInfo->flowCtrlCb = QOSM_DspFlowCtrlCbk;
+}
+
 void QOSM_AudioDfxStart(struct QOSM_AudioDfxInfo *info)
 {
     (void)memset_s(&g_qosmAudioDfx, sizeof(g_qosmAudioDfx), 0, sizeof(g_qosmAudioDfx));
@@ -821,6 +838,22 @@ void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected)
             return;
         }
     }
+}
+
+void QOSM_DfxUpdateConnected(uint16_t connHandle, uint16_t lcid)
+{
+    CM_LogicLink_S link = {};
+    if (CM_GetLogicLinkByLcid(lcid, &link) != CM_SUCCESS) {
+        return;
+    }
+
+    struct QOSM_AudioDfxConn conn = {};
+    conn.connHandle = connHandle;
+    conn.lcid = lcid;
+    if (memcpy_s(conn.addr, sizeof(conn.addr), link.addr.addr, sizeof(link.addr.addr)) != EOK) {
+        return;
+    }
+    QOSM_AudioDfxUpdateConn(&conn, true);
 }
 
 static uint64_t QOSM_GetBandFrameLevelDuration(uint32_t band, uint8_t frameType, uint8_t powerLevel)

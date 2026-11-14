@@ -52,5 +52,19 @@ HWTEST_F(NearlinkDftCommonEventHelperTest, Test_PublishEvent_001, TestSize.Level
         want, -1, false, false, permissions));
 }
 
+/**
+ * @tc.name: Test_PublishEvent_002
+ * @tc.desc: 校验携带有效事件码的公共事件发布会把码写入事件数据
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkDftCommonEventHelperTest, Test_PublishEvent_002, TestSize.Level1)
+{
+    OHOS::AAFwk::Want want;
+    want.SetAction("usual.event.nearlink.host.AUDIO_EXCEP");
+    std::vector<std::string> permissions {"ohos.permission.MANAGE_NEARLINK"};
+    EXPECT_TRUE(NearlinkHelper::NearlinkDftCommonEventHelper::PublishEvent(
+        want, 100, false, false, permissions));
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS

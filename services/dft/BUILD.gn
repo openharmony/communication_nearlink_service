@@ -27,11 +27,44 @@ config("nearlink_dft_internal_config") {
   ]
 }
 
-ohos_shared_library("nearlink_dft_manager") {
-  defines =  [
-    "LOG_TAG = \"nearlink_dft\"",
-    "LOG_DOMAIN = 0xD000152",
+nearlink_dft_defines = [
+  "LOG_TAG = \"nearlink_dft\"",
+  "LOG_DOMAIN = 0xD000152",
+]
+
+nearlink_dft_external_deps = [
+  "hilog:libhilog",
+  "c_utils:utils",
+  "ffrt:libffrt",
+  "preferences:native_preferences",
+  "ability_base:want",
+  "ability_runtime:abilitykit_native",
+  "samgr:samgr_proxy",
+  "ipc:ipc_single",
+  "cJSON:cjson",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+  "common_event_service:cesfwk_innerkits",
+]
+
+########################### nearlink_dft 弱耦合部件依赖 ###########################
+
+# 复用既有开关（要求三个 telephony 部件齐备），本模块实际仅依赖 core_service/state_registry，属产品取舍
+if (nearlink_deps_telephony_exist) {
+  nearlink_dft_defines += [ "NEARLINK_TELEPHONY_EXIST" ]
+  nearlink_dft_external_deps += [
+    "core_service:tel_core_service_api",
+    "state_registry:tel_state_registry_api",
   ]
+}
+
+if (nearlink_deps_power_manager_exist) {
+  nearlink_dft_defines += [ "NEARLINK_POWER_MGR_ENABLE" ]
+  nearlink_dft_external_deps += [ "power_manager:powermgr_client" ]
+}
+
+ohos_shared_library("nearlink_dft_manager") {
+  defines = nearlink_dft_defines
 
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
 
@@ -81,6 +114,7 @@ ohos_shared_library("nearlink_dft_manager") {
     "src/nearlink_dft_ue_c.cpp",
     "src/nearlink_dft_excep_c.cpp",
     "src/nearlink_dft_device_data.cpp",
+    "src/nearlink_dft_local_data.cpp",
     "src/nearlink_dft_common_event_helper.cpp",
     "src/nearlink_cemap_report_loader.cpp",
     "src/nearlink_dft_car_key_loader.cpp",
@@ -92,25 +126,7 @@ ohos_shared_library("nearlink_dft_manager") {
     "$NEARLINK_ROOT/services/common:nearlink_service_common",
   ]
 
-  external_deps = [
-    "hilog:libhilog",
-    "c_utils:utils",
-    "ffrt:libffrt",
-    "preferences:native_preferences",
-    "ability_base:want",
-    "ability_runtime:abilitykit_native",
-    "samgr:samgr_proxy",
-    "ipc:ipc_single",
-    "cJSON:cjson",
-    "hisysevent:libhisysevent",
-    "hisysevent:libhisyseventmanager",
-    "common_event_service:cesfwk_innerkits",
-  ]
-
-  if (nearlink_deps_power_manager_exist) {
-    defines += [ "NEARLINK_POWER_MGR_ENABLE" ]
-    external_deps += [ "power_manager:powermgr_client" ]
-  }
+  external_deps = nearlink_dft_external_deps
 
   subsystem_name = "communication"
   part_name = "nearlink_service"
