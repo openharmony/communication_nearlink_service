@@ -26,10 +26,14 @@
 #define HADM_MULTI_CHNL_NUM 4
 #define HADM_CHNL_MAP_INDEX_MAXNUM 9
 #define HADM_CHNL_HIGH_SEVEN_BIT 0x7F
-// status(1)+connHandle(2)+slemIdx(1)+slemInfoType(2)+timeStampSn(4)+chmap(10)+tofResult(4)+rssi(1)+iqBitLen(1)
+/* 线上固定头26字节：status(1)+connHandle(2)+slemIdx(1)+slemInfoType(2)+timeStampSn(4)
+ * +chmap(10)+tofResult(4)+rssi(1)+iqBitLen(1)。
+ * DLI_CsIqReportEvt存在自然对齐填充，禁止使用sizeof(DLI_CsIqReportEvt)计算线上长度；
+ * 上述字段或HadmSlemChmap_S布局调整时，必须同步更新本常量。
+ */
 #define HADM_IQ_FIXED_LEN 26
-#define HADM_IQ_MULTITONE_INFO_LEN 1
-#define HADM_IQ_TAIL_LEN 3
+#define HADM_IQ_MULTITONE_INFO_LEN 1  // 多音信息附加1字节
+#define HADM_IQ_TAIL_LEN 3            // 尾部三字段共3字节
 
 #define PARSER_DATA_BY_LEN(TAG, DATA, LEN) do { \
     if (memcpy_s(TAG, LEN, DATA, LEN) != EOK) { \
@@ -104,7 +108,7 @@ static HadmIqValue_S *HadmGetIqData(uint8_t *data, uint32_t iqChnlNum)
 
 HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
 {
-    NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%d) ", dataLen);
+    NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%zu)", dataLen);
     NLSTK_CHECK_RETURN(dataLen >= HADM_IQ_FIXED_LEN, NULL,
         "[HADM] iq report too short, dataLen(%zu) minLen(%u)", dataLen, (uint32_t)HADM_IQ_FIXED_LEN);
     uint8_t *iqInfoFromDli = data;

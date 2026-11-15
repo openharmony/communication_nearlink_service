@@ -16,6 +16,7 @@
 #include "nlstk_stm_collab_ext.h"
 #include "nlstk_public_define.h"
 #include "devd_adv.h"
+#include "devd_local.h"
 #include "devd_scan.h"
 #include "devd_scan_filter.h"
 #include "nlstk_devd.h"
@@ -479,6 +480,16 @@ static void DevdCreateAdvHandleInner(void *arg)
     param->handle = DevdCreateAdvHandle(param->cbk);
 }
 
+static void DevdCreateAdvHandleTimeoutCleanup(void *arg)
+{
+    NLSTK_CreateHandleParam_S *param = (NLSTK_CreateHandleParam_S *)arg;
+    NLSTK_CHECK_RETURN_VOID(param != NULL, "[DEVD] cleanup param is null");
+    // 原创建任务先于本任务入队，schedule单线程FIFO执行，此处原任务已结束
+    if (param->handle != ADV_INVALID_HANDLE) {
+        DevdRemoveAdvNode(param->handle, DEVD_ADV_LIST);
+    }
+}
+
 uint8_t NLSTK_DevdCreateAdvHandle(NLSTK_DevdAdvEventCbk cbk)
 {
     NLSTK_CHECK_RETURN(cbk != NULL, ADV_INVALID_HANDLE, "[DEVD] adv cbk is null");
@@ -489,8 +500,10 @@ uint8_t NLSTK_DevdCreateAdvHandle(NLSTK_DevdAdvEventCbk cbk)
     param->cbk = cbk;
     uint32_t ret = SchedulePostTaskBlocked(DevdCreateAdvHandleInner, (void *)param, NULL, NLSTK_API_TIME_OUT);
     if (ret == NLSTK_ERRCODE_TASK_TIMEOUT) {
-        // 在异常场景下，无法再处理，补发空任务在原任务之后释放param
-        (void)SchedulePostTask(NULL, (void *)param, SDF_MemFree);
+        // 补发任务在原任务之后回收可能已创建的节点，并由freeCb释放param
+        if (SchedulePostTask(DevdCreateAdvHandleTimeoutCleanup, (void *)param, SDF_MemFree) != NLSTK_OK) {
+            NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
+        }
         return ADV_INVALID_HANDLE;
     }
     if (ret != NLSTK_OK) {
