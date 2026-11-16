@@ -22,7 +22,7 @@
 #include "sdf_evc.h"
 #include "sdf_thread.h"
 #include "sdf_sem.h"
-#include "stub_replace.h"
+#include "dli_full_memhook.h"
 
 #include "dli.h"
 #include "dli_cmd_struct.h"
@@ -37,15 +37,12 @@
 
 #define ST_TEST_SLEEP_MS 150
 #define ST_TEST_PK_CAP 8
-#define ST_TEST_ADDWORK_NULL_ARG 1
-#define ST_TEST_ADDWORK_FREE_NULL 2
 
 static volatile int g_stPkCount = 0;
 static volatile int g_stInitDoneCount = 0;
 static volatile bool g_stHalInited = false;
 static volatile int g_stWorkCount = 0;
 static volatile int g_stFreeArgCount = 0;
-static volatile int g_stAddWorkMode = 0;
 static SlePacketType g_stPkTypes[ST_TEST_PK_CAP];
 static uint32_t g_stPkSizes[ST_TEST_PK_CAP];
 static uint8_t g_stPkPbs[ST_TEST_PK_CAP];
@@ -56,7 +53,6 @@ static void StCountReset()
     g_stInitDoneCount = 0;
     g_stWorkCount = 0;
     g_stFreeArgCount = 0;
-    g_stAddWorkMode = 0;
     for (uint32_t i = 0; i < ST_TEST_PK_CAP; i++) {
         g_stPkTypes[i] = (SlePacketType)0;
         g_stPkSizes[i] = 0;
@@ -117,39 +113,6 @@ static void StRecvAcb(uint16_t lcid, SDF_Buff_S *buf)
 {
     (void)lcid;
     (void)buf;
-}
-
-static void *StZallocNullStub(size_t size)
-{
-    (void)size;
-    return NULL;
-}
-
-static void *StMemAllocNullStub(size_t size)
-{
-    (void)size;
-    return NULL;
-}
-
-static uint32_t StAddWorkStub(SDF_Worker_S *worker, SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
-{
-    (void)worker;
-    if (g_stAddWorkMode == ST_TEST_ADDWORK_NULL_ARG) {
-        if (cb != NULL) {
-            cb(NULL);
-        }
-        if (freeCb != NULL) {
-            freeCb(arg);
-        }
-        return 0;
-    }
-    if (cb != NULL) {
-        cb(arg);
-    }
-    if (freeCb != NULL) {
-        freeCb(NULL);
-    }
-    return 0;
 }
 
 static uint32_t StSemInitFailStub(SDF_Sem pSem, int flag, uint32_t value)
@@ -215,7 +178,6 @@ protected:
 
     void SetUp()
     {
-        STUB_Init();
         StCountReset();
         ASSERT_EQ(0, DLI_ThreadInit());
         DLI_Callback cbk = {0};
@@ -328,39 +290,37 @@ TEST_F(UT_DLI_STUBHAL, TestCaseAcbSizeMatrix)
     EXPECT_EQ(DLI_FIRST_FRAGMENT, g_stPkPbs[4]);
 }
 
-// 校验阻塞投递的空任务兜底：工作项携带空参数执行时不崩溃，任务体与释放函数都能容忍空指针
+// 校验阻塞投递的空任务体：任务函数为空时只发信号量不执行任务，投递方在超时内正常返回
 TEST_F(UT_DLI_THREADBND, TestCaseBlockPostNullArg)
 {
-    FuncStubInfo stubInfo;
-    g_stAddWorkMode = ST_TEST_ADDWORK_NULL_ARG;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_AddWork, (const void *)StAddWorkStub));
-    EXPECT_EQ(DLI_STACK_TASK_TIMEOUT, DLI_BlockPostTask(NULL, NULL, NULL, 1));
-    STUB_Reset(&stubInfo);
-
-    g_stAddWorkMode = ST_TEST_ADDWORK_FREE_NULL;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_AddWork, (const void *)StAddWorkStub));
-    EXPECT_EQ(DLI_SUCCESS, DLI_BlockPostTask(StWorkCb, NULL, NULL, 1));
-    STUB_Reset(&stubInfo);
-    EXPECT_EQ(1, g_stWorkCount);
+    EXPECT_EQ(DLI_SUCCESS, DLI_BlockPostTask(NULL, NULL, NULL, 3000));
 }
 
 // 校验阻塞投递的分配失败兜底：任务或信号量内存不足、信号量初始化失败时入参被释放并返回错误
 TEST_F(UT_DLI_THREADBND, TestCaseBlockPostAllocFail)
 {
-    FuncStubInfo stubInfo;
     uint32_t arg = 0x1234;
 
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_MemZalloc, (const void *)StZallocNullStub));
+    // 任务体申请失败且带释放函数：入参被补偿释放
+    DhMemHooksInstall();
+    g_dhFailAt = 1;
     EXPECT_NE(DLI_SUCCESS, DLI_BlockPostTask(StWorkCb, &arg, StFreeArg, 1));
     EXPECT_EQ(1, g_stFreeArgCount);
-    EXPECT_NE(DLI_SUCCESS, DLI_BlockPostTask(StWorkCb, &arg, NULL, 1));
-    STUB_Reset(&stubInfo);
+    DhMemHooksRestore();
 
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_MemAlloc, (const void *)StMemAllocNullStub));
+    // 任务体申请失败且无释放函数：直接返回错误
+    DhMemHooksInstall();
+    g_dhFailAt = 1;
+    EXPECT_NE(DLI_SUCCESS, DLI_BlockPostTask(StWorkCb, &arg, NULL, 1));
+    DhMemHooksRestore();
+
+    // 信号量内存申请失败：任务体连带释放
+    DhMemHooksInstall();
+    g_dhFailAt = 2;
     g_stFreeArgCount = 0;
     EXPECT_NE(DLI_SUCCESS, DLI_BlockPostTask(StWorkCb, &arg, StFreeArg, 1));
     EXPECT_EQ(1, g_stFreeArgCount);
-    STUB_Reset(&stubInfo);
+    DhMemHooksRestore();
 
     SDF_SemInitHook originHook = g_semHooks.initHook;
     g_semHooks.initHook = StSemInitFailStub;

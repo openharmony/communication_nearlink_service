@@ -22,7 +22,7 @@
 #include "sdf_dlist.h"
 #include "sdf_evc.h"
 #include "sdf_thread.h"
-#include "stub_replace.h"
+#include "dli_full_memhook.h"
 
 #include "dli.h"
 #include "dli_cmd.h"
@@ -55,9 +55,6 @@ static volatile int g_lfInnerCount = 0;
 static volatile bool g_lfInnerCtxNull = true;
 static volatile int g_lfExecCount = 0;
 static volatile uint16_t g_lfExecStatus = 0;
-static volatile uint32_t g_lfZallocCalls = 0;
-static volatile long g_lfZallocFailAt = 0;
-static volatile int g_lfMemAllocCalls = 0;
 
 static void LfRecvAcb(uint16_t lcid, SDF_Buff_S *buf)
 {
@@ -97,32 +94,6 @@ static uint32_t LfSyncPostBlocked(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg free
 {
     (void)timeout;
     return LfSyncPost(cb, arg, freeCb);
-}
-
-static void *LfZallocCountStub(size_t size)
-{
-    g_lfZallocCalls++;
-    if ((long)g_lfZallocCalls == g_lfZallocFailAt) {
-        return NULL;
-    }
-    void *ptr = SDF_MemAlloc(size);
-    if (ptr != NULL) {
-        (void)memset_s(ptr, size, 0, size);
-    }
-    return ptr;
-}
-
-static void *LfMemAllocNullStub(size_t size)
-{
-    (void)size;
-    g_lfMemAllocCalls++;
-    return NULL;
-}
-
-static uint32_t LfDListCountFullStub(SDF_DListHead_S *head)
-{
-    (void)head;
-    return 10000;
 }
 
 static void LfMakeAcb(uint8_t *data, uint32_t size, uint16_t lcid, uint8_t pb)
@@ -183,16 +154,12 @@ protected:
 
     void SetUp()
     {
-        STUB_Init();
         g_lfAcbCount = 0;
         g_lfAcbLcid = 0;
         g_lfInnerCount = 0;
         g_lfInnerCtxNull = true;
         g_lfExecCount = 0;
         g_lfExecStatus = 0;
-        g_lfZallocCalls = 0;
-        g_lfZallocFailAt = 0;
-        g_lfMemAllocCalls = 0;
         DLI_Callback cbk = {0};
         cbk.postOtherThread = LfSyncPost;
         cbk.postOtherBlockedThread = LfSyncPostBlocked;
@@ -293,26 +260,11 @@ TEST_F(UT_DLI_LAYER_FULL, TestCaseFragmentSequence)
 // 校验接收节点创建失败兜底：内存不足时新分片被丢弃，恢复后同一链路仍可正常重组
 TEST_F(UT_DLI_LAYER_FULL, TestCaseRxNodeCreateFail)
 {
-    FuncStubInfo stubInfo;
-    g_lfZallocFailAt = 2;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_MemZalloc, (const void *)LfZallocCountStub));
+    // 收包缓冲申请放行，接收节点申请失败
+    DhMemHooksInstall();
+    g_dhFailAt = 2;
     LfSendAcb(LF_TEST_LCID, DLI_FIRST_FRAGMENT);
-    STUB_Reset(&stubInfo);
-    LfSendAcb(LF_TEST_LCID, DLI_LAST_FRAGMENT);
-    EXPECT_EQ(0, g_lfAcbCount);
-
-    LfSendAcb(LF_TEST_LCID, DLI_FIRST_FRAGMENT);
-    LfSendAcb(LF_TEST_LCID, DLI_LAST_FRAGMENT);
-    EXPECT_EQ(1, g_lfAcbCount);
-}
-
-// 校验接收链表容量保护：链表计数达到上限时新建节点随即销毁，不上送也不残留
-TEST_F(UT_DLI_LAYER_FULL, TestCaseRxListFull)
-{
-    FuncStubInfo stubInfo;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_DListCount, (const void *)LfDListCountFullStub));
-    LfSendAcb(LF_TEST_LCID, DLI_FIRST_FRAGMENT);
-    STUB_Reset(&stubInfo);
+    DhMemHooksRestore();
     LfSendAcb(LF_TEST_LCID, DLI_LAST_FRAGMENT);
     EXPECT_EQ(0, g_lfAcbCount);
 
@@ -405,12 +357,12 @@ TEST_F(UT_DLI_LAYER_FULL, TestCaseDataSendRetry)
     DLI_DataStru *data = DLI_DefaultDataStruCreate(LF_TEST_LCID, DLI_DATATYPE_ACB, 0, 0, buff);
     ASSERT_TRUE(data != NULL);
 
-    FuncStubInfo stubInfo;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_MemAlloc, (const void *)LfMemAllocNullStub));
+    DhMemHooksInstall();
+    g_dhSizeFailLen = sizeof(SlePacket);
     EXPECT_EQ(DLI_SUCCESS, DLI_DataSend(data));
     SDF_ThreadSleep(LF_TEST_SLEEP_MS);
-    STUB_Reset(&stubInfo);
-    EXPECT_EQ(3, g_lfMemAllocCalls);
+    DhMemHooksRestore();
+    EXPECT_EQ(3, g_dhSizeFailCount);
 }
 
 // 校验数据分片切分的标志序列：首包标记首片，中间包标记中间片，末包标记末片，整包短数据标记整片

@@ -19,9 +19,7 @@ import("../../../utils/stack_tdd.gni")
 config("stack_unit_test_config") {
   visibility = [ ":*" ]
 
-  include_dirs = shared_stack_include_dirs + [
-    "$NEARLINK_ROOT/test/unittest/stack_test/dli_test/stub",
-  ]
+  include_dirs = shared_stack_include_dirs
 
   defines = [
     "LOG_TAG = \"nearlink_test\"",
@@ -31,7 +29,6 @@ config("stack_unit_test_config") {
   cflags = [ "--coverage" ]
   ldflags = [ "--coverage" ]
   cflags += [ "-DNEARLINK_SERVICE_STACK_LOCAL_TEST" ]
-  # dli 产品源在 LOCAL_TEST 模式下丢失经 log.h 传递的 securec 声明, 前置引入补齐 memcpy_s/EOK
   cflags += [ "-include", "securec.h" ]
 }
 
@@ -103,7 +100,6 @@ ohos_unittest("dli_full_test") {
     "$NEARLINK_ROOT/services/stack/src/nai/dft/src/nai_dft.c",
     "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/schedule/src/cp_worker.c",
     "$NEARLINK_ROOT/services/stack/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c",
-    "$NEARLINK_ROOT/test/unittest/stack_test/dli_test/stub/stub_replace.c",
     "dli_full_cmd_event_test.cpp",
     "dli_full_func_test.cpp",
     "dli_full_layer_test.cpp",

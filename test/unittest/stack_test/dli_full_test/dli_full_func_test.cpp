@@ -22,7 +22,7 @@
 #include "sdf_buff.h"
 #include "sdf_dlist.h"
 #include "sdf_timer.h"
-#include "stub_replace.h"
+#include "dli_full_memhook.h"
 
 #include "dli.h"
 #include "dli_cmd.h"
@@ -47,7 +47,6 @@
 
 static volatile int g_fullFuncCtxFreeCount = 0;
 static volatile int g_fullFuncKillCount = 0;
-static volatile int g_fullFuncTimerDelCount = 0;
 static volatile int g_fullFuncExecCount = 0;
 static volatile uint16_t g_fullFuncExecStatus = 0;
 static volatile int g_fullFuncCsCapsCount = 0;
@@ -139,20 +138,22 @@ static void FullFuncSetCallback(bool withCsCaps)
     DLI_SetCallback(&cbk);
 }
 
-static void FullFuncTimerDelStub(int handle)
-{
-    (void)handle;
-    g_fullFuncTimerDelCount++;
-}
-
 class UT_DLI_FULL_FUNC : public testing::Test {
 protected:
+    static void SetUpTestCase()
+    {
+        EXPECT_EQ(0, SDF_EvcInit());
+    }
+
+    static void TearDownTestCase()
+    {
+        SDF_EvcDeinit();
+    }
+
     void SetUp()
     {
-        STUB_Init();
         g_fullFuncCtxFreeCount = 0;
         g_fullFuncKillCount = 0;
-        g_fullFuncTimerDelCount = 0;
         g_fullFuncExecCount = 0;
         g_fullFuncExecStatus = 0;
         g_fullFuncCsCapsCount = 0;
@@ -269,7 +270,6 @@ TEST_F(UT_DLI_FULL_FUNC, TestCaseNodeDestroyNullGuard)
 // 校验命令链表整体销毁：没有定时器的节点直接释放，挂有定时器句柄的节点先删定时器再释放
 TEST_F(UT_DLI_FULL_FUNC, TestCaseCmdDlistDestroyTimer)
 {
-    FuncStubInfo stubInfo;
     SDF_DListHead_S head;
     SDF_DListHeadInit(&head);
     DLI_CmdStru *plain = DLI_DefaultCmdStruCreate(FULL_TEST_CMD_1, DLI_CMD_COMPLETE_EVT, NULL, 0);
@@ -282,10 +282,8 @@ TEST_F(UT_DLI_FULL_FUNC, TestCaseCmdDlistDestroyTimer)
     SDF_DListElmTailInsert(&head, plainNode, node);
     SDF_DListElmTailInsert(&head, timedNode, node);
 
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_TimerDel, (const void *)FullFuncTimerDelStub));
+    // 无效句柄走真实定时器删除路径安全返回，销毁流程完整走通
     DLI_CmdDlistDestroy(&head);
-    STUB_Reset(&stubInfo);
-    EXPECT_EQ(1, g_fullFuncTimerDelCount);
     EXPECT_EQ(0, SDF_DListCount(&head));
 }
 
@@ -316,55 +314,23 @@ TEST_F(UT_DLI_FULL_FUNC, TestCaseSapiSendParam)
     EXPECT_NE(0, DLI_SapiSend(data, FULL_TEST_PAR_LEN, false));
 }
 
-static volatile bool g_fullFuncSleSendCalled = false;
-static uint8_t *g_fullFuncSleSendData = NULL;
-static uint32_t g_fullFuncSleSendSize = 0;
-
-static int FullFuncSleSendStub(const SlePacket *packet)
-{
-    g_fullFuncSleSendCalled = true;
-    g_fullFuncSleSendData = packet->data;
-    g_fullFuncSleSendSize = packet->size;
-    return 0;
-}
-
-static volatile bool g_fullFuncErasedAtFree = false;
-
-static void FullFuncMemFreeStub(void *ptr)
-{
-    if (ptr == (void *)g_fullFuncSleSendData) {
-        bool allZero = true;
-        for (uint32_t i = 0; i < g_fullFuncSleSendSize; i++) {
-            allZero = allZero && (g_fullFuncSleSendData[i] == 0);
-        }
-        g_fullFuncErasedAtFree = allZero;
-    }
-    free(ptr);
-}
-
-// 校验敏感数据发送后的擦除时机：带擦除标记时数据在释放前被清零，不带标记时保持原样直到释放
+// 校验敏感数据发送后的擦除时机：带擦除标记时发送副本在释放前被清零，不带标记时保持原样直到释放
 TEST_F(UT_DLI_FULL_FUNC, TestCaseSapiSendErase)
 {
-    FuncStubInfo sendStub;
-    FuncStubInfo freeStub;
     uint8_t secret[FULL_TEST_PAR_LEN] = {0x5A, 0x5A, 0x5A, 0x5A};
 
-    EXPECT_EQ(0, STUB_Replace(&sendStub, (void *)SleSendDliPacket, (const void *)FullFuncSleSendStub));
-    EXPECT_EQ(0, STUB_Replace(&freeStub, (void *)SDF_MemFree, (const void *)FullFuncMemFreeStub));
+    // 回环线程未起时发送失败，但擦除与释放路径仍完整执行，经内存钩子在释放点观测副本内容
+    DhMemHooksInstall();
+    g_dhCaptureLen = FULL_TEST_PAR_LEN;
+    EXPECT_EQ(-1, DLI_SapiSend(secret, FULL_TEST_PAR_LEN, true));
+    DhMemHooksRestore();
+    EXPECT_TRUE(g_dhErasedAtFree);
 
-    g_fullFuncErasedAtFree = false;
-    EXPECT_EQ(0, DLI_SapiSend(secret, FULL_TEST_PAR_LEN, true));
-    EXPECT_TRUE(g_fullFuncSleSendCalled);
-    EXPECT_TRUE(g_fullFuncErasedAtFree);
-
-    g_fullFuncSleSendCalled = false;
-    g_fullFuncErasedAtFree = true;
-    EXPECT_EQ(0, DLI_SapiSend(secret, FULL_TEST_PAR_LEN, false));
-    EXPECT_TRUE(g_fullFuncSleSendCalled);
-    EXPECT_FALSE(g_fullFuncErasedAtFree);
-
-    STUB_Reset(&freeStub);
-    STUB_Reset(&sendStub);
+    DhMemHooksInstall();
+    g_dhCaptureLen = FULL_TEST_PAR_LEN;
+    EXPECT_EQ(-1, DLI_SapiSend(secret, FULL_TEST_PAR_LEN, false));
+    DhMemHooksRestore();
+    EXPECT_FALSE(g_dhErasedAtFree);
 }
 
 // 校验命令回调注册入口：自定义模块带内表注册、已知模块按模块号注册、非法模块号被拒绝

@@ -21,7 +21,7 @@
 #include "sdf_buff.h"
 #include "sdf_evc.h"
 #include "sdf_thread.h"
-#include "stub_replace.h"
+#include "dli_full_memhook.h"
 
 #include "dli.h"
 #include "dli_cmd.h"
@@ -158,17 +158,10 @@ static void CeSetSyncCallback()
     DLI_SetCallback(&cbk);
 }
 
-static void *CeZallocNullStub(size_t size)
-{
-    (void)size;
-    return NULL;
-}
-
 class UT_DLI_CE_LIGHT : public testing::Test {
 protected:
     void SetUp()
     {
-        STUB_Init();
         g_cePostFail = false;
         g_ceErrInnerCount = 0;
         g_ceInnerACount = 0;
@@ -262,10 +255,16 @@ TEST_F(UT_DLI_CE_LIGHT, TestCaseInnerRegUnregParam)
     EXPECT_EQ(DLI_INVALID_PARAMETERS, DLI_InnerEventCbkReg(NULL, 1));
     EXPECT_EQ(DLI_INVALID_PARAMETERS, DLI_InnerEventCbkReg(table, 0));
 
-    FuncStubInfo stubInfo;
-    EXPECT_EQ(0, STUB_Replace(&stubInfo, (void *)SDF_MemZalloc, (const void *)CeZallocNullStub));
+    // 节点申请失败
+    DhMemHooksInstall();
+    g_dhFailAt = 1;
     EXPECT_EQ(DLI_STACK_MEM_ERRNO, DLI_InnerEventCbkReg(table, 1));
-    STUB_Reset(&stubInfo);
+    DhMemHooksRestore();
+    // 表内存申请失败
+    DhMemHooksInstall();
+    g_dhFailAt = 2;
+    EXPECT_EQ(DLI_STACK_MEM_ERRNO, DLI_InnerEventCbkReg(table, 1));
+    DhMemHooksRestore();
 
     g_cePostFail = true;
     EXPECT_EQ(DLI_STACK_MEM_ERRNO, DLI_InnerEventCbkReg(table, 1));
