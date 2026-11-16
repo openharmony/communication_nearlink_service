@@ -133,7 +133,7 @@ protected:
     }
 };
 
-// 广播参数下发按帧型推导次级帧格式与监督超时；帧四可协商时连接间隔取默认值
+// 广播参数下发按帧型推导次级帧格式与监督超时；可协商角色的连接参数整体透传覆盖默认值
 TEST_F(DEVD_ADV_TEST, AdvParamBuildByFrameType)
 {
     uint8_t handle = CreateHandleOk();
@@ -144,27 +144,45 @@ TEST_F(DEVD_ADV_TEST, AdvParamBuildByFrameType)
     static uint8_t advOne[1] = {0x01};
     DevdSetAdvParams_S params = {0};
     params.param.handle = handle;
-    params.param.basic.primaryFrameType = PRIM_ADV_FRAME_TYPE_1;
     params.param.basic.advMode = ADV_MODE_NONCONN_SCANABLE;
     params.data.advDataLen = 1;
     params.data.advData = advOne;
+
+    // 不可协商角色：不透传连接参数，监督超时取帧型默认值
+    params.param.basic.gtRole = ADV_GT_ROLE_T_NO_NEGO;
     node->status = DEVD_SLE_STATUS_IDLE;
+    params.param.basic.primaryFrameType = PRIM_ADV_FRAME_TYPE_1;
     DevdSetAdvParam(&params);
     EXPECT_EQ(g_dliStubSetAdvParamCnt, 1); // 先证下发到达，帧一格式枚举值为零需计数防假绿
-    EXPECT_EQ(g_dliStubAdvParamSecondFormat, SECOND_ADV_FRAME_TYPE_1); // 帧一推导次级帧一
+    EXPECT_EQ(g_dliStubAdvParamSecondFormat, SECOND_ADV_FRAME_TYPE_1);
     EXPECT_EQ(g_dliStubAdvParamTimeout, DEFAULT_FRAME_TYPE_1_ADV_TIMEOUT);
 
-    // 帧四且角色可协商：连接间隔覆写为帧四默认
     node->status = DEVD_SLE_STATUS_IDLE;
     params.param.basic.primaryFrameType = PRIM_ADV_FRAME_TYPE_4_M_0;
-    params.param.basic.gtRole = ADV_GT_ROLE_T_NO_NEGO + 1;
-    params.param.connect.connMinInterval = 100;
-    params.param.connect.connMaxInterval = 200;
     DevdSetAdvParam(&params);
     EXPECT_EQ(g_dliStubSetAdvParamCnt, 2);
     EXPECT_EQ(g_dliStubAdvParamSecondFormat, SECOND_ADV_FRAME_TYPE_4_M_0);
     EXPECT_EQ(g_dliStubAdvParamTimeout, DEFAULT_FRAME_TYPE_4_ADV_TIMEOUT);
-    EXPECT_EQ(g_dliStubAdvParamConnMin, DEFAULT_FRAME_4_CONN_INTERVAL);
+    EXPECT_EQ(g_dliStubAdvParamConnMin, 0); // 不可协商不写连接参数
+
+    // 可协商角色：调用方连接参数整体透传，含监督超时；帧四间隔仍取默认
+    params.param.basic.gtRole = ADV_GT_ROLE_T_CAN_NEGO;
+    params.param.connect.connMinInterval = 100;
+    params.param.connect.connMaxInterval = 200;
+    params.param.connect.supervisionTimeout = 300;
+    node->status = DEVD_SLE_STATUS_IDLE;
+    params.param.basic.primaryFrameType = PRIM_ADV_FRAME_TYPE_1;
+    DevdSetAdvParam(&params);
+    EXPECT_EQ(g_dliStubSetAdvParamCnt, 3);
+    EXPECT_EQ(g_dliStubAdvParamTimeout, 300); // 透传调用方值
+    EXPECT_EQ(g_dliStubAdvParamConnMin, 100);
+
+    node->status = DEVD_SLE_STATUS_IDLE;
+    params.param.basic.primaryFrameType = PRIM_ADV_FRAME_TYPE_4_M_0;
+    DevdSetAdvParam(&params);
+    EXPECT_EQ(g_dliStubSetAdvParamCnt, 4);
+    EXPECT_EQ(g_dliStubAdvParamTimeout, 300);
+    EXPECT_EQ(g_dliStubAdvParamConnMin, DEFAULT_FRAME_4_CONN_INTERVAL); // 帧四间隔覆写为默认
     EXPECT_EQ(g_dliStubAdvParamConnMax, DEFAULT_FRAME_4_CONN_INTERVAL);
 }
 
