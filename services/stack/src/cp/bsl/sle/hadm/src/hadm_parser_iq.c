@@ -28,8 +28,9 @@
 #define HADM_CHNL_HIGH_SEVEN_BIT 0x7F
 /* 线上固定头26字节：status(1)+connHandle(2)+slemIdx(1)+slemInfoType(2)+timeStampSn(4)
  * +chmap(10)+tofResult(4)+rssi(1)+iqBitLen(1)。
- * DLI_CsIqReportEvt存在自然对齐填充，禁止使用sizeof(DLI_CsIqReportEvt)计算线上长度；
- * 上述字段或HadmSlemChmap_S布局调整时，必须同步更新本常量。
+ * DLI_CsIqReportEvt在头文件里按1字节对齐（无填充），sizeof为10，等于逐字段相加；
+ * HADM_IQ_FIXED_LEN 26 = 头部sizeof(DLI_CsIqReportEvt) 10 + sizeof(HadmSlemChmap_S) 10 + 4 + 1 + 1；
+ * 上述字段或HadmSlemChmap_S布局调整时，必须同步复核本常量。
  */
 #define HADM_IQ_FIXED_LEN 26
 #define HADM_IQ_MULTITONE_INFO_LEN 1  // 多音信息附加1字节
