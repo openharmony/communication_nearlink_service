@@ -21,6 +21,8 @@
 #include "stack_sdf_mem_mock.h"
 #include "stack_sdf_mem_stub.h"
 #include "devd_scan_test_ctrl.h"
+#include "devd_scan_type.h"  // verify-fix: NLSTK_DevdAdvResult_S
+#include "devd_report_parse.h"  // verify-fix: FreeAdvResult decl
 
 #include "sdf_vector.h"
 #include "devd_local.h"
@@ -148,8 +150,8 @@ static void FreeResult(NLSTK_DevdAdvResult_S *result)
 
 class DEVD_FILTER_TEST : public testing::Test {
 public:
-    NiceMock<ScheduleMock> scheduleMock;
-    NiceMock<SdfMemMock> sdfMemMock;
+    NiceMock<OHOS::ScheduleMock> scheduleMock;
+    NiceMock<OHOS::SdfMemMock> sdfMemMock;
 protected:
     void SetUp() override
     {
@@ -428,7 +430,7 @@ TEST_F(DEVD_FILTER_TEST, WholeMatchMatrix)
     EXPECT_FALSE(DevdIsMatchFilters(NULL, NULL));
     EXPECT_FALSE(DevdIsMatchFilters(result, NULL));
 
-    NLSTK_DevdScanFilter_S filters[2] = {0};
+    NLSTK_DevdScanFilter_S filters[2] = {{0}, {0}};
     filters[0].advFrameType = 0;
     filters[0].name.len = 1; // 不可能命中（结果无名称）
     filters[0].name.data = const_cast<uint8_t *>(g_baseUuidPrefix);
@@ -460,7 +462,7 @@ TEST_F(DEVD_FILTER_TEST, FreeAndCloneNullGuards)
 // 过滤器深拷贝：五类内存字段全部/部分设置均可入表，字段拷贝失败则该轮启动参数不生效
 TEST_F(DEVD_FILTER_TEST, FilterDeepCopyAndFailPaths)
 {
-    static const uint8_t fieldBuf[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    static uint8_t fieldBuf[8] = {1, 2, 3, 4, 5, 6, 7, 8};
     uint32_t scannerId = DEVD_INVALID_SCANNER_ID;
     ASSERT_EQ(NLSTK_DevdAllocScannerId(g_filterModuleId, &scannerId), NLSTK_ERRCODE_SUCCESS);
 

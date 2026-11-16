@@ -96,8 +96,8 @@ static void CaptureScanEventCbk(uint8_t event, uint8_t result)
 
 class DEVD_ADV_TEST : public testing::Test {
 public:
-    NiceMock<ScheduleMock> scheduleMock;
-    NiceMock<SdfMemMock> sdfMemMock;
+    NiceMock<OHOS::ScheduleMock> scheduleMock;
+    NiceMock<OHOS::SdfMemMock> sdfMemMock;
 protected:
     void SetUp() override
     {

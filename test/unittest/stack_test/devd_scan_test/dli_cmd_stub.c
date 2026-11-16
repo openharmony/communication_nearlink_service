@@ -100,16 +100,28 @@ typedef struct {
     uint16_t status;
 } StubReplyArg_S;
 
-static uint32_t StubPostReply(void (*cbk)(void *, uint16_t, struct DLI_ExecuteCmdRetParam *),
+typedef struct {
+    void (*cbk)(void *);
+    StubReplyArg_S reply;
+} StubReply3_S;
+
+static void StubReply3Dispatch(void *ctx)  // verify-fix: pass through 1-arg cbk
+{
+    StubReply3_S *w = (StubReply3_S *)ctx;
+    w->cbk(NULL);  // verify-fix: original Cbk signatures are void(void*)
+}
+
+static uint32_t StubPostReply(void (*cbk)(void *),
     uint8_t advHandle, uint16_t status)
 {
-    StubReplyArg_S *arg = (StubReplyArg_S *)SDF_MemZalloc(sizeof(StubReplyArg_S));
+    StubReply3_S *arg = (StubReply3_S *)SDF_MemZalloc(sizeof(StubReply3_S));
     if (arg == NULL) {
         return DLI_UNKNOWN_COMMAND;
     }
-    arg->advHandle = advHandle;
-    arg->status = status;
-    if (SchedulePostTask(cbk, arg, SDF_MemFree) != 0) {
+    arg->cbk = cbk;
+    arg->reply.advHandle = advHandle;
+    arg->reply.status = status;
+    if (SchedulePostTask(StubReply3Dispatch, arg, NULL) != 0) {
         SDF_MemFree(arg);
         return DLI_UNKNOWN_COMMAND;
     }

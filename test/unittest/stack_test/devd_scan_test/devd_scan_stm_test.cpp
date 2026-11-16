@@ -47,8 +47,8 @@ static void StartStopEventCbk(NLSTK_Errcode_E code, bool isStart)
 
 class DEVD_STM_TEST : public testing::Test {
 public:
-    NiceMock<ScheduleMock> scheduleMock;
-    NiceMock<SdfMemMock> sdfMemMock;
+    NiceMock<OHOS::ScheduleMock> scheduleMock;
+    NiceMock<OHOS::SdfMemMock> sdfMemMock;
 protected:
     void SetUp() override
     {
@@ -87,13 +87,17 @@ protected:
     }
 
     static uint8_t g_stmModuleId;
+public:
+    static uint8_t GetStmModuleId() { return g_stmModuleId; }  // verify-fix: allow outside helper access
+protected:
 };
-uint8_t DEVD_STM_TEST::g_stmModuleId = DEVD_MAX_MODULE_ID;
+uint8_t DEVD_STM_TEST::g_stmModuleId = DEVD_MAX_MODULE_ID;  // verify-fix: restore out-of-line def
+
 
 static uint32_t AllocScannerOk(void)
 {
     uint32_t scannerId = DEVD_INVALID_SCANNER_ID;
-    EXPECT_EQ(NLSTK_DevdAllocScannerId(DEVD_STM_TEST::g_stmModuleId, &scannerId), NLSTK_ERRCODE_SUCCESS);
+    EXPECT_EQ(NLSTK_DevdAllocScannerId(DEVD_STM_TEST::GetStmModuleId(), &scannerId), NLSTK_ERRCODE_SUCCESS);
     return scannerId;
 }
 
@@ -122,7 +126,7 @@ static NLSTK_DevdScanManager_S *Mgr(void)
 
 static void InjectMsg(int what)
 {
-    STM_MFUNC(DevdGetStateMachine(), ProcessMessage, (Message) {.what = what, .extData = NULL});
+    STM_MFUNC(DevdGetStateMachine(), ProcessMessage, (::Message) {.what = what, .extData = NULL});
 }
 
 // 芯片启动扫描失败：所有已注册模块收到启动失败事件，状态机回到停止态
@@ -468,7 +472,7 @@ TEST_F(DEVD_STM_TEST, DoubleInitRebuilds)
 TEST_F(DEVD_STM_TEST, CollabScannerMaxNum)
 {
     NLSTK_DevdCollabScanFunc_S collab = {0};
-    collab.collabGetScannerMaxNum = [](void) { return 1; };
+    collab.collabGetScannerMaxNum = +[](void) -> uint32_t { return 1; };  // verify-fix: unary + forces fn ptr
     ASSERT_EQ(DevdCollabRegFunc(&collab), NLSTK_ERRCODE_SUCCESS);
 
     uint32_t scannerId1 = DEVD_INVALID_SCANNER_ID;
