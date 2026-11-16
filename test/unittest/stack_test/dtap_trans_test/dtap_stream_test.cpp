@@ -161,15 +161,14 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTaskFlush)
     // 白盒把重排水位线抬到3：超时任务冲刷序号2、3的缓存帧并补交
     stream->reorderTxSeq = 3;
     CP_TimerPostponedTimeout();
-    CP_TimerSetExecCallbackPostponed(false);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 3);
     EXPECT_EQ(stream->expectedSeq, 4);
     EXPECT_EQ(SDF_DListCount(&stream->rxList), 0);
 
     // 通道已删除：延后槽仍保留重排序回调，此时触发走安全返回分支
     ChannelRelease(state);
-    CP_TimerSetExecCallbackPostponed(false);
     CP_TimerPostponedTimeout();
+    CP_TimerSetExecCallbackPostponed(false);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapStreamReorderTimerNoNode)
