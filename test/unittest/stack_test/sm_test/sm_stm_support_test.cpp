@@ -109,12 +109,24 @@ static void FillSeq(uint8_t *buff, uint8_t len, uint8_t seed)
     }
 }
 
-/* 第 allocSeq 次内存分配失败，其余放行：先声明失败期望、再声明放行期望，放行饱和后失败生效 */
-static void ExpectAllocFailOn(NiceMock<SdfMemMock> &mock, uint32_t allocSeq)
+/* 内存分配序号注错：第 g_zallocFailAt 次调用失败一次后自解除，其余放行；不依赖 gmock 基数语义 */
+static uint32_t g_zallocCallSeq;
+static uint32_t g_zallocFailAt;
+
+static void *Test_SdfZallocSeqFail(size_t size)
 {
-    EXPECT_CALL(mock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail).RetiresOnSaturation();
-    EXPECT_CALL(mock, SDF_MemZalloc).Times(allocSeq - 1)
-        .WillRepeatedly(TEST_SDF_MemZalloc).RetiresOnSaturation();
+    g_zallocCallSeq++;
+    if (g_zallocFailAt != 0 && g_zallocCallSeq == g_zallocFailAt) {
+        g_zallocFailAt = 0;
+        return NULL;
+    }
+    return TEST_SDF_MemZalloc(size);
+}
+
+static void ArmZallocFailAt(uint32_t allocSeq)
+{
+    g_zallocCallSeq = 0;
+    g_zallocFailAt = allocSeq;
 }
 
 class UT_SM_STMSUPP_Test : public testing::Test {
@@ -128,7 +140,8 @@ protected:
 
     virtual void SetUp()
     {
-        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(TEST_SDF_MemZalloc);
+        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(Test_SdfZallocSeqFail);
+        ArmZallocFailAt(0);
         g_authCbkCnt = 0;
         g_authCbkStatus = 0xFF;
         g_removeCbkCnt = 0;
@@ -180,6 +193,7 @@ protected:
 
     virtual void TearDown()
     {
+        ArmZallocFailAt(0);
         *SmGetAlgoFuncs() = savedAlgos;
         SmDeInit();
         TEST_StackScheduleDeInit();
@@ -234,16 +248,16 @@ TEST_F(UT_SM_STMSUPP_Test, CtorFailOnEachAllocationPoint)
 {
     // 构造链上任何一次内存分配失败都返回空指针：链路对象、状态机壳与七个状态逐一注入
     SLE_Addr_S addr = g_rmtAddr;
-    EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail).RetiresOnSaturation();
+    ArmZallocFailAt(1);
     EXPECT_EQ(SmSLinkCtor(&addr), nullptr);
 
     for (uint32_t seq = 2; seq <= 15; seq++) {
-        ExpectAllocFailOn(sdfMemMock, seq);
+        ArmZallocFailAt(seq);
         SmSLink_S stackSlink;
         EXPECT_EQ(SmStateMachineCtor(&stackSlink), nullptr) << "alloc seq " << seq;
     }
 
-    ExpectAllocFailOn(sdfMemMock, 2);
+    ArmZallocFailAt(2);
     EXPECT_EQ(SmSLinkCtor(&addr), nullptr);
 }
 
@@ -400,10 +414,14 @@ TEST_F(UT_SM_STMSUPP_Test, MissHandleBindLegs)
     EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
 
     stm->base.current_ = missState;
+    slink->curStateIndex = SM_STATE_MISS;
     slink->timerHandle = TIMER_NO_USED_VALUE;
     EXPECT_CALL(cmMock, CM_GetLogicLinkByAddr).WillOnce(Return(1)).RetiresOnSaturation();
     stm->base.ProcessMessage((StateMachine *)stm, msg);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_MISS);
+    EXPECT_EQ(slink->curStateIndex, SM_STATE_MISS); // 绑定失败不迁移
+
+    stm->base.ProcessMessage((StateMachine *)stm, msg); // 注错解除后续跑恢复迁移
+    EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
     SmStateMachineDtor(stm);
 }
 
@@ -456,7 +474,7 @@ TEST_F(UT_SM_STMSUPP_Test, DhKeySaltAndBuffFailLegs)
     slink->negoParams.authMethod = SM_AUTH_PSK;
     stm->base.current_ = stm->base.states_->next->next->next->next->next->next;
     slink->curStateIndex = SM_STATE_INIT;
-    ExpectAllocFailOn(sdfMemMock, 2); // 输入密钥材料分配成功、确认码缓冲分配失败
+    ArmZallocFailAt(2); // 输入密钥材料分配成功、确认码缓冲分配失败
     SmSendTNodeDhKey(slink);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_REMV);
     SmStateMachineDtor(stm);
@@ -542,7 +560,7 @@ TEST_F(UT_SM_STMSUPP_Test, ImgSendFailAndOkLegs)
     g_imgMsgCbkCnt = 0;
     FillSeq(config->groupKey, SM_OCTETS_16, 0x30);
     SmGetAlgoFuncs()->randNumFunc = Test_CryptoRandNumGenerate;
-    ExpectAllocFailOn(sdfMemMock, 1); // 材料齐全但发送缓冲分配失败，链路随之被拆除
+    ArmZallocFailAt(1); // 材料齐全但发送缓冲分配失败，链路随之被拆除
     SmSendImgMsg(config);
     EXPECT_EQ(g_imgMsgCbkCnt, 1);
     EXPECT_EQ(g_imgMsgCbkStatus, SM_IMG_ERROR);
