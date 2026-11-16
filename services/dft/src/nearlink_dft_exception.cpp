@@ -63,7 +63,7 @@ constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
 constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该默认值进行大数据上报
-// 同一设备一小时内最多上报一次
+// 同一设备一小时内最多上报一次；窗口移交时冲刷未报计数，不受此限频约束
 constexpr const int64_t CONN_TIMEOUT_REPORT_INTERVAL_MS = 3600000;
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
