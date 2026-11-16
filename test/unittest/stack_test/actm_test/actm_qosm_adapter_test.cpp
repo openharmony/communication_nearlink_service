@@ -35,6 +35,9 @@
 #include "dli_event_struct.h"
 #include "dli_cmd_struct.h"
 #include "dli_opcode.h"
+#include "ssap_link.h"
+#include "ssap_manager.h"
+#include "cdsm.h"
 
 #include "actm_api.h"
 #include "actm.h"
@@ -127,6 +130,16 @@ void PushPoint(ActmRemoteDevice_S *device, uint8_t pointId, uint8_t propId, uint
     SDF_VectorEmplaceBack(device->points, point);
 }
 
+void PushProp(ActmRemoteDevice_S *device, uint8_t propId, uint8_t propType)
+{
+    ActmProp_S *prop = (ActmProp_S *)SDF_MemZalloc(sizeof(ActmProp_S));
+    ASSERT_NE(prop, nullptr);
+    prop->propId = propId;
+    prop->propType = propType;
+    prop->ability.comm = 0x01;
+    SDF_VectorEmplaceBack(device->props, prop);
+}
+
 ActmRemoteDevice_S *CreateGroupedDevice(const SLE_Addr_S *addr, uint16_t gid)
 {
     SLE_Addr_S tmp = *addr;
@@ -134,6 +147,7 @@ ActmRemoteDevice_S *CreateGroupedDevice(const SLE_Addr_S *addr, uint16_t gid)
     ActmRemoteDevice_S *device = ActmFindDeviceByAddr(&tmp);
     EXPECT_NE(device, nullptr);
     PushPoint(device, 1, 1, NLSTK_ACTM_SINK_POINT);
+    PushProp(device, 1, NLSTK_ACTM_SINK_POINT);
     AddDeviceToGroup(device, gid);
     return device;
 }
@@ -298,7 +312,6 @@ TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_004)
 {
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID);
     ActmStream_S *stream = CreateDeviceStream(device, NLSTK_ACTM_SINK_POINT);
-    stream->qosIndex = QOSINDEX_3;
     stream->codec.l2hc.bpsConf = 0x2;
     QOSM_AutoRateParam captured = {0};
     EXPECT_CALL(qosmMock, QOSM_AutoRateSetAutorateParam(_))
@@ -317,15 +330,21 @@ TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_004)
 TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_005)
 {
     ActmRemoteDevice_S *deviceA = CreateGroupedDevice(&g_addrA, TEST_GID);
+    ActmStream_S *streamA = CreateDeviceStream(deviceA, NLSTK_ACTM_SINK_POINT);
     ActmRemoteDevice_S *deviceB = CreateGroupedDevice(&g_addrB, TEST_GID);
     ActmStream_S *streamB = CreateDeviceStream(deviceB, NLSTK_ACTM_SINK_POINT);
-    deviceA->qosmState = ACTM_SET_PARAM_COMPL;
-    EXPECT_CALL(qosmMock, QOSM_AutoRateSetAutorateParam(_)).Times(0);
+    EXPECT_CALL(qosmMock, QOSM_AutoRateSetAutorateParam(_)).WillOnce(Return(QOSM_SUCCESS));
     EXPECT_CALL(qosmMock, QOSM_AutoRateAddConnection(_)).WillRepeatedly(Return(QOSM_SUCCESS));
+    ActmSetQosmParam(deviceA, streamA);
+    TEST_QOSM_NotifyParam(TEST_GID, QOSM_PARAM_SETTED, false, QOSM_SUCCESS);
+    EXPECT_CALL(qosmMock, QOSM_AutoRateSetAutorateParam(_)).Times(0);
     ActmSetQosmParam(deviceB, streamB);
     EXPECT_EQ(deviceA->qosmState, (uint8_t)ACTM_ADD_CONN);
     EXPECT_EQ(deviceB->qosmState, (uint8_t)ACTM_ADD_CONN);
-    EXPECT_EQ(deviceB->connHandle, ActmGetConnHandle(&g_addrB, TEST_GID));
+    EXPECT_EQ(ActmFindQosmLinkByAddr(TEST_GID, &g_addrA)->connHandle, (uint16_t)0xa5);
+    EXPECT_EQ(deviceB->connHandle, (uint16_t)0xa6);
+    EXPECT_EQ(ActmGetConnHandle(&g_addrB, TEST_GID), (uint16_t)0xa6);
+    EXPECT_EQ(ActmFindQosmLinkByAddr(TEST_GID, &g_addrB)->state, (uint8_t)ACTM_QOSM_CONNECTING);
 }
 
 // 组内其他设备正在设参时，新设备等待，不向 QOSM 发请求
@@ -692,21 +711,25 @@ TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_029)
     QOSM_AutoRateEarphoneFeedbackParam captured = {0};
     EXPECT_CALL(qosmMock, QOSM_AutoRateSetEarphoneFeedback(_))
         .WillOnce(DoAll(SaveArgPointee<0>(&captured), Return(QOSM_SUCCESS)));
-    ActmUpdateBitRate(device, 0x3);
-    EXPECT_EQ(captured.supportedBitrateCnt, 2);
+    ActmUpdateBitRate(device, 0x6);
+    EXPECT_EQ(captured.supportedBitrateCnt, 2U);
+    EXPECT_EQ(captured.supportedBitrate[0], 8U);
+    EXPECT_EQ(captured.supportedBitrate[1], 16U);
     EXPECT_CALL(qosmMock, QOSM_AutoRateSetEarphoneFeedback(_)).WillOnce(Return(QOSM_FAIL));
-    ActmUpdateBitRate(device, 0x3);
+    ActmUpdateBitRate(device, 0x6);
 }
 
-// 接收自动调速消息转发给 QOSM，未知组不转发
+// 接收自动调速消息按设备所在组转发给 QOSM；设备不在任何已建组时不转发
 TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_030)
 {
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID);
+    EXPECT_EQ(TEST_QOSM_GetRecvAutoRateMsgCount(), 0U);
     ActmRecvAutoRateMsg(device, QOSINDEX_3, 1, CHANGE_PEER_BITRATE_REQ, 0);
-    EXPECT_EQ(ActmFindQosmGroupById(TEST_GID)->icgId, TEST_GID);
-    TEST_QOSM_SetRecvAutoRateMsgResult(QOSM_FAIL);
+    EXPECT_EQ(TEST_QOSM_GetRecvAutoRateMsgCount(), 1U);
     ActmRemoteDevice_S *unknown = CreateGroupedDevice(&g_addrB, TEST_GID + 1);
+    unknown->groupId = 0x77;
     ActmRecvAutoRateMsg(unknown, QOSINDEX_3, 1, CHANGE_PEER_BITRATE_REQ, 0);
+    EXPECT_EQ(TEST_QOSM_GetRecvAutoRateMsgCount(), 1U);
 }
 
 // 删除已配方向的连接先清上下行通路再删 QOSM 连接
@@ -738,7 +761,7 @@ TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_032)
     EXPECT_EQ(g_upDownCount, 0);
 }
 
-// 组内含未建表设备的地址时开通道与播报流程安全跳过
+// 未分配链路句柄的组收到连接回调无副作用
 TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_033)
 {
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID);

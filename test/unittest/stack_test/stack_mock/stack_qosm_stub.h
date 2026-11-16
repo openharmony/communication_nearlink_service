@@ -56,6 +56,8 @@ void TEST_QOSM_NotifyAutoRateMsg(const QOSM_AutoRateSendMsgCb *msg);
 
 void TEST_QOSM_SetRecvAutoRateMsgResult(uint32_t result);
 
+uint32_t TEST_QOSM_GetRecvAutoRateMsgCount(void);
+
 void TEST_QOSM_SetRemoveParamResult(uint32_t result);
 
 #ifdef __cplusplus

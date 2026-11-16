@@ -34,6 +34,9 @@
 #include "nlstk_sm.h"
 #include "nlstk_cfgdb.h"
 #include "nlstk_cfgdb_api.h"
+#include "ssap_link.h"
+#include "ssap_manager.h"
+#include "cdsm.h"
 
 #include "actm_api.h"
 #include "actm.h"
@@ -131,6 +134,7 @@ ActmProp_S *PushProp(ActmRemoteDevice_S *device, uint8_t propId, uint8_t propTyp
     EXPECT_NE(prop, nullptr);
     prop->propId = propId;
     prop->propType = propType;
+    prop->ability.comm = 0x01;
     prop->acceptType = 0x21;
     SDF_VectorEmplaceBack(device->props, prop);
     return prop;
@@ -545,7 +549,7 @@ TEST_F(ActmControlTest, UT_ACTM_CTL_019)
     EXPECT_EQ(g_lastStreamType, 0x0F);
 }
 
-// 配置访问点报文按透传方式与厂商能力开关组织：透传走端口短报文，非透传带服务质量参数
+// 配置访问点报文按透传方式与厂商能力开关组织：不透传走端口短报文，透传带服务质量参数
 TEST_F(ActmControlTest, UT_ACTM_CTL_020)
 {
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID, TEST_APP_A);
@@ -560,9 +564,9 @@ TEST_F(ActmControlTest, UT_ACTM_CTL_020)
     config.channel.trans = 0;
     ActmPointControlInfo_S info = {0};
     ActmConfigPoint(device, stream, point, &config, &info);
-    uint8_t transparentLen = info.dataLen;
+    uint8_t portLen = info.dataLen;
     SDF_MemFree(info.data);
-    EXPECT_GT(transparentLen, 0);
+    EXPECT_GT(portLen, 0);
     config.channel.trans = 1;
     SetManufacturerQosIdAbility(&g_addrA, false);
     ActmConfigPoint(device, stream, point, &config, &info);
@@ -582,6 +586,7 @@ TEST_F(ActmControlTest, UT_ACTM_CTL_021)
 {
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID, TEST_APP_A);
     PushPoint(device, 2, 9, NLSTK_ACTM_SOURCE_POINT);
+    PushProp(device, 9, NLSTK_ACTM_SOURCE_POINT);
     ActmAccessPoint_S *sourcePoint = ActmFindPointById(device, 2);
     ASSERT_NE(sourcePoint, nullptr);
     ActmStream_S *stream = ActmCreateStream(device, NLSTK_ACTM_SOURCE_POINT, NLSTK_ACTM_UNICAST);
