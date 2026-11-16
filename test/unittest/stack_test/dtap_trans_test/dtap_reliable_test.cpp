@@ -269,7 +269,6 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRetransPbitSkipAndEmptyGuard)
     NEW_BUFF(buff, 10);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_SUCCESS);
     EXPECT_EQ(polled->enhance.reTxCnt, 1);
-    SDF_BuffFree(buff);
 
     TxListClear(reliable);
     DTAP_ChannelDown(chan.lcid, chan.srcTcid);

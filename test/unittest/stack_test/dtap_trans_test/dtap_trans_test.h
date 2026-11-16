@@ -32,6 +32,7 @@
 #include "dtap_tcid.h"
 #include "dtap_trans.h"
 #include "dtap_scheduler.h"
+#include "cm_trans_channel_mgr.h"
 #include "dtap_scheduler.h"
 #include "sdf_mem.h"
 
@@ -289,6 +290,7 @@ protected:
         TEST_DTAP_SetMonoTimeMs(0);
         DLI_AllDataSet(600, 8, 0, 0);
         EXPECT_EQ(DTAP_Init(), DTAP_SUCCESS);
+        CM_TransChannelMgrInit();
         TEST_DTAP_SetApBufferNum(1);
     }
 
@@ -298,6 +300,7 @@ protected:
         CP_TimerSetExecCallbackPostponed(false);
         CP_TimerSetAddFailed(false);
         DTAP_DeInit();
+        CM_TransChannelMgrDeInit();
         DTAP_UnRegisterDataSendCbks();
         TEST_CM_DeInit();
         TEST_DliEventDeInit();
