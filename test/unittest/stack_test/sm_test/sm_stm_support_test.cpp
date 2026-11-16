@@ -416,7 +416,8 @@ TEST_F(UT_SM_STMSUPP_Test, MissHandleBindLegs)
     stm->base.current_ = missState;
     slink->curStateIndex = SM_STATE_MISS;
     slink->timerHandle = TIMER_NO_USED_VALUE;
-    EXPECT_CALL(cmMock, CM_GetLogicLinkByAddr).WillOnce(Return(1)).RetiresOnSaturation();
+    EXPECT_CALL(cmMock, CM_GetLogicLinkByAddr).Times(2)
+        .WillOnce(Return(1)).WillOnce(Return(0)); // 绑定失败一次，恢复腿绑定成功一次
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_MISS); // 绑定失败不迁移
 
