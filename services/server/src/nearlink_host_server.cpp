@@ -154,8 +154,6 @@ struct NearlinkHostServer::impl {
     std::set<std::string> batteryReqAddrs_;
 
     std::map<std::string, sptr<IRemoteObject>> servers_;
-    /* 只在 OnStart→Init→createServers 内写入，Publish 之后仅读；
-       重启窗口内与 GetProfile 可能并发，若将来支持热增删服务需改为线程安全容器 */
     std::map<std::string, sptr<IRemoteObject>> sleServers_;
 
     // whether nearlink SA should be reloaded when service stopped

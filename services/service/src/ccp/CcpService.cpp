@@ -270,7 +270,6 @@ void CcpService::PhoneStateChanged(int32_t callId, int32_t numActive, int32_t nu
         // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准，调用方传入值不参与状态计算
         HILOGI("[CcpService]PhoneStateChanged: numActive=%{public}d, numHeld=%{public}d, state=%{public}d, "
             "callId=%{public}d", numActive, numHeld, callState, callId);
-        // 一次查询同时用于全量状态与单路明细，避免重复 IPC
         std::vector<Telephony::CallAttributeInfo> callInfoVec =
             CcpSystemInterface::GetInstance().GetCurrentCallList();
         HandlePhoneStateChange(callInfoVec);
@@ -568,7 +567,6 @@ void CcpService::CreateVoipCallInfo()
     info.callDirection = Telephony::CallDirection::CALL_DIRECTION_OUT;
     info.callId = pimpl->currentVoipCallId_;
     HILOGI("[CcpService]HandleVoipStart: id=%{public}d", info.callId);
-    /* 自造 VoIP 不在通话列表中，直接放进快照以保留 callDirection */
     std::vector<Telephony::CallAttributeInfo> infoVec = { info };
     HandleCallDetailChange(info.callId, static_cast<int32_t>(info.callState), "", infoVec);
     // 响铃
