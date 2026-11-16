@@ -103,6 +103,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendWindowJustFull)
     EXPECT_TRUE(reliable.isTxWindowFull);
     SDF_BuffFree(buff);
     TxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableSendCacheWhenExceed)
