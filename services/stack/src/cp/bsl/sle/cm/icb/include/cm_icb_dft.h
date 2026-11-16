@@ -27,6 +27,9 @@ extern "C" {
 
 /**
  * @brief ICB事件打点字段
+ *
+ * 取值与服务侧 services/dft/include/nearlink_dft_database.h 的DftStackIcbExcepParamEnum（ICB_EXCEP_*）一一对应
+ * 禁止单侧增删枚举项，否则事件字段会错位
  */
 typedef enum {
     ICB_DFT_EXCEP_DEVICE_ADDR = 2,

@@ -83,8 +83,8 @@ typedef enum DftEventEnum : int {
     DFT_DIS_EXPOSED_UE,
     DFT_ICCE_PROFILE_EXCEP,
     DFT_ICCE_PROFILE_UE,
-    DFT_ICCE_EXPOSED_EXCEP,
-    DFT_MEASURE_STATE_EVENT_UE,
+    // 15号位不放事件：NEARLINK_ICCE_EXPOSED_EXCEP已下线，事件ID需与栈侧硬编码保持一致，禁止复用
+    DFT_MEASURE_STATE_EVENT_UE = 16,
     DFT_STACK_SM_G_NEGO_EXCEP,
     DFT_STACK_SM_T_NEGO_EXCEP,
     DFT_STACK_SM_G_AUTH_EXCEP,
@@ -655,7 +655,7 @@ typedef enum DftStackIcbExcepParamEnum : int {
     ICB_EXCEP_PARAM_BUTT,
 } DftStackIcbExcepParamEnum;
 
- /*******************************************************************************
+/*******************************************************************************
  *  Sub Event param index define below
  ******************************************************************************/
 
