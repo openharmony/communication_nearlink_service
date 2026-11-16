@@ -27,7 +27,8 @@ public:
     virtual void TryResumeCurrentCalls() = 0;
 
     /**
-     * @brief 蜂窝通话状态变更直调入口（NearlinkCcpClientServer 经 IPC 转达）
+     * @brief 蜂窝通话状态变更直调入口（NearlinkCcpClientServer 经 IPC 转达；
+     *        任意线程可调，内部投递至 ccp 线程串行执行）
      *
      * @param[in] callId id of the changed call, -1 means no specific call.
      * @param[in] numActive number of active calls, diagnostic only; the real state
@@ -41,7 +42,8 @@ public:
         const std::string &number) = 0;
 
     /**
-     * @brief 蜂窝单路通话明细变更直调入口（NearlinkCcpClientServer 经 IPC 转达）
+     * @brief 蜂窝单路通话明细变更直调入口（NearlinkCcpClientServer 经 IPC 转达；
+     *        任意线程可调，内部投递至 ccp 线程串行执行）
      *        仅蜂窝路（callType 非 TYPE_VOIP）的 DISCONNECTED 状态触发 callId 映射清理
      *
      * @param[in] callId id of the changed call, -1 means no specific call.

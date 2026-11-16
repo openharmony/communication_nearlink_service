@@ -16,7 +16,7 @@
 #include "nearlink_ccp_client_proxy.h"
 #include "ipc_types.h"
 #include "log.h"
-#include "nearlink_ccp_export.h"
+#include "nearlink_errorcode.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -26,18 +26,17 @@ int32_t NearlinkCcpClientProxy::PhoneStateChanged(int32_t callId, int32_t numAct
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkCcpClientProxy::GetDescriptor()),
-                        NL_CCP_ERR_IPC_TRANS_FAILED, "Write Token error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(callId), NL_CCP_ERR_IPC_TRANS_FAILED, "Write callId error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(numActive), NL_CCP_ERR_IPC_TRANS_FAILED, "Write numActive error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(numHeld), NL_CCP_ERR_IPC_TRANS_FAILED, "Write numHeld error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(callState), NL_CCP_ERR_IPC_TRANS_FAILED, "Write callState error.");
-    NL_CHECK_RETURN_RET(data.WriteString(number), NL_CCP_ERR_IPC_TRANS_FAILED, "Write number error.");
+                        NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(callId), NL_ERR_IPC_TRANS_FAILED, "Write callId error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(numActive), NL_ERR_IPC_TRANS_FAILED, "Write numActive error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(numHeld), NL_ERR_IPC_TRANS_FAILED, "Write numHeld error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(callState), NL_ERR_IPC_TRANS_FAILED, "Write callState error.");
+    NL_CHECK_RETURN_RET(data.WriteString(number), NL_ERR_IPC_TRANS_FAILED, "Write number error.");
 
     MessageParcel reply;
     MessageOption option = {MessageOption::TF_SYNC};
-    ErrCode error =
-            InnerTransact(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, option, data, reply);
-    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_CCP_ERR_IPC_TRANS_FAILED,
+    ErrCode error = InnerTransact(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, option, data, reply);
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
                         "PhoneStateChanged done fail, ErrCode: %{public}d", error);
     return reply.ReadInt32();
 }
@@ -46,16 +45,15 @@ int32_t NearlinkCcpClientProxy::CallDetailsChanged(int32_t callId, int32_t callS
 {
     MessageParcel data;
     NL_CHECK_RETURN_RET(data.WriteInterfaceToken(NearlinkCcpClientProxy::GetDescriptor()),
-                        NL_CCP_ERR_IPC_TRANS_FAILED, "Write Token error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(callId), NL_CCP_ERR_IPC_TRANS_FAILED, "Write callId error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(callState), NL_CCP_ERR_IPC_TRANS_FAILED, "Write callState error.");
-    NL_CHECK_RETURN_RET(data.WriteInt32(callType), NL_CCP_ERR_IPC_TRANS_FAILED, "Write callType error.");
+                        NL_ERR_IPC_TRANS_FAILED, "Write Token error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(callId), NL_ERR_IPC_TRANS_FAILED, "Write callId error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(callState), NL_ERR_IPC_TRANS_FAILED, "Write callState error.");
+    NL_CHECK_RETURN_RET(data.WriteInt32(callType), NL_ERR_IPC_TRANS_FAILED, "Write callType error.");
 
     MessageParcel reply;
     MessageOption option = {MessageOption::TF_SYNC};
-    ErrCode error =
-            InnerTransact(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, option, data, reply);
-    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_CCP_ERR_IPC_TRANS_FAILED,
+    ErrCode error = InnerTransact(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, option, data, reply);
+    NL_CHECK_RETURN_RET(error == NO_ERROR, NL_ERR_IPC_TRANS_FAILED,
                         "CallDetailsChanged done fail, ErrCode: %{public}d", error);
     return reply.ReadInt32();
 }

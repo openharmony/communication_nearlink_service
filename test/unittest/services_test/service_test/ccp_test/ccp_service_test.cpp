@@ -19,6 +19,7 @@
 #include "CcpDefines.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
+#include "ThreadUtil.h"
 #include "mock_nearlink_call_client.h"
 #include "log.h"
 
@@ -73,6 +74,10 @@ public:
 void CcpServiceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase CcpServiceTest start");
+    /* 单测未启动 ccp 线程：置为同步执行，保证投递入口的断言即时生效，与仓内其它单测一致 */
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    ThreadUtil::GetInstance().InitThreadStateMap();
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_1000_MS));
     HILOGI("SetUpTestCase CcpServiceTest end");

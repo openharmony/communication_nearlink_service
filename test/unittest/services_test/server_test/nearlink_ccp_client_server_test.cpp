@@ -19,7 +19,6 @@
 #include "nearlink_ccp_client_stub.h"
 #include "nearlink_ccp_client_server.h"
 #include "nearlink_service_ipc_interface_code.h"
-#include "nearlink_ccp_export.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_native_token_mock.h"
 #include "nearlink_access_token_mock.h"
@@ -38,12 +37,12 @@ constexpr int CCP_CLIENT_SERVER_TDD_DELAY_1000_MS = 1000;
 sptr<NearlinkCcpClientServer> g_ccpClient = new (std::nothrow) NearlinkCcpClientServer();
 
 /* CCP 服务对象是否创建取决于产品配置与起栈结果，测试按实际可用性推导期望值：
- * 可用时受理回 0，不可用时在受理前拒绝回 NL_CCP_ERR_UNAVAILABLE_PROXY */
+ * 可用时受理回 0，不可用时在受理前拒绝回 NL_ERR_UNAVAILABLE_PROXY */
 NlErrCode ExpectedCcpPushResult()
 {
     bool isAvailable =
         SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_CCP) != nullptr;
-    return isAvailable ? NL_NO_ERROR : static_cast<NlErrCode>(NL_CCP_ERR_UNAVAILABLE_PROXY);
+    return isAvailable ? NL_NO_ERROR : NL_ERR_UNAVAILABLE_PROXY;
 }
 }
 
@@ -91,9 +90,9 @@ int32_t CcpClientOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParc
 /**
  * @tc.number: PhoneStateChanged001
  * @tc.name:
- * @tc.desc: stub 反序列化(callId/numActive/numHeld/callState/number)后转发服务，星闪开启时立即回包：
- *           服务对象可用回 NL_NO_ERROR，不可用时受理前拒绝回 NL_CCP_ERR_UNAVAILABLE_PROXY
- *           （星闪开关由 mock_nearlink_host_server 恒置为开，故不考虑 NL_CCP_ERR_SLE_OFF）
+ * @tc.desc: stub 反序列化(callId/numActive/numHeld/callState/number)后转发服务，立即回包：
+ *           服务对象可用回 NL_NO_ERROR，不可用时受理前拒绝回 NL_ERR_UNAVAILABLE_PROXY
+ *           （服务端不做星闪开关判定，NL_ERR_SLE_OFF 由客户端返回，故不在此覆盖）
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged001, TestSize.Level1)
 {
@@ -174,9 +173,9 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged003, TestSize.Level1)
 /**
  * @tc.number: CallDetailsChanged001
  * @tc.name:
- * @tc.desc: stub 反序列化(callId/callState/callType)后转发服务，星闪开启时立即回包：
- *           服务对象可用回 NL_NO_ERROR，不可用时受理前拒绝回 NL_CCP_ERR_UNAVAILABLE_PROXY
- *           （星闪开关由 mock_nearlink_host_server 恒置为开，故不考虑 NL_CCP_ERR_SLE_OFF）
+ * @tc.desc: stub 反序列化(callId/callState/callType)后转发服务，立即回包：
+ *           服务对象可用回 NL_NO_ERROR，不可用时受理前拒绝回 NL_ERR_UNAVAILABLE_PROXY
+ *           （服务端不做星闪开关判定，NL_ERR_SLE_OFF 由客户端返回，故不在此覆盖）
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged001, TestSize.Level1)
 {

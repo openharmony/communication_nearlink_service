@@ -147,17 +147,9 @@
             },
             "inner_kits": [
                 {
-                    "header": {
-                        "header_base": "//foundation/communication/nearlink_service/interfaces/inner_api/include",
-                        "header_files": []
-                    },
                     "name": "//foundation/communication/nearlink_service/frameworks/native:nearlink_framework"
                 },
                 {
-                    "header": {
-                        "header_base": "//foundation/communication/nearlink_service/interfaces/inner_api/include",
-                        "header_files": []
-                    },
                     "name": "//foundation/communication/nearlink_service/frameworks/native:nearlink_ccp_framework"
                 },
                 {

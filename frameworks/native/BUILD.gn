@@ -77,6 +77,15 @@ config("nl_framework_public") {
     ]
 }
 
+# ccp 客户端 SO 的公共头：仅暴露 nearlink_ccp_client.h 所需目录，
+# 不向外透出 fwk 内部头和其它模块的公共头
+config("nl_ccp_framework_public") {
+    include_dirs = [
+      "$NEARLINK_ROOT/interfaces/inner_api/include",
+      "$NEARLINK_ROOT/interfaces/def",
+    ]
+}
+
 config("nearlink_framework_config") {
   cflags = [
     "-fPIC",
@@ -231,7 +240,7 @@ ohos_shared_library("nearlink_ccp_framework") {
     "samgr:samgr_proxy",
   ]
 
-  public_configs = [":nl_framework_public"]
+  public_configs = [":nl_ccp_framework_public"]
 
   part_name = "nearlink_service"
   innerapi_tags = [ "platformsdk" ]

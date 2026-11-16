@@ -61,7 +61,7 @@ public:
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
     void HandlePhoneStateChange(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
-    /* 蜂窝直调入口：NearlinkCcpClientServer 经 DoInCcpThread 投递调用 */
+    /* 蜂窝直调入口：任意线程可调，内部投递至 ccp 线程串行执行 */
     void PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
         const std::string &number) override;
     /* 蜂窝单路明细直调入口：仅蜂窝路（callType 非 TYPE_VOIP）的 DISCONNECTED 清理 callId 映射，

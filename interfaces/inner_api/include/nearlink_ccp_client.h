@@ -13,30 +13,15 @@
  * limitations under the License.
  */
 
-/**
- * @addtogroup Nearlink
- * @{
- *
- * @brief Defines Call Control Profile interface that provides basic nearlink telephony
- *
- * @since 6
- */
-
-/**
- * @file nearlink_ccp_client.h
- *
- * @brief Call Control Profile common functions.
- *
- * @since 6
- */
-
 #ifndef NEARLINK_CCP_CLIENT_H
 #define NEARLINK_CCP_CLIENT_H
 
 #include <cstdint>
 #include <string>
 
-#include "nearlink_ccp_export.h"
+#include "nearlink_def.h"
+#include "nearlink_errorcode.h"
+#include "nearlink_types.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -51,10 +36,11 @@ public:
     /**
      * @brief Get the instance of NearlinkCcpClient object.
      *
-     * @return Returns the pointer to the NearlinkCcpClient instance.
+     * @return Returns the reference to the process-wide NearlinkCcpClient instance;
+     *         it is a function-local static and never invalid, no null check needed.
      * @since 6
      */
-    static NearlinkCcpClient *GetProfile();
+    static NearlinkCcpClient &GetProfile();
 
     /**
      * @brief Push phone call state changed to CCP service.
@@ -68,10 +54,8 @@ public:
      *            re-queries the authoritative call list instead of using this value.
      * @param[in] callState current phone call state.
      * @param[in] number call number.
-     * @return 0 when the push is queued for asynchronous handling, not the call
-     *         state being processed; non-zero on failure: NL_CCP_ERR_SLE_OFF when
-     *         nearlink is off, NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the
-     *         service object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED on IPC failure.
+     * @return 0 if the push is accepted for asynchronous handling; otherwise
+     *         NL_ERR_SLE_OFF, NL_ERR_UNAVAILABLE_PROXY or NL_ERR_IPC_TRANS_FAILED.
      * @since 6
      */
     int32_t PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
@@ -79,19 +63,14 @@ public:
 
     /**
      * @brief Push single call details changed to CCP service.
-     *        Only CALL_STATUS_DISCONNECTED of a cellular call takes effect, which cleans the
-     *        mapping of the given callId; details of the other states are carried by
-     *        PhoneStateChanged and VoIP calls are not handled here.
      *
      * @param[in] callId id of the changed call; -1 means no specific call and is
      *            skipped, any other value not less than -1 is accepted and mapped
      *            to a local short id by the service.
      * @param[in] callState state of the changed call.
      * @param[in] callType call type of the changed call, the value is the same as Telephony::CallType.
-     * @return 0 when the push is queued for asynchronous handling, not the call
-     *         state being processed; non-zero on failure: NL_CCP_ERR_SLE_OFF when
-     *         nearlink is off, NL_CCP_ERR_UNAVAILABLE_PROXY when the proxy or the
-     *         service object is unavailable, NL_CCP_ERR_IPC_TRANS_FAILED on IPC failure.
+     * @return 0 if the push is accepted for asynchronous handling; otherwise
+     *         NL_ERR_SLE_OFF, NL_ERR_UNAVAILABLE_PROXY or NL_ERR_IPC_TRANS_FAILED.
      * @since 6
      */
     int32_t CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType);

@@ -266,33 +266,38 @@ CallFlagBits CcpService::GetCallFlag(const CallAttributeInfo &info)
 void CcpService::PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
     const std::string &number)
 {
-    // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准，调用方传入值不参与状态计算
-    HILOGI("[CcpService]PhoneStateChanged: numActive=%{public}d, numHeld=%{public}d, state=%{public}d, "
-        "callId=%{public}d", numActive, numHeld, callState, callId);
-    // 一次查询同时用于全量状态与单路明细，避免重复 IPC
-    std::vector<Telephony::CallAttributeInfo> callInfoVec = CcpSystemInterface::GetInstance().GetCurrentCallList();
-    HandlePhoneStateChange(callInfoVec);
-    // 处理单路通话明细，而CallDetailsChanged仅处理蜂窝挂断消息，和蓝牙保持一致
-    HandleCallDetailChange(callId, callState, number, callInfoVec);
+    DoInCcpThread([this, callId, numActive, numHeld, callState, number]() {
+        // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准，调用方传入值不参与状态计算
+        HILOGI("[CcpService]PhoneStateChanged: numActive=%{public}d, numHeld=%{public}d, state=%{public}d, "
+            "callId=%{public}d", numActive, numHeld, callState, callId);
+        // 一次查询同时用于全量状态与单路明细，避免重复 IPC
+        std::vector<Telephony::CallAttributeInfo> callInfoVec =
+            CcpSystemInterface::GetInstance().GetCurrentCallList();
+        HandlePhoneStateChange(callInfoVec);
+        // 处理单路通话明细，而CallDetailsChanged仅处理蜂窝挂断消息，和蓝牙保持一致
+        HandleCallDetailChange(callId, callState, number, callInfoVec);
+    });
 }
 
 void CcpService::CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType)
 {
-    HILOGI("[CcpService]CallDetailsChanged: callId=%{public}d, state=%{public}d, type=%{public}d",
-        callId, callState, callType);
-    if (callState == static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_DISCONNECTED) &&
-        callType != static_cast<int32_t>(Telephony::CallType::TYPE_VOIP)) {
-        // 只有蜂窝通话需要走该流程，因为蜂窝挂断瞬间PhoneStateChanged拿到的callId是-1，无法正常处理蜂窝挂断
-        // voip和ccp构造的场景由PhoneStateChanged处理
-        NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(callId), "[CcpService]unknown callId, skip call details.");
-        // 挂断对象已从 telephony 对象表移除，列表反查不到
-        Telephony::CallAttributeInfo info{};
-        info.callId = callId;
-        info.callState = Telephony::TelCallState::CALL_STATUS_DISCONNECTED;
-        info.callType = static_cast<Telephony::CallType>(callType);
-        std::vector<Telephony::CallAttributeInfo> infoVec = { info };
-        HandleCallDetailChange(callId, callState, "", infoVec);
-    }
+    DoInCcpThread([this, callId, callState, callType]() {
+        HILOGI("[CcpService]CallDetailsChanged: callId=%{public}d, state=%{public}d, type=%{public}d",
+            callId, callState, callType);
+        if (callState == static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_DISCONNECTED) &&
+            callType != static_cast<int32_t>(Telephony::CallType::TYPE_VOIP)) {
+            // 只有蜂窝通话需要走该流程，因为蜂窝挂断瞬间PhoneStateChanged拿到的callId是-1，无法正常处理蜂窝挂断
+            // voip和ccp构造的场景由PhoneStateChanged处理
+            NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(callId), "[CcpService]unknown callId, skip call details.");
+            // 挂断对象已从 telephony 对象表移除，列表反查不到
+            Telephony::CallAttributeInfo info{};
+            info.callId = callId;
+            info.callState = Telephony::TelCallState::CALL_STATUS_DISCONNECTED;
+            info.callType = static_cast<Telephony::CallType>(callType);
+            std::vector<Telephony::CallAttributeInfo> infoVec = { info };
+            HandleCallDetailChange(callId, callState, "", infoVec);
+        }
+    });
 }
 
 void CcpService::HandlePhoneStateChange(const std::vector<Telephony::CallAttributeInfo> &callInfoVec)
