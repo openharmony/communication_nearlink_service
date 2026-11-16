@@ -311,6 +311,22 @@ static void DftReportConnTimeoutWindow(const std::string &addr, int32_t reason, 
         ", firstFailTime:" + firstFailTime);
 }
 
+// 窗口移交时冲刷旧窗口挂账：仅上报自备字段，不写连接路径表，不清配对状态（请求起点不能复位本次尝试的生命周期字段）
+static void DftReportHandoverConnTimeoutWindow(const std::string &addr, int32_t reason, const std::string &appName,
+    uint32_t failCount, const std::string &firstFailTime)
+{
+    DftCacheSleAppNameParam(addr, appName);
+    DftCachePairRssiAndChannelNoise(addr, INVALID_DISCONN_RSSI, "");
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
+    params.emplace_back(CreateUi16ParamC(SLE_CONN_PATH, PAIR_CONN_PATH_ACB));
+    params.emplace_back(CreateI32ParamC(SLE_CONN_ERROR_CODE, reason));
+    params.emplace_back(CreateStrParamC(SLE_CONN_ERROR_REASON,
+        std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount) +
+        ", firstFailTime:" + firstFailTime));
+    DftManagerReport(DFT_PAIR_EXCEP, params.data(), params.size());
+}
+
 void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 {
     int64_t nowMs = GetTimestamp();
@@ -804,7 +820,7 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
             record.appName = callingName; // 窗口移交新发起方
         });
         if (needReport) {
-            DftReportConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
+            DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
         }
     }
     DftCacheSleAppNameParam(addr, callingName);
