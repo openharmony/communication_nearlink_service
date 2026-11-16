@@ -31,6 +31,8 @@ config("stack_unit_test_config") {
   cflags = [ "--coverage" ]
   ldflags = [ "--coverage" ]
   cflags += [ "-DNEARLINK_SERVICE_STACK_LOCAL_TEST" ]
+  # dli 产品源在 LOCAL_TEST 模式下丢失经 log.h 传递的 securec 声明, 前置引入补齐 memcpy_s/EOK
+  cflags += [ "-include", "securec.h" ]
 }
 
 unit_test_deps = [

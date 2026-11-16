@@ -441,7 +441,7 @@ TEST_F(UT_DLI_FULL_FUNC, TestCaseEncryptChangeConnHandle)
     EXPECT_EQ(0x0002, evt.connHandle);
 
     evt.connHandle = 0x0003;
-    DLI_EncryptChangeCbk(NULL, &evt, 1);
+    DLI_EncryptChangeCbk(NULL, &evt, 1, 0);
     EXPECT_EQ(3, g_fullFuncExecCount);
     DLI_RemoveCbks(cbkTable, 1);
 }
