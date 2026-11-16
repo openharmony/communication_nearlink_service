@@ -86,6 +86,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendFragmentAndPolling)
         idx++;
     }
     TxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableSendWindowJustFull)
@@ -248,6 +249,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableNackRetrans)
         DTAP_TRANS_RELIABLE_REACH_MAX_RE_TX_CNT_ERR);
     DTAP_DestroyFrame(nack);
     TxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableRetransPbitSkipAndEmptyGuard)
@@ -372,6 +374,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvInOrderAndOutOfOrder)
     CP_TimerSetExecCallbackPostponed(false);
     EXPECT_GE(reliable.nackCnt, reliable.maxTxThreshold);
     RxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableRecvChannelFullAndResume)

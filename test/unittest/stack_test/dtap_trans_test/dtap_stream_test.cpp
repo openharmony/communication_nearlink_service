@@ -168,8 +168,8 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTaskFlush)
 
     // 通道已删除：延后槽仍保留重排序回调，此时触发走安全返回分支
     ChannelRelease(state);
-    CP_TimerPostponedTimeout();
     CP_TimerSetExecCallbackPostponed(false);
+    CP_TimerPostponedTimeout();
 }
 
 TEST_F(UT_DTAP_TRANS, DtapStreamReorderTimerNoNode)

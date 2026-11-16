@@ -50,7 +50,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedConnectCbkGuards)
     EXPECT_NE(DTAP_GetLcidBufferNode(0x11), nullptr);
     TEST_DTAP_DliConnectDo(0x11, 0);
     TEST_DTAP_DliConnectDo(0x11, 1);
-    // 空事件参数按无效处理
+    // 重复连接与异常状态均不重复建账
     TEST_DTAP_DliConnectDo(0x12, 0);
     EXPECT_NE(DTAP_GetLcidBufferNode(0x12), nullptr);
 
