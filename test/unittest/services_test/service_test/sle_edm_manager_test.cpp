@@ -81,5 +81,18 @@ HWTEST_F(SleEdmManagerTest, Edm_Mgr_test_OnEdmListChanged_001, TestSize.Level1)
     EXPECT_TRUE(mgr_->accountForbiddenlist_.IsEmpty());
     HILOGI("Edm_Mgr_test_OnEdmListChanged_001 end");
 }
+
+/**
+ * @tc.name: Edm_Mgr_test_ReportRefuseInfo_001
+ * @tc.desc: BluetoothEdmManagerTest:
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleEdmManagerTest, Edm_Mgr_test_ReportRefuseInfo_001, TestSize.Level1)
+{
+    HILOGI("Edm_Mgr_test_ReportRefuseInfo_001 enter");
+    mgr_->ReportRefuseInfo(-1);
+    mgr_->ReportRefuseInfo(3057);
+    HILOGI("Edm_Mgr_test_ReportRefuseInfo_001 end");
+}
 }  // namespace bluetooth
 }  // namespace OHOS

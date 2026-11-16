@@ -14,6 +14,7 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <sstream>
 #include "cJSON.h"
@@ -21,6 +22,7 @@
 #include "SleEdmManager.h"
 #include "nearlink_datashare_helper.h"
 #include "nearlink_permission_manager.h"
+#include "sg_collect_client.h"
 #include "ThreadUtil.h"
 
 namespace OHOS {
@@ -31,7 +33,21 @@ constexpr int MAX_PROFILE_SIZE = 500;
 const char *const NEARLINK_ACCOUNT_FORBIDDENLIST_CHANGED_EVENT = "usual.event.EDM_CONFIG_CHANGED";
 const char *const NEARLINK_ACCOUNT_FORBIDDEN_CONFIG_FILEPATH =
     "/data/service/el1/public/edm/config/system/all/nearlink/config.json";
+// EDM audit event id registered in security_guard_event_ext.json
+constexpr int64_t EDM_AUDIT_EVENT_ID = 0x36000004;
+constexpr const char AUDIT_EVENT_VERSION[] = "1.0";
 }  // namespace
+
+static uint64_t GetTimestamp()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_lock::now().time_since_epoch()).count();
+}
+
+static void AddStringToObject(cJSON *json, const char *name, const char *value)
+{
+    cJSON_AddStringToObject(json, name, (value == nullptr) ? "" : value);
+}
 
 std::shared_ptr<SleEdmManager> SleEdmManager::GetInstance()
 {
@@ -174,6 +190,14 @@ void SleEdmManager::OnEdmListChanged()
     if (!UpdateAccountForbiddenlist()) {
         HILOGE("[EDM MODE]:UpdateAccountForbiddenlist failed");
     }
+}
+
+void SleEdmManager::ReportRefuseInfo(int32_t callerUid)
+{
+    int32_t userId = NearlinkDataShareHelper::GetInstance().GetActiveOsAccountIds();
+    uint64_t happenTime = GetTimestamp();
+    cJSON *outJson = cJSON_CreateObject();
+    if
 }
 }  // namespace Nearlink
 }  // namespace OHOS

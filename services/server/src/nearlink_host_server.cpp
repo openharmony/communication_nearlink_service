@@ -66,6 +66,9 @@
 #include "parameter_manager.h"
 #include "nearlink_system_config.h"
 #include "UnloadSa.h"
+#ifdef NEARLINK_EDM_ENABLE
+#include "SleEdmManager.h"
+#endif
 #ifdef HICOLLIE_ENABLE
 #include "xcollie/watchdog.h"
 #endif
