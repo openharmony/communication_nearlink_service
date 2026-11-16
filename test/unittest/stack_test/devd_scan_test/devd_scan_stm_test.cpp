@@ -210,11 +210,17 @@ TEST_F(DEVD_STM_TEST, StoppingDispatchEvents)
     ASSERT_EQ(StartScanMode(scannerId, DEVD_SCAN_FRAME_TYPE_1), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
+    g_ssEvtCnt = 0; // 清掉启动成功通知，只统计本用例注入的事件
 
     g_testDevdStopScanSilent = 1;
     ASSERT_EQ(NLSTK_DevdStopScan(scannerId), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
+
+    // 未知事件在停止过渡态被忽略
+    InjectMsg(DEVD_POTIENTIAL_UPDATE + 100); // 不存在的事件号
+    EXPECT_EQ(g_ssEvtCnt, 0);
+    EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
 
     // 芯片禁用扫描回执携带失败：经事件回调链转为停止失败事件，回已启动态
     TEST_DevdInjectScanEvent(DEVD_CBK_EVENT_DISABLE_SCAN, 1);
@@ -232,15 +238,6 @@ TEST_F(DEVD_STM_TEST, StoppingDispatchEvents)
     EXPECT_EQ(g_ssEvtCode, NLSTK_ERRCODE_TIMEOUT);
     EXPECT_FALSE(g_ssEvtIsStart);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPED)));
-
-    // 未知事件在停止态被忽略
-    g_ssEvtCnt = 0;
-    ASSERT_EQ(NLSTK_DevdStopScan(scannerId), NLSTK_ERRCODE_SUCCESS);
-    TEST_RunQueueStubSchedule();
-    ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
-    InjectMsg(DEVD_POTIENTIAL_UPDATE + 100); // 不存在的事件号
-    EXPECT_EQ(g_ssEvtCnt, 0);
-    EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
     g_testDevdStopScanSilent = 0;
 }
 
@@ -311,8 +308,9 @@ TEST_F(DEVD_STM_TEST, StartedUpdateVariants)
     InjectMsg(DEVD_POTIENTIAL_UPDATE);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
 
-    // 协同判定要求续停（返回真）：即使参数一致也迁移停止态
+    // 协同判定要求续停（返回真）：即使参数一致也迁移停止态（注册为值拷贝，改钩子须重新注册）
     collab.isNeedTryStopScanCollab = [](State *state) { (void)state; return true; };
+    ASSERT_EQ(DevdCollabRegFunc(&collab), NLSTK_ERRCODE_SUCCESS);
     g_testDevdStopScanSilent = 1;
     InjectMsg(DEVD_POTIENTIAL_UPDATE);
     EXPECT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STOPPING)));
@@ -347,6 +345,7 @@ TEST_F(DEVD_STM_TEST, StartedNoScannerStops)
     ASSERT_EQ(StartScanMode(scannerId, DEVD_SCAN_FRAME_TYPE_1), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
+    g_ssEvtCnt = 0; // 清掉启动成功通知，只统计停止流程的通知
 
     NLSTK_DevdRemoveScannerId(scannerId);
     TEST_RunQueueStubSchedule();
@@ -508,7 +507,8 @@ TEST_F(DEVD_STM_TEST, StopAllInStoppedNotifies)
     ASSERT_EQ(StartScanMode(scannerId, DEVD_SCAN_FRAME_TYPE_1), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
     ASSERT_TRUE(InState(DevdGetStmStateName(DEVD_STATE_STARTED)));
-    g_testDevdStopScanSilent = 1; // 停止命令静默：隔离“停止态立即回报”分支
+    g_ssEvtCnt = 0; // 清掉启动成功通知，隔离"停止态立即回报"分支的计数
+    g_testDevdStopScanSilent = 1;
     ASSERT_EQ(NLSTK_DevdStopAllScan(), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
     EXPECT_EQ(g_ssEvtCnt, 0);

@@ -159,7 +159,7 @@ TEST_F(DEVD_REPORT_TEST, OldFormatPencilData)
     static const uint8_t head[6] = {0x03, 0x19, 0xC7, 0x03, 0x0F, 0x16};
     static const uint8_t tail2[2] = {0xEE, 0xFD};
     // 旧格式按 长度-类型-值 排布：特征头两字节兼作第一项的开头，逐段拼装避免错位
-    uint8_t payload[60] = {0};
+    uint8_t payload[59] = {0};
     uint16_t pos = 0;
     (void)memcpy_s(payload + pos, 6, head, 6); // 铅笔特征1
     pos = 6;
@@ -177,7 +177,7 @@ TEST_F(DEVD_REPORT_TEST, OldFormatPencilData)
     payload[pos++] = 0x06;
     (void)memcpy_s(payload + pos, 16, uuid128, 16);
     pos += 16;
-    ASSERT_EQ(pos, 60);
+    ASSERT_EQ(pos, 59);
 
     NLSTK_DevdAdvResult_S *result = Feed(g_devdAddr, payload, pos, TEST_EVT_SCAN_RSP, TEST_FRAME_1);
     ASSERT_NE(result, nullptr);
