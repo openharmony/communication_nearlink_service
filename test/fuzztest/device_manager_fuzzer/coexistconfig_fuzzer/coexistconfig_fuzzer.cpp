@@ -48,6 +48,7 @@ void FuzzSleCoexistManager(const uint8_t *data, size_t size)
     testAddrS.type = provider.ConsumeIntegral<uint8_t>();
     mgr->GetConnectionParam(testAddrS, timeout, maxLatency);
     mgr->IterateConnInfo([](const CoexistConnInfo &info) {(void)info;});
+    mgr->CountCoexistAdjustDevices(connInfo.interval);
     mgr->HasMultipleConnections();
     mgr->ClearAll();
 }

@@ -25,6 +25,7 @@
 #include "nearlink_def.h"
 #include "log.h"
 #include "nearlink_dft_device_data.h"
+#include "nearlink_dft_local_data.h"
 #include "nearlink_dft_common_event_helper.h"
 #include "nearlink_cemap_report_loader.h"
 
@@ -196,6 +197,10 @@ void DftReportSwitchInfo(DftSwitchErrCode errCode, const std::string &infoMsg, D
     params.emplace_back(CreateStrParamC(SWITCH_INFO_MSG, infoMsg));
     params.emplace_back(CreateRefParamC(SUB_STATE_FLOW, subFlow));
     params.emplace_back(CreateStrParamC(SWITCH_END_TIME, time));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SWITCH_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     if (!app.empty()) {
         params.emplace_back(CreateStrParamC(SWITCH_USED_APP, app));
     }
@@ -279,6 +284,10 @@ static void DftReportDisconn(const std::string &addr, int32_t reason, const std:
     params.emplace_back(CreateStrParamC(DISCONN_TIME, time));
     params.emplace_back(CreateRefParamC(SUB_PEER_INFO, peerInfoRef));
     params.emplace_back(CreateRefParamC(SUB_CONN_INFO, connInfoRef));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(DISCONN_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     {
         std::lock_guard<std::mutex> lock(g_flagMutex);
         if (!g_sceneFlag) {
@@ -716,6 +725,10 @@ void DftReportPairInfo(const std::string &addr, uint32_t currentConnPath, int32_
     if (!detail.empty()) {
         params.emplace_back(CreateStrParamC(SLE_CONN_ERROR_REASON, detail));
     }
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SLE_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     connType = (g_pairFlag.load()) ? SLE_CONN_RESULT : SLE_PAIR_RESULT;
     if (reason != SLE_SUCCESS) {
         params.emplace_back(CreateUi16ParamC(connType, PAIR_RESULT_FAILED));
@@ -780,6 +793,10 @@ void DftReportPairSuccess(const std::string &addr, uint16_t connType)
     params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
     params.emplace_back(CreateI32ParamC(SLE_CONN_ERROR_CODE, 0));
     params.emplace_back(CreateUi16ParamC(connType, 0));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SLE_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_PAIR_EXCEP, params.data(), params.size());
 }
 
@@ -1165,6 +1182,10 @@ void DftReportAudioHeadSet(AudioHeadsetExcep &audioHeadsetData)
     params.emplace_back(CreateUi16ParamC(MID_CHANNEL_NUM, audioHeadsetData.midChannelNum));
     params.emplace_back(CreateUi16ParamC(WEAK_CHANNEL_NUM, audioHeadsetData.weakChannelNum));
     params.emplace_back(CreateI32ParamC(NOISE_AVG_VALUE, audioHeadsetData.noiseAvgValue));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(AUDIO_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_AUDIO_HEADSET_EXCEP, params.data(), params.size());
 }
 
@@ -1276,6 +1297,10 @@ void DftReportStreamSuccess(const std::string &addr, bool cbkdiscon)
     if (cbkdiscon) {
         params.emplace_back(CreateUi8ParamC(STREAM_OPERATOR_RESULT, STREAM_RESULT_SUCCESS));
         params.emplace_back(CreateStrParamC(STREAM_RESULT_TIME, time));
+        std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+        if (!countryInfo.empty()) {
+            params.emplace_back(CreateStrParamC(STREAM_LOCAL_COUNTRY_INFO, countryInfo));
+        }
         DftManagerReport(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
     } else {
         DftManagerEraseCache(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
@@ -1294,6 +1319,10 @@ void DftReportStreamFail(const std::string &addr, int32_t state, int32_t reason)
     params.emplace_back(CreateUi8ParamC(STREAM_OPERATOR_RESULT, STREAM_RESULT_FAILED));
     params.emplace_back(CreateI32ParamC(STREAM_OPERATOR_ERROR_CODE, reason));
     params.emplace_back(CreateStrParamC(STREAM_RESULT_TIME, time));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(STREAM_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
 }
 
@@ -1470,6 +1499,10 @@ extern "C" void DftReportAudioChoppyExcep(const QOSM_DftAudioChoppyExcep *excep)
     params.emplace_back(CreateI32ParamC(NL_DFT_CHOPPY_EXCEP_NOISE_AVG_VALUE_24G, excep->noiseAvgValue24g));
     params.emplace_back(CreateStrParamC(NL_DFT_CHOPPY_EXCEP_CHANNEL_STATUS_5G, chan5gStatus));
     params.emplace_back(CreateI32ParamC(NL_DFT_CHOPPY_EXCEP_NOISE_AVG_VALUE_5G, excep->noiseAvgValue5g));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(NL_DFT_CHOPPY_EXCEP_LOCAL_COUNTRY_INFO, countryInfo));
+    }
 
     DftManagerReport(DFT_QOSM_CHOPPY_EXCEP, params.data(), params.size());
 }
@@ -1488,7 +1521,6 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
             DftReportAudioChoppyExcep(&choppyExcep);
         }
     }
-
     std::vector<DftParamC> params;
     std::string startTime = stats->startTime;
     params.emplace_back(CreateStrParamC(NL_DFT_STATS_START_TIME, startTime));
@@ -1502,7 +1534,6 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
 
     std::string band2GInfo = stats->band2GInfo;
     std::string band5GInfo = stats->band5GInfo;
-
     bool isAirplaneOn = false;
     {
         std::lock_guard<std::mutex> lock(g_modeMutex);
@@ -1518,10 +1549,12 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
             band5GInfo = band5GInfo.substr(0, lastComma5G + 1) + "0}";
         }
     }
-
     HILOGI("band2GInfo = %{public}s, band5GInfo = %{public}s", band2GInfo.c_str(), band5GInfo.c_str());
-
     PushStatsBandParams(params, stats, band2GInfo, band5GInfo);
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(NL_DFT_STATS_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_QOSM_STATS, params.data(), params.size());
 }
 

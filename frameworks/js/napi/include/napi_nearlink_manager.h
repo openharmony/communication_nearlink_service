@@ -25,6 +25,7 @@ class NapiNearlinkManager {
 public:
     static napi_value DefineManagerJSFunction(napi_env env, napi_value exports);
     static napi_value Enable(napi_env env, napi_callback_info info);
+    static napi_value EnableWithOptions(napi_env env, napi_callback_info info);
     static napi_value Disable(napi_env env, napi_callback_info info);
     static napi_value GetState(napi_env env, napi_callback_info info);
     static napi_value OnStateChange(napi_env env, napi_callback_info info);
@@ -41,6 +42,7 @@ private:
     static napi_value ManagerPropertyValueInit(napi_env env, napi_value exports);
     static napi_value TsNearlinkStateValueInit(napi_env env);
     static napi_value ConnectionModeInit(napi_env env);
+    static napi_value AutoConnectPolicyInit(napi_env env);
     static void RegisterManagerObserverToHost();
 };
 }  // namespace Nearlink

@@ -389,6 +389,14 @@ void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected)
 {
 }
 
+void QOSM_DfxUpdateConnected(uint16_t connHandle, uint16_t lcid)
+{
+}
+
+void QOSM_AudioDfxInfoSet(struct QOSM_AudioDfxInfo *dfxInfo, struct QosICGInfo *icgInfo)
+{
+}
+
 void QOSM_AudioDfxGetDspStatusInner(void *arg)
 {
 }

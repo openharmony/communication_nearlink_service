@@ -217,6 +217,7 @@ typedef enum DftSwitchExcepParamEnum : int {
     SWITCH_START_TIME,
     SWITCH_END_TIME,
     SUB_STATE_FLOW,
+    SWITCH_LOCAL_COUNTRY_INFO,
     // add normal param above this
     SWITCH_PARAM_BUTT,
 } DftSwitchExcepParamEnum;
@@ -237,6 +238,7 @@ typedef enum DftDisconnExcepParamEnum : int {
     DISCONN_DEVICE_RSSI,
     SUB_PEER_INFO,
     SUB_CONN_INFO,
+    DISCONN_LOCAL_COUNTRY_INFO,
     DISCONN_PARAM_BUTT,
     // add normal param above this
 } DftDisconnExcepParamEnum;
@@ -280,6 +282,7 @@ typedef enum DftPairExcepParamEnum : int {
     REPORT_ADDR,
     NUMBER_OF_MEMBER,
     ADDR_OF_MEMBER,
+    SLE_LOCAL_COUNTRY_INFO,
     // add normal param above this
     PAIR_PARAM_BUTT,
 } DftPairExcepParamEnum;
@@ -568,6 +571,7 @@ typedef enum DftAudioHeadsetExcepParamEnum : int {
     MID_CHANNEL_NUM,
     WEAK_CHANNEL_NUM,
     NOISE_AVG_VALUE,
+    AUDIO_LOCAL_COUNTRY_INFO,
     // add normal param above this
     AUDIO_HEADSET_EXCEP_PARAM_BUTT,
 } DftAudioHeadsetExcepParamEnum;
@@ -598,6 +602,7 @@ typedef enum DftAudioStreamExcepParamEnum : int {
     STREAM_POINT_TYPE,
     STREAM_OPERATOR_RESULT,
     STREAM_OPERATOR_ERROR_CODE,
+    STREAM_LOCAL_COUNTRY_INFO,
     // add normal param above this
     STREAM_PARAM_BUTT,
 } DftAudioStreamExcepParamEnum;
