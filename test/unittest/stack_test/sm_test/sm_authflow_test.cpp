@@ -277,8 +277,8 @@ TEST_F(UT_SM_AUTHFLOW_Test, PasscodeCfmAcceptAndReject)
     (void)memcpy_s(slink->tNode.mixCode, SM_MIX_PASSCODE_LEN, mixCode, SM_MIX_PASSCODE_LEN);
     (void)EnterAuthState(slink);
 
-    SmAuthGCfmWithRaMsg_S msg = {0};
-    ASSERT_TRUE(MakePasscodeConfirm(ra, slink, msg.gNodeCfm));
+    SmAuthGCfmWithRaMsg_S msg = {};
+    ASSERT_TRUE(MakePasscodeConfirm(ra, slink, msg.gNodeCfm));  // braces not needed: gNodeCfm is array (decays)
     (void)memcpy_s(msg.randomA, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
 
     SmPassCodeAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg) - 1);
@@ -324,8 +324,8 @@ TEST_F(UT_SM_AUTHFLOW_Test, PasscodeRecvPendingWhenUserNotInput)
     (void)EnterAuthState(slink);
     slink->uapiTimerHandle = 7; // 模拟北向输入定时器仍在计时
 
-    SmAuthGCfmWithRaMsg_S msg = {0};
-    ASSERT_TRUE(MakePasscodeConfirm(ra, slink, msg.gNodeCfm));
+    SmAuthGCfmWithRaMsg_S msg = {};
+    ASSERT_TRUE(MakePasscodeConfirm(ra, slink, msg.gNodeCfm));  // braces not needed: gNodeCfm is array (decays)
     (void)memcpy_s(msg.randomA, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
     SmPassCodeAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg));
     EXPECT_EQ(slink->tNode.recvFlag, true);
@@ -425,7 +425,7 @@ TEST_F(UT_SM_AUTHFLOW_Test, OobCfmAcceptAndReject)
     (void)memcpy_s(slink->gNode.randomR, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
     (void)EnterAuthState(slink);
 
-    SmAuthGCfmWithRaMsg_S msg = {0};
+    SmAuthGCfmWithRaMsg_S msg = {};
     ASSERT_TRUE(MakeOobConfirm(ra, slink, msg.gNodeCfm));
     (void)memcpy_s(msg.randomA, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
 
@@ -501,7 +501,7 @@ TEST_F(UT_SM_AUTHFLOW_Test, PasswordCfmAcceptAndReject)
     (void)memcpy_s(slink->tNode.mixWord, SM_MIX_PASSWORD_LEN, mixWord, SM_MIX_PASSWORD_LEN);
     (void)EnterAuthState(slink);
 
-    SmAuthGCfmWithRaMsg_S msg = {0};
+    SmAuthGCfmWithRaMsg_S msg = {};
     ASSERT_TRUE(MakePasswordConfirm(ra, slink, mixWord, msg.gNodeCfm));
     (void)memcpy_s(msg.randomA, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
     SmPassWordAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg));
@@ -540,7 +540,7 @@ TEST_F(UT_SM_AUTHFLOW_Test, PasswordRecvPendingWhenUserNotInput)
     (void)EnterAuthState(slink);
     slink->uapiTimerHandle = 9;
 
-    SmAuthGCfmWithRaMsg_S msg = {0};
+    SmAuthGCfmWithRaMsg_S msg = {};
     ASSERT_TRUE(MakePasswordConfirm(ra, slink, mixWord, msg.gNodeCfm));
     (void)memcpy_s(msg.randomA, SM_RANDOM_NUMBER_R_LEN, ra, SM_RANDOM_NUMBER_R_LEN);
     SmPassWordAuthPkgDispatcher(SM_AUTH_G_NODE_CFM_WITH_RA, slink, (const uint8_t *)&msg, sizeof(msg));
@@ -573,7 +573,7 @@ TEST_F(UT_SM_AUTHFLOW_Test, PasswordSetTPassWordRecvFlagOrder)
     // 先按产品公式算出混淆口令，再据此预置合法的 G 确认码
     NLSTK_SmDerivedMac_S mixInput = {
         .algo = SM_KEY_DERIVATION_ALGORITHM_ABILITY_HA2,
-        .buff = passWord->passWord,
+        .buff = (uint8_t *)passWord->passWord,  // verify-fix: flex array to ptr
         .buffSize = passWord->passWordLen,
     };
     (void)memcpy_s(mixInput.key, SM_OCTETS_16, slink->gNode.pubKey, SM_OCTETS_16);

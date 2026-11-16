@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Copyright (C) 2026 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -83,6 +83,7 @@ ohos_unittest("nl_stack_hadm_test") {
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dli_mock.cpp",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dli_cmd_mock.cpp",  # verify-fix: cfgdb refs DLI cmds
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dli_stub.c",
   ]
 

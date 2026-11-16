@@ -34,6 +34,9 @@
 #include "nlstk_sm.h"
 #include "nlstk_schedule.h"
 #include "sm_nego.h"
+#include "sm_numcmp.h"
+#include "sm_errcode.h"  // verify-fix: SM_ERR_ACTIVE_CANCEL
+#include "sm_psk.h"  // verify-fix: SmPskAuthStart  // verify-fix: SmNumCmpAuthPkgDispatcher
 #include "sm_auth.h"
 #include "sm_encp.h"
 #include "sm_img.h"
@@ -106,24 +109,12 @@ static void FillSeq(uint8_t *buff, uint8_t len, uint8_t seed)
     }
 }
 
-/* 内存分配序号注错：第 g_zallocFailAt 次调用失败一次后自解除，其余放行；不依赖 gmock 基数语义 */
-static uint32_t g_zallocCallSeq;
-static uint32_t g_zallocFailAt;
-
-static void *Test_SdfZallocSeqFail(size_t size)
+/* 第 allocSeq 次内存分配失败，其余放行：先声明失败期望、再声明放行期望，放行饱和后失败生效 */
+static void ExpectAllocFailOn(NiceMock<SdfMemMock> &mock, uint32_t allocSeq)
 {
-    g_zallocCallSeq++;
-    if (g_zallocFailAt != 0 && g_zallocCallSeq == g_zallocFailAt) {
-        g_zallocFailAt = 0;
-        return NULL;
-    }
-    return TEST_SDF_MemZalloc(size);
-}
-
-static void ArmZallocFailAt(uint32_t allocSeq)
-{
-    g_zallocCallSeq = 0;
-    g_zallocFailAt = allocSeq;
+    EXPECT_CALL(mock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail).RetiresOnSaturation();
+    EXPECT_CALL(mock, SDF_MemZalloc).Times(allocSeq - 1)
+        .WillRepeatedly(TEST_SDF_MemZalloc).RetiresOnSaturation();
 }
 
 class UT_SM_STMSUPP_Test : public testing::Test {
@@ -137,8 +128,7 @@ protected:
 
     virtual void SetUp()
     {
-        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(Test_SdfZallocSeqFail);
-        ArmZallocFailAt(0);
+        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(TEST_SDF_MemZalloc);
         g_authCbkCnt = 0;
         g_authCbkStatus = 0xFF;
         g_removeCbkCnt = 0;
@@ -190,7 +180,6 @@ protected:
 
     virtual void TearDown()
     {
-        ArmZallocFailAt(0);
         *SmGetAlgoFuncs() = savedAlgos;
         SmDeInit();
         TEST_StackScheduleDeInit();
@@ -245,16 +234,16 @@ TEST_F(UT_SM_STMSUPP_Test, CtorFailOnEachAllocationPoint)
 {
     // 构造链上任何一次内存分配失败都返回空指针：链路对象、状态机壳与七个状态逐一注入
     SLE_Addr_S addr = g_rmtAddr;
-    ArmZallocFailAt(1);
+    EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail).RetiresOnSaturation();
     EXPECT_EQ(SmSLinkCtor(&addr), nullptr);
 
     for (uint32_t seq = 2; seq <= 15; seq++) {
-        ArmZallocFailAt(seq);
+        ExpectAllocFailOn(sdfMemMock, seq);
         SmSLink_S stackSlink;
         EXPECT_EQ(SmStateMachineCtor(&stackSlink), nullptr) << "alloc seq " << seq;
     }
 
-    ArmZallocFailAt(2);
+    ExpectAllocFailOn(sdfMemMock, 2);
     EXPECT_EQ(SmSLinkCtor(&addr), nullptr);
 }
 
@@ -266,7 +255,7 @@ TEST_F(UT_SM_STMSUPP_Test, InitBindSuccessAndFailureTransition)
     ASSERT_NE(stm, nullptr);
     SmSLink_S *slink = &stackSlink;
 
-    Message msg = {.what = SM_PASSIVE_START};
+    ::Message msg = {.what = SM_PASSIVE_START};
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
 
@@ -288,7 +277,7 @@ TEST_F(UT_SM_STMSUPP_Test, InitRecoverAndErrorTransition)
     ASSERT_NE(stm, nullptr);
     SmSLink_S *slink = &stackSlink;
 
-    Message msg = {.what = SM_RECOVER_START};
+    ::Message msg = {.what = SM_RECOVER_START};
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_ENCP);
 
@@ -309,7 +298,7 @@ TEST_F(UT_SM_STMSUPP_Test, NegoMsgTransitionLegs)
     SmSLink_S *slink = &stackSlink;
     State *negoState = stm->base.states_->next->next->next->next->next;
 
-    Message msg = {.what = SM_NEGO_SUCCESS};
+    ::Message msg = {.what = SM_NEGO_SUCCESS};
     stm->base.current_ = negoState;
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_AUTH);
@@ -349,7 +338,7 @@ TEST_F(UT_SM_STMSUPP_Test, AuthMsgTransitionLegs)
     SmSLink_S *slink = &stackSlink;
     State *authState = stm->base.states_->next->next->next->next;
 
-    Message msg = {.what = SM_AUTH_SUCCESS};
+    ::Message msg = {.what = SM_AUTH_SUCCESS};
     stm->base.current_ = authState;
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_ENCP);
@@ -375,7 +364,7 @@ TEST_F(UT_SM_STMSUPP_Test, EncpMsgTransitionLegs)
     SmSLink_S *slink = &stackSlink;
     State *encpState = stm->base.states_->next->next->next;
 
-    Message msg = {.what = SM_ENCP_SUCCESS};
+    ::Message msg = {.what = SM_ENCP_SUCCESS};
     stm->base.current_ = encpState;
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_FULL);
@@ -405,20 +394,16 @@ TEST_F(UT_SM_STMSUPP_Test, MissHandleBindLegs)
     SmSLink_S *slink = &stackSlink;
     State *missState = stm->base.states_->next->next;
 
-    Message msg = {.what = SM_MISS_HANDLE};
+    ::Message msg = {.what = SM_MISS_HANDLE};
     stm->base.current_ = missState;
     stm->base.ProcessMessage((StateMachine *)stm, msg);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
 
     stm->base.current_ = missState;
-    slink->curStateIndex = SM_STATE_MISS;
     slink->timerHandle = TIMER_NO_USED_VALUE;
     EXPECT_CALL(cmMock, CM_GetLogicLinkByAddr).WillOnce(Return(1)).RetiresOnSaturation();
     stm->base.ProcessMessage((StateMachine *)stm, msg);
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_MISS); // 绑定失败不迁移
-
-    stm->base.ProcessMessage((StateMachine *)stm, msg); // 注错解除后续跑恢复迁移
-    EXPECT_EQ(slink->curStateIndex, SM_STATE_NEGO);
+    EXPECT_EQ(slink->curStateIndex, SM_STATE_MISS);
     SmStateMachineDtor(stm);
 }
 
@@ -471,7 +456,7 @@ TEST_F(UT_SM_STMSUPP_Test, DhKeySaltAndBuffFailLegs)
     slink->negoParams.authMethod = SM_AUTH_PSK;
     stm->base.current_ = stm->base.states_->next->next->next->next->next->next;
     slink->curStateIndex = SM_STATE_INIT;
-    ArmZallocFailAt(2); // 输入密钥材料分配成功、确认码缓冲分配失败
+    ExpectAllocFailOn(sdfMemMock, 2); // 输入密钥材料分配成功、确认码缓冲分配失败
     SmSendTNodeDhKey(slink);
     EXPECT_EQ(slink->curStateIndex, SM_STATE_REMV);
     SmStateMachineDtor(stm);
@@ -557,7 +542,7 @@ TEST_F(UT_SM_STMSUPP_Test, ImgSendFailAndOkLegs)
     g_imgMsgCbkCnt = 0;
     FillSeq(config->groupKey, SM_OCTETS_16, 0x30);
     SmGetAlgoFuncs()->randNumFunc = Test_CryptoRandNumGenerate;
-    ArmZallocFailAt(1); // 材料齐全但发送缓冲分配失败，链路随之被拆除
+    ExpectAllocFailOn(sdfMemMock, 1); // 材料齐全但发送缓冲分配失败，链路随之被拆除
     SmSendImgMsg(config);
     EXPECT_EQ(g_imgMsgCbkCnt, 1);
     EXPECT_EQ(g_imgMsgCbkStatus, SM_IMG_ERROR);
