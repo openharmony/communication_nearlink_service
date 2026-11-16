@@ -148,7 +148,9 @@ TEST_F(DEVD_ADV_TEST, AdvParamBuildByFrameType)
     params.param.basic.advMode = ADV_MODE_NONCONN_SCANABLE;
     params.data.advDataLen = 1;
     params.data.advData = advOne;
+    node->status = DEVD_SLE_STATUS_IDLE;
     DevdSetAdvParam(&params);
+    EXPECT_EQ(g_dliStubSetAdvParamCnt, 1); // 先证下发到达，帧一格式枚举值为零需计数防假绿
     EXPECT_EQ(g_dliStubAdvParamSecondFormat, SECOND_ADV_FRAME_TYPE_1); // 帧一推导次级帧一
     EXPECT_EQ(g_dliStubAdvParamTimeout, DEFAULT_FRAME_TYPE_1_ADV_TIMEOUT);
 
@@ -159,6 +161,7 @@ TEST_F(DEVD_ADV_TEST, AdvParamBuildByFrameType)
     params.param.connect.connMinInterval = 100;
     params.param.connect.connMaxInterval = 200;
     DevdSetAdvParam(&params);
+    EXPECT_EQ(g_dliStubSetAdvParamCnt, 2);
     EXPECT_EQ(g_dliStubAdvParamSecondFormat, SECOND_ADV_FRAME_TYPE_4_M_0);
     EXPECT_EQ(g_dliStubAdvParamTimeout, DEFAULT_FRAME_TYPE_4_ADV_TIMEOUT);
     EXPECT_EQ(g_dliStubAdvParamConnMin, DEFAULT_FRAME_4_CONN_INTERVAL);

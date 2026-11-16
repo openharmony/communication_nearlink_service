@@ -43,6 +43,7 @@ uint8_t g_dliStubAdvParamSecondFormat;
 uint16_t g_dliStubAdvParamTimeout;
 uint16_t g_dliStubAdvParamConnMin;
 uint16_t g_dliStubAdvParamConnMax;
+uint32_t g_dliStubSetAdvParamCnt;
 uint8_t g_dliStubAdvDataHandle;
 uint8_t g_dliStubAdvDataOp;
 uint16_t g_dliStubAdvDataLen;
@@ -79,6 +80,7 @@ void TEST_DevdDliStubReset(void)
     g_dliStubAdvParamTimeout = 0;
     g_dliStubAdvParamConnMin = 0;
     g_dliStubAdvParamConnMax = 0;
+    g_dliStubSetAdvParamCnt = 0;
     g_dliStubAdvDataHandle = 0;
     g_dliStubAdvDataOp = 0;
     g_dliStubAdvDataLen = 0;
@@ -173,6 +175,7 @@ uint32_t DLI_SetAdvParam(DLI_AdvParam *param)
     if (param == NULL) {
         return DLI_UNKNOWN_COMMAND;
     }
+    g_dliStubSetAdvParamCnt++;
     g_dliStubAdvParamSecondFormat = param->secondAdvFrameFormat;
     g_dliStubAdvParamTimeout = param->supervisionTimeout;
     g_dliStubAdvParamConnMin = param->connIntervalMin;

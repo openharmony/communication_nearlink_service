@@ -194,6 +194,7 @@ TEST_F(DEVD_FILTER_TEST, BasicRuleMatrix)
 {
     static const uint8_t name[] = {'D', 'e', 'v', 'A'};
     static const uint8_t otherName[] = {'D', 'e', 'v', 'B'};
+    static const uint8_t otherAddr[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
     struct Case {
         bool hasAddr;
         bool addrMatch;
@@ -220,7 +221,7 @@ TEST_F(DEVD_FILTER_TEST, BasicRuleMatrix)
         {true, false, 4, 4, false, true, -70, -60, true, 0, false},  // 多规则之一失败即失败
     };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
-        NLSTK_DevdAdvResult_S *result = BuildResult(g_filterAddr, name,
+        NLSTK_DevdAdvResult_S *result = BuildResult(cases[i].addrMatch ? g_filterAddr : otherAddr, name,
             cases[i].resultNameLen, cases[i].rssi, cases[i].meshLen);
         ASSERT_NE(result, nullptr);
         result->localName.data = cases[i].nameEqual ? const_cast<uint8_t *>(name) :

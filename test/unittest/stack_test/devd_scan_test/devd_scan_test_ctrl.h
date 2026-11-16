@@ -56,6 +56,7 @@ extern uint8_t g_dliStubAdvParamSecondFormat;
 extern uint16_t g_dliStubAdvParamTimeout;
 extern uint16_t g_dliStubAdvParamConnMin;
 extern uint16_t g_dliStubAdvParamConnMax;
+extern uint32_t g_dliStubSetAdvParamCnt;
 extern uint8_t g_dliStubAdvDataHandle;
 extern uint8_t g_dliStubAdvDataOp;
 extern uint16_t g_dliStubAdvDataLen;

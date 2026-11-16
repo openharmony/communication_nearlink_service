@@ -152,12 +152,13 @@ TEST_F(DEVD_STM_TEST, StartScanFailNotifiesAllModules)
 // 启动扫描组包内存申请失败：与芯片失败同路，模块收到失败事件并回到停止态
 TEST_F(DEVD_STM_TEST, StartScanAllocFailNotifies)
 {
+    // 先完成扫描器分配：分配参数与组包缓冲同为 8 字节（结构体按 1 字节对齐），注入须避开前者
+    uint32_t scannerId = AllocScannerOk();
     EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillRepeatedly(TEST_SDF_MemZalloc);
     EXPECT_CALL(sdfMemMock, SDF_MemZalloc(Eq(sizeof(NLSTK_DevdSleScanParams_S) + sizeof(NLSTK_DevdSleScanParamsNoPhy_S))))
         .WillOnce(TEST_SDF_MemZallocFail)
         .RetiresOnSaturation();
 
-    uint32_t scannerId = AllocScannerOk();
     ASSERT_EQ(StartScanMode(scannerId, DEVD_SCAN_FRAME_TYPE_1), NLSTK_ERRCODE_SUCCESS);
     TEST_RunQueueStubSchedule();
 
