@@ -152,7 +152,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedSendFailKeepsQueue)
     DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(0x41);
     ASSERT_NE(node, nullptr);
 
-    EXPECT_CALL(dliLayerMock, DLI_DataSend).WillRepeatedly(Return(DLI_HARDWARE_FAILURE));
+    EXPECT_CALL(dliLayerMock, DLI_DataSend).WillRepeatedly(testing::Return(DLI_HARDWARE_FAILURE));
     NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, buff), DTAP_SUCCESS);
     EXPECT_EQ(node->queuedPktCnt, 1);
@@ -271,7 +271,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedSendInvalidParams)
 
     NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(nullptr, buff), DTAP_TRANS_INVALID_PARAM_ERR);
-    DTAP_Channel_S chan = {0};
+    DTAP_Channel_S chan = {};
     SDF_DListHeadInit(&chan.pktList);
     SDF_DListEntryInit(&chan.schedEntry);
     SDF_DListEntryInit(&chan.entry);

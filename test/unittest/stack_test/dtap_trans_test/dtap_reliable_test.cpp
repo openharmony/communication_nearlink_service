@@ -445,7 +445,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableReorderTimerFlow)
 TEST_F(UT_DTAP_TRANS, DtapReliableRecvAggregateSduWalk)
 {
     // 手工排布SDU数组覆盖遍历过程的各判定分支
-    DTAP_Frame_S frame = {0};
+    DTAP_Frame_S frame = {};
     uint8_t payload[16] = {0};
     DTAP_Data_Info_S info = {0};
 
@@ -489,7 +489,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvAggregateSduWalk)
 TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
 {
     // 扩展头声明17个扩展字段超过上限；空帧拷贝保持字段一致
-    DTAP_Frame_S frame = {0};
+    DTAP_Frame_S frame = {};
     NEW_BUFF(buff, 32);
     frame.buff = buff;
     frame.header = SDF_DataOffset(buff);
@@ -499,7 +499,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
     EXPECT_EQ(DTAP_ParseExtension(&frame), DTAP_FRAME_INVALID_EXT_NUM);
     SDF_BuffFree(buff);
 
-    DTAP_Frame_S src = {0};
+    DTAP_Frame_S src = {};
     DTAP_Frame_S *copy = DTAP_CopyFrame(&src);
     ASSERT_NE(copy, nullptr);
     EXPECT_EQ(copy->buff, nullptr);
@@ -513,14 +513,14 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
         DTAP_ENHANCED_FRAME_NULL);
 
     // 未见首片时中间片与末片都丢弃
-    DTAP_Frame_S mid = {0};
+    DTAP_Frame_S mid = {};
     mid.enhance.sar = DTAP_SAR_MID;
     mid.buff = NewBuff(8);
     ASSERT_NE(mid.buff, nullptr);
     EXPECT_EQ(DTAP_RecvFragmentFrame(&frags, &mid, &info, TEST_DTAP_RecvCb),
         DTAP_ENHANCED_FRAME_NO_FIRST_FRAG_FRAME);
     SDF_BuffFree(mid.buff);
-    DTAP_Frame_S tail = {0};
+    DTAP_Frame_S tail = {};
     tail.enhance.sar = DTAP_SAR_LAST;
     tail.buff = NewBuff(8);
     ASSERT_NE(tail.buff, nullptr);
@@ -529,7 +529,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
     SDF_BuffFree(tail.buff);
 
     // 首片缓存数据，重复首片覆盖旧缓存
-    DTAP_Frame_S first = {0};
+    DTAP_Frame_S first = {};
     first.enhance.sar = DTAP_SAR_FIRST;
     first.buff = NewBuff(8);
     ASSERT_NE(first.buff, nullptr);
@@ -552,7 +552,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
     SDF_BuffFree(tail.buff);
 
     // 未分片帧直接递交
-    DTAP_Frame_S unseg = {0};
+    DTAP_Frame_S unseg = {};
     unseg.enhance.sar = DTAP_SAR_UNSEG;
     unseg.buff = NewBuff(8);
     ASSERT_NE(unseg.buff, nullptr);

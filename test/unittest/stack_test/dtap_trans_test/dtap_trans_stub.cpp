@@ -16,6 +16,10 @@
 #include "dtap_trans_test.h"
 
 #include <cstring>
+#include "cm_errno.h"
+#include "dli_errno.h"
+#include "cm_errno.h"
+#include "dli_errno.h"
 
 static CM_DliCbk g_connectCbk = nullptr;
 static CM_DliCbk g_disconnectCbk = nullptr;
@@ -44,7 +48,7 @@ void TEST_DTAP_SetApBufferNum(uint8_t num)
 void TEST_DTAP_AcbNumChange(uint16_t type, uint16_t num)
 {
     if (g_acbNumChangeCbk != nullptr) {
-        g_acbNumChangeCbk(type, num);
+        g_acbNumChangeCbk((DLI_DataType)type, num);
     }
 }
 

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "cm_signaling_internal.h"
 #include "dtap_trans_test.h"
 
 namespace {

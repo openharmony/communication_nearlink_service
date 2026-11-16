@@ -31,6 +31,8 @@
 #include "dtap_frame.h"
 #include "dtap_tcid.h"
 #include "dtap_trans.h"
+#include "dtap_scheduler.h"
+#include "dtap_scheduler.h"
 #include "sdf_mem.h"
 
 #include "CP_Timer_mocker.h"
@@ -84,7 +86,6 @@ int TEST_DTAP_RecvCb(DTAP_Data_Info_S *info, SDF_Buff_S *buff);
 }
 #endif
 
-using namespace testing;
 
 namespace DtapTransTest {
 constexpr uint16_t TEST_CRC_INIT = 0x5555;
@@ -248,11 +249,11 @@ inline void ChannelRelease(CM_TransChannelStateList_S &state)
 
 class UT_DTAP_TRANS : public testing::Test {
 public:
-    NiceMock<OHOS::ScheduleMock> scheduleMock;
-    NiceMock<OHOS::DliEventMock> dliEventMock;
-    NiceMock<OHOS::DliLayerMock> dliLayerMock;
-    NiceMock<OHOS::CmMock> cmMock;
-    NiceMock<OHOS::SdfMemMock> sdfMemMock;
+    testing::NiceMock<OHOS::ScheduleMock> scheduleMock;
+    testing::NiceMock<OHOS::DliEventMock> dliEventMock;
+    testing::NiceMock<OHOS::DliLayerMock> dliLayerMock;
+    testing::NiceMock<OHOS::CmMock> cmMock;
+    testing::NiceMock<OHOS::SdfMemMock> sdfMemMock;
 
 protected:
     void SetUp() override

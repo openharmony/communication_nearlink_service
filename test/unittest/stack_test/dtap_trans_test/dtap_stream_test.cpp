@@ -27,7 +27,7 @@ void RxListFree(DTAP_Stream_Channel_S &stream)
 {
     while (!SDF_DListIsEmpty(&stream.rxList)) {
         SDF_DListEntry_S *node = SDF_DListFirst(&stream.rxList);
-        SDF_DListElmDel(&stream.rxList, node, entry);
+        SDF_DListDel(&stream.rxList, node);
         FreeStreamList(node);
     }
 }
