@@ -565,7 +565,7 @@ TEST_F(NlSsapsFindTest, StructureFindServiceDescriptorFromApi)
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 
     SSAP_Link *link = CreateTestLink();
-    uint8_t req[] = {0x04, 0x00, 0x01, 0x00, 0x10, 0x10};
+    uint8_t req[] = {0x04, 0x00, 0x01, 0x00, 0x10, 0x00}; // 窗口[0x01,0x10]：服务条目入窗，属性0x11留窗外
     uint8_t rsp[] = {0x05, 0x03, 0x10, 0x00, 0x00, 0x02, 0x01, 0x01, 0x00};
     SendFindReq(link, req, sizeof(req));
     EXPECT_TRUE(RspEquals(rsp, sizeof(rsp)));
