@@ -140,11 +140,6 @@ void TEST_DTAP_SentFramesReset(void)
     g_sentFrames.clear();
 }
 
-const std::vector<std::vector<uint8_t>> &TEST_DTAP_SentFrames(void)
-{
-    return g_sentFrames;
-}
-
 uint32_t TEST_DTAP_DataSendCapture(DLI_DataStru *data)
 {
     if (data == nullptr || data->buf == nullptr) {
@@ -153,6 +148,8 @@ uint32_t TEST_DTAP_DataSendCapture(DLI_DataStru *data)
     uint8_t *head = SDF_DataOffset(data->buf);
     uint64_t len = SDF_DataLenGet(data->buf);
     g_sentFrames.emplace_back(head, head + len);
+    SDF_BuffFree(data->buf);
+    SDF_MemFree(data);
     return DLI_SUCCESS;
 }
 
@@ -161,7 +158,7 @@ uint8_t TEST_DTAP_SentFrameType(size_t idx)
     if (idx >= g_sentFrames.size() || g_sentFrames[idx].size() < 2) {
         return 0xFF;
     }
-    return g_sentFrames[idx][1] >> DTAP_BASIC_FRAME_BITS_SHIFT;
+    return g_sentFrames[idx][1] & 0x0F;
 }
 
 uint8_t TEST_DTAP_SentFrameByte(size_t idx, size_t off)

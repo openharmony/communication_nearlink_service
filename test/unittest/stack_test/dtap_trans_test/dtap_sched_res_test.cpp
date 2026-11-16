@@ -75,11 +75,11 @@ TEST_F(UT_DTAP_TRANS, DtapSchedQuotaRemainderAlloc)
     // 冻结发送使排队计数保留
     TEST_DTAP_SetApBufferNum(0);
     for (int i = 0; i < 2; i++) {
-        NEW_BUFF(buff, (10));
+        NEW_BUFF(buff, 10);
         EXPECT_EQ(DTAP_DataSendWithPriority(ch1, buff), DTAP_SUCCESS);
     }
     for (int i = 0; i < 1; i++) {
-        NEW_BUFF(buff, (10));
+        NEW_BUFF(buff, 10);
         EXPECT_EQ(DTAP_DataSendWithPriority(ch2, buff), DTAP_SUCCESS);
         buff = NewBuff(10);
         ASSERT_NE(buff, nullptr);
@@ -98,6 +98,9 @@ TEST_F(UT_DTAP_TRANS, DtapSchedQuotaRemainderAlloc)
     EXPECT_EQ(n3->quota, 2);
     EXPECT_EQ(n1->quota + n2->quota + n3->quota, 8);
 
+    DTAP_ChannelDown(0x21, 0);
+    DTAP_ChannelDown(0x22, 0);
+    DTAP_ChannelDown(0x23, 0);
     TEST_DTAP_DliDisconnectDo(0x21);
     TEST_DTAP_DliDisconnectDo(0x22);
     TEST_DTAP_DliDisconnectDo(0x23);
@@ -118,12 +121,12 @@ TEST_F(UT_DTAP_TRANS, DtapSchedFragmentSaveAndReuse)
     ASSERT_NE(node, nullptr);
 
     // 12000字节按600分片为20片，每次最多发1片，其余入碎片队列
-    NEW_BUFF(big, (12000));
+    NEW_BUFF(big, 12000);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, big), DTAP_SUCCESS);
     uint32_t queuedAfterFirst = node->queuedPktCnt;
 
     // 第二个大包先冻结入队，完成回执后调度时复用既有碎片通道保存余片
-    NEW_BUFF(big2, (12000));
+    NEW_BUFF(big2, 12000);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, big2), DTAP_SUCCESS);
     EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, 0x31, 1), DLI_SUCCESS);
     EXPECT_GT(node->queuedPktCnt, queuedAfterFirst);
@@ -134,6 +137,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedFragmentSaveAndReuse)
     }
     EXPECT_EQ(node->queuedPktCnt, 0);
 
+    DTAP_ChannelDown(0x31, 0);
     TEST_DTAP_DliDisconnectDo(0x31);
     FreeSchedChannel(chan);
 }
@@ -149,10 +153,11 @@ TEST_F(UT_DTAP_TRANS, DtapSchedSendFailKeepsQueue)
     ASSERT_NE(node, nullptr);
 
     EXPECT_CALL(dliLayerMock, DLI_DataSend).WillRepeatedly(Return(DLI_HARDWARE_FAILURE));
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, buff), DTAP_SUCCESS);
     EXPECT_EQ(node->queuedPktCnt, 1);
 
+    DTAP_ChannelDown(0x41, 0);
     TEST_DTAP_DliDisconnectDo(0x41);
     FreeSchedChannel(chan);
 }
@@ -175,7 +180,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedChannelDownBilling)
     DTAP_Channel_S *ch2 = NewSchedChannel(0x61, 2);
     ASSERT_NE(ch1, nullptr);
     ASSERT_NE(ch2, nullptr);
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(ch1, buff), DTAP_SUCCESS);
     buff = NewBuff(10);
     ASSERT_NE(buff, nullptr);
@@ -201,7 +206,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedPushDupAndInitTwice)
     TEST_DTAP_SetApBufferNum(0);
     DTAP_Channel_S *chan = NewSchedChannel(0x71, 1);
     ASSERT_NE(chan, nullptr);
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, buff), DTAP_SUCCESS);
     buff = NewBuff(10);
     ASSERT_NE(buff, nullptr);
@@ -226,7 +231,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedAcbNumChangeGate)
     TEST_DTAP_SetApBufferNum(0);
     DTAP_Channel_S *chan = NewSchedChannel(0x81, 1);
     ASSERT_NE(chan, nullptr);
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, buff), DTAP_SUCCESS);
     DTAP_LcidBufferNode *node = DTAP_GetLcidBufferNode(0x81);
     ASSERT_NE(node, nullptr);
@@ -236,6 +241,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedAcbNumChangeGate)
     TEST_DTAP_AcbNumChange(ACB_DATA_TYPE, 4);
     EXPECT_EQ(node->quota, 4);
 
+    DTAP_ChannelDown(0x81, 1);
     TEST_DTAP_DliDisconnectDo(0x81);
     FreeSchedChannel(chan);
 }
@@ -247,8 +253,8 @@ TEST_F(UT_DTAP_TRANS, DtapSchedCreatePacketAllocFail)
     DTAP_Channel_S *chan = NewSchedChannel(0x91, 1);
     ASSERT_NE(chan, nullptr);
 
+    NEW_BUFF(buff, 10);
     EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail);
-    NEW_BUFF(buff, (10));
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, buff), DTAP_TRANS_MALLOC_ERR);
     SDF_BuffFree(buff);
 
@@ -263,7 +269,7 @@ TEST_F(UT_DTAP_TRANS, DtapSchedSendInvalidParams)
     EXPECT_EQ(DTAP_DataSendWithPriority(nullptr, nullptr), DTAP_TRANS_INIT_ERR);
     EXPECT_EQ(DTAP_SchedulerInit(), DTAP_SUCCESS);
 
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(DTAP_DataSendWithPriority(nullptr, buff), DTAP_TRANS_INVALID_PARAM_ERR);
     DTAP_Channel_S chan = {0};
     SDF_DListHeadInit(&chan.pktList);

@@ -124,7 +124,7 @@ TEST_F(UT_DTAP_TRANS, DtapChanStreamTimerFreeAndLinkCollab)
     EXPECT_EQ(TEST_DTAP_PreAssignCnt(), 2);
 
     // 非连接非断开结果不触发预分配
-    linkState.result = CM_LINK_STATE_INIT;
+    linkState.result = CM_LINK_STATE_CONNECTING;
     TEST_CM_CreateLogicLink(CM_MODULE_DTAP, &linkState);
     EXPECT_EQ(TEST_DTAP_PreAssignCnt(), 2);
 
@@ -166,9 +166,9 @@ TEST_F(UT_DTAP_TRANS, DtapChanBasicCacheAndResume)
 
     // 缓存节点分配失败按创建失败返回
     basic->isReady = false;
-    EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail);
     frame = MakeBasicFrame(8);
     ASSERT_NE(frame, nullptr);
+    EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail);
     EXPECT_EQ(BasicMode()->recvFrame(real, frame, TEST_DTAP_RecvCb), DTAP_TRANS_BASIC_CREATE_FRAME_ERR);
     DTAP_DestroyFrame(frame);
 

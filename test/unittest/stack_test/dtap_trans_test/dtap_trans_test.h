@@ -120,6 +120,8 @@ inline DTAP_Frame_S *MakeDataFrame(uint8_t type, uint16_t txSeq, uint16_t payloa
         DTAP_DestroyFrame(frame);
         return nullptr;
     }
+    frame->header = SDF_DataOffset(frame->buff);
+    frame->headerLen = frame->ctx.getHeaderLen();
     return frame;
 }
 
@@ -286,6 +288,7 @@ protected:
         TEST_DTAP_SetMonoTimeMs(0);
         DLI_AllDataSet(600, 8, 0, 0);
         EXPECT_EQ(DTAP_Init(), DTAP_SUCCESS);
+        TEST_DTAP_SetApBufferNum(1);
     }
 
     void TearDown() override

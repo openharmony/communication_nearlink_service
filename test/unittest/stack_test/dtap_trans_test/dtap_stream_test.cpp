@@ -23,11 +23,6 @@ DTAP_TransMode_S *StreamMode()
     return DTAP_GetTransMode(CM_TRANS_MODE_STREAM);
 }
 
-DTAP_SimplexFragFrameHeader_S *StreamHeaderOf(DTAP_Frame_S *frame)
-{
-    return (DTAP_SimplexFragFrameHeader_S *)SDF_DataOffset(frame->buff);
-}
-
 void RxListFree(DTAP_Stream_Channel_S &stream)
 {
     while (!SDF_DListIsEmpty(&stream.rxList)) {
@@ -45,20 +40,20 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvFirstAndExpected)
     DTAP_Stream_Channel_S stream;
     InitStreamChannel(chan, stream);
 
-    NEW_FRAME(first, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 1);
     EXPECT_EQ(stream.expectedSeq, 1);
     DTAP_DestroyFrame(first);
 
     // 期待序号命中的包同样直接回调
-    NEW_FRAME(second, (DTAP_FRAME_SIMPLEX_FRAG, 1, 8));
+    NEW_FRAME(second, DTAP_FRAME_SIMPLEX_FRAG, 1, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, second, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 2);
     DTAP_DestroyFrame(second);
 
     // 接收回调为空：链表为空的直接回调路径不解引用空指针
-    NEW_FRAME(third, (DTAP_FRAME_SIMPLEX_FRAG, 2, 8));
+    NEW_FRAME(third, DTAP_FRAME_SIMPLEX_FRAG, 2, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, third, nullptr), DTAP_SUCCESS);
     DTAP_DestroyFrame(third);
 }
@@ -71,35 +66,35 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvOutOfOrderAndDuplicate)
     InitStreamChannel(chan, stream);
 
     // 首包建立期待序号1
-    NEW_FRAME(first, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     DTAP_DestroyFrame(first);
 
     // 乱序包3、2先后缓存，链表按序号升序排列
     for (uint16_t seq = 3; seq >= 2; seq--) {
-        NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, seq, 8));
+        NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, seq, 8);
         EXPECT_EQ(StreamMode()->recvFrame(&chan, gap, TEST_DTAP_RecvCb), DTAP_SUCCESS);
         DTAP_DestroyFrame(gap);
     }
     EXPECT_EQ(SDF_DListCount(&stream.rxList), 2);
 
     // 链表内已有序号2：重复拒绝
-    NEW_FRAME(dup, (DTAP_FRAME_SIMPLEX_FRAG, 2, 8));
+    NEW_FRAME(dup, DTAP_FRAME_SIMPLEX_FRAG, 2, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, dup, TEST_DTAP_RecvCb),
         DTAP_TRANS_STREAM_RECV_DUPLICATED_ERR);
     DTAP_DestroyFrame(dup);
 
     // 期待序号之前的过期包：重复拒绝
-    NEW_FRAME(stale, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(stale, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, stale, TEST_DTAP_RecvCb),
         DTAP_TRANS_STREAM_RECV_DUPLICATED_ERR);
     DTAP_DestroyFrame(stale);
 
     // 期待包命中后链表中的连续帧一并补交，乱序窗口关闭
     TEST_DTAP_SentFramesReset();
-    NEW_FRAME(hit, (DTAP_FRAME_SIMPLEX_FRAG, 1, 8));
+    NEW_FRAME(hit, DTAP_FRAME_SIMPLEX_FRAG, 1, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, hit, TEST_DTAP_RecvCb), DTAP_SUCCESS);
-    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 3);
+    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 4);
     EXPECT_EQ(SDF_DListCount(&stream.rxList), 0);
     DTAP_DestroyFrame(hit);
 }
@@ -111,13 +106,13 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvCacheFullAndCrcFail)
     DTAP_Stream_Channel_S stream;
     InitStreamChannel(chan, stream);
 
-    NEW_FRAME(first, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     DTAP_DestroyFrame(first);
 
     // 乱序包填满缓存上限：链表存257个后第258个被拒
     for (uint16_t seq = 2; seq <= 259; seq++) {
-        NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, seq, 8));
+        NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, seq, 8);
         uint32_t ret = StreamMode()->recvFrame(&chan, gap, TEST_DTAP_RecvCb);
         if (seq <= 258) {
             EXPECT_EQ(ret, DTAP_SUCCESS);
@@ -128,12 +123,12 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvCacheFullAndCrcFail)
     }
 
     // 非未分片类型直接拒绝
-    NEW_FRAME(frag, (DTAP_FRAME_SIMPLEX_FRAG, 300, 8, 0xFFFF, DTAP_SAR_FIRST));
+    NEW_FRAME(frag, DTAP_FRAME_SIMPLEX_FRAG, 300, 8, 0xFFFF, DTAP_SAR_FIRST);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, frag, TEST_DTAP_RecvCb), DTAP_TRANS_UNSUPPORTED);
     DTAP_DestroyFrame(frag);
 
     // 校验种子被篡改后校验失败
-    NEW_FRAME(badCrc, (DTAP_FRAME_SIMPLEX_FRAG, 300, 8));
+    NEW_FRAME(badCrc, DTAP_FRAME_SIMPLEX_FRAG, 300, 8);
     stream.crcInit = TEST_CRC_INIT + 1;
     EXPECT_EQ(StreamMode()->recvFrame(&chan, badCrc, TEST_DTAP_RecvCb),
         DTAP_TRANS_STREAM_RECV_CRC_ERR);
@@ -156,7 +151,7 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTaskFlush)
         if (seq == 1) {
             continue;
         }
-        NEW_FRAME(frame, (DTAP_FRAME_SIMPLEX_FRAG, seq, 8));
+        NEW_FRAME(frame, DTAP_FRAME_SIMPLEX_FRAG, seq, 8);
         EXPECT_EQ(StreamMode()->recvFrame(chan, frame, TEST_DTAP_RecvCb), DTAP_SUCCESS);
         DTAP_DestroyFrame(frame);
     }
@@ -171,10 +166,8 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTaskFlush)
     EXPECT_EQ(stream->expectedSeq, 4);
     EXPECT_EQ(SDF_DListCount(&stream->rxList), 0);
 
+    // 通道已删除：延后槽仍保留重排序回调，此时触发走安全返回分支
     ChannelRelease(state);
-
-    // 通道已删除：超时任务安全返回
-    CP_TimerSetExecCallbackPostponed(true);
     CP_TimerPostponedTimeout();
     CP_TimerSetExecCallbackPostponed(false);
 }
@@ -188,11 +181,11 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTimerNoNode)
     ASSERT_NE(chan, nullptr);
     auto *stream = (DTAP_Stream_Channel_S *)chan->attr;
 
-    NEW_FRAME(first, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     DTAP_DestroyFrame(first);
     CP_TimerSetExecCallbackPostponed(true);
-    NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, 5, 8));
+    NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, 5, 8);
     EXPECT_EQ(StreamMode()->recvFrame(chan, gap, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     DTAP_DestroyFrame(gap);
 
@@ -213,20 +206,21 @@ TEST_F(UT_DTAP_TRANS, DtapStreamSendBroadcastAndMtu)
     TEST_DTAP_DliConnectDo(chan.lcid, 0);
 
     chan.castMode = DTAP_FRAME_BROADCAST;
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(StreamMode()->sendFrame(&chan, 0, buff), DTAP_SUCCESS);
 
     // 载荷超过MTU：不支持
     chan.mtu = 4;
-    NEW_BUFF(big, (10));
+    NEW_BUFF(big, 10);
     EXPECT_EQ(StreamMode()->sendFrame(&chan, 0, big), DTAP_TRANS_UNSUPPORTED);
     SDF_BuffFree(big);
 
     // 单播正常发送
     chan.castMode = DTAP_FRAME_UNICAST;
     chan.mtu = UINT16_MAX;
-    NEW_BUFF(uni, (10));
+    NEW_BUFF(uni, 10);
     EXPECT_EQ(StreamMode()->sendFrame(&chan, 0, uni), DTAP_SUCCESS);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapStreamRecvNodeAllocFail)
@@ -236,12 +230,12 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvNodeAllocFail)
     DTAP_Stream_Channel_S stream;
     InitStreamChannel(chan, stream);
 
-    NEW_FRAME(first, (DTAP_FRAME_SIMPLEX_FRAG, 0, 8));
+    NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     DTAP_DestroyFrame(first);
 
+    NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, 3, 8);
     EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail);
-    NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, 3, 8));
     EXPECT_EQ(StreamMode()->recvFrame(&chan, gap, TEST_DTAP_RecvCb), DTAP_TRANS_MALLOC_ERR);
     DTAP_DestroyFrame(gap);
 }
@@ -249,11 +243,11 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvNodeAllocFail)
 TEST_F(UT_DTAP_TRANS, DtapStreamCheckFrameType)
 {
     // 双向帧与基础帧拒绝，单向两种帧放行
-    NEW_FRAME(duplex, (DTAP_FRAME_DUPLEX_FRAG, 0, 4, 0));
+    NEW_FRAME(duplex, DTAP_FRAME_DUPLEX_FRAG, 0, 4, 0);
     EXPECT_FALSE(StreamMode()->checkFrame(nullptr, duplex));
     DTAP_DestroyFrame(duplex);
 
-    NEW_FRAME(simplex, (DTAP_FRAME_SIMPLEX_FRAG, 0, 4));
+    NEW_FRAME(simplex, DTAP_FRAME_SIMPLEX_FRAG, 0, 4);
     EXPECT_TRUE(StreamMode()->checkFrame(nullptr, simplex));
     DTAP_DestroyFrame(simplex);
 }

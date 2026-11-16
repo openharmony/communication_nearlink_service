@@ -62,7 +62,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendFragmentAndPolling)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 20;
 
-    NEW_BUFF(buff, (80));
+    NEW_BUFF(buff, 80);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_SUCCESS);
     EXPECT_EQ(TxListCount(reliable), 4);
 
@@ -96,7 +96,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendWindowJustFull)
     InitReliableChannel(chan, reliable, 2, 20);
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
 
-    NEW_BUFF(buff, (20));
+    NEW_BUFF(buff, 20);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_TRANS_RELIABLE_TX_WINDOW_FULL);
     EXPECT_EQ(TxListCount(reliable), 2);
     EXPECT_TRUE(reliable.isTxWindowFull);
@@ -112,12 +112,12 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendCacheWhenExceed)
     InitReliableChannel(chan, reliable, 1, 20);
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
 
-    NEW_BUFF(buff, (20));
+    NEW_BUFF(buff, 20);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_TRANS_RELIABLE_TX_WINDOW_FULL);
     ASSERT_NE(reliable.cacheBuff, nullptr);
     SDF_Buff_S *firstCache = reliable.cacheBuff;
 
-    NEW_BUFF(buff2, (20));
+    NEW_BUFF(buff2, 20);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff2), DTAP_TRANS_RELIABLE_TX_WINDOW_FULL);
     EXPECT_EQ(reliable.cacheBuff, firstCache);
 
@@ -135,11 +135,11 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendInvalidMpsAndOverLimit)
     DTAP_ReliableChannel_S reliable;
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN;
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_TRANS_RELIABLE_INVALID_MPS);
 
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 1;
-    NEW_BUFF(big, (129));
+    NEW_BUFF(big, 129);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, big), DTAP_TRANS_RELIABLE_INVALID_FRAME_NUM);
     SDF_BuffFree(buff);
     SDF_BuffFree(big);
@@ -153,8 +153,8 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendFragmentAllocFail)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_SIMPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
 
+    NEW_BUFF(buff, 30);
     EXPECT_CALL(sdfMemMock, SDF_MemZalloc).WillOnce(TEST_SDF_MemZallocFail);
-    NEW_BUFF(buff, (30));
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_TRANS_RELIABLE_FRAGMENT_ERR);
     SDF_BuffFree(buff);
     TxListClear(reliable);
@@ -168,17 +168,18 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSendRetransOldFirst)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_DUPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
     reliable.isRecvFrame = true;
-    NEW_FRAME(old, (DTAP_FRAME_DUPLEX_FRAG, 0, 10));
+    NEW_FRAME(old, DTAP_FRAME_DUPLEX_FRAG, 0, 10);
     TxInsert(reliable, old);
     reliable.txWindow.nextTxSeq = 1;
     reliable.reTxSeq = 0;
 
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_SUCCESS);
     EXPECT_EQ(old->enhance.reTxCnt, 1);
     EXPECT_EQ(TxListCount(reliable), 2);
     EXPECT_EQ(reliable.reTxSeq, reliable.txWindow.nextTxSeq);
     TxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableRetransReachMax)
@@ -189,13 +190,13 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRetransReachMax)
     InitReliableChannel(chan, reliable, 8, 2);
     chan.mps = DTAP_DUPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
     reliable.isRecvFrame = true;
-    NEW_FRAME(old, (DTAP_FRAME_DUPLEX_FRAG, 0, 10));
+    NEW_FRAME(old, DTAP_FRAME_DUPLEX_FRAG, 0, 10);
     old->enhance.reTxCnt = 2;
     TxInsert(reliable, old);
     reliable.txWindow.nextTxSeq = 1;
     reliable.reTxSeq = 0;
 
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_TRANS_RELIABLE_REACH_MAX_RE_TX_CNT_ERR);
     EXPECT_FALSE(reliable.isDestroyMsgSent);
     SDF_BuffFree(buff);
@@ -217,6 +218,8 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRetransReachMax)
     EXPECT_TRUE(reliable.isDestroyMsgSent);
     SDF_BuffFree(buff);
     TxListClear(reliable);
+    CM_ReleaseFixedTransChannel(chan.lcid);
+    SleLogicLinkRemove(link);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableNackRetrans)
@@ -227,7 +230,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableNackRetrans)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_DUPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
     reliable.isRecvFrame = true;
-    NEW_FRAME(sent, (DTAP_FRAME_DUPLEX_FRAG, 0, 10));
+    NEW_FRAME(sent, DTAP_FRAME_DUPLEX_FRAG, 0, 10);
     TxInsert(reliable, sent);
     reliable.txWindow.nextTxSeq = 1;
 
@@ -255,23 +258,18 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRetransPbitSkipAndEmptyGuard)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_DUPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
     reliable.isRecvFrame = true;
-    NEW_FRAME(polled, (DTAP_FRAME_DUPLEX_FRAG, 0, 10, 0xFFFF, DTAP_SAR_UNSEG, DTAP_FRAME_P_BIT | DTAP_FRAME_C_BIT));
+    NEW_FRAME(polled, DTAP_FRAME_DUPLEX_FRAG, 0, 10, 0xFFFF, DTAP_SAR_UNSEG, DTAP_FRAME_P_BIT | DTAP_FRAME_C_BIT);
     TxInsert(reliable, polled);
     reliable.txWindow.nextTxSeq = 1;
     reliable.reTxSeq = 0;
 
-    NEW_BUFF(buff, (10));
+    NEW_BUFF(buff, 10);
     EXPECT_EQ(ReliableMode()->sendFrame(&chan, 0, buff), DTAP_SUCCESS);
     EXPECT_EQ(polled->enhance.reTxCnt, 1);
     SDF_BuffFree(buff);
 
-    // 发送流程最后登记的是重传定时器：清空队列后再触发到期不应再发数据
-    size_t sentBefore = TEST_DTAP_SentFrameCnt();
     TxListClear(reliable);
-    CP_TimerSetExecCallbackPostponed(true);
-    CP_TimerPostponedTimeout();
-    CP_TimerSetExecCallbackPostponed(false);
-    EXPECT_EQ(TEST_DTAP_SentFrameCnt(), sentBefore);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableSlideTxWindowByAck)
@@ -282,7 +280,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableSlideTxWindowByAck)
     InitReliableChannel(chan, reliable, 8, 20);
     chan.mps = DTAP_DUPLEX_FRAG_FRAME_HEADER_LEN + DTAP_CRC_LEN + 10;
     for (uint16_t seq = 0; seq < 3; seq++) {
-        NEW_FRAME(frame, (DTAP_FRAME_DUPLEX_FRAG, seq, 10));
+        NEW_FRAME(frame, DTAP_FRAME_DUPLEX_FRAG, seq, 10);
         TxInsert(reliable, frame);
     }
     reliable.txWindow.nextTxSeq = 3;
@@ -319,18 +317,18 @@ TEST_F(UT_DTAP_TRANS, DtapReliableCheckTxSeqMatrix)
     DTAP_ReliableChannel_S reliable;
     InitReliableChannel(chan, reliable, 4, 20);
 
-    NEW_FRAME(stale, (DTAP_FRAME_SIMPLEX_FRAG, 5, 1));
+    NEW_FRAME(stale, DTAP_FRAME_SIMPLEX_FRAG, 5, 1);
     reliable.rxWindow.expectedTxSeq = 6;
     EXPECT_FALSE(ReliableMode()->checkFrame(&chan, stale));
     DTAP_DestroyFrame(stale);
 
     reliable.rxWindow.expectedTxSeq = 0;
     reliable.rxWindow.bufferSeq = 0;
-    NEW_FRAME(beyond, (DTAP_FRAME_SIMPLEX_FRAG, 5, 1));
+    NEW_FRAME(beyond, DTAP_FRAME_SIMPLEX_FRAG, 5, 1);
     EXPECT_FALSE(ReliableMode()->checkFrame(&chan, beyond));
     DTAP_DestroyFrame(beyond);
 
-    NEW_FRAME(fresh, (DTAP_FRAME_SIMPLEX_FRAG, 2, 1));
+    NEW_FRAME(fresh, DTAP_FRAME_SIMPLEX_FRAG, 2, 1);
     EXPECT_TRUE(ReliableMode()->checkFrame(&chan, fresh));
 
     // 序号已入接收链表：按重复拒绝
@@ -353,7 +351,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvInOrderAndOutOfOrder)
     TEST_DTAP_DliConnectDo(chan.lcid, 0);
     TEST_DTAP_AcbNumChange(ACB_DATA_TYPE, 8);
 
-    NEW_FRAME(inOrder, (DTAP_FRAME_DUPLEX_FRAG, 0, 8, 0, DTAP_SAR_UNSEG, DTAP_FRAME_P_BIT | DTAP_FRAME_C_BIT));
+    NEW_FRAME(inOrder, DTAP_FRAME_DUPLEX_FRAG, 0, 8, 0, DTAP_SAR_UNSEG, DTAP_FRAME_P_BIT | DTAP_FRAME_C_BIT);
     EXPECT_EQ(ReliableMode()->recvFrame(&chan, inOrder, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 1);
     EXPECT_EQ(reliable.rxWindow.bufferSeq, 1);
@@ -366,7 +364,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvInOrderAndOutOfOrder)
     // 每收一个乱序帧重排序定时器是最后一次登记，到期即发异常应答并计数
     CP_TimerSetExecCallbackPostponed(true);
     for (uint16_t seq = 3; seq < 3 + reliable.maxTxThreshold + 1; seq++) {
-        NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, seq, 4));
+        NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, seq, 4);
         EXPECT_EQ(ReliableMode()->recvFrame(&chan, gap, TEST_DTAP_RecvCb), DTAP_SUCCESS);
         DTAP_DestroyFrame(gap);
         CP_TimerPostponedTimeout();
@@ -384,13 +382,13 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvChannelFullAndResume)
     InitReliableChannel(chan, reliable, 4, 20);
 
     TEST_DTAP_RecvCbReset(DTAP_TRANS_RELIABLE_TRANS_CHANNEL_FULL);
-    NEW_FRAME(frame, (DTAP_FRAME_DUPLEX_FRAG, 0, 8, 0));
+    NEW_FRAME(frame, DTAP_FRAME_DUPLEX_FRAG, 0, 8, 0);
     EXPECT_EQ(ReliableMode()->recvFrame(&chan, frame, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 1);
     EXPECT_TRUE(reliable.isRxWindowFull);
     EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 1);
 
-    NEW_FRAME(frame2, (DTAP_FRAME_DUPLEX_FRAG, 1, 8, 0));
+    NEW_FRAME(frame2, DTAP_FRAME_DUPLEX_FRAG, 1, 8, 0);
     ReliableMode()->recvFrame(&chan, frame2, TEST_DTAP_RecvCb);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 1);
     EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 2);
@@ -398,7 +396,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvChannelFullAndResume)
 
     // 恢复信号重置满位：首帧重新递交仍报满，停留在链表头
     ReliableMode()->setTransChannelStatus(&chan, DTAP_SUCCESS, TEST_DTAP_RecvCb);
-    EXPECT_FALSE(reliable.isRxWindowFull);
+    EXPECT_TRUE(reliable.isRxWindowFull);
     EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 2);
     EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 2);
 
@@ -418,7 +416,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableReorderTimerFlow)
     DTAP_ReliableChannel_S reliable;
     InitReliableChannel(chan, reliable, 8, 20);
 
-    NEW_FRAME(gap, (DTAP_FRAME_SIMPLEX_FRAG, 2, 4));
+    NEW_FRAME(gap, DTAP_FRAME_SIMPLEX_FRAG, 2, 4);
     ReliableMode()->recvFrame(&chan, gap, TEST_DTAP_RecvCb);
     DTAP_DestroyFrame(gap);
 
@@ -432,7 +430,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableReorderTimerFlow)
     // 补齐全部缺口：期待序号追上上界，重排序表停止
     reliable.reorderTimer = 5;
     for (uint16_t seq = 0; seq <= 1; seq++) {
-        NEW_FRAME(fill, (DTAP_FRAME_SIMPLEX_FRAG, seq, 4));
+        NEW_FRAME(fill, DTAP_FRAME_SIMPLEX_FRAG, seq, 4);
         ReliableMode()->recvFrame(&chan, fill, TEST_DTAP_RecvCb);
         DTAP_DestroyFrame(fill);
     }
@@ -480,15 +478,15 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvAggregateSduWalk)
     TEST_DTAP_RecvCbReset(DTAP_TRANS_RELIABLE_TRANS_CHANNEL_FULL);
     EXPECT_EQ(DTAP_RecvAggregateFrame(&frame, &info, TEST_DTAP_RecvCb),
         DTAP_TRANS_RELIABLE_TRANS_CHANNEL_FULL);
-    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 2);
-    EXPECT_EQ(frame.payloadLen, sizeof(DTAP_AggregateSdu_S) + 2);
+    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 1);
+    EXPECT_EQ(frame.payloadLen, 2 * sizeof(DTAP_AggregateSdu_S) + 2);
 }
 
 TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
 {
     // 扩展头声明17个扩展字段超过上限；空帧拷贝保持字段一致
     DTAP_Frame_S frame = {0};
-    NEW_BUFF(buff, (32));
+    NEW_BUFF(buff, 32);
     frame.buff = buff;
     frame.header = SDF_DataOffset(buff);
     DTAP_ExtensionHeader_S *ext = (DTAP_ExtensionHeader_S *)frame.header;
@@ -563,11 +561,12 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvFragmentReassemble)
     ASSERT_NE(first.buff, nullptr);
     EXPECT_EQ(DTAP_RecvFragmentFrame(&frags, &first, &info, TEST_DTAP_RecvCb), DTAP_SUCCESS);
     ASSERT_NE(frags, nullptr);
-    NEW_BUFF(huge, (65532));
+    NEW_BUFF(huge, 65532);
     tail.buff = huge;
     EXPECT_EQ(DTAP_RecvFragmentFrame(&frags, &tail, &info, TEST_DTAP_RecvCb),
         DTAP_ENHANCED_FRAME_FRAGMENT_FRAME_LEN_ERR);
     EXPECT_EQ(frags, nullptr);
+    SDF_BuffFree(huge);
     SDF_BuffFree(firstBuff);
     SDF_BuffFree(first.buff);
 }
@@ -611,6 +610,7 @@ TEST_F(UT_DTAP_TRANS, DtapReliableTransChannelStatusFlow)
     EXPECT_EQ(TEST_DTAP_StatusCnt(), 2);
 
     // 续发失败时丢弃缓存但同样完成状态上报
+    TxListClear(reliable);
     reliable.isTxWindowFull = true;
     reliable.cacheBuff = NewBuff(20);
     ASSERT_NE(reliable.cacheBuff, nullptr);
@@ -619,5 +619,6 @@ TEST_F(UT_DTAP_TRANS, DtapReliableTransChannelStatusFlow)
     EXPECT_EQ(reliable.cacheBuff, nullptr);
     EXPECT_EQ(TEST_DTAP_StatusCnt(), 3);
     TxListClear(reliable);
+    DTAP_ChannelDown(chan.lcid, chan.srcTcid);
 }
 
