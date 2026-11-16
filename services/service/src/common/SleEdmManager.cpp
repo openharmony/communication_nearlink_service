@@ -41,7 +41,7 @@ constexpr const char AUDIT_EVENT_VERSION[] = "1.0";
 static uint64_t GetTimestamp()
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_lock::now().time_since_epoch()).count();
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 static void AddStringToObject(cJSON *json, const char *name, const char *value)
