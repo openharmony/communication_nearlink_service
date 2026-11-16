@@ -1526,6 +1526,10 @@ HWTEST_F(UT_SSAPC_APP, SsapUtilsItemType003, TestSize.Level1)
  */
 HWTEST_F(UT_SSAPC_APP, SsapHandleAllocator001, TestSize.Level1)
 {
+    // SetUp 的 SSAP_Init 已随服务端初始化创建分配器，先销毁产品实例再用受控容量重建
+    if (g_hdlAlloc != nullptr) {
+        SSAP_DestroyHandleAllocator();
+    }
     ASSERT_TRUE(SSAP_InitHandleAllocator(4));
     SSAP_HandleRange_S a = {0};
     SSAP_HandleRange_S b = {0};
@@ -1568,6 +1572,10 @@ HWTEST_F(UT_SSAPC_APP, SsapHandleAllocator001, TestSize.Level1)
  */
 HWTEST_F(UT_SSAPC_APP, SsapHandleAllocatorGrow002, TestSize.Level1)
 {
+    // SetUp 的 SSAP_Init 已随服务端初始化创建分配器，先销毁产品实例再用受控容量重建
+    if (g_hdlAlloc != nullptr) {
+        SSAP_DestroyHandleAllocator();
+    }
     ASSERT_TRUE(SSAP_InitHandleAllocator(1));
     SSAP_HandleRange_S range = {0};
     ASSERT_TRUE(SSAP_HandleAllocate(0xFFFF - SSAP_HANDLE_MIN + 1, &range));
