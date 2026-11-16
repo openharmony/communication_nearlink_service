@@ -108,7 +108,7 @@ typedef struct {
 static void StubReply3Dispatch(void *ctx)  // verify-fix: pass through 1-arg cbk
 {
     StubReply3_S *w = (StubReply3_S *)ctx;
-    w->cbk(NULL);  // verify-fix: original Cbk signatures are void(void*)
+    w->cbk(&w->reply);  // 载荷嵌在包装内，回调按偏移取参
 }
 
 static uint32_t StubPostReply(void (*cbk)(void *),
@@ -121,7 +121,7 @@ static uint32_t StubPostReply(void (*cbk)(void *),
     arg->cbk = cbk;
     arg->reply.advHandle = advHandle;
     arg->reply.status = status;
-    if (SchedulePostTask(StubReply3Dispatch, arg, NULL) != 0) {
+    if (SchedulePostTask(StubReply3Dispatch, arg, SDF_MemFree) != 0) {
         SDF_MemFree(arg);
         return DLI_UNKNOWN_COMMAND;
     }
