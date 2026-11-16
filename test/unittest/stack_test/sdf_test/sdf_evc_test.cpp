@@ -81,7 +81,7 @@ bool WaitFdNotReadable(int fd, int timeoutMs)
 {
     struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
     for (int waited = 0; waited < timeoutMs; waited += 5) {
-        if (poll(&pfd, 1, 0) == 1 && (pfd.revents & POLLIN) == 0) {
+        if (poll(&pfd, 1, 0) >= 0 && (pfd.revents & POLLIN) == 0) {
             return true;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(5));

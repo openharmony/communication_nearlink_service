@@ -39,7 +39,6 @@ void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_
 }
 
 namespace {
-void *const FOREIGN_PLUGIN_HANDLE = reinterpret_cast<void *>(0x1234);
 
 bool HasNonZeroByte(const uint8_t *data, size_t len)
 {
@@ -113,8 +112,11 @@ protected:
 
 TEST_F(NaiStackLifecycleTest, InitSkipsPluginLoadWhenHandleHeld)
 {
-    // 已持有插件句柄时初始化跳过插件加载，状态机正常置位；清空句柄后反初始化安全
-    g_pluginSoHandle = FOREIGN_PLUGIN_HANDLE;
+    // 已持有句柄时初始化跳过插件加载，状态机正常置位；清空句柄后反初始化安全。
+    // 句柄必须是真实 dlopen 结果：部分 libc 的 dlsym 不校验句柄合法性，伪造指针会崩溃
+    void *heldHandle = dlopen(nullptr, RTLD_NOW);
+    ASSERT_NE(heldHandle, nullptr);
+    g_pluginSoHandle = heldHandle;
     EXPECT_EQ(NLSTK_InitStack(), NLSTK_ERRCODE_SUCCESS);
     EXPECT_TRUE(NLSTK_IsStackInited());
     g_pluginSoHandle = nullptr; // 跳过插件级联卸载
