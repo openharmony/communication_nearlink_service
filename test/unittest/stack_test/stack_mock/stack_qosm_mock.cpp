@@ -89,5 +89,28 @@ uint32_t QOSM_AutoRateGetICGT2GParam(QOSM_QosIndex qosIndex, QOSM_ICBParam *para
 {
     return 0;
 }
+
+static uint32_t g_recvAutoRateMsgResult = 0;
+static uint32_t g_removeParamResult = 0;
+
+void TEST_QOSM_SetRecvAutoRateMsgResult(uint32_t result)
+{
+    g_recvAutoRateMsgResult = result;
+}
+
+void TEST_QOSM_SetRemoveParamResult(uint32_t result)
+{
+    g_removeParamResult = result;
+}
+
+uint32_t QOSM_RecvAutoRateMsg(const QOSM_AutoRateRecvMsgParam *param)
+{
+    return g_recvAutoRateMsgResult;
+}
+
+uint32_t QOSM_AutoRateRemoveParam(uint8_t qosId)
+{
+    return g_removeParamResult;
+}
 }
 }

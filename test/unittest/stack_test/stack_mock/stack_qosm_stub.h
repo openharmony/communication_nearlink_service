@@ -41,11 +41,22 @@ uint32_t TEST_QOSM_AutoRateSetEarphoneFeedback(const QOSM_AutoRateEarphoneFeedba
 
 void TEST_QOSM_NotifyParam(uint8_t icgId, uint8_t state, bool isImg, uint32_t result);
 
+void TEST_QOSM_NotifyParamEx(uint8_t icgId, uint8_t state, bool isImg, uint32_t result, uint8_t linkCnt,
+    uint16_t *connHandle, uint16_t gHandle);
+
 void TEST_QOSM_NotifyConnection(uint8_t icgId, uint8_t state, uint32_t result);
 
 void TEST_QOSM_NotifyDataPath(uint8_t icgId, uint8_t state, uint32_t result, uint8_t direction);
 
+void TEST_QOSM_NotifyDataPathByHandle(uint16_t handle, uint8_t state, uint32_t result, uint8_t direction);
+
 void TEST_QOSM_NotifyBitrate(uint8_t icgId);
+
+void TEST_QOSM_NotifyAutoRateMsg(const QOSM_AutoRateSendMsgCb *msg);
+
+void TEST_QOSM_SetRecvAutoRateMsgResult(uint32_t result);
+
+void TEST_QOSM_SetRemoveParamResult(uint32_t result);
 
 #ifdef __cplusplus
 }
