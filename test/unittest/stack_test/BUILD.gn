@@ -20,6 +20,7 @@ group("nl_stack_test") {
     "cm_dyntrans_test:nl_stack_cm_dyntrans_unittest",
     "cm_signaling_test:nl_stack_cm_signaling_unittest",
     "dli_test:nl_stack_dli_unittest",
+    "dli_full_test:nl_stack_dli_full_test",
     "devd_test:nl_stack_devd_unittest",
     "devd_api_test:nl_stack_devd_api_unittest",
     "devd_scan_test:nl_stack_devd_scan_unittest",
