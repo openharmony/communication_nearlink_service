@@ -219,6 +219,7 @@ ohos_shared_library("nearlink_ccp_framework") {
   ]
 
   deps = [
+    "base:nearlink_framework_base",
     "$NEARLINK_ROOT/utils:nearlink_utils",
     "$NEARLINK_ROOT/ipc_parcel:nearlink_ipc_parcel",
   ]
