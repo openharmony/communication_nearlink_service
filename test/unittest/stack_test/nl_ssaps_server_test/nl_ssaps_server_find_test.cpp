@@ -254,7 +254,7 @@ static NLSTK_SsapServicePropertyParam_S g_methodSvcProp = {
     .val = {.len = 1, .data = g_methodSvcPropData},
 };
 
-static void MakeMethodServiceParam(const NLSTK_SsapServiceMethodParam_S *method, NLSTK_ServiceParam_S *svcParam)
+static void MakeMethodServiceParam(NLSTK_SsapServiceMethodParam_S *method, NLSTK_ServiceParam_S *svcParam)
 {
     g_methodSvcProp.uuid = g_propStdUuid;
     svcParam->serviceStatement.uuid = g_svcStdUuid;
