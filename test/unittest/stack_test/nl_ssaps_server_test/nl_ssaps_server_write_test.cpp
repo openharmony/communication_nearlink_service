@@ -29,8 +29,13 @@
 #include "cpfwk_log.h"
 
 #include "stack_schedule_mock.h"
+#include "stack_schedule_stub.h"  // verify-fix: TEST_ScheduleInit
 #include "stack_cm_mock.h"
+#include "stack_cm_stub.h"
+#include "ssaps_server_app.h"
+#include "ssap_link_state.h"  // verify-fix: SsapServerAppDeinit
 #include "stack_dtap_mock.h"
+#include "stack_dtap_stub.h"
 
 using namespace testing;
 
@@ -44,7 +49,7 @@ static NLSTK_SsapUuid_S g_svcUuid = {.uuid = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70
 static NLSTK_SsapUuid_S g_propUuid = {.uuid = {0x37, 0xBE, 0xA8, 0x80, 0xFC, 0x70, 0x11, 0xEA,
     0xB7, 0x20, 0x00, 0x00, 0x00, 0x00, 0x02, 0x03}};
 
-static SLE_Addr_S g_localAddr = {.type = PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
+static SLE_Addr_S g_localAddr = {.type = (NLSTK_SsapDescriptorType_E)PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
 static uint16_t g_lcid = 1;
 
 // 固定六属性布局的句柄
@@ -57,9 +62,9 @@ static uint16_t g_lcid = 1;
 
 class NlSsapsWriteTest : public testing::Test {
 public:
-    NiceMock<ScheduleMock> scheduleMock;
-    NiceMock<CmMock> cmMock;
-    NiceMock<DtapMock> dtapMock;
+    NiceMock<OHOS::ScheduleMock> scheduleMock;
+    NiceMock<OHOS::CmMock> cmMock;
+    NiceMock<OHOS::DtapMock> dtapMock;
 protected:
     void SetUp() override
     {
@@ -124,7 +129,7 @@ static void CacheProperty(uint8_t perm, uint32_t operation, uint8_t v0, uint8_t 
     SDF_MemFree(prop);
 }
 
-static void CacheDescriptor(uint8_t descType, uint32_t operation, uint8_t v0, uint8_t v1)
+static void CacheDescriptor(NLSTK_SsapDescriptorType_E descType, uint32_t operation, uint8_t v0, uint8_t v1)
 {
     SSAP_ParamAddDescriptor_S *desc =
         (SSAP_ParamAddDescriptor_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddDescriptor_S) + 2);
@@ -502,7 +507,7 @@ TEST_F(NlSsapsWriteTest, MultiWriteCmdLenZeroSubItemSkipped)
     AddWriteService();
     SSAP_Link *link = CreateTestLink();
     uint8_t cmd[] = {0x0C, 0x07,
-        0x11, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01};
+        0x11, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x01};
     SendPdu(link, SSAPS_WriteCmdHandle, cmd, sizeof(cmd));
     EXPECT_EQ(g_rspLen, 0);
     uint8_t updated[1] = {0x01};

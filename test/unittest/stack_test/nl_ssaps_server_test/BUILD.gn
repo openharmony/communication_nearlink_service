@@ -38,6 +38,7 @@ unit_test_deps = [
 ]
 
 unit_test_external_deps = [
+  "ipc:ipc_core",  # verify-fix: iproxy_broker.h
   "c_utils:utils",
   "hilog:libhilog",
   "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",

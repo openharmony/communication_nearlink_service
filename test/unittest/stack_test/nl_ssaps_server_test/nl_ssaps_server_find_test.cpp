@@ -31,8 +31,13 @@
 
 #include "cm_def.h"
 #include "stack_schedule_mock.h"
+#include "stack_schedule_stub.h"  // verify-fix: TEST_ScheduleInit
 #include "stack_cm_mock.h"
+#include "stack_cm_stub.h"
+#include "ssaps_server_app.h"
+#include "ssap_link_state.h"  // verify-fix: SsapServerAppDeinit
 #include "stack_dtap_mock.h"
+#include "stack_dtap_stub.h"
 
 using namespace testing;
 
@@ -66,14 +71,14 @@ static const uint8_t R_SVC_CUS_UUID[SSAP_UUID128_LEN] = {0x12, 0x11, 0x10, 0x0F,
 static const uint8_t R_PROP_CUS_UUID[SSAP_UUID128_LEN] = {0x10, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09,
     0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01};
 
-static SLE_Addr_S g_localAddr = {.type = PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
+static SLE_Addr_S g_localAddr = {.type = (NLSTK_SsapDescriptorType_E)PUBLIC_ADDRESS, .addr = {0x03, 0x03, 0x04, 0x04, 0x05, 0x05}};
 static uint16_t g_lcid = 1;
 
 class NlSsapsFindTest : public testing::Test {
 public:
-    NiceMock<ScheduleMock> scheduleMock;
-    NiceMock<CmMock> cmMock;
-    NiceMock<DtapMock> dtapMock;
+    NiceMock<OHOS::ScheduleMock> scheduleMock;
+    NiceMock<OHOS::CmMock> cmMock;
+    NiceMock<OHOS::DtapMock> dtapMock;
 protected:
     void SetUp() override
     {
@@ -161,7 +166,7 @@ static void CacheProperty(const NLSTK_SsapUuid_S &uuid, uint8_t value, uint32_t 
     SDF_MemFree(prop);
 }
 
-static void CacheDescriptor(uint8_t descType, uint32_t operation)
+static void CacheDescriptor(NLSTK_SsapDescriptorType_E descType, uint32_t operation)
 {
     SSAP_ParamAddDescriptor_S *desc =
         (SSAP_ParamAddDescriptor_S *)SDF_MemZalloc(sizeof(SSAP_ParamAddDescriptor_S) + 1);
@@ -218,7 +223,7 @@ static void AddServiceWithMethodViaApi()
 
     uint8_t propData[1] = {0x55};
     NLSTK_SsapServiceDescriptorParam_S propDesc = {
-        .type = DESC_TYPE_PROPERTY_INSTRUCTION,
+        .type = (NLSTK_SsapDescriptorType_E)DESC_TYPE_PROPERTY_INSTRUCTION,
         .val = {.len = 1, .data = propData},
     };
     NLSTK_SsapServicePropertyParam_S prop = {
@@ -229,7 +234,7 @@ static void AddServiceWithMethodViaApi()
         .descriptors = &propDesc,
     };
     NLSTK_SsapServiceMethodParam_S method = {
-        .type = ITEM_TYPE_STD_METHOD,
+        .type = (NLSTK_SsapItemType_E)ITEM_TYPE_STD_METHOD,
         .uuid = g_methodStdUuid,
     };
     NLSTK_ServiceParam_S svcParam = {
@@ -242,25 +247,7 @@ static void AddServiceWithMethodViaApi()
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 }
 
-// 北向服务至少要带一个属性：属性数组传空指针会被无条件拒绝，纯方法服务加不进服务库
-static uint8_t g_methodSvcPropData[1] = {0x66};
-static NLSTK_SsapServicePropertyParam_S g_methodSvcProp = {
-    .operation = {.operationValue = 0x01},
-    .val = {.len = 1, .data = g_methodSvcPropData},
-};
-
-static void MakeMethodServiceParam(const NLSTK_SsapServiceMethodParam_S *method, NLSTK_ServiceParam_S *svcParam)
-{
-    g_methodSvcProp.uuid = g_propStdUuid;
-    svcParam->serviceStatement.uuid = g_svcStdUuid;
-    svcParam->serviceStatement.serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE;
-    svcParam->servicePropertyNum = 1;
-    svcParam->property = &g_methodSvcProp;
-    svcParam->serviceMethodNum = 1;
-    svcParam->method = method;
-}
-
-// 再追加 count 个带属性与一个方法的标准服务（方法UUID末字节区分），句柄紧随其后
+// 再追加 count 个仅含一个方法的标准服务（方法UUID末字节区分），句柄紧随其后
 static void AddMethodOnlyServicesViaApi(int32_t appId, uint16_t count)
 {
     for (uint16_t i = 0; i < count; i++) {
@@ -268,24 +255,30 @@ static void AddMethodOnlyServicesViaApi(int32_t appId, uint16_t count)
         methodUuid.uuid[SSAP_UUID128_LEN - 2] = (uint8_t)(0x30 + i);
         methodUuid.uuid[SSAP_UUID128_LEN - 1] = 0x00;
         NLSTK_SsapServiceMethodParam_S method = {
-            .type = ITEM_TYPE_STD_METHOD,
+            .type = (NLSTK_SsapItemType_E)ITEM_TYPE_STD_METHOD,
             .uuid = methodUuid,
         };
-        NLSTK_ServiceParam_S svcParam = {};
-        MakeMethodServiceParam(&method, &svcParam);
+        NLSTK_ServiceParam_S svcParam = {
+            .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE},
+            .serviceMethodNum = 1,
+            .method = &method,
+        };
         ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
     }
 }
 
-// 追加一个带属性与自定义UUID方法的标准服务（句柄紧随其后）
+// 追加一个仅含自定义UUID方法的标准服务（句柄紧随其后）
 static void AddCusMethodServiceViaApi(int32_t appId)
 {
     NLSTK_SsapServiceMethodParam_S method = {
-        .type = ITEM_TYPE_STD_METHOD,
+        .type = (NLSTK_SsapItemType_E)ITEM_TYPE_STD_METHOD,
         .uuid = g_propCusUuid,
     };
-    NLSTK_ServiceParam_S svcParam = {};
-    MakeMethodServiceParam(&method, &svcParam);
+    NLSTK_ServiceParam_S svcParam = {
+        .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE},
+        .serviceMethodNum = 1,
+        .method = &method,
+    };
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 }
 
@@ -538,24 +531,16 @@ TEST_F(NlSsapsFindTest, StructureFindServiceDescriptorFromApi)
 {
     uint8_t servDescData[1] = {0x00};
     NLSTK_SsapServiceDescriptorParam_S servDesc = {
-        .type = DESC_TYPE_PROPERTY_RESERVE,
+        .type = (NLSTK_SsapDescriptorType_E)DESC_TYPE_PROPERTY_RESERVE,
         .val = {.len = 1, .data = servDescData},
     };
     NLSTK_SsapAppServerCb_S cb = {0};
     cb.onAddService = OnAddServiceStub;
     int32_t appId = -1;
     ASSERT_EQ(NLSTK_SsapServerRegApp(&cb, &appId), NLSTK_ERRCODE_SUCCESS);
-    uint8_t propData[1] = {0x77};
-    NLSTK_SsapServicePropertyParam_S prop = {
-        .uuid = g_propStdUuid,
-        .operation = {.operationValue = 0x01},
-        .val = {.len = 1, .data = propData},
-    };
     NLSTK_ServiceParam_S svcParam = {
         .serviceStatement = {.uuid = g_svcStdUuid, .serviceType = ITEM_TYPE_STD_PRIMARY_SERVICE,
                              .descriptorNum = 1, .descriptors = &servDesc},
-        .servicePropertyNum = 1,
-        .property = &prop,
     };
     ASSERT_EQ(NLSTK_SsapServerAddService(appId, &svcParam), NLSTK_ERRCODE_SUCCESS);
 
@@ -636,12 +621,12 @@ TEST_F(NlSsapsFindTest, MethodFindByUuidVariants)
 TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
 {
     AddServiceWithMethodViaApi();
-    AddMethodOnlyServicesViaApi(g_regAppId, 1); // 第二个服务（0x13-0x15）的方法句柄0x15、UUID末两字节0x30,0x00
+    AddMethodOnlyServicesViaApi(g_regAppId, 1); // 第二个服务的方法句柄0x14、UUID末两字节0x30,0x00
     SSAP_Link *link = CreateTestLink();
 
     // 第二个服务的方法UUID：遍历跳过第一个服务后命中
     uint8_t reqSecond[] = {0x06, 0x04, 0x01, 0x00, 0xFF, 0x00, 0x00, 0x30};
-    uint8_t rspSecond[] = {0x07, 0x03, 0x15, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t rspSecond[] = {0x07, 0x03, 0x14, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00};
     SendFindReq(link, reqSecond, sizeof(reqSecond));
     EXPECT_TRUE(RspEquals(rspSecond, sizeof(rspSecond)));
 
@@ -657,12 +642,12 @@ TEST_F(NlSsapsFindTest, MethodFindByServiceUuidTraverseAndWindow)
 TEST_F(NlSsapsFindTest, MethodFindMixStdAndCusGrouped)
 {
     AddServiceWithMethodViaApi();           // 方法0x12（标准UUID）
-    AddCusMethodServiceViaApi(g_regAppId);  // 方法0x15（自定义UUID）
+    AddCusMethodServiceViaApi(g_regAppId);  // 方法0x14（自定义UUID）
     SSAP_Link *link = CreateTestLink();
     uint8_t req[] = {0x04, 0x14, 0x01, 0x00, 0xFF, 0x00};
     uint8_t rsp[36] = {0x05, 0x0B,
         0x01, 0x12, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x81, 0x15, 0x00};
+        0x81, 0x14, 0x00};
     (void)memcpy_s(rsp + 15, SSAP_UUID128_LEN, R_PROP_CUS_UUID, SSAP_UUID128_LEN);
     rsp[31] = 0x00;
     rsp[32] = 0x00;
