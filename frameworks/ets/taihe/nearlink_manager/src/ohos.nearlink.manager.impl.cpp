@@ -33,6 +33,22 @@ void enable()
     ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
 }
 
+void enableWithOptions(::taihe::optional<::ohos::nearlink::manager::EnableOptions> const &options)
+{
+    HILOGI("enter");
+    SleAutoConnectPolicy autoConnPolicy = SleAutoConnectPolicy::AUTO_CONN_GENERAL;
+    if (options.has_value() && options.value().autoConnPolicy.has_value()) {
+        int32_t policyValue = static_cast<int32_t>(options.value().autoConnPolicy.value().get_value());
+        ANI_NL_ASSERT_RETURN_VOID(
+            policyValue >= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_GENERAL) &&
+            policyValue <= static_cast<int32_t>(SleAutoConnectPolicy::AUTO_CONN_EXCEPT_USER_DISCONNECTED_DEVICES),
+            NL_ERR_INVALID_PARAM);
+        autoConnPolicy = static_cast<SleAutoConnectPolicy>(policyValue);
+    }
+    NlErrCode err = NearlinkHost::GetInstance().EnableNl(autoConnPolicy);
+    ANI_NL_ASSERT_RETURN_VOID(err == NL_NO_ERROR, err);
+}
+
 void disable()
 {
     HILOGI("enter");
@@ -162,6 +178,7 @@ void OffStateChange(
 // Since these macros are auto-generate, lint will cause false positive.
 // NOLINTBEGIN
 TH_EXPORT_CPP_API_enable(enable);
+TH_EXPORT_CPP_API_enableWithOptions(enableWithOptions);
 TH_EXPORT_CPP_API_disable(disable);
 TH_EXPORT_CPP_API_getState(getState);
 TH_EXPORT_CPP_API_getPairedDevices(getPairedDevices);
