@@ -197,7 +197,29 @@ void SleEdmManager::ReportRefuseInfo(int32_t callerUid)
     int32_t userId = NearlinkDataShareHelper::GetInstance().GetActiveOsAccountIds();
     uint64_t happenTime = GetTimestamp();
     cJSON *outJson = cJSON_CreateObject();
-    if
+    if (outJson == nullptr) {
+        HILOGE("[EDM MODE]:ReportRefuseInfo json object created error");
+        return;
+    }
+    cJSON_AddNumberToObject(outJson, "userId", userId);
+    cJSON_AddNumberToObject(outJson, "happenTime", happenTime);
+    cJSON_AddStringToObject(outJson, "appUid", std::to_string(callerUid).c_str());
+    char *jsonContent = cJSON_PrintUnformatted(outJson);
+    if (jsonContent == nullptr) {
+        HILOGE("[EDM MODE]:ReportRefuseInfo print json unformatted error");
+        cJSON_Delete(outJson);
+        outJson = nullptr;
+        return;
+    }
+    std::string content = std::string(jsonContent);
+    cJSON_free(jsonContent);
+    cJSON_Delete(outJson);
+    outJson = nullptr;
+    std::shared_ptr<Security::SecurityGuard::EventInfo> eventInfo =
+        std::make_shared<Security::SecurityGuard::EventInfo>(EDM_AUDIT_EVENT_ID, AUDIT_EVENT_VERSION, content);
+    int ret = Security::SecurityGuard::NativeDataCollectKit::ReportSecurityInfo(eventInfo);
+    HILOGI("[EDM MODE]:report userId:%{public}d, happenTime:%{public}llu, uid:%{public}d, ret:%{public}d",
+        userId, static_cast<unsigned long long>(happenTime), callerUid, ret);
 }
 }  // namespace Nearlink
 }  // namespace OHOS
