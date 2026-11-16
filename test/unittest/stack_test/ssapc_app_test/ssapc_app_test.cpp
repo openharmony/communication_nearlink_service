@@ -1022,7 +1022,7 @@ HWTEST_F(UT_SSAPC_APP, SsapcCacheMemberLifecycle002, TestSize.Level1)
     serv.memberValue = MEMBER_TYPE_PROPERTY | MEMBER_TYPE_METHOD | MEMBER_TYPE_EVENT;
     ASSERT_EQ(SsapcCacheServ(&g_addrA, &serv), NLSTK_ERRCODE_SUCCESS);
 
-    NLSTK_SsapDtor_S dtors[2] = {{0x0001, DESC_TYPE_CLIENT_CONFIG, {0}, {0}}};
+    NLSTK_SsapDtor_S dtors[2] = {{0x0001, DESC_TYPE_CLIENT_CONFIG, {{{0}}}, {{{0}}}}};
     NLSTK_SsapPrty_S prty = {0};
     prty.handle = 0x0012;
     prty.uuid = g_uuidA;
@@ -1526,10 +1526,6 @@ HWTEST_F(UT_SSAPC_APP, SsapUtilsItemType003, TestSize.Level1)
  */
 HWTEST_F(UT_SSAPC_APP, SsapHandleAllocator001, TestSize.Level1)
 {
-    // SetUp 的 SSAP_Init 已随服务端初始化创建分配器，先销毁产品实例再用受控容量重建
-    if (g_hdlAlloc != nullptr) {
-        SSAP_DestroyHandleAllocator();
-    }
     ASSERT_TRUE(SSAP_InitHandleAllocator(4));
     SSAP_HandleRange_S a = {0};
     SSAP_HandleRange_S b = {0};
@@ -1572,10 +1568,6 @@ HWTEST_F(UT_SSAPC_APP, SsapHandleAllocator001, TestSize.Level1)
  */
 HWTEST_F(UT_SSAPC_APP, SsapHandleAllocatorGrow002, TestSize.Level1)
 {
-    // SetUp 的 SSAP_Init 已随服务端初始化创建分配器，先销毁产品实例再用受控容量重建
-    if (g_hdlAlloc != nullptr) {
-        SSAP_DestroyHandleAllocator();
-    }
     ASSERT_TRUE(SSAP_InitHandleAllocator(1));
     SSAP_HandleRange_S range = {0};
     ASSERT_TRUE(SSAP_HandleAllocate(0xFFFF - SSAP_HANDLE_MIN + 1, &range));
