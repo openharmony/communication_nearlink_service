@@ -22,6 +22,7 @@
 #include "sdf_worker.h"
 #include "sdf_thread.h"
 #include "sdf_sem.h"
+#include "sdf_lock_err.h"
 #include "nlstk_init_api.h"
 #include "nlstk_schedule.h"
 #include "cp_worker.h"
