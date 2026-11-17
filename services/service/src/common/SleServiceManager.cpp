@@ -573,7 +573,8 @@ int32_t SleServiceManager::Enable(const SleTransport transport, const SleEventTy
 int32_t SleServiceManager::EnableTask(const SleTransport transport, const SleEventType reason,
     const SwitchCallerInfo callerInfo, const SleAutoConnectPolicy autoConnPolicy) const
 {
-    HILOGI("Enable start, reason: %{public}s", GetReasonString(static_cast<int>(reason)).c_str());
+    HILOGI("Enable start, reason: %{public}s, autoConnPolicy: %{public}d",
+        GetReasonString(static_cast<int>(reason)).c_str(), static_cast<int>(autoConnPolicy));
     NL_CHECK_RETURN_RET(pimpl != nullptr, NL_ERR_INTERNAL_ERROR, "pimpl is nullptr");
     NL_CHECK_RETURN_RET(
         GetSysState() == SYS_STATE_STARTED, NL_ERR_INTERNAL_ERROR, "SleServiceManager system is stoped");
@@ -621,6 +622,7 @@ int32_t SleServiceManager::EnableInner(const SleTransport transport, const SleEv
     UpdateNearlinkSwitchSystemParameter(transport, SleStateID::STATE_TURN_ON);
 
     std::string causationStr = GetDftSwitchEventCausationString(reason, callingName);
+    causationStr += ", autoConnPolicy=" + std::to_string(static_cast<int>(autoConnPolicy));
     if (state == SleStateID::STATE_TURN_OFF || state == SleStateID::STATE_TURN_HALF) {
         DftCacheSwitchInfo(SWITCH_OPEN, SWITCH_OPER_SUCCESS, causationStr);
         UnloadSa::GetInstance().StopUnloadNearlinkSaTimer();

@@ -23,6 +23,7 @@
 #include "nearlink_utils.h"
 #include "nearlink_app_wakeup_ue.h"
 #include "nearlink_dft_car_key_loader.h"
+#include "nearlink_dft_local_data.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -407,17 +408,25 @@ HiSysEventParamValue DftRefParam::SubGetHiSysValue(void)
 
 void NearlinkDftManager::Start(void)
 {
-    std::lock_guard<ffrt::shared_mutex> lock(pimpl_->mutex_);
-    if (pimpl_->queue_) {
-        HILOGI("already start");
-        return;
+    {
+        std::lock_guard<ffrt::shared_mutex> lock(pimpl_->mutex_);
+        if (pimpl_->queue_) {
+            HILOGI("already start");
+            return;
+        }
+        HILOGD("start dft ffrt");
+        pimpl_->queue_ = std::make_unique<ffrt::queue>("nearlink_dft", ffrt::queue_attr().qos(ffrt::qos_utility));
     }
-    HILOGD("start dft ffrt");
-    pimpl_->queue_ = std::make_unique<ffrt::queue>("nearlink_dft", ffrt::queue_attr().qos(ffrt::qos_utility));
+    // 先置运行态再订阅，注册与停服的判据同源
+    DftLocalDataManager::GetInstance().SetServiceRunning(true);
+    DftLocalDataManager::GetInstance().RegisterCountryInfoObserver();
 }
 
 void NearlinkDftManager::Stop(void)
 {
+    // 先置停服态并取消订阅，每条出口都生效；停服后上报路径不再重建订阅
+    DftLocalDataManager::GetInstance().SetServiceRunning(false);
+    DftLocalDataManager::GetInstance().UnregisterCountryInfoObserver();
     {
         std::lock_guard<ffrt::shared_mutex> lock(pimpl_->mutex_);
         if (!pimpl_->queue_) {

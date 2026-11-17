@@ -90,6 +90,18 @@ void SleCoexistManager::IterateConnInfo(std::function<void(const CoexistConnInfo
     });
 }
 
+int SleCoexistManager::CountCoexistAdjustDevices(uint16_t intervalThreshold)
+{
+    int count = 0;
+    connInfoList_.Iterate([&count, intervalThreshold](const CoexistConnInfo& info) {
+        if (info.interval <= intervalThreshold) {
+            count++;
+        }
+    });
+    HILOGD("[CoexistMgr] CountAdjustDevices threshold=0x%{public}x, count=%{public}d", intervalThreshold, count);
+    return count;
+}
+
 bool SleCoexistManager::HasMultipleConnections()
 {
     return connInfoList_.Size() > 1;

@@ -16,6 +16,7 @@
 #include "nlstk_stm_collab_ext.h"
 #include "nlstk_public_define.h"
 #include "devd_adv.h"
+#include "devd_local.h"
 #include "devd_scan.h"
 #include "devd_scan_filter.h"
 #include "nlstk_devd.h"
@@ -479,17 +480,40 @@ static void DevdCreateAdvHandleInner(void *arg)
     param->handle = DevdCreateAdvHandle(param->cbk);
 }
 
+static void DevdCreateAdvHandleTimeoutCleanup(void *arg)
+{
+    NLSTK_CreateHandleParam_S *param = (NLSTK_CreateHandleParam_S *)arg;
+    NLSTK_CHECK_RETURN_VOID(param != NULL, "[DEVD] cleanup param is null");
+    // 原创建任务先于本任务入队，schedule单线程FIFO执行，此处原任务已结束
+    if (param->handle != ADV_INVALID_HANDLE) {
+        DevdRemoveAdvNode(param->handle, DEVD_ADV_LIST);
+    }
+}
+
 uint8_t NLSTK_DevdCreateAdvHandle(NLSTK_DevdAdvEventCbk cbk)
 {
     NLSTK_CHECK_RETURN(cbk != NULL, ADV_INVALID_HANDLE, "[DEVD] adv cbk is null");
-    NLSTK_CreateHandleParam_S param = {0};
-    param.handle = ADV_INVALID_HANDLE;
-    param.cbk = cbk;
-    if (SchedulePostTaskBlocked(DevdCreateAdvHandleInner, &param, NULL, SEM_ALWAYS_WAIT) != NLSTK_OK) {
-        NLSTK_LOG_ERROR("[DEVD] SchedulePostTaskBlocked failed");
+    // 同步接口的内存，由调用点释放；堆分配：超时返回后原任务仍可能在队列中延迟执行，栈参数会悬空
+    NLSTK_CreateHandleParam_S *param = (NLSTK_CreateHandleParam_S *)SDF_MemZalloc(sizeof(NLSTK_CreateHandleParam_S));
+    NLSTK_CHECK_RETURN(param != NULL, ADV_INVALID_HANDLE, "[DEVD] param malloc fail");
+    param->handle = ADV_INVALID_HANDLE;
+    param->cbk = cbk;
+    uint32_t ret = SchedulePostTaskBlocked(DevdCreateAdvHandleInner, (void *)param, NULL, NLSTK_API_TIME_OUT);
+    if (ret == NLSTK_ERRCODE_TASK_TIMEOUT) {
+        // 补发任务在原任务之后回收可能已创建的节点，并由freeCb释放param
+        if (SchedulePostTask(DevdCreateAdvHandleTimeoutCleanup, (void *)param, SDF_MemFree) != NLSTK_OK) {
+            NLSTK_LOG_ERROR("[DEVD] SchedulePostTask failed");
+        }
         return ADV_INVALID_HANDLE;
     }
-    return param.handle;
+    if (ret != NLSTK_OK) {
+        NLSTK_LOG_ERROR("[DEVD] SchedulePostTaskBlocked failed");
+        SDF_MemFree(param);
+        return ADV_INVALID_HANDLE;
+    }
+    uint8_t handle = param->handle;
+    SDF_MemFree(param);
+    return handle;
 }
 
 NLSTK_Errcode_E NLSTK_DevdSleStartScan(NLSTK_DevdSleScanParams_S *sleScanParams)

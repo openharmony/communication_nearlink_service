@@ -24,6 +24,8 @@
 #include "sdf_errno_base.h"
 #include "qosm_audio_dfx.h"
 #include "cm_icb_def.h"
+#include "cm_def.h"
+#include "cm_errno.h"
 
 char* g_fuzzDataStr = nullptr;
 size_t g_fuzzDataSize = 0;
@@ -52,6 +54,18 @@ extern "C" bool QOSM_ExecuteBitrateChangeDecision(uint16_t connHandle, uint16_t 
 extern "C" void QOSM_PrintQualityReportParam(CM_ICBQuality *param)
 {
     (void)param;
+}
+
+extern "C" void QOSM_UpdateAllICGParamFailed(void)
+{
+    return;
+}
+
+extern "C" uint32_t CM_GetLogicLinkByLcid(uint16_t lcid, CM_LogicLink_S *logicLink)
+{
+    (void)lcid;
+    (void)logicLink;
+    return CM_NOT_FOUND;
 }
 
 static void QOSM_AudioDfxDspStatusCbMock(bool isOn)

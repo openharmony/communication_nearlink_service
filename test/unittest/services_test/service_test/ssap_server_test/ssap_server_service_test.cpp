@@ -17,7 +17,7 @@
 
 #include "ssap_server_service.cpp"
 #include "ssap_server_callback_mock.h"
-#include "ssaps_service.h"
+#include "mock_nlstk_ssap.h"
 #include "ProfileServiceManager.h"
 #include "nearlink_errorcode.h"
 #include "nearlink_access_token_mock.h"
@@ -641,36 +641,24 @@ HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_012, Test
     EXPECT_EQ(ret, 0);
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_200_MS));
 
-    // 从栈侧获取服务，检查服务type与属性type
+    // AddService 后从 mock 记录取适配层填给协议栈的参数，校验服务/属性 type 与 uuid 转换
     NLSTK_SsapUuid_S serviceTarget {};
     vendorUuid.ConvertToBytesLE(serviceTarget.uuid);
     NLSTK_SsapUuid_S stdTarget {};
     stdUuid.ConvertToBytesLE(stdTarget.uuid);
     NLSTK_SsapUuid_S vendorTarget {};
     vendorUuid.ConvertToBytesLE(vendorTarget.uuid);
-    SDF_Vector_S *services = SSAPS_GetServices();
-    ASSERT_NE(services, nullptr);
-    bool serviceFound = false;
-    for (size_t i = 0; i < services->size; i++) {
-        SSAP_Service_S *ssapService = static_cast<SSAP_Service_S *>(SDF_VectorElementAt(services, i));
-        if (ssapService == nullptr || ssapService->properties == nullptr ||
-            memcmp(ssapService->uuid.uuid, serviceTarget.uuid, sizeof(serviceTarget.uuid)) != 0) {
-            continue;
-        }
-        serviceFound = true;
-        // 服务type：忽略isPrimary_，统一按primary上报
-        EXPECT_EQ(ssapService->serviceType, ITEM_TYPE_VENDOR_PRIMARY_SERVICE);
-        // 属性按序缓存，属性type由uuid标准/自定义推导（与栈侧CreatePropertyStructureInfo一致）
-        EXPECT_EQ(ssapService->properties->size, 2);
-        SSAP_Property_S *prop0 = static_cast<SSAP_Property_S *>(SDF_VectorElementAt(ssapService->properties, 0));
-        SSAP_Property_S *prop1 = static_cast<SSAP_Property_S *>(SDF_VectorElementAt(ssapService->properties, 1));
-        ASSERT_NE(prop0, nullptr);
-        ASSERT_NE(prop1, nullptr);
-        EXPECT_EQ(memcmp(prop0->uuid.uuid, stdTarget.uuid, sizeof(stdTarget.uuid)), 0);
-        EXPECT_EQ(memcmp(prop1->uuid.uuid, vendorTarget.uuid, sizeof(vendorTarget.uuid)), 0);
-        break;
-    }
-    EXPECT_TRUE(serviceFound);
+    const MockNlstkSsapAddedService *added = MockNlstkSsapGetLastAddedService(appId_);
+    ASSERT_NE(added, nullptr);
+    // 服务type：忽略isPrimary_，统一按primary上报
+    EXPECT_EQ(added->serviceType, ITEM_TYPE_VENDOR_PRIMARY_SERVICE);
+    EXPECT_EQ(memcmp(added->serviceUuid.uuid, serviceTarget.uuid, sizeof(serviceTarget.uuid)), 0);
+    // 属性按序缓存，属性type由uuid标准/自定义推导（与栈侧CreatePropertyStructureInfo一致）
+    ASSERT_EQ(added->propertyUuids.size(), 2U);
+    EXPECT_EQ(memcmp(added->propertyUuids[0].uuid, stdTarget.uuid, sizeof(stdTarget.uuid)), 0);
+    EXPECT_EQ(memcmp(added->propertyUuids[1].uuid, vendorTarget.uuid, sizeof(vendorTarget.uuid)), 0);
+    EXPECT_EQ(added->propertyTypes[0], ITEM_TYPE_STD_PROPERTY);
+    EXPECT_EQ(added->propertyTypes[1], ITEM_TYPE_VENDOR_PROPERTY);
     HILOGI("NearlinkSsapServerStackAdapter_012 end");
 }
 

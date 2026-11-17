@@ -74,6 +74,10 @@ ohos_unittest("nl_common_test") {
     "$NL_UNIT_TEST_DIR/common_test/nearlink_datatransfer_parcel_test.cpp",
     "$NL_UNIT_TEST_DIR/common_test/nearlink_socket_manager_test.cpp",
     "$NL_UNIT_TEST_DIR/common_test/nearlink_utils_test.cpp",
+    "$NL_UNIT_TEST_DIR/common_test/nearlink_utils_parse_test.cpp",
+    "$NL_UNIT_TEST_DIR/common_test/sle_uuid_convert_test.cpp",
+    "$NL_UNIT_TEST_DIR/common_test/nearlink_scan_def_copy_test.cpp",
+    "$NL_UNIT_TEST_DIR/common_test/nearlink_hadm_sounding_test.cpp",
   ]
 
   configs = [ ":common_test_config" ]
