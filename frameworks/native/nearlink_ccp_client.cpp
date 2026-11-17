@@ -16,7 +16,6 @@
 #include "nearlink_ccp_client.h"
 
 #include <cstdint>
-#include <memory>
 #include <string>
 
 #include "i_nearlink_ccp_client.h"
@@ -26,8 +25,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-
-struct NearlinkCcpClient::impl {};
 
 NearlinkCcpClient &NearlinkCcpClient::GetProfile()
 {
@@ -51,18 +48,6 @@ int32_t NearlinkCcpClient::CallDetailsChanged(int32_t callId, int32_t callState,
     sptr<INearlinkCcpClient> proxy = GetProxy<INearlinkCcpClient>(PROFILE_CCP_SERVER);
     NL_CHECK_RETURN_LOGD_RET(proxy != nullptr, NL_ERR_UNAVAILABLE_PROXY, "ccp proxy is unavailable.");
     return proxy->CallDetailsChanged(callId, callState, callType);
-}
-
-NearlinkCcpClient::NearlinkCcpClient()
-{
-    HILOGD("enter");
-    pimpl = std::make_shared<impl>();
-}
-
-NearlinkCcpClient::~NearlinkCcpClient()
-{
-    HILOGD("enter");
-    pimpl = nullptr;
 }
 
 }  // namespace Nearlink

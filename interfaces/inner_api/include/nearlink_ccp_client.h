@@ -76,11 +76,10 @@ public:
     int32_t CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType);
 
 private:
-    NearlinkCcpClient();
-    ~NearlinkCcpClient();
+    NearlinkCcpClient() = default;
+    ~NearlinkCcpClient() = default;
 
     NEARLINK_DISALLOW_COPY_AND_ASSIGN(NearlinkCcpClient);
-    NEARLINK_DECLARE_IMPL();
 };
 }  // namespace Nearlink
 }  // namespace OHOS
