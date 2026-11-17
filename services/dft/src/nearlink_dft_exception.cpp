@@ -785,55 +785,58 @@ void DftCacheDisconChipInfo(const std::string &addr, int32_t rssi, std::string c
     DftCacheRssiValueInfo(addr, rssi);
 }
 
+static void DftClaimConnTimeoutOwner(const std::string &addr, const std::string &callingName)
+{
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.appName.empty()) {
+            record.appName = callingName;
+        }
+    });
+}
+
 void DftCacheCallingName(const std::string &addr, const std::string &callingName)
 {
-    // 发起方与统计窗口归属者不同：过限频间隔则先冲刷上报旧窗口，随后窗口移交新发起方
-    if (!callingName.empty()) {
-        int64_t nowMs = GetTimestamp();
-        uint32_t failCount = 0;
-        std::string firstFailTime;
-        std::string oldAppName;
-        bool needReport = false;
-        // 先取记录：命中即单锁完成移交/冲刷；未命中再单锁建档，属主随建档一次成型--
-        // 建档与取用不留在两次加锁之间，避免过期擦除落在空挡使移交结果丢失
-        if (!g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
-            if (record.appName == callingName) {
-                if (record.failCount == 0 && record.lastReportMs != 0 &&
-                    (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
-                    record.lastReportMs = 0;
-                }
-                return; // 同一应用反复发起，窗口继续，不冲刷
-            }
-            oldAppName = record.appName;
-            if (record.failCount > 0) {
-                needReport = true; // 有未上报计数，先上报旧窗口
-                failCount = record.failCount;
-                firstFailTime = record.firstFailTime;
-                record.lastReportMs = nowMs;
-            } else if (record.lastReportMs != 0 &&
-                (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
-                record.lastReportMs = 0;
-            }
-            record.failCount = 0;
-            record.firstFailTime.clear();
-            record.appName = callingName; // 窗口移交新发起方
-        })) {
-            ConnTimeoutRecord newRecord;
-            newRecord.failCount = 0;
-            newRecord.lastReportMs = 0;
-            newRecord.appName = callingName; // 无主设备建档即认领
-            g_connTimeoutRecords.Insert(addr, newRecord);
-            g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
-                if (record.appName.empty()) {
-                    record.appName = callingName;
-                }
-            });
-        }
-        if (needReport) {
-            DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
-        }
-        DftCacheSleAppNameParam(addr, callingName);
+    if (callingName.empty()) {
+        return;
     }
+    // 发起方与统计窗口归属者不同：过限频间隔则先冲刷上报旧窗口，随后窗口移交新发起方
+    int64_t nowMs = GetTimestamp();
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    std::string oldAppName;
+    bool needReport = false;
+    // 先取记录：命中即单锁完成移交/冲刷；未命中再单锁建档，属主随建档一次成型--
+    // 建档与取用不留在两次加锁之间，避免过期擦除落在空挡使移交结果丢失
+    if (!g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            record.lastReportMs = 0;
+        }
+        if (record.appName == callingName) {
+            return; // 同一应用反复发起，窗口继续，不冲刷
+        }
+        oldAppName = record.appName;
+        if (record.failCount > 0) {
+            needReport = true; // 有未上报计数，先上报旧窗口
+            failCount = record.failCount;
+            firstFailTime = record.firstFailTime;
+            record.lastReportMs = nowMs;
+        }
+        record.failCount = 0;
+        record.firstFailTime.clear();
+        record.appName = callingName; // 窗口移交新发起方
+    })) {
+        ConnTimeoutRecord newRecord;
+        newRecord.failCount = 0;
+        newRecord.lastReportMs = 0;
+        newRecord.appName = callingName; // 无主设备建档即认领
+        g_connTimeoutRecords.Insert(addr, newRecord);
+        DftClaimConnTimeoutOwner(addr, callingName);
+    }
+    if (needReport) {
+        DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
+    }
+    DftCacheSleAppNameParam(addr, callingName);
 }
 
 void DftSetConnectProfileTaskFlag(const std::string &addr)
