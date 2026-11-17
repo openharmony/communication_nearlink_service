@@ -64,19 +64,10 @@ ErrCode NearlinkCcpClientProxy::InnerTransact(
     auto remote = Remote();
     NL_CHECK_RETURN_RET(remote, OBJECT_NULL, "[InnerTransact] fail: get Remote fail code %{public}d", code);
     ErrCode err = remote->SendRequest(code, data, reply, flags);
-    switch (err) {
-        case NO_ERROR: {
-            return NO_ERROR;
-        }
-        case DEAD_OBJECT: {
-            HILOGW("fail: ipcErr=%{public}d code %{public}d", err, code);
-            return DEAD_OBJECT;
-        }
-        default: {
-            HILOGW("fail: ipcErr=%{public}d code %{public}d", err, code);
-            return TRANSACTION_ERR;
-        }
+    if (err != NO_ERROR) {
+        HILOGW("[InnerTransact] fail: ipcErr=%{public}d code %{public}d", err, code);
     }
+    return err;
 }
 }  // namespace Nearlink
 }  // namespace OHOS
