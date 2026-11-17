@@ -16,6 +16,8 @@ import("//build/ohos.gni")
 SLE_PART_DIR = "../../../../.."
 
 ohos_shared_library("manager") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libmanager.versionscript"
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   sanitize = {
       cfi = true                             # Enable/disable control flow integrity detection

@@ -146,6 +146,7 @@ ohos_shared_library("nearlink_server") {
   }
 
   defines += product_defines
+  # Used to control the export of dynamic library symbols.
   version_script = "libnearlink_server.versionscript"
 
   part_name = "nearlink_service"

@@ -1,91 +1,191 @@
+# expanded from wildcard patterns to actual exported symbols
 {
   global:
-    # ============ 接口服务类 (精确类名) ============
-    "*InterfaceAdvertiserService*";
-    "*InterfaceCloudPairService*";
-    "*InterfaceControllerManager*";
-    "*InterfaceHadmClientService*";
-    "*InterfaceScanService*";
-    "*InterfaceSleController*";
-    "*InterfaceMeshService*";
-
-    # ============ SSAP 接口类 (精确类名 + 通配符) ============
-    "*InterfaceProfileSsapClient*";
-    "*InterfaceProfileSsapServer*";
-    "*InterfaceSsapClientCallback*";
-    "*InterfaceSsapServerCallback*";
-
-    # ============ Adapter 相关类 (精确类名 + 通配符) ============
-    "*SleInterfaceAdapter*";
-    "*SleInterfaceAdapterWrapper*";
-    "*IAdapterSleObserver*";
-    "*ISlePeripheralCallback*";
-    "*ISleDeviceRssiCallback*";
-    "*ISleConnectionCallback*";
-
-    # ============ Manager 相关类 (精确类名 + struct) ============
-    "*SleInterfaceManager*";
-    "*SwitchCallerInfo*";
-    "*IAdapterStateObserver*";
-    "*IDeviceBatteryCallback*";
-    "*ISystemStateObserver*";
-    "*UnloadSa*";
-    "*SleEdmManager*";
-
-    # ============ Profile 基类 (精确类名) ============
-    "*SleInterfaceProfile*";
-    "*SleInterfaceProfileManager*";
-
-    # ============ Profile 实现类 (通配符) ============
-    "*ProfileASC*";
-    "*ProfileBas*";
-    "*ProfileCdsm*";
-    "*ProfileDis*";
-    "*ProfileHidHost*";
-    "*ProfileIcce*";
-    "*ProfileMic*";
-    "*ProfilePort*";
-    "*ProfileTws*";
-    "*ProfileVcp*";
-
-    # ============ Observer 类 (通配符) ============
-    "*ASCObserver*";
-    "*BasObserver*";
-    "*CdsmObserver*";
-    "*DisObserver*";
-    "*HidHostObserver*";
-    "*IcceObserver*";
-    "*MicObserver*";
-    "*MicStateObserver*";
-    "*PortObserver*";
-    "*TwsObserver*";
-    "*VcpClientObserver*";
-
-    # ============ Callback 接口类 (通配符 + ISle* 系列) ============
-    "*InterfaceASCCallback*";
-    "*InterfaceCdsmClientServiceCallback*";
-    "*InterfaceTwsClientObserver*";
-    "*ISleAdvertiserCallback*";
-    "*ISleCentralManagerCallback*";
-    "*ISleDataTransferServiceCallback*";
-    "*IControllerManagerServiceCallback*";
-    "*InterfaceHadmClientServiceCallback*";
-    "*ISleMeshServiceCallback*";
-
-    # ============ Data 类 (精确类名 + struct) ============
-    "*NearlinkCdsmInfo*";
-    "*TwsDeviceInfo*";
-    "*TwsDevWearStatus*";
-
-    # ============ DataTransfer 类 (精确类名) ============
-    "*SleInterfaceDataTransfer*";
-
-    # ============ MultiScan 实现类 (精确类名) ============
-    "*SleScanSettingsImpl*";
-    "*SleScanFilterImpl*";
-
-    "*ServiceManagerPluginInterface*";
-
+    _ZN4OHOS8Nearlink10ASCService16RegisterObserverERNS0_11ASCObserverE;
+    _ZN4OHOS8Nearlink10ASCService18DeregisterObserverERNS0_11ASCObserverE;
+    _ZN4OHOS8Nearlink10ASCService19AscMicStateObserver17OnMicStateChangedERKNS0_10RawAddressEh;
+    _ZN4OHOS8Nearlink10ASCService19RegisterApplicationERKNSt3__h10shared_ptrINS0_20InterfaceASCCallbackEEE;
+    _ZN4OHOS8Nearlink10ASCService20InitMicStateObserverEv;
+    _ZN4OHOS8Nearlink10ASCService21DeregisterApplicationERKNSt3__h10shared_ptrINS0_20InterfaceASCCallbackEEE;
+    _ZN4OHOS8Nearlink10ASCService22DeInitMicStateObserverEv;
+    _ZN4OHOS8Nearlink10BasService16RegisterObserverERNS0_11BasObserverE;
+    _ZN4OHOS8Nearlink10BasService18DeregisterObserverERNS0_11BasObserverE;
+    _ZN4OHOS8Nearlink10BasService22RegisterDeviceObserverERNS0_22IDeviceBatteryCallbackE;
+    _ZN4OHOS8Nearlink10BasService24DeregisterDeviceObserverERNS0_22IDeviceBatteryCallbackE;
+    _ZN4OHOS8Nearlink10DisService16RegisterObserverERNS0_11DisObserverE;
+    _ZN4OHOS8Nearlink10DisService18DeregisterObserverERNS0_11DisObserverE;
+    _ZN4OHOS8Nearlink10MicService16RegisterObserverERNS0_11MicObserverE;
+    _ZN4OHOS8Nearlink10MicService18DeregisterObserverERNS0_11MicObserverE;
+    _ZN4OHOS8Nearlink10MicService24RegisterMicStateObserverERNS0_16MicStateObserverE;
+    _ZN4OHOS8Nearlink10MicService26DeregisterMicStateObserverERNS0_16MicStateObserverE;
+    _ZN4OHOS8Nearlink10ProfileBas11GetInstanceEv;
+    _ZN4OHOS8Nearlink10SleAdapter24OnAllProfileDisconnectedERKNS0_10RawAddressE;
+    _ZN4OHOS8Nearlink10TwsService13GetWearActionEhhRKNS0_16TwsDevWearStatusE;
+    _ZN4OHOS8Nearlink10TwsService14GetPauseReasonERKNS0_10RawAddressEiRKNS0_16TwsDevWearStatusEi;
+    _ZN4OHOS8Nearlink10TwsService15ChangePlayStateERKNS0_10RawAddressERKNS0_16TwsWearStateDataERKNS0_16TwsDevWearStatusERbSB_;
+    _ZN4OHOS8Nearlink10TwsService16NotifyWearActionERKNS0_10RawAddressERKNS0_16TwsWearStateDataERKNS0_16TwsDevWearStatusERb;
+    _ZN4OHOS8Nearlink10TwsService16RegisterObserverERNS0_11TwsObserverE;
+    _ZN4OHOS8Nearlink10TwsService16ResetStreamStateERNSt3__h6vectorINS0_16NearlinkCdsmInfoENS2_9allocatorIS4_EEEE;
+    _ZN4OHOS8Nearlink10TwsService18DeregisterObserverERNS0_11TwsObserverE;
+    _ZN4OHOS8Nearlink10TwsService19RegisterApplicationERKNSt3__h10shared_ptrINS0_26InterfaceTwsClientObserverEEE;
+    _ZN4OHOS8Nearlink10TwsService22TwsGetDeviceWearStatusERKNS0_10RawAddressERNS0_16TwsDevWearStatusE;
+    _ZN4OHOS8Nearlink10TwsService24GetPauseReasonNotPlayingERKNS0_10RawAddressEiRKNS0_16TwsDevWearStatusE;
+    _ZN4OHOS8Nearlink10VcpService16RegisterObserverERNS0_17VcpClientObserverE;
+    _ZN4OHOS8Nearlink10VcpService18DeregisterObserverERNS0_17VcpClientObserverE;
+    _ZN4OHOS8Nearlink11CdsmService16RegisterObserverERNS0_12CdsmObserverE;
+    _ZN4OHOS8Nearlink11CdsmService18DeregisterObserverERNS0_12CdsmObserverE;
+    _ZN4OHOS8Nearlink11CdsmService20CdsmGetAllMemberInfoERKNS0_10RawAddressERNSt3__h6vectorINS0_16NearlinkCdsmInfoENS5_9allocatorIS7_EEEE;
+    _ZN4OHOS8Nearlink11CdsmService26RegisterCdsmClientCallbackERKNSt3__h10shared_ptrINS0_34InterfaceCdsmClientServiceCallbackEEE;
+    _ZN4OHOS8Nearlink11IcceService16RegisterObserverERNS0_12IcceObserverE;
+    _ZN4OHOS8Nearlink11IcceService18DeregisterObserverERNS0_12IcceObserverE;
+    _ZN4OHOS8Nearlink11PortService16RegisterObserverERNS0_12PortObserverE;
+    _ZN4OHOS8Nearlink11PortService18DeregisterObserverERNS0_12PortObserverE;
+    _ZN4OHOS8Nearlink11ScanService33RegisterSleCentralManagerCallbackERNS0_26ISleCentralManagerCallbackE;
+    _ZN4OHOS8Nearlink11ScanService9StartScanEjRKNS0_23NearlinkSleScanSettingsERKNSt3__h6vectorINS0_17SleScanFilterImplENS5_9allocatorIS7_EEEE;
+    _ZN4OHOS8Nearlink11SleSecurityC1ERNS0_22SleInterfaceAdapterSubE;
+    _ZN4OHOS8Nearlink11SleSecurityC2ERNS0_22SleInterfaceAdapterSubE;
+    _ZN4OHOS8Nearlink13SleEdmManager11GetInstanceEv;
+    _ZN4OHOS8Nearlink13SleEdmManager16IsAllowedConnectERKNSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE;
+    _ZN4OHOS8Nearlink13SleEdmManager16OnEdmListChangedEv;
+    _ZN4OHOS8Nearlink13SleEdmManager26UpdateAccountForbiddenlistEv;
+    _ZN4OHOS8Nearlink13SleEdmManager4InitEv;
+    _ZN4OHOS8Nearlink14HidHostService16RegisterObserverERNS0_15HidHostObserverE;
+    _ZN4OHOS8Nearlink14HidHostService18DeregisterObserverERNS0_15HidHostObserverE;
+    _ZN4OHOS8Nearlink16ScanStackAdapter9StartScanEjRKNS0_23NearlinkSleScanSettingsERKNSt3__h6vectorINS0_17SleScanFilterImplENS5_9allocatorIS7_EEEE;
+    _ZN4OHOS8Nearlink17HadmClientService34RegisterNearlinkHadmClientCallbackENSt3__h10shared_ptrINS0_34InterfaceHadmClientServiceCallbackEEE;
+    _ZN4OHOS8Nearlink17SleAdvertiserImpl29RegisterSleAdvertiserCallbackENSt3__h8weak_ptrINS0_22ISleAdvertiserCallbackEEE;
+    _ZN4OHOS8Nearlink17SleAdvertiserImpl40RegisterSleConnectableAdvertiserCallbackENSt3__h8weak_ptrINS0_22ISleAdvertiserCallbackEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl11SetClientIdEi;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl11SetDeviceIdENSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl12SetFiltIndexEh;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl12SetFrameTypeEh;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl14SetServiceDataENSt3__h6vectorIhNS2_9allocatorIhEEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl14SetServiceUuidERKNS0_4UuidE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl15SetFilterActionEh;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl16SetRssiThresholdEa;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl17SetManufacturerIdEt;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl18SetManufactureDataENSt3__h6vectorIhNS2_9allocatorIhEEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl18SetServiceDataMaskENSt3__h6vectorIhNS2_9allocatorIhEEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl18SetServiceUuidMaskERKNS0_4UuidE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl19SetSensorHubChannelEb;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl22SetManufactureDataMaskENSt3__h6vectorIhNS2_9allocatorIhEEEE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl26SetServiceSolicitationUuidERKNS0_4UuidE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl30SetServiceSolicitationUuidMaskERKNS0_4UuidE;
+    _ZN4OHOS8Nearlink17SleScanFilterImpl7SetNameENSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE;
+    _ZN4OHOS8Nearlink17SsapClientService19RegisterApplicationERKNSt3__h10shared_ptrINS0_27InterfaceSsapClientCallbackEEERKNS0_10RawAddressEhh;
+    _ZN4OHOS8Nearlink17SsapClientService23RegisterApplicationTaskERKNSt3__h10shared_ptrINS0_27InterfaceSsapClientCallbackEEERKNS0_10RawAddressENS0_14SsapSecureTypeEii;
+    _ZN4OHOS8Nearlink17SsapServerService19RegisterApplicationERKNSt3__h10shared_ptrINS0_27InterfaceSsapServerCallbackEEE;
+    _ZN4OHOS8Nearlink17SsapServerService23RegisterApplicationTaskERKNSt3__h10shared_ptrINS0_27InterfaceSsapServerCallbackEEEii;
+    _ZN4OHOS8Nearlink19AdapterStateMachine4InitENSt3__h10shared_ptrINS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink19SleInterfaceManager11GetInstanceEv;
+    _ZN4OHOS8Nearlink19SleInterfaceManager13GetCallerInfoEv;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl12SetFrameTypeEh;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl13SetScanWindowEt;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl14SetReportDelayEl;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl15SetScanIntervalEt;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl6SetPhyEi;
+    _ZN4OHOS8Nearlink19SleScanSettingsImpl9SetLegacyEb;
+    _ZN4OHOS8Nearlink20DeviceBatteryManager26ProcessProfileDisconnectedERKNSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE;
+    _ZN4OHOS8Nearlink20InterfaceScanService11GetInstanceEv;
+    _ZN4OHOS8Nearlink20SleAdvertiserAdapter29RegisterSleAdvertiserCallbackENSt3__h8weak_ptrINS0_22ISleAdvertiserCallbackEEE;
+    _ZN4OHOS8Nearlink20SleAdvertiserAdapter40RegisterSleConnectableAdvertiserCallbackENSt3__h8weak_ptrINS0_22ISleAdvertiserCallbackEEE;
+    _ZN4OHOS8Nearlink21AdapterTurningOnStateC1ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink21AdapterTurningOnStateC2ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink22AdapterTurningOffStateC1ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink22AdapterTurningOffStateC2ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink22InterfaceSleController11GetInstanceEv;
+    _ZN4OHOS8Nearlink22SleDataTransferService38RegisterSleDataTransferServiceCallbackENSt3__h10shared_ptrINS0_31ISleDataTransferServiceCallbackEEE;
+    _ZN4OHOS8Nearlink24SleInterfaceDataTransfer11GetInstanceEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager19RegisterBasObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager19RegisterDisObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager19RegisterMicObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager19RegisterTwsObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager20RegisterCdsmObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager20RegisterIcceObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager20RegisterPortObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager23RegisterHidHostObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager25RegisterVcpClientObserverEv;
+    _ZN4OHOS8Nearlink24SleProfileConnectManager26ProcessProfileDisconnectedERKNSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEERKNS0_10RawAddressE;
+    _ZN4OHOS8Nearlink25InterfaceCloudPairService11GetInstanceEv;
+    _ZN4OHOS8Nearlink26InterfaceAdvertiserService11GetInstanceEv;
+    _ZN4OHOS8Nearlink26InterfaceHadmClientService11GetInstanceEv;
+    _ZN4OHOS8Nearlink26ServiceManagerPluginLoader17SetSleAdapterFuncENSt3__h8functionIFPNS0_26SleInterfaceAdapterWrapperEvEEE;
+    _ZN4OHOS8Nearlink26ServiceManagerPluginLoader21SetPeripheralCallbackENSt3__h8functionIFvRNS0_22ISlePeripheralCallbackEEEE;
+    _ZN4OHOS8Nearlink26ServiceManagerPluginLoader23SetAdapterStateObserverENSt3__h8functionIFvRNS0_21IAdapterStateObserverEEEE;
+    _ZN4OHOS8Nearlink26SleInterfaceProfileManager11GetInstanceEv;
+    _ZN4OHOS8Nearlink27AdapterTurningHalfToOnStateC1ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink27AdapterTurningHalfToOnStateC2ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink28AdapterTurningHalfToOffStateC1ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink28AdapterTurningHalfToOffStateC2ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink28AdapterTurningOffToHalfStateC1ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink28AdapterTurningOffToHalfStateC2ENSt3__h10shared_ptrINS0_19AdapterStateMachineEEENS3_INS0_19SleInterfaceAdapterEEE;
+    _ZN4OHOS8Nearlink29ServiceManagerPluginInterface11GetInstanceEv;
+    _ZN4OHOS8Nearlink29ServiceManagerPluginInterface15IsLibraryLoadedEv;
+    _ZN4OHOS8Nearlink8UnloadSa11GetInstanceEv;
+    _ZN4OHOS8Nearlink8UnloadSa16UnloadNearlinkSaEv;
+    _ZN4OHOS8Nearlink8UnloadSa21NearlinkHostExtOnIdleEv;
+    _ZN4OHOS8Nearlink8UnloadSa25StopUnloadNearlinkSaTimerEv;
+    _ZN4OHOS8Nearlink8UnloadSa26NearlinkHostExtOnIdleInnerEv;
+    _ZN4OHOS8Nearlink8UnloadSa26StartUnloadNearlinkSaTimerENS0_10SleStateIDE;
+    _ZN4OHOS8Nearlink8UnloadSaC1Ev;
+    _ZN4OHOS8Nearlink8UnloadSaC2Ev;
+    _ZN4OHOS8Nearlink8UnloadSaD1Ev;
+    _ZN4OHOS8Nearlink8UnloadSaD2Ev;
+    _ZNK4OHOS8Nearlink10SleAdapter26RegisterSleAdapterObserverERNS0_19IAdapterSleObserverE;
+    _ZNK4OHOS8Nearlink10SleAdapter28DeregisterSleAdapterObserverERNS0_19IAdapterSleObserverE;
+    _ZNK4OHOS8Nearlink10SleAdapter28HandleProfileDisconnectStateERKNS0_10RawAddressEiiib;
+    _ZNK4OHOS8Nearlink10SleAdapter29RegisterSleConnectionCallbackERNS0_22ISleConnectionCallbackE;
+    _ZNK4OHOS8Nearlink10SleAdapter29RegisterSleDeviceRssiCallbackERNS0_22ISleDeviceRssiCallbackE;
+    _ZNK4OHOS8Nearlink10SleAdapter29RegisterSlePeripheralCallbackERNS0_22ISlePeripheralCallbackE;
+    _ZNK4OHOS8Nearlink10SleAdapter31DeregisterSleConnectionCallbackERNS0_22ISleConnectionCallbackE;
+    _ZNK4OHOS8Nearlink10SleAdapter31DeregisterSleDeviceRssiCallbackERNS0_22ISleDeviceRssiCallbackE;
+    _ZNK4OHOS8Nearlink10SleAdapter31DeregisterSlePeripheralCallbackERNS0_22ISlePeripheralCallbackE;
+    _ZNK4OHOS8Nearlink13SleProperties26RegisterSleAdapterObserverERNS0_19IAdapterSleObserverE;
+    _ZNK4OHOS8Nearlink13SleProperties28DeregisterSleAdapterObserverERNS0_19IAdapterSleObserverE;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl11GetClientIdEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl11GetDeviceIdEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl12GetFiltIndexEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl12GetFrameTypeEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl14GetServiceDataEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl14GetServiceUuidEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl14HasServiceDataEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl14HasServiceUuidEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl15GetFilterActionEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl16GetRssiThresholdEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl16HasRssiThresholdEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl17GetManufacturerIdEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18GetManufactureDataEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18GetServiceDataMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18GetServiceUuidMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18HasServiceDataMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18HasServiceUuidMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl18IsSensorHubChannelEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl19HasSolicitationUuidEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl22GetManufactureDataMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl23HasSolicitationUuidMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl26GetServiceSolicitationUuidEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl30GetServiceSolicitationUuidMaskEv;
+    _ZNK4OHOS8Nearlink17SleScanFilterImpl7GetNameEv;
+    _ZNK4OHOS8Nearlink17SleServiceManager10EnableTaskENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoENS0_20SleAutoConnectPolicyE;
+    _ZNK4OHOS8Nearlink17SleServiceManager11DisableTaskENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink17SleServiceManager11EnableInnerENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoENS0_20SleAutoConnectPolicyE;
+    _ZNK4OHOS8Nearlink17SleServiceManager12DisableToOffENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink17SleServiceManager12EnableToHalfENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink17SleServiceManager15SwitchToOffTaskENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink17SleServiceManager16SwitchToHalfTaskENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink17SleServiceManager21RegisterStateObserverERNS0_21IAdapterStateObserverE;
+    _ZNK4OHOS8Nearlink17SleServiceManager23DeregisterStateObserverERNS0_21IAdapterStateObserverE;
+    _ZNK4OHOS8Nearlink17SleServiceManager27RegisterSystemStateObserverERNS0_20ISystemStateObserverE;
+    _ZNK4OHOS8Nearlink17SleServiceManager29DeregisterSystemStateObserverERNS0_20ISystemStateObserverE;
+    _ZNK4OHOS8Nearlink17SleServiceManager6EnableENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoENS0_20SleAutoConnectPolicyE;
+    _ZNK4OHOS8Nearlink17SleServiceManager7DisableENS0_12SleTransportENS0_12SleEventTypeENS0_16SwitchCallerInfoE;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl12GetFrameTypeEv;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl13GetScanWindowEv;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl15GetScanIntervalEv;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl25GetReportDelayMillisValueEv;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl6GetPhyEv;
+    _ZNK4OHOS8Nearlink19SleScanSettingsImpl9GetLegacyEv;
+    _ZTVN4OHOS8Nearlink10ASCService19AscMicStateObserverE;
   local:
     *;
 };
