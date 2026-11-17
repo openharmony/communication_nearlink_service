@@ -31,7 +31,7 @@ struct NearlinkCcpClient::impl {};
 
 NearlinkCcpClient &NearlinkCcpClient::GetProfile()
 {
-    HILOGI("enter");
+    HILOGD("enter");
     static NearlinkCcpClient instance;
     return instance;
 }
@@ -55,13 +55,13 @@ int32_t NearlinkCcpClient::CallDetailsChanged(int32_t callId, int32_t callState,
 
 NearlinkCcpClient::NearlinkCcpClient()
 {
-    HILOGI("enter");
+    HILOGD("enter");
     pimpl = std::make_shared<impl>();
 }
 
 NearlinkCcpClient::~NearlinkCcpClient()
 {
-    HILOGI("enter");
+    HILOGD("enter");
     pimpl = nullptr;
 }
 

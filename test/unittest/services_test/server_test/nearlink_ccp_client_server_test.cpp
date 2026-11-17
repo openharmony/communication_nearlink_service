@@ -328,7 +328,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged007, TestSize.Level1)
 /**
  * @tc.number: PhoneStateChanged008
  * @tc.name:
- * @tc.desc: callState 超出 TelCallState 值域（-1~9）时拒绝，非法状态不得穿透到业务层
+ * @tc.desc: callState 超出字节域上界（-1~255）时拒绝，畸形状态不得穿透到业务层
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged008, TestSize.Level1)
 {
@@ -339,7 +339,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged008, TestSize.Level1)
     data.WriteInt32(1);
     data.WriteInt32(0);
     data.WriteInt32(0);
-    data.WriteInt32(10);
+    data.WriteInt32(256);
     data.WriteString("10086");
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
     EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
@@ -372,7 +372,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged009, TestSize.Level1)
 /**
  * @tc.number: PhoneStateChanged010
  * @tc.name:
- * @tc.desc: callState 低于 TelCallState 值域下界（-1）时拒绝，与 008（上界 10）构成双向覆盖
+ * @tc.desc: callState 低于字节域下界（-1）时拒绝，与 008（上界 256）构成双向覆盖
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged010, TestSize.Level1)
 {
@@ -434,9 +434,33 @@ HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged012, TestSize.Level1)
 }
 
 /**
+ * @tc.number: PhoneStateChanged013
+ * @tc.name:
+ * @tc.desc: callState=10（蜂窝新增枚举值的前向兼容）仍受理：
+ *           上限仅作字节域护栏，未知状态由业务层白名单兜底丢弃
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, PhoneStateChanged013, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged013 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(1);
+    data.WriteInt32(0);
+    data.WriteInt32(0);
+    data.WriteInt32(10);
+    data.WriteString("10086");
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_PHONE_STATE_CHANGED, data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_EQ(ExpectedCcpPushResult(), result);
+    HILOGI("NearlinkCcpClientServerStubTest:PhoneStateChanged013 end");
+}
+
+/**
  * @tc.number: CallDetailsChanged004
  * @tc.name:
- * @tc.desc: callType 超出已知枚举（TYPE_CS~TYPE_BLUETOOTH）时拒绝，范围外值不得穿透到业务层
+ * @tc.desc: callType 超出字节域上界（0~255）时拒绝，畸形类型不得穿透到业务层
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged004, TestSize.Level1)
 {
@@ -446,7 +470,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged004, TestSize.Level1
     data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
     data.WriteInt32(1);
     data.WriteInt32(0);
-    data.WriteInt32(7);
+    data.WriteInt32(256);
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
     EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
     HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged004 end");
@@ -473,7 +497,7 @@ HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged005, TestSize.Level1
 /**
  * @tc.number: CallDetailsChanged006
  * @tc.name:
- * @tc.desc: callType 低于已知枚举下界（TYPE_CS=0）时拒绝，与 004（上界 7）构成双向覆盖
+ * @tc.desc: callType 低于字节域下界（0）时拒绝，与 004（上界 256）构成双向覆盖
  */
 HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged006, TestSize.Level1)
 {
@@ -527,6 +551,28 @@ HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged008, TestSize.Level1
     int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
     EXPECT_EQ(static_cast<int32_t>(ERR_INVALID_VALUE), ret);
     HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged008 end");
+}
+
+/**
+ * @tc.number: CallDetailsChanged009
+ * @tc.name:
+ * @tc.desc: callType=7（蜂窝新增枚举值的前向兼容）仍受理：
+ *           上限仅作字节域护栏，业务层按非 VoIP 蜂窝路径处理
+ */
+HWTEST_F(NearlinkCcpClientServerStubTest, CallDetailsChanged009, TestSize.Level1)
+{
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged009 start");
+    MessageParcel data;
+    MessageParcel reply;
+    data.WriteInterfaceToken(NearlinkCcpClientStub::GetDescriptor());
+    data.WriteInt32(1);
+    data.WriteInt32(0);
+    data.WriteInt32(7);
+    int32_t ret = CcpClientOnRemoteRequest(NearlinkCcpInterfaceCode::NL_CCP_CLIENT_CALL_DETAILS_CHANGED, data, reply);
+    EXPECT_EQ(NO_ERROR, ret);
+    NlErrCode result = static_cast<NlErrCode>(reply.ReadInt32());
+    EXPECT_EQ(ExpectedCcpPushResult(), result);
+    HILOGI("NearlinkCcpClientServerStubTest:CallDetailsChanged009 end");
 }
 
 } // namespace TEST

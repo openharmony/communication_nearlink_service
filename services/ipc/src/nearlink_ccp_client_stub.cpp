@@ -36,10 +36,9 @@ namespace {
    本层仅拒绝小于 -1 的值，-1 及非负值全部放行 */
 constexpr int32_t STUB_INVALID_CALL_ID = -1;
 constexpr int32_t STUB_CALL_TYPE_MIN = 0;
-constexpr int32_t STUB_CALL_TYPE_MAX = 6;
-/* 与 call_manager_base.h 的 TelCallState 枚举保持一致（CALL_STATUS_UNKNOWN=-1 ~ CALL_STATUS_ANSWERED=9） */
+constexpr int32_t STUB_CALL_TYPE_MAX = 0xff;
 constexpr int32_t STUB_CALL_STATE_MIN = -1;
-constexpr int32_t STUB_CALL_STATE_MAX = 9;
+constexpr int32_t STUB_CALL_STATE_MAX = 0xff;
 constexpr int32_t STUB_CALL_NUM_MIN = 0;
 constexpr int32_t STUB_CALL_NUM_MAX = 0xff;
 }
@@ -87,7 +86,7 @@ int32_t NearlinkCcpClientStub::PhoneStateChangedInner(NearlinkCcpClientStub *stu
         ERR_INVALID_VALUE, "invalid numHeld=%{public}d", numHeld);
 
     int32_t callState = data.ReadInt32();
-    /* CallState 合法域：-1(UNKNOWN) ~ 9(ANSWERED) */
+    /* CallState 合法域：-1 ~ 0xff，未知状态由业务层白名单兜底 */
     NL_CHECK_RETURN_RET(callState >= STUB_CALL_STATE_MIN && callState <= STUB_CALL_STATE_MAX,
         ERR_INVALID_VALUE, "invalid callState=%{public}d", callState);
 
@@ -114,12 +113,12 @@ int32_t NearlinkCcpClientStub::CallDetailsChangedInner(NearlinkCcpClientStub *st
         "invalid callId=%{public}d", callId);
 
     int32_t callState = data.ReadInt32();
-    /* CallState 合法域：-1(UNKNOWN) ~ 9(ANSWERED) */
+    /* CallState 合法域：-1 ~ 0xff，未知状态由业务层白名单兜底 */
     NL_CHECK_RETURN_RET(callState >= STUB_CALL_STATE_MIN && callState <= STUB_CALL_STATE_MAX,
         ERR_INVALID_VALUE, "invalid callState=%{public}d", callState);
 
     int32_t callType = data.ReadInt32();
-    /* 仅受理已知 callType（TYPE_CS ~ TYPE_BLUETOOTH），范围外的值不得穿透到业务层按蜂窝处理 */
+    /* callType 合法域：0 ~ 0xff，未知类型按非 VoIP 蜂窝路径处理 */
     NL_CHECK_RETURN_RET(callType >= STUB_CALL_TYPE_MIN && callType <= STUB_CALL_TYPE_MAX,
         ERR_INVALID_VALUE, "invalid callType=%{public}d", callType);
 
