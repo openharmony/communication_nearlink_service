@@ -75,15 +75,17 @@ TEST_F(UT_DTAP_TRANS, DtapChanReliableWindowDefaultAndRebuild)
     ASSERT_NE(real, nullptr);
     auto *reliable = (DTAP_ReliableChannel_S *)real->attr;
     EXPECT_EQ(reliable->txWindow.size, CM_CAP_WND);
-    void *oldAttr = real->attr;
 
-    // 重复激活：旧通道被删除重建
+    // 重复激活：旧通道被删除重建，状态回到初始值
+    reliable->nackCnt = 7;
     ChannelRelease(state);
     CM_TransChannelStateList_S again = {0};
     ChannelInject(again, 5, TCID_SLE_CUTC, TCID_SLE_CUTC, CM_TRANS_MODE_RELIABLE);
     real = DTAP_ChannelSearch(5, TCID_SLE_CUTC);
     ASSERT_NE(real, nullptr);
-    EXPECT_NE(real->attr, oldAttr);
+    reliable = (DTAP_ReliableChannel_S *)real->attr;
+    EXPECT_EQ(reliable->nackCnt, 0);
+    EXPECT_EQ(reliable->txWindow.size, CM_CAP_WND);
     ChannelRelease(again);
 }
 

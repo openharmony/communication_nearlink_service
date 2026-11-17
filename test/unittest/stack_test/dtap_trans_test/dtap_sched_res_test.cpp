@@ -128,8 +128,8 @@ TEST_F(UT_DTAP_TRANS, DtapSchedFragmentSaveAndReuse)
     // 第二个大包先冻结入队，完成回执后调度时复用既有碎片通道保存余片
     NEW_BUFF(big2, 12000);
     EXPECT_EQ(DTAP_DataSendWithPriority(chan, big2), DTAP_SUCCESS);
-    EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, 0x31, 1), DLI_SUCCESS);
     EXPECT_GT(node->queuedPktCnt, queuedAfterFirst);
+    EXPECT_EQ(TEST_NOCPEventDo(DLI_REG_MODULE_DTAP, 0x31, 1), DLI_SUCCESS);
 
     // 连续完成回执把两个大包的碎片队列全部消化
     for (int i = 0; i < 48; i++) {

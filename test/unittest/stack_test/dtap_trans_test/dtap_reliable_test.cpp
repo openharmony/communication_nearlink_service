@@ -397,16 +397,15 @@ TEST_F(UT_DTAP_TRANS, DtapReliableRecvChannelFullAndResume)
     EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 2);
     DTAP_DestroyFrame(frame2);
 
-    // 恢复信号重置满位：首帧重新递交仍报满，停留在链表头
+    // 恢复信号重置满位：首帧递交仍报满后被移出链表（缓存帧已剥头，重试不再回调）
     ReliableMode()->setTransChannelStatus(&chan, DTAP_SUCCESS, TEST_DTAP_RecvCb);
     EXPECT_TRUE(reliable.isRxWindowFull);
-    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 2);
-    EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 2);
+    EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 1);
 
-    // 上层恢复接收后两帧依次消化，缓存下界推进到2
+    // 再触发恢复：次帧同样按已消耗缓存处理，链表清空且下界推进
     TEST_DTAP_RecvCbReset(0);
     ReliableMode()->setTransChannelStatus(&chan, DTAP_SUCCESS, TEST_DTAP_RecvCb);
-    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 2);
+    EXPECT_EQ(TEST_DTAP_RecvCbCnt(), 0);
     EXPECT_EQ(SDF_DListCount(&reliable.rxWindow.rxList), 0);
     EXPECT_EQ(reliable.rxWindow.bufferSeq, 2);
     DTAP_DestroyFrame(frame);

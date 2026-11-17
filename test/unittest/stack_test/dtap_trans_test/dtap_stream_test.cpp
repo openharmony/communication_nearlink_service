@@ -122,6 +122,9 @@ TEST_F(UT_DTAP_TRANS, DtapStreamRecvCacheFullAndCrcFail)
         DTAP_DestroyFrame(gap);
     }
 
+    // 满表行为已覆盖，清空缓存后再验证类型与校验失败的判定
+    RxListFree(stream);
+
     // 非未分片类型直接拒绝
     NEW_FRAME(frag, DTAP_FRAME_SIMPLEX_FRAG, 300, 8, 0xFFFF, DTAP_SAR_FIRST);
     EXPECT_EQ(StreamMode()->recvFrame(&chan, frag, TEST_DTAP_RecvCb), DTAP_TRANS_UNSUPPORTED);
@@ -144,6 +147,7 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTaskFlush)
     DTAP_Channel_S *chan = DTAP_ChannelSearch(2, TCID_SLE_CUTC);
     ASSERT_NE(chan, nullptr);
     auto *stream = (DTAP_Stream_Channel_S *)chan->attr;
+    stream->crcInit = TEST_CRC_INIT;
 
     // 首包建立期待序号1，乱序包2、3进入缓存
     CP_TimerSetExecCallbackPostponed(true);
@@ -179,6 +183,7 @@ TEST_F(UT_DTAP_TRANS, DtapStreamReorderTimerNoNode)
     DTAP_Channel_S *chan = DTAP_ChannelSearch(3, TCID_SLE_CUTC);
     ASSERT_NE(chan, nullptr);
     auto *stream = (DTAP_Stream_Channel_S *)chan->attr;
+    stream->crcInit = TEST_CRC_INIT;
 
     NEW_FRAME(first, DTAP_FRAME_SIMPLEX_FRAG, 0, 8);
     EXPECT_EQ(StreamMode()->recvFrame(chan, first, TEST_DTAP_RecvCb), DTAP_SUCCESS);

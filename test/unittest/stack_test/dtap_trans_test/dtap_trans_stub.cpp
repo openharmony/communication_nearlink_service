@@ -159,18 +159,18 @@ uint32_t TEST_DTAP_DataSendCapture(DLI_DataStru *data)
 
 uint8_t TEST_DTAP_SentFrameType(size_t idx)
 {
-    if (idx >= g_sentFrames.size() || g_sentFrames[idx].size() < 2) {
+    if (idx >= g_sentFrames.size() || g_sentFrames[idx].size() < DLI_HEADER + 2) {
         return 0xFF;
     }
-    return g_sentFrames[idx][1] & 0x0F;
+    return g_sentFrames[idx][DLI_HEADER + 1] & 0x0F;
 }
 
 uint8_t TEST_DTAP_SentFrameByte(size_t idx, size_t off)
 {
-    if (idx >= g_sentFrames.size() || off >= g_sentFrames[idx].size()) {
+    if (idx >= g_sentFrames.size() || DLI_HEADER + off >= g_sentFrames[idx].size()) {
         return 0xFF;
     }
-    return g_sentFrames[idx][off];
+    return g_sentFrames[idx][DLI_HEADER + off];
 }
 
 size_t TEST_DTAP_SentFrameCnt(void)

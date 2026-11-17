@@ -51,6 +51,7 @@
 #include "cm_dli_adapter.h"
 #include "collab_ext_func_wrapper.h"
 #include "dli_callback.h"
+#include "dli_layer_stru.h"
 #include "dli_cmd.h"
 #include "dli_opcode.h"
 #include "byte_codec.h"
