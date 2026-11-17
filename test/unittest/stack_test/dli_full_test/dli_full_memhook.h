@@ -85,7 +85,7 @@ static void DhMemHooksInstall()
 
 static void DhMemHooksRestore()
 {
-    DhMemHooksReset();
+    // 只恢复默认钩子；观测状态留给断言读取，清零统一在下次 Install 进行
     SDF_MemHooks_S hooks = {(SDF_MemAllocHook)malloc, (SDF_MemFreeHook)free};
     EXPECT_EQ(0, SDF_MemHookReg(&hooks));
 }
