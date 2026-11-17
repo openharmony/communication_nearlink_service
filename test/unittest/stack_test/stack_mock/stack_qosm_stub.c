@@ -132,7 +132,7 @@ void TEST_QOSM_NotifyDataPathByHandle(uint16_t handle, uint8_t state, uint32_t r
     param.result = result;
     param.direction = direction;
     param.connHandle = handle;
-    param.qosId = 0xFFFF; // 非法组号必查不到链路，强制走组句柄分支
+    param.qosId = 0xFF; // 非法组号必查不到链路，强制走组句柄分支
     if (g_qosmCbk.dataPathChangedCbk != NULL) {
         g_qosmCbk.dataPathChangedCbk(&param);
     }

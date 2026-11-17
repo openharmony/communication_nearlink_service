@@ -708,7 +708,7 @@ TEST_F(ActmQosmAdapterTest, UT_ACTM_QOSM_029)
     ActmRemoteDevice_S *device = CreateGroupedDevice(&g_addrA, TEST_GID);
     ActmStream_S *stream = CreateDeviceStream(device, NLSTK_ACTM_SINK_POINT);
     stream->codec.codecId = L2HC_CODEC_VOICE;
-    QOSM_AutoRateEarphoneFeedbackParam captured = {0};
+    QOSM_AutoRateEarphoneFeedbackParam captured = {};
     EXPECT_CALL(qosmMock, QOSM_AutoRateSetEarphoneFeedback(_))
         .WillOnce(DoAll(SaveArgPointee<0>(&captured), Return(QOSM_SUCCESS)));
     ActmUpdateBitRate(device, 0x6);
