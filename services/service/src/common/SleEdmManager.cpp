@@ -44,11 +44,6 @@ static uint64_t GetTimestamp()
         std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-static void AddStringToObject(cJSON *json, const char *name, const char *value)
-{
-    cJSON_AddStringToObject(json, name, (value == nullptr) ? "" : value);
-}
-
 std::shared_ptr<SleEdmManager> SleEdmManager::GetInstance()
 {
     static std::shared_ptr<SleEdmManager> instance = std::make_shared<SleEdmManager>();
