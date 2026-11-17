@@ -798,6 +798,10 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
         // 建档与取用不留在两次加锁之间，避免过期擦除落在空挡使移交结果丢失
         if (!g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
             if (record.appName == callingName) {
+                if (record.failCount == 0 && record.lastReportMs != 0 &&
+                    (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+                    record.lastReportMs = 0;
+                }
                 return; // 同一应用反复发起，窗口继续，不冲刷
             }
             oldAppName = record.appName;
@@ -806,6 +810,9 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
                 failCount = record.failCount;
                 firstFailTime = record.firstFailTime;
                 record.lastReportMs = nowMs;
+            } else if (record.lastReportMs != 0 &&
+                (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+                record.lastReportMs = 0;
             }
             record.failCount = 0;
             record.firstFailTime.clear();
@@ -816,6 +823,11 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
             newRecord.lastReportMs = 0;
             newRecord.appName = callingName; // 无主设备建档即认领
             g_connTimeoutRecords.Insert(addr, newRecord);
+            g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+                if (record.appName.empty()) {
+                    record.appName = callingName;
+                }
+            });
         }
         if (needReport) {
             DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
