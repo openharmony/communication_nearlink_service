@@ -126,5 +126,8 @@ group("nl_native_unittest") {
   deps = [
     ":nl_native_test",
     "nearlink_ssap_client_test:nl_native_ssap_client_unittest",
+    "scanner_framework_test:nl_scanner_framework_unittest",
+    "advertiser_framework_test:nl_advertiser_framework_unittest",
+    "datatransfer_framework_test:nl_datatransfer_framework_unittest",
   ]
 }
