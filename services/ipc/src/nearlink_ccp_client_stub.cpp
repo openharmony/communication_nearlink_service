@@ -49,17 +49,13 @@ NearlinkCcpClientStub::NearlinkCcpClientStub()
     HILOGI("enter");
     // Note: Permissions need to be configured when the itf to be used. "nullptr" means no permission needed.
     memberFuncMap_ = {
-        {STUB_FUNC(NL_CCP_CLIENT_PHONE_STATE_CHANGED, PhoneStateChangedInner,
-           CHECK_PERM(true, {MANAGE_NEARLINK}))},
-        {STUB_FUNC(NL_CCP_CLIENT_CALL_DETAILS_CHANGED, CallDetailsChangedInner,
-           CHECK_PERM(true, {MANAGE_NEARLINK}))},
+        {STUB_FUNC(NL_CCP_CLIENT_PHONE_STATE_CHANGED, PhoneStateChangedInner, CHECK_PERM(true, {MANAGE_NEARLINK}))},
+        {STUB_FUNC(NL_CCP_CLIENT_CALL_DETAILS_CHANGED, CallDetailsChangedInner, CHECK_PERM(true, {MANAGE_NEARLINK}))},
     };
 }
 
 NearlinkCcpClientStub::~NearlinkCcpClientStub()
-{
-    memberFuncMap_.clear();
-}
+{}
 
 int32_t NearlinkCcpClientStub::OnRemoteRequest(
     uint32_t code, MessageParcel &data, MessageParcel &reply, MessageOption &option)
