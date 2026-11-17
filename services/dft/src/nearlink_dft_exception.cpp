@@ -63,7 +63,7 @@ constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
 constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该默认值进行大数据上报
-// 同一设备一小时内最多上报一次；窗口移交时冲刷未报计数，不受此限频约束
+// 同一设备一小时内最多上报一次；窗口移交/终结时冲刷未报计数，不受此限频约束
 constexpr const int64_t CONN_TIMEOUT_REPORT_INTERVAL_MS = 3600000;
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
@@ -308,10 +308,10 @@ static void DftReportConnTimeoutWindow(const std::string &addr, int32_t reason, 
     DftCachePairConnPath(addr, PAIR_CONN_PATH_ACB);
     DftReportPairInfo(addr, PAIR_CONN_PATH_ACB, reason,
         std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount) +
-        ", firstFailTime:" + firstFailTime);
+        ", firstFailTime:" + firstFailTime + ", disconnTime:" + GetMillTime(true));
 }
 
-// 窗口移交时冲刷旧窗口挂账：仅上报自备字段，不写连接路径表，不清配对状态（请求起点不能复位本次尝试的生命周期字段）
+// 窗口移交/终结时冲刷挂账：仅上报自备字段，不写连接路径表，不清配对状态（冲刷点一律不复位生命周期字段）
 static void DftReportHandoverConnTimeoutWindow(const std::string &addr, int32_t reason, const std::string &appName,
     uint32_t failCount, const std::string &firstFailTime)
 {
@@ -330,16 +330,11 @@ static void DftReportHandoverConnTimeoutWindow(const std::string &addr, int32_t 
 void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 {
     int64_t nowMs = GetTimestamp();
-    std::vector<std::string> expiredAddrs;
-    g_connTimeoutRecords.Iterate([&](const std::string &key, ConnTimeoutRecord &record) {
-        if (record.failCount == 0 && record.lastReportMs != 0 &&
-            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
-            expiredAddrs.push_back(key);
-        }
+    // 过期清理：FindAndRmv 单锁内完成条件判定与擦除，不与认领/计数的加锁间隙留交错
+    g_connTimeoutRecords.FindAndRmv([&](const std::string &key, ConnTimeoutRecord &record) {
+        return record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS;
     });
-    for (const auto &expiredAddr : expiredAddrs) {
-        g_connTimeoutRecords.Erase(expiredAddr);
-    }
     uint32_t failCount = 0;
     std::string firstFailTime;
     std::string appName;
@@ -799,12 +794,9 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
         std::string firstFailTime;
         std::string oldAppName;
         bool needReport = false;
-        // 确保统计记录存在，已存在时不覆盖
-        ConnTimeoutRecord newRecord;
-        newRecord.failCount = 0;
-        newRecord.lastReportMs = 0;
-        g_connTimeoutRecords.Insert(addr, newRecord);
-        g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        // 先取记录：命中即单锁完成移交/冲刷；未命中再单锁建档，属主随建档一次成型--
+        // 建档与取用不留在两次加锁之间，避免过期擦除落在空挡使移交结果丢失
+        if (!g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
             if (record.appName == callingName) {
                 return; // 同一应用反复发起，窗口继续，不冲刷
             }
@@ -818,12 +810,18 @@ void DftCacheCallingName(const std::string &addr, const std::string &callingName
             record.failCount = 0;
             record.firstFailTime.clear();
             record.appName = callingName; // 窗口移交新发起方
-        });
+        })) {
+            ConnTimeoutRecord newRecord;
+            newRecord.failCount = 0;
+            newRecord.lastReportMs = 0;
+            newRecord.appName = callingName; // 无主设备建档即认领
+            g_connTimeoutRecords.Insert(addr, newRecord);
+        }
         if (needReport) {
             DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
         }
+        DftCacheSleAppNameParam(addr, callingName);
     }
-    DftCacheSleAppNameParam(addr, callingName);
 }
 
 void DftSetConnectProfileTaskFlag(const std::string &addr)
@@ -905,6 +903,18 @@ void DftReportUnPairFailInfo(const std::string &addr, int32_t status, uint16_t r
 
 void DftReportUnPairSuccessInfo(const std::string &addr, int32_t status, uint16_t result)
 {
+    // 窗口终结冲刷：取消配对成功即窗口作废，未上报挂账先报出再擦除（窗口已终结，不检查限频）
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    std::string appName;
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        failCount = record.failCount;
+        firstFailTime = record.firstFailTime;
+        appName = record.appName;
+    });
+    if (failCount > 0) {
+        DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, appName, failCount, firstFailTime);
+    }
     g_connTimeoutRecords.Erase(addr);
     if (DftUnpairTaskFind(addr)) {
         std::string time = GetMillTime(true);
