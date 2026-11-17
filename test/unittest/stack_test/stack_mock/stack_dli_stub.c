@@ -55,6 +55,17 @@ uint32_t TEST_DLI_ReadRemoteMeasureCaps(DLI_ReadRemoteMeasureCapsParam *param)
     return 0;
 }
 
+/* real nlstk_cfgdb.c in dli-cmd-stubbed hosts references these */
+void DLI_SetLocalFeatures(DLI_LocalFeatures_S *features)
+{
+    (void)features;
+}
+
+uint32_t DLI_ReadLocalMeasureCaps(void)
+{
+    return 0;
+}
+
 uint32_t TEST_DLI_EnableIMGEncryption(DLI_IMGEncryptParam *param)
 {
     return 0;
