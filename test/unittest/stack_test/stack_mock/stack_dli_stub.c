@@ -55,13 +55,16 @@ uint32_t TEST_DLI_ReadRemoteMeasureCaps(DLI_ReadRemoteMeasureCapsParam *param)
     return 0;
 }
 
-/* real nlstk_cfgdb.c in dli-cmd-stubbed hosts references these */
-void DLI_SetLocalFeatures(DLI_LocalFeatures_S *features)
+/* real nlstk_cfgdb.c in dli-cmd-stubbed hosts references these;
+ * weak so hosts that already link a strong definition (dli_test: product
+ * dli_cmd.c, hadm_test: stack_dli_cmd_mock.cpp) don't get duplicate
+ * symbols (verify-fix V-33 !436) */
+__attribute__((weak)) void DLI_SetLocalFeatures(DLI_LocalFeatures_S *features)
 {
     (void)features;
 }
 
-uint32_t DLI_ReadLocalMeasureCaps(void)
+__attribute__((weak)) uint32_t DLI_ReadLocalMeasureCaps(void)
 {
     return 0;
 }
