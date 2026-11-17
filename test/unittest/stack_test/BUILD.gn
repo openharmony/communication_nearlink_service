@@ -70,6 +70,7 @@ group("nl_stack_test") {
     "ssap_app_test:nl_stack_ssap_app_unittest",
     "ssapc_client_test:nl_stack_ssapc_client_unittest",
     "ssapc_value_ntf_test:nl_stack_ssapc_value_ntf_unittest",
+    "ssapc_app_test:nl_ssapc_app_unittest",
     "ssap_client_hisiold_test:nl_stack_ssap_client_hisiold_unittest",
     "ssaps_server_test:nl_stack_ssaps_server_unittest",
     "nl_ssaps_server_test:nl_ssaps_server_unittest",
