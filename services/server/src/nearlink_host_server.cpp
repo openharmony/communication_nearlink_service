@@ -32,6 +32,7 @@
 #include "nearlink_vcp_client_server.h"
 #include "nearlink_cdsm_client_server.h"
 #include "nearlink_cloud_pair_server.h"
+#include "nearlink_ccp_client_server.h"
 #include "SleInterfaceProfileManager.h"
 #include "SleInterfaceProfileHidHost.h"
 #include "log.h"
@@ -747,6 +748,10 @@ bool NearlinkHostServer::impl::createAudioServers()
     sptr<NearlinkVcpClientServer> vcpClientServer = new (std::nothrow) NearlinkVcpClientServer();
     NL_CHECK_RETURN_RET(vcpClientServer, false, "vcpClientServer is nullptr");
     sleServers_[PROFILE_VCP_SERVER] = vcpClientServer->AsObject();
+
+    sptr<NearlinkCcpClientServer> ccpClientServer = new (std::nothrow) NearlinkCcpClientServer();
+    NL_CHECK_RETURN_RET(ccpClientServer, false, "ccpClientServer is nullptr");
+    sleServers_[PROFILE_CCP_SERVER] = ccpClientServer->AsObject();
 
     sptr<NearlinkTwsClientServer> twsClientServer = new (std::nothrow) NearlinkTwsClientServer();
     NL_CHECK_RETURN_RET(twsClientServer, false, "twsClientServer is nullptr");

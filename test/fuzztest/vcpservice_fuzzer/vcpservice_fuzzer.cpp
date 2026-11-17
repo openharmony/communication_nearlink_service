@@ -200,14 +200,19 @@ void DriveCcpService(CcpService &ccpSvc, FuzzedDataProvider &provider)
     ccpSvc.HandleAuthorize(instanceId, requestId, provider.ConsumeIntegral<int32_t>());
     ccpSvc.SetGeneralInstanceId(instanceId);
     ccpSvc.TryResumeCurrentCalls();
-    ccpSvc.IsNearlinkActiveDevice(devAddr);
 
-    NearlinkCallPhoneState phoneState = {};
-    phoneState.SetActiveNum(provider.ConsumeIntegral<int32_t>());
-    phoneState.SetHeldNum(provider.ConsumeIntegral<int32_t>());
-    phoneState.SetCallState(provider.ConsumeIntegral<int32_t>());
-    phoneState.SetCallType(provider.ConsumeIntegral<int32_t>());
-    ccpSvc.HandlePhoneStateChange(phoneState);
+    std::vector<Telephony::CallAttributeInfo> callInfoVec;
+    Telephony::CallAttributeInfo callAttrInfo{};
+    callAttrInfo.callId = provider.ConsumeIntegral<int32_t>();
+    callAttrInfo.callState = static_cast<Telephony::TelCallState>(provider.ConsumeIntegral<int32_t>());
+    callAttrInfo.callType = static_cast<Telephony::CallType>(provider.ConsumeIntegral<int32_t>());
+    callInfoVec.push_back(callAttrInfo);
+    ccpSvc.HandlePhoneStateChange(callInfoVec);
+    ccpSvc.PhoneStateChanged(callAttrInfo.callId, provider.ConsumeIntegral<int32_t>(),
+        provider.ConsumeIntegral<int32_t>(), static_cast<int32_t>(callAttrInfo.callState),
+        std::to_string(provider.ConsumeIntegral<uint32_t>()));
+    ccpSvc.CallDetailsChanged(provider.ConsumeIntegral<int32_t>(), provider.ConsumeIntegral<int32_t>(),
+        provider.ConsumeIntegral<int32_t>());
 
     CcpStackAdapter ccpStackAdapter;
     ccpStackAdapter.CreateCcsInstance(provider.ConsumeIntegral<uint8_t>());
