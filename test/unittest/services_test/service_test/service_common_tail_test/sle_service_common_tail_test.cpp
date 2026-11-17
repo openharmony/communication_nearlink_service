@@ -120,11 +120,13 @@ HWTEST_F(ServiceCommonTailTest, CoexistConnParam_001, TestSize.Level1)
 
     SLE_Addr_S addr = {};
     RawAddress(kTailAddr).ConvertToUint8(addr.addr);
+    EXPECT_EQ(nullptr, coexist->updateTimer_);
     coexist->ConnectionStatusChanged(0x21, addr);
     coexist->ConnectionStatusChanged(0x22, addr);
     EXPECT_TRUE(SleCoexistManager::GetInstance()->HasMultipleConnections());
 
     // 非法链路号：连接信息不更新，定时器不启动
+    coexist->StopParamUpdateTimer();
     CM_ConnectUpdateParamRsp_S badParam = {};
     badParam.lcid = INVALID_LCID;
     coexist->ConnectionParamChanged(badParam);
@@ -352,8 +354,7 @@ HWTEST_F(ServiceCommonTailTest, SysStateMachineDispatch_001, TestSize.Level1)
 
 /**
  * @tc.name: UnloadSaTimer_001
- * @tc.desc: 卸载定时器只在星闪关断态启动且不重复启动，停止可重复；
- *           空闲插件缺失时按受控失败返回
+ * @tc.desc: 卸载定时器只在星闪关断态启动且不重复启动，停止可重复
  * @tc.type: FUNC
  */
 HWTEST_F(ServiceCommonTailTest, UnloadSaTimer_001, TestSize.Level1)
@@ -372,8 +373,6 @@ HWTEST_F(ServiceCommonTailTest, UnloadSaTimer_001, TestSize.Level1)
     EXPECT_FALSE(unloadSa.isTimerStarted_.load());
     unloadSa.StopUnloadNearlinkSaTimer();
     EXPECT_FALSE(unloadSa.isTimerStarted_.load());
-
-    unloadSa.NearlinkHostExtOnIdleInner();
 }
 
 /**

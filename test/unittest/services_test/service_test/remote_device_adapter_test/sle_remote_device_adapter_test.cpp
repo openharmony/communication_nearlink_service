@@ -468,6 +468,7 @@ HWTEST_F(SleRemoteDeviceAdapterTest, SetAppearance_001, TestSize.Level1)
     EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_MOUSE),
         Adapter()->GetDeviceAppearance(RawAddress(kMouseM)));
 
+    AddPairedDevice(kHeadsetL);
     InjectCdsmGroup(306, kHeadsetL, {kHeadsetL, kHeadsetR});
     AddPairedDevice(kHeadsetR);
     ASSERT_TRUE(Adapter()->SetAppearance(RawAddress(kHeadsetR),

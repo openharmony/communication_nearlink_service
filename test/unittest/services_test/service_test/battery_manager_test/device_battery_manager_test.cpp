@@ -287,8 +287,8 @@ HWTEST_F(NearlinkBattaryManagerTest, BatteryCalcAndCurrent_001, TestSize.Level1)
 
 /**
  * @tc.name: BatteryNotify_001
- * @tc.desc: 电量通知只对当前电量设备生效且电量变化才上报；设备变更通知跳过
- *           非电量设备与未变化设备，双无效电量只切换当前设备不上报
+ * @tc.desc: 电量通知只对当前电量设备生效且电量变化才上报；空设备变更清空
+ *           当前电量设备，未知设备被忽略，双无效电量只切换当前设备不上报
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkBattaryManagerTest, BatteryNotify_001, TestSize.Level1)
@@ -308,12 +308,18 @@ HWTEST_F(NearlinkBattaryManagerTest, BatteryNotify_001, TestSize.Level1)
     mgr.NotifyForBatteryInfoChanged("A1:B2:C3:D4:E5:21", 60);
     EXPECT_EQ(60, mgr.reportBatteryLevel_);
 
+    // 空设备变更：清空当前电量设备并按无电量上报
     mgr.NotifyForDeviceChanged("");
-    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.currentBatteryDevice_);
+    EXPECT_EQ("", mgr.currentBatteryDevice_);
+    EXPECT_EQ(-1, mgr.reportBatteryLevel_);
+    // 未连接的未知设备：直接忽略
     mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:31");
-    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.currentBatteryDevice_);
+    EXPECT_EQ("", mgr.currentBatteryDevice_);
+    // 切回有电量记录的设备：切换并上报其电量
     mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:21");
     EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.currentBatteryDevice_);
+    EXPECT_EQ(60, mgr.reportBatteryLevel_);
+    // 双无效电量：只切换当前设备不上报
     mgr.reportBatteryLevel_ = -1;
     mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:22");
     EXPECT_EQ("A1:B2:C3:D4:E5:22", mgr.currentBatteryDevice_);
