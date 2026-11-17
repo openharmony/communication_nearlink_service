@@ -67,6 +67,9 @@
 #include "parameter_manager.h"
 #include "nearlink_system_config.h"
 #include "UnloadSa.h"
+#ifdef NEARLINK_EDM_ENABLE
+#include "SleEdmManager.h"
+#endif
 #ifdef HICOLLIE_ENABLE
 #include "xcollie/watchdog.h"
 #endif
@@ -914,7 +917,14 @@ NlErrCode NearlinkHostServer::EnableSle(const SleAutoConnectPolicy autoConnPolic
 {
     HILOGD("Enter!");
     // if nearlink is disallowed by pc edm, don't enable.
-    NL_CHECK_RETURN_RET(!IsNearlinkEdmDisallowed(), NL_ERR_PROHIBITED_BY_EDM, "nearlink pc edm disallowed");
+    if (IsNearlinkEdmDisallowed()) {
+#ifdef NEARLINK_EDM_ENABLE
+        SwitchCallerInfo edmCallerInfo = SleInterfaceManager::GetCallerInfo();
+        SleEdmManager::GetInstance()->ReportRefuseInfo(edmCallerInfo.callerUid);
+#endif
+        HILOGW("nearlink pc edm disallowed");
+        return NL_ERR_PROHIBITED_BY_EDM;
+    }
 
     NL_CHECK_RETURN_RET(SleInterfaceManager::GetInstance() != nullptr, NL_ERR_INTERNAL_ERROR,
         "GetInstance is nullptr!");

@@ -216,6 +216,7 @@ if (nearlink_service_edm_enable) {
   shared_service_source += [
     "$SERVICE_TDD_DIR/src/common/SleEdmManager.cpp",
   ]
+  shared_service_external_deps += [ "security_guard:libsg_collect_sdk" ]
   shared_service_defines += [ "NEARLINK_EDM_ENABLE" ]
 }
 
