@@ -68,6 +68,15 @@ void SleAudioFrameworkAdapter::RemoveMemberRouteFlagList(const uint32_t &flag)
                          routeFlagList_.end());
 }
 
+void SleAudioFrameworkAdapter::RemoveVanishedPipeMembers(const std::set<uint32_t> &presentFlags)
+{
+    routeFlagList_.erase(std::remove_if(routeFlagList_.begin(), routeFlagList_.end(),
+        [&presentFlags](const RouteFlagInfo &item) {
+            return presentFlags.find(item.routeFlag) == presentFlags.end();
+        }),
+        routeFlagList_.end());
+}
+
 std::string SleAudioFrameworkAdapter::GetBundleName(uint32_t streamId)
 {
     for (const auto &it : GetRouteFlagList()) {
@@ -341,9 +350,18 @@ void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfosInner()
     auto ptr = DelayedSingleton<AudioStandard::AudioEngineClientManager>::GetInstance();
     NL_CHECK_RETURN(ptr != nullptr, "[SleAudioFrameworkAdapter] Get ptr nullptr!");
     ptr->GetCurrentOutputPipeChangeInfos(outputPipeInfos);
-    // 注册重建前清整表收口：管道句柄可能已变化，现存管道由下方全量重建覆盖，
-    // 已消失管道的残留条目（含其关闭事件被提前返回丢掉的场景）就此清理
-    ClearRouteFlagList();
+    // 重建前只清本次未出现的管道残留（句柄已变化/已转非SLE/关闭事件被提前返回丢掉的场景）：
+    // 现存管道条目连静音记忆一起保留（UpdateRouteFlagList重建时按流快照回填），静音记忆跨重建不丢
+    std::set<uint32_t> presentFlags;
+    for (const auto& pipeInfo : outputPipeInfos) {
+        NL_CHECK_RETURN(pipeInfo != nullptr, "[SleAudioFrameworkAdapter] Get pipeInfo nullptr!");
+        if (!IsSlePipe(pipeInfo->GetAdapter())) {
+            HILOGD("[SleAudioFrameworkAdapter] not sle device");
+            continue;
+        }
+        presentFlags.insert(pipeInfo->GetRouteFlag());
+    }
+    RemoveVanishedPipeMembers(presentFlags);
     for (const auto& pipeInfo : outputPipeInfos) {
         NL_CHECK_RETURN(pipeInfo != nullptr, "[SleAudioFrameworkAdapter] Get pipeInfo nullptr!");
         AudioStandard::HdiAdapterType adapterType = pipeInfo->GetAdapter();
@@ -364,15 +382,19 @@ void SleAudioFrameworkAdapter::RegisterOutputPipeChangeListener()
         HILOGI("[SleAudioFrameworkAdapter] output pipe listener already registered, skip");
         return;
     }
-    audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
     auto ptr = DelayedSingleton<AudioStandard::AudioEngineClientManager>::GetInstance();
     NL_CHECK_RETURN(ptr != nullptr, "[SleAudioFrameworkAdapter] Get ptr nullptr!");
+    audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
     auto ret = ptr->RegisterOutputPipeChangeCallback(audioOutputPipeCallback_);
-    if (ret == SUCCESS) {
-        GetCurrentOutputPipeInfosInner();
-        // 注册后主动补报一次当前流状态，消除注册完成到首个管道事件之间的空窗
-        NotifyMcpRendererStateChange();
+    if (ret != SUCCESS) {
+        // 注册失败置空指针，保留下次注册的重试机会（音频服务未就绪等瞬时失败）
+        HILOGW("[SleAudioFrameworkAdapter] RegisterOutputPipeChangeCallback failed ret=%{public}d", ret);
+        audioOutputPipeCallback_ = nullptr;
+        return;
     }
+    GetCurrentOutputPipeInfosInner();
+    // 注册后主动补报一次当前流状态，消除注册完成到首个管道事件之间的空窗
+    NotifyMcpRendererStateChange();
     HILOGI("[SleAudioFrameworkAdapter] RegisterOutputPipeChangeListener ret=%{public}d", ret);
 }
 
@@ -417,6 +439,11 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         }
         /* 匹配静音流的streamid */
         if (it.streamId == streamId) {
+            continue;
+        }
+        /* 其他流自身任一静音维度时此刻不可闻，不拦截本流的静音管控
+           （与空流判定/Notify过滤的静音维度跳过判据一致） */
+        if (it.silentMode || it.dataMuted || it.volumeMuted) {
             continue;
         }
         if (it.status == AudioStandard::RendererState::RENDERER_RUNNING) {
@@ -509,6 +536,11 @@ void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
         }
         /* 匹配静音流的streamid */
         if (it.streamId == streamId) {
+            continue;
+        }
+        /* 其他流自身任一静音维度时此刻不可闻，不拦截本流的静音管控
+           （与空流判定/Notify过滤的静音维度跳过判据一致） */
+        if (it.silentMode || it.dataMuted || it.volumeMuted) {
             continue;
         }
         if (it.status == AudioStandard::RendererState::RENDERER_RUNNING) {
@@ -678,6 +710,12 @@ void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
     audioRendererDataCallback_ = std::make_shared<SleAudioRendererDataTransferListener>();
     auto ret = OHOS::AudioStandard::AudioStreamClientManager::GetInstance().RegisterRendererDataTransferCallback(
         param, audioRendererDataCallback_);
+    if (ret != SUCCESS) {
+        // 注册失败置空指针，保留下次注册的重试机会（音频服务未就绪等瞬时失败）
+        HILOGW("[SleAudioFrameworkAdapter] RegisterRendererDataTransferCallback failed ret=%{public}d", ret);
+        audioRendererDataCallback_ = nullptr;
+        return;
+    }
     HILOGI("[SleAudioFrameworkAdapter] RegisterRendererDataTransferListener ret=%{public}d", ret);
 }
 

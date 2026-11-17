@@ -22,6 +22,8 @@
 #include "audio_collaborative_manager.h"
 #include "audio_system_client_policy_manager.h"
 
+#include <set>
+
 #include "nearlink_types.h"
 #include "McpMessage.h"
 #include "raw_address.h"
@@ -77,6 +79,7 @@ private:
     void GetCurrentOutputPipeInfosInner();
     void AddMemberRouteFlagList(const RouteFlagInfo &newInfo);
     void RemoveMemberRouteFlagList(const uint32_t &flag);
+    void RemoveVanishedPipeMembers(const std::set<uint32_t> &presentFlags);
     const std::vector<RouteFlagInfo> &GetRouteFlagList() const;
     std::string GetBundleName(uint32_t streamId);
     void SetStreamMuted(uint32_t streamId, StreamMuteDimension dimension, bool muted);
