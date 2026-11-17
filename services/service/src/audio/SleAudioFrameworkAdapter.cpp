@@ -87,11 +87,11 @@ std::string SleAudioFrameworkAdapter::GetBundleName(uint32_t streamId)
     return "";
 }
 
-void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteDimension dimension, bool muted)
+void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteType Type, bool muted)
 {
     for (auto &it : routeFlagList_) {
         if (it.streamId == streamId) {
-            if (dimension == StreamMuteDimension::DATA) {
+            if (Type == StreamMuteType::DATA) {
                 it.dataMuted = muted;
             } else {
                 it.volumeMuted = muted;
@@ -99,7 +99,7 @@ void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteDimen
             return;
         }
     }
-    HILOGD("[SleAudioFrameworkAdapter] streamId:%{public}d not in routeFlagList, mute memory dropped", streamId);
+    HILOGD("[SleAudioFrameworkAdapter] streamId:%{public}d not in routeFlagList", streamId);
 }
 
 void SleAudioFrameworkAdapter::ClearRouteFlagList()
@@ -115,8 +115,7 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
     std::string bundleName = "";
-    // 刷新匹配flag先删除清理；静音记忆不随重建丢失，删除前按流全表快照
-    // （streamId全局唯一，全表快照覆盖同流换管道场景）、按流回填
+    /* Key：流id；value：静音类型 */
     std::map<uint32_t, std::pair<bool, bool>> mutedSnapshot;
     for (const auto &it : routeFlagList_) {
         mutedSnapshot[it.streamId] = {it.dataMuted, it.volumeMuted};
@@ -221,11 +220,6 @@ void SleAudioFrameworkAdapter::JudgeEmptyStreamByRendererState(const RawAddress 
     bool isStart = false;
     uint32_t streamId = 0;
     for (const auto &it : GetRouteFlagList()) {
-        /* 静音维度流此刻不可闻，不参与空流判定，避免其RUNNING误停
-           数据/音量静音路径已挂起的防抖计时器 */
-        if (it.silentMode || it.dataMuted || it.volumeMuted) {
-            continue;
-        }
         HILOGD("[SleAudioFrameworkAdapter] rendererState=%{public}d, streamUsage=%{public}d, streamId=%{public}d",
                it.status, it.streamUsage, it.streamId);
         if (isCallStreamType(it.streamUsage)) {
@@ -289,8 +283,6 @@ void SleAudioFrameworkAdapter::HandleAudioPipeStatusChangeInner(const AudioStand
 
     if (changeType == AudioStandard::PIPE_CHANGE_TYPE_PIPE_STATUS &&
         pipeStatus == AudioStandard::PIPE_STATUS_CLOSE) {
-        /* 按管道标识增量移除本管道条目：其他被接受管道的流与静音记忆不受影响，
-           全量列表通知让仍在播的管道继续参与判定；全部管道关闭后列表为空，走暂停防抖 */
         RemoveMemberRouteFlagList(routeFlag);
         NotifyMcpRendererStateChange();
         return;
@@ -303,11 +295,10 @@ void SleAudioFrameworkAdapter::HandleAudioPipeStatusChangeInner(const AudioStand
 void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange()
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
-    /* 数据源用全量列表而非本次事件增量：管道事件只携带本管道的流，
-     * 其他管道仍在播的流不能缺席判定，否则一次pause态上报会误判整体暂停 */
+    /* 仅通知用户可感知的流 */
     std::vector<std::shared_ptr<AudioStandard::AudioRendererChangeInfo>> audioRendererChangeInfos;
     for (const auto &it : GetRouteFlagList()) {
-        /* 静音维度流（特殊静音流/普通静音流）此刻不可闻，不参与MCP播放判定 */
+        /* 静音维度流（特殊静音流/普通静音流）不感知，不参与MCP播放判定 */
         if (it.silentMode || it.dataMuted || it.volumeMuted) {
             HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode:%{public}d dataMuted:%{public}d,"
                 " volumeMuted:%{public}d, skip notify", it.streamId, it.silentMode, it.dataMuted, it.volumeMuted);
@@ -319,8 +310,6 @@ void SleAudioFrameworkAdapter::NotifyMcpRendererStateChange()
         changeInfo->rendererInfo.streamUsage = static_cast<AudioStandard::StreamUsage>(it.streamUsage);
         audioRendererChangeInfos.push_back(changeInfo);
     }
-    /* 全部流被过滤时本次不通知MCP：静音维度流与MCP播放判定完全无关，不发任何播放状态；
-       列表为空（管道关闭/流全部消失）时通知空列表走暂停防抖 */
     if (audioRendererChangeInfos.empty() && !GetRouteFlagList().empty()) {
         HILOGI("[SleAudioFrameworkAdapter] all streams muted, skip notify");
         return;
@@ -350,18 +339,6 @@ void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfosInner()
     auto ptr = DelayedSingleton<AudioStandard::AudioEngineClientManager>::GetInstance();
     NL_CHECK_RETURN(ptr != nullptr, "[SleAudioFrameworkAdapter] Get ptr nullptr!");
     ptr->GetCurrentOutputPipeChangeInfos(outputPipeInfos);
-    // 重建前只清本次未出现的管道残留（句柄已变化/已转非SLE/关闭事件被提前返回丢掉的场景）：
-    // 现存管道条目连静音记忆一起保留（UpdateRouteFlagList重建时按流快照回填），静音记忆跨重建不丢
-    std::set<uint32_t> presentFlags;
-    for (const auto& pipeInfo : outputPipeInfos) {
-        NL_CHECK_RETURN(pipeInfo != nullptr, "[SleAudioFrameworkAdapter] Get pipeInfo nullptr!");
-        if (!IsSlePipe(pipeInfo->GetAdapter())) {
-            HILOGD("[SleAudioFrameworkAdapter] not sle device");
-            continue;
-        }
-        presentFlags.insert(pipeInfo->GetRouteFlag());
-    }
-    RemoveVanishedPipeMembers(presentFlags);
     for (const auto& pipeInfo : outputPipeInfos) {
         NL_CHECK_RETURN(pipeInfo != nullptr, "[SleAudioFrameworkAdapter] Get pipeInfo nullptr!");
         AudioStandard::HdiAdapterType adapterType = pipeInfo->GetAdapter();
@@ -378,22 +355,17 @@ void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfosInner()
 
 void SleAudioFrameworkAdapter::RegisterOutputPipeChangeListener()
 {
-    if (audioOutputPipeCallback_ != nullptr) {
-        HILOGI("[SleAudioFrameworkAdapter] output pipe listener already registered, skip");
-        return;
-    }
+    audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
     auto ptr = DelayedSingleton<AudioStandard::AudioEngineClientManager>::GetInstance();
     NL_CHECK_RETURN(ptr != nullptr, "[SleAudioFrameworkAdapter] Get ptr nullptr!");
-    audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
     auto ret = ptr->RegisterOutputPipeChangeCallback(audioOutputPipeCallback_);
     if (ret != SUCCESS) {
-        // 注册失败置空指针，保留下次注册的重试机会（音频服务未就绪等瞬时失败）
         HILOGW("[SleAudioFrameworkAdapter] RegisterOutputPipeChangeCallback failed ret=%{public}d", ret);
         audioOutputPipeCallback_ = nullptr;
         return;
     }
     GetCurrentOutputPipeInfosInner();
-    // 注册后主动补报一次当前流状态，消除注册完成到首个管道事件之间的空窗
+    /* 注册后主动补报一次当前流状态 */
     NotifyMcpRendererStateChange();
     HILOGI("[SleAudioFrameworkAdapter] RegisterOutputPipeChangeListener ret=%{public}d", ret);
 }
@@ -426,7 +398,7 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         mcpService->GetMediaLoader()->RendererStreamStateChange(MCP_PLAYBACK_STATE_PLAY);
         return;
     }
-    /* silentMode为true的流是应用主动静音，不对其实施静音流管控 */
+    /* silentMode为true的流是应用主动静音，优先级高于mute */
     bool isSilentMode = false;
     for (const auto &it : GetRouteFlagList()) {
         if (isCallStreamType(it.streamUsage)) {
@@ -441,8 +413,7 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         if (it.streamId == streamId) {
             continue;
         }
-        /* 其他流自身任一静音维度时此刻不可闻，不拦截本流的静音管控
-           （与空流判定/Notify过滤的静音维度跳过判据一致） */
+        /* 跳过已记录的静音流 */
         if (it.silentMode || it.dataMuted || it.volumeMuted) {
             continue;
         }
@@ -463,9 +434,9 @@ void SleAudioFrameworkAdapter::HandleDataTransferStateInner(
 {
     /* 数据静音记忆：静音上报置位、恢复上报清除，跨管道重建保留，与音量静音维度互不覆盖 */
     if (info.stateChangeType == AudioStandard::DataTransferStateChangeType::DATA_TRANS_STOP) {
-        SetStreamMuted(info.sessionId, StreamMuteDimension::DATA, true);
+        SetStreamMuted(info.sessionId, StreamMuteType::DATA, true);
     } else if (info.stateChangeType == AudioStandard::DataTransferStateChangeType::DATA_TRANS_RESUME) {
-        SetStreamMuted(info.sessionId, StreamMuteDimension::DATA, false);
+        SetStreamMuted(info.sessionId, StreamMuteType::DATA, false);
     }
     ASCService *ascService = ASCService::GetService();
     NL_CHECK_RETURN(ascService != nullptr, "[SleAudioFrameworkAdapter] Get ascService error!");
@@ -508,7 +479,8 @@ void SleAudioFrameworkAdapter::SleAudioRendererDataTransferListener::OnDataTrans
     });
 }
 
-void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
+void SleAudioFrameworkAdapter::JudgeVolumeMuteStr
+eamByRendererState(
     const RawAddress &device, const uint32_t streamId, bool isStart)
 {
     HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d isStart:%{public}d", streamId, isStart);
@@ -538,8 +510,7 @@ void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
         if (it.streamId == streamId) {
             continue;
         }
-        /* 其他流自身任一静音维度时此刻不可闻，不拦截本流的静音管控
-           （与空流判定/Notify过滤的静音维度跳过判据一致） */
+        /* 跳过已记录的静音流 */
         if (it.silentMode || it.dataMuted || it.volumeMuted) {
             continue;
         }
@@ -549,7 +520,7 @@ void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
         }
     }
     if (isSilentMode) {
-        HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode, skip mute stream control", streamId);
+        HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode, not pause", streamId);
         return;
     }
     StartEmptyMuteScMcpPauseTimer(device, isStart, streamId, MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO);
@@ -559,7 +530,7 @@ void SleAudioFrameworkAdapter::HandleVolumeMuteStateInner(const uint32_t streamI
     const bool &isMuted)
 {
     /* 音量静音记忆：静音上报置位、恢复上报清除，跨管道重建保留，与数据静音维度互不覆盖 */
-    SetStreamMuted(streamId, StreamMuteDimension::VOLUME, isMuted);
+    SetStreamMuted(streamId, StreamMuteType::VOLUME, isMuted);
     ASCService *ascService = ASCService::GetService();
     NL_CHECK_RETURN(ascService != nullptr, "[SleAudioFrameworkAdapter] Get ascService error!");
     RawAddress device = ascService->GetActiveSinkDevice();
@@ -711,7 +682,6 @@ void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
     auto ret = OHOS::AudioStandard::AudioStreamClientManager::GetInstance().RegisterRendererDataTransferCallback(
         param, audioRendererDataCallback_);
     if (ret != SUCCESS) {
-        // 注册失败置空指针，保留下次注册的重试机会（音频服务未就绪等瞬时失败）
         HILOGW("[SleAudioFrameworkAdapter] RegisterRendererDataTransferCallback failed ret=%{public}d", ret);
         audioRendererDataCallback_ = nullptr;
         return;
