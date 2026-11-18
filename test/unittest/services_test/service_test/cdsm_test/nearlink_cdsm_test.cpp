@@ -997,15 +997,19 @@ HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr001, TestSize.Level1)
     ASSERT_NE(cdsmService, nullptr);
     CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
 
-    std::vector<std::string> memberList = {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B};
-    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_A, memberList);
-
+    // 测试目的：SleConfig 依赖服务启动链的 LoadConfigInfo 加载配置文件，本套件不启动服务，
+    // 配置读写恒为 false（配置迁移块按产品语义跳过）；断言聚焦内存合作集的替换语义。
     bool ret = cdsmService->CdsmReplaceOldReportAddr(RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_B));
     EXPECT_EQ(true, ret);
-    std::vector<std::string> newMemberList;
-    EXPECT_EQ(true, SleConfig::GetInstance().GetCdsmMemberList(CDSM_UT_ADDR_B, newMemberList));
-    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_B);
-    SleConfig::GetInstance().Save();
+
+    RawAddress reportAddr;
+    EXPECT_EQ(true, cdsmService->CdsmGetReportAddr(RawAddress(CDSM_UT_ADDR_A), reportAddr));
+    EXPECT_EQ(CDSM_UT_ADDR_B, reportAddr.GetAddress());
+    EXPECT_EQ(true, cdsmService->CdsmCheckIsCooperationReport(RawAddress(CDSM_UT_ADDR_B)));
+
+    std::vector<NearlinkCdsmInfo> members;
+    EXPECT_EQ(NL_NO_ERROR, cdsmService->CdsmGetAllMemberInfo(RawAddress(CDSM_UT_ADDR_A), members));
+    EXPECT_EQ(static_cast<size_t>(2), members.size());
     HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr001 end");
 }
 
@@ -1045,7 +1049,7 @@ HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr003, TestSize.Level1)
 
 /**
  * @tc.name: CdsmRecoverFromConf002
- * @tc.desc: 配置恢复对本地已占位的合作集跳过，建组失败时放弃该条.
+ * @tc.desc: 配置源不可用时恢复流程不改动既有合作集.
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkCdsmTest, CdsmRecoverFromConf002, TestSize.Level1)
@@ -1053,19 +1057,14 @@ HWTEST_F(NearlinkCdsmTest, CdsmRecoverFromConf002, TestSize.Level1)
     HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf002 start");
     CdsmService *cdsmService = CdsmService::GetService();
     ASSERT_NE(cdsmService, nullptr);
+    // 测试目的：SleConfig 依赖服务启动链的 LoadConfigInfo，本套件不启动服务，配置读恒为空，
+    // 恢复流程应整体跳过且不影响内存中既有合作集。
     CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A});
-
-    std::vector<std::string> memberList = {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B};
-    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_A, memberList);
-    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_C, std::vector<std::string> {});
 
     cdsmService->CdsmRecoverFromConf();
 
     uint32_t groupId = 0;
     EXPECT_EQ(true, cdsmService->CdsmGetGroupId(groupId, CDSM_UT_ADDR_A));
-    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_A);
-    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_C);
-    SleConfig::GetInstance().Save();
     HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf002 end");
 }
 
