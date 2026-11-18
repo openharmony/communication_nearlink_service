@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "nlstk_cfgdb_api.h"
 #include "nlstk_public_define.h"
+#include "qosm_audio_dfx.h"
 #include "qosm_errno.h"
 #include "qosm_icg_callback.h"
 #include "qosm_icg_mgr.h"
@@ -284,7 +285,7 @@ uint32_t CP_PostTask(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb)
     return 0;
 }
 
-uint32_t NLSTK_CfgdbRegisterConfigListener(NLSTK_CfgdbConfigListenerFunc func, NLSTK_CfgdbModule_E module,
+NLSTK_Errcode_E NLSTK_CfgdbRegisterConfigListener(NLSTK_CfgdbConfigListenerFunc func, NLSTK_CfgdbModule_E module,
     NLSTK_CfgdbConfig_E config)
 {
     return NLSTK_ERRCODE_SUCCESS;
@@ -417,6 +418,7 @@ void TestResetMock(void)
     g_cpTimerRet = 0;
     g_useDelayParamTimer = false;
     g_labelId = 0;
+    g_levelCnt = 0;
     g_bitrateCbkCnt = 0;
     g_sendMsgCbkCnt = 0;
     g_dfxUpdateConnCnt = 0;
@@ -746,6 +748,21 @@ void TestConnectIcg(uint8_t qosId)
     TestLabelReportCbk(qosId, g_lcid2, g_connHandle2, true, false);
     TestEstablishedCbk(qosId, g_lcid1, g_connHandle1, true);
     TestEstablishedCbk(qosId, g_lcid2, g_connHandle2, true);
+    QOSM_AutorateSetDspOn(true);
+    g_bitrateCbkCnt = 0;
+}
+
+void TestConnectIcgAtLevel(uint8_t qosId, uint8_t startLevel)
+{
+    TestSetAudioAutorateParam(qosId, startLevel);
+    TestAddParamCbk(qosId, CM_ICB_STATE_IOG_CREATED, CM_ICB_SUCCESS, 2);
+    TestAddConnection(qosId);
+    TestLabelReportCbk(qosId, g_lcid1, g_connHandle1, true, false);
+    TestLabelReportCbk(qosId, g_lcid2, g_connHandle2, true, false);
+    TestEstablishedCbk(qosId, g_lcid1, g_connHandle1, true);
+    TestEstablishedCbk(qosId, g_lcid2, g_connHandle2, true);
+    QOSM_AutorateSetDspOn(true);
+    g_bitrateCbkCnt = 0;
 }
 
 void TestFireTimer(int timerId)

@@ -20,10 +20,6 @@
 #include "qosm_autorate_report.h"
 #include "qosm_errno.h"
 
-namespace {
-const uint16_t FULL_SUPPORTED_BITRATE[6] = { 96, 160, 320, 750, 1150, 2300 };
-}
-
 class UT_QOSM_AUTORATE_DECISION_TEST : public testing::Test {
 protected:
     void SetUp()
@@ -52,16 +48,6 @@ protected:
         QOSM_ICGMgrDisable();
     }
 };
-
-static uint32_t FindBitrateCbk(uint16_t direction)
-{
-    for (uint8_t i = 0; i < g_bitrateCbkCnt; i++) {
-        if (g_bitrateCbk[i].direction == direction) {
-            return i;
-        }
-    }
-    return g_bitrateCbkCnt;
-}
 
 /*
  * @tc.desc: 质量上报降码率：ACK率低于阈值触发降档，DSP先收到降码率通知，
@@ -95,7 +81,8 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, QualityReportDowngradeByLowAckRate)
 TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, QualityReportDowngradeWhenTargetUnavailable)
 {
     TestConnectIcg(g_qosId);
-    TestParamNotifyEarphone(FULL_SUPPORTED_BITRATE, 1);
+    const uint16_t highOnly[2] = { 160, 320 };
+    TestParamNotifyEarphone(highOnly, 2);
 
     TestQualityCbk(g_connHandle1, 10, -40, 0, 0);
     EXPECT_EQ(g_bitrateCbkCnt, 0);
@@ -210,13 +197,7 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, DspStatusAndFlowCtrlCallbacks)
  */
 TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, FlowCtrlIgnoredWhenBitrateBelowThreshold)
 {
-    TestSetAudioAutorateParam(g_qosId, QOS_LEVEL_1);
-    TestAddParamCbk(g_qosId, CM_ICB_STATE_IOG_CREATED, CM_ICB_SUCCESS, 2);
-    TestAddConnection(g_qosId);
-    TestLabelReportCbk(g_qosId, g_lcid1, g_connHandle1, true, false);
-    TestLabelReportCbk(g_qosId, g_lcid2, g_connHandle2, true, false);
-    TestEstablishedCbk(g_qosId, g_lcid1, g_connHandle1, true);
-    TestEstablishedCbk(g_qosId, g_lcid2, g_connHandle2, true);
+    TestConnectIcgAtLevel(g_qosId, QOS_LEVEL_1);
 
     QOSM_DspFlowCtrlCbk(g_connHandle1, true);
     EXPECT_EQ(g_bitrateCbkCnt, 0);
@@ -327,6 +308,7 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, CallFrame4DowngradeMsgFlow)
 {
     TestSetCallParam(g_qosId);
     TestAddParamCbk(g_qosId, CM_ICB_STATE_IMG_CREATED, CM_ICB_SUCCESS, 2);
+    QOSM_AutorateSetDspOn(true);
     QOSM_AutoRateRecvMsgParam ability = {};
     ability.qosId = g_qosId;
     ability.qosIndex = QOSM_QOSINDEX_CALL;
@@ -337,6 +319,7 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, CallFrame4DowngradeMsgFlow)
     TestLabelReportCbk(g_qosId, g_lcid2, g_connHandle2, true, true);
     TestEstablishedCbk(g_qosId, g_lcid1, g_connHandle1, true);
     TestEstablishedCbk(g_qosId, g_lcid2, g_connHandle2, true);
+    g_bitrateCbkCnt = 0;
 
     TestQualityCbkEx(g_connHandle1, 90, -85, 0, 0, CM_IMB, 20);
     ASSERT_EQ(g_sendMsgCbkCnt, 1);
@@ -419,7 +402,7 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, EntryParamGuards)
 
 /*
  * @tc.desc: DSP侧码率变化决策入口的防御：链路不存在、QOS索引不匹配、
- *           参数更新在途时拒绝；升码率窗口内的降码率请求被接受
+ *           参数更新在途时拒绝请求
  */
 TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, ExecuteBitrateChangeDecisionGuards)
 {

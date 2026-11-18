@@ -110,6 +110,7 @@ void TestParamNotifyEarphone(const uint16_t *supportedBitrate, uint32_t cnt);
 void TestParamNotifyCoexist(uint16_t maxBitrate, uint8_t dutyCycle);
 void TestParamNotify5G(void);
 void TestConnectIcg(uint8_t qosId);
+void TestConnectIcgAtLevel(uint8_t qosId, uint8_t startLevel);
 void TestFireTimer(int timerId);
 
 #ifdef __cplusplus

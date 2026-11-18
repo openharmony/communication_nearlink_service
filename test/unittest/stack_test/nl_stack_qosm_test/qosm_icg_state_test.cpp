@@ -18,6 +18,7 @@
 #include "nl_stack_qosm_test_mock.h"
 #include "qosm_autorate_common.h"
 #include "qosm_errno.h"
+#include "qosm_icg_mgr.h"
 
 class UT_QOSM_ICG_STATE_TEST : public testing::Test {
 protected:
