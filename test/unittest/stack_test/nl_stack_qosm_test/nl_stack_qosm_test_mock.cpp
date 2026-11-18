@@ -333,9 +333,7 @@ void QOSM_AudioDfxStop(void)
 
 void QOSM_AudioDfxUpdateConn(struct QOSM_AudioDfxConn *conn, bool connected)
 {
-    if (connected) {
-        g_dfxUpdateConnCnt++;
-    }
+    g_dfxUpdateConnCnt++;
 }
 
 void QOSM_DfxUpdateConnected(uint16_t connHandle, uint16_t lcid)
@@ -417,6 +415,7 @@ void TestResetMock(void)
     g_removeParamRet = CM_SUCCESS;
     g_deleteConnectionRet = CM_SUCCESS;
     g_cpTimerRet = 0;
+    g_useDelayParamTimer = false;
     g_labelId = 0;
     g_bitrateCbkCnt = 0;
     g_sendMsgCbkCnt = 0;

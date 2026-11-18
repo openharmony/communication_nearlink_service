@@ -83,6 +83,7 @@ ohos_unittest("nl_stack_qosm_test") {
 
     "nl_stack_qosm_test_mock.cpp",
     "qosm_autorate_decision_test.cpp",
+    "qosm_icg_state_test.cpp",
   ]
 
   configs = [ ":stack_unit_test_config" ]
