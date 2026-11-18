@@ -19,6 +19,8 @@
 #include "securec.h"
 #include "nlstk_cfgdb_api.h"
 #include "nlstk_public_define.h"
+#include "cm_errno.h"
+#include "qosm_autorate_common.h"
 #include "qosm_audio_dfx.h"
 #include "qosm_errno.h"
 #include "qosm_icg_callback.h"
@@ -464,7 +466,7 @@ void TestSetAudioAutorateParam(uint8_t qosId, uint8_t startLevel)
     param.autorateParam.lcidCnt = 2;
     param.autorateParam.lcid[0] = g_lcid1;
     param.autorateParam.lcid[1] = g_lcid2;
-    param.startParam.startLevel = startLevel;
+    param.startParam.startLevel = static_cast<QOSM_QosLevel>(startLevel);
     param.startParam.startBand = QOS_BAND_2D4;
     param.startParam.startDutyCycle = QOS_DUTY_CYCLE_100P;
     param.startParam.levelCnt = g_levelCnt;
@@ -498,7 +500,7 @@ void TestSetOtherParam(uint8_t qosId, uint8_t qosIndex, uint8_t levelCnt, bool i
     uint8_t linkCnt = 2;
     QOSM_ICGMgrParam param = {};
     param.autorateParam.qosId = qosId;
-    param.autorateParam.qosIndex = qosIndex;
+    param.autorateParam.qosIndex = static_cast<QOSM_QosIndex>(qosIndex);
     param.autorateParam.supportedBitrate[0] = 96 / linkCnt;
     param.autorateParam.supportedBitrate[1] = 192 / linkCnt;
     param.autorateParam.supportedBitrate[2] = 320 / linkCnt;
@@ -527,7 +529,7 @@ void TestAddParamCbk(uint8_t qosId, int state, uint32_t errorCode, uint8_t chann
     for (uint8_t i = 0; i < g_levelCnt; i++) {
         CM_ICBConnection icbConn = {};
         icbConn.state = (CM_ICBConnectionState)state;
-        icbConn.errorCode = errorCode;
+        icbConn.errorCode = static_cast<CM_ICBErrorCode>(errorCode);
         icbConn.id = qosId;
         icbConn.gHandle = g_gHandle;
         icbConn.channelCnt = channelCnt;
@@ -629,7 +631,7 @@ void TestUpdateParamCbk(uint8_t qosId, uint16_t lcid, uint16_t connHandle, uint8
     CM_ICBConnection icbConn = {};
     CM_ICBChannel channel = {};
     icbConn.state = CM_ICB_STATE_IMG_UPDATED;
-    icbConn.errorCode = errorCode;
+    icbConn.errorCode = static_cast<CM_ICBErrorCode>(errorCode);
     icbConn.id = qosId;
     icbConn.gHandle = g_gHandle;
     icbConn.channelCnt = 1;
@@ -645,7 +647,7 @@ void TestDisconnectCbk(uint8_t qosId, uint16_t lcid, uint16_t connHandle, int di
     CM_ICBConnection icbConn = {};
     CM_ICBChannel channel = {};
     icbConn.state = CM_ICB_STATE_ICB_DELETED;
-    icbConn.errorCode = errorCode;
+    icbConn.errorCode = static_cast<CM_ICBErrorCode>(errorCode);
     icbConn.disconnectType = (CM_LinkType)disconnectType;
     icbConn.id = qosId;
     icbConn.gHandle = g_gHandle;

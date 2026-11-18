@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include "nl_stack_qosm_test_mock.h"
+#include "cm_errno.h"
 #include "qosm_autorate_common.h"
 #include "qosm_errno.h"
 #include "qosm_icg_mgr.h"

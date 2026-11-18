@@ -18,6 +18,7 @@
 #include "nl_stack_qosm_test_mock.h"
 #include "qosm_autorate_common.h"
 #include "qosm_autorate_report.h"
+#include "qosm_icg_mgr.h"
 #include "qosm_errno.h"
 
 class UT_QOSM_AUTORATE_DECISION_TEST : public testing::Test {
