@@ -222,6 +222,10 @@ NlErrCode CdsmService::CdsmGetAllMemberInfo(const RawAddress &memberAddr, std::v
     NearlinkCdsmInfo tmpDevInfo;
     tmpDevInfo.addr_ = RawAddress(memberAddr);
     tmpDevInfo.state_ = static_cast<uint8_t>(CdsmConnectState::CONNECTED);
+    cdsmInfo.push_back(tmpDevInfo);
+    if (memberAddr.GetAddress() == coDeviceStr) {
+        return NL_NO_ERROR;
+    }
     NearlinkCdsmInfo tmpDevInfo2;
     tmpDevInfo2.addr_ = RawAddress(coDeviceStr);
     tmpDevInfo2.state_ = static_cast<uint8_t>(CdsmConnectState::CONNECTED);
