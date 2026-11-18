@@ -843,6 +843,849 @@ HWTEST_F(NearlinkCdsmTest, SetPeerDeviceTypeToControllerInner_002, TestSize.Leve
     HILOGI("NearlinkCdsmTest:SetPeerDeviceTypeToControllerInner_002 end");
 }
 
+class CdsmClientCallbackCounter : public InterfaceCdsmClientServiceCallback {
+public:
+    int callCount = 0;
+    RawAddress lastReportAddr;
+    size_t lastMemberCount = 0;
+    void OnCdsmClientStateChange(const RawAddress &remoteAddr, std::vector<NearlinkCdsmInfo> &cdsmInfo,
+        std::optional<uint64_t> tokenId = std::nullopt) override
+    {
+        callCount++;
+        lastReportAddr = remoteAddr;
+        lastMemberCount = cdsmInfo.size();
+    }
+};
+
+namespace {
+const std::string CDSM_UT_ADDR_A = "11:22:33:44:55:66";
+const std::string CDSM_UT_ADDR_B = "11:22:33:44:55:88";
+const std::string CDSM_UT_ADDR_C = "11:22:33:44:55:99";
+const uint32_t CDSM_UT_GROUP_ID = 7;
+
+// 测试目的：给服务注入一个合作集（指定 report 地址与成员），供成员管理类用例自足造数。
+void CdsmUtPlantGroup(CdsmService *service, const std::string &reportAddr,
+    const std::vector<std::string> &members, bool isPrivateTws = false)
+{
+    auto cdsmInfo = std::make_shared<CdsmInfo>(CDSM_UT_GROUP_ID, reportAddr);
+    cdsmInfo->isPrivateTws_ = isPrivateTws;
+    for (const auto &member : members) {
+        cdsmInfo->CdsmAddMemberInfo(member, 1);
+    }
+    service->cdsmList_.EnsureInsert(CDSM_UT_GROUP_ID, cdsmInfo);
+}
+} // namespace
+
+/**
+ * @tc.name: GetConnectDevices002
+ * @tc.desc: 已连接客户端出现在已连接设备列表，未连接与空客户端被跳过.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, GetConnectDevices002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:GetConnectDevices002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    auto connected = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_A);
+    connected->SetState(CdsmClientState::CDSM_STATE_CONNECTED);
+    auto connecting = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_B);
+    connecting->SetState(CdsmClientState::CDSM_STATE_CONNECTING);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_A, connected);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_B, connecting);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_C, nullptr);
+
+    std::list<RawAddress> devices = cdsmService->GetConnectDevices();
+    EXPECT_EQ(static_cast<size_t>(1), devices.size());
+    if (devices.size() == 1) {
+        EXPECT_EQ(CDSM_UT_ADDR_A, devices.front().GetAddress());
+    }
+    HILOGI("NearlinkCdsmTest:GetConnectDevices002 end");
+}
+
+/**
+ * @tc.name: GetConnectState002
+ * @tc.desc: 已连接客户端使聚合连接状态包含已连接位.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, GetConnectState002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:GetConnectState002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    auto connected = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_A);
+    connected->SetState(CdsmClientState::CDSM_STATE_CONNECTED);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_A, connected);
+
+    int state = cdsmService->GetConnectState();
+    EXPECT_NE(0, state & PROFILE_STATE_CONNECTED);
+    HILOGI("NearlinkCdsmTest:GetConnectState002 end");
+}
+
+/**
+ * @tc.name: GetRealConnectAddress001
+ * @tc.desc: 本机地址在合作集内且自身已连接时返回本机地址.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, GetRealConnectAddress001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+    cdsmService->cdsmList_.GetValueAndOpt(CDSM_UT_GROUP_ID,
+        [](uint32_t, std::shared_ptr<CdsmInfo> data) {
+            data->CdsmUpdateMemberProfileConnectState(CDSM_UT_ADDR_A, SleConnectState::CONNECTED);
+        });
+        [](uint32_t, std::shared_ptr<CdsmInfo> data) {
+            data->CdsmUpdateMemberProfileConnectState(CDSM_UT_ADDR_A, SleConnectState::CONNECTED);
+        });
+
+    RawAddress realAddr;
+    cdsmService->GetRealConnectAddress(RawAddress(CDSM_UT_ADDR_A), realAddr);
+    EXPECT_EQ(CDSM_UT_ADDR_A, realAddr.GetAddress());
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress001 end");
+}
+
+/**
+ * @tc.name: GetRealConnectAddress002
+ * @tc.desc: 本机未连接而对端成员已连接时返回对端地址.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, GetRealConnectAddress002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+    cdsmService->cdsmList_.GetValueAndOpt(CDSM_UT_GROUP_ID,
+        [](uint32_t, std::shared_ptr<CdsmInfo> data) {
+            data->CdsmUpdateMemberProfileConnectState(CDSM_UT_ADDR_B, SleConnectState::CONNECTED);
+        });
+
+    RawAddress realAddr;
+    cdsmService->GetRealConnectAddress(RawAddress(CDSM_UT_ADDR_A), realAddr);
+    EXPECT_EQ(CDSM_UT_ADDR_B, realAddr.GetAddress());
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress002 end");
+}
+
+/**
+ * @tc.name: GetRealConnectAddress003
+ * @tc.desc: 地址不属于任何合作集时原样返回传入地址.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, GetRealConnectAddress003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A});
+
+    RawAddress realAddr;
+    cdsmService->GetRealConnectAddress(RawAddress(CDSM_UT_ADDR_C), realAddr);
+    EXPECT_EQ(CDSM_UT_ADDR_C, realAddr.GetAddress());
+    HILOGI("NearlinkCdsmTest:GetRealConnectAddress003 end");
+}
+
+/**
+ * @tc.name: CdsmReplaceOldReportAddr001
+ * @tc.desc: 新地址是成员且旧地址是当前上报地址时完成上报地址替换.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    std::vector<std::string> memberList = {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B};
+    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_A, memberList);
+
+    bool ret = cdsmService->CdsmReplaceOldReportAddr(RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_B));
+    EXPECT_EQ(true, ret);
+    std::vector<std::string> newMemberList;
+    EXPECT_EQ(true, SleConfig::GetInstance().GetCdsmMemberList(CDSM_UT_ADDR_B, newMemberList));
+    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_B);
+    SleConfig::GetInstance().Save();
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr001 end");
+}
+
+/**
+ * @tc.name: CdsmReplaceOldReportAddr002
+ * @tc.desc: 新地址不是合作集成员时不替换.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A});
+
+    bool ret = cdsmService->CdsmReplaceOldReportAddr(RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_C));
+    EXPECT_EQ(false, ret);
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr002 end");
+}
+
+/**
+ * @tc.name: CdsmReplaceOldReportAddr003
+ * @tc.desc: 旧地址与当前上报地址不一致时不替换.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    bool ret = cdsmService->CdsmReplaceOldReportAddr(RawAddress(CDSM_UT_ADDR_B), RawAddress(CDSM_UT_ADDR_C));
+    EXPECT_EQ(false, ret);
+    HILOGI("NearlinkCdsmTest:CdsmReplaceOldReportAddr003 end");
+}
+
+/**
+ * @tc.name: CdsmRecoverFromConf002
+ * @tc.desc: 配置中的合作集按成员列表与本地占位情况分别跳过恢复.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmRecoverFromConf002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A});
+
+    std::vector<std::string> memberList = {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B};
+    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_A, memberList);
+    SleConfig::GetInstance().SetCdsmMemberList(CDSM_UT_ADDR_C, std::vector<std::string> {});
+
+    cdsmService->CdsmRecoverFromConf();
+
+    uint32_t groupId = 0;
+    EXPECT_EQ(true, cdsmService->CdsmGetGroupId(groupId, CDSM_UT_ADDR_A));
+    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_A);
+    SleConfig::GetInstance().RemoveCdsmGroup(CDSM_UT_ADDR_C);
+    SleConfig::GetInstance().Save();
+    HILOGI("NearlinkCdsmTest:CdsmRecoverFromConf002 end");
+}
+
+/**
+ * @tc.name: RegisterCdsmClientCallback001
+ * @tc.desc: 注册空回调被参数校验拒绝.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, RegisterCdsmClientCallback001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:RegisterCdsmClientCallback001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    NlErrCode ret = cdsmService->RegisterCdsmClientCallback(nullptr);
+    EXPECT_EQ(NL_ERR_INVALID_PARAM, ret);
+    HILOGI("NearlinkCdsmTest:RegisterCdsmClientCallback001 end");
+}
+
+/**
+ * @tc.name: HandleCdsmClientCallback002
+ * @tc.desc: 应用回调注册后状态变化上报携带成员列表到达回调.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, HandleCdsmClientCallback002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    auto cbk = std::make_shared<CdsmClientCallbackCounter>();
+    ASSERT_EQ(NL_NO_ERROR, cdsmService->RegisterCdsmClientCallback(cbk));
+
+    cdsmService->HandleCdsmClientCallback(RawAddress(CDSM_UT_ADDR_A));
+    EXPECT_EQ(1, cbk->callCount);
+    EXPECT_EQ(static_cast<size_t>(2), cbk->lastMemberCount);
+    cdsmService->DeregisterCdsmClientCallback();
+    HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback002 end");
+}
+
+/**
+ * @tc.name: HandleCdsmClientCallback003
+ * @tc.desc: 设备不在任何合作集时状态上报提前返回.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, HandleCdsmClientCallback003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    auto cbk = std::make_shared<CdsmClientCallbackCounter>();
+    ASSERT_EQ(NL_NO_ERROR, cdsmService->RegisterCdsmClientCallback(cbk));
+
+    cdsmService->HandleCdsmClientCallback(RawAddress(CDSM_UT_ADDR_C));
+    EXPECT_EQ(0, cbk->callCount);
+    cdsmService->DeregisterCdsmClientCallback();
+    HILOGI("NearlinkCdsmTest:HandleCdsmClientCallback003 end");
+}
+
+/**
+ * @tc.name: UpdateCdsmMemberProfileConnectState002
+ * @tc.desc: 成员连接或断开触发应用回调，其他状态不触发.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, UpdateCdsmMemberProfileConnectState002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:UpdateCdsmMemberProfileConnectState002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    auto cbk = std::make_shared<CdsmClientCallbackCounter>();
+    ASSERT_EQ(NL_NO_ERROR, cdsmService->RegisterCdsmClientCallback(cbk));
+
+    cdsmService->UpdateCdsmMemberProfileConnectState(RawAddress(CDSM_UT_ADDR_A), SleConnectState::CONNECTED);
+    EXPECT_EQ(1, cbk->callCount);
+    cdsmService->UpdateCdsmMemberProfileConnectState(RawAddress(CDSM_UT_ADDR_A), SleConnectState::DISCONNECTED);
+    EXPECT_EQ(2, cbk->callCount);
+    cdsmService->UpdateCdsmMemberProfileConnectState(RawAddress(CDSM_UT_ADDR_A), SleConnectState::CONNECTING);
+    EXPECT_EQ(2, cbk->callCount);
+    cdsmService->DeregisterCdsmClientCallback();
+    HILOGI("NearlinkCdsmTest:UpdateCdsmMemberProfileConnectState002 end");
+}
+
+/**
+ * @tc.name: UpdateReportConnectState002
+ * @tc.desc: 上报设备连接状态写入合作集并可查询到.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, UpdateReportConnectState002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:UpdateReportConnectState002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    cdsmService->UpdateReportConnectState(RawAddress(CDSM_UT_ADDR_A), static_cast<int>(SleConnectState::CONNECTED));
+    int reportState = static_cast<int>(SleConnectState::INVALID_STATE);
+    cdsmService->CdsmGetReportedState(RawAddress(CDSM_UT_ADDR_A), reportState);
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTED), reportState);
+    HILOGI("NearlinkCdsmTest:UpdateReportConnectState002 end");
+}
+
+/**
+ * @tc.name: CdsmGetReportedState002
+ * @tc.desc: 非合作集成员查询上报状态得到无效状态.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmGetReportedState002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmGetReportedState002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A});
+
+    int reportState = static_cast<int>(SleConnectState::CONNECTED);
+    cdsmService->CdsmGetReportedState(RawAddress(CDSM_UT_ADDR_C), reportState);
+    EXPECT_EQ(static_cast<int>(SleConnectState::INVALID_STATE), reportState);
+    HILOGI("NearlinkCdsmTest:CdsmGetReportedState002 end");
+}
+
+/**
+ * @tc.name: CdsmCheckIsPrivateCooperationDevice002
+ * @tc.desc: 私有耳机合作集成员判定为私有合作设备.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmCheckIsPrivateCooperationDevice002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsPrivateCooperationDevice002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B}, true);
+
+    EXPECT_EQ(true, cdsmService->CdsmCheckIsPrivateCooperationDevice(RawAddress(CDSM_UT_ADDR_B)));
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsPrivateCooperationDevice002 end");
+}
+
+/**
+ * @tc.name: CdsmCheckIsCooperationMember002
+ * @tc.desc: 成员地址判为合作集成员，上报地址不判为成员.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmCheckIsCooperationMember002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationMember002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    EXPECT_EQ(true, cdsmService->CdsmCheckIsCooperationMember(RawAddress(CDSM_UT_ADDR_B)));
+    EXPECT_EQ(false, cdsmService->CdsmCheckIsCooperationMember(RawAddress(CDSM_UT_ADDR_A)));
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationMember002 end");
+}
+
+/**
+ * @tc.name: CdsmCheckIsCooperationDevice002
+ * @tc.desc: 合作集内地址判为合作设备，集外地址不判为合作设备.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmCheckIsCooperationDevice002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationDevice002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    EXPECT_EQ(true, cdsmService->CdsmCheckIsCooperationDevice(RawAddress(CDSM_UT_ADDR_B)));
+    EXPECT_EQ(false, cdsmService->CdsmCheckIsCooperationDevice(RawAddress(CDSM_UT_ADDR_C)));
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsCooperationDevice002 end");
+}
+
+/**
+ * @tc.name: CdsmGetReportAddr002
+ * @tc.desc: 成员地址可查到所在合作集的上报地址.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmGetReportAddr002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmGetReportAddr002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    RawAddress reportAddr;
+    EXPECT_EQ(true, cdsmService->CdsmGetReportAddr(RawAddress(CDSM_UT_ADDR_B), reportAddr));
+    EXPECT_EQ(CDSM_UT_ADDR_A, reportAddr.GetAddress());
+    HILOGI("NearlinkCdsmTest:CdsmGetReportAddr002 end");
+}
+
+/**
+ * @tc.name: CdsmServiceCallBackDataProc001
+ * @tc.desc: 栈连接事件为未知组创建合作集数据并派发连接完成消息.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmServiceCallBackDataProc001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    CdsmCallBackData dataBlock;
+    dataBlock.event = CDSM_EVENT_CONNECT;
+    dataBlock.cdmsGroupId = CDSM_UT_GROUP_ID;
+    dataBlock.memberNum = 2;
+    dataBlock.currentAddr = RawAddress(CDSM_UT_ADDR_A);
+    CdsmCallBackDataMemInfo memInfo;
+    memInfo.memberAddr = RawAddress(CDSM_UT_ADDR_A);
+    memInfo.memberState = 1;
+    dataBlock.memberInfo.push_back(memInfo);
+    memInfo.memberAddr = RawAddress(CDSM_UT_ADDR_B);
+    memInfo.memberState = 1;
+    dataBlock.memberInfo.push_back(memInfo);
+
+    cdsmService->CdsmServiceCallBackDataProc(dataBlock);
+
+    uint32_t groupId = 0;
+    EXPECT_EQ(true, cdsmService->CdsmGetGroupId(groupId, CDSM_UT_ADDR_B));
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc001 end");
+}
+
+/**
+ * @tc.name: CdsmServiceCallBackDataProc002
+ * @tc.desc: 栈断连事件更新合作集内设备状态为断开.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmServiceCallBackDataProc002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    CdsmCallBackData dataBlock;
+    dataBlock.event = CDSM_EVENT_DISCONNECT;
+    dataBlock.cdmsGroupId = CDSM_UT_GROUP_ID;
+    dataBlock.memberNum = 2;
+    dataBlock.currentAddr = RawAddress(CDSM_UT_ADDR_A);
+
+    cdsmService->CdsmServiceCallBackDataProc(dataBlock);
+
+    std::vector<NearlinkCdsmInfo> members;
+    ASSERT_EQ(NL_NO_ERROR, cdsmService->CdsmGetAllMemberInfo(RawAddress(CDSM_UT_ADDR_A), members));
+    EXPECT_EQ(static_cast<size_t>(2), members.size());
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc002 end");
+}
+
+/**
+ * @tc.name: CdsmServiceCallBackDataProc003
+ * @tc.desc: 未知栈事件被丢弃不创建合作集.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmServiceCallBackDataProc003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    CdsmCallBackData dataBlock;
+    dataBlock.event = 0xFF;
+    dataBlock.cdmsGroupId = CDSM_UT_GROUP_ID;
+    dataBlock.memberNum = 1;
+    dataBlock.currentAddr = RawAddress(CDSM_UT_ADDR_A);
+
+    cdsmService->CdsmServiceCallBackDataProc(dataBlock);
+
+    uint32_t groupId = 0;
+    EXPECT_EQ(false, cdsmService->CdsmGetGroupId(groupId, CDSM_UT_ADDR_A));
+    HILOGI("NearlinkCdsmTest:CdsmServiceCallBackDataProc003 end");
+}
+
+/**
+ * @tc.name: ProcessEvent002
+ * @tc.desc: 连接开始消息为不存在客户端的设备新建客户端并置为连接中.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, ProcessEvent002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:ProcessEvent002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    CdsmMessage event(CDSM_SERVICE_CONNECT_START_EVT);
+    event.dev_ = CDSM_UT_ADDR_A;
+    cdsmService->ProcessEvent(event);
+
+    std::list<RawAddress> devices = cdsmService->GetConnectDevices();
+    EXPECT_EQ(static_cast<size_t>(0), devices.size());
+    HILOGI("NearlinkCdsmTest:ProcessEvent002 end");
+}
+
+/**
+ * @tc.name: ProcessEvent003
+ * @tc.desc: 连接完成消息把已存在客户端更新为已连接.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, ProcessEvent003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:ProcessEvent003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    auto client = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_A);
+    client->SetState(CdsmClientState::CDSM_STATE_CONNECTING);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_A, client);
+
+    CdsmMessage event(CDSM_SERVICE_CONNECT_CMPL_EVT);
+    event.dev_ = CDSM_UT_ADDR_A;
+    cdsmService->ProcessEvent(event);
+
+    std::list<RawAddress> devices = cdsmService->GetConnectDevices();
+    EXPECT_EQ(static_cast<size_t>(1), devices.size());
+    HILOGI("NearlinkCdsmTest:ProcessEvent003 end");
+}
+
+/**
+ * @tc.name: ProcessEvent004
+ * @tc.desc: 断开完成消息作用于不存在客户端时仅记录日志.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, ProcessEvent004, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:ProcessEvent004 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    CdsmMessage event(CDSM_SERVICE_DISCONNECT_CMPL_EVT);
+    event.dev_ = CDSM_UT_ADDR_C;
+    cdsmService->ProcessEvent(event);
+
+    std::list<RawAddress> devices = cdsmService->GetConnectDevices();
+    EXPECT_EQ(static_cast<size_t>(0), devices.size());
+    HILOGI("NearlinkCdsmTest:ProcessEvent004 end");
+}
+
+/**
+ * @tc.name: ProcessEvent005
+ * @tc.desc: 不支持的消息类型走默认分支不影响现有客户端.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, ProcessEvent005, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:ProcessEvent005 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    auto client = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_A);
+    client->SetState(CdsmClientState::CDSM_STATE_CONNECTED);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_A, client);
+
+    CdsmMessage event(0xFF);
+    event.dev_ = CDSM_UT_ADDR_A;
+    cdsmService->ProcessEvent(event);
+
+    std::list<RawAddress> devices = cdsmService->GetConnectDevices();
+    EXPECT_EQ(static_cast<size_t>(1), devices.size());
+    HILOGI("NearlinkCdsmTest:ProcessEvent005 end");
+}
+
+/**
+ * @tc.name: CdsmGetAllMemberInfo001
+ * @tc.desc: 查询合作集成员返回全部成员并标记上报地址.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmGetAllMemberInfo001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmGetAllMemberInfo001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    std::vector<NearlinkCdsmInfo> members;
+    NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(RawAddress(CDSM_UT_ADDR_B), members);
+    EXPECT_EQ(NL_NO_ERROR, ret);
+    EXPECT_EQ(static_cast<size_t>(2), members.size());
+    int reportCount = 0;
+    for (const auto &member : members) {
+        if (member.isReportAddr_) {
+            reportCount++;
+            EXPECT_EQ(CDSM_UT_ADDR_A, member.addr_.GetAddress());
+        }
+    }
+    EXPECT_EQ(1, reportCount);
+    HILOGI("NearlinkCdsmTest:CdsmGetAllMemberInfo001 end");
+}
+
+/**
+ * @tc.name: CdsmGetAllMemberInfo002
+ * @tc.desc: 查询非合作集地址返回内部错误.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmGetAllMemberInfo002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmGetAllMemberInfo002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+
+    std::vector<NearlinkCdsmInfo> members;
+    NlErrCode ret = cdsmService->CdsmGetAllMemberInfo(RawAddress(CDSM_UT_ADDR_C), members);
+    EXPECT_EQ(NL_ERR_INTERNAL_ERROR, ret);
+    HILOGI("NearlinkCdsmTest:CdsmGetAllMemberInfo002 end");
+}
+
+/**
+ * @tc.name: CdsmCheckIsSameCooperation001
+ * @tc.desc: 设备列表与合作集成员一致判为同一合作集.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmCheckIsSameCooperation001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation001 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    std::vector<RawAddress> sameList = {RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_B)};
+    EXPECT_EQ(true, cdsmService->CdsmCheckIsSameCooperation(sameList));
+
+    std::vector<RawAddress> emptyList;
+    EXPECT_EQ(false, cdsmService->CdsmCheckIsSameCooperation(emptyList));
+
+    std::vector<RawAddress> otherList = {RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_C)};
+    EXPECT_EQ(false, cdsmService->CdsmCheckIsSameCooperation(otherList));
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation001 end");
+}
+
+/**
+ * @tc.name: CdsmCreateGroup002
+ * @tc.desc: 相同成员的合作集已存在时创建组返回既有组标识.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmCreateGroup002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmCreateGroup002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    std::vector<RawAddress> sameList = {RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_B)};
+    uint32_t groupId = cdsmService->CdsmCreateGroup(RawAddress(CDSM_UT_ADDR_A), sameList);
+    EXPECT_EQ(CDSM_UT_GROUP_ID, groupId);
+    HILOGI("NearlinkCdsmTest:CdsmCreateGroup002 end");
+}
+
+/**
+ * @tc.name: CdsmDeleteGroup002
+ * @tc.desc: 删除合作集后成员地址不再能查到组标识.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmDeleteGroup002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmDeleteGroup002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+    auto client = std::make_shared<MockCdsmClient>(CDSM_UT_ADDR_A);
+    cdsmService->cdsmClients_.EnsureInsert(CDSM_UT_ADDR_A, client);
+
+    cdsmService->CdsmDeleteGroup(RawAddress(CDSM_UT_ADDR_B));
+
+    uint32_t groupId = 0;
+    EXPECT_EQ(false, cdsmService->CdsmGetGroupId(groupId, CDSM_UT_ADDR_A));
+    HILOGI("NearlinkCdsmTest:CdsmDeleteGroup002 end");
+}
+
+/**
+ * @tc.name: CdsmStopInviteAdv002
+ * @tc.desc: 非强制停邀请广播要求地址是合作集成员.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmStopInviteAdv002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmStopInviteAdv002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    cdsmService->CdsmStopInviteAdv(RawAddress(CDSM_UT_ADDR_C), false);
+    cdsmService->CdsmStopInviteAdv(RawAddress(CDSM_UT_ADDR_B), false);
+    HILOGI("NearlinkCdsmTest:CdsmStopInviteAdv002 end");
+}
+
+/**
+ * @tc.name: ClearOldDevice002
+ * @tc.desc: 回调成员覆盖全部既有成员时不清理旧设备.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, ClearOldDevice002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:ClearOldDevice002 start");
+
+    MockCdsmService cdsmService;
+    CdsmCallBackData dataBlock;
+    dataBlock.event = CDSM_EVENT_CONNECT;
+    dataBlock.cdmsGroupId = 1;
+    dataBlock.memberNum = 2;
+    RawAddress addr1("11:22:33:44:55:66");
+    RawAddress addr2("11:22:33:44:55:77");
+    dataBlock.currentAddr = addr1;
+    CdsmCallBackDataMemInfo memInfo;
+    memInfo.memberAddr = addr1;
+    memInfo.memberState = 1;
+    dataBlock.memberInfo.push_back(memInfo);
+    memInfo.memberAddr = addr2;
+    memInfo.memberState = 1;
+    dataBlock.memberInfo.push_back(memInfo);
+
+    std::shared_ptr<CdsmInfo> cdsmDataPtr = std::make_shared<CdsmInfo>(1, "11:22:33:44:55:66");
+    cdsmDataPtr->CdsmAddMemberInfo("11:22:33:44:55:66", 1);
+    cdsmDataPtr->CdsmAddMemberInfo("11:22:33:44:55:77", 1);
+
+    RawAddress oldDevAddr;
+    bool ret = cdsmService.ClearOldDevice(dataBlock, cdsmDataPtr, oldDevAddr);
+    EXPECT_EQ(false, ret);
+    HILOGI("NearlinkCdsmTest:ClearOldDevice002 end");
+}
+
+/**
+ * @tc.name: CdsmClientUpdateState001
+ * @tc.desc: 客户端状态与目标状态一致时不重复上报.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmClientUpdateState001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState001 start");
+    MockCdsmClient cdsmClient(CDSM_UT_ADDR_A);
+    cdsmClient.SetState(CdsmClientState::CDSM_STATE_CONNECTED);
+    cdsmClient.CdsmClientUpdateState(CdsmClientState::CDSM_STATE_CONNECTED);
+    EXPECT_EQ(CdsmClientState::CDSM_STATE_CONNECTED, cdsmClient.CdsmClientGetState());
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState001 end");
+}
+
+/**
+ * @tc.name: CdsmClientUpdateState002
+ * @tc.desc: 私有合作集成员连接后不启动邀请广播.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmClientUpdateState002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B}, true);
+
+    MockCdsmClient cdsmClient(CDSM_UT_ADDR_B);
+    cdsmClient.SetState(CdsmClientState::CDSM_STATE_CONNECTING);
+    cdsmClient.CdsmClientUpdateState(CdsmClientState::CDSM_STATE_CONNECTED);
+    EXPECT_EQ(CdsmClientState::CDSM_STATE_CONNECTED, cdsmClient.CdsmClientGetState());
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState002 end");
+}
+
+/**
+ * @tc.name: CdsmClientUpdateState003
+ * @tc.desc: 公版合作集上报设备连接成功后尝试启动邀请广播.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmClientUpdateState003, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState003 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
+
+    MockCdsmClient cdsmClient(CDSM_UT_ADDR_A);
+    cdsmClient.SetState(CdsmClientState::CDSM_STATE_CONNECTING);
+    cdsmClient.CdsmClientUpdateState(CdsmClientState::CDSM_STATE_CONNECTED);
+    EXPECT_EQ(CdsmClientState::CDSM_STATE_CONNECTED, cdsmClient.CdsmClientGetState());
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState003 end");
+}
+
+/**
+ * @tc.name: CdsmClientUpdateState004
+ * @tc.desc: 服务未注册时客户端状态变化仅记录日志不崩溃.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmClientUpdateState004, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState004 start");
+    MockCdsmService cdsmService;
+    MockCdsmClient cdsmClient(CDSM_UT_ADDR_A);
+    cdsmClient.SetState(CdsmClientState::CDSM_STATE_CONNECTING);
+    cdsmClient.CdsmClientUpdateState(CdsmClientState::CDSM_STATE_CONNECTED);
+    EXPECT_EQ(CdsmClientState::CDSM_STATE_CONNECTED, cdsmClient.CdsmClientGetState());
+    HILOGI("NearlinkCdsmTest:CdsmClientUpdateState004 end");
+}
+
+/**
+ * @tc.name: CdsmClientStopInviteAdv002
+ * @tc.desc: 私有合作集成员不停止邀请广播.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CdsmClientStopInviteAdv002, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CdsmClientStopInviteAdv002 start");
+    CdsmService *cdsmService = CdsmService::GetService();
+    ASSERT_NE(cdsmService, nullptr);
+    CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B}, true);
+
+    MockCdsmClient cdsmClient(CDSM_UT_ADDR_B);
+    cdsmClient.CdsmStopInviteAdv();
+    HILOGI("NearlinkCdsmTest:CdsmClientStopInviteAdv002 end");
+}
+
+/**
+ * @tc.name: CreateCdsmClient001
+ * @tc.desc: 音频能力开启时创建合作集客户端成功.
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkCdsmTest, CreateCdsmClient001, TestSize.Level1)
+{
+    HILOGI("NearlinkCdsmTest:CreateCdsmClient001 start");
+    std::shared_ptr<CdsmClient> client = CdsmClient::CreateCdsmClient(CDSM_UT_ADDR_A);
+    EXPECT_NE(nullptr, client);
+    HILOGI("NearlinkCdsmTest:CreateCdsmClient001 end");
+}
+
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS
