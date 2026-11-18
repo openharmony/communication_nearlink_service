@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -444,7 +444,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
         "com.merge.test");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
 
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::DATA, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::DATA, true);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
     EXPECT_EQ(list.size(), LIST_SIZE_ONE);
@@ -452,17 +452,17 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
     EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
 
     // 数据维度静音期间，音量维度恢复不得清除数据维度记忆（W2回归）
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::VOLUME, false);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, false);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
     EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
 
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::VOLUME, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, true);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
     EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
 
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::DATA, false);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::DATA, false);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
     EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
     EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
@@ -492,7 +492,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, PipeCloseIncrementalRemove001, TestSize.L
         DEFAULT_STREAM_ID + 1, "com.pipe2");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, pipe1Streams);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG + 1, pipe2Streams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteDimension::VOLUME, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteType::VOLUME, true);
 
     adapter.RemoveMemberRouteFlagList(DEFAULT_ROUTE_FLAG);
     const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
@@ -525,7 +525,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, RebuildKeepMuteMemory001, TestSize.Level1
         DEFAULT_STREAM_ID + 1, "com.pipe2");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, pipe1Streams);
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG + 1, pipe2Streams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteDimension::VOLUME, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, true);
 
     // 本次两管道均在：全保留，静音记忆不随重建清理丢失
     std::set<uint32_t> allFlags = {DEFAULT_ROUTE_FLAG, DEFAULT_ROUTE_FLAG + 1};
@@ -769,7 +769,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange001, TestSize
         DEFAULT_STREAM_ID + TWO,
         "com.notify.muted");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, StreamMuteDimension::VOLUME, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, StreamMuteType::VOLUME, true);
 
     adapter.NotifyMcpRendererStateChange();
     HILOGI("NotifyMcpRendererStateChange001 end");
@@ -799,7 +799,7 @@ HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange002, TestSize
         DEFAULT_STREAM_ID + 1,
         "com.allmuted.normal");
     adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
-    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteDimension::VOLUME, true);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteType::VOLUME, true);
 
     adapter.NotifyMcpRendererStateChange();
     HILOGI("NotifyMcpRendererStateChange002 end");
