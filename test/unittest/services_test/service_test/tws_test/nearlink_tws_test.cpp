@@ -33,12 +33,11 @@
 #include "interface_profile_ssap_client.h"
 #include "SleConfig.h"
 
+namespace OHOS {
+namespace Nearlink {
 extern void SetMockNearlinkOut(bool isNearlinkOut);
 extern void ClearMockAudioFwkState();
 
-
-namespace OHOS {
-namespace Nearlink {
 namespace TEST {
 using namespace testing;
 using namespace testing::ext;
@@ -1954,7 +1953,7 @@ HWTEST_F(NearlinkTwsDeepTest, PauseReasonNotPlaying001, TestSize.Level1)
     const int notStarted = 0;
 
     // 无暂停记录 -> 无需暂停
-    EXPECT_EQ(service_->GetPauseReasonNotPlaying(dev, removeLeft, wear, notStarted),
+    EXPECT_EQ(service_->GetPauseReason(dev, removeLeft, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_NO_NEED));
 
     // 上次双摘左侧 + 现左戴右空 + 摘右 -> 合并为双摘
@@ -1964,7 +1963,7 @@ HWTEST_F(NearlinkTwsDeepTest, PauseReasonNotPlaying001, TestSize.Level1)
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
     wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
     wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
-    EXPECT_EQ(service_->GetPauseReasonNotPlaying(dev, removeRight, wear, notStarted),
+    EXPECT_EQ(service_->GetPauseReason(dev, removeRight, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE));
 
     // 上次双摘右侧 + 现左空右戴 + 摘左 -> 合并为双摘
@@ -1972,13 +1971,13 @@ HWTEST_F(NearlinkTwsDeepTest, PauseReasonNotPlaying001, TestSize.Level1)
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
     wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
     wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
-    EXPECT_EQ(service_->GetPauseReasonNotPlaying(dev, removeLeft, wear, notStarted),
+    EXPECT_EQ(service_->GetPauseReason(dev, removeLeft, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE));
 
     // 组合不匹配 -> 无需暂停
     wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
     wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
-    EXPECT_EQ(service_->GetPauseReasonNotPlaying(dev, removeLeft, wear, notStarted),
+    EXPECT_EQ(service_->GetPauseReason(dev, removeLeft, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_NO_NEED));
 }
 
@@ -2403,7 +2402,7 @@ HWTEST_F(NearlinkTwsDeepTest, CdsmLinkNoSync001, TestSize.Level1)
     data.nature_ = static_cast<uint8_t>(TwsNatureType::TWS_RIGHT);
     service_->UpdateClientData(static_cast<uint8_t>(TwsHiBoxMsgType::HIBOX_EARBUDS_NATRUE), data);
     uint8_t rightNature = static_cast<uint8_t>(TwsNatureType::TWS_LEFT);
-    service_->TwsGetDeviceNature(right, rightNature);
+    rightNature = service_->TwsGetDeviceNature(right);
     EXPECT_EQ(rightNature, static_cast<uint8_t>(TwsNatureType::TWS_LEFT));
 
     // 有合作集但消息类型不在联动白名单：同样不同步
@@ -2412,7 +2411,7 @@ HWTEST_F(NearlinkTwsDeepTest, CdsmLinkNoSync001, TestSize.Level1)
     atData.subCmd_ = 0x77;
     service_->UpdateClientData(static_cast<uint8_t>(TwsHiBoxMsgType::HIBOX_AT_CMD), atData);
     uint8_t rightNature2 = static_cast<uint8_t>(TwsNatureType::TWS_LEFT);
-    service_->TwsGetDeviceNature(right, rightNature2);
+    rightNature2 = service_->TwsGetDeviceNature(right);
     EXPECT_EQ(rightNature2, static_cast<uint8_t>(TwsNatureType::TWS_LEFT));
 }
 
