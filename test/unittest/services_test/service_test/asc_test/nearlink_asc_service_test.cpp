@@ -37,6 +37,7 @@
 #include "nlstk_api_type_ext.h"
 #include "ASCService.cpp"
 #include "ipc_skeleton.h"
+#include "parameters.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -64,6 +65,7 @@ extern void SetMockAudioServiceActivate(bool isActivate);
 extern void SetMockBtOut(bool isBtOut);
 extern void ClearMockVendorAudioDevice();
 extern void ClearMockAudioFwkState();
+extern void SetMockCdsmCoMemberEnabled(bool enabled);
 
 // 测试目的：跑完所有用例后干净退出。先 fflush stdout/stderr 保住管道缓冲里的汇总行，
 // 再按失败用例数 _exit（保留原退出码语义），跳过静态对象析构，避开 ffrt worker
@@ -6101,5 +6103,1149 @@ HWTEST_F(ASCServiceTest, ASCUtilsGetAutorateTargetBpsRange_001, TestSize.Level1)
     HILOGI("ASCUtilsGetAutorateTargetBpsRange_001 end");
 }
 
+namespace {
+AscProp BuildL2hcCodecProp(uint8_t codecId, uint16_t companyId, uint16_t vendorId, uint16_t rate,
+    uint8_t depth, uint16_t channel, uint64_t bps)
+{
+    AscProp prop {};
+    prop.ability.codecNum = 1;
+    prop.ability.codec[0].codecId = codecId;
+    prop.ability.codec[0].companyId = companyId;
+    prop.ability.codec[0].vendorId = vendorId;
+    prop.ability.codec[0].param.l2hcParam.rate = rate;
+    prop.ability.codec[0].param.l2hcParam.depth = depth;
+    prop.ability.codec[0].param.l2hcParam.channel = channel;
+    prop.ability.codec[0].param.l2hcParam.bps = bps;
+    return prop;
+}
+
+AscCodecIdKey BuildCodecKey(uint8_t codecId, uint16_t companyId, uint16_t vendorId)
+{
+    AscCodecIdKey key {};
+    key.codecId = codecId;
+    key.companyId = companyId;
+    key.vendorId = vendorId;
+    key.version = ASC_L2HC_VERSION_STANDARD;
+    return key;
+}
+}
+
+/**
+ * @tc.name: GetBpsBitIndex_MediaMatrix_001
+ * @tc.desc: 媒体与通话编解码按协议档位选码率：通话固定64k档，媒体按320/160/位图最高位依次选档
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetBpsBitIndex_MediaMatrix_001, TestSize.Level1)
+{
+    HILOGI("GetBpsBitIndex_MediaMatrix_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    asc->AddConnectDevices(device);
+    Qos musicQos = NL_SLE_QOS_1;
+
+    // 通话编解码固定返回必选64k档
+    EXPECT_EQ(L2HC_VOICE_BPS_S_64_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320, ASC_CODEC_ID_L2HC_VOICE,
+        musicQos));
+
+    // 媒体编解码：支持320k时选320k档
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_160, ASC_CODEC_ID_L2HC,
+        musicQos));
+    // 不支持320k但支持160k时选160k档
+    EXPECT_EQ(L2HC_BPS_S_160_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_160 | L2HC_BPS_S_96, ASC_CODEC_ID_L2HC,
+        musicQos));
+    // 高低档都不支持时回退位图最高位
+    EXPECT_EQ(L2HC_BPS_S_48_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_48, ASC_CODEC_ID_L2HC, musicQos));
+    uint64_t highBitOnly = 0x01ULL << 12;
+    EXPECT_EQ(12, asc->GetBpsBitIndex(device, highBitOnly, ASC_CODEC_ID_L2HC, musicQos));
+    // 空位图无可用档位
+    EXPECT_EQ(0, asc->GetBpsBitIndex(device, 0, ASC_CODEC_ID_L2HC, musicQos));
+
+    delete asc;
+    HILOGI("GetBpsBitIndex_MediaMatrix_001 end");
+}
+
+/**
+ * @tc.name: GetBpsBitIndex_FormerPlayRecord_001
+ * @tc.desc: 保护时间内重复起播同一媒体业务时按上次停播码率就近低码率起播，超时或换业务则不走保护
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetBpsBitIndex_FormerPlayRecord_001, TestSize.Level1)
+{
+    HILOGI("GetBpsBitIndex_FormerPlayRecord_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    asc->AddConnectDevices(device);
+    CdsmService::GetService()->cdsmList_.Clear();
+
+    // 上次停播96k且在保护时间内，本次即使支持320k也按96k起播
+    asc->formerPlayRecord_.addr = device;
+    asc->formerPlayRecord_.qos = NL_SLE_QOS_1;
+    asc->formerPlayRecord_.codecId = ASC_CODEC_ID_L2HC;
+    asc->formerPlayRecord_.autoRateBpsBit = L2HC_BPS_S_96_BIT;
+    asc->formerPlayRecord_.timeStamp = time(nullptr);
+    EXPECT_EQ(L2HC_BPS_S_96_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_96, ASC_CODEC_ID_L2HC,
+        NL_SLE_QOS_1));
+
+    // 上次停播160k，本次按160k起播
+    asc->formerPlayRecord_.autoRateBpsBit = L2HC_BPS_S_160_BIT;
+    EXPECT_EQ(L2HC_BPS_S_160_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_160, ASC_CODEC_ID_L2HC,
+        NL_SLE_QOS_1));
+
+    // 超出保护时间后不再低码率保护，回到正常选档
+    asc->formerPlayRecord_.timeStamp = 0;
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_96, ASC_CODEC_ID_L2HC,
+        NL_SLE_QOS_1));
+
+    // 换了业务类型后同样不走保护
+    asc->formerPlayRecord_.timeStamp = time(nullptr);
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_96, ASC_CODEC_ID_L2HC,
+        NL_SLE_QOS_4));
+
+    delete asc;
+    HILOGI("GetBpsBitIndex_FormerPlayRecord_001 end");
+}
+
+/**
+ * @tc.name: GetBpsBitIndex_SystemParam_001
+ * @tc.desc: 测试参数指定的码率档位优先生效，参数恢复默认后回到协议选档
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetBpsBitIndex_SystemParam_001, TestSize.Level1)
+{
+    HILOGI("GetBpsBitIndex_SystemParam_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    asc->AddConnectDevices(device);
+
+    (void)OHOS::system::SetParameter("persist.config.nearlink.audiobps", "6");
+    EXPECT_EQ(L2HC_BPS_S_160_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_160,
+        ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+    (void)OHOS::system::SetParameter("persist.config.nearlink.audiobps", "-1");
+    EXPECT_EQ(-1, OHOS::system::GetIntParameter("persist.config.nearlink.audiobps", -1));
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320 | L2HC_BPS_S_160,
+        ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+
+    delete asc;
+    HILOGI("GetBpsBitIndex_SystemParam_001 end");
+}
+
+/**
+ * @tc.name: SelectCodecSampleRatePolicy_MediaMatrix_001
+ * @tc.desc: 双录音场景锁定96k，游戏类业务优先48k，音乐按96k优选48k兜底
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SelectCodecSampleRatePolicy_MediaMatrix_001, TestSize.Level1)
+{
+    HILOGI("SelectCodecSampleRatePolicy_MediaMatrix_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscCodecIdKey l2hcKey = BuildCodecKey(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD);
+    uint16_t fullRate = static_cast<uint16_t>((1 << ASC_SAMPLE_RATE_44KHZ) | (1 << ASC_SAMPLE_RATE_48KHZ) |
+        (1 << ASC_SAMPLE_RATE_88KHZ) | (1 << ASC_SAMPLE_RATE_96KHZ));
+    uint16_t rateWithout96 = static_cast<uint16_t>((1 << ASC_SAMPLE_RATE_44KHZ) | (1 << ASC_SAMPLE_RATE_48KHZ));
+    std::vector<AscProp> properties {};
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        fullRate, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    ASCService::JudgeL2HCParamStru paramIn {};
+
+    // 双录音业务且双方都支持96k时锁定96k
+    paramIn.qos = NL_SLE_QOS_5;
+    EXPECT_EQ(ASC_SAMPLE_RATE_96KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+    // 双录音但对端不支持96k时回退48k
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        rateWithout96, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+
+    // 游戏与空间音频类业务优先48k
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        fullRate, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    paramIn.qos = NL_SLE_QOS_2;
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+    paramIn.qos = NL_SLE_QOS_4;
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+
+    // 音乐业务96k优选
+    paramIn.qos = NL_SLE_QOS_1;
+    EXPECT_EQ(ASC_SAMPLE_RATE_96KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+    // 音乐业务不支持96k时48k兜底
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        rateWithout96, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicy(device, l2hcKey, paramIn));
+
+    delete asc;
+    HILOGI("SelectCodecSampleRatePolicy_MediaMatrix_001 end");
+}
+
+/**
+ * @tc.name: SelectCodecSampleRatePolicy_VoiceMatrix_001
+ * @tc.desc: 通话业务采样率优选32k必选16k，对端只报48k时回落16k
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SelectCodecSampleRatePolicy_VoiceMatrix_001, TestSize.Level1)
+{
+    HILOGI("SelectCodecSampleRatePolicy_VoiceMatrix_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscCodecIdKey voiceKey = BuildCodecKey(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD);
+    uint16_t voiceRate = static_cast<uint16_t>((1 << ASC_SAMPLE_RATE_16KHZ) | (1 << ASC_SAMPLE_RATE_32KHZ) |
+        (1 << ASC_SAMPLE_RATE_48KHZ));
+    std::vector<AscProp> properties {};
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD, voiceRate, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    ASCService::JudgeL2HCParamStru paramIn {};
+    paramIn.qos = NL_SLE_QOS_3;
+
+    // 通话优选32k
+    EXPECT_EQ(ASC_SAMPLE_RATE_32KHZ, asc->SelectCodecSampleRatePolicy(device, voiceKey, paramIn));
+
+    // 对端只支持16k时用必选16k
+    uint16_t rate16Only = static_cast<uint16_t>(1 << ASC_SAMPLE_RATE_16KHZ);
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD, rate16Only, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_SAMPLE_RATE_16KHZ, asc->SelectCodecSampleRatePolicy(device, voiceKey, paramIn));
+
+    // 对端只报48k等非通话档位时回落必选16k
+    uint16_t rate48Only = static_cast<uint16_t>(1 << ASC_SAMPLE_RATE_48KHZ);
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD, rate48Only, 0, 0, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_SAMPLE_RATE_16KHZ, asc->SelectCodecSampleRatePolicy(device, voiceKey, paramIn));
+
+    delete asc;
+    HILOGI("SelectCodecSampleRatePolicy_VoiceMatrix_001 end");
+}
+
+/**
+ * @tc.name: SelectCodecBitDepthPolicy_Matrix_001
+ * @tc.desc: 通话限定16bit采样深度，媒体优选24bit不支持则16bit
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SelectCodecBitDepthPolicy_Matrix_001, TestSize.Level1)
+{
+    HILOGI("SelectCodecBitDepthPolicy_Matrix_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscCodecIdKey l2hcKey = BuildCodecKey(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD);
+    AscCodecIdKey voiceKey = BuildCodecKey(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD);
+    uint8_t fullDepth = static_cast<uint8_t>((1 << ASC_SAMPLE_DEPTH_16BIT) | (1 << ASC_SAMPLE_DEPTH_24BIT));
+    std::vector<AscProp> properties {};
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        0, fullDepth, 0, 0));
+    properties[0].ability.codecNum = 2;
+    properties[0].ability.codec[1].codecId = ASC_CODEC_ID_L2HC_VOICE;
+    properties[0].ability.codec[1].companyId = ASC_COMPANY_ID_STANDARD;
+    properties[0].ability.codec[1].vendorId = ASC_VENDOR_ID_STANDARD;
+    properties[0].ability.codec[1].param.l2hcParam.depth = fullDepth;
+    asc->SaveProperty(device, properties);
+    ASCService::JudgeL2HCParamStru paramIn {};
+
+    // 通话限定16bit
+    paramIn.qos = NL_SLE_QOS_3;
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_16BIT, asc->SelectCodecBitDepthPolicy(device, voiceKey, paramIn));
+
+    // 媒体优选24bit
+    paramIn.qos = NL_SLE_QOS_1;
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_24BIT, asc->SelectCodecBitDepthPolicy(device, l2hcKey, paramIn));
+
+    // 对端不支持24bit时选16bit
+    uint8_t depth16Only = static_cast<uint8_t>(1 << ASC_SAMPLE_DEPTH_16BIT);
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        0, depth16Only, 0, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_16BIT, asc->SelectCodecBitDepthPolicy(device, l2hcKey, paramIn));
+
+    delete asc;
+    HILOGI("SelectCodecBitDepthPolicy_Matrix_001 end");
+}
+
+/**
+ * @tc.name: SelectCodecChannelPolicy_Matrix_001
+ * @tc.desc: 通道协商优先单声道，对端不支持单声道时用双声道
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SelectCodecChannelPolicy_Matrix_001, TestSize.Level1)
+{
+    HILOGI("SelectCodecChannelPolicy_Matrix_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    AscCodecIdKey l2hcKey = BuildCodecKey(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD);
+    uint16_t channelBoth = static_cast<uint16_t>(ASC_CHANNEL_SINGLE | ASC_CHANNEL_DOUBLE);
+    std::vector<AscProp> properties {};
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        0, 0, channelBoth, 0));
+    asc->SaveProperty(device, properties);
+    ASCService::JudgeL2HCParamStru paramIn {};
+    paramIn.qos = NL_SLE_QOS_1;
+
+    // 支持单声道时优先单声道
+    EXPECT_EQ(ASC_CHANNEL_SINGLE, asc->SelectCodecChannelPolicy(device, l2hcKey, paramIn));
+
+    // 只支持双声道时用双声道
+    uint16_t channelDoubleOnly = static_cast<uint16_t>(ASC_CHANNEL_DOUBLE);
+    properties.clear();
+    properties.emplace_back(BuildL2hcCodecProp(ASC_CODEC_ID_L2HC, ASC_COMPANY_ID_STANDARD, ASC_VENDOR_ID_STANDARD,
+        0, 0, channelDoubleOnly, 0));
+    asc->SaveProperty(device, properties);
+    EXPECT_EQ(ASC_CHANNEL_DOUBLE, asc->SelectCodecChannelPolicy(device, l2hcKey, paramIn));
+
+    delete asc;
+    HILOGI("SelectCodecChannelPolicy_Matrix_001 end");
+}
+
+/**
+ * @tc.name: SelectCodecPolicyInDualRec_001
+ * @tc.desc: 双耳录音上行按48k采样率、24bit优先位深协商，通道回退单声道
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SelectCodecPolicyInDualRec_001, TestSize.Level1)
+{
+    HILOGI("SelectCodecPolicyInDualRec_001 start");
+    ASCService *asc = new ASCService();
+    AscCodecIdKey voiceKey = BuildCodecKey(ASC_CODEC_ID_L2HC_VOICE, ASC_COMPANY_ID_STANDARD,
+        ASC_VENDOR_ID_STANDARD);
+
+    // 双耳录音上行固定48k，对端不支持48k也兜底48k
+    uint16_t rate48 = static_cast<uint16_t>(1 << ASC_SAMPLE_RATE_48KHZ);
+    uint16_t rateNo48 = static_cast<uint16_t>((1 << ASC_SAMPLE_RATE_16KHZ) | (1 << ASC_SAMPLE_RATE_32KHZ));
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicyInDualRec(voiceKey, rate48));
+    EXPECT_EQ(ASC_SAMPLE_RATE_48KHZ, asc->SelectCodecSampleRatePolicyInDualRec(voiceKey, rateNo48));
+
+    // 位深24bit优先，不支持24bit用16bit
+    uint8_t depth24 = static_cast<uint8_t>((1 << ASC_SAMPLE_DEPTH_16BIT) | (1 << ASC_SAMPLE_DEPTH_24BIT));
+    uint8_t depth16 = static_cast<uint8_t>(1 << ASC_SAMPLE_DEPTH_16BIT);
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_24BIT, asc->SelectCodecBitDepthPolicyInDualRec(voiceKey, depth24));
+    EXPECT_EQ(ASC_SAMPLE_DEPTH_16BIT, asc->SelectCodecBitDepthPolicyInDualRec(voiceKey, depth16));
+
+    // 通道协商单声道优先，交集为空也回退单声道
+    uint16_t channelSingle = static_cast<uint16_t>(ASC_CHANNEL_SINGLE);
+    uint16_t channelDouble = static_cast<uint16_t>(ASC_CHANNEL_DOUBLE);
+    EXPECT_EQ(ASC_CHANNEL_SINGLE, asc->SelectCodecChannelPolicyInDualRec(voiceKey, channelSingle));
+    EXPECT_EQ(ASC_CHANNEL_SINGLE, asc->SelectCodecChannelPolicyInDualRec(voiceKey, channelDouble));
+
+    delete asc;
+    HILOGI("SelectCodecPolicyInDualRec_001 end");
+}
+
+/**
+ * @tc.name: ASCUtils_GetDirection_001
+ * @tc.desc: 按业务类型映射数据方向：媒体下行、通话按主从角色、全双工业务双向
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ASCUtils_GetDirection_001, TestSize.Level1)
+{
+    HILOGI("ASCUtils_GetDirection_001 start");
+
+    // 媒体与游戏类业务纯下行
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_1));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_2));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_7));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_10));
+
+    // 通话类业务主设备双向、从设备纯下行
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_3));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_3));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_6));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_6));
+
+    // 双录音与K歌业务双向
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_4));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(false, NL_SLE_QOS_5));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_9));
+
+    // 未定义业务保持默认双向
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_8));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, static_cast<Qos>(NL_SLE_QOS_BUTT)));
+
+    HILOGI("ASCUtils_GetDirection_001 end");
+}
+
+/**
+ * @tc.name: ASCUtils_GetBpsBitIndexByBps_002
+ * @tc.desc: 各档位码率换算成位图索引，未定义码率回退64k档索引
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetBpsBitIndexByBps_002, TestSize.Level1)
+{
+    HILOGI("ASCUtils_GetBpsBitIndexByBps_002 start");
+
+    EXPECT_EQ(L2HC_BPS_S_128_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_128));
+    EXPECT_EQ(L2HC_BPS_S_160_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_160));
+    EXPECT_EQ(L2HC_BPS_S_240_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_240));
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_320));
+    EXPECT_EQ(L2HC_BPS_S_480_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_480));
+    EXPECT_EQ(L2HC_BPS_S_750_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_750));
+    EXPECT_EQ(L2HC_BPS_S_960_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_960));
+    EXPECT_EQ(L2HC_BPS_S_1150_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_1150));
+    EXPECT_EQ(L2HC_BPS_S_2300_BIT, ASCUtils::GetBpsBitIndexByBps(BPS_2300));
+
+    // 未定义码率回退64k档
+    EXPECT_EQ(L2HC_BPS_S_64_BIT, ASCUtils::GetBpsBitIndexByBps(0));
+
+    HILOGI("ASCUtils_GetBpsBitIndexByBps_002 end");
+}
+
+/**
+ * @tc.name: ASCUtils_GetAutorateTargetBpsRange_001
+ * @tc.desc: 通话自动变档目标码率映射为不高于目标的可用位图，非法目标回退默认下行位图
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ASCUtils_GetAutorateTargetBpsRange_001, TestSize.Level1)
+{
+    HILOGI("ASCUtils_GetAutorateTargetBpsRange_001 start");
+
+    // 目标64k：32/48/64k均不高于目标，取与默认位图的交集
+    uint64_t expect64 = BPS_QOS3_AUTORATE_DOWN & (L2HC_VOICE_BPS_S_32 | L2HC_VOICE_BPS_S_48 |
+        L2HC_VOICE_BPS_S_64);
+    EXPECT_EQ(expect64, ASCUtils::GetAutorateTargetBpsRange(BPS_64));
+
+    // 目标48k：只有32/48k可用
+    uint64_t expect48 = BPS_QOS3_AUTORATE_DOWN & (L2HC_VOICE_BPS_S_32 | L2HC_VOICE_BPS_S_48);
+    EXPECT_EQ(expect48, ASCUtils::GetAutorateTargetBpsRange(BPS_48));
+
+    // 目标128k及以上：全部可用档位
+    uint64_t expect128 = BPS_QOS3_AUTORATE_DOWN & (L2HC_VOICE_BPS_S_32 | L2HC_VOICE_BPS_S_48 |
+        L2HC_VOICE_BPS_S_64 | L2HC_VOICE_BPS_S_96 | L2HC_VOICE_BPS_S_128);
+    EXPECT_EQ(expect128, ASCUtils::GetAutorateTargetBpsRange(BPS_128));
+
+    // 非法目标码率回退默认下行位图
+    EXPECT_EQ(BPS_QOS3_AUTORATE_DOWN, ASCUtils::GetAutorateTargetBpsRange(0));
+
+    HILOGI("ASCUtils_GetAutorateTargetBpsRange_001 end");
+}
+
+/**
+ * @tc.name: QosM_CosSwitch48_001
+ * @tc.desc: 空间音频两种模式互切时等优先级也触发当前业务切换
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosM_CosSwitch48_001, TestSize.Level1)
+{
+    HILOGI("QosM_CosSwitch48_001 start");
+    QosM &qosm = QosM::GetInstance();
+    RawAddress device = RawAddress(deviceStr);
+    qosm.ClearQosM(device);
+
+    // 当前为空间音频头动模式，加入固定模式后切换为固定模式
+    qosm.AddQos(device, NL_SLE_QOS_8);
+    qosm.SetCos(device, NL_SLE_QOS_4);
+    EXPECT_EQ(true, qosm.AddQos(device, NL_SLE_QOS_4));
+    EXPECT_EQ(NL_SLE_QOS_8, qosm.GetCOS(device));
+
+    // 当前为固定模式，加入头动模式后切换回头动模式
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_4);
+    qosm.SetCos(device, NL_SLE_QOS_8);
+    EXPECT_EQ(true, qosm.AddQos(device, NL_SLE_QOS_8));
+    EXPECT_EQ(NL_SLE_QOS_4, qosm.GetCOS(device));
+
+    qosm.ClearQosM(device);
+    HILOGI("QosM_CosSwitch48_001 end");
+}
+
+/**
+ * @tc.name: QosM_AddQosCosReplace_001
+ * @tc.desc: 添加业务时按规则切换当前业务：高优先级替换、通话延迟断链让位、全景音失效让位
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosM_AddQosCosReplace_001, TestSize.Level1)
+{
+    HILOGI("QosM_AddQosCosReplace_001 start");
+    QosM &qosm = QosM::GetInstance();
+    RawAddress device = RawAddress(deviceStr);
+    qosm.ClearQosM(device);
+
+    // 当前业务为媒体2但组内已无媒体2时，新业务4顶替
+    qosm.AddQos(device, NL_SLE_QOS_4);
+    qosm.SetCos(device, NL_SLE_QOS_2);
+    EXPECT_EQ(true, qosm.AddQos(device, NL_SLE_QOS_1));
+    EXPECT_EQ(NL_SLE_QOS_4, qosm.GetCOS(device));
+
+    // 通话延迟断链中起播非通话业务且组内已无通话时，让位给新业务
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    qosm.SetCos(device, NL_SLE_QOS_3);
+    EXPECT_EQ(true, qosm.AddQos(device, NL_SLE_QOS_2));
+    EXPECT_EQ(NL_SLE_QOS_2, qosm.GetCOS(device));
+
+    // 当前全景音已不在组内时，新业务直接顶替
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    qosm.SetCos(device, NL_SLE_QOS_10);
+    EXPECT_EQ(true, qosm.AddQos(device, NL_SLE_QOS_2));
+    EXPECT_EQ(NL_SLE_QOS_2, qosm.GetCOS(device));
+
+    // 低优先级业务加入不改变当前业务
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_3);
+    EXPECT_EQ(false, qosm.AddQos(device, NL_SLE_QOS_1));
+    EXPECT_EQ(NL_SLE_QOS_3, qosm.GetCOS(device));
+
+    qosm.ClearQosM(device);
+    HILOGI("QosM_AddQosCosReplace_001 end");
+}
+
+/**
+ * @tc.name: QosM_DeleteQosCosReplace_001
+ * @tc.desc: 删除业务后按剩余业务切换当前业务，媒体全停时级联清理空间音频档位
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosM_DeleteQosCosReplace_001, TestSize.Level1)
+{
+    HILOGI("QosM_DeleteQosCosReplace_001 start");
+    QosM &qosm = QosM::GetInstance();
+    RawAddress device = RawAddress(deviceStr);
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+
+    // 通话退出后让位给剩余的最高优先级媒体
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_3);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    isStopStream = false;
+    isStopImmediately = false;
+    EXPECT_EQ(true, qosm.DeleteQos(device, NL_SLE_QOS_3, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_1, qosm.GetCOS(device));
+    EXPECT_EQ(false, isStopStream);
+
+    // 通话退出但组内仍有上行业务时保持通话
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_3);
+    qosm.AddQos(device, NL_SLE_QOS_6);
+    isStopStream = false;
+    EXPECT_EQ(false, qosm.DeleteQos(device, NL_SLE_QOS_3, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_3, qosm.GetCOS(device));
+
+    // 媒体全停时空间音频固定档位级联删除并判定停流
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_8);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    isStopStream = false;
+    EXPECT_EQ(false, qosm.DeleteQos(device, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(false, qosm.IsQosExist(device, NL_SLE_QOS_8));
+
+    // 组内还有更低档位媒体时不级联删除高档位
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_8);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    qosm.CheckAndDeleteQos(device, NL_SLE_QOS_8);
+    EXPECT_EQ(true, qosm.IsQosExist(device, NL_SLE_QOS_8));
+
+    qosm.ClearQosM(device);
+    HILOGI("QosM_DeleteQosCosReplace_001 end");
+}
+
+/**
+ * @tc.name: QosM_CalculateNosAndClear_001
+ * @tc.desc: 剩余最高优先级业务换算、无业务返回空档，清理与同步按设备隔离
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosM_CalculateNosAndClear_001, TestSize.Level1)
+{
+    HILOGI("QosM_CalculateNosAndClear_001 start");
+    QosM &qosm = QosM::GetInstance();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    RawAddress unknownDevice = RawAddress("99:88:77:66:55:44");
+
+    // 无记录设备返回空档
+    EXPECT_EQ(NL_SLE_QOS_NONE, qosm.CalculateNos(unknownDevice));
+
+    // 清理后的空组返回空档
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    qosm.ClearQosM(device);
+    EXPECT_EQ(NL_SLE_QOS_NONE, qosm.CalculateNos(device));
+    // 重复清理空组不报错
+    qosm.ClearQosM(device);
+
+    // 多业务时取最高优先级
+    qosm.AddQos(device, NL_SLE_QOS_1);
+    qosm.AddQos(device, NL_SLE_QOS_3);
+    EXPECT_EQ(NL_SLE_QOS_3, qosm.CalculateNos(device));
+
+    // 纯下行业务判定与上行业务判定
+    EXPECT_EQ(true, qosm.IsSingleDownExist(device));
+    qosm.ClearQosM(device);
+    qosm.AddQos(device, NL_SLE_QOS_3);
+    EXPECT_EQ(false, qosm.IsSingleDownExist(device));
+    EXPECT_EQ(true, qosm.IsUpExist(device));
+
+    // 同步把合作集业务表复制给新设备
+    qosm.ClearQosM(coDevice);
+    qosm.SyncQos(unknownDevice, device);
+    EXPECT_EQ(true, qosm.IsQosExist(unknownDevice, NL_SLE_QOS_3));
+    EXPECT_EQ(qosm.GetCOS(device), qosm.GetCOS(unknownDevice));
+
+    // 非法档位设置被拒绝且不改变当前业务
+    qosm.SetCos(device, NL_SLE_QOS_BUTT);
+    EXPECT_NE(NL_SLE_QOS_BUTT, qosm.GetCOS(device));
+
+    qosm.ClearQosM(device);
+    qosm.ClearQosM(coDevice);
+    qosm.ClearQosM(unknownDevice);
+    HILOGI("QosM_CalculateNosAndClear_001 end");
+}
+
+/**
+ * @tc.name: GetBpsBitIndex_CoSetSync_001
+ * @tc.desc: 单切双场景起播码率同步合作集在播设备，对端未起播或无自动码率时按本端能力选档
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetBpsBitIndex_CoSetSync_001, TestSize.Level1)
+{
+    HILOGI("GetBpsBitIndex_CoSetSync_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+
+    // 标记同步且对端在播并已有自动码率时，新起播设备跟随对端96k档
+    asc->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+    asc->SetSyncFlag(device, true);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_STARTED);
+    asc->SetAutoRateBps(coDevice, BPS_96);
+    EXPECT_EQ(L2HC_BPS_S_96_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320, ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+
+    // 对端无自动码率记录时回退本端能力选档
+    asc->SetAutoRateBps(coDevice, 0);
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320, ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+
+    // 对端未起播时不同步
+    asc->SetAutoRateBps(coDevice, BPS_96);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CONNECTED);
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320, ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+
+    // 未标记同步时不同步
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_STARTED);
+    asc->SetSyncFlag(device, false);
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, asc->GetBpsBitIndex(device, L2HC_BPS_S_320, ASC_CODEC_ID_L2HC, NL_SLE_QOS_1));
+
+    delete asc;
+    HILOGI("GetBpsBitIndex_CoSetSync_001 end");
+}
+
+/**
+ * @tc.name: GetASCToDspEncodeBps_001
+ * @tc.desc: 通知DSP编码码率时同步合作集在播设备码率，非同步场景或对端未就绪时保持本端码率
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, GetASCToDspEncodeBps_001, TestSize.Level1)
+{
+    HILOGI("GetASCToDspEncodeBps_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+
+    // 无合作集设备在席时直接使用协商码率
+    asc->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+    EXPECT_EQ(160, asc->GetASCToDspEncodeBps(device, 160));
+
+    // 合作集在席但未标记同步时仍用本端码率
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CONNECTED);
+    EXPECT_EQ(160, asc->GetASCToDspEncodeBps(device, 160));
+
+    // 同步但对端未起播也未加数据路径时不同步
+    asc->SetSyncFlag(device, true);
+    EXPECT_EQ(160, asc->GetASCToDspEncodeBps(device, 160));
+
+    // 对端起播但无自动码率时保持本端码率
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_STARTED);
+    asc->SetAutoRateBps(coDevice, 0);
+    EXPECT_EQ(160, asc->GetASCToDspEncodeBps(device, 160));
+
+    // 对端起播且有自动码率时同步对端码率
+    asc->SetAutoRateBps(coDevice, BPS_96);
+    EXPECT_EQ(BPS_96, asc->GetASCToDspEncodeBps(device, 160));
+
+    // 对端处于加数据路径状态同样允许同步
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_ADD_DATA_PATH);
+    asc->SetAutoRateBps(coDevice, BPS_128);
+    EXPECT_EQ(BPS_128, asc->GetASCToDspEncodeBps(device, 160));
+
+    delete asc;
+    HILOGI("GetASCToDspEncodeBps_001 end");
+}
+
+/**
+ * @tc.name: IsRejectInActivateDeviceReq_002
+ * @tc.desc: 音频业务进行中拒绝出声设备的提速请求：星闪单设备、蓝牙出声、星闪双设备三种场景
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, IsRejectInActivateDeviceReq_002, TestSize.Level1)
+{
+    HILOGI("IsRejectInActivateDeviceReq_002 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    CdsmService::GetService()->cdsmList_.Clear();
+    SleAcbSubrateParam param {};
+
+    // 星闪激活设备业务中拒绝subrate1切换
+    SetMockAudioServiceActivate(true);
+    asc->activeSinkDevice_ = device;
+    param.subrate = NLSTK_SUBRATE_1;
+    EXPECT_EQ(true, asc->IsRejectInActivateDeviceReq(device, param.subrate));
+
+    // 音频业务未激活时不拒绝
+    SetMockAudioServiceActivate(false);
+    EXPECT_EQ(false, asc->IsRejectInActivateDeviceReq(device, param.subrate));
+
+    // 蓝牙出声且星闪提速场景拒绝低档subrate
+    SetMockAudioServiceActivate(true);
+    SetMockBtOut(true);
+    param.subrate = NLSTK_DEFAULT_SUBRATE;
+    EXPECT_EQ(true, asc->IsRejectInActivateDeviceReq(device, param.subrate));
+
+    // 高于默认档位的提速请求不拒绝
+    param.subrate = NLSTK_DEFAULT_SUBRATE + 1;
+    EXPECT_EQ(false, asc->IsRejectInActivateDeviceReq(device, param.subrate));
+
+    // 星闪双设备场景拒绝非出声设备的提速请求
+    SetMockBtOut(false);
+    asc->activeSinkDevice_ = coDevice;
+    param.subrate = NLSTK_DEFAULT_SUBRATE;
+    EXPECT_EQ(true, asc->IsRejectInActivateDeviceReq(device, param.subrate));
+
+    delete asc;
+    HILOGI("IsRejectInActivateDeviceReq_002 end");
+}
+
+/**
+ * @tc.name: ProcessStartPlayingEvent_Sync_001
+ * @tc.desc: 双耳一播一闲时起播事件给组内两耳登记起播结果，空闲耳挂起不直接起播，播放耳进入重配
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ProcessStartPlayingEvent_Sync_001, TestSize.Level1)
+{
+    HILOGI("ProcessStartPlayingEvent_Sync_001 start");
+    // 本例需要组内可见第二只耳机（单切双判定），结束即关闭，不影响其余用例
+    SetMockCdsmCoMemberEnabled(true);
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    QosM::GetInstance().ClearQosM(device);
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CREATED);
+
+    ASCMessage event {};
+    event.dev_ = device.GetAddress();
+    event.streamType_ = AUDIO_STREAM_MUSIC;
+    asc->ProcessStartPlayingEvent(event);
+
+    // 组内两耳都已登记起播结果
+    EXPECT_EQ(true, asc->streamResultMap_[device.GetAddress()].count(AUDIO_STREAM_MUSIC) > 0);
+    EXPECT_EQ(true, asc->streamResultMap_[coDevice.GetAddress()].count(AUDIO_STREAM_MUSIC) > 0);
+    // 空闲耳挂起等待同步，不直接起播
+    EXPECT_EQ(false, asc->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+    // 播放耳重复起播同流走重配链路
+    EXPECT_EQ(NL_SLE_ASC_RECONFIG_STOPPING, asc->GetASCStatus(device));
+
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().ClearQosM(coDevice);
+    SetMockCdsmCoMemberEnabled(false);
+    delete asc;
+    HILOGI("ProcessStartPlayingEvent_Sync_001 end");
+}
+
+/**
+ * @tc.name: SyncWhenConnect_Sync_001
+ * @tc.desc: 空闲耳机连接后同步在播耳机的流表与起播结果，对端未在播或本端未连接时不动作
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SyncWhenConnect_Sync_001, TestSize.Level1)
+{
+    HILOGI("SyncWhenConnect_Sync_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+
+    // 对端在播且本端已连接：同步流表并登记本端起播结果
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->SetProcessingStreamType(device, AUDIO_STREAM_GAME);
+    asc->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CREATED);
+    asc->SyncWhenConnect(coDevice);
+    EXPECT_EQ(true, asc->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+    EXPECT_EQ(true, asc->streamResultMap_[coDevice.GetAddress()].count(AUDIO_STREAM_GAME) > 0);
+    EXPECT_EQ(NL_NO_ERROR, asc->streamResultMap_[coDevice.GetAddress()][AUDIO_STREAM_GAME].startPlayingResult);
+
+    // 对端未在播时不同步
+    ASCService *asc2 = new ASCService();
+    asc2->AddConnectDevices(device);
+    asc2->AddConnectDevices(coDevice);
+    asc2->SetASCStatus(device, NL_SLE_ASC_CREATED);
+    asc2->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc2->SetASCStatus(coDevice, NL_SLE_ASC_CREATED);
+    asc2->SyncWhenConnect(coDevice);
+    EXPECT_EQ(false, asc2->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+
+    // 本端未连接时不同步
+    ASCService *asc3 = new ASCService();
+    asc3->AddConnectDevices(device);
+    asc3->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc3->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc3->SyncWhenConnect(coDevice);
+    EXPECT_EQ(false, asc3->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().ClearQosM(coDevice);
+    delete asc;
+    delete asc2;
+    delete asc3;
+    HILOGI("SyncWhenConnect_Sync_001 end");
+}
+
+/**
+ * @tc.name: SyncWhenStartPlaying_Gate_001
+ * @tc.desc: 单切双同步只在播放耳与空闲耳同时在场且播放耳确实在播时触发
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, SyncWhenStartPlaying_Gate_001, TestSize.Level1)
+{
+    HILOGI("SyncWhenStartPlaying_Gate_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->SetProcessingStreamType(device, AUDIO_STREAM_GAME);
+    asc->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CREATED);
+
+    // 播放耳与空闲耳齐备：触发对空闲耳的同步
+    asc->SyncWhenStartPlaying(true, &device, &coDevice);
+    EXPECT_EQ(true, asc->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+
+    // 缺播放耳时不触发
+    ASCService *asc2 = new ASCService();
+    asc2->AddConnectDevices(device);
+    asc2->AddConnectDevices(coDevice);
+    asc2->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc2->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc2->SetASCStatus(coDevice, NL_SLE_ASC_CREATED);
+    asc2->SyncWhenStartPlaying(true, nullptr, &coDevice);
+    EXPECT_EQ(false, asc2->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+
+    // 非单切双场景不触发
+    asc2->SyncWhenStartPlaying(false, &device, &coDevice);
+    EXPECT_EQ(false, asc2->IsStreamExists(coDevice, AUDIO_STREAM_MUSIC));
+
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().ClearQosM(coDevice);
+    delete asc;
+    delete asc2;
+    HILOGI("SyncWhenStartPlaying_Gate_001 end");
+}
+
+/**
+ * @tc.name: JudgeQosWhenStopPlaying_001
+ * @tc.desc: 停流按流数量与出声设备判定：出声设备最后一流延迟停、多流只摘流、非出声设备立即停
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, JudgeQosWhenStopPlaying_001, TestSize.Level1)
+{
+    HILOGI("JudgeQosWhenStopPlaying_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    QosM::GetInstance().ClearQosM(device);
+    asc->AddConnectDevices(device);
+    CdsmService::GetService()->cdsmList_.Clear();
+
+    // 出声设备停最后一流：停流但延迟释放链路
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc->activeSinkDevice_ = device;
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+    bool isDelayStop = false;
+    bool isStopStream = false;
+    bool isNeedReconfig = false;
+    asc->JudgeQosWhenStopPlaying(device, AUDIO_STREAM_MUSIC, isDelayStop, isStopStream, isNeedReconfig);
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(true, isDelayStop);
+    EXPECT_EQ(false, isNeedReconfig);
+
+    // 非出声设备停流：立即停止不延迟
+    ASCService *asc2 = new ASCService();
+    asc2->AddConnectDevices(device);
+    asc2->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc2->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+    isDelayStop = false;
+    isStopStream = false;
+    isNeedReconfig = false;
+    asc2->JudgeQosWhenStopPlaying(device, AUDIO_STREAM_MUSIC, isDelayStop, isStopStream, isNeedReconfig);
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(false, isDelayStop);
+
+    // 多流场景停一流：只从列表摘除本流，剩余流保留
+    ASCService *asc3 = new ASCService();
+    asc3->AddConnectDevices(device);
+    asc3->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc3->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    asc3->GetStartedStreamList(device).push_back(AUDIO_STREAM_GAME);
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+    isDelayStop = false;
+    isStopStream = false;
+    isNeedReconfig = false;
+    asc3->JudgeQosWhenStopPlaying(device, AUDIO_STREAM_MUSIC, isDelayStop, isStopStream, isNeedReconfig);
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(false, asc3->IsStreamExists(device, AUDIO_STREAM_MUSIC));
+    EXPECT_EQ(true, asc3->IsStreamExists(device, AUDIO_STREAM_GAME));
+
+    // 组内还有其他业务时不判定整流停止
+    ASCService *asc4 = new ASCService();
+    asc4->AddConnectDevices(device);
+    asc4->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc4->GetStartedStreamList(device).push_back(AUDIO_STREAM_MUSIC);
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_3);
+    isDelayStop = false;
+    isStopStream = false;
+    isNeedReconfig = false;
+    asc4->JudgeQosWhenStopPlaying(device, AUDIO_STREAM_MUSIC, isDelayStop, isStopStream, isNeedReconfig);
+    EXPECT_EQ(false, isStopStream);
+    EXPECT_EQ(false, isDelayStop);
+    EXPECT_EQ(false, asc4->IsStreamExists(device, AUDIO_STREAM_MUSIC));
+
+    // 设备在播但该流未开时直接返回不处理
+    ASCService *asc5 = new ASCService();
+    asc5->AddConnectDevices(device);
+    asc5->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    isDelayStop = true;
+    isStopStream = false;
+    isNeedReconfig = false;
+    asc5->JudgeQosWhenStopPlaying(device, AUDIO_STREAM_MUSIC, isDelayStop, isStopStream, isNeedReconfig);
+    EXPECT_EQ(true, isDelayStop);
+    EXPECT_EQ(false, isStopStream);
+
+    QosM::GetInstance().ClearQosM(device);
+    delete asc;
+    delete asc2;
+    delete asc3;
+    delete asc4;
+    delete asc5;
+    HILOGI("JudgeQosWhenStopPlaying_001 end");
+}
+
+/**
+ * @tc.name: HandleChangeFrameType_001
+ * @tc.desc: 通话自动变帧逐个推进组内已连接在播成员，未就绪成员跳过且每次只推进一个
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, HandleChangeFrameType_001, TestSize.Level1)
+{
+    HILOGI("HandleChangeFrameType_001 start");
+    // 裸进程下栈初始化不成功，管理器的建适配器链不会随启动执行；这里显式触发一次，
+    // 只创建进程内对象（mock 适配器+状态机），不触碰协议栈
+    SleServiceManager *sleManager = SleServiceManager::GetInstance();
+    if (sleManager->GetAdapter(SleTransport::ADAPTER_SLE) == nullptr) {
+        sleManager->CreateAdapters();
+    }
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    CdsmService::GetService()->cdsmList_.Clear();
+    uint32_t groupId = CdsmService::GetService()->CdsmCreateGroup(device, {device, coDevice});
+    asc->activeSinkDevice_ = device;
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_STARTED);
+
+    AscAutorateInfo autorateInfo {};
+    autorateInfo.ascBitrate.direction = NL_SLE_ASC_VOICE_CALL_BITRATE_UP;
+    AscPhyStatus phyStarted {};
+    phyStarted.addr = device.GetAddress();
+    phyStarted.frameChangeState = NL_SLE_ASC_INIT;
+    AscPhyStatus phyCoStarted {};
+    phyCoStarted.addr = coDevice.GetAddress();
+    phyCoStarted.frameChangeState = NL_SLE_ASC_INIT;
+    autorateInfo.phyStatusList = {phyStarted, phyCoStarted};
+    asc->ascAutorateMap_[groupId] = autorateInfo;
+
+    // 组内首个就绪成员被推进到设置中，其余成员保持待处理
+    asc->HandleChangeFrameType();
+    EXPECT_EQ(NL_SLE_ASC_SETTING, asc->ascAutorateMap_[groupId].phyStatusList[0].frameChangeState);
+    EXPECT_EQ(NL_SLE_ASC_INIT, asc->ascAutorateMap_[groupId].phyStatusList[1].frameChangeState);
+
+    // 未在播成员被跳过，推进下一个就绪成员
+    asc->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+    asc->ascAutorateMap_[groupId].phyStatusList[0].frameChangeState = NL_SLE_ASC_INIT;
+    asc->HandleChangeFrameType();
+    EXPECT_EQ(NL_SLE_ASC_INIT, asc->ascAutorateMap_[groupId].phyStatusList[0].frameChangeState);
+    EXPECT_EQ(NL_SLE_ASC_SETTING, asc->ascAutorateMap_[groupId].phyStatusList[1].frameChangeState);
+
+    // 降档方向同样可推进
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->ascAutorateMap_[groupId].phyStatusList[0].frameChangeState = NL_SLE_ASC_INIT;
+    asc->ascAutorateMap_[groupId].phyStatusList[1].frameChangeState = NL_SLE_ASC_SETTED;
+    asc->ascAutorateMap_[groupId].ascBitrate.direction = NL_SLE_ASC_VOICE_CALL_BITRATE_DOWN;
+    asc->HandleChangeFrameType();
+    EXPECT_EQ(NL_SLE_ASC_SETTING, asc->ascAutorateMap_[groupId].phyStatusList[0].frameChangeState);
+
+    delete asc;
+    HILOGI("HandleChangeFrameType_001 end");
+}
+
+/**
+ * @tc.name: IsAllCosetFrameTypeChangedSucc_001
+ * @tc.desc: 组内全部在播成员变帧完成才算成功，存在未完成成员即失败，未在播成员不参与判定
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, IsAllCosetFrameTypeChangedSucc_001, TestSize.Level1)
+{
+    HILOGI("IsAllCosetFrameTypeChangedSucc_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    CdsmService::GetService()->cdsmList_.Clear();
+    uint32_t groupId = CdsmService::GetService()->CdsmCreateGroup(device, {device, coDevice});
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_STARTED);
+
+    AscAutorateInfo autorateInfo {};
+    AscPhyStatus phyStarted {};
+    phyStarted.addr = device.GetAddress();
+    phyStarted.frameChangeState = NL_SLE_ASC_SETTED;
+    AscPhyStatus phyCoStarted {};
+    phyCoStarted.addr = coDevice.GetAddress();
+    phyCoStarted.frameChangeState = NL_SLE_ASC_SETTED;
+    autorateInfo.phyStatusList = {phyStarted, phyCoStarted};
+    asc->ascAutorateMap_[groupId] = autorateInfo;
+
+    // 全部成员完成变帧
+    EXPECT_EQ(true, asc->IsAllCosetFrameTypeChangedSucc(groupId));
+
+    // 存在未完成成员
+    asc->ascAutorateMap_[groupId].phyStatusList[1].frameChangeState = NL_SLE_ASC_SETTING;
+    EXPECT_EQ(false, asc->IsAllCosetFrameTypeChangedSucc(groupId));
+
+    // 未在播成员不参与判定
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CONNECTED);
+    EXPECT_EQ(true, asc->IsAllCosetFrameTypeChangedSucc(groupId));
+
+    // 未知组返回失败
+    EXPECT_EQ(false, asc->IsAllCosetFrameTypeChangedSucc(groupId + 1));
+
+    delete asc;
+    HILOGI("IsAllCosetFrameTypeChangedSucc_001 end");
+}
+
+/**
+ * @tc.name: DeviceReprotDelayCheck_CoSet_001
+ * @tc.desc: 第二只耳机未就绪时延迟上报连接，就绪后取消对端延迟并补报双方连接
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, DeviceReprotDelayCheck_CoSet_001, TestSize.Level1)
+{
+    HILOGI("DeviceReprotDelayCheck_CoSet_001 start");
+    // 本例需要组内可见第二只耳机（延迟上报判定），结束即关闭，不影响其余用例
+    SetMockCdsmCoMemberEnabled(true);
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+    asc->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+
+    // 合作集对端尚未连接：进入延迟上报
+    asc->DeviceReprotDelayCheck(device);
+    EXPECT_EQ(true, asc->IsConnRptDelaying(device));
+
+    // 对端已连接且处于延迟中：取消延迟并补报双方（补报后发起建流，状态推进到流创建中）
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(coDevice, NL_SLE_ASC_CONNECTING);
+    asc->SetConnRptDelayingFlag(coDevice, true);
+    asc->DeviceReprotDelayCheck(device);
+    EXPECT_EQ(false, asc->IsConnRptDelaying(coDevice));
+    EXPECT_EQ(NL_SLE_ASC_CREATING, asc->GetASCStatus(coDevice));
+
+    asc->SetConnRptDelayingFlag(device, false);
+    SetMockCdsmCoMemberEnabled(false);
+    delete asc;
+    HILOGI("DeviceReprotDelayCheck_CoSet_001 end");
+}
+
+/**
+ * @tc.name: ProcessSetActiveSinkDeviceEvent_FormerRecord_001
+ * @tc.desc: 切换出声设备时迁移上次播放记录到新设备，空流类型请求先补延迟停且不切设备
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ProcessSetActiveSinkDeviceEvent_FormerRecord_001, TestSize.Level1)
+{
+    HILOGI("ProcessSetActiveSinkDeviceEvent_FormerRecord_001 start");
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    RawAddress coDevice = RawAddress(coDeviceStr);
+    asc->AddConnectDevices(device);
+    asc->AddConnectDevices(coDevice);
+    asc->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+
+    // 上次播放记录挂在旧出声设备上，切换后记录迁移到新出声设备
+    asc->activeSinkDevice_ = coDevice;
+    asc->formerPlayRecord_.addr = coDevice;
+    ASCMessage event {};
+    event.dev_ = device.GetAddress();
+    event.streamTypeBitMap_ = 1;
+    asc->ProcessSetActiveSinkDeviceEvent(event);
+    EXPECT_EQ(deviceStr, asc->activeSinkDevice_.GetAddress());
+    EXPECT_EQ(coDeviceStr, asc->formerSinkDevice_.GetAddress());
+    EXPECT_EQ(deviceStr, asc->formerPlayRecord_.addr.GetAddress());
+
+    // 上次播放记录不在旧出声设备上时不迁移
+    ASCService *asc2 = new ASCService();
+    asc2->AddConnectDevices(device);
+    asc2->AddConnectDevices(coDevice);
+    asc2->SetASCStatus(device, NL_SLE_ASC_CONNECTED);
+    asc2->activeSinkDevice_ = coDevice;
+    asc2->formerPlayRecord_.addr = device;
+    asc2->ProcessSetActiveSinkDeviceEvent(event);
+    EXPECT_EQ(deviceStr, asc2->formerPlayRecord_.addr.GetAddress());
+
+    // 空流类型请求不切出声设备；处于延迟停流时先补执行停流并清延迟标记
+    ASCService *asc3 = new ASCService();
+    asc3->AddConnectDevices(device);
+    asc3->SetASCStatus(device, NL_SLE_ASC_STARTED);
+    asc3->SetStopDelayingFlag(device, true);
+    ASCMessage noneEvent {};
+    noneEvent.dev_ = device.GetAddress();
+    noneEvent.streamTypeBitMap_ = AUDIO_STREAM_NONE;
+    asc3->ProcessSetActiveSinkDeviceEvent(noneEvent);
+    EXPECT_EQ(true, asc3->activeSinkDevice_.GetAddress().empty());
+    EXPECT_EQ(false, asc3->IsStopDelaying(device));
+
+    delete asc;
+    delete asc2;
+    delete asc3;
+    HILOGI("ProcessSetActiveSinkDeviceEvent_FormerRecord_001 end");
+}
 }  // namespace Nearlink
 }  // namespace OHOS
