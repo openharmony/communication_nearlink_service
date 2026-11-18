@@ -47,7 +47,7 @@ struct RouteFlagInfo {
 };
 
 /* 普通静音流的两个独立来源维度，各自上报各自恢复，互不覆盖 */
-enum class StreamMuteDimension : uint8_t {
+enum class StreamMuteType : uint8_t {
     DATA,
     VOLUME,
 };
@@ -82,7 +82,7 @@ private:
     void RemoveVanishedPipeMembers(const std::set<uint32_t> &presentFlags);
     const std::vector<RouteFlagInfo> &GetRouteFlagList() const;
     std::string GetBundleName(uint32_t streamId);
-    void SetStreamMuted(uint32_t streamId, StreamMuteDimension dimension, bool muted);
+    void SetStreamMuted(uint32_t streamId, StreamMuteType type, bool muted);
     void ClearRouteFlagList();
     bool isCallStreamType(uint32_t streamUsage);
     std::shared_ptr<NearlinkTimer> GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL type);
