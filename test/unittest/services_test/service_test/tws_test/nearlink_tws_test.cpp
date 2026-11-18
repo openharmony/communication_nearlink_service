@@ -1570,7 +1570,6 @@ public:
 
 protected:
     RawAddress FreshAddr();
-    void EnableWearDetect(const RawAddress &dev);
     void RegisterCdsm();
     void RegisterSsap();
     TwsClientData &ClientDataOf(const std::string &addr);
@@ -1642,12 +1641,6 @@ RawAddress NearlinkTwsDeepTest::FreshAddr()
     return RawAddress(buf);
 }
 
-void NearlinkTwsDeepTest::EnableWearDetect(const RawAddress &dev)
-{
-    SleConfig::GetInstance().SetConfigWearDetectionState(dev.GetAddress(),
-        static_cast<int>(TwsWearDetectSupport::SUPPORT_ON));
-}
-
 void NearlinkTwsDeepTest::RegisterCdsm()
 {
     ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
@@ -1692,109 +1685,169 @@ static void DriveWearChange(TwsService &svc, const RawAddress &dev,
 
 /**
  * @tc.name: WearActionMatrixAdd001
- * @tc.desc: 校验双耳佩戴迁移识别：未戴到双戴、单戴补齐、空戴到单戴均上报已佩戴动作
+ * @tc.desc: 校验戴上迁移上报链：从空到佩戴触发默认开启链并补发佩戴动作，已佩戴状态下补齐单耳不再重复上报
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkTwsDeepTest, WearActionMatrixAdd001, TestSize.Level1)
 {
+    const int wear = static_cast<int>(UpdateOutputStackAction::ACTION_WEAR);
+    const int enableDetect = static_cast<int>(UpdateOutputStackAction::ACTION_ENABLE_WEAR_DETECTION);
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
-    // 未戴->双戴：从空到佩戴，上报已佩戴
+    // 未戴->双戴：默认开启链按新佩戴态补发、通知开启佩戴检测、再上报佩戴变化
     DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN));
-    ASSERT_EQ(ascMock_.actionCalls.size(), 1u);
-    EXPECT_EQ(ascMock_.actionCalls[0].second, static_cast<int>(UpdateOutputStackAction::ACTION_WEAR));
+    ASSERT_EQ(ascMock_.actionCalls.size(), 3u);
+    EXPECT_EQ(ascMock_.actionCalls[0].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[1].second, enableDetect);
+    EXPECT_EQ(ascMock_.actionCalls[2].second, wear);
 
-    // 左戴->双戴：仍是已佩戴状态，不重复上报
+    // 左戴->双戴：佩戴状态未翻转，仅默认开启链按新态补发与开启通知，无变化上报
     DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN));
-    EXPECT_EQ(ascMock_.actionCalls.size(), 1u);
+    ASSERT_EQ(ascMock_.actionCalls.size(), 5u);
+    EXPECT_EQ(ascMock_.actionCalls[3].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[4].second, enableDetect);
 
-    // 未戴->右戴：从空到佩戴，上报已佩戴
+    // 未戴->右戴：从空到佩戴，再次触发完整三步链
     RawAddress dev2 = FreshAddr();
-    EnableWearDetect(dev2);
     DriveWearChange(*service_, dev2, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN));
-    ASSERT_EQ(ascMock_.actionCalls.size(), 2u);
-    EXPECT_EQ(ascMock_.actionCalls[1].second, static_cast<int>(UpdateOutputStackAction::ACTION_WEAR));
+    ASSERT_EQ(ascMock_.actionCalls.size(), 8u);
+    EXPECT_EQ(ascMock_.actionCalls[5].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[6].second, enableDetect);
+    EXPECT_EQ(ascMock_.actionCalls[7].second, wear);
 }
 
 /**
  * @tc.name: WearActionMatrixRemove001
- * @tc.desc: 校验摘耳迁移识别：双戴摘一侧、双戴全摘、单戴摘空均上报未佩戴且不误发暂停命令
+ * @tc.desc: 校验摘耳迁移上报链：从佩戴到空按未佩戴方向补发与上报，佩戴状态保持的摘单耳不重复上报且不误发暂停命令
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkTwsDeepTest, WearActionMatrixRemove001, TestSize.Level1)
 {
+    const int unwear = static_cast<int>(UpdateOutputStackAction::ACTION_UNWEAR);
+    const int wear = static_cast<int>(UpdateOutputStackAction::ACTION_WEAR);
+    const int enableDetect = static_cast<int>(UpdateOutputStackAction::ACTION_ENABLE_WEAR_DETECTION);
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
-    // 双戴->全摘：从佩戴到空，上报未佩戴
+    // 双戴->全摘：从佩戴到空，补发未佩戴、通知开启佩戴检测、再上报未佩戴变化
     DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN), static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN));
-    ASSERT_EQ(ascMock_.actionCalls.size(), 1u);
-    EXPECT_EQ(ascMock_.actionCalls[0].second, static_cast<int>(UpdateOutputStackAction::ACTION_UNWEAR));
+    ASSERT_EQ(ascMock_.actionCalls.size(), 3u);
+    EXPECT_EQ(ascMock_.actionCalls[0].second, unwear);
+    EXPECT_EQ(ascMock_.actionCalls[1].second, enableDetect);
+    EXPECT_EQ(ascMock_.actionCalls[2].second, unwear);
 
-    // 双戴->仅左戴：仍是佩戴态，不重复上报
+    // 双戴->仅左戴：仍处于佩戴态，补发按佩戴方向且无变化上报
     DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN));
-    EXPECT_EQ(ascMock_.actionCalls.size(), 1u);
+    ASSERT_EQ(ascMock_.actionCalls.size(), 5u);
+    EXPECT_EQ(ascMock_.actionCalls[3].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[4].second, enableDetect);
 
-    // 右戴->全摘：从佩戴到空，上报未佩戴；设备非活跃时暂停命令被拦截
+    // 右戴->全摘：从佩戴到空，再次触发完整三步链；全程不发送播放暂停命令
     RawAddress dev2 = FreshAddr();
-    EnableWearDetect(dev2);
     DriveWearChange(*service_, dev2, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN), static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN));
-    ASSERT_EQ(ascMock_.actionCalls.size(), 2u);
-    EXPECT_EQ(ascMock_.actionCalls[1].second, static_cast<int>(UpdateOutputStackAction::ACTION_UNWEAR));
+    ASSERT_EQ(ascMock_.actionCalls.size(), 8u);
+    EXPECT_EQ(ascMock_.actionCalls[5].second, unwear);
+    EXPECT_EQ(ascMock_.actionCalls[6].second, enableDetect);
+    EXPECT_EQ(ascMock_.actionCalls[7].second, unwear);
     EXPECT_TRUE(ascMock_.playPauseCalls.empty());
 }
 
 /**
  * @tc.name: WearActionMatrixSwitchNone001
- * @tc.desc: 校验左右换耳与状态不变场景：换耳不触发佩戴动作上报，状态完全不变则无任何动作
+ * @tc.desc: 校验换耳与状态不变上报链：佩戴状态未翻转时仅默认开启链按当前态补发，无佩戴变化上报
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkTwsDeepTest, WearActionMatrixSwitchNone001, TestSize.Level1)
 {
+    const int wear = static_cast<int>(UpdateOutputStackAction::ACTION_WEAR);
+    const int enableDetect = static_cast<int>(UpdateOutputStackAction::ACTION_ENABLE_WEAR_DETECTION);
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
     const uint8_t worn = static_cast<uint8_t>(TwsWearDetect::WORN);
     const uint8_t notWorn = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
-    // 左戴->右戴（换耳）：佩戴态不变，不触发佩戴动作
+
+    // 左戴->右戴（换耳）：佩戴保持，仅补发佩戴方向与开启通知
     DriveWearChange(*service_, dev, worn, notWorn, notWorn, worn);
-    EXPECT_TRUE(ascMock_.actionCalls.empty());
+    ASSERT_EQ(ascMock_.actionCalls.size(), 2u);
+    EXPECT_EQ(ascMock_.actionCalls[0].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[1].second, enableDetect);
 
     // 右戴->左戴（换耳）：同上
     DriveWearChange(*service_, dev, notWorn, worn, worn, notWorn);
-    EXPECT_TRUE(ascMock_.actionCalls.empty());
+    ASSERT_EQ(ascMock_.actionCalls.size(), 4u);
+    EXPECT_EQ(ascMock_.actionCalls[2].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[3].second, enableDetect);
 
-    // 状态不变：双戴->双戴、全空->全空、单戴保持
+    // 状态不变：双戴保持补发佩戴方向，全空保持补发未佩戴方向，单戴保持补发佩戴方向
     DriveWearChange(*service_, dev, worn, worn, worn, worn);
+    ASSERT_EQ(ascMock_.actionCalls.size(), 6u);
+    EXPECT_EQ(ascMock_.actionCalls[4].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[5].second, enableDetect);
     DriveWearChange(*service_, dev, notWorn, notWorn, notWorn, notWorn);
+    ASSERT_EQ(ascMock_.actionCalls.size(), 8u);
+    EXPECT_EQ(ascMock_.actionCalls[6].second, static_cast<int>(UpdateOutputStackAction::ACTION_UNWEAR));
+    EXPECT_EQ(ascMock_.actionCalls[7].second, enableDetect);
     DriveWearChange(*service_, dev, worn, notWorn, worn, notWorn);
-    EXPECT_TRUE(ascMock_.actionCalls.empty());
+    ASSERT_EQ(ascMock_.actionCalls.size(), 10u);
+    EXPECT_EQ(ascMock_.actionCalls[8].second, wear);
+    EXPECT_EQ(ascMock_.actionCalls[9].second, enableDetect);
 }
 
 /**
- * @tc.name: WearActionSupportOff001
- * @tc.desc: 校验佩戴检测关闭时上报佩戴状态不触发任何音频动作
+ * @tc.name: WearActionStateMatrix001
+ * @tc.desc: 校验佩戴动作决策矩阵：状态不变不动作，戴上类进入恢复链，摘下类被设备活跃门拦截不误发暂停，换耳无播放控制
  * @tc.type: FUNC
  */
-HWTEST_F(NearlinkTwsDeepTest, WearActionSupportOff001, TestSize.Level1)
+HWTEST_F(NearlinkTwsDeepTest, WearActionStateMatrix001, TestSize.Level1)
 {
+    const uint8_t worn = static_cast<uint8_t>(TwsWearDetect::WORN);
+    const uint8_t notWorn = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
     RawAddress dev = FreshAddr();
-    SleConfig::GetInstance().SetConfigWearDetectionState(dev.GetAddress(),
-        static_cast<int>(TwsWearDetectSupport::SUPPORT_OFF));
-    DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
-        static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
-        static_cast<uint8_t>(TwsWearDetect::WORN));
-    EXPECT_TRUE(ascMock_.actionCalls.empty());
+    const auto driveDecision = [this, &dev](uint8_t prevLeft, uint8_t prevRight,
+        uint8_t newLeft, uint8_t newRight, bool willActive, bool nowActive) {
+        TwsDevWearStatus prev{};
+        prev.leftStatus = prevLeft;
+        prev.rightStatus = prevRight;
+        TwsWearStateData wearData{};
+        wearData.leftWear = newLeft;
+        wearData.rightWear = newRight;
+        bool will = willActive;
+        bool now = nowActive;
+        service_->ChangePlayState(dev, wearData, prev, will, now);
+    };
+
+    // 状态不变的四种组合：动作判空直接返回
+    driveDecision(worn, worn, worn, worn, false, false);
+    driveDecision(notWorn, notWorn, notWorn, notWorn, false, false);
+    driveDecision(worn, notWorn, worn, notWorn, false, false);
+    driveDecision(notWorn, worn, notWorn, worn, false, false);
+
+    // 戴上类五型（双戴/补左/补右/空到左/空到右）：进入恢复链，无暂停记录时全部无播放命令
+    driveDecision(notWorn, notWorn, worn, worn, true, false);
+    driveDecision(worn, notWorn, worn, worn, true, false);
+    driveDecision(notWorn, worn, worn, worn, true, false);
+    driveDecision(notWorn, notWorn, worn, notWorn, true, false);
+    driveDecision(notWorn, notWorn, notWorn, worn, true, false);
+
+    // 摘下类五型（全摘/摘左/摘右/左摘空/右摘空）：设备非活跃门拦截，不发送暂停命令
+    driveDecision(worn, worn, notWorn, notWorn, false, false);
+    driveDecision(worn, worn, worn, notWorn, false, false);
+    driveDecision(worn, worn, notWorn, worn, false, false);
+    driveDecision(worn, notWorn, notWorn, notWorn, false, false);
+    driveDecision(notWorn, worn, notWorn, notWorn, false, false);
+
+    // 换耳两型（左右互换）：不属于播放控制动作，无任何命令
+    driveDecision(worn, notWorn, notWorn, worn, false, false);
+    driveDecision(notWorn, worn, worn, notWorn, false, false);
+
     EXPECT_TRUE(ascMock_.playPauseCalls.empty());
 }
 
@@ -1806,7 +1859,6 @@ HWTEST_F(NearlinkTwsDeepTest, WearActionSupportOff001, TestSize.Level1)
 HWTEST_F(NearlinkTwsDeepTest, WearActionSupportUnknown001, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    SleConfig::GetInstance().SetConfigWearDetectionState(dev.GetAddress(), -1);
     DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
         static_cast<uint8_t>(TwsWearDetect::WORN));
@@ -1817,6 +1869,21 @@ HWTEST_F(NearlinkTwsDeepTest, WearActionSupportUnknown001, TestSize.Level1)
     EXPECT_EQ(ascMock_.actionCalls[2].second, static_cast<int>(UpdateOutputStackAction::ACTION_WEAR));
 }
 
+/* 佩戴动作决策入口的直调驱动：绕过配置门直接驱动播放状态决策链 */
+static void DrivePlayDecision(TwsService &svc, const RawAddress &dev,
+    uint8_t prevLeft, uint8_t prevRight, uint8_t newLeft, uint8_t newRight, bool willActive)
+{
+    TwsDevWearStatus prev{};
+    prev.leftStatus = prevLeft;
+    prev.rightStatus = prevRight;
+    TwsWearStateData wearData{};
+    wearData.leftWear = newLeft;
+    wearData.rightWear = newRight;
+    bool will = willActive;
+    bool now = false;
+    svc.ChangePlayState(dev, wearData, prev, will, now);
+}
+
 /**
  * @tc.name: WearResumeFlow001
  * @tc.desc: 校验戴回恢复播放：存在近期双摘暂停记录时双耳戴回发送播放命令并清除记录
@@ -1825,15 +1892,15 @@ HWTEST_F(NearlinkTwsDeepTest, WearActionSupportUnknown001, TestSize.Level1)
 HWTEST_F(NearlinkTwsDeepTest, WearResumeFlow001, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
     TwsPauseRecord record{};
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE);
-    record.pauseTime = service_->GetTimeStamp();
+    // 暂停时刻取一秒前：严格早于决策时刻且在恢复时间窗内
+    record.pauseTime = service_->GetTimeStamp() - 1000;
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
 
-    DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
+    DrivePlayDecision(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
-        static_cast<uint8_t>(TwsWearDetect::WORN));
+        static_cast<uint8_t>(TwsWearDetect::WORN), true);
     ASSERT_EQ(ascMock_.playPauseCalls.size(), 1u);
     EXPECT_EQ(ascMock_.playPauseCalls[0].second, TWS_TEST_PLAY_KEY);
     TwsPauseRecord after{};
@@ -1848,15 +1915,14 @@ HWTEST_F(NearlinkTwsDeepTest, WearResumeFlow001, TestSize.Level1)
 HWTEST_F(NearlinkTwsDeepTest, WearResumeFlow002, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
     TwsPauseRecord record{};
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_LEFT);
-    record.pauseTime = service_->GetTimeStamp();
+    record.pauseTime = service_->GetTimeStamp() - 1000;
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
 
-    DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
+    DrivePlayDecision(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
-        static_cast<uint8_t>(TwsWearDetect::WORN));
+        static_cast<uint8_t>(TwsWearDetect::WORN), true);
     EXPECT_TRUE(ascMock_.playPauseCalls.empty());
     TwsPauseRecord after{};
     EXPECT_FALSE(service_->pauseRecordMap_.GetValue(dev.GetAddress(), after));
@@ -1870,24 +1936,22 @@ HWTEST_F(NearlinkTwsDeepTest, WearResumeFlow002, TestSize.Level1)
 HWTEST_F(NearlinkTwsDeepTest, WearResumeFlow003, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    EnableWearDetect(dev);
     // 无暂停记录：戴回无事发生
-    DriveWearChange(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
+    DrivePlayDecision(*service_, dev, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
-        static_cast<uint8_t>(TwsWearDetect::WORN));
+        static_cast<uint8_t>(TwsWearDetect::WORN), true);
     EXPECT_TRUE(ascMock_.playPauseCalls.empty());
 
     // 通话中：有暂停记录也不恢复
     RawAddress dev2 = FreshAddr();
-    EnableWearDetect(dev2);
     ascMock_.isCalling = true;
     TwsPauseRecord record{};
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE);
-    record.pauseTime = service_->GetTimeStamp();
+    record.pauseTime = service_->GetTimeStamp() - 1000;
     service_->pauseRecordMap_.EnsureInsert(dev2.GetAddress(), record);
-    DriveWearChange(*service_, dev2, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
+    DrivePlayDecision(*service_, dev2, static_cast<uint8_t>(TwsWearDetect::NOT_WORN),
         static_cast<uint8_t>(TwsWearDetect::NOT_WORN), static_cast<uint8_t>(TwsWearDetect::WORN),
-        static_cast<uint8_t>(TwsWearDetect::WORN));
+        static_cast<uint8_t>(TwsWearDetect::WORN), true);
     EXPECT_TRUE(ascMock_.playPauseCalls.empty());
     TwsPauseRecord after{};
     EXPECT_FALSE(service_->pauseRecordMap_.GetValue(dev2.GetAddress(), after));
@@ -1956,21 +2020,21 @@ HWTEST_F(NearlinkTwsDeepTest, PauseReasonNotPlaying001, TestSize.Level1)
     EXPECT_EQ(service_->GetPauseReason(dev, removeLeft, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_NO_NEED));
 
-    // 上次双摘左侧 + 现左戴右空 + 摘右 -> 合并为双摘
+    // 上次双摘左侧 + 现左空右戴 + 摘右 -> 合并为双摘
     TwsPauseRecord record{};
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_LEFT);
     record.pauseTime = service_->GetTimeStamp();
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
-    wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
-    wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
+    wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
+    wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
     EXPECT_EQ(service_->GetPauseReason(dev, removeRight, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE));
 
-    // 上次双摘右侧 + 现左空右戴 + 摘左 -> 合并为双摘
+    // 上次双摘右侧 + 现左戴右空 + 摘左 -> 合并为双摘
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_RIGHT);
     service_->pauseRecordMap_.EnsureInsert(dev.GetAddress(), record);
-    wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
-    wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
+    wear.leftStatus = static_cast<uint8_t>(TwsWearDetect::WORN);
+    wear.rightStatus = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
     EXPECT_EQ(service_->GetPauseReason(dev, removeLeft, wear, notStarted),
         static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE));
 
@@ -2024,10 +2088,10 @@ HWTEST_F(NearlinkTwsDeepTest, ResumePlayByReason001, TestSize.Level1)
     int64_t now = service_->GetTimeStamp();
     const int addLeft = static_cast<int>(TwsWearAction::ACTION_ADD_LEFT);
 
-    // 时间窗内：发送播放并清记录
+    // 时间窗内：发送播放并清记录（暂停时刻取一秒前，严格早于决策时刻）
     TwsPauseRecord record{};
     record.pauseReason = static_cast<int>(TwsWearPauseReason::PAUSE_REASON_DOUBLE_REMOVE_DOUBLE);
-    record.pauseTime = now;
+    record.pauseTime = now - 1000;
     service_->ResumePlayByReason(dev, addLeft, now, record);
     ASSERT_EQ(ascMock_.playPauseCalls.size(), 1u);
     EXPECT_EQ(ascMock_.playPauseCalls[0].second, TWS_TEST_PLAY_KEY);
@@ -2282,18 +2346,17 @@ HWTEST_F(NearlinkTwsDeepTest, CapsuleDisableShow001, TestSize.Level1)
 }
 
 /**
- * @tc.name: CapsuleVolumeZero001
- * @tc.desc: 校验媒体音量为零时即使满足抢占条件也不弹窗
+ * @tc.name: CapsuleDefaultVolume001
+ * @tc.desc: 校验默认媒体音量（非零）不抑制抢占弹窗：满足弹窗条件时正常上报禁用状态
  * @tc.type: FUNC
  */
-HWTEST_F(NearlinkTwsDeepTest, CapsuleVolumeZero001, TestSize.Level1)
+HWTEST_F(NearlinkTwsDeepTest, CapsuleDefaultVolume001, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
     service_->RegisterApplication(observerPtr_);
     ascMock_.activeSinkAddr = dev.GetAddress();
     SetMockNearlinkOut(true);
     ascMock_.isCalling = true;
-    SleConfig::GetInstance().SetDeviceMediaVolume(dev.GetAddress(), 0);
 
     TwsClientData data(dev);
     data.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::MUSIC)] = StreamState(
@@ -2302,7 +2365,10 @@ HWTEST_F(NearlinkTwsDeepTest, CapsuleVolumeZero001, TestSize.Level1)
     data.audioState_.audioType[static_cast<uint8_t>(TwsStreamType::MUSIC)] = StreamState(
         TwsStreamUsability::DISABLE);
     service_->UpdateClientData(static_cast<uint8_t>(TwsHiBoxMsgType::HIBOX_AUDIO_PROFILE_STATE), data);
-    EXPECT_TRUE(observerPtr_->remoteInfos.empty());
+    ASSERT_FALSE(observerPtr_->remoteInfos.empty());
+    std::string payload(observerPtr_->remoteInfos.back().second.begin(),
+        observerPtr_->remoteInfos.back().second.end());
+    EXPECT_NE(payload.find("+PROFILESTATE=2"), std::string::npos);
 }
 
 /**
@@ -2506,9 +2572,6 @@ HWTEST_F(NearlinkTwsDeepTest, DataRoleUpdate001, TestSize.Level1)
 HWTEST_F(NearlinkTwsDeepTest, DataWearInvalid001, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    // 关闭佩戴检测，聚焦佩戴数据本身的更新语义
-    SleConfig::GetInstance().SetConfigWearDetectionState(dev.GetAddress(),
-        static_cast<int>(TwsWearDetectSupport::SUPPORT_OFF));
     const uint8_t invalid = static_cast<uint8_t>(TwsWearDetect::WORN_INVALID);
     const uint8_t worn = static_cast<uint8_t>(TwsWearDetect::WORN);
     const uint8_t notWorn = static_cast<uint8_t>(TwsWearDetect::NOT_WORN);
@@ -2934,20 +2997,14 @@ HWTEST_F(NearlinkTwsDeepTest, CacheMessageFlow001, TestSize.Level1)
 
 /**
  * @tc.name: RecoverDataFromConf001
- * @tc.desc: 校验配置恢复：预先写入的自动连接开关开/关两种配置恢复到内存数据
+ * @tc.desc: 校验配置恢复：未配置自动连接开关的设备恢复后按默认关闭处理
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkTwsDeepTest, RecoverDataFromConf001, TestSize.Level1)
 {
     RawAddress dev = FreshAddr();
-    SleConfig::GetInstance().SetAutoConnectSwitch(dev.GetAddress(), 1);
     service_->RecoverDataFromConf(dev);
-    EXPECT_TRUE(service_->TwsIsSupportVirtualAutoConnect(dev));
-
-    RawAddress dev2 = FreshAddr();
-    SleConfig::GetInstance().SetAutoConnectSwitch(dev2.GetAddress(), 0);
-    service_->RecoverDataFromConf(dev2);
-    EXPECT_FALSE(service_->TwsIsSupportVirtualAutoConnect(dev2));
+    EXPECT_FALSE(service_->TwsIsSupportVirtualAutoConnect(dev));
 }
 
 /**
