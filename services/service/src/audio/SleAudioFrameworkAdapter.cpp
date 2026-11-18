@@ -356,6 +356,10 @@ void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfosInner()
 
 void SleAudioFrameworkAdapter::RegisterOutputPipeChangeListener()
 {
+    if (audioOutputPipeCallback_ != nullptr) {
+        HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
+        return;
+    }
     audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
     auto ptr = DelayedSingleton<AudioStandard::AudioEngineClientManager>::GetInstance();
     NL_CHECK_RETURN(ptr != nullptr, "[SleAudioFrameworkAdapter] Get ptr nullptr!");
@@ -669,6 +673,10 @@ void SleAudioFrameworkAdapter::StopAllEmptyMuteScMcpPauseTimers()
 
 void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
 {
+    if (audioOutputPipeCallback_ != nullptr) {
+        HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
+        return;
+    }
     AudioStandard::DataTransferMonitorParam param;
     param.clientUID = ALL_UID;
     param.badDataTransferTypeBitMap = MUTE_MAP;
