@@ -58,6 +58,7 @@ group("nl_stack_test") {
     "ssap_server_exchange_test:nl_stack_ssap_server_exchange_unittest",
     "ssap_server_find_hisiold_test:nl_stack_ssap_server_find_hisiold_unittest",
     "qosm_autorate_test:nl_stack_qosm_autorate_unittest",
+    "nl_stack_qosm_test:nl_stack_qosm_unittest",
     "cdsm_test:nl_stack_cdsm_unittest",
     "mcp_media_test:nl_stack_mcp_media_unittest",
     "mcp_volume_test:nl_stack_mcp_volume_unittest",
