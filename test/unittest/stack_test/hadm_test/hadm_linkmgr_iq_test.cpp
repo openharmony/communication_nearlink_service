@@ -323,7 +323,8 @@ TEST_F(HADM_LINKMGR_TEST, FeatureReadFailReportsTaskFail)
 
 TEST_F(HADM_LINKMGR_TEST, IqParseSingleAndMultiTone)
 {
-    // IQ 报文解析：单音尾序为厂商/本端/对端，多音多一字节信息且尾序反转、通道数乘四
+    // IQ 报文解析：bit10 置位为多音（多一字节信息、通道数乘四）；尾序由 bit14 决定，
+    // 置位时本端/对端/厂商在前，未置位时厂商在前——两个标志位互相独立
     uint8_t single[32];
     MakeSingleToneIq(single, sizeof(single), 0);
     HadmIqInfoFromDli_S *singleInfo = HadmPaserIqInfoFromDli(single, sizeof(single));
@@ -338,10 +339,10 @@ TEST_F(HADM_LINKMGR_TEST, IqParseSingleAndMultiTone)
     uint8_t multi[42];
     (void)memset_s(multi, sizeof(multi), 0, sizeof(multi));
     multi[4] = 0x00;
-    multi[5] = 0x04; // 信息类型 bit10 置位
-    multi[10] = 0x01; // 单通道，多音下通道数乘四
+    multi[5] = 0x44; // 信息类型 bit10 多音 + bit14 标识在前
+    multi[TEST_IQ_CHMAP_OFFSET] = 0x01; // 单通道，多音下通道数乘四
     multi[26] = 0x99; // 多出的 1 字节多音信息
-    multi[39] = 0xBB; // 多音尾序：本端/对端/厂商
+    multi[39] = 0xBB; // 标识在前尾序：本端/对端/厂商
     multi[40] = 0xCC;
     multi[41] = 0xAA;
     HadmIqInfoFromDli_S *multiInfo = HadmPaserIqInfoFromDli(multi, sizeof(multi));
@@ -352,6 +353,16 @@ TEST_F(HADM_LINKMGR_TEST, IqParseSingleAndMultiTone)
     EXPECT_EQ(multiInfo->remoteId, 0xCC);
     EXPECT_EQ(multiInfo->venderLen, 0xAA);
     HadmFreeIqInfo(multiInfo);
+
+    multi[5] = 0x04; // 只置多音位不置标识位：多音生效但尾序回退厂商在前
+    HadmIqInfoFromDli_S *multiNoIdInfo = HadmPaserIqInfoFromDli(multi, sizeof(multi));
+    ASSERT_NE(multiNoIdInfo, nullptr);
+    EXPECT_EQ(multiNoIdInfo->isMultiTone, 1);
+    EXPECT_EQ(multiNoIdInfo->iqChnlNum, 4);
+    EXPECT_EQ(multiNoIdInfo->venderLen, 0xBB);
+    EXPECT_EQ(multiNoIdInfo->localId, 0xCC);
+    EXPECT_EQ(multiNoIdInfo->remoteId, 0xAA);
+    HadmFreeIqInfo(multiNoIdInfo);
     HadmFreeIqInfo(nullptr);
 }
 
