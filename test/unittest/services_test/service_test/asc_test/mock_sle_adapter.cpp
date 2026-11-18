@@ -444,6 +444,12 @@ bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint1
     return true;
 }
 
+bool SleAdapter::GetConnectionParam(std::string device, uint16_t &timeout, uint16_t &maxLatency,
+    uint16_t &interval) const
+{
+    return true;
+}
+
 void SleAdapter::Enable()
 {}
 
