@@ -83,8 +83,7 @@ typedef enum DftEventEnum : int {
     DFT_DIS_EXPOSED_UE,
     DFT_ICCE_PROFILE_EXCEP,
     DFT_ICCE_PROFILE_UE,
-    // 15号位不放事件：NEARLINK_ICCE_EXPOSED_EXCEP已下线，事件ID需与栈侧硬编码保持一致，禁止复用
-    DFT_MEASURE_STATE_EVENT_UE = 16,
+    DFT_MEASURE_STATE_EVENT_UE,
     DFT_STACK_SM_G_NEGO_EXCEP,
     DFT_STACK_SM_T_NEGO_EXCEP,
     DFT_STACK_SM_G_AUTH_EXCEP,
@@ -118,24 +117,6 @@ typedef enum DftEventEnum : int {
 /*******************************************************************************
  *  Exception Event param index define below
  ******************************************************************************/
-
-/*
-    Parameter Index, Corresponding to g_templateOneExcepParam.
-    If you have the same param structure as g_templateOneExcepParam(parameter type is consistent),
-    you can also use this index.
-*/
-typedef enum ExcepParamsTemplateOneEnum : int {
-    EXCEP_TEMPLATE_ONE_INVALID = 0,
-    // add key param below this
-    // add key param above this
-    EXCEP_TEMPLATE_ONE_KEY_BUTT,
-    // add normal param below this
-    EXCEP_TEMPLATE_ONE_ERROR_CODE,
-    EXCEP_TEMPLATE_ONE_SUB_ERROR_CODE,
-    EXCEP_TEMPLATE_ONE_TIME,
-    // add normal param above this
-    EXCEP_TEMPLATE_ONE_PARAM_BUTT,
-} ExcepParamsTemplateOneEnum;
 
 /*
     Parameter Index, Corresponding to g_templateTwoExcepParam.

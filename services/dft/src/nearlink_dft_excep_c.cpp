@@ -23,11 +23,6 @@
 
 using namespace OHOS::Nearlink;
 
-void WriteTemplateOneExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode)
-{
-    NearlinkDftExcep::GetInstance().WriteCommonExcep(eventId, errorCode, subErrorCode);
-}
-
 void WriteTemplateTwoExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode, const char* strValue)
 {
     NearlinkDftExcep::GetInstance().WriteCommonExcep(eventId, errorCode, subErrorCode, std::string(strValue));

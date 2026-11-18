@@ -32,14 +32,6 @@ static HiSysEventParamType g_dtToHt[DFT_TYPE_BUTT] = {
 /*******************************************************************************
  *  detail exception event param define below. Note that the sequence is the same as that of Excep Event param index
  ******************************************************************************/
-static DftParamDB g_templateOneExcepParam[EXCEP_TEMPLATE_ONE_PARAM_BUTT] = {
-    {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_ONE_INVALID
-    {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_ONE_KEY_BUTT
-    {"ERROR_CODE", HISYSEVENT_INT32},
-    {"SUB_ERROR_CODE", HISYSEVENT_INT32},
-    {"TIME_STAMP", HISYSEVENT_STRING},
-};
-
 static DftParamDB g_templateThreeExcepParam[EXCEP_TEMPLATE_THREE_PARAM_BUTT] = {
     {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_THREE_INVALID
     {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_THREE_KEY_BUTT
@@ -625,7 +617,6 @@ static DftExcepTypeDB g_dftEventType[DFT_EXCEP_BUTT] = {
     {"NEARLINK_DIS_EXPOSED_UE", HISYSEVENT_BEHAVIOR},
     {"NEARLINK_ICCE_CAR_PROFILE_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_ICCE_CAR_PROFILE_UE", HISYSEVENT_BEHAVIOR},
-    {"", HISYSEVENT_FAULT},                             // 15: NEARLINK_ICCE_EXPOSED_EXCEP已下线，编号保留禁止复用
     {"NEARLINK_MEASURE_STATE_UE", HISYSEVENT_BEHAVIOR},
     {"NEARLINK_STACK_SM_G_NEGO_EXCEP", HISYSEVENT_FAULT},
     {"NEARLINK_STACK_SM_T_NEGO_EXCEP", HISYSEVENT_FAULT},
@@ -667,8 +658,6 @@ static DftEventDB g_dftEvent[DFT_EVENT_BUTT] = {
     {"NEARLINK_ICCE_CAR_PROFILE_EXCEP",
         ICCE_PROFILE_EXCEP_KEY_BUTT, ICCE_PROFILE_EXCEP_PARAM_BUTT, g_icceProfileExcepParam},
     {"NEARLINK_ICCE_CAR_PROFILE_UE", UE_TEMPLATE_ONE_KEY_BUTT, UE_TEMPLATE_ONE_PARAM_BUTT, g_templateOneUeParam},
-    {"", EXCEP_TEMPLATE_ONE_KEY_BUTT, EXCEP_TEMPLATE_ONE_PARAM_BUTT,
-        g_templateOneExcepParam},                       // 15: NEARLINK_ICCE_EXPOSED_EXCEP已下线，编号保留禁止复用
     {"NEARLINK_MEASURE_STATE_UE", MEASURE_STATE_KEY_BUTT, MEASURE_STATE_PARAM_BUTT, g_measureStateUeParam},
     {"NEARLINK_STACK_SM_G_NEGO_EXCEP", SM_G_NEGO_KEY_BUTT, SM_G_NEGO_PARAM_BUTT, g_stackSmGNegoExcepParam},
     {"NEARLINK_STACK_SM_T_NEGO_EXCEP", SM_T_NEGO_KEY_BUTT, SM_T_NEGO_PARAM_BUTT, g_stackSmTNegoExcepParam},

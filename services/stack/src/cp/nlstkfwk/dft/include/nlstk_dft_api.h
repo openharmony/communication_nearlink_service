@@ -25,18 +25,20 @@ extern "C" {
 
 /**
  * @brief DFT打点主事件类型
+ *
+ * 取值必须与服务侧 services/dft/include/nearlink_dft_database.h 的DftEventEnum保持一致，禁止单侧增删或移位
  */
 typedef enum {
     // SM模块主事件类型
-    NLSTK_DFT_EVENT_SM_G_NEGO_EXCEP = 17,
+    NLSTK_DFT_EVENT_SM_G_NEGO_EXCEP = 16,
     NLSTK_DFT_EVENT_SM_T_NEGO_EXCEP,
     NLSTK_DFT_EVENT_SM_G_AUTH_EXCEP,
     NLSTK_DFT_EVENT_SM_T_AUTH_EXCEP,
     NLSTK_DFT_EVENT_SM_ENCP_EXCEP,
     // HADM模块主事件类型
-    NLSTK_DFT_EVENT_HADM_EXCEP = 33,
+    NLSTK_DFT_EVENT_HADM_EXCEP = 32,
     // ICB模块主事件类型
-    NLSTK_DFT_EVENT_ICB_EXCEP = 36,
+    NLSTK_DFT_EVENT_ICB_EXCEP = 35,
     NLSTK_DFT_EVENT_MAX,
 } NLSTK_DftEventId_E;
 

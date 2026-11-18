@@ -50,18 +50,6 @@ void NearlinkDftExcep::WriteIcceProfileExcep(DftEventEnum eventId, const RawAddr
     DftManagerReport(eventId, params.data(), params.size());
 }
 
-void NearlinkDftExcep::WriteCommonExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode)
-{
-    std::vector<DftParamC> params;
-    std::string time = std::to_string(GetTimestamp());
-    params.emplace_back(CreateI32ParamC(EXCEP_TEMPLATE_ONE_ERROR_CODE, errorCode));
-    params.emplace_back(CreateI32ParamC(EXCEP_TEMPLATE_ONE_SUB_ERROR_CODE, subErrorCode));
-    if (eventId > DFT_DATATRANSFER_EXCEP) {
-        params.emplace_back(CreateStrParamC(EXCEP_TEMPLATE_ONE_TIME, time));
-    }
-    DftManagerReport(eventId, params.data(), params.size());
-}
-
 void NearlinkDftExcep::WriteCommonExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode,
     std::string callingName)
 {

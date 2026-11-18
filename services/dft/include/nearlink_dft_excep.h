@@ -25,8 +25,6 @@ namespace Nearlink {
 class NearlinkDftExcep {
 public:
     static NearlinkDftExcep& GetInstance();
-    // used for events similar to g_templateOneExcepParam.
-    void WriteCommonExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode);
     // used for events similar to g_templateTwoExcepParam.
     void WriteCommonExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode, std::string callingName);
     // used for events similar to g_templateThreeExcepParam.

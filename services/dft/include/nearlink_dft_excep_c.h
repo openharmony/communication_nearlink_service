@@ -22,7 +22,6 @@
 extern "C" {
 #endif
 
-void WriteTemplateOneExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode);
 void WriteTemplateTwoExcep(DftEventEnum eventId, const int errorCode, const int subErrorCode, const char* strValue);
 void WriteTemplateThreeExcep(DftEventEnum eventId, uint8_t devAddr[ADDR_LEN], int accessType,
     const int errorCode, const int subErrorCode);
