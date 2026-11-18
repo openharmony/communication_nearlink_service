@@ -26,7 +26,7 @@ extern "C" {
 /**
  * @brief DFT打点主事件类型
  *
- * 取值必须与服务侧 services/dft/include/nearlink_dft_database.h 的DftEventEnum保持一致，禁止单侧增删或移位
+ * 取值必须与服务侧 services/dft/include/nearlink_dft_database.h 的DftEventEnum保持一致
  */
 typedef enum {
     // SM模块主事件类型
