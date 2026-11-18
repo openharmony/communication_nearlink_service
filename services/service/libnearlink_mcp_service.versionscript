@@ -1,8 +1,8 @@
+# expanded from wildcard patterns to actual exported symbols
 {
   global:
-    "*McpServerServiceManagerInterface*";
-    "*CreateMcpMediaInterface*";
-    "*DestroyMcpMediaInterface*";
+    CreateMcpMediaInterface;
+    DestroyMcpMediaInterface;
   local:
     *;
 };

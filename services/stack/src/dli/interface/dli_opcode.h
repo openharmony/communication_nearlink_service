@@ -160,6 +160,8 @@ typedef enum : uint16_t {
 
     DLI_CBK_QUERY_LINK_QUALITY,
 
+    DLI_CBK_SET_IMG_ACB_INFO,           /* 设置IMG的ACB信息事件 */
+
     DLI_CBK_MAX
 } DLI_RegOpcode;
 

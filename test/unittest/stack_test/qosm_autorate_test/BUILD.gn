@@ -156,6 +156,7 @@ ohos_unittest("nl_stack_qosm_icg_mgr_test") {
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_autorate_timeout_process.c",
     "$NEW_STACK_DIR/cp/bsl/sle/qosm/autorate/src/qosm_icg_callback.c",
     "$NEW_STACK_DIR/adapter/src/dli_reg_ext_func.c",
+    "$NEW_STACK_DIR/adapter/src/dli_ext_func_wrapper.c",
     "$NEW_STACK_DIR/adapter/src/common_ext_func_wrapper.c",
     "$NEW_STACK_DIR/adapter/src/common_reg_ext_func.c",
     "$NEW_STACK_DIR/adapter/src/qosm_ext_func_wrapper.c",

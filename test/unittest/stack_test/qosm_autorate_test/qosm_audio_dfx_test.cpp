@@ -25,6 +25,8 @@
 #include "qosm_autorate_def.h"
 #include "qosm_errno.h"
 #include "qosm_table_mgr.h"
+#include "cm_def.h"
+#include "cm_errno.h"
 #include "securec.h"
 #include "qosm_autorate_test_log.h"
 #include "common_ext_func_wrapper.h"
@@ -109,6 +111,13 @@ void QOSM_UpdateAllICGParamFailed(void)
 void QOSM_PrintQualityReportParam(CM_ICBQuality *param)
 {
     (void)param;
+}
+
+uint32_t CM_GetLogicLinkByLcid(uint16_t lcid, CM_LogicLink_S *logicLink)
+{
+    (void)lcid;
+    (void)logicLink;
+    return CM_NOT_FOUND;
 }
 
 uint32_t CP_PostTaskBlocked(SDF_WorkCb cb, void *arg, SDF_FreeWorkArg freeCb, int timeout)

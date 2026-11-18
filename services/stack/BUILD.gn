@@ -419,7 +419,8 @@ ohos_shared_library("nearlink_stack") {
     "LOG_DOMAIN = 0xD000153",
   ]
   defines += product_defines
-  # version_script = "libnearlink_stack.versionscript"
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_stack.versionscript"
 
   if (nearlink_service_direct_conn_scan_params != 0) {
     defines += [ "DIRECT_CONN_SCAN_PARAMS=${nearlink_service_direct_conn_scan_params}" ]

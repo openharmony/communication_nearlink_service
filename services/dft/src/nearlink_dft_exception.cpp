@@ -25,6 +25,7 @@
 #include "nearlink_def.h"
 #include "log.h"
 #include "nearlink_dft_device_data.h"
+#include "nearlink_dft_local_data.h"
 #include "nearlink_dft_common_event_helper.h"
 #include "nearlink_cemap_report_loader.h"
 
@@ -63,7 +64,7 @@ constexpr const int32_t PAIRED_STATE = 3;
 constexpr const uint16_t DFT_INVALID_LCID = 0xFFFF;
 constexpr const int32_t DFT_CONNECTION_TIMEOUT = 0x07;
 constexpr const int32_t INVALID_DISCONN_RSSI = -255; // 超时断连时使用该默认值进行大数据上报
-// 同一设备一小时内最多上报一次
+// 同一设备一小时内最多上报一次；窗口移交/终结时冲刷未报计数，不受此限频约束
 constexpr const int64_t CONN_TIMEOUT_REPORT_INTERVAL_MS = 3600000;
 static NearlinkSafeMap<std::string, bool> g_measureResultMap;
 static NearlinkSafeMap<std::string, int> g_measurePathMap;
@@ -122,6 +123,8 @@ void DftCacheBgStartConn(const std::string &addr, int32_t deviceAppearance)
 {
     DftCacheConnInfoTime(addr, LAST_CONN_REQ_TIME);
     DftCachePairConnType(addr, NO_PAIR, BG_CONN);
+    // 背景回连超时归属名固定为NearlinkBgConn
+    DftCacheCallingName(addr, "NearlinkBgConn");
     DftCacheAcbStartConn(addr);
     DftCachePairAppearance(addr, deviceAppearance);
 }
@@ -196,6 +199,10 @@ void DftReportSwitchInfo(DftSwitchErrCode errCode, const std::string &infoMsg, D
     params.emplace_back(CreateStrParamC(SWITCH_INFO_MSG, infoMsg));
     params.emplace_back(CreateRefParamC(SUB_STATE_FLOW, subFlow));
     params.emplace_back(CreateStrParamC(SWITCH_END_TIME, time));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SWITCH_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     if (!app.empty()) {
         params.emplace_back(CreateStrParamC(SWITCH_USED_APP, app));
     }
@@ -279,6 +286,10 @@ static void DftReportDisconn(const std::string &addr, int32_t reason, const std:
     params.emplace_back(CreateStrParamC(DISCONN_TIME, time));
     params.emplace_back(CreateRefParamC(SUB_PEER_INFO, peerInfoRef));
     params.emplace_back(CreateRefParamC(SUB_CONN_INFO, connInfoRef));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(DISCONN_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     {
         std::lock_guard<std::mutex> lock(g_flagMutex);
         if (!g_sceneFlag) {
@@ -290,21 +301,52 @@ static void DftReportDisconn(const std::string &addr, int32_t reason, const std:
     DftManagerReport(DFT_DISCONN_EXCEP, params.data(), params.size());
 }
 
+static void DftCacheSleAppNameParam(const std::string &addr, const std::string &callingName)
+{
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
+    params.emplace_back(CreateStrParamC(SLE_APP_NAME, callingName));
+    DftManagerCache(DFT_PAIR_EXCEP, params.data(), params.size());
+}
+
+static void DftReportConnTimeoutWindow(const std::string &addr, int32_t reason, const std::string &appName,
+    uint32_t failCount, const std::string &firstFailTime)
+{
+    DftCacheSleAppNameParam(addr, appName);
+    DftCachePairRssiAndChannelNoise(addr, INVALID_DISCONN_RSSI, "");
+    DftCachePairConnPath(addr, PAIR_CONN_PATH_ACB);
+    DftReportPairInfo(addr, PAIR_CONN_PATH_ACB, reason,
+        std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount) +
+        ", firstFailTime:" + firstFailTime + ", disconnTime:" + GetMillTime(true));
+}
+
+// 窗口移交/终结时冲刷挂账：仅上报自备字段，不写连接路径表，不清配对状态（冲刷点一律不复位生命周期字段）
+static void DftReportHandoverConnTimeoutWindow(const std::string &addr, int32_t reason, const std::string &appName,
+    uint32_t failCount, const std::string &firstFailTime)
+{
+    DftCacheSleAppNameParam(addr, appName);
+    DftCachePairRssiAndChannelNoise(addr, INVALID_DISCONN_RSSI, "");
+    std::vector<DftParamC> params;
+    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
+    params.emplace_back(CreateUi16ParamC(SLE_CONN_PATH, PAIR_CONN_PATH_ACB));
+    params.emplace_back(CreateI32ParamC(SLE_CONN_ERROR_CODE, reason));
+    params.emplace_back(CreateStrParamC(SLE_CONN_ERROR_REASON,
+        std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount) +
+        ", firstFailTime:" + firstFailTime));
+    DftManagerReport(DFT_PAIR_EXCEP, params.data(), params.size());
+}
+
 void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
 {
     int64_t nowMs = GetTimestamp();
-    std::vector<std::string> expiredAddrs;
-    g_connTimeoutRecords.Iterate([&](const std::string &key, ConnTimeoutRecord &record) {
-        if (record.failCount == 0 && record.lastReportMs != 0 &&
-            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
-            expiredAddrs.push_back(key);
-        }
+    // 过期清理：FindAndRmv 单锁内完成条件判定与擦除，不与认领/计数的加锁间隙留交错
+    g_connTimeoutRecords.FindAndRmv([&](const std::string &key, ConnTimeoutRecord &record) {
+        return record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS;
     });
-    for (const auto &expiredAddr : expiredAddrs) {
-        g_connTimeoutRecords.Erase(expiredAddr);
-    }
     uint32_t failCount = 0;
     std::string firstFailTime;
+    std::string appName;
     bool needReport = false;
     // 确保统计记录存在，已存在时不覆盖
     ConnTimeoutRecord newRecord;
@@ -322,6 +364,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
         }
         needReport = true;
         firstFailTime = record.firstFailTime;
+        appName = record.appName;
         record.lastReportMs = nowMs;
         record.failCount = 0;
         record.firstFailTime.clear();
@@ -329,10 +372,7 @@ void DftDealConnTimeoutExcep(const std::string &addr, int32_t reason)
     if (!needReport) {
         return;
     }
-    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
-    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
-    DftReportDisconn(addr, reason, firstFailTime);
+    DftReportConnTimeoutWindow(addr, reason, appName, failCount, firstFailTime);
 }
 
 void DftFlushConnTimeoutExcep(const std::string &addr)
@@ -340,6 +380,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
     int64_t nowMs = GetTimestamp();
     uint32_t failCount = 0;
     std::string firstFailTime;
+    std::string appName;
     bool needReport = false;
     g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
         if (record.failCount == 0) {
@@ -351,6 +392,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
         needReport = true;
         failCount = record.failCount;
         firstFailTime = record.firstFailTime;
+        appName = record.appName;
         record.failCount = 0;
         record.firstFailTime.clear();
         record.lastReportMs = nowMs;
@@ -358,10 +400,7 @@ void DftFlushConnTimeoutExcep(const std::string &addr)
     if (!needReport) {
         return;
     }
-    DftCacheDisconnRssi(addr, INVALID_DISCONN_RSSI);
-    DftCacheDisconnInfoMsg(addr, std::string(DFT_DISCONN_CONNTIMEOUT) + " count:" + std::to_string(failCount));
-    DftCacheConnInfoTime(addr, DISCONN_COMP_TIME);
-    DftReportDisconn(addr, DFT_CONNECTION_TIMEOUT, firstFailTime);
+    DftReportConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, appName, failCount, firstFailTime);
 }
 
 void DftConnStateChange(const std::string &addr, uint8_t state, uint32_t resaon)
@@ -716,6 +755,10 @@ void DftReportPairInfo(const std::string &addr, uint32_t currentConnPath, int32_
     if (!detail.empty()) {
         params.emplace_back(CreateStrParamC(SLE_CONN_ERROR_REASON, detail));
     }
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SLE_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     connType = (g_pairFlag.load()) ? SLE_CONN_RESULT : SLE_PAIR_RESULT;
     if (reason != SLE_SUCCESS) {
         params.emplace_back(CreateUi16ParamC(connType, PAIR_RESULT_FAILED));
@@ -755,12 +798,58 @@ void DftCacheDisconChipInfo(const std::string &addr, int32_t rssi, std::string c
     DftCacheRssiValueInfo(addr, rssi);
 }
 
+static void DftClaimConnTimeoutOwner(const std::string &addr, const std::string &callingName)
+{
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.appName.empty()) {
+            record.appName = callingName;
+        }
+    });
+}
+
 void DftCacheCallingName(const std::string &addr, const std::string &callingName)
 {
-    std::vector<DftParamC> params;
-    params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
-    params.emplace_back(CreateStrParamC(SLE_APP_NAME, callingName));
-    DftManagerCache(DFT_PAIR_EXCEP, params.data(), params.size());
+    if (callingName.empty()) {
+        return;
+    }
+    // 发起方与统计窗口归属者不同：过限频间隔则先冲刷上报旧窗口，随后窗口移交新发起方
+    int64_t nowMs = GetTimestamp();
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    std::string oldAppName;
+    bool needReport = false;
+    // 先取记录：命中即单锁完成移交/冲刷；未命中再单锁建档，属主随建档一次成型--
+    // 建档与取用不留在两次加锁之间，避免过期擦除落在空挡使移交结果丢失
+    if (!g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        if (record.failCount == 0 && record.lastReportMs != 0 &&
+            (nowMs - record.lastReportMs) > CONN_TIMEOUT_REPORT_INTERVAL_MS) {
+            record.lastReportMs = 0;
+        }
+        if (record.appName == callingName) {
+            return; // 同一应用反复发起，窗口继续，不冲刷
+        }
+        oldAppName = record.appName;
+        if (record.failCount > 0) {
+            needReport = true; // 有未上报计数，先上报旧窗口
+            failCount = record.failCount;
+            firstFailTime = record.firstFailTime;
+            record.lastReportMs = nowMs;
+        }
+        record.failCount = 0;
+        record.firstFailTime.clear();
+        record.appName = callingName; // 窗口移交新发起方
+    })) {
+        ConnTimeoutRecord newRecord;
+        newRecord.failCount = 0;
+        newRecord.lastReportMs = 0;
+        newRecord.appName = callingName; // 无主设备建档即认领
+        g_connTimeoutRecords.Insert(addr, newRecord);
+        DftClaimConnTimeoutOwner(addr, callingName);
+    }
+    if (needReport) {
+        DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, oldAppName, failCount, firstFailTime);
+    }
+    DftCacheSleAppNameParam(addr, callingName);
 }
 
 void DftSetConnectProfileTaskFlag(const std::string &addr)
@@ -780,6 +869,10 @@ void DftReportPairSuccess(const std::string &addr, uint16_t connType)
     params.emplace_back(CreateStrParamC(SLE_DEVICE_ADDR, addr));
     params.emplace_back(CreateI32ParamC(SLE_CONN_ERROR_CODE, 0));
     params.emplace_back(CreateUi16ParamC(connType, 0));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(SLE_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_PAIR_EXCEP, params.data(), params.size());
 }
 
@@ -842,6 +935,18 @@ void DftReportUnPairFailInfo(const std::string &addr, int32_t status, uint16_t r
 
 void DftReportUnPairSuccessInfo(const std::string &addr, int32_t status, uint16_t result)
 {
+    // 窗口终结冲刷：取消配对成功即窗口作废，未上报挂账先报出再擦除（窗口已终结，不检查限频）
+    uint32_t failCount = 0;
+    std::string firstFailTime;
+    std::string appName;
+    g_connTimeoutRecords.GetValueAndOpt(addr, [&](const std::string &key, ConnTimeoutRecord &record) {
+        failCount = record.failCount;
+        firstFailTime = record.firstFailTime;
+        appName = record.appName;
+    });
+    if (failCount > 0) {
+        DftReportHandoverConnTimeoutWindow(addr, DFT_CONNECTION_TIMEOUT, appName, failCount, firstFailTime);
+    }
     g_connTimeoutRecords.Erase(addr);
     if (DftUnpairTaskFind(addr)) {
         std::string time = GetMillTime(true);
@@ -1165,6 +1270,10 @@ void DftReportAudioHeadSet(AudioHeadsetExcep &audioHeadsetData)
     params.emplace_back(CreateUi16ParamC(MID_CHANNEL_NUM, audioHeadsetData.midChannelNum));
     params.emplace_back(CreateUi16ParamC(WEAK_CHANNEL_NUM, audioHeadsetData.weakChannelNum));
     params.emplace_back(CreateI32ParamC(NOISE_AVG_VALUE, audioHeadsetData.noiseAvgValue));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(AUDIO_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_AUDIO_HEADSET_EXCEP, params.data(), params.size());
 }
 
@@ -1276,6 +1385,10 @@ void DftReportStreamSuccess(const std::string &addr, bool cbkdiscon)
     if (cbkdiscon) {
         params.emplace_back(CreateUi8ParamC(STREAM_OPERATOR_RESULT, STREAM_RESULT_SUCCESS));
         params.emplace_back(CreateStrParamC(STREAM_RESULT_TIME, time));
+        std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+        if (!countryInfo.empty()) {
+            params.emplace_back(CreateStrParamC(STREAM_LOCAL_COUNTRY_INFO, countryInfo));
+        }
         DftManagerReport(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
     } else {
         DftManagerEraseCache(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
@@ -1294,6 +1407,10 @@ void DftReportStreamFail(const std::string &addr, int32_t state, int32_t reason)
     params.emplace_back(CreateUi8ParamC(STREAM_OPERATOR_RESULT, STREAM_RESULT_FAILED));
     params.emplace_back(CreateI32ParamC(STREAM_OPERATOR_ERROR_CODE, reason));
     params.emplace_back(CreateStrParamC(STREAM_RESULT_TIME, time));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(STREAM_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_AUDIO_STREAM_EXCEP, params.data(), params.size());
 }
 
@@ -1470,6 +1587,10 @@ extern "C" void DftReportAudioChoppyExcep(const QOSM_DftAudioChoppyExcep *excep)
     params.emplace_back(CreateI32ParamC(NL_DFT_CHOPPY_EXCEP_NOISE_AVG_VALUE_24G, excep->noiseAvgValue24g));
     params.emplace_back(CreateStrParamC(NL_DFT_CHOPPY_EXCEP_CHANNEL_STATUS_5G, chan5gStatus));
     params.emplace_back(CreateI32ParamC(NL_DFT_CHOPPY_EXCEP_NOISE_AVG_VALUE_5G, excep->noiseAvgValue5g));
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(NL_DFT_CHOPPY_EXCEP_LOCAL_COUNTRY_INFO, countryInfo));
+    }
 
     DftManagerReport(DFT_QOSM_CHOPPY_EXCEP, params.data(), params.size());
 }
@@ -1488,7 +1609,6 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
             DftReportAudioChoppyExcep(&choppyExcep);
         }
     }
-
     std::vector<DftParamC> params;
     std::string startTime = stats->startTime;
     params.emplace_back(CreateStrParamC(NL_DFT_STATS_START_TIME, startTime));
@@ -1502,7 +1622,6 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
 
     std::string band2GInfo = stats->band2GInfo;
     std::string band5GInfo = stats->band5GInfo;
-
     bool isAirplaneOn = false;
     {
         std::lock_guard<std::mutex> lock(g_modeMutex);
@@ -1518,10 +1637,12 @@ extern "C" void DftReportAudioStats(const QOSM_DftAudioStats *stats)
             band5GInfo = band5GInfo.substr(0, lastComma5G + 1) + "0}";
         }
     }
-
     HILOGI("band2GInfo = %{public}s, band5GInfo = %{public}s", band2GInfo.c_str(), band5GInfo.c_str());
-
     PushStatsBandParams(params, stats, band2GInfo, band5GInfo);
+    std::string countryInfo = DftLocalDataManager::GetInstance().GetCountryInfo();
+    if (!countryInfo.empty()) {
+        params.emplace_back(CreateStrParamC(NL_DFT_STATS_LOCAL_COUNTRY_INFO, countryInfo));
+    }
     DftManagerReport(DFT_QOSM_STATS, params.data(), params.size());
 }
 

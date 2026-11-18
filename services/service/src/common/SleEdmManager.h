@@ -45,6 +45,14 @@ public:
     bool IsAllowedConnect(const std::string &profile);
     void OnEdmListChanged();
     void Init();
+    /**
+     * @brief report the refuse information to EDM when nearlink switch is intercepted.
+     *
+     * @param callerUid caller uid who tried to turn on nearlink switch.
+     * @return Returns the singleton instance pointer.
+     * @since 7.1
+     */
+    void ReportRefuseInfo(int32_t callerUid);
     SleEdmManager() = default;
     ~SleEdmManager() = default;
 private:

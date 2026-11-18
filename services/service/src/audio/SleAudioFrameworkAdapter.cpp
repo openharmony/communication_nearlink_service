@@ -624,12 +624,5 @@ void SleAudioFrameworkAdapter::HandleColAudioEnabledChangeInner(const bool enabl
     ascService->PostEvent(event);
 }
 
-bool SleAudioFrameworkAdapter::IsInVoipCallKit()
-{
-    // 接口返回0-表示voip接入call kit生效, 1-表示未接入call kit
-    HILOGD("[SleAudioFrameworkAdapter]enter");
-    return !AudioStandard::AudioSystemClientPolicyManager::GetInstance().GetVirtualCall();
-}
-
 }
 }
