@@ -479,8 +479,7 @@ void SleAudioFrameworkAdapter::SleAudioRendererDataTransferListener::OnDataTrans
     });
 }
 
-void SleAudioFrameworkAdapter::JudgeVolumeMuteStr
-eamByRendererState(
+void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
     const RawAddress &device, const uint32_t streamId, bool isStart)
 {
     HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d isStart:%{public}d", streamId, isStart);
