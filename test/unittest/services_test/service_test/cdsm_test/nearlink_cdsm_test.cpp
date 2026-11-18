@@ -1475,9 +1475,9 @@ HWTEST_F(NearlinkCdsmTest, CdsmGetAllMemberInfo002, TestSize.Level1)
  * @tc.desc: 设备列表与合作集成员一致判为同一合作集.
  * @tc.type: FUNC
  */
-HWTEST_F(NearlinkCdsmTest, CdsmCheckIsSameCooperation001, TestSize.Level1)
+HWTEST_F(NearlinkCdsmTest, CdsmCheckIsSameCooperation002, TestSize.Level1)
 {
-    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation001 start");
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation002 start");
     CdsmService *cdsmService = CdsmService::GetService();
     ASSERT_NE(cdsmService, nullptr);
     CdsmUtPlantGroup(cdsmService, CDSM_UT_ADDR_A, {CDSM_UT_ADDR_A, CDSM_UT_ADDR_B});
@@ -1490,7 +1490,7 @@ HWTEST_F(NearlinkCdsmTest, CdsmCheckIsSameCooperation001, TestSize.Level1)
 
     std::vector<RawAddress> otherList = {RawAddress(CDSM_UT_ADDR_A), RawAddress(CDSM_UT_ADDR_C)};
     EXPECT_EQ(false, cdsmService->CdsmCheckIsSameCooperation(otherList));
-    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation001 end");
+    HILOGI("NearlinkCdsmTest:CdsmCheckIsSameCooperation002 end");
 }
 
 /**
