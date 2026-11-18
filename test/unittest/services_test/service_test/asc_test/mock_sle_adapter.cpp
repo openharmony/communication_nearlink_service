@@ -18,6 +18,7 @@
 #include "interface_cloud_pair_service.h"
 #include "log.h"
 #include "log_util.h"
+#include "ClassCreator.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -493,5 +494,6 @@ void SleAdapter::RemoveNotPairedCloudDevice(const RawAddress &device) const
 void SleAdapter::SetPhy(const RawAddress &device, uint8_t frameType, uint8_t phyType)
 {}
 
+REGISTER_CLASS_CREATOR(SleAdapter);
 } // namespace Nearlink
 } // namespace OHOS
