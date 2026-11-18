@@ -77,6 +77,8 @@ TEST_F(UT_QOSM_ICG_STATE_TEST, SetAutorateParamAndConnectFullFlow)
     EXPECT_EQ(g_labelParam.icbCnt, 2);
     EXPECT_EQ(g_labelIcb[0].connHandle, g_connHandle1);
     EXPECT_EQ(g_labelIcb[1].connHandle, g_connHandle2);
+    TestLabelReportCbk(g_qosId, g_lcid1, g_connHandle1, true, false);
+    TestLabelReportCbk(g_qosId, g_lcid2, g_connHandle2, true, false);
     EXPECT_EQ(g_createParam.channelCnt, 2);
 
     TestEstablishedCbk(g_qosId, g_lcid1, g_connHandle1, true);
@@ -177,6 +179,7 @@ TEST_F(UT_QOSM_ICG_STATE_TEST, AddConnectionDelayedByUpdate)
     TestConnectIcg(g_qosId);
     TestQualityCbk(g_connHandle1, 10, -40, 0, 0);
     EXPECT_EQ(g_bitrateCbk[0].direction, LEVEL_DOWN);
+    g_labelParam.icbCnt = 0;
 
     TestAddConnection(g_qosId);
     EXPECT_EQ(g_labelParam.icbCnt, 0);

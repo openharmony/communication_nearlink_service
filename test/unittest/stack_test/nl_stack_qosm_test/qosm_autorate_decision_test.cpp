@@ -84,9 +84,11 @@ TEST_F(UT_QOSM_AUTORATE_DECISION_TEST, QualityReportDowngradeWhenTargetUnavailab
     TestConnectIcg(g_qosId);
     const uint16_t highOnly[2] = { 160, 320 };
     TestParamNotifyEarphone(highOnly, 2);
+    ASSERT_EQ(g_bitrateCbkCnt, 1);
+    EXPECT_EQ(g_bitrateCbk[0].direction, LEVEL_NONE);
 
     TestQualityCbk(g_connHandle1, 10, -40, 0, 0);
-    EXPECT_EQ(g_bitrateCbkCnt, 0);
+    EXPECT_EQ(g_bitrateCbkCnt, 1);
     EXPECT_EQ(g_timerParam[QOSM_TEST_DOWNGRADE_LABEL_TIMER].callback, nullptr);
 }
 
