@@ -87,7 +87,7 @@ std::string SleAudioFrameworkAdapter::GetBundleName(uint32_t streamId)
     return "";
 }
 
-void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteType Type, bool muted)
+void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteType type, bool muted)
 {
     for (auto &it : routeFlagList_) {
         if (it.streamId == streamId) {
@@ -225,6 +225,7 @@ void SleAudioFrameworkAdapter::JudgeEmptyStreamByRendererState(const RawAddress 
         if (isCallStreamType(it.streamUsage)) {
             StopAllEmptyMuteScMcpPauseTimers();
             return;
+
         }
         if (it.status == AudioStandard::RendererState::RENDERER_RUNNING) {
             StopAllEmptyMuteScMcpPauseTimers();
@@ -423,7 +424,7 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         }
     }
     if (isSilentMode) {
-        HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode, skip mute stream control", streamId);
+        HILOGI("[SleAudioFrameworkAdapter] streamId:%{public}d silentMode, not pause", streamId);
         return;
     }
     StartEmptyMuteScMcpPauseTimer(device, isStart, streamId, MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO);
@@ -494,7 +495,7 @@ void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
         mcpService->GetMediaLoader()->RendererStreamStateChange(MCP_PLAYBACK_STATE_PLAY);
         return;
     }
-    /* silentMode为true的流是应用主动静音，不对其实施静音流管控 */
+    /* silentMode为true的流是应用主动静音，优先级高于mute */
     bool isSilentMode = false;
     for (const auto &it : GetRouteFlagList()) {
         if (isCallStreamType(it.streamUsage)) {
@@ -668,10 +669,6 @@ void SleAudioFrameworkAdapter::StopAllEmptyMuteScMcpPauseTimers()
 
 void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
 {
-    if (audioRendererDataCallback_ != nullptr) {
-        HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
-        return;
-    }
     AudioStandard::DataTransferMonitorParam param;
     param.clientUID = ALL_UID;
     param.badDataTransferTypeBitMap = MUTE_MAP;
