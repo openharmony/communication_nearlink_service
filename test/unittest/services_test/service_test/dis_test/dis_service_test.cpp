@@ -31,7 +31,6 @@ namespace TEST {
 using namespace testing::ext;
 
 namespace {
-constexpr int DIS_SERVICE_UT_DELAY_50_MS = 50;
 const std::string DIS_UT_ADDR = "00:11:22:33:44:55";
 const std::string DIS_UT_MANUFACTURE_DATA = "A-1122-3344-5566";
 constexpr uint16_t DIS_UT_MANUFACTURE_LEN = 16;
@@ -99,8 +98,12 @@ void NearlinkDisServiceTest::SetUp()
 void NearlinkDisServiceTest::TearDown()
 {
     HILOGI("TearDown NearlinkDisServiceTest.");
-    // 测试目的：先解绑注册表与观察者再销毁服务，并恢复线程调度默认态，防单例状态跨例残留。
-    DisService::GetDisService()->DeregisterObserver(observer_);
+    // 测试目的：先解绑注册表与观察者再销毁服务，并恢复线程调度默认态，防单例状态跨例残留；
+    // SetUp 断言失败时服务可能未注册成功，先判空防解引用空指针。
+    DisService *disService = DisService::GetDisService();
+    if (disService != nullptr) {
+        disService->DeregisterObserver(observer_);
+    }
     ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
         SleTransport::ADAPTER_SLE, PROFILE_NAME_DIS, nullptr);
     service_.reset();

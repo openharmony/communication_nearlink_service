@@ -938,9 +938,6 @@ HWTEST_F(NearlinkCdsmTest, GetRealConnectAddress001, TestSize.Level1)
         [](uint32_t, std::shared_ptr<CdsmInfo> data) {
             data->CdsmUpdateMemberProfileConnectState(CDSM_UT_ADDR_A, SleConnectState::CONNECTED);
         });
-        [](uint32_t, std::shared_ptr<CdsmInfo> data) {
-            data->CdsmUpdateMemberProfileConnectState(CDSM_UT_ADDR_A, SleConnectState::CONNECTED);
-        });
 
     RawAddress realAddr;
     cdsmService->GetRealConnectAddress(RawAddress(CDSM_UT_ADDR_A), realAddr);
@@ -1048,7 +1045,7 @@ HWTEST_F(NearlinkCdsmTest, CdsmReplaceOldReportAddr003, TestSize.Level1)
 
 /**
  * @tc.name: CdsmRecoverFromConf002
- * @tc.desc: 配置中的合作集按成员列表与本地占位情况分别跳过恢复.
+ * @tc.desc: 配置恢复对本地已占位的合作集跳过，建组失败时放弃该条.
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkCdsmTest, CdsmRecoverFromConf002, TestSize.Level1)

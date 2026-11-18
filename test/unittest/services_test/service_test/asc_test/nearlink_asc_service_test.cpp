@@ -5892,7 +5892,8 @@ HWTEST_F(ASCServiceTest, QosmDeleteQosPurge_001, TestSize.Level1)
     EXPECT_EQ(false, QosM::GetInstance().IsQosExist(purge10Dev, NL_SLE_QOS_10));
 
     QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_10);
-    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(purge10Dev, NL_SLE_QOS_10, isStopStream, isStopImmediately));
+    QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(true, QosM::GetInstance().DeleteQos(purge10Dev, NL_SLE_QOS_10, isStopStream, isStopImmediately));
     EXPECT_EQ(true, QosM::GetInstance().IsQosExist(purge10Dev, NL_SLE_QOS_1));
     HILOGI("QosmDeleteQosPurge_001 end");
 }
@@ -6012,7 +6013,7 @@ HWTEST_F(ASCServiceTest, ASCUtilsGetBpsBitIndex_001, TestSize.Level1)
     EXPECT_EQ(L2HC_BPS_S_480_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_480)));
     EXPECT_EQ(L2HC_BPS_S_750_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_750)));
     EXPECT_EQ(L2HC_BPS_S_960_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_960)));
-    EXPECT_EQ(0, ASCUtils::GetBpsBitIndexByBps(55));
+    EXPECT_EQ(L2HC_BPS_S_64_BIT, ASCUtils::GetBpsBitIndexByBps(55));
     HILOGI("ASCUtilsGetBpsBitIndex_001 end");
 }
 
@@ -6049,11 +6050,12 @@ HWTEST_F(ASCServiceTest, ASCUtilsGetAutorateTargetBpsRange_001, TestSize.Level1)
     HILOGI("ASCUtilsGetAutorateTargetBpsRange_001 enter");
     EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_32),
         ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_32)));
-    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64),
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64 | L2HC_VOICE_BPS_S_32),
         ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_64)));
-    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64),
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64 | L2HC_VOICE_BPS_S_32),
         ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_128)));
-    EXPECT_EQ(static_cast<uint32_t>(0), ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_48)));
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_32),
+        ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_48)));
     EXPECT_EQ(static_cast<uint32_t>(BPS_QOS3_AUTORATE_DOWN), ASCUtils::GetAutorateTargetBpsRange(100));
     HILOGI("ASCUtilsGetAutorateTargetBpsRange_001 end");
 }
