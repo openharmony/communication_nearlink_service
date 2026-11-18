@@ -119,6 +119,24 @@ typedef enum DftEventEnum : int {
  ******************************************************************************/
 
 /*
+    Parameter Index, Corresponding to g_templateOneExcepParam.
+    If you have the same param structure as g_templateOneExcepParam(parameter type is consistent),
+    you can also use this index.
+*/
+typedef enum ExcepParamsTemplateOneEnum : int {
+    EXCEP_TEMPLATE_ONE_INVALID = 0,
+    // add key param below this
+    // add key param above this
+    EXCEP_TEMPLATE_ONE_KEY_BUTT,
+    // add normal param below this
+    EXCEP_TEMPLATE_ONE_ERROR_CODE,
+    EXCEP_TEMPLATE_ONE_SUB_ERROR_CODE,
+    EXCEP_TEMPLATE_ONE_TIME,
+    // add normal param above this
+    EXCEP_TEMPLATE_ONE_PARAM_BUTT,
+} ExcepParamsTemplateOneEnum;
+
+/*
     Parameter Index, Corresponding to g_templateTwoExcepParam.
     If you have the same param structure as g_templateTwoExcepParam(parameter type is consistent),
     you can also use this index.

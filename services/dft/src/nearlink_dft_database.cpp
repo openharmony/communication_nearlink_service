@@ -32,6 +32,15 @@ static HiSysEventParamType g_dtToHt[DFT_TYPE_BUTT] = {
 /*******************************************************************************
  *  detail exception event param define below. Note that the sequence is the same as that of Excep Event param index
  ******************************************************************************/
+// 模板一为对外公共参数模板，当前无事件注册使用，保留供后续事件扩展，显式标注避免未使用告警
+static DftParamDB g_templateOneExcepParam[EXCEP_TEMPLATE_ONE_PARAM_BUTT] __attribute__((unused)) = {
+    {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_ONE_INVALID
+    {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_ONE_KEY_BUTT
+    {"ERROR_CODE", HISYSEVENT_INT32},
+    {"SUB_ERROR_CODE", HISYSEVENT_INT32},
+    {"TIME_STAMP", HISYSEVENT_STRING},
+};
+
 static DftParamDB g_templateThreeExcepParam[EXCEP_TEMPLATE_THREE_PARAM_BUTT] = {
     {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_THREE_INVALID
     {"", HISYSEVENT_INVALID},                           // EXCEP_TEMPLATE_THREE_KEY_BUTT
