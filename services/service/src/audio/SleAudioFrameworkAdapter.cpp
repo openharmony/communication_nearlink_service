@@ -225,7 +225,6 @@ void SleAudioFrameworkAdapter::JudgeEmptyStreamByRendererState(const RawAddress 
         if (isCallStreamType(it.streamUsage)) {
             StopAllEmptyMuteScMcpPauseTimers();
             return;
-
         }
         if (it.status == AudioStandard::RendererState::RENDERER_RUNNING) {
             StopAllEmptyMuteScMcpPauseTimers();
