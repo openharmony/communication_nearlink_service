@@ -77,5 +77,6 @@ group("nl_stack_test") {
     "ssap_link_state_replay_test:nl_stack_ssap_link_state_replay_unittest",
     "ssap_test:nl_stack_ssap_unittest",
     "sdf_test:nl_stack_sdf_unittest",
+    "adapter_wrapper_test:nl_stack_adapter_wrapper_unittest",
   ]
 }
