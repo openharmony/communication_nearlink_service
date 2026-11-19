@@ -173,8 +173,8 @@ TEST_F(ParameterTest, TestDefaultProviderIsNeedSetAllStreamVolume)
 
 TEST_F(ParameterTest, TestParameterManagerIsNeedSetAllStreamVolume)
 {
-    auto& provider = std::shared_ptr<ParameterProviderInterface>(&DefaultParameterProvider::GetInstance(),
-                                                                        [](ParameterProviderInterface*) {});
+    auto provider = std::shared_ptr<ParameterProviderInterface>(&DefaultParameterProvider::GetInstance(),
+                                                                         [](ParameterProviderInterface*) {});
     ParameterManager::RegisterProvider(provider);
 
     EXPECT_EQ(ParameterManager::IsNeedSetAllStreamVolume(), 0);
