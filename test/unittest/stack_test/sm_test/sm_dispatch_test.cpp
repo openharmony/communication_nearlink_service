@@ -22,6 +22,8 @@
 #include "stack_cm_stub.h"
 #include "stack_dli_mock.h"
 #include "stack_dli_stub.h"
+#include "stack_sdf_mem_mock.h"
+#include "stack_sdf_mem_stub.h"
 
 #include "sdf_mem.h"
 #include "cpfwk_log.h"
@@ -65,10 +67,12 @@ public:
     NiceMock<ScheduleMock> scheduleMock;
     NiceMock<CmMock> cmMock;
     NiceMock<DliMock> dliMock;
+    NiceMock<SdfMemMock> sdfMemMock;
 protected:
     // SetUP 在每一个 TEST_F 测试开始前执行一次
     virtual void SetUp()
     {
+        ON_CALL(sdfMemMock, SDF_MemZalloc).WillByDefault(TEST_SDF_MemZalloc);
         TEST_ScheduleInit();
         EXPECT_CALL(scheduleMock, SchedulePostTask).WillRepeatedly(TEST_SchedulePostTaskStub);
         EXPECT_CALL(scheduleMock, SchedulePostTaskBlocked).WillRepeatedly(TEST_SchedulePostTaskBlockedStub);
