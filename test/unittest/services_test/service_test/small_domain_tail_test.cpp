@@ -167,7 +167,11 @@ HWTEST_F(SmallDomainTailTest, DataShareValidLengthTest_001, TestSize.Level1)
     // 三十一个单字节：取三十
     EXPECT_EQ(helper.GetValidUTF8StringLength(std::string(31, 'a')), 30);
     // 十个三字节序列恰三十字节：直接返回三十
-    EXPECT_EQ(helper.GetValidUTF8StringLength(std::string(10, '\xE0')), 30);
+    std::string triplets;
+    for (int i = 0; i < 10; i++) {
+        triplets += "\xE0\x80\x80";
+    }
+    EXPECT_EQ(helper.GetValidUTF8StringLength(triplets), 30);
     // 二十九个单字节加一个四字节头：不拆字符取二十九
     EXPECT_EQ(helper.GetValidUTF8StringLength(std::string(29, 'a') + "\xF0\x80\x80\x80"), 29);
     // 短串全取

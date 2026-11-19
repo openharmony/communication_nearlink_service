@@ -17,6 +17,9 @@
  * HID 域收尾测试：uhid 发送路径的等待与任务类型分支、超长报告守卫、
  * 管道注入的事件分发状态机（启停开关与输出/特征/设置报告三分发）、
  * 服务启停幂等、断连失败回报链与写属性回调的类型门与错误码映射。
+ * 顺序约束：本套件须在 hid_host_service_test 之前链入（见 BUILD.gn sources 顺序）——
+ * 既有 hid 套件的 TearDownTestCase 会停服务管理器，停后二次 Start 不再重建
+ * 适配器与档案，本套件依赖首个完整 Start 的服务态。
  */
 
 #include <gtest/gtest.h>

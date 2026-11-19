@@ -46,29 +46,30 @@ constexpr uint16_t TEST_PORT = 0x0102;
 constexpr const char *TEST_ADDR = "11:22:33:44:55:66";
 } // namespace
 
-/* 数据传输参数序列化：空负载与带负载两种参数都能往返取回原值 */
+/* 数据传输参数序列化：带负载与空负载经列表反序列化都能取回原值 */
 HWTEST(NlSocketTailTest, ParcelRoundTripTest_001, TestSize.Level1)
 {
+    // 序列化输出带总长度包头，须按列表入口反序列化逐包剥离包头
     DataTransferDataParams withData(TEST_ADDR, "uuid-1", TEST_PORT, {0x01, 0x02, 0x03});
     size_t totalLen = 0;
     auto bytes = NearlinkDataTransferDataParams::SerializeData(withData, totalLen);
     ASSERT_NE(bytes, nullptr);
     ASSERT_GT(totalLen, 0U);
-    DataTransferDataParams back;
-    ASSERT_TRUE(NearlinkDataTransferDataParams::DeserializeData(bytes.get(), totalLen, back));
-    EXPECT_EQ(back.address_, TEST_ADDR);
-    EXPECT_EQ(back.uuid_, std::string("uuid-1"));
-    EXPECT_EQ(back.port_, TEST_PORT);
-    EXPECT_EQ(back.data_.size(), 3U);
+    auto list = NearlinkDataTransferDataParams::DeserializeDataList(bytes.get(), totalLen);
+    ASSERT_EQ(list.size(), 1U);
+    EXPECT_EQ(list[0].address_, TEST_ADDR);
+    EXPECT_EQ(list[0].uuid_, std::string("uuid-1"));
+    EXPECT_EQ(list[0].port_, TEST_PORT);
+    EXPECT_EQ(list[0].data_.size(), 3U);
 
     // 空负载：长度字段为零，往返后负载保持为空
     DataTransferDataParams empty(TEST_ADDR, "uuid-2", TEST_PORT, {});
     size_t emptyLen = 0;
     auto emptyBytes = NearlinkDataTransferDataParams::SerializeData(empty, emptyLen);
     ASSERT_NE(emptyBytes, nullptr);
-    DataTransferDataParams emptyBack;
-    ASSERT_TRUE(NearlinkDataTransferDataParams::DeserializeData(emptyBytes.get(), emptyLen, emptyBack));
-    EXPECT_TRUE(emptyBack.data_.empty());
+    auto emptyList = NearlinkDataTransferDataParams::DeserializeDataList(emptyBytes.get(), emptyLen);
+    ASSERT_EQ(emptyList.size(), 1U);
+    EXPECT_TRUE(emptyList[0].data_.empty());
 }
 
 /* 输出流写入门：有效描述符小包写入成功，无效描述符按内部错误返回 */

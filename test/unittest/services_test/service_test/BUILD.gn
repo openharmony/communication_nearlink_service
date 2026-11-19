@@ -101,11 +101,11 @@ ohos_unittest("nl_service_test") {
     "sle_switch_dependency_test.cpp",
     "sle_dli_snoop_test.cpp",
     "nearlink_timer_test.cpp",
-    "hid_host_service_test.cpp",
-    "hid_host_uhid_test.cpp",
     "hid_tail_test.cpp",
     "sle_controller_tail_test.cpp",
     "small_domain_tail_test.cpp",
+    "hid_host_service_test.cpp",
+    "hid_host_uhid_test.cpp",
     "sle_name_change_manager_test.cpp",
     "sle_frame4_antenna_mgr_test.cpp",
   ]
@@ -127,7 +127,6 @@ ohos_unittest("nl_service_test") {
     "ffrt:libffrt",
     "init:libbegetutil"
   ]
-  # small_domain_tail_test.cpp 直接含 SleDliCallbacks.h，需要 HDI v1_0 头路径与 hdf 基础头
   external_deps += [
     "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
     "hdf_core:libhdf_utils",
