@@ -115,6 +115,7 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
     std::string bundleName = "";
+    // 获取旧流列表中的muted
     std::vector<RouteFlagInfo> mutedSnapshot = routeFlagList_;
     RemoveMemberRouteFlagList(flag);
     // 遍历新增插入,所有pipe中的流加起来最多256条
@@ -354,7 +355,7 @@ void SleAudioFrameworkAdapter::GetCurrentOutputPipeInfosInner()
 void SleAudioFrameworkAdapter::RegisterOutputPipeChangeListener()
 {
     if (audioOutputPipeCallback_ != nullptr) {
-        HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
+        HILOGI("[SleAudioFrameworkAdapter] output pipe listener already registered, skip");
         return;
     }
     audioOutputPipeCallback_ = std::make_shared<SleAudioOutputPipeListener>();
@@ -670,8 +671,7 @@ void SleAudioFrameworkAdapter::StopAllEmptyMuteScMcpPauseTimers()
 
 void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
 {
-    if (audioRendererDataCallback_
-     != nullptr) {
+    if (audioRendererDataCallback_!= nullptr) {
         HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
         return;
     }
