@@ -20,8 +20,6 @@
 #include "SleInterfaceProfileManager.h"
 #include "SleInterfaceProfileTws.h"
 #include "singleton.h"
-#include "nearlink_call_client.h"
-#include "telephony_errors.h"
 #include "ClassCreator.h"
 #include "SleServiceFfrtLog.h"
 #include "ThreadUtil.h"
@@ -263,85 +261,18 @@ CallFlagBits CcpService::GetCallFlag(const CallAttributeInfo &info)
     return callFlag;
 }
 
-void CcpService::PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
-    const std::string &number)
+void CcpService::HandlePhoneStateChange()
 {
-    DoInCcpThread([this, callId, numActive, numHeld, callState, number]() {
-        // numActive/numHeld 仅作诊断打印：通话数以下方回查的 GetCurrentCallList() 为准，调用方传入值不参与状态计算
-        HILOGI("[CcpService]PhoneStateChanged: numActive=%{public}d, numHeld=%{public}d, state=%{public}d, "
-            "callId=%{public}d", numActive, numHeld, callState, callId);
-        std::vector<Telephony::CallAttributeInfo> callInfoVec =
-            CcpSystemInterface::GetInstance().GetCurrentCallList();
-        HandlePhoneStateChange(callInfoVec);
-        // 处理单路通话明细，而CallDetailsChanged仅处理蜂窝挂断消息，和蓝牙保持一致
-        HandleCallDetailChange(callId, callState, number, callInfoVec);
-    });
-}
-
-void CcpService::CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType)
-{
-    DoInCcpThread([this, callId, callState, callType]() {
-        HILOGI("[CcpService]CallDetailsChanged: callId=%{public}d, state=%{public}d, type=%{public}d",
-            callId, callState, callType);
-        if (callState == static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_DISCONNECTED) &&
-            callType != static_cast<int32_t>(Telephony::CallType::TYPE_VOIP)) {
-            // 只有蜂窝通话需要走该流程，因为蜂窝挂断瞬间PhoneStateChanged拿到的callId是-1，无法正常处理蜂窝挂断
-            // voip和ccp构造的场景由PhoneStateChanged处理
-            NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(callId), "[CcpService]unknown callId, skip call details.");
-            // 挂断对象已从 telephony 对象表移除，列表反查不到
-            Telephony::CallAttributeInfo info{};
-            info.callId = callId;
-            info.callState = Telephony::TelCallState::CALL_STATUS_DISCONNECTED;
-            info.callType = static_cast<Telephony::CallType>(callType);
-            std::vector<Telephony::CallAttributeInfo> infoVec = { info };
-            HandleCallDetailChange(callId, callState, "", infoVec);
-        }
-    });
-}
-
-void CcpService::HandlePhoneStateChange(const std::vector<Telephony::CallAttributeInfo> &callInfoVec)
-{
+    std::vector<Telephony::CallAttributeInfo> callInfoVec = CcpSystemInterface::GetInstance().GetCurrentCallList();
     /* 即使当前没有通话了，更新通话状态时，也需要将当前通话列表为0更新给对端 */
     /* 更新通话状态 */
     ProcessCallStateInfo(callInfoVec);
 }
 
-Telephony::CallAttributeInfo CcpService::FilterCallAttributeInfo(int32_t callId, int32_t callState,
-    const std::string &number, const std::vector<Telephony::CallAttributeInfo> &callVec)
-{
-    Telephony::CallAttributeInfo info{};
-    info.callId = callId;
-    info.callState = static_cast<Telephony::TelCallState>(callState);
-    /* 事件只携带 callId/callState，其余明细从通话列表补齐 */
-    bool matched = false;
-    for (const auto &callAttr : callVec) {
-        if (callAttr.callId != callId) {
-            continue;
-        }
-        info = callAttr;
-        info.callState = static_cast<Telephony::TelCallState>(callState);
-        matched = true;
-        break;
-    }
-    if (matched || number.empty()) {
-        return info;
-    }
-    /* 反查不到时用事件携带的号码兜底：目标容量取自数组自身，不依赖仓外上限声明 */
-    const size_t destSize = sizeof(info.accountNumber);
-    size_t numberCopyLen = std::min(number.size(), destSize - 1);
-    if (numberCopyLen > 0 && strncpy_s(info.accountNumber, destSize, number.c_str(), numberCopyLen) != EOK) {
-        HILOGE("[CcpService]copy accountNumber error");
-    }
-    return info;
-}
-
-void CcpService::HandleCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
-    const std::vector<Telephony::CallAttributeInfo> &callInfoVec)
+void CcpService::HandleCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
     // -1仅表示无特定通话，不得入表；自造VoIP的callId为负值但不等于该常量，仍正常处理
-    NL_CHECK_RETURN(callId != INVALID_CCP_VOIP_ID, "[CcpService]invalid callId, skip detail update");
-    // 从全量通话列表中过滤出需要处理的单路通话明细
-    Telephony::CallAttributeInfo info = FilterCallAttributeInfo(callId, callState, number, callInfoVec);
+    NL_CHECK_RETURN(info.callId != INVALID_CCP_VOIP_ID, "[CcpService]invalid callId, skip detail update");
     ProcessCallDetailChange(info);
 }
 
@@ -547,8 +478,7 @@ void CcpService::HandleVoipStop(const RawAddress &device)
         Telephony::CallAttributeInfo info{};
         info.callState = TelCallState::CALL_STATUS_DISCONNECTED;
         info.callId = pimpl->currentVoipCallId_;
-        std::vector<Telephony::CallAttributeInfo> infoVec = { info };
-        HandleCallDetailChange(info.callId, static_cast<int32_t>(info.callState), "", infoVec);
+        HandleCallDetailChange(info);
         pimpl->voipIdSet_.erase(pimpl->currentVoipCallId_);
         HILOGI("[CcpService]HandleVoipStop: id=%{public}d", info.callId);
         pimpl->currentVoipCallId_ = INVALID_CCP_VOIP_ID;
@@ -567,8 +497,7 @@ void CcpService::CreateVoipCallInfo()
     info.callDirection = Telephony::CallDirection::CALL_DIRECTION_OUT;
     info.callId = pimpl->currentVoipCallId_;
     HILOGI("[CcpService]HandleVoipStart: id=%{public}d", info.callId);
-    std::vector<Telephony::CallAttributeInfo> infoVec = { info };
-    HandleCallDetailChange(info.callId, static_cast<int32_t>(info.callState), "", infoVec);
+    HandleCallDetailChange(info);
     // 响铃
     std::vector<Telephony::CallAttributeInfo> callVec = CcpSystemInterface::GetInstance().GetCurrentCallList();
     info.callState = TelCallState::CALL_STATUS_ALERTING;

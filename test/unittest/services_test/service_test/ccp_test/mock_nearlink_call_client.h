@@ -30,5 +30,5 @@ public:
     MOCK_METHOD(int32_t, UnRegisterCallBack, (), ());
 };
 
-}  // namespace AVSession
+}  // namespace Telephony
 }  // namespace OHOS
