@@ -115,7 +115,7 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
     std::string bundleName = "";
-    /* Key：流id；value：静音类型 */
+    /* Key：流id；value：两种静音类型 */
     std::map<uint32_t, std::pair<bool, bool>> mutedSnapshot;
     for (const auto &it : routeFlagList_) {
         mutedSnapshot[it.streamId] = {it.dataMuted, it.volumeMuted};
@@ -402,7 +402,7 @@ void SleAudioFrameworkAdapter::JudgeDataMuteStreamByRendererState(
         mcpService->GetMediaLoader()->RendererStreamStateChange(MCP_PLAYBACK_STATE_PLAY);
         return;
     }
-    /* silentMode为true的流是应用主动静音，优先级高于mute */
+    /* silentMode为true的流是应用主动静音，上报比mute快，优先级高于mute */
     bool isSilentMode = false;
     for (const auto &it : GetRouteFlagList()) {
         if (isCallStreamType(it.streamUsage)) {
@@ -498,7 +498,7 @@ void SleAudioFrameworkAdapter::JudgeVolumeMuteStreamByRendererState(
         mcpService->GetMediaLoader()->RendererStreamStateChange(MCP_PLAYBACK_STATE_PLAY);
         return;
     }
-    /* silentMode为true的流是应用主动静音，优先级高于mute */
+    /* silentMode为true的流是应用主动静音，上报比mute快，优先级高于mute */
     bool isSilentMode = false;
     for (const auto &it : GetRouteFlagList()) {
         if (isCallStreamType(it.streamUsage)) {
