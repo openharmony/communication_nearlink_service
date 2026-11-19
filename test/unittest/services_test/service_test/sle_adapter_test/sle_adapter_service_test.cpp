@@ -72,6 +72,7 @@ const std::string kHeadsetR = "A1:B2:C3:D4:E5:01";
 const std::string kHeadsetL = "A1:B2:C3:D4:E5:02";
 const std::string kNewEarL = "A1:B2:C3:D4:E5:03";
 const std::string kMouseM = "B2:C3:D4:E5:F6:03";
+const std::string kSoloEar = "A1:B2:C3:D4:E5:09";
 const std::string kVehicle = "C3:D4:E5:F6:07:04";
 const std::string kCloudR = "D4:E5:F6:07:18:05";
 const std::string kCloudM = "D4:E5:F6:07:18:06";
@@ -1607,7 +1608,6 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_013, TestSize.Level1)
     param.eventType = CM_SLE_CBK_EVENT_HID_COEX_MODE_PARAM_UPDATE;
     Adapter().HidCoexModeCallback(&param);
 
-    // 非法事件类型
     param.eventType = static_cast<CM_HidCoexModeEventType_E>(0xFF);
     Adapter().HidCoexModeCallback(&param);
 }
@@ -1893,7 +1893,21 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_013, TestSize.Level1)
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
         static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
 
-    // 先走取消流程：主耳按本地取消清账，副耳仅随组置取消中不删档
+    // 单耳音频设备本地取消：无合作集成员在途，整组 NONE 上报不被压制，直接观测 LOCAL_CANCELED 收口
+    AddRemoteDevice(kSoloEar, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
+    EXPECT_TRUE(Adapter().CancelPairing(RawAddress(kSoloEar)));
+    Adapter().CancelPairComplete(RawAddress(kSoloEar), NLSTK_ERRCODE_SUCCESS,
+        static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON));
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kSoloEar)));
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.back().status);
+    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED),
+        callback_.pairEvents_.back().reason);
+    callback_.Reset();
+
+    // 再走合作集取消流程：主耳按本地取消清账，副耳仅随组置取消中不删档
     EXPECT_TRUE(Adapter().CancelPairing(RawAddress(kHeadsetR)));
     Adapter().CancelPairComplete(RawAddress(kHeadsetR), NLSTK_ERRCODE_SUCCESS,
         static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON));
@@ -1902,10 +1916,8 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_013, TestSize.Level1)
     ASSERT_NE(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
     EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
         SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetL)));
-    ASSERT_FALSE(callback_.pairEvents_.empty());
-    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.back().status);
-    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED),
-        callback_.pairEvents_.back().reason);
+    // 副耳仍在取消中（组内 notPairNoneCnt=1），整组 NONE 上报被产品压制，此阶段不外发事件
+    EXPECT_TRUE(callback_.pairEvents_.empty());
 
     // 未先取消的完成回调：音频副耳一并清账，取消原因按失败收口
     AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
@@ -2326,13 +2338,28 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_021, TestSize.Level1)
     SleConnectionChangedParam connecting(static_cast<int>(SleConnectState::CONNECTING),
         static_cast<int>(SleConnectState::DISCONNECTED));
     Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), connecting);
+    // 组内已上报态经 DoInCdsmThread 异步落账（首任务含 cdsm 线程冷启动约 50ms），轮询等其取到 CONNECTING
+    auto reportedIs = [&](int state) {
+        bool hit = false;
+        Cdsm().cdsmList_.Iterate([&hit, state](const uint32_t, const std::shared_ptr<CdsmInfo> &data) {
+            if (data && data->reportConnectState_ == state) {
+                hit = true;
+            }
+        });
+        return hit;
+    };
+    for (int i = 0; i < 40 && !reportedIs(static_cast<int>(SleConnectState::CONNECTING)); i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    // 落账后同态重复上报命中"已上报过"分支，整条上报被去重不再外发
+    Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), connecting);
     SleConnectionChangedParam groupDisconnecting(static_cast<int>(SleConnectState::DISCONNECTING),
         static_cast<int>(SleConnectState::CONNECTED));
     Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), groupDisconnecting);
 
-    // 断开中上报的前置态取上次已上报态，口径连续
+    // 断开中上报：前置态按通知参数透传（产品侧连续性修正值不随上报外发）
     ASSERT_EQ(2U, callback_.connEvents_.size());
-    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTING), callback_.connEvents_[1].preState);
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTED), callback_.connEvents_[1].preState);
     EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), callback_.connEvents_[1].state);
 
     // 整组空闲断连：组数据被清理
