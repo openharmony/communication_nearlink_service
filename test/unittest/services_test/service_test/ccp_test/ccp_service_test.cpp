@@ -58,7 +58,8 @@ void ClearPhoneCallMappings(CcpService *ccpService)
         CallAttributeInfo callAttributeInfo{};
         callAttributeInfo.callId = callId;
         callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
-        ccpService->HandleCallDetailChange(callAttributeInfo);
+        ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+            static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     }
 }
 }
@@ -265,15 +266,20 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
     CallAttributeInfo callAttributeInfo{};
     callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DIALING;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     callAttributeInfo.callState = TelCallState::CALL_STATUS_WAITING;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     callAttributeInfo.callState = TelCallState::CALL_STATUS_UNKNOWN;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleCallDetailChange001 end");
 }
@@ -305,7 +311,7 @@ HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
 /**
  * @tc.number: CallDetailsChanged001
  * @tc.name:
- * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时直接跳过，不得污染 callId 映射
+ * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时不得入表，由在表校验兜底拦截，不污染 callId 映射
  */
 HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
 {
@@ -319,7 +325,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
     callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* callId=-1 仅表示无特定通话，绝不能新增 VoIP 映射：喂入前后 HasVoipCallId() 必须一致 */
     EXPECT_EQ(voipBefore, ccpService->HasVoipCallId());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
@@ -347,7 +354,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
     callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* 挂断明细生效：该路 callId 映射被清理 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
@@ -373,7 +381,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
     callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* 无在表蜂窝通话时直接返回：不得反手分配 index 并写入映射 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
@@ -401,13 +410,15 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
     callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* 非挂断状态只更新明细，不得提前清映射 */
     EXPECT_TRUE(ccpService->HasPhoneCallId());
 
     /* 清场，避免残留蜂窝映射影响后续用例的守卫判定 */
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged004 end");
@@ -433,7 +444,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
     callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* -1 仅表示无特定通话：既不能清掉在册的蜂窝映射，也不能自己入表 */
     EXPECT_TRUE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
@@ -468,7 +480,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
     callAttributeInfo.callId = voipId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = CallType::TYPE_VOIP;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* 在表的 VoIP callId 同样经受在表守卫，挂断后映射被清理 */
     EXPECT_FALSE(ccpService->HasVoipCallId());
 
@@ -500,7 +513,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
     callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = CallType::TYPE_VOIP;
-    ccpService->HandleCallDetailChange(callAttributeInfo);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* callType 不参与挂断判定，映射与 002 一样被清理 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
 

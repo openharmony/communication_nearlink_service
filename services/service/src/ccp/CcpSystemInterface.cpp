@@ -165,13 +165,14 @@ void CcpSystemInterface::SystemAbilityStatusChange::OnRemoveSystemAbility(
 }
 
 // 蜂窝通话的状态回调
-int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
-    int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
+int32_t CcpSystemInterface::CallManagerCallbackImpl::OnBtCallStateChange(
+    int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
 {
-    HILOGI("[CcpService]numActive=%{public}d, numHeld=%{public}d, state=%{public}d", numActive, numHeld, callState);
-    DoInCcpThread([callState, number]() {
-        // int32_t callId = CcpSystemInterface::GetInstance().GetCurrentCallId();
-        int32_t callId = -1;
+    HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
+        callId, numActive, numHeld, callState);
+    // 蜂窝在推送通话状态给蓝牙时，也会同步给该回调接口发送但callId为-1，该场景需过滤
+    NL_CHECK_RETURN_RET(callId != INVALID_CCP_VOIP_ID, NL_NO_ERROR, "[CcpService]callId is invalid.");
+    DoInCcpThread([callId, callState, number]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
         service->HandlePhoneStateChange(callId, callState, number);
@@ -179,20 +180,10 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     return NL_NO_ERROR;
 }
 
-// 只回调某一路的回调信息
+// 只回调某一路的回调信息（不可删除覆写）
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
     HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
-    DoInCcpThread([info]() {
-        if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED &&
-            info.callType != Telephony::CallType::TYPE_VOIP) {
-            // 只有蜂窝通话需要走该流程，因为蜂窝挂断瞬间PhoneStateChanged拿到的callId是-1，无法正常处理蜂窝挂断
-            // voip和ccp构造的场景由PhoneStateChanged处理
-            CcpService *service = CcpService::GetService();
-            NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-            service->HandleCallDetailChange(info);
-        }
-    });
     return NL_NO_ERROR;
 }
 }  // namespace Nearlink

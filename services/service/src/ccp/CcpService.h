@@ -61,8 +61,7 @@ public:
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
     void HandlePhoneStateChange(int32_t callId, int32_t callState, const std::string &number);
-    void HandleCallDetailChange(const Telephony::CallAttributeInfo &info);
-    void HandleOneCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
+    void HandleCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
         const std::vector<Telephony::CallAttributeInfo> &callVec);
 
     void SetGeneralInstanceId(int32_t instanceId)
