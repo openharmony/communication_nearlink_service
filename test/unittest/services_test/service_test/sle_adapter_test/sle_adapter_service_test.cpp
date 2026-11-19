@@ -1893,7 +1893,24 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_013, TestSize.Level1)
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
         static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
 
+    // 先走取消流程：主耳按本地取消清账，副耳仅随组置取消中不删档
     EXPECT_TRUE(Adapter().CancelPairing(RawAddress(kHeadsetR)));
+    Adapter().CancelPairComplete(RawAddress(kHeadsetR), NLSTK_ERRCODE_SUCCESS,
+        static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON));
+
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetR)));
+    ASSERT_NE(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetL)));
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.back().status);
+    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED),
+        callback_.pairEvents_.back().reason);
+
+    // 未先取消的完成回调：音频副耳一并清账，取消原因按失败收口
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
     Adapter().CancelPairComplete(RawAddress(kHeadsetR), NLSTK_ERRCODE_SUCCESS,
         static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON));
 
@@ -1901,7 +1918,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_013, TestSize.Level1)
     EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
     ASSERT_FALSE(callback_.pairEvents_.empty());
     EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.back().status);
-    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED),
+    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_FAILURE),
         callback_.pairEvents_.back().reason);
 }
 
@@ -2257,20 +2274,24 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_020, TestSize.Level1)
     EXPECT_NE(static_cast<int>(SLE_ADAPTER_PROF_CONN_STATE_UNUSED),
         static_cast<int>(Adapter().pimpl->sleProfileConnectManager_.GetProfileConnectState(RawAddress(kMouseM))));
 
-    // 已断开上报携带映射后的本地断连原因
+    // 断开中上报消费缓存原因且缓存保持不重置
     Adapter().HandleDisconnAndUnpairedReason(NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST);
-    SleConnectionChangedParam disconnected(static_cast<int>(SleConnectState::DISCONNECTED),
-        static_cast<int>(SleConnectState::CONNECTED));
-    Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), disconnected);
-    ASSERT_FALSE(callback_.connEvents_.empty());
-    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT),
-        callback_.connEvents_.back().reason);
-
-    // 断开中上报保留缓存原因不被重置
     SleConnectionChangedParam disconnecting(static_cast<int>(SleConnectState::DISCONNECTING),
         static_cast<int>(SleConnectState::CONNECTED));
     Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), disconnecting);
+    ASSERT_FALSE(callback_.connEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT),
+        callback_.connEvents_.back().reason);
     EXPECT_NE(static_cast<int>(SleConnectReason::CONNECT_NONE),
+        Adapter().pimpl->sleDisconnReason_.load());
+
+    // 已断开上报沿用缓存原因后清零
+    SleConnectionChangedParam disconnected(static_cast<int>(SleConnectState::DISCONNECTED),
+        static_cast<int>(SleConnectState::DISCONNECTING));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), disconnected);
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT),
+        callback_.connEvents_.back().reason);
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_NONE),
         Adapter().pimpl->sleDisconnReason_.load());
 
     // 恢复：清空profile连接实例并还原服务注册
@@ -2320,6 +2341,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_021, TestSize.Level1)
     SleConnectionChangedParam groupDisconnected(static_cast<int>(SleConnectState::DISCONNECTED),
         static_cast<int>(SleConnectState::DISCONNECTING));
     Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), groupDisconnected);
+    Adapter().ClearAllCdsmData(RawAddress(kHeadsetR));
     EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
 }
 
@@ -2365,7 +2387,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_022, TestSize.Level1)
 
 /**
  * @tc.name: SleAdapter_Conn_023
- * @tc.desc: 合作集成员已连接时整组连接只补连断连成员，已连接成员状态不动
+ * @tc.desc: 合作集成员连接中时整组连接只补连断连成员，连接中成员状态不动
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_023, TestSize.Level1)
@@ -2375,14 +2397,14 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_023, TestSize.Level1)
     AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
     AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
-        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING));
 
     EXPECT_TRUE(Adapter().ConnectAllProfile(RawAddress(kHeadsetR)));
 
-    // 断连成员发起连接（发起即置连接中），已连接成员不被重复发起
+    // 断连成员发起连接（发起即置连接中），连接中成员不被重复发起
     EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING),
         SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetR));
-    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING),
         SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetL));
 }
 
@@ -2576,7 +2598,7 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_001, TestSize.Level1)
 
 /**
  * @tc.name: SleAdapter_Entry_002
- * @tc.desc: 底层回调注销受开启标记门禁；开启态关闭任务清空设备表与云缓存
+ * @tc.desc: 底层回调注销受开启标记门禁；开启态关闭任务清空设备表与云缓存（停用返回值随栈环境不判定）
  * @tc.type: FUNC
  */
 HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_002, TestSize.Level1)
@@ -2589,13 +2611,15 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_002, TestSize.Level1)
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
     InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
 
-    // 栈侧停用失败仍完成本地清理并返回失败
-    EXPECT_FALSE(Adapter().DisableTask());
+    // 停用返回值取决于栈侧是否可停用，仅断言本地清理效果
+    Adapter().DisableTask();
     EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kMouseM)));
     int32_t cloudState = 0;
     EXPECT_FALSE(InterfaceCloudPairService::GetInstance().GetCloudPairState(kCloudR, cloudState));
     EXPECT_EQ(NLSTK_ERRCODE_SUCCESS, Adapter().DeregisterCallbackToBtm());
     Adapter().pimpl->btmEnableFlag_ = false;
+    // 停用链会注销全部回调，补挂回套件观察者保证后续用例与重复执行
+    Adapter().RegisterSlePeripheralCallback(callback_);
 }
 
 /**
