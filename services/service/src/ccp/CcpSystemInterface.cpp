@@ -169,10 +169,12 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
     int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
 {
     HILOGI("[CcpService]numActive=%{public}d, numHeld=%{public}d, state=%{public}d", numActive, numHeld, callState);
-    DoInCcpThread([]() {
+    DoInCcpThread([callState, number]() {
+        // int32_t callId = CcpSystemInterface::GetInstance().GetCurrentCallId();
+        int32_t callId = -1;
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-        service->HandlePhoneStateChange();
+        service->HandlePhoneStateChange(callId, callState, number);
     });
     return NL_NO_ERROR;
 }
@@ -182,16 +184,14 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const T
 {
     HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
     DoInCcpThread([info]() {
-        // VoIP 挂断由 VoIP 停止流程自行处理，此处豁免；其余状态变化均需转发：
-        // 蜂窝挂断瞬间全量刷新已取不到该路 callId，必须经单路明细通道处理
         if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED &&
-            info.callType == Telephony::CallType::TYPE_VOIP) {
-            HILOGI("[CcpService]skip voip disconnect, id=%{public}d", info.callId);
-            return;
+            info.callType != Telephony::CallType::TYPE_VOIP) {
+            // 只有蜂窝通话需要走该流程，因为蜂窝挂断瞬间PhoneStateChanged拿到的callId是-1，无法正常处理蜂窝挂断
+            // voip和ccp构造的场景由PhoneStateChanged处理
+            CcpService *service = CcpService::GetService();
+            NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
+            service->HandleCallDetailChange(info);
         }
-        CcpService *service = CcpService::GetService();
-        NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-        service->HandleCallDetailChange(info);
     });
     return NL_NO_ERROR;
 }

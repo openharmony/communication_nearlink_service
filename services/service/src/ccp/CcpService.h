@@ -60,8 +60,10 @@ public:
     void HandleHangUp(const RawAddress &device, int32_t instanceId, uint32_t requestId, uint8_t callId);
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
-    void HandlePhoneStateChange();
+    void HandlePhoneStateChange(int32_t callId, int32_t callState, const std::string &number);
     void HandleCallDetailChange(const Telephony::CallAttributeInfo &info);
+    void HandleOneCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
+        const std::vector<Telephony::CallAttributeInfo> &callVec);
 
     void SetGeneralInstanceId(int32_t instanceId)
     {
@@ -74,6 +76,9 @@ public:
     void CreateVoipCallInfo();
 
 private:
+    /* 事件只携带 callId/callState，按 callId 反查通话列表补齐单路通话明细 */
+    Telephony::CallAttributeInfo FilterCallAttributeInfo(int32_t callId, int32_t callState,
+        const std::string &number, const std::vector<Telephony::CallAttributeInfo> &callVec);
     void ProcessCallDetailChange(const Telephony::CallAttributeInfo &info);
     void ProcessCallStateInfo(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
     void ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info);

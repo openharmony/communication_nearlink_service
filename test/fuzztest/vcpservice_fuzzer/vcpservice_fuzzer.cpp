@@ -205,7 +205,7 @@ void DriveCcpService(CcpService &ccpSvc, FuzzedDataProvider &provider)
     callAttrInfo.callId = provider.ConsumeIntegral<int32_t>();
     callAttrInfo.callState = static_cast<Telephony::TelCallState>(provider.ConsumeIntegral<int32_t>());
     callAttrInfo.callType = static_cast<Telephony::CallType>(provider.ConsumeIntegral<int32_t>());
-    ccpSvc.HandlePhoneStateChange();
+    ccpSvc.HandlePhoneStateChange(callAttrInfo.callId, static_cast<int32_t>(callAttrInfo.callState), "");
     ccpSvc.HandleCallDetailChange(callAttrInfo);
 
     CcpStackAdapter ccpStackAdapter;

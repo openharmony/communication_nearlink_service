@@ -240,8 +240,9 @@ HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(ccpService, nullptr);
 
-    /* 全量状态由入口内部回查 GetCurrentCallList 获取，无参；没有通话时也要把空列表同步给对端 */
-    ccpService->HandlePhoneStateChange();
+    /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：入口内部回查 GetCurrentCallList 做全量同步，空列表也要同步给对端 */
+    ccpService->HandlePhoneStateChange(
+        INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandlePhoneStateChange001 end");
 }
@@ -290,8 +291,9 @@ HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
 
     /* CcpService 为进程级单例，记录基线以免受其它用例遗留状态影响 */
     bool voipBefore = ccpService->HasVoipCallId();
-    /* 全量状态由入口内部回查 GetCurrentCallList 获取，无参 */
-    ccpService->HandlePhoneStateChange();
+    /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：仅做全量刷新 */
+    ccpService->HandlePhoneStateChange(
+        INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
     /* 全量刷新不做 callId 入表，绝不能新增 VoIP 映射：喂入前后 HasVoipCallId() 必须一致 */
     EXPECT_EQ(voipBefore, ccpService->HasVoipCallId());
     /* SetUp 已将单例状态归零，期望干净态为 false */
