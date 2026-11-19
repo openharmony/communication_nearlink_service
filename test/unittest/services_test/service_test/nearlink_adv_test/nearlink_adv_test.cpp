@@ -583,7 +583,8 @@ HWTEST_F(NearlinkAdvTest, AdvNullGuardFamilyTest_001, TestSize.Level1)
     std::weak_ptr<ISleAdvertiserCallback> emptyCb;
     SleAdvertiserSettingsImpl settings;
     SleAdvertiserDataImpl advData;
-    // 逐入口把广播实例置空后调用：全部安全返回
+    // 进程级单例状态先保存，用例结束还原，保证重复运行时既有用例不受置空影响
+    auto savedAdvertiser = adapter.pimpl->sleAdvertiser_;
     adapter.pimpl->sleAdvertiser_ = nullptr;
     adapter.RegisterSleAdvertiserCallback(emptyCb);
     adapter.RegisterSleConnectableAdvertiserCallback(emptyCb);
@@ -597,6 +598,7 @@ HWTEST_F(NearlinkAdvTest, AdvNullGuardFamilyTest_001, TestSize.Level1)
     adapter.StopAdvertisingAll();
     adapter.EnableAdvertising(0);
     adapter.DisableAdvertising(0);
+    adapter.pimpl->sleAdvertiser_ = savedAdvertiser;
     SUCCEED();
 }
 } // namespace TEST

@@ -25,8 +25,10 @@
 #include <cstring>
 #include <thread>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "nearlink_datatransfer_def.h"
+#include "nearlink_fdsan_tag.h"
 #include "nearlink_datatransfer_parcel.h"
 #include "nearlink_socket_manager.h"
 #include "nearlink_socket_outputstream.h"
@@ -74,8 +76,15 @@ HWTEST(NlSocketTailTest, OutputStreamWriteTest_001, TestSize.Level1)
     uint8_t data[4] = {0x01, 0x02, 0x03, 0x04};
     EXPECT_EQ(out.Write(data, sizeof(data)), SLE_TRANS_RESULT_SUCCESS);
 
-    // 无效描述符：余量检查拿不到选项，按内部错误返回
-    OutputStream broken(-1);
+    // 已关闭的描述符：入口判空直接按内部错误返回
+    OutputStream closed(-1);
+    EXPECT_EQ(closed.Write(data, sizeof(data)), SLE_TRANS_RESULT_INTERNAL_FAULT);
+
+    // 失效但非负的描述符：容量检查拿不到选项，写入失败同样按内部错误返回
+    int dead = open("/dev/null", O_RDONLY);
+    ASSERT_GE(dead, 0);
+    close(dead);
+    OutputStream broken(dead);
     EXPECT_EQ(broken.Write(data, sizeof(data)), SLE_TRANS_RESULT_INTERNAL_FAULT);
     close(fds[0]);
     close(fds[1]);
@@ -121,7 +130,8 @@ HWTEST(NlSocketTailTest, SocketPairLifecycleTest_001, TestSize.Level1)
     manager.DestroyPeerPort(TEST_PORT, "22:22:22:22:22:22");
     manager.DestroyPeerPort(TEST_PORT, TEST_ADDR);
     manager.DestroyPort(TEST_PORT);
-    close(fd);
+    // 返回 fd 已带套接字 tag：按配对方式关闭
+    fdsan_close_with_tag(fd, NEARLINK_FDSAN_TAG_SOCKET);
 }
 
 /* 管道描述符注入：只读端与只写端分别走能力检查的对应分支，均安全完成 */
@@ -131,11 +141,12 @@ HWTEST(NlSocketTailTest, SetSocketCapabilityTest_001, TestSize.Level1)
     auto callback = [](std::shared_ptr<InputStream> stream, uint16_t port, std::string addr) {};
     int fds[2] = {-1, -1};
     ASSERT_EQ(pipe(fds), 0);
+    // 管道描述符移交前先打套接字 tag，销毁路径按同 tag 配对关闭
+    fdsan_exchange_owner_tag(fds[0], 0, NEARLINK_FDSAN_TAG_SOCKET);
+    fdsan_exchange_owner_tag(fds[1], 0, NEARLINK_FDSAN_TAG_SOCKET);
     manager.SetSocket(TEST_PORT, TEST_ADDR, 4, fds[0], callback);
     manager.SetSocket(TEST_PORT + 1, TEST_ADDR, 4, fds[1], callback);
     manager.DestroyPort(TEST_PORT);
     manager.DestroyPort(TEST_PORT + 1);
-    close(fds[0]);
-    close(fds[1]);
     SUCCEED();
 }

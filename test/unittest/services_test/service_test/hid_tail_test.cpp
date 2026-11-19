@@ -44,7 +44,7 @@ constexpr const char *HID_ADDR = "11:22:33:44:55:66";
 } // namespace
 
 namespace OHOS {
-namespace Sle {
+namespace Nearlink {
 
 class HidTailTest : public testing::Test {
 public:
@@ -117,6 +117,8 @@ HWTEST_F(HidTailTest, UhidSendGuardsTest_001, TestSize.Level1)
     uhid->SendControlData(huge.data(), static_cast<uint16_t>(huge.size()));
     EXPECT_EQ(uhid->taskType_, -1);
 
+    // 先解除 fd 归属再关闭，避免析构路径对悬垂 fd 号做带 tag 关闭
+    uhid->fd_ = -1;
     close(fds[0]);
     close(fds[1]);
 }
@@ -184,6 +186,7 @@ HWTEST_F(HidTailTest, UhidEventStatesTest_001, TestSize.Level1)
     feed(ev);
     EXPECT_EQ(uhid->ReadUhidEvent(), HID_HOST_SUCCESS);
 
+    uhid->fd_ = -1;
     close(fds[0]);
     close(fds[1]);
 }
@@ -214,6 +217,7 @@ HWTEST_F(HidTailTest, UhidFeatureAndSetReportTest_001, TestSize.Level1)
     ASSERT_EQ(uhid->ReadUhidEvent(), HID_HOST_SUCCESS);
     EXPECT_EQ(uhid->taskType_, static_cast<int>(HID_HOST_DATA_TYPE_SET_REPORT));
 
+    uhid->fd_ = -1;
     close(fds[0]);
     close(fds[1]);
 }
@@ -256,5 +260,5 @@ HWTEST_F(HidTailTest, WritePropertyCbkArmsTest_001, TestSize.Level1)
     SUCCEED();
 }
 
-} // namespace Sle
+} // namespace Nearlink
 } // namespace OHOS

@@ -107,7 +107,7 @@ HWTEST_F(SmallDomainTailTest, LisServerRegisterGatesTest_001, TestSize.Level1)
     server.RegisterLisServerApplicationInterface();
     // 未登记应用号：去注册早退
     server.DeregisterLisServerApplicationInterface();
-    // 已登记应用号：重复注册早退
+    // 已登记应用号：在测距特性已开启的环境下走重复注册早退，默认特性关闭时被前置特性门拦截
     server.appId_ = 0;
     server.RegisterLisServerApplicationInterface();
     EXPECT_EQ(server.appId_, 0);
@@ -251,9 +251,9 @@ HWTEST_F(SmallDomainTailTest, IcceAdapterStateChangeTest_001, TestSize.Level1)
     SLE_Addr_S addr = {};
     addr.type = 0;
     (void)memset_s(addr.addr, SLE_ADDR_LEN, 0x22, 1);
-    IcceClientStackAdapter::OnConnectionStateChanged(&addr, ICCE_DISCONNECTED, ICCE_CONNECTING,
+    IcceClientStackAdapter::OnConnectionStateChange(&addr, ICCE_DISCONNECTED, ICCE_CONNECTING,
         NLSTK_ERRCODE_SUCCESS);
-    IcceClientStackAdapter::OnConnectionStateChanged(&addr, ICCE_CONNECTED, ICCE_CONNECTING,
+    IcceClientStackAdapter::OnConnectionStateChange(&addr, ICCE_CONNECTED, ICCE_CONNECTING,
         NLSTK_ERRCODE_SUCCESS);
     SUCCEED();
 }
