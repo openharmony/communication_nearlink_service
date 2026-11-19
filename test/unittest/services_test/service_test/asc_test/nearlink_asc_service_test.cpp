@@ -3143,6 +3143,47 @@ HWTEST_F(ASCServiceTest, OpenVoiceAssistant_001, TestSize.Level1)
 }
 
 /**
+ * @tc.name: CloseVoiceAssistant_001
+ * @tc.desc: Keep the calling flag in call-related audio scenes
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, CloseVoiceAssistant_001, TestSize.Level1)
+{
+    ASCService *asc = new ASCService();
+    RawAddress device = RawAddress(deviceStr);
+    auto &audioManager = AudioStandard::AudioSystemClientPolicyManager::GetInstance();
+    AudioStandard::AudioScene oldScene = audioManager.GetAudioScene();
+    const AudioStandard::AudioScene callScenes[] = {
+        AudioStandard::AudioScene::AUDIO_SCENE_RINGING,
+        AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CALL,
+        AudioStandard::AudioScene::AUDIO_SCENE_PHONE_CHAT,
+        AudioStandard::AudioScene::AUDIO_SCENE_VOICE_RINGING,
+    };
+    for (const auto &scene : callScenes) {
+        EXPECT_EQ(0, audioManager.SetAudioScene(scene));
+        AudioStandard::AudioScene expectedScene = scene;
+        if (scene == AudioStandard::AudioScene::AUDIO_SCENE_VOICE_RINGING) {
+            expectedScene = AudioStandard::AudioScene::AUDIO_SCENE_RINGING;
+        }
+        EXPECT_EQ(expectedScene, audioManager.GetAudioScene());
+        asc->SetIsCallingFlag(true);
+        asc->CloseVoiceAssistant(device, AUDIO_STREAM_VOICE_ASSISTANT);
+        EXPECT_TRUE(asc->GetIsCallingFlag());
+    }
+
+    EXPECT_EQ(0, audioManager.SetAudioScene(AudioStandard::AudioScene::AUDIO_SCENE_DEFAULT));
+    asc->SetIsCallingFlag(true);
+    asc->CloseVoiceAssistant(device, AUDIO_STREAM_VOICE_ASSISTANT);
+    EXPECT_FALSE(asc->GetIsCallingFlag());
+
+    asc->SetIsCallingFlag(true);
+    asc->CloseVoiceAssistant(device, AUDIO_STREAM_MUSIC);
+    EXPECT_TRUE(asc->GetIsCallingFlag());
+    EXPECT_EQ(0, audioManager.SetAudioScene(oldScene));
+    delete asc;
+}
+
+/**
  * @tc.name: CheckStreamIsNeedNotifyCcp_001
  * @tc.desc: CheckStreamIsNeedNotifyCcp
  * @tc.type: FUNC
@@ -5669,5 +5710,396 @@ HWTEST_F(ASCServiceTest, UpdateASCToDSPInfo_002, TestSize.Level1)
     delete asc;
     HILOGI("UpdateASCToDSPInfo_002 end");
 }
+
+/**
+ * @tc.name: QosmAddQosMatrix_001
+ * @tc.desc: 添加服务质量档位时的替换规则矩阵（规则十与通话延迟链）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmAddQosMatrix_001, TestSize.Level1)
+{
+    HILOGI("QosmAddQosMatrix_001 enter");
+    // 无效档位被拒绝
+    RawAddress guardDev = RawAddress("AA:02:02:02:02:01");
+    QosM::GetInstance().ClearQosM(guardDev);
+    EXPECT_EQ(false, QosM::GetInstance().AddQos(guardDev, NL_SLE_QOS_BUTT));
+
+    // 规则十：当前档位为2且集合无2时，档位4替换2
+    RawAddress rule10Dev = RawAddress("AA:02:02:02:02:02");
+    QosM::GetInstance().ClearQosM(rule10Dev);
+    QosM::GetInstance().AddQos(rule10Dev, NL_SLE_QOS_1);
+    QosM::GetInstance().SetCos(rule10Dev, NL_SLE_QOS_2);
+    EXPECT_EQ(true, QosM::GetInstance().AddQos(rule10Dev, NL_SLE_QOS_4));
+    EXPECT_EQ(NL_SLE_QOS_4, QosM::GetInstance().GetCOS(rule10Dev));
+
+    // 通话延迟断链中起播非通话业务，档位被新计算的档位替换
+    RawAddress rule3Dev = RawAddress("AA:02:02:02:02:03");
+    QosM::GetInstance().ClearQosM(rule3Dev);
+    QosM::GetInstance().AddQos(rule3Dev, NL_SLE_QOS_1);
+    QosM::GetInstance().SetCos(rule3Dev, NL_SLE_QOS_3);
+    EXPECT_EQ(true, QosM::GetInstance().AddQos(rule3Dev, NL_SLE_QOS_2));
+    EXPECT_EQ(NL_SLE_QOS_2, QosM::GetInstance().GetCOS(rule3Dev));
+    HILOGI("QosmAddQosMatrix_001 end");
+}
+
+/**
+ * @tc.name: QosmJudgeQosPriority_001
+ * @tc.desc: 档位优先级判定矩阵（10缺席替换、优先级升降、4与8互换）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmJudgeQosPriority_001, TestSize.Level1)
+{
+    HILOGI("QosmJudgeQosPriority_001 enter");
+    RawAddress device = RawAddress("AA:02:02:02:02:04");
+    QosM::GetInstance().ClearQosM(device);
+    QosM::GetInstance().AddQos(device, NL_SLE_QOS_1);
+
+    // 档位10不在集合内时被新档位替换
+    DevQosmStru qosm10 {};
+    qosm10.cos = NL_SLE_QOS_10;
+    EXPECT_EQ(true, QosM::GetInstance().JudgeQosPriority(device, qosm10, NL_SLE_QOS_1));
+    EXPECT_EQ(NL_SLE_QOS_1, qosm10.cos);
+
+    // 当前档位优先级更高时保持不变
+    DevQosmStru qosmHigh {};
+    qosmHigh.cos = NL_SLE_QOS_2;
+    EXPECT_EQ(false, QosM::GetInstance().JudgeQosPriority(device, qosmHigh, NL_SLE_QOS_1));
+    EXPECT_EQ(NL_SLE_QOS_2, qosmHigh.cos);
+
+    // 新档位优先级更高时替换
+    DevQosmStru qosmLow {};
+    qosmLow.cos = NL_SLE_QOS_1;
+    EXPECT_EQ(true, QosM::GetInstance().JudgeQosPriority(device, qosmLow, NL_SLE_QOS_2));
+    EXPECT_EQ(NL_SLE_QOS_2, qosmLow.cos);
+
+    // 空间音频头动与固定档位同优先级互换
+    DevQosmStru qosmHeadTrack {};
+    qosmHeadTrack.cos = NL_SLE_QOS_4;
+    EXPECT_EQ(true, QosM::GetInstance().JudgeQosPriority(device, qosmHeadTrack, NL_SLE_QOS_8));
+    EXPECT_EQ(NL_SLE_QOS_8, qosmHeadTrack.cos);
+    DevQosmStru qosmFixed {};
+    qosmFixed.cos = NL_SLE_QOS_8;
+    EXPECT_EQ(true, QosM::GetInstance().JudgeQosPriority(device, qosmFixed, NL_SLE_QOS_4));
+    EXPECT_EQ(NL_SLE_QOS_4, qosmFixed.cos);
+
+    // 同优先级且非4与8组合时保持不变
+    DevQosmStru qosmEqual {};
+    qosmEqual.cos = NL_SLE_QOS_2;
+    EXPECT_EQ(false, QosM::GetInstance().JudgeQosPriority(device, qosmEqual, NL_SLE_QOS_10));
+    EXPECT_EQ(NL_SLE_QOS_2, qosmEqual.cos);
+    HILOGI("QosmJudgeQosPriority_001 end");
+}
+
+/**
+ * @tc.name: QosmDeleteQosGuard_001
+ * @tc.desc: 删除档位的入参防御矩阵（无效档位、无记录、空集合）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmDeleteQosGuard_001, TestSize.Level1)
+{
+    HILOGI("QosmDeleteQosGuard_001 enter");
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+
+    // 无效档位
+    RawAddress invalidDev = RawAddress("AA:02:02:02:02:05");
+    QosM::GetInstance().ClearQosM(invalidDev);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(invalidDev, NL_SLE_QOS_BUTT, isStopStream, isStopImmediately));
+
+    // 设备无记录
+    RawAddress emptyDev = RawAddress("AA:02:02:02:02:06");
+    QosM::GetInstance().ClearQosM(emptyDev);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(emptyDev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+
+    // 记录存在但集合已清空
+    RawAddress clearedDev = RawAddress("AA:02:02:02:02:07");
+    QosM::GetInstance().ClearQosM(clearedDev);
+    QosM::GetInstance().AddQos(clearedDev, NL_SLE_QOS_1);
+    QosM::GetInstance().ClearQosM(clearedDev);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(clearedDev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    HILOGI("QosmDeleteQosGuard_001 end");
+}
+
+/**
+ * @tc.name: QosmDeleteQosStopStream_001
+ * @tc.desc: 集合清空后的停流判定随当前档位立即结束属性变化.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmDeleteQosStopStream_001, TestSize.Level1)
+{
+    HILOGI("QosmDeleteQosStopStream_001 enter");
+    // 普通档位：延迟结束
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+    RawAddress delayedDev = RawAddress("AA:02:02:02:02:08");
+    QosM::GetInstance().ClearQosM(delayedDev);
+    QosM::GetInstance().AddQos(delayedDev, NL_SLE_QOS_1);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(delayedDev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(false, isStopImmediately);
+
+    // 立即结束档位：集合清空即立即停流
+    isStopStream = false;
+    isStopImmediately = false;
+    RawAddress immediateDev = RawAddress("AA:02:02:02:02:09");
+    QosM::GetInstance().ClearQosM(immediateDev);
+    QosM::GetInstance().AddQos(immediateDev, NL_SLE_QOS_5);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(immediateDev, NL_SLE_QOS_5, isStopStream, isStopImmediately));
+    EXPECT_EQ(true, isStopStream);
+    EXPECT_EQ(true, isStopImmediately);
+    HILOGI("QosmDeleteQosStopStream_001 end");
+}
+
+/**
+ * @tc.name: QosmDeleteQosReplaceCos_001
+ * @tc.desc: 删除档位后当前档位按规则四、七、九、十二被新档位替换或保持.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmDeleteQosReplaceCos_001, TestSize.Level1)
+{
+    HILOGI("QosmDeleteQosReplaceCos_001 enter");
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+
+    // 规则七：剩余档位优先级低于当前档位时替换
+    RawAddress rule7Dev = RawAddress("AA:02:02:02:02:0A");
+    QosM::GetInstance().ClearQosM(rule7Dev);
+    QosM::GetInstance().AddQos(rule7Dev, NL_SLE_QOS_3);
+    QosM::GetInstance().AddQos(rule7Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(true, QosM::GetInstance().DeleteQos(rule7Dev, NL_SLE_QOS_3, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_1, QosM::GetInstance().GetCOS(rule7Dev));
+
+    // 规则四：通话档位删除后上行业务仍在时新档位保持通话档位
+    RawAddress rule4Dev = RawAddress("AA:02:02:02:02:0B");
+    QosM::GetInstance().ClearQosM(rule4Dev);
+    QosM::GetInstance().AddQos(rule4Dev, NL_SLE_QOS_3);
+    QosM::GetInstance().AddQos(rule4Dev, NL_SLE_QOS_5);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(rule4Dev, NL_SLE_QOS_3, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_3, QosM::GetInstance().GetCOS(rule4Dev));
+
+    // 规则九：单下行业务保持档位2
+    RawAddress rule9Dev = RawAddress("AA:02:02:02:02:0C");
+    QosM::GetInstance().ClearQosM(rule9Dev);
+    QosM::GetInstance().AddQos(rule9Dev, NL_SLE_QOS_2);
+    QosM::GetInstance().AddQos(rule9Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(rule9Dev, NL_SLE_QOS_2, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_2, QosM::GetInstance().GetCOS(rule9Dev));
+    EXPECT_EQ(true, QosM::GetInstance().IsQosExist(rule9Dev, NL_SLE_QOS_1));
+
+    // 规则十二：档位10删除后跟随新档位
+    RawAddress rule12Dev = RawAddress("AA:02:02:02:02:0D");
+    QosM::GetInstance().ClearQosM(rule12Dev);
+    QosM::GetInstance().AddQos(rule12Dev, NL_SLE_QOS_1);
+    QosM::GetInstance().AddQos(rule12Dev, NL_SLE_QOS_2);
+    QosM::GetInstance().SetCos(rule12Dev, NL_SLE_QOS_10);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(rule12Dev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(NL_SLE_QOS_2, QosM::GetInstance().GetCOS(rule12Dev));
+    HILOGI("QosmDeleteQosReplaceCos_001 end");
+}
+
+/**
+ * @tc.name: QosmDeleteQosPurge_001
+ * @tc.desc: 媒体全停时头动、固定与全景音档位被一并清理.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmDeleteQosPurge_001, TestSize.Level1)
+{
+    HILOGI("QosmDeleteQosPurge_001 enter");
+    bool isStopStream = false;
+    bool isStopImmediately = false;
+
+    // 头动档位随低优先级档位删除被清理
+    RawAddress purge4Dev = RawAddress("AA:02:02:02:02:0E");
+    QosM::GetInstance().ClearQosM(purge4Dev);
+    QosM::GetInstance().AddQos(purge4Dev, NL_SLE_QOS_4);
+    QosM::GetInstance().AddQos(purge4Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(purge4Dev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(false, QosM::GetInstance().IsQosExist(purge4Dev, NL_SLE_QOS_4));
+
+    // 固定档位同理
+    RawAddress purge8Dev = RawAddress("AA:02:02:02:02:0F");
+    QosM::GetInstance().ClearQosM(purge8Dev);
+    QosM::GetInstance().AddQos(purge8Dev, NL_SLE_QOS_8);
+    QosM::GetInstance().AddQos(purge8Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(purge8Dev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(false, QosM::GetInstance().IsQosExist(purge8Dev, NL_SLE_QOS_8));
+
+    // 全景音档位在其他档位删除时被清理，删除自身时不重复清理
+    RawAddress purge10Dev = RawAddress("AA:02:02:02:02:10");
+    QosM::GetInstance().ClearQosM(purge10Dev);
+    QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_10);
+    QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(false, QosM::GetInstance().DeleteQos(purge10Dev, NL_SLE_QOS_1, isStopStream, isStopImmediately));
+    EXPECT_EQ(false, QosM::GetInstance().IsQosExist(purge10Dev, NL_SLE_QOS_10));
+
+    QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_10);
+    QosM::GetInstance().AddQos(purge10Dev, NL_SLE_QOS_1);
+    EXPECT_EQ(true, QosM::GetInstance().DeleteQos(purge10Dev, NL_SLE_QOS_10, isStopStream, isStopImmediately));
+    EXPECT_EQ(true, QosM::GetInstance().IsQosExist(purge10Dev, NL_SLE_QOS_1));
+    HILOGI("QosmDeleteQosPurge_001 end");
+}
+
+/**
+ * @tc.name: QosmClearQosIfStartFailed_001
+ * @tc.desc: 起播失败清理按集合剩余情况决定是否复位当前档位.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmClearQosIfStartFailed_001, TestSize.Level1)
+{
+    HILOGI("QosmClearQosIfStartFailed_001 enter");
+    // 设备无记录时直接返回
+    RawAddress noItemDev = RawAddress("AA:02:02:02:02:11");
+    QosM::GetInstance().ClearQosM(noItemDev);
+    QosM::GetInstance().ClearQosIfStartFailed(noItemDev, NL_SLE_QOS_1);
+    EXPECT_EQ(NL_SLE_QOS_NONE, QosM::GetInstance().GetCOS(noItemDev));
+
+    // 集合仍有其他档位时保持当前档位
+    RawAddress remainDev = RawAddress("AA:02:02:02:02:12");
+    QosM::GetInstance().ClearQosM(remainDev);
+    QosM::GetInstance().AddQos(remainDev, NL_SLE_QOS_1);
+    QosM::GetInstance().AddQos(remainDev, NL_SLE_QOS_2);
+    QosM::GetInstance().ClearQosIfStartFailed(remainDev, NL_SLE_QOS_1);
+    EXPECT_EQ(NL_SLE_QOS_2, QosM::GetInstance().GetCOS(remainDev));
+
+    // 集合被清空后当前档位复位
+    RawAddress emptyDev = RawAddress("AA:02:02:02:02:13");
+    QosM::GetInstance().ClearQosM(emptyDev);
+    QosM::GetInstance().AddQos(emptyDev, NL_SLE_QOS_1);
+    QosM::GetInstance().SetCos(emptyDev, NL_SLE_QOS_3);
+    QosM::GetInstance().ClearQosIfStartFailed(emptyDev, NL_SLE_QOS_1);
+    EXPECT_EQ(NL_SLE_QOS_NONE, QosM::GetInstance().GetCOS(emptyDev));
+    HILOGI("QosmClearQosIfStartFailed_001 end");
+}
+
+/**
+ * @tc.name: QosmSetCosGuard_001
+ * @tc.desc: 设置当前档位的防御矩阵（无效档位、无记录设备）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmSetCosGuard_001, TestSize.Level1)
+{
+    HILOGI("QosmSetCosGuard_001 enter");
+    // 无记录设备设置档位不产生记录
+    RawAddress noItemDev = RawAddress("AA:02:02:02:02:14");
+    QosM::GetInstance().ClearQosM(noItemDev);
+    QosM::GetInstance().SetCos(noItemDev, NL_SLE_QOS_3);
+    EXPECT_EQ(NL_SLE_QOS_NONE, QosM::GetInstance().GetCOS(noItemDev));
+
+    // 无效档位被拒绝
+    RawAddress invalidDev = RawAddress("AA:02:02:02:02:15");
+    QosM::GetInstance().ClearQosM(invalidDev);
+    QosM::GetInstance().AddQos(invalidDev, NL_SLE_QOS_1);
+    QosM::GetInstance().SetCos(invalidDev, NL_SLE_QOS_3);
+    QosM::GetInstance().SetCos(invalidDev, NL_SLE_QOS_BUTT);
+    EXPECT_EQ(NL_SLE_QOS_3, QosM::GetInstance().GetCOS(invalidDev));
+    HILOGI("QosmSetCosGuard_001 end");
+}
+
+/**
+ * @tc.name: QosmSyncQos_001
+ * @tc.desc: 合作设备档位集合同步的三种情形（无记录、空集合、正常同步）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, QosmSyncQos_001, TestSize.Level1)
+{
+    HILOGI("QosmSyncQos_001 enter");
+    // 合作设备无记录时同步为空操作
+    RawAddress noItemTarget = RawAddress("AA:02:02:02:02:16");
+    RawAddress noItemSource = RawAddress("AA:02:02:02:02:17");
+    QosM::GetInstance().ClearQosM(noItemTarget);
+    QosM::GetInstance().ClearQosM(noItemSource);
+    QosM::GetInstance().SyncQos(noItemTarget, noItemSource);
+    EXPECT_EQ(NL_SLE_QOS_NONE, QosM::GetInstance().GetCOS(noItemTarget));
+
+    // 合作设备集合为空时同步为空操作
+    RawAddress emptyTarget = RawAddress("AA:02:02:02:02:18");
+    RawAddress emptySource = RawAddress("AA:02:02:02:02:19");
+    QosM::GetInstance().ClearQosM(emptyTarget);
+    QosM::GetInstance().ClearQosM(emptySource);
+    QosM::GetInstance().AddQos(emptySource, NL_SLE_QOS_1);
+    QosM::GetInstance().ClearQosM(emptySource);
+    QosM::GetInstance().SyncQos(emptyTarget, emptySource);
+    EXPECT_EQ(false, QosM::GetInstance().IsQosExist(emptyTarget, NL_SLE_QOS_1));
+
+    // 正常同步复制全部档位与当前档位
+    RawAddress target = RawAddress("AA:02:02:02:02:1A");
+    RawAddress source = RawAddress("AA:02:02:02:02:1B");
+    QosM::GetInstance().ClearQosM(target);
+    QosM::GetInstance().ClearQosM(source);
+    QosM::GetInstance().AddQos(source, NL_SLE_QOS_1);
+    QosM::GetInstance().AddQos(source, NL_SLE_QOS_2);
+    QosM::GetInstance().SetCos(source, NL_SLE_QOS_2);
+    QosM::GetInstance().SyncQos(target, source);
+    EXPECT_EQ(true, QosM::GetInstance().IsQosExist(target, NL_SLE_QOS_1));
+    EXPECT_EQ(true, QosM::GetInstance().IsQosExist(target, NL_SLE_QOS_2));
+    EXPECT_EQ(NL_SLE_QOS_2, QosM::GetInstance().GetCOS(target));
+    HILOGI("QosmSyncQos_001 end");
+}
+
+/**
+ * @tc.name: ASCUtilsGetBpsBitIndex_001
+ * @tc.desc: 码率到位图索引的映射矩阵与未知码率回退.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ASCUtilsGetBpsBitIndex_001, TestSize.Level1)
+{
+    HILOGI("ASCUtilsGetBpsBitIndex_001 enter");
+    EXPECT_EQ(L2HC_BPS_S_48_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_48)));
+    EXPECT_EQ(L2HC_BPS_S_64_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_64)));
+    EXPECT_EQ(L2HC_BPS_S_96_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_96)));
+    EXPECT_EQ(L2HC_BPS_S_128_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_128)));
+    EXPECT_EQ(L2HC_BPS_S_160_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_160)));
+    EXPECT_EQ(L2HC_BPS_S_240_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_240)));
+    EXPECT_EQ(L2HC_BPS_S_320_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_320)));
+    EXPECT_EQ(L2HC_BPS_S_480_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_480)));
+    EXPECT_EQ(L2HC_BPS_S_750_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_750)));
+    EXPECT_EQ(L2HC_BPS_S_960_BIT, ASCUtils::GetBpsBitIndexByBps(static_cast<uint16_t>(BPS_960)));
+    EXPECT_EQ(L2HC_BPS_S_64_BIT, ASCUtils::GetBpsBitIndexByBps(55));
+    HILOGI("ASCUtilsGetBpsBitIndex_001 end");
+}
+
+/**
+ * @tc.name: ASCUtilsGetDirection_001
+ * @tc.desc: 档位到传输方向的映射矩阵（主从角色仅影响通话类档位）.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ASCUtilsGetDirection_001, TestSize.Level1)
+{
+    HILOGI("ASCUtilsGetDirection_001 enter");
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_1));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_2));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_3));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_3));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_4));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(false, NL_SLE_QOS_5));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_6));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(false, NL_SLE_QOS_6));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_7));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(false, NL_SLE_QOS_9));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_DOWN, ASCUtils::GetDirection(true, NL_SLE_QOS_10));
+    EXPECT_EQ(NLSTK_ACTM_DIRECTION_BOTH, ASCUtils::GetDirection(true, NL_SLE_QOS_NONE));
+    HILOGI("ASCUtilsGetDirection_001 end");
+}
+
+/**
+ * @tc.name: ASCUtilsGetAutorateTargetBpsRange_001
+ * @tc.desc: 通话自动调档目标码率位图按下行掩码截取的矩阵.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ASCServiceTest, ASCUtilsGetAutorateTargetBpsRange_001, TestSize.Level1)
+{
+    HILOGI("ASCUtilsGetAutorateTargetBpsRange_001 enter");
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_32),
+        ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_32)));
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64 | L2HC_VOICE_BPS_S_32),
+        ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_64)));
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_64 | L2HC_VOICE_BPS_S_32),
+        ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_128)));
+    EXPECT_EQ(static_cast<uint32_t>(L2HC_VOICE_BPS_S_32),
+        ASCUtils::GetAutorateTargetBpsRange(static_cast<uint16_t>(BPS_48)));
+    EXPECT_EQ(static_cast<uint32_t>(BPS_QOS3_AUTORATE_DOWN), ASCUtils::GetAutorateTargetBpsRange(100));
+    HILOGI("ASCUtilsGetAutorateTargetBpsRange_001 end");
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS

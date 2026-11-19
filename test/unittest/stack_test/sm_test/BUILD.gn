@@ -72,7 +72,8 @@ ohos_unittest("nl_stack_sm_test") {
     if (s != "$STACK_DIR/src/dli/dli.c" &&
       s != "$STACK_DIR/src/dli/cmd/src/dli_cmd.c" &&
       s != "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_api.c" &&
-      s != "$STACK_DIR/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c") {
+      s != "$STACK_DIR/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c" &&
+      s != "$STACK_DIR/src/sdf/oal/memm/src/sdf_mem.c") {
       sources += [ s ]
     }
   }
@@ -82,12 +83,16 @@ ohos_unittest("nl_stack_sm_test") {
     "sm_dispatch_test.cpp",
     "sm_crypto_test.cpp",
     "sm_cmn_test.cpp",
+    "sm_authflow_test.cpp",
+    "sm_stm_support_test.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dli_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dli_stub.c",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_sdf_mem_mock.cpp",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_sdf_mem_stub.c",
   ]
 
   configs = [ ":stack_unit_test_config" ]

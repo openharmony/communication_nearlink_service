@@ -84,7 +84,8 @@ ohos_unittest("nl_dis_service_test") {
   ]
   sources += [
     "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_system_config.cpp",
-    "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_dft_ue.cpp"
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_nearlink_dft_ue.cpp",
+    "$MOCK_HOST_SERVER_FILE_TDD/mock_sle_remote_device_adapter.cpp",
     ]
 
   configs = [ ":nl_dis_service_unit_test_config" ]
@@ -92,6 +93,10 @@ ohos_unittest("nl_dis_service_test") {
   configs += ["${nearlink_test_utils_path}:service_tdd_config"]
   sources += shared_service_source
   sources += [ "$NEARLINK_ROOT/test/unittest/mock/mock_nearlink_permission_manager.cpp" ]
+  sources -= [
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
+    "$NEARLINK_ROOT/services/service/src/adapter/SleRemoteDeviceAdapter.cpp",
+  ]
 
   deps = unit_test_deps
 
