@@ -1630,7 +1630,7 @@ HWTEST_F(ScanServiceTest, ScanService_ParseAdvResult_MinimalFields_001, TestSize
 
     EXPECT_EQ(scannerIds.size(), static_cast<size_t>(1));
     SlePeripheralDevice device = scanResult.GetPeripheralDevice();
-    EXPECT_EQ(device.GetAddress().GetAddress(), addr);
+    EXPECT_EQ(device.GetRawAddress().GetAddress(), addr);
     EXPECT_EQ(device.GetCurrentRawAddress().GetAddress(), addr);
     EXPECT_EQ(device.GetName(), "");
     EXPECT_EQ(device.GetRSSI(), -42);
@@ -1831,7 +1831,7 @@ HWTEST_F(ScanServiceTest, ScanService_QueryMissDefaults_001, TestSize.Level1)
 
     EXPECT_EQ(scan.GetDeviceName(missing), "");
     EXPECT_EQ(scan.GetDeviceAppearance(missing), INVALID_APPEARANCE);
-    EXPECT_EQ(scan.GetDeviceManufacturerAbility(missing), std::array<uint8_t, SLE_MANU_ABILITY_LEN> {});
+    EXPECT_EQ(scan.GetDeviceManufacturerAbility(missing), (std::array<uint8_t, SLE_MANU_ABILITY_LEN> {}));
     EXPECT_EQ(scan.GetDeviceAddrType(missing), static_cast<int>(SLE_ADDR_TYPE_END));
     EXPECT_EQ(scan.GetManufacturerBusinessType(missing), 0);
     EXPECT_FALSE(scan.IsAudioDevice(missing));
