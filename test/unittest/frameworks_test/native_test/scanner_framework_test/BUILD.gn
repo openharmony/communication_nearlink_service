@@ -63,6 +63,8 @@ unit_test_external_deps = [
   "safwk:system_ability_fwk",
   "samgr:samgr_proxy",
   "init:libbegetutil",
+  "access_token:libtoken_setproc",
+  "access_token:libpermsetproc_shared",
 ]
 
 test_out_path = "nearlink_service/nearlink_service"
