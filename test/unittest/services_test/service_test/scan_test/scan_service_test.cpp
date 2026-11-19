@@ -1778,7 +1778,16 @@ HWTEST_F(ScanServiceTest, ScanService_ClearOldPeripheralDevice_001, TestSize.Lev
 
     ScanService::GetInstance().AddPeripheralDevice(
         makeResult("00:11:22:33:44:83", "00:11:22:33:44:80", "AudioNewAdv", true));
-    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81"), "");
+    // 产品 NearlinkSafeHashMap::FindAndRmv 只清首个命中项（无序容器，命中序不指定），
+    // 两条同主耳旧地址恰清一条，不承诺清具体哪一条
+    int staleLeft = 0;
+    if (!InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81").empty()) {
+        staleLeft++;
+    }
+    if (!InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:82").empty()) {
+        staleLeft++;
+    }
+    EXPECT_EQ(staleLeft, 1);
     EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:83"), "AudioNewAdv");
 }
 
