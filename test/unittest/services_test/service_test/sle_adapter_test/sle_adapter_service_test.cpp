@@ -25,8 +25,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "CdsmService.h"
@@ -44,6 +48,13 @@
 #include "nearlink_access_token_mock.h"
 #include "parameters.h"
 #include "sle_service_data.h"
+
+#include "AdapterDeviceConfig.h"
+#include "SleCoexist.h"
+#include "SleCoexistManager.h"
+#include "SleFrame4AntennaMgr.h"
+#include "SleInterfaceProfileTws.h"
+#include "nearlink_ASC_source.h"
 
 #include "ProfileServiceManager.cpp"
 #include "SleServiceManager.cpp"
@@ -155,7 +166,7 @@ protected:
 
     // 预置扫描缓存：业务类型/协作地址/当前地址决定私有音频合作集的建组走向
     void InjectScanResult(const std::string &addr, int businessType, const std::string &collaborateAddr = "",
-        const std::string &currentAddr = "");
+        const std::string &currentAddr = "", int appearance = 0);
 
     // 下云一台双耳云设备并置云配对状态（真实云缓存链路）
     void InjectCloudDevice(const std::string &reportAddr, const std::string &memberAddr, int cloudPairState);
@@ -324,12 +335,13 @@ void SleAdapterServiceTest::InjectCdsmGroup(uint32_t groupId, const std::string 
 }
 
 void SleAdapterServiceTest::InjectScanResult(const std::string &addr, int businessType,
-    const std::string &collaborateAddr, const std::string &currentAddr)
+    const std::string &collaborateAddr, const std::string &currentAddr, int appearance)
 {
     auto &scan = static_cast<ScanService &>(InterfaceScanService::GetInstance());
     SlePeripheralDevice peripheral;
     peripheral.SetAddress(RawAddress(addr));
     peripheral.SetManufacturerBusiness(businessType);
+    peripheral.SetAppearance(appearance);
     if (!collaborateAddr.empty()) {
         peripheral.SetCollaborateAddress(RawAddress(collaborateAddr));
     }
@@ -1680,6 +1692,1597 @@ HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_018, TestSize.Level1)
     AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_NONE),
         static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
     EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), Adapter().GetPairState(RawAddress(kMouseM)));
+}
+
+// ==================== 云配对态与建组交叠（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_010
+ * @tc.desc: 云端已确认开始标准配对的设备发起配对时不创建合作集，也不再重复上报配对中
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_010, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_CREATE_PAIR);
+
+    EXPECT_TRUE(Adapter().StartPair(RawAddress(kCloudR)));
+
+    // 建组被云端建配对态拦截；下云时已报过已配对，配对中不重复上报
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+    EXPECT_TRUE(callback_.pairEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kCloudR)));
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_011
+ * @tc.desc: 云端标注了主耳地址时配对按主耳真实地址建档：主耳进入配对中并首个上报
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_011, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_CREATE_PAIR);
+    auto &cloud = static_cast<SleCloudPairService &>(InterfaceCloudPairService::GetInstance());
+    cloud.cloudDevicesMap_.GetValueAndOpt(kCloudR,
+        [](const std::string, std::shared_ptr<DownCloudPairDevice> &value) { value->SetPrimary(kNewEarL); });
+
+    EXPECT_TRUE(Adapter().StartPair(RawAddress(kCloudR)));
+
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kNewEarL)));
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(RawAddress(kNewEarL), callback_.pairEvents_.front().device);
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_012
+ * @tc.desc: 扫描到的协作地址就是上报地址自身时按真实地址走建组，不登记待上报新设备
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_012, TestSize.Level1)
+{
+    InjectScanResult(kHeadsetR, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kHeadsetR);
+
+    EXPECT_TRUE(Adapter().StartPair(RawAddress(kHeadsetR)));
+
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetR)));
+    // 非替换场景：不登记待上报新设备，组内容依赖协议栈建组出口
+    EXPECT_TRUE(Adapter().pimpl->needReportPairDevices_.IsEmpty());
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_013
+ * @tc.desc: 密钥丢失时扫描到的新副耳与合作集副耳不一致：旧副耳按丢失清账，旧组删除
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_013, TestSize.Level1)
+{
+    InjectCdsmGroup(701, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    // 扫描项：新副耳上报、当前地址是主耳，协作地址是新副耳自身
+    InjectScanResult(kNewEarL, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kNewEarL, kHeadsetR);
+
+    Adapter().UpdateKeyMissingCdsmGroup(RawAddress(kHeadsetR));
+
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_014
+ * @tc.desc: 私有音频厂商设备密钥丢失走云端重配态并保持配对中；厂商合作集断开按整组收尾
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_014, TestSize.Level1)
+{
+    InjectCdsmGroup(702, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true, SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    InjectCloudDevice(kHeadsetR, kHeadsetL, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+
+    Adapter().EncryptionKeyMissingComplete(RawAddress(kHeadsetR));
+
+    // 厂商设备：本地置配对中，云端态转入等待重配
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetR)));
+    int32_t cloudState = 0;
+    EXPECT_TRUE(InterfaceCloudPairService::GetInstance().GetCloudPairState(kHeadsetR, cloudState));
+    EXPECT_EQ(NL_CLOUD_PAIR_STATE::CLOUD_PAIR_TOKEN_CHANGING, cloudState);
+
+    // 厂商组整组断开（断开下发经协议栈必失败，断言落在状态迁移）
+    EXPECT_FALSE(Adapter().DisconnectAllProfile(RawAddress(kHeadsetR)));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetR));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetL));
+    SleConfig::GetInstance().RemoveSpecificCloudDevice(kHeadsetR);
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_015
+ * @tc.desc: 清理合作集时查不到成员信息的地址不误删其他组的合作集
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_015, TestSize.Level1)
+{
+    InjectCdsmGroup(703, kHeadsetR, {kHeadsetR, kHeadsetL});
+
+    Adapter().ClearAllCdsmData(RawAddress(kMouseM));
+
+    EXPECT_EQ(1U, Cdsm().cdsmList_.Size());
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_016
+ * @tc.desc: 新副耳自带旧合作集时重新配对：两组按丢失各清各的账，旧成员转取消配对
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_016, TestSize.Level1)
+{
+    InjectCdsmGroup(704, kHeadsetR, {kHeadsetR, kHeadsetL});
+    InjectCdsmGroup(705, kNewEarL, {kNewEarL, kCloudM});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kNewEarL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kCloudM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    InjectScanResult(kHeadsetR, SLE_PRIVATE_AUDIO_BUSINESS_TYPE, kNewEarL);
+
+    EXPECT_TRUE(Adapter().StartPair(RawAddress(kHeadsetR)));
+
+    // 两个旧组都被删除，两侧旧副耳转入取消配对，右耳按重新配对处理
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetL)));
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kCloudM)));
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetR)));
+    ASSERT_GE(callback_.pairEvents_.size(), 2U);
+}
+
+/**
+ * @tc.name: SleAdapter_CdsmGroup_017
+ * @tc.desc: 公版合作集成员发起配对时report互换：旧report按取消上报，档案重删重立
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_CdsmGroup_017, TestSize.Level1)
+{
+    InjectCdsmGroup(706, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+
+    EXPECT_TRUE(Adapter().StartPair(RawAddress(kHeadsetL)));
+
+    // 旧report收到取消上报，新report重建档进入配对中
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(RawAddress(kHeadsetR), callback_.pairEvents_.front().device);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.front().status);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kHeadsetL)));
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+}
+
+// ==================== 配对状态与取消配对（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Pair_013
+ * @tc.desc: 取消配对流程完成后按本地取消原因上报，音频副耳配对记录一并清账
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_013, TestSize.Level1)
+{
+    InjectCdsmGroup(708, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
+
+    EXPECT_TRUE(Adapter().CancelPairing(RawAddress(kHeadsetR)));
+    Adapter().CancelPairComplete(RawAddress(kHeadsetR), NLSTK_ERRCODE_SUCCESS,
+        static_cast<int>(PairingStateChangeReason::PAIRING_INVALID_REASON));
+
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetR)));
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetL)));
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), callback_.pairEvents_.back().status);
+    EXPECT_EQ(static_cast<int>(PairingStateChangeReason::PAIRING_LOCAL_CANCELED),
+        callback_.pairEvents_.back().reason);
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_014
+ * @tc.desc: 已配对设备收到配对成功或失败结果：状态与上报均保持不动
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_014, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    Adapter().PairComplete(RawAddress(kMouseM), SM_PAIR_OK);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kMouseM)));
+    EXPECT_TRUE(callback_.pairEvents_.empty());
+
+    Adapter().PairComplete(RawAddress(kMouseM), SM_PAIR_ERROR);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kMouseM)));
+    EXPECT_TRUE(callback_.pairEvents_.empty());
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_015
+ * @tc.desc: 配对方向上次已固化时配对成功不回写默认方向，状态照常迁移为已配对
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_015, TestSize.Level1)
+{
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    SleRemoteDeviceManager::GetInstance()->SetPairDirection(RawAddress(kPlainA),
+        static_cast<int>(SlePairDirect::SLE_PAIR_ACTIVE));
+
+    Adapter().PairComplete(RawAddress(kPlainA), SM_PAIR_OK);
+
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kPlainA)));
+    EXPECT_EQ(static_cast<int>(SlePairDirect::SLE_PAIR_ACTIVE),
+        SleRemoteDeviceManager::GetInstance()->GetPairDirection(RawAddress(kPlainA)));
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_016
+ * @tc.desc: 主动朝向设备的配对请求不转异步读名直接拉系统弹窗；弹窗流程重入直接返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_016, TestSize.Level1)
+{
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE));
+    std::string passKey = "1234";
+
+    Adapter().PairingRequest(RawAddress(kPlainA), passKey, 0);
+
+    // 主动朝向：不挂被动读名定时器
+    EXPECT_EQ(nullptr, Adapter().pimpl->slePassivePairingDialogTimer_);
+    EXPECT_EQ(nullptr, Adapter().pimpl->passivePairingDialogFunc_);
+
+    // 弹窗流程重入：无定时器与回调函数时直接返回
+    Adapter().PassivePairingDialog();
+    EXPECT_EQ(nullptr, Adapter().pimpl->slePassivePairingDialogTimer_);
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_017
+ * @tc.desc: 合作集服务未注册时配对请求按普通设备走弹窗链路，不入合作集回连队列
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_017, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    std::string passKey = "1234";
+
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    Adapter().PairingRequest(RawAddress(kMouseM), passKey, 0);
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, cdsmService_.get());
+
+    // 无合作集服务：不入回连队列，被动朝向照常挂读名定时器
+    EXPECT_EQ(0U, SleReconnectManager::GetInstance().pairedQueue_.size());
+    EXPECT_NE(nullptr, Adapter().pimpl->slePassivePairingDialogTimer_);
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_018
+ * @tc.desc: 普通已连接设备确认配对直接走加密链路成功返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_018, TestSize.Level1)
+{
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    EXPECT_TRUE(Adapter().SetPairingConfirmation(RawAddress(kPlainA)));
+}
+
+/**
+ * @tc.name: SleAdapter_Pair_019
+ * @tc.desc: 云端建配对态设备进入配对中时不向上层重复上报配对状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Pair_019, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_CREATE_PAIR);
+
+    Adapter().PairingStatus(RawAddress(kCloudR));
+
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kCloudR)));
+    EXPECT_TRUE(callback_.pairEvents_.empty());
+    EXPECT_TRUE(callback_.csdmPairEvents_.empty());
+}
+
+// 最小 SSAP 客户端桩：注册即成功，用于驱动 profile 连接实例建立
+class TestSsapClientStub : public InterfaceProfileSsapClient {
+public:
+    int RegisterApplication(const std::shared_ptr<InterfaceSsapClientCallback> &,
+        const RawAddress &, uint8_t, uint8_t) override
+    {
+        return 1;
+    }
+    int Connect(int, bool) override
+    {
+        return static_cast<int>(ReturnValue::RET_NO_ERROR);
+    }
+    int Disconnect(int) override { return 0; }
+    int DeregisterApplication(int) override { return 0; }
+    int ExchangeMtu(int, uint16_t) override { return 0; }
+    int DiscoverServices(int) override { return 0; }
+    int DiscoverServicesByUuid(int, const Uuid &, uint16_t, uint16_t) override { return 0; }
+    std::list<Service> GetServices(int) override { return {}; }
+    std::list<Service> GetServicesByUuid(int, const Uuid &) override { return {}; }
+    int ReadProperty(int, const Property &) override { return 0; }
+    int ReadDescriptor(int, const Descriptor &) override { return 0; }
+    int ReadPropertiesByUuid(int, const Uuid &, uint16_t, uint16_t) override { return 0; }
+    int ReadDescriptorsByUuid(int, const Uuid &, uint8_t, uint16_t, uint16_t) override { return 0; }
+    int WriteProperty(int, Property &, bool) override { return 0; }
+    int WriteDescriptor(int, Descriptor &, bool) override { return 0; }
+    int GetPropertyNotification(int, const Property &) override { return 0; }
+    int SetPropertyNotification(int, const Property &, bool) override { return 0; }
+    int SetEventNotification(int, const Event &, bool) override { return 0; }
+    int SetPropertyIndication(int, const Property &, bool) override { return 0; }
+    int SetEventIndication(int, const Event &, bool) override { return 0; }
+    int CallMethod(int, Method &, bool) override { return 0; }
+    int Connect(const RawAddress &) override { return 0; }
+    int Disconnect(const RawAddress &) override { return 0; }
+    std::list<RawAddress> GetConnectDevices() override { return {}; }
+    int GetConnectState() override { return 0; }
+    utility::Context *GetContext() override { return nullptr; }
+};
+
+// ==================== 连接与断连（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Conn_014
+ * @tc.desc: 合作集服务未注册时陌生设备完成连接仍建档；服务在位但非成员的陌生设备不自动配对
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_014, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    auto connNoCdsm = MakeConnResult(kPlainB, CM_LINK_STATE_CONNECTED, 20, 0);
+    Adapter().ConnectionStateTask(connNoCdsm);
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, cdsmService_.get());
+
+    auto remote = SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kPlainB));
+    ASSERT_NE(nullptr, remote);
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED), remote->GetAcbConnectState());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE), remote->GetPairedStatus());
+    EXPECT_EQ(1U, Adapter().GetAcbCount());
+
+    // 服务在位的陌生地址非合作集成员：只建档不发起配对
+    auto connStranger = MakeConnResult(kUnknownU, CM_LINK_STATE_CONNECTED, 21, 0);
+    Adapter().ConnectionStateTask(connStranger);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kUnknownU)));
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_015
+ * @tc.desc: 云端未开始标准配对的已配对设备连上后不发起加密；无密钥的未配对设备连上后不补配对
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_015, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_NONE);
+    AddRemoteDevice(kCloudR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+
+    auto connCloud = MakeConnResult(kCloudR, CM_LINK_STATE_CONNECTED, 22, 0);
+    Adapter().ConnectionStateTask(connCloud);
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kCloudR));
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kCloudR)));
+
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    auto connNone = MakeConnResult(kPlainA, CM_LINK_STATE_CONNECTED, 23, 0);
+    Adapter().ConnectionStateTask(connNone);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kPlainA)));
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_016
+ * @tc.desc: 陌生地址断连无设备级收尾仍按断连口径通知；合作集服务未注册时收尾跳过停广播
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_016, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    auto disconn = MakeConnResult(kUnknownU, CM_LINK_STATE_DISCONNECTED, 24, 0,
+        static_cast<uint8_t>(NLSTK_SLE_CONNECTION_TIMEOUT));
+    Adapter().ConnectionStateTask(disconn);
+
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kUnknownU)));
+    ASSERT_FALSE(callback_.acbEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        callback_.acbEvents_.back().state);
+
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    Adapter().ConnectionStateTask(disconn);
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, cdsmService_.get());
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        callback_.acbEvents_.back().state);
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_017
+ * @tc.desc: 断开全部profile：未连接设备无动作直接失败；非合作集已连接设备只断自身
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_017, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    EXPECT_FALSE(Adapter().DisconnectAllProfile(RawAddress(kMouseM)));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kMouseM));
+
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    EXPECT_FALSE(Adapter().DisconnectAllProfile(RawAddress(kPlainA)));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kPlainA));
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_018
+ * @tc.desc: 加密失败重试名单命中即允许回连并只重试一次
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_018, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    Adapter().pimpl->needReconnectDevices_.Emplace(kMouseM);
+
+    EXPECT_TRUE(Adapter().NeedBgConn(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SlePairState::SLE_PAIR_PAIRED), RawAddress(kMouseM), 0));
+    EXPECT_EQ(0U, Adapter().pimpl->needReconnectDevices_.Count(kMouseM));
+    // 名单已消费：同条件下不再回连
+    EXPECT_FALSE(Adapter().NeedBgConn(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SlePairState::SLE_PAIR_PAIRED), RawAddress(kMouseM), 0));
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_019
+ * @tc.desc: profile连接未收口时断连原因先缓存；收口时与本次原因不同则按缓存原因重判回连后清零
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_019, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    TestSsapClientStub ssapStub;
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, &ssapStub);
+    SleProfileConnectManagerFucs funcs;
+    funcs.notifyConnectionStateChanged = [this](const RawAddress &device,
+        const SleConnectionChangedParam &param) { Adapter().NotifyConnectionStateChanged(device, param); };
+    Adapter().pimpl->sleProfileConnectManager_.Init(funcs);
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    // profile 连接中：断连原因先缓存不清
+    Adapter().pimpl->sleProfileConnectManager_.NotifyConnectAcb(RawAddress(kMouseM));
+    auto disconn = MakeConnResult(kMouseM, CM_LINK_STATE_DISCONNECTED, 25, 0,
+        static_cast<uint8_t>(NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST));
+    Adapter().ConnectionStateTask(disconn);
+    EXPECT_EQ(static_cast<int>(NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST),
+        Adapter().GetAcbDisConnReasonTask(kMouseM));
+
+    // 缓存原因与本次不同：按缓存原因重判回连后消费清零
+    AddRemoteDevice(kPlainB, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    Adapter().SetAcbDisConnReasonTask(kPlainB, NLSTK_SLE_CONNECTION_TIMEOUT);
+    auto disconnPlain = MakeConnResult(kPlainB, CM_LINK_STATE_DISCONNECTED, 26, 0,
+        static_cast<uint8_t>(NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST));
+    Adapter().ConnectionStateTask(disconnPlain);
+    EXPECT_EQ(0, Adapter().GetAcbDisConnReasonTask(kPlainB));
+
+    // 恢复：清空profile连接实例并还原服务注册
+    Adapter().pimpl->sleProfileConnectManager_.ClearAllProfileConnectInfo();
+    Adapter().pimpl->sleProfileConnectManager_.Init(SleProfileConnectManagerFucs {});
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, nullptr);
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_020
+ * @tc.desc: 合作集成员加密成功后即使主动朝向也补齐profile连接；断连原因缓存进入上报口径
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_020, TestSize.Level1)
+{
+    TestSsapClientStub ssapStub;
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, &ssapStub);
+    SleProfileConnectManagerFucs funcs;
+    funcs.notifyConnectionStateChanged = [this](const RawAddress &device,
+        const SleConnectionChangedParam &param) { Adapter().NotifyConnectionStateChanged(device, param); };
+    Adapter().pimpl->sleProfileConnectManager_.Init(funcs);
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE));
+    SleRemoteDeviceAdapter::GetInstance()->SetCdsmAddrType(RawAddress(kMouseM),
+        static_cast<int>(SleCdsmAddrType::CDSM_TYPE_MEMBER));
+
+    Adapter().EncryptionComplete(RawAddress(kMouseM), SM_PAIR_OK);
+
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kMouseM));
+    ASSERT_FALSE(callback_.acbEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        callback_.acbEvents_.back().state);
+
+    // 主动朝向的合作集成员加密完成后补建profile连接实例并进入连接流程
+    EXPECT_NE(static_cast<int>(SLE_ADAPTER_PROF_CONN_STATE_UNUSED),
+        static_cast<int>(Adapter().pimpl->sleProfileConnectManager_.GetProfileConnectState(RawAddress(kMouseM))));
+
+    // 已断开上报携带映射后的本地断连原因
+    Adapter().HandleDisconnAndUnpairedReason(NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST);
+    SleConnectionChangedParam disconnected(static_cast<int>(SleConnectState::DISCONNECTED),
+        static_cast<int>(SleConnectState::CONNECTED));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), disconnected);
+    ASSERT_FALSE(callback_.connEvents_.empty());
+    EXPECT_EQ(static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT),
+        callback_.connEvents_.back().reason);
+
+    // 断开中上报保留缓存原因不被重置
+    SleConnectionChangedParam disconnecting(static_cast<int>(SleConnectState::DISCONNECTING),
+        static_cast<int>(SleConnectState::CONNECTED));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), disconnecting);
+    EXPECT_NE(static_cast<int>(SleConnectReason::CONNECT_NONE),
+        Adapter().pimpl->sleDisconnReason_.load());
+
+    // 恢复：清空profile连接实例并还原服务注册
+    Adapter().pimpl->sleProfileConnectManager_.ClearAllProfileConnectInfo();
+    Adapter().pimpl->sleProfileConnectManager_.Init(SleProfileConnectManagerFucs {});
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, nullptr);
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_021
+ * @tc.desc: 音频设备上报已连接触发副速率设置；合作集连续两态上报保持口径连续，整组空闲断连清组
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_021, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true);
+    SleConnectionChangedParam audioConnected(static_cast<int>(SleConnectState::CONNECTED),
+        static_cast<int>(SleConnectState::DISCONNECTED));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kMouseM), audioConnected);
+    ASSERT_EQ(1U, callback_.connEvents_.size());
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTED), callback_.connEvents_[0].state);
+
+    InjectCdsmGroup(709, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING));
+    callback_.Reset();
+    SleConnectionChangedParam connecting(static_cast<int>(SleConnectState::CONNECTING),
+        static_cast<int>(SleConnectState::DISCONNECTED));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), connecting);
+    SleConnectionChangedParam groupDisconnecting(static_cast<int>(SleConnectState::DISCONNECTING),
+        static_cast<int>(SleConnectState::CONNECTED));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), groupDisconnecting);
+
+    // 断开中上报的前置态取上次已上报态，口径连续
+    ASSERT_EQ(2U, callback_.connEvents_.size());
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTING), callback_.connEvents_[1].preState);
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTING), callback_.connEvents_[1].state);
+
+    // 整组空闲断连：组数据被清理
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    SleConnectionChangedParam groupDisconnected(static_cast<int>(SleConnectState::DISCONNECTED),
+        static_cast<int>(SleConnectState::DISCONNECTING));
+    Adapter().NotifyConnectionStateChanged(RawAddress(kHeadsetR), groupDisconnected);
+    EXPECT_EQ(0U, Cdsm().cdsmList_.Size());
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_022
+ * @tc.desc: 非回连原因收口不进后台名单；静默口运行中的连接请求被拦截并回退为已断开
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_022, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    Adapter().SetAcbDisConnReasonTask(kPlainA, NLSTK_SLE_CONNECTION_TERMINATED_BY_LOCAL_HOST);
+    Adapter().OnAllProfileDisconnected(RawAddress(kPlainA));
+    EXPECT_EQ(0, Adapter().GetAcbDisConnReasonTask(kPlainA));
+
+    TestSsapClientStub ssapStub;
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, &ssapStub);
+    SleProfileConnectManagerFucs funcs;
+    funcs.notifyConnectionStateChanged = [this](const RawAddress &device,
+        const SleConnectionChangedParam &param) { Adapter().NotifyConnectionStateChanged(device, param); };
+    Adapter().pimpl->sleProfileConnectManager_.Init(funcs);
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    Adapter().pimpl->sleProfileConnectManager_.NotifyConnectAcb(RawAddress(kMouseM));
+    Adapter().pimpl->sleProfileConnectManager_.SetSilentPortState(RawAddress(kMouseM), true);
+
+    Adapter().ConnectAllProfileTask(RawAddress(kMouseM));
+
+    // 静默口拦截：链路状态保持加密，上报口径回退到已断开
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kMouseM));
+    ASSERT_GE(callback_.connEvents_.size(), 2U);
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), callback_.connEvents_.back().state);
+
+    Adapter().pimpl->sleProfileConnectManager_.ClearAllProfileConnectInfo();
+    Adapter().pimpl->sleProfileConnectManager_.Init(SleProfileConnectManagerFucs {});
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_SSAP_CLIENT, nullptr);
+}
+
+/**
+ * @tc.name: SleAdapter_Conn_023
+ * @tc.desc: 合作集成员已连接时整组连接只补连断连成员，已连接成员状态不动
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Conn_023, TestSize.Level1)
+{
+    SetSleSwitchState(SleStateID::STATE_TURN_ON);
+    InjectCdsmGroup(710, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    EXPECT_TRUE(Adapter().ConnectAllProfile(RawAddress(kHeadsetR)));
+
+    // 断连成员发起连接（发起即置连接中），已连接成员不被重复发起
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetR));
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kHeadsetL));
+}
+
+// ==================== 状态上报口径（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Report_009
+ * @tc.desc: 配对态上报判定：稳态计数为零的已配对抑制、恰一员取消瞬态放行并映射report、非法值抑制
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Report_009, TestSize.Level1)
+{
+    InjectCdsmGroup(711, kHeadsetR, {kHeadsetR, kHeadsetL});
+    RawAddress report(kUnknownU);
+    CdsmService *cdsmService = CdsmService::GetService();
+
+    EXPECT_FALSE(Adapter().IsPairStateReport(RawAddress(kHeadsetR), report, cdsmService,
+        static_cast<int>(SlePairState::SLE_PAIR_PAIRED)));
+
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    EXPECT_TRUE(Adapter().IsPairStateReport(RawAddress(kHeadsetR), report, cdsmService,
+        static_cast<int>(SlePairState::SLE_PAIR_CANCELING)));
+    EXPECT_EQ(RawAddress(kHeadsetR), report);
+
+    EXPECT_FALSE(Adapter().IsPairStateReport(RawAddress(kHeadsetR), report, cdsmService, 99));
+}
+
+/**
+ * @tc.name: SleAdapter_Report_010
+ * @tc.desc: 未断连瞬态计数把断开中与已连接的成员都计入
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Report_010, TestSize.Level1)
+{
+    InjectCdsmGroup(712, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTING));
+    EXPECT_EQ(1, Adapter().GetUnDisconnectedCnt(RawAddress(kHeadsetR)));
+
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    EXPECT_EQ(2, Adapter().GetUnDisconnectedCnt(RawAddress(kHeadsetR)));
+}
+
+/**
+ * @tc.name: SleAdapter_Report_011
+ * @tc.desc: report替换中的合作集上报不受稳态门限拦截，也不清理组数据
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Report_011, TestSize.Level1)
+{
+    InjectCdsmGroup(713, kCloudR, {kCloudR, kCloudM});
+    auto &cloud = static_cast<SleCloudPairService &>(InterfaceCloudPairService::GetInstance());
+    cloud.replacedDevices_.Insert(kCloudR);
+
+    Adapter().NotifyPairStatusChanged(RawAddress(kCloudR), static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(PairingStateChangeReason::PAIRING_SUCCESS));
+
+    ASSERT_EQ(1U, callback_.pairEvents_.size());
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED), callback_.pairEvents_[0].status);
+    EXPECT_EQ(1U, Cdsm().cdsmList_.Size());
+    cloud.replacedDevices_.Erase(kCloudR);
+}
+
+/**
+ * @tc.name: SleAdapter_Report_012
+ * @tc.desc: 三成员合作集不按双耳合并表输出，回落单设备口径；服务未注册时同样回落
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Report_012, TestSize.Level1)
+{
+    InjectCdsmGroup(714, kHeadsetR, {kHeadsetR, kHeadsetL, kNewEarL});
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED),
+        Adapter().GetProfileConnStateTask(RawAddress(kHeadsetR)));
+
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED),
+        Adapter().GetProfileConnStateTask(RawAddress(kHeadsetR)));
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, cdsmService_.get());
+}
+
+// ==================== 设备信息与杂项（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Device_019
+ * @tc.desc: 档案装载补齐新型号与子型号字段的真值
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_019, TestSize.Level1)
+{
+    ASSERT_TRUE(SleConfig::GetInstance().SetDeviceNewModelId(kHeadsetR, "888"));
+    ASSERT_TRUE(SleConfig::GetInstance().SetDeviceSubModelId(kHeadsetR, "55"));
+
+    auto device = std::make_shared<SlePeripheralDevice>();
+    Adapter().SetSlePeripheralDeviceModelInfo(kHeadsetR, device);
+    EXPECT_EQ("888", device->GetNewModelId());
+    EXPECT_EQ("55", device->GetSubModelId());
+}
+
+/**
+ * @tc.name: SleAdapter_Device_020
+ * @tc.desc: 非音频帧一设备读远端特性后按帧二物理层参数下发，帧型记录保持不变
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_020, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    Adapter().SetConnFrameType(kMouseM, static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1));
+
+    CM_ReadRemoteFeatureVersionRsp_S param = {};
+    RawAddress(kMouseM).ConvertToUint8(param.addr.addr);
+    Adapter().ReadFeatureVersionTask(param);
+
+    uint8_t frameType = 0;
+    ASSERT_TRUE(Adapter().GetConnFrameType(kMouseM, frameType));
+    EXPECT_EQ(static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1), frameType);
+}
+
+/**
+ * @tc.name: SleAdapter_Device_021
+ * @tc.desc: 云端未开始标准配对且无合作集的设备取消配对只清云端缓存记录
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_021, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_NONE);
+
+    EXPECT_TRUE(Adapter().CancelPairing(RawAddress(kCloudR)));
+
+    int32_t cloudState = 0;
+    EXPECT_FALSE(InterfaceCloudPairService::GetInstance().GetCloudPairState(kCloudR, cloudState));
+}
+
+/**
+ * @tc.name: SleAdapter_Device_022
+ * @tc.desc: 首次被配对建档时把扫描携带的外观值写入设备档案
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Device_022, TestSize.Level1)
+{
+    InjectScanResult(kPlainB, 0, "", "",
+        static_cast<int>(DeviceClassForService::DEVICE_NETWORKING));
+
+    Adapter().PairingStatus(RawAddress(kPlainB));
+
+    EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_NETWORKING),
+        SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(RawAddress(kPlainB)));
+}
+
+// ==================== 云配对补账 ====================
+
+/**
+ * @tc.name: SleAdapter_Cloud_001
+ * @tc.desc: 私有音频主耳加密后补记副耳配对关系：副耳连接中也补记并两次上报副耳状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Cloud_001, TestSize.Level1)
+{
+    InjectCdsmGroup(715, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true, SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING));
+
+    Adapter().AddDevicePairRecord(RawAddress(kHeadsetR), SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+
+    ASSERT_EQ(2U, callback_.csdmPairEvents_.size());
+    EXPECT_EQ(RawAddress(kHeadsetL), callback_.csdmPairEvents_[0].first);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRING), callback_.csdmPairEvents_[0].second);
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED), callback_.csdmPairEvents_[1].second);
+}
+
+// ==================== 直调入口 ====================
+
+/**
+ * @tc.name: SleAdapter_Entry_001
+ * @tc.desc: 无协议栈环境开启适配器多次重试后失败，保持关闭态
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_001, TestSize.Level1)
+{
+    EXPECT_FALSE(Adapter().EnableTask());
+    EXPECT_FALSE(Adapter().pimpl->btmEnableFlag_);
+}
+
+/**
+ * @tc.name: SleAdapter_Entry_002
+ * @tc.desc: 底层回调注销受开启标记门禁；开启态关闭任务清空设备表与云缓存
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_002, TestSize.Level1)
+{
+    // 未开启：状态错误
+    EXPECT_EQ(NLSTK_ERRCODE_STATUS_ERR, Adapter().DeregisterCallbackToBtm());
+
+    Adapter().pimpl->btmEnableFlag_ = true;
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+
+    // 栈侧停用失败仍完成本地清理并返回失败
+    EXPECT_FALSE(Adapter().DisableTask());
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kMouseM)));
+    int32_t cloudState = 0;
+    EXPECT_FALSE(InterfaceCloudPairService::GetInstance().GetCloudPairState(kCloudR, cloudState));
+    EXPECT_EQ(NLSTK_ERRCODE_SUCCESS, Adapter().DeregisterCallbackToBtm());
+    Adapter().pimpl->btmEnableFlag_ = false;
+}
+
+/**
+ * @tc.name: SleAdapter_Entry_003
+ * @tc.desc: 移除单台设备先断链再取消转为取消中；移除全部配对清空可信与回连重试名单
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_003, TestSize.Level1)
+{
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    EXPECT_TRUE(Adapter().RemovePair(RawAddress(kPlainA)));
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_CANCELING),
+        SleRemoteDeviceAdapter::GetInstance()->GetPairStatus(RawAddress(kPlainA)));
+
+    Adapter().pimpl->credibleDevice_.Insert(kPlainB);
+    EXPECT_TRUE(Adapter().RemoveAllPairsTask());
+    EXPECT_TRUE(Adapter().pimpl->credibleDevice_.IsEmpty());
+}
+
+/**
+ * @tc.name: SleAdapter_Entry_004
+ * @tc.desc: 公版耳机report互换：旧report按取消上报，弹框重配删档案而回连重配保留档案
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_004, TestSize.Level1)
+{
+    AddRemoteDevice(kNewEarL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    EXPECT_TRUE(Adapter().ProcClearCommonEarphoneOldCdsmGroup(
+        RawAddress(kNewEarL), RawAddress(kHeadsetR), true));
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kNewEarL)));
+    ASSERT_FALSE(callback_.pairEvents_.empty());
+    EXPECT_EQ(RawAddress(kHeadsetR), callback_.pairEvents_.back().device);
+
+    AddRemoteDevice(kPlainB, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    EXPECT_TRUE(Adapter().ProcClearCommonEarphoneOldCdsmGroup(
+        RawAddress(kPlainB), RawAddress(kPlainA), false));
+    EXPECT_NE(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kPlainB)));
+}
+
+/**
+ * @tc.name: SleAdapter_Entry_005
+ * @tc.desc: 非音频设备的副速率变化回调直接忽略；读名SSAP实例为空时连接回调直接返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Entry_005, TestSize.Level1)
+{
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    CM_AcbSubrateCbParam_S subrateParam = {};
+    RawAddress(kMouseM).ConvertToUint8(subrateParam.addr.addr);
+    Adapter().AcbSubrateChangedTask(subrateParam);
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        SleRemoteDeviceAdapter::GetInstance()->GetAcbState(kMouseM));
+
+    Adapter().OnSsapConnectionStateChangedTask(RawAddress(kHeadsetR),
+        static_cast<uint8_t>(SleConnectState::CONNECTED));
+}
+
+// ==================== 远程设备表直查（追加） ====================
+
+// CM 链路参数下发记录：共存调参链路的唯一出口观察点
+struct CmUpdateParamRecord {
+    std::string addr;
+    uint16_t intervalMin;
+    uint16_t latency;
+    uint16_t timeout;
+};
+static std::mutex g_cmStubMutex;
+static std::vector<CmUpdateParamRecord> g_cmStubCalls;
+static std::atomic<int> g_cmStubCount {0};
+
+// 裸进程无协议栈调度线程，直调真实接口必失败；桩只记录参数后返回成功
+extern "C" uint32_t CM_ConnectUpdateParamReq(CM_ConnectUpdateParamReq_S *param)
+{
+    std::lock_guard<std::mutex> lock(g_cmStubMutex);
+    CmUpdateParamRecord record;
+    record.addr = RawAddress::ConvertToString(param->addr.addr).GetAddress();
+    record.intervalMin = param->intervalMin;
+    record.latency = param->maxLatency;
+    record.timeout = param->supervisionTimeout;
+    g_cmStubCalls.push_back(record);
+    g_cmStubCount.store(static_cast<int>(g_cmStubCalls.size()));
+    return NLSTK_ERRCODE_SUCCESS;
+}
+
+static void ResetCmStub()
+{
+    std::lock_guard<std::mutex> lock(g_cmStubMutex);
+    g_cmStubCalls.clear();
+    g_cmStubCount.store(0);
+}
+
+static std::atomic<int> g_bgAddStubCount {0};
+static std::vector<std::string> g_bgAddStubAddrs;
+
+extern "C" uint32_t CM_BackgroundConnectAdd(uint8_t, uint8_t addrArrCount, const CM_BgConnAddrParam_S *addrArr)
+{
+    std::lock_guard<std::mutex> lock(g_cmStubMutex);
+    for (uint8_t i = 0; i < addrArrCount; ++i) {
+        g_bgAddStubAddrs.push_back(RawAddress::ConvertToString(addrArr[i].addr.addr).GetAddress());
+    }
+    g_bgAddStubCount.store(static_cast<int>(g_bgAddStubAddrs.size()));
+    return NLSTK_ERRCODE_SUCCESS;
+}
+
+static void ResetBgAddStub()
+{
+    std::lock_guard<std::mutex> lock(g_cmStubMutex);
+    g_bgAddStubAddrs.clear();
+    g_bgAddStubCount.store(0);
+}
+
+static std::vector<CmUpdateParamRecord> SnapshotCmStub()
+{
+    std::lock_guard<std::mutex> lock(g_cmStubMutex);
+    return g_cmStubCalls;
+}
+
+// 定时器到期经真实定时器线程汇合：轮询下发计数，上限两秒
+static bool WaitForCmCalls(int expected)
+{
+    for (int i = 0; i < 100; ++i) {
+        if (g_cmStubCount.load() >= expected) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return g_cmStubCount.load() >= expected;
+}
+
+static CM_ConnectUpdateParamRsp_S MakeCoexParam(uint16_t lcid, uint16_t interval, const std::string &addr)
+{
+    CM_ConnectUpdateParamRsp_S param = {};
+    param.lcid = lcid;
+    param.extension.interval = interval;
+    param.extension.latency = static_cast<uint16_t>(CM_CONN_DEFAULT_LATENCY);
+    param.extension.supervisionTimeout = 100;
+    RawAddress(addr).ConvertToUint8(param.addr.addr);
+    param.addr.type = 0;
+    return param;
+}
+
+// 最小 TWS 桩：只记录默认角色更新，其余接口空实现
+class TestTwsStub : public ProfileTws {
+public:
+    void RegisterObserver(TwsObserver &) override {}
+    void DeregisterObserver(TwsObserver &) override {}
+    void TwsGetDeviceRole(const RawAddress &, uint8_t &) override {}
+    uint8_t TwsGetDeviceNature(const RawAddress &) override { return 0; }
+    uint8_t TwsGetDeviceAudioMusicType(const RawAddress &) override { return 0; }
+    bool TwsIsSupportWearDetect(const RawAddress &) override { return false; }
+    void TwsGetDeviceWearStatus(const RawAddress &, TwsDevWearStatus &) override {}
+    void TwsEnableWearDetection(const RawAddress &) override {}
+    void TwsDisableWearDetection(const RawAddress &) override {}
+    bool TwsIsDeviceWearing(const RawAddress &) override { return false; }
+    int TwsGetWearDetectionState(const RawAddress &) override { return 0; }
+    void GetTwsAudioDelay(const RawAddress &, uint32_t &) override {}
+    void TwsUpdateDeviceDefaultRole(const RawAddress &devAddr, const uint8_t roleType) override
+    {
+        lastDevice = devAddr;
+        lastRole = roleType;
+        updateCount++;
+    }
+    bool TwsIsSupportVirtualAutoConnect(const RawAddress &) override { return false; }
+    void SetVirtualAutoConnectType(const RawAddress &, int32_t, int32_t) override {}
+    int RegisterApplication(const std::shared_ptr<InterfaceTwsClientObserver> &) override { return 0; }
+    int DeregisterApplication() override { return 0; }
+    void TwsSendUserSelection(const RawAddress &, const std::vector<struct AudioStreamInfo> &) override {}
+    void QueryStreamState(const RawAddress &, std::vector<struct AudioStreamInfo> &) override {}
+    void UpdateHangUpTimeStamp(RawAddress &) override {}
+    void ProcPauseRecordMap() override {}
+    void SendProfileConnected(const RawAddress &) override {}
+    void SetDeviceManufacturerAbility(const RawAddress &,
+        const std::array<uint8_t, SLE_MANU_ABILITY_LEN> &) const override {}
+    RawAddress GetReportAddr(const RawAddress &device) override { return device; }
+    int Connect(const RawAddress &) override { return 0; }
+    int Disconnect(const RawAddress &) override { return 0; }
+    std::list<RawAddress> GetConnectDevices() override { return {}; }
+    int GetConnectState() override { return 0; }
+    utility::Context *GetContext() override { return nullptr; }
+
+    RawAddress lastDevice;
+    uint8_t lastRole = 0;
+    int updateCount = 0;
+};
+
+// 注销/恢复合作集服务的快捷手法
+class CdsmServiceGuard {
+public:
+    CdsmServiceGuard(CdsmService *service) : service_(service)
+    {
+        ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+            SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, nullptr);
+    }
+    ~CdsmServiceGuard()
+    {
+        ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+            SleTransport::ADAPTER_SLE, PROFILE_NAME_CDSM, service_);
+    }
+
+private:
+    CdsmService *service_;
+};
+
+/**
+ * @tc.name: SleAdapter_Rda_001
+ * @tc.desc: 云配对设备首次入表：外观与别名回落云档案，音频标记按云设备口径置位
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_001, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+
+    SleRemoteDeviceAdapter::GetInstance()->SleAddPeerList(RawAddress(kCloudR));
+
+    auto remote = SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kCloudR));
+    ASSERT_NE(nullptr, remote);
+    // 设备表与扫描缓存均无档：外观取云端默认耳机类，别名取云档案名
+    EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE), remote->GetAppearance());
+    EXPECT_EQ("cloudEar", remote->GetAliasName());
+    EXPECT_TRUE(remote->GetIsAudioDeviceFlag());
+    EXPECT_EQ(static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTING), remote->GetAcbConnectState());
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_002
+ * @tc.desc: 已连接设备表按合作集口径收敛：组内成员合并为上报地址，服务缺失时原样输出
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_002, TestSize.Level1)
+{
+    InjectCdsmGroup(802, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    // 服务在位：组内两台收敛成 report 一台，非合作设备原样保留
+    auto connected = SleRemoteDeviceAdapter::GetInstance()->GetConnectedDevices();
+    ASSERT_EQ(2U, connected.size());
+    EXPECT_NE(std::find(connected.begin(), connected.end(), RawAddress(kHeadsetR)), connected.end());
+    EXPECT_EQ(std::find(connected.begin(), connected.end(), RawAddress(kHeadsetL)), connected.end());
+    EXPECT_NE(std::find(connected.begin(), connected.end(), RawAddress(kMouseM)), connected.end());
+
+    // 服务未注册：不做成员合并，三台全部原样输出
+    {
+        CdsmServiceGuard guard(cdsmService_.get());
+        connected = SleRemoteDeviceAdapter::GetInstance()->GetConnectedDevices();
+        ASSERT_EQ(3U, connected.size());
+        EXPECT_NE(std::find(connected.begin(), connected.end(), RawAddress(kHeadsetL)), connected.end());
+    }
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_003
+ * @tc.desc: 外观与别名查询三级回落：云设备命中云端档案，普通未知地址返回无效值
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_003, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+
+    EXPECT_EQ(static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE),
+        SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(RawAddress(kCloudR)));
+    EXPECT_EQ("cloudEar", SleRemoteDeviceAdapter::GetInstance()->GetAliasName(RawAddress(kCloudR)));
+
+    // 非云未知地址：三级全部未命中，外观无效、别名为空
+    EXPECT_EQ(INVALID_APPEARANCE,
+        SleRemoteDeviceAdapter::GetInstance()->GetDeviceAppearance(RawAddress(kUnknownU)));
+    EXPECT_TRUE(SleRemoteDeviceAdapter::GetInstance()->GetAliasName(RawAddress(kUnknownU)).empty());
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_004
+ * @tc.desc: 真实地址映射与加密态判定：合作集在位时映射到在连副耳，服务缺失时按设备自身判定
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_004, TestSize.Level1)
+{
+    InjectCdsmGroup(803, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+    AddRemoteDevice(kMouseM, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    // report 未连而副耳在连：真实地址映射为副耳
+    EXPECT_EQ(RawAddress(kHeadsetL),
+        SleRemoteDeviceAdapter::GetInstance()->GetRealAddress(RawAddress(kHeadsetR)));
+
+    {
+        CdsmServiceGuard guard(cdsmService_.get());
+        // 服务缺失：不再做成员映射，未连接地址原样返回
+        EXPECT_EQ(RawAddress(kHeadsetR),
+            SleRemoteDeviceAdapter::GetInstance()->GetRealAddress(RawAddress(kHeadsetR)));
+        // 服务缺失：加密态按设备自身查询
+        EXPECT_TRUE(SleRemoteDeviceAdapter::GetInstance()->IsAcbEncrypted(RawAddress(kMouseM)));
+        EXPECT_FALSE(SleRemoteDeviceAdapter::GetInstance()->IsAcbEncrypted(RawAddress(kPlainA)));
+    }
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_005
+ * @tc.desc: 合作集连接完成后落表：report 记为上报角色，未建档成员被跳过不新建档案
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_005, TestSize.Level1)
+{
+    // 副耳故意不入设备表：落表循环应跳过而不是补建档案
+    InjectCdsmGroup(804, kHeadsetR, {kHeadsetR, kCloudM});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED));
+
+    SleRemoteDeviceAdapter::GetInstance()->CdsmSaveData(RawAddress(kHeadsetR));
+
+    EXPECT_EQ(static_cast<int>(SleCdsmAddrType::CDSM_TYPE_REPORT),
+        SleRemoteDeviceManager::GetInstance()->GetCdsmAddrType(RawAddress(kHeadsetR)));
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kCloudM)));
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_006
+ * @tc.desc: 设备类型信息组装：组内音频设备带出合作集组号，非音频无组设备组号为非法值
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_006, TestSize.Level1)
+{
+    InjectCdsmGroup(805, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE),
+        static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE), true);
+
+    SLE_Addr_S addrInfo = {};
+    uint32_t devType = 0;
+    SleRemoteDeviceAdapter::GetInstance()->GetDeviceTypeInfo(RawAddress(kHeadsetR), addrInfo, devType);
+    // 高位为组号（组已入表直接复用），低位为外观映射的音频类型
+    EXPECT_EQ(805U, devType >> 16);
+    EXPECT_EQ(1U, devType & 0xFFFF);
+
+    // 私有音频厂商设备同样按组号与外观输出
+    InjectCdsmGroup(806, kNewEarL, {kNewEarL, kCloudM});
+    AddRemoteDevice(kNewEarL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE),
+        static_cast<int>(DeviceClassForService::DEVICE_IN_EAR_EARPHONE), true,
+        SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+    SleRemoteDeviceAdapter::GetInstance()->GetDeviceTypeInfo(RawAddress(kNewEarL), addrInfo, devType);
+    EXPECT_EQ(806U, devType >> 16);
+
+    // 非音频无组设备：组号保持非法值，外观映射为鼠标类型
+    AddRemoteDevice(kPlainB, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE),
+        static_cast<int>(DeviceClassForService::DEVICE_MOUSE));
+    SleRemoteDeviceAdapter::GetInstance()->GetDeviceTypeInfo(RawAddress(kPlainB), addrInfo, devType);
+    EXPECT_EQ(static_cast<uint32_t>(CDSM_SERVICE_INVALID_GROUP_ID >> 16), devType >> 16);
+    EXPECT_EQ(3U, devType & 0xFFFF);
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_007
+ * @tc.desc: 唯一加密成员时更新默认角色：TWS 服务未注册不动作，注册后按主角色更新
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_007, TestSize.Level1)
+{
+    InjectCdsmGroup(807, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetR, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+
+    TestTwsStub twsStub;
+    // 未注册 TWS 服务：直接返回，不更新角色
+    SleRemoteDeviceAdapter::GetInstance()->UpdateDefaultRole(RawAddress(kHeadsetR));
+    EXPECT_EQ(0, twsStub.updateCount);
+
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_TWS, &twsStub);
+    SleRemoteDeviceAdapter::GetInstance()->UpdateDefaultRole(RawAddress(kHeadsetR));
+    EXPECT_EQ(1, twsStub.updateCount);
+    EXPECT_EQ(RawAddress(kHeadsetR), twsStub.lastDevice);
+    EXPECT_EQ(static_cast<uint8_t>(TwsRoleType::ROLE_TYPE_PRIMARY), twsStub.lastRole);
+
+    // 两台都已加密：不满足唯一加密条件，不再更新
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_ENCRYPTED));
+    SleRemoteDeviceAdapter::GetInstance()->UpdateDefaultRole(RawAddress(kHeadsetR));
+    EXPECT_EQ(1, twsStub.updateCount);
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_TWS, nullptr);
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_008
+ * @tc.desc: 合作集成员首配补档：report 未建档时按成员自身落外观与朝向，不新建 report 档案
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_008, TestSize.Level1)
+{
+    // report 不入设备表：补档时无档可抄，成员按自身缺省值落表
+    InjectCdsmGroup(808, kHeadsetR, {kHeadsetR, kHeadsetL});
+    AddRemoteDevice(kHeadsetL, static_cast<int>(SlePairState::SLE_PAIR_NONE),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+
+    SleRemoteDeviceAdapter::GetInstance()->HandleCdsmMemberFirstPairing(RawAddress(kHeadsetL));
+
+    EXPECT_EQ(static_cast<int>(SleCdsmAddrType::CDSM_TYPE_MEMBER),
+        SleRemoteDeviceManager::GetInstance()->GetCdsmAddrType(RawAddress(kHeadsetL)));
+    EXPECT_EQ(static_cast<int>(SleConnDirect::SLE_CONNECTION_ACTIVE),
+        SleRemoteDeviceAdapter::GetInstance()->GetConnDirect(RawAddress(kHeadsetL)));
+    EXPECT_EQ(nullptr, SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kHeadsetR)));
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_009
+ * @tc.desc: 后台回连名单准入：被动配对方向与车锁外观被拒绝，普通主动设备放行
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_009, TestSize.Level1)
+{
+    ResetBgAddStub();
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+    SleRemoteDeviceManager::GetInstance()->SetPairDirection(RawAddress(kPlainA),
+        static_cast<int>(SlePairDirect::SLE_PAIR_PASSIVE));
+    AddRemoteDevice(kVehicle, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE),
+        static_cast<int>(DeviceClassForService::DEVICE_CLASS_VEHICLE_LOCK));
+    AddRemoteDevice(kPlainB, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED));
+
+    // 被动配对方向与车锁外观被拒：不下发后台连接
+    SleRemoteDeviceAdapter::GetInstance()->AddBgConnDevice(kPlainA);
+    SleRemoteDeviceAdapter::GetInstance()->AddBgConnDevice(kVehicle);
+    EXPECT_EQ(0, g_bgAddStubCount.load());
+
+    // 普通主动设备放行：下发一条后台连接
+    SleRemoteDeviceAdapter::GetInstance()->AddBgConnDevice(kPlainB);
+    EXPECT_EQ(1, g_bgAddStubCount.load());
+    EXPECT_EQ(kPlainB, g_bgAddStubAddrs.back());
+    ResetBgAddStub();
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_010
+ * @tc.desc: 共密钥补档：新档案继承源设备信息并按合作集角色落表，云映射补回 BT 地址
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_010, TestSize.Level1)
+{
+    InjectCdsmGroup(809, kCloudR, {kCloudR, kCloudM});
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+    AddRemoteDevice(kPlainA, static_cast<int>(SlePairState::SLE_PAIR_PAIRED),
+        static_cast<int>(SleConnState::SLE_CONNECTION_STATE_CONNECTED),
+        static_cast<int>(SleConnDirect::SLE_CONNECTION_PASSIVE), 0, true,
+        SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+
+    SleRemoteDeviceAdapter::GetInstance()->CdsmAddOtherRecord(RawAddress(kPlainA), RawAddress(kCloudR));
+
+    auto other = SleRemoteDeviceAdapter::GetInstance()->GetRemoteDevice(RawAddress(kCloudR));
+    ASSERT_NE(nullptr, other);
+    // 共密钥档案按已配对落表，合作集角色按 report 判定
+    EXPECT_EQ(static_cast<int>(SlePairState::SLE_PAIR_PAIRED), other->GetPairedStatus());
+    EXPECT_EQ(static_cast<int>(SleCdsmAddrType::CDSM_TYPE_REPORT),
+        SleRemoteDeviceManager::GetInstance()->GetCdsmAddrType(RawAddress(kCloudR)));
+    // 扫描无 BT 地址时回落云映射，档案上带回落结果
+    std::string btAddr;
+    EXPECT_TRUE(SleRemoteDeviceManager::GetInstance()->GetBtAddrBySleAddr(kCloudR, btAddr));
+    EXPECT_EQ(kBtAddr, btAddr);
+}
+
+/**
+ * @tc.name: SleAdapter_Rda_011
+ * @tc.desc: 地址互查云映射优先：云档案命中直接返回，未命中地址两级都查不到
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Rda_011, TestSize.Level1)
+{
+    InjectCloudDevice(kCloudR, kCloudM, NL_CLOUD_PAIR_STATE::CLOUD_PAIR_PAIRED);
+
+    std::string btAddr;
+    EXPECT_TRUE(SleRemoteDeviceAdapter::GetInstance()->GetBtAddrBySleAddrTask(kCloudR, btAddr));
+    EXPECT_EQ(kBtAddr, btAddr);
+
+    std::string sleAddr;
+    EXPECT_TRUE(SleRemoteDeviceAdapter::GetInstance()->GetSleAddrByBtAddrTask(kBtAddr, sleAddr));
+    EXPECT_EQ(kCloudR, sleAddr);
+
+    // 未命中地址：云表与设备表都取不到
+    btAddr.clear();
+    EXPECT_FALSE(SleRemoteDeviceAdapter::GetInstance()->GetBtAddrBySleAddrTask(kUnknownU, btAddr));
+    EXPECT_FALSE(SleRemoteDeviceAdapter::GetInstance()->GetSleAddrByBtAddrTask("00:66:55:44:33:22", sleAddr));
+}
+
+// ==================== 共存调参定时器链（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Coexist_001
+ * @tc.desc: 四台高速连接到期调参：前三台压到四毫秒槽位，第四台起只能用七点五毫秒
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Coexist_001, TestSize.Level1)
+{
+    ResetCmStub();
+    auto coexist = std::make_shared<SleCoexist>();
+    coexist->Init();
+    coexist->updateDuration_ = 100;
+
+    const std::vector<std::string> addrs = {kPlainA, kPlainB, kMouseM, kVehicle};
+    for (size_t i = 0; i < addrs.size(); ++i) {
+        coexist->ConnectionParamChanged(MakeCoexParam(0x31 + i, 0x10, addrs[i]));
+    }
+    EXPECT_TRUE(WaitForCmCalls(4));
+    coexist->StopParamUpdateTimer();
+
+    auto calls = SnapshotCmStub();
+    ASSERT_EQ(4U, calls.size());
+    for (size_t i = 0; i < calls.size(); ++i) {
+        EXPECT_EQ(addrs[i], calls[i].addr);
+    }
+    // 前三台收到四毫秒目标间隔，第四台被限到七点五毫秒
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[0].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[1].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[2].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_LOW), calls[3].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(100), calls[0].timeout);
+}
+
+/**
+ * @tc.name: SleAdapter_Coexist_002
+ * @tc.desc: 高速槽位占满后中速设备被限速：四到七点五毫秒区间的设备调到七点五毫秒
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Coexist_002, TestSize.Level1)
+{
+    ResetCmStub();
+    auto coexist = std::make_shared<SleCoexist>();
+    coexist->Init();
+    coexist->updateDuration_ = 100;
+
+    // 三台高速占满槽位，第四台为中速区间（六毫秒）
+    const std::vector<std::string> addrs = {kPlainA, kPlainB, kMouseM, kVehicle};
+    const std::vector<uint16_t> intervals = {0x10, 0x10, 0x10, 0x30};
+    for (size_t i = 0; i < addrs.size(); ++i) {
+        coexist->ConnectionParamChanged(MakeCoexParam(0x41 + i, intervals[i], addrs[i]));
+    }
+    EXPECT_TRUE(WaitForCmCalls(4));
+    coexist->StopParamUpdateTimer();
+
+    auto calls = SnapshotCmStub();
+    ASSERT_EQ(4U, calls.size());
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[0].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[1].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[2].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_LOW), calls[3].intervalMin);
+    EXPECT_EQ(kVehicle, calls[3].addr);
+}
+
+/**
+ * @tc.name: SleAdapter_Coexist_003
+ * @tc.desc: 单连接不触发共存调参：不挂刷新定时器，直接刷新也整轮跳过
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Coexist_003, TestSize.Level1)
+{
+    ResetCmStub();
+    auto coexist = std::make_shared<SleCoexist>();
+    coexist->Init();
+    coexist->updateDuration_ = 100;
+
+    // 单台连接未达共存调整阈值：不启动刷新定时器
+    coexist->ConnectionParamChanged(MakeCoexParam(0x51, 0x10, kPlainA));
+    EXPECT_EQ(nullptr, coexist->updateTimer_);
+
+    // 非多连接也无定制参数：刷新直接返回，不下发任何参数
+    coexist->UpdateConnParam();
+    EXPECT_EQ(0, g_cmStubCount.load());
+    coexist->StopParamUpdateTimer();
+}
+
+/**
+ * @tc.name: SleAdapter_Coexist_004
+ * @tc.desc: 定制参数场景：单连接也启动刷新定时器，到期按定制口径下发目标间隔
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Coexist_004, TestSize.Level1)
+{
+    ResetCmStub();
+    auto coexist = std::make_shared<SleCoexist>();
+    coexist->Init();
+    coexist->updateDuration_ = 100;
+    // 定制标记由插件口维护，裸进程插件为空实现，直置成员构造该场景
+    coexist->isNeedCustomParam_ = true;
+
+    // 非高速设备走定制参数路径：定时器启动，到期下发定制间隔
+    coexist->ConnectionParamChanged(MakeCoexParam(0x61, 0x40, kPlainA));
+    EXPECT_NE(nullptr, coexist->updateTimer_);
+    EXPECT_TRUE(WaitForCmCalls(1));
+    coexist->StopParamUpdateTimer();
+
+    auto calls = SnapshotCmStub();
+    ASSERT_EQ(1U, calls.size());
+    EXPECT_EQ(kPlainA, calls[0].addr);
+    EXPECT_EQ(static_cast<uint16_t>(CM_CONN_COEXIST_INTERAL_THRED), calls[0].intervalMin);
+    EXPECT_EQ(static_cast<uint16_t>(100), calls[0].timeout);
+}
+
+// ==================== 回连队列（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Reconn_001
+ * @tc.desc: 回连队列移位：队列内设备移到队尾，未知地址不改变队列
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Reconn_001, TestSize.Level1)
+{
+    auto &rcm = SleReconnectManager::GetInstance();
+    rcm.AddDeviceToPairedQueue(ReconnectDeviceInfo(kHeadsetR, {}, 0));
+    rcm.AddDeviceToPairedQueue(ReconnectDeviceInfo(kHeadsetL, {}, 0));
+    ASSERT_EQ(2U, rcm.pairedQueue_.size());
+
+    // 队列内地址：从队首移到队尾
+    rcm.MoveDeviceToTail(kHeadsetR);
+    ASSERT_EQ(2U, rcm.pairedQueue_.size());
+    EXPECT_EQ(kHeadsetL, rcm.pairedQueue_.front().reportAddr_);
+    EXPECT_EQ(kHeadsetR, rcm.pairedQueue_.back().reportAddr_);
+
+    // 未知地址：队列保持不变
+    rcm.MoveDeviceToTail(kUnknownU);
+    ASSERT_EQ(2U, rcm.pairedQueue_.size());
+    EXPECT_EQ(kHeadsetL, rcm.pairedQueue_.front().reportAddr_);
+    EXPECT_EQ(kHeadsetR, rcm.pairedQueue_.back().reportAddr_);
+}
+
+// ==================== 服务管理杂项（追加） ====================
+
+/**
+ * @tc.name: SleAdapter_Ssm_001
+ * @tc.desc: 清空存储：配置档存在时重载成功并收口，档不存在时直接失败返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_Ssm_001, TestSize.Level1)
+{
+    // 整机配置文件用例：首次建档会覆盖整机原有档案，仅限专用测试机执行；结束时重建空档收口
+    ASSERT_TRUE(AdapterDeviceConfig::GetInstance()->CreateFile());
+    EXPECT_TRUE(SleServiceManager::GetInstance()->ClearAllStorage());
+    // 档已被上一轮清掉：重载失败直接返回
+    EXPECT_FALSE(SleServiceManager::GetInstance()->ClearAllStorage());
+    ASSERT_TRUE(AdapterDeviceConfig::GetInstance()->CreateFile());
+}
+
+/**
+ * @tc.name: SleAdapter_F4a_001
+ * @tc.desc: 帧四天线口恢复：全体扫描停止时清空名单并按计数归零收口，计数残留时保持不复位
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleAdapterServiceTest, SleAdapter_F4a_001, TestSize.Level1)
+{
+    auto &f4a = SleFrame4AntennaMgr::GetInstance();
+    f4a.frame4ScannerIds_.clear();
+    f4a.frame4ScanCount_ = 0;
+
+    // 名单与计数一致：清名单后计数归零，天线口恢复
+    f4a.frame4ScannerIds_.insert(7);
+    f4a.frame4ScanCount_ = 1;
+    f4a.OnAllScanStoppedInner();
+    EXPECT_TRUE(f4a.frame4ScannerIds_.empty());
+    EXPECT_EQ(0, f4a.frame4ScanCount_);
+
+    // 计数多于名单（残留）：清名单后计数不清零，不再触发恢复
+    f4a.frame4ScannerIds_.insert(8);
+    f4a.frame4ScanCount_ = 3;
+    f4a.OnAllScanStoppedInner();
+    EXPECT_TRUE(f4a.frame4ScannerIds_.empty());
+    EXPECT_EQ(2, f4a.frame4ScanCount_);
+    f4a.frame4ScanCount_ = 0;
 }
 } // namespace TEST
 } // namespace Nearlink
