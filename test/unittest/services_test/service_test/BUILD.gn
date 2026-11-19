@@ -103,6 +103,9 @@ ohos_unittest("nl_service_test") {
     "nearlink_timer_test.cpp",
     "hid_host_service_test.cpp",
     "hid_host_uhid_test.cpp",
+    "hid_tail_test.cpp",
+    "sle_controller_tail_test.cpp",
+    "small_domain_tail_test.cpp",
     "sle_name_change_manager_test.cpp",
     "sle_frame4_antenna_mgr_test.cpp",
   ]
@@ -202,6 +205,7 @@ group("nl_service_unittest") {
     "ccp_test:nl_ccp_service_unittest",
     "asc_test:nl_asc_service_unittest",
     "mic_test:nl_mic_service_unittest",
+    "socket_test:nl_socket_service_unittest",
     "utils_test:nl_utils_unittest",
     "manufacturer_ability_test:nl_manufacturer_ability_unittest",
     "scan_test:nl_scan_service_test",

@@ -570,6 +570,35 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test007, TestSize.Level1)
     EXPECT_EQ(std::get<1>(advEventTestTuple_), -1);
     HILOGI("Sle_AdvertiserImpl_Test007 end");
 }
+
+/**
+ * @tc.name: NearlinkAdvNullGuardFamilyTest
+ * @tc.desc: 广播实例为空时十二个入口全部安全返回：取句柄回退无效值，
+ *   取状态回退空闲态，其余入口静默完成
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkAdvTest, AdvNullGuardFamilyTest_001, TestSize.Level1)
+{
+    auto &adapter = SleAdvertiserAdapter::GetInstance();
+    std::weak_ptr<ISleAdvertiserCallback> emptyCb;
+    SleAdvertiserSettingsImpl settings;
+    SleAdvertiserDataImpl advData;
+    // 逐入口把广播实例置空后调用：全部安全返回
+    adapter.pimpl->sleAdvertiser_ = nullptr;
+    adapter.RegisterSleAdvertiserCallback(emptyCb);
+    adapter.RegisterSleConnectableAdvertiserCallback(emptyCb);
+    adapter.DeregisterSleAdvertiserCallback();
+    EXPECT_EQ(adapter.GetAdvertiserHandle(), SLE_INVALID_ADVERTISING_HANDLE);
+    EXPECT_EQ(adapter.GetConnectableAdvertiserHandle(), SLE_INVALID_ADVERTISING_HANDLE);
+    EXPECT_EQ(adapter.GetAdvertisingStatus(), SLE_ADV_STATE_IDLE);
+    adapter.StartAdvertising(settings, advData, advData, 0);
+    adapter.SetAdvertisingData(advData, advData, 0);
+    adapter.StopAdvertising(0);
+    adapter.StopAdvertisingAll();
+    adapter.EnableAdvertising(0);
+    adapter.DisableAdvertising(0);
+    SUCCEED();
+}
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

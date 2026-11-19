@@ -191,6 +191,20 @@ HWTEST_F(NearlinkVasServiceTest, HandleCloseVoiceAssistant001, TestSize.Level1)
     HILOGI("HandleCloseVoiceAssistant001 end");
 }
 
+
+/**
+ * @tc.name: NearlinkVasServiceTestDisableAfterEnableTest
+ * @tc.desc: 已启用后停用走完整停用路径，未启用先停定的幂等早退分支由停定顺序覆盖
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkVasServiceTest, VasDisableAfterEnableTest_001, TestSize.Level1)
+{
+    service_->Enable();
+    service_->Disable();
+    // 停用后再停用：幂等早退安全
+    service_->Disable();
+    SUCCEED();
+}
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

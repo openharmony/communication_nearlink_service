@@ -1,0 +1,82 @@
+﻿#
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../../nearlink_config.gni")
+
+NL_SOCKET_TEST_DIR = "$NEARLINK_ROOT/test/unittest/services_test/service_test/socket_test"
+
+config("nl_socket_service_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = [
+    "$NEARLINK_ROOT/socket",
+    "$NEARLINK_ROOT/utils/include",
+  ]
+
+  defines = [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  cflags_cc = [ "-fexceptions" ]
+  cflags = [ "--coverage" ]
+  ldflags = [ "--coverage" ]
+}
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_socket_service_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"  # Enable PAC CFI
+  sanitize = {
+    cfi = true                             # Enable/disable control flow integrity detection
+    boundary_sanitize = true               # Enable boundary san detection
+    cfi_cross_dso = true                   # Cross-DSO CFI Checks
+    integer_overflow = true                # Enable integer overflow detection
+    ubsan = true                           # Enable some Ubsan options
+    debug = true
+  }
+
+  sources = [
+    "$NL_SOCKET_TEST_DIR/socket_tail_test.cpp",
+    "$NEARLINK_ROOT/socket/nearlink_datatransfer_parcel.cpp",
+    "$NEARLINK_ROOT/socket/nearlink_socket_inputstream.cpp",
+    "$NEARLINK_ROOT/socket/nearlink_socket_manager.cpp",
+    "$NEARLINK_ROOT/socket/nearlink_socket_outputstream.cpp",
+  ]
+
+  configs = [ ":nl_socket_service_unit_test_config" ]
+
+  deps = [
+    "$NEARLINK_ROOT/utils:nearlink_utils",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "bounds_checking_function:libsec_shared",
+    "googletest:gtest_main",
+  ]
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_socket_service_unittest") {
+  testonly = true
+  deps = [
+    ":nl_socket_service_test",
+  ]
+}
