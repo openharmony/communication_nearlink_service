@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "CcpSystemInterface.h"
+#include "ThreadUtil.h"
 #include "log.h"
 
 namespace OHOS {
@@ -39,6 +40,10 @@ public:
 void CcpSystemInterfaceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase CcpSystemInterfaceTest");
+    // 单测不启动ccp工作线程：置为同步执行，回调内动作即时生效
+    ThreadUtil::GetInstance().InitThreadStateMap();
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
 }
 
 void CcpSystemInterfaceTest::TearDownTestCase()
@@ -138,6 +143,62 @@ HWTEST_F(CcpSystemInterfaceTest, Stop001, TestSize.Level1)
     EXPECT_NE(0, 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Stop001 end");
+}
+
+/**
+ * @tc.number: SystemAbilityChangeCallback001
+ * @tc.name: Test SA status callback splits by ability id.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpSystemInterfaceTest, SystemAbilityChangeCallback001, TestSize.Level1)
+{
+    // 电话服务上下线回调按能力号分流：匹配走客户端初始化，不匹配只告警；初始化后查询通话列表为空
+    CcpSystemInterface::SystemAbilityStatusChange listener;
+    listener.OnAddSystemAbility(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID, "");
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().GetCurrentCallList().empty());
+
+    listener.OnAddSystemAbility(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID + 1, "");
+    listener.OnRemoveSystemAbility(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID, "");
+    listener.OnRemoveSystemAbility(TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID + 1, "");
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().GetCurrentCallList().empty());
+}
+
+/**
+ * @tc.number: CallOperationNoServiceEnv001
+ * @tc.name: Test call operations return error without call manager.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpSystemInterfaceTest, CallOperationNoServiceEnv001, TestSize.Level1)
+{
+    // 无电话服务环境下接听、挂断、拒接都返回内部错误
+    EXPECT_EQ(CcpSystemInterface::GetInstance().AnswerCall(), NL_ERR_INTERNAL_ERROR);
+    EXPECT_EQ(CcpSystemInterface::GetInstance().HangUpCall(), NL_ERR_INTERNAL_ERROR);
+    EXPECT_EQ(CcpSystemInterface::GetInstance().RejectCall(), NL_ERR_INTERNAL_ERROR);
+}
+
+/**
+ * @tc.number: IsRingingStates001
+ * @tc.name: Test ringing judgement covers incoming and waiting.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpSystemInterfaceTest, IsRingingStates001, TestSize.Level1)
+{
+    // 来电与等待都算振铃，其余状态不算
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_INCOMING));
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_WAITING));
+    EXPECT_FALSE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_ACTIVE));
+    EXPECT_FALSE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_IDLE));
+}
+
+/**
+ * @tc.number: CheckNowHasDeviceConnectedNoDevice001
+ * @tc.name: Test connected check with no audio device.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpSystemInterfaceTest, CheckNowHasDeviceConnectedNoDevice001, TestSize.Level1)
+{
+    // 无音频设备在连时判断为假
+    EXPECT_FALSE(CcpSystemInterface::GetInstance().CheckNowHasDeviceConnected());
 }
 
 } // namespace TEST

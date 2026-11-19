@@ -21,6 +21,33 @@
 #include "port_client.h"
 #include "port_type.h"
 #include "nlstk_port_client.h"
+#include "mock_control.h"
+
+static int g_mockPortConnectState = PORT_DISCONNECTED;
+static uint16_t g_mockDevicePortId = 30300;
+static uint32_t g_portDisconnectCount = 0;
+
+void MockPortClientSetConnectState(int state)
+{
+    g_mockPortConnectState = state;
+}
+
+void MockPortClientSetDevicePortId(uint16_t portId)
+{
+    g_mockDevicePortId = portId;
+}
+
+uint32_t MockPortClientGetDisconnectCount(void)
+{
+    return g_portDisconnectCount;
+}
+
+void MockPortClientReset(void)
+{
+    g_mockPortConnectState = PORT_DISCONNECTED;
+    g_mockDevicePortId = 30300;
+    g_portDisconnectCount = 0;
+}
 
 NLSTK_Errcode_E NLSTK_PortClientRegCbk(NLSTK_PortClientCallBack_S *clientCallback)
 {
@@ -42,13 +69,14 @@ NLSTK_Errcode_E NLSTK_PortConnect(const SLE_Addr_S *addr, const NLSTK_ConnParam_
 NLSTK_Errcode_E NLSTK_PortDisconnect(const SLE_Addr_S *addr)
 {
     NLSTK_CHECK_RETURN(addr != NULL, NLSTK_ERRCODE_POINTER_NULL, "[PORT] addr is null");
+    g_portDisconnectCount++;
     return NLSTK_ERRCODE_SUCCESS;
 }
 
 NLSTK_Errcode_E NLSTK_PortGetConnectState(const SLE_Addr_S *addr, int *state)
 {
     NLSTK_CHECK_RETURN(addr != NULL && state != NULL, NLSTK_ERRCODE_POINTER_NULL, "[PORT] addr or state is null");
-    *state = PORT_DISCONNECTED; // 初始化为断连状态
+    *state = g_mockPortConnectState;
     return NLSTK_ERRCODE_SUCCESS;
 }
 
@@ -56,7 +84,7 @@ NLSTK_Errcode_E NLSTK_PortGetDevicePortIdByUuid(const SLE_Addr_S *addr, NLSTK_Ss
 {
     NLSTK_CHECK_RETURN(addr != NULL && uuid != NULL && portId != NULL, NLSTK_ERRCODE_POINTER_NULL,
         "[PORT] param is null");
-    *portId = 30300;
+    *portId = g_mockDevicePortId;
     return NLSTK_ERRCODE_SUCCESS;
 }
 

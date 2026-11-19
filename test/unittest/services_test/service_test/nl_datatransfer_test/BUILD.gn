@@ -88,6 +88,7 @@ ohos_unittest("nl_datatransfer_test") {
 
   sources = [
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/nearlink_datatransfer_test.cpp",
+      "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/nearlink_datatransfer_cache_test.cpp",
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/mock_sle_adapter.cpp",
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/mock_sle_service_manager.cpp",
       "$NEARLINK_ROOT/test/unittest/services_test/service_test/nl_datatransfer_test/mock_icce_service.cpp",

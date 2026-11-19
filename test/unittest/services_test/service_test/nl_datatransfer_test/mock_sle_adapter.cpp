@@ -17,11 +17,38 @@
 #include "ThreadUtil.h"
 #include "log.h"
 #include "log_util.h"
+#include "mock_control.h"
+#include <atomic>
 
 namespace OHOS {
 namespace Nearlink {
 namespace {
 static SleAdapter *g_sleAdapterImpl = nullptr;
+static std::atomic<bool> g_mockAcbConnected {true};
+static std::atomic<uint32_t> g_connectAllProfileCount {0};
+static std::atomic<uint32_t> g_disconnectActionCount {0};
+}
+
+void MockSleAdapterSetAcbConnected(bool connected)
+{
+    g_mockAcbConnected.store(connected);
+}
+
+uint32_t MockSleAdapterGetConnectAllProfileCount()
+{
+    return g_connectAllProfileCount.load();
+}
+
+uint32_t MockSleAdapterGetDisconnectActionCount()
+{
+    return g_disconnectActionCount.load();
+}
+
+void MockSleAdapterReset()
+{
+    g_mockAcbConnected.store(true);
+    g_connectAllProfileCount.store(0);
+    g_disconnectActionCount.store(0);
 }
 
 struct SleAdapter::impl {
@@ -81,6 +108,7 @@ bool SleAdapter::DisconnectAcb(const RawAddress &device, uint8_t discReason) con
 bool SleAdapter::DisconnectAction(const RawAddress &device, uint8_t discReason) const
 {
     HILOGI("[SleAdapter Mocker]:addr:%{public}s,call DisconnectAction", GetEncryptAddr(device.GetAddress()).c_str());
+    g_disconnectActionCount.fetch_add(1);
     return true;
 }
 
@@ -111,6 +139,7 @@ bool SleAdapter::StartPair(const RawAddress &device)
 bool SleAdapter::ConnectAllProfile(const RawAddress &device)
 {
     HILOGI("[SleAdapter Mocker]:addr:%{public}s call ConnectAllProfile", GetEncryptAddr(device.GetAddress()).c_str());
+    g_connectAllProfileCount.fetch_add(1);
     return true;
 }
 
@@ -271,7 +300,7 @@ bool SleAdapter::PairRequestReply(const RawAddress &device, bool accept) const
 
 bool SleAdapter::IsAcbConnected(const RawAddress &device) const
 {
-    return true;
+    return g_mockAcbConnected.load();
 }
 
 bool SleAdapter::IsAcbEncrypted(const RawAddress &device) const

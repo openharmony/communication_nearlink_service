@@ -14,8 +14,11 @@
  */
 
 #include <gtest/gtest.h>
+#include <cstring>
 
 #include "CcpStackAdapter.cpp"
+#include "mock_ccs_record.h"
+#include "securec.h"
 #include "log.h"
 
 namespace OHOS {
@@ -150,6 +153,77 @@ HWTEST_F(NearlinkCcpStackAdapterTest, CcpCallControlServiceAuthorizeCbk001, Test
     CcpCallControlServiceAuthorizeCbk(requestId, instanceId, property, operation);
     EXPECT_NE(0, 1);
     HILOGI("CcpCallControlServiceAuthorizeCbk001 end");
+}
+
+/**
+ * @tc.number: NewCallStateInfoBoundary001
+ * @tc.name: Test NewCallStateInfo rejects zero and oversized count.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(NearlinkCcpStackAdapterTest, NewCallStateInfoBoundary001, TestSize.Level1)
+{
+    // 通话列表条数为零或超过上限直接拒绝，不分配数组
+    NLSTK_CcpCallStatues_S callState{};
+    EXPECT_FALSE(ccpStackAdapter_.NewCallStateInfo(&callState, 0));
+    EXPECT_EQ(callState.callId, nullptr);
+
+    EXPECT_FALSE(ccpStackAdapter_.NewCallStateInfo(&callState, 256));
+    EXPECT_EQ(callState.callId, nullptr);
+
+    ASSERT_TRUE(ccpStackAdapter_.NewCallStateInfo(&callState, 2));
+    EXPECT_NE(callState.callId, nullptr);
+    EXPECT_NE(callState.networkId, nullptr);
+    EXPECT_NE(callState.callStatus, nullptr);
+    EXPECT_NE(callState.callFlag, nullptr);
+    ccpStackAdapter_.FreeCallStateInfo(&callState, 2);
+}
+
+/**
+ * @tc.number: UpdateCallStateInfoEmptyProp001
+ * @tc.name: Test UpdateCallStateInfo with empty call list.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(NearlinkCcpStackAdapterTest, UpdateCallStateInfoEmptyProp001, TestSize.Level1)
+{
+    // 空通话列表更新通话数量为零；单条列表携带首路通话标识
+    MockCcsResetRecord();
+    std::shared_ptr<TotalCallStateProp> emptyProp = std::make_shared<TotalCallStateProp>();
+    ccpStackAdapter_.UpdateCallStateInfo(1, emptyProp);
+    EXPECT_EQ(MockCcsGetRecord().callStateUpdateCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(MockCcsGetRecord().lastCallCount, static_cast<uint32_t>(0));
+
+    std::shared_ptr<TotalCallStateProp> prop = std::make_shared<TotalCallStateProp>();
+    TotalCallStateProp::SingleCallStateProp single;
+    single.callId = 3;
+    single.callStatus = 2;
+    prop->callStateVec.push_back(single);
+    ccpStackAdapter_.UpdateCallStateInfo(1, prop);
+    EXPECT_EQ(MockCcsGetRecord().lastCallCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(MockCcsGetRecord().lastCallFirstId, static_cast<uint8_t>(3));
+}
+
+/**
+ * @tc.number: UpdateCallInOutInfoEmptyUserFields001
+ * @tc.name: Test UpdateCallInOutInfo skips empty user fields.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(NearlinkCcpStackAdapterTest, UpdateCallInOutInfoEmptyUserFields001, TestSize.Level1)
+{
+    // 号码与别名都为空时字段长度为零仍正常更新；携带号码时透传长度
+    MockCcsResetRecord();
+    std::shared_ptr<CallInOutInfoProp> emptyProp = std::make_shared<CallInOutInfoProp>();
+    emptyProp->callId = 5;
+    ccpStackAdapter_.UpdateCallInOutInfo(1, emptyProp);
+    MockCcsRecord record = MockCcsGetRecord();
+    EXPECT_EQ(record.inOutUpdateCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(record.lastInOutUserInfoLen, static_cast<uint32_t>(0));
+    EXPECT_EQ(record.lastInOutUserAliasLen, static_cast<uint32_t>(0));
+
+    std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
+    prop->callId = 6;
+    (void)strncpy_s(prop->userInfo, sizeof(prop->userInfo), "tel:10086", strlen("tel:10086"));
+    ccpStackAdapter_.UpdateCallInOutInfo(1, prop);
+    EXPECT_EQ(MockCcsGetRecord().lastInOutUserInfoLen, static_cast<uint32_t>(strlen("tel:10086")));
 }
 
 } // namespace TEST

@@ -14,6 +14,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <cstring>
 #include <thread>
 #include "CcpService.h"
 #include "CcpDefines.h"
@@ -21,6 +23,7 @@
 #include "SleServiceManager.h"
 #include "ThreadUtil.h"
 #include "mock_nearlink_call_client.h"
+#include "mock_ccs_record.h"
 #include "log.h"
 
 namespace OHOS {
@@ -688,6 +691,272 @@ HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Leve
     ccpService->NotifyAudioDeviceAction(devAddr, 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 end");
+}
+
+namespace {
+Telephony::CallAttributeInfo MakeCallInfo(int32_t callId, Telephony::TelCallState state,
+    Telephony::CallDirection direction = Telephony::CallDirection::CALL_DIRECTION_OUT,
+    const std::string &number = "", const std::string &contactName = "")
+{
+    Telephony::CallAttributeInfo info{};
+    info.callId = callId;
+    info.callState = state;
+    info.callDirection = direction;
+    size_t copyLen = std::min(number.size(), sizeof(info.accountNumber) - 1);
+    if (copyLen > 0 && strncpy_s(info.accountNumber, sizeof(info.accountNumber), number.c_str(), copyLen) != EOK) {
+        HILOGE("copy number fail");
+    }
+    copyLen = std::min(contactName.size(), sizeof(info.contactName) - 1);
+    if (copyLen > 0 && strncpy_s(info.contactName, sizeof(info.contactName), contactName.c_str(), copyLen) != EOK) {
+        HILOGE("copy contactName fail");
+    }
+    return info;
+}
+}
+
+/**
+ * @tc.number: CcpCallIdAllocation001
+ * @tc.name: Test call id allocation and reuse.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpCallIdAllocation001, TestSize.Level1)
+{
+    // 同一蜂窝通话反复上报复用同一本地标识；新通话分配下一个标识
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    std::vector<Telephony::CallAttributeInfo> vec1 = { MakeCallInfo(2, TelCallState::CALL_STATUS_DIALING) };
+    ccpService->HandleCallDetailChange(2, static_cast<int32_t>(TelCallState::CALL_STATUS_DIALING), "", vec1);
+    uint8_t firstId = MockCcsGetRecord().lastInOutCallId;
+    EXPECT_GE(firstId, NEARLINK_CCP_ID_MIN);
+    EXPECT_EQ(MockCcsGetRecord().inOutUpdateCount, static_cast<uint32_t>(1));
+
+    std::vector<Telephony::CallAttributeInfo> vecIncoming = {
+        MakeCallInfo(2, TelCallState::CALL_STATUS_INCOMING, Telephony::CallDirection::CALL_DIRECTION_IN)
+    };
+    ccpService->HandleCallDetailChange(2, static_cast<int32_t>(TelCallState::CALL_STATUS_INCOMING),
+        "", vecIncoming);
+    EXPECT_EQ(MockCcsGetRecord().inOutUpdateCount, static_cast<uint32_t>(2));
+    EXPECT_EQ(MockCcsGetRecord().lastInOutCallId, firstId);
+
+    std::vector<Telephony::CallAttributeInfo> vec2 = { MakeCallInfo(3, TelCallState::CALL_STATUS_DIALING) };
+    ccpService->HandleCallDetailChange(3, static_cast<int32_t>(TelCallState::CALL_STATUS_DIALING), "", vec2);
+    EXPECT_EQ(MockCcsGetRecord().inOutUpdateCount, static_cast<uint32_t>(3));
+    EXPECT_NE(MockCcsGetRecord().lastInOutCallId, firstId);
+
+    ClearPhoneCallMappings(ccpService);
+}
+
+/**
+ * @tc.number: CcpCallFlagDirectionAndPrivacy001
+ * @tc.name: Test call flag bits by direction and number privacy.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpCallFlagDirectionAndPrivacy001, TestSize.Level1)
+{
+    // 呼出置方向位；呼入无号码置网络隐藏位且不携带用户信息；呼入带号码带全量信息
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    std::vector<Telephony::CallAttributeInfo> outVec = {
+        MakeCallInfo(2, TelCallState::CALL_STATUS_DIALING, Telephony::CallDirection::CALL_DIRECTION_OUT,
+            "10086", "ContactA")
+    };
+    ccpService->HandleCallDetailChange(2, static_cast<int32_t>(TelCallState::CALL_STATUS_DIALING), "", outVec);
+    MockCcsRecord record = MockCcsGetRecord();
+    EXPECT_NE(record.lastInOutCallFlag & 0x01, 0);
+    EXPECT_EQ(record.lastInOutUserInfoLen, static_cast<uint32_t>(strlen("tel:10086")));
+    EXPECT_EQ(record.lastInOutUserAliasLen, static_cast<uint32_t>(strlen("ContactA")));
+
+    std::vector<Telephony::CallAttributeInfo> hiddenVec = {
+        MakeCallInfo(3, TelCallState::CALL_STATUS_INCOMING, Telephony::CallDirection::CALL_DIRECTION_IN)
+    };
+    ccpService->HandleCallDetailChange(3, static_cast<int32_t>(TelCallState::CALL_STATUS_INCOMING), "", hiddenVec);
+    record = MockCcsGetRecord();
+    EXPECT_EQ(record.lastInOutCallFlag & 0x01, 0);
+    EXPECT_NE(record.lastInOutCallFlag & 0x02, 0);
+    EXPECT_EQ(record.lastInOutUserInfoLen, static_cast<uint32_t>(0));
+
+    std::vector<Telephony::CallAttributeInfo> shownVec = {
+        MakeCallInfo(4, TelCallState::CALL_STATUS_INCOMING, Telephony::CallDirection::CALL_DIRECTION_IN,
+            "10010", "ContactB")
+    };
+    ccpService->HandleCallDetailChange(4, static_cast<int32_t>(TelCallState::CALL_STATUS_INCOMING), "", shownVec);
+    record = MockCcsGetRecord();
+    EXPECT_EQ(record.lastInOutCallFlag & 0x02, 0);
+    EXPECT_EQ(record.lastInOutUserInfoLen, static_cast<uint32_t>(strlen("tel:10010")));
+
+    ClearPhoneCallMappings(ccpService);
+}
+
+/**
+ * @tc.number: CcpProcessCallStateSkipAndVoipGuard001
+ * @tc.name: Test state list skips unsupported state and voip guard.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpProcessCallStateSkipAndVoipGuard001, TestSize.Level1)
+{
+    // 挂断态不在映射表内被跳过；VoIP 通话中空列表不更新通话状态
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    std::vector<Telephony::CallAttributeInfo> mixedVec = {
+        MakeCallInfo(5, TelCallState::CALL_STATUS_DISCONNECTED),
+        MakeCallInfo(6, TelCallState::CALL_STATUS_DIALING)
+    };
+    ccpService->ProcessCallStateInfo(mixedVec);
+    MockCcsRecord record = MockCcsGetRecord();
+    EXPECT_EQ(record.callStateUpdateCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(record.lastCallCount, static_cast<uint32_t>(1));
+    ClearPhoneCallMappings(ccpService);
+
+    MockCcsResetRecord();
+    RawAddress devAddr("00:11:22:33:44:55");
+    ccpService->HandleVoipStart(devAddr);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    uint32_t updatesDuringVoip = MockCcsGetRecord().callStateUpdateCount;
+    ccpService->ProcessCallStateInfo({});
+    EXPECT_EQ(MockCcsGetRecord().callStateUpdateCount, updatesDuringVoip);
+    ccpService->HandleVoipStop(devAddr);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+}
+
+/**
+ * @tc.number: CcpTerminateInfoKnownAndUnknown001
+ * @tc.name: Test terminate detail by known and unknown call id.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpTerminateInfoKnownAndUnknown001, TestSize.Level1)
+{
+    // 未登记过的通话挂断明细被忽略；已登记的通话挂断上报终止信息
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    std::vector<Telephony::CallAttributeInfo> hangupVec = {
+        MakeCallInfo(77, TelCallState::CALL_STATUS_DISCONNECTED)
+    };
+    ccpService->HandleCallDetailChange(77, static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED),
+        "", hangupVec);
+    EXPECT_EQ(MockCcsGetRecord().terminateUpdateCount, static_cast<uint32_t>(0));
+
+    SetupPhoneCallMapping(ccpService, 4);
+    ccpService->HandleCallDetailChange(4, static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED),
+        "", hangupVec);
+    EXPECT_EQ(MockCcsGetRecord().terminateUpdateCount, static_cast<uint32_t>(1));
+
+    ClearPhoneCallMappings(ccpService);
+}
+
+/**
+ * @tc.number: CcpVoipRestoreAfterPhoneHangUp001
+ * @tc.name: Test voip state restored after phone call ends.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpVoipRestoreAfterPhoneHangUp001, TestSize.Level1)
+{
+    // 蜂窝通话期间登记的 VoIP 在蜂窝挂断后补建通话状态
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    SetupPhoneCallMapping(ccpService, 2);
+    RawAddress devAddr("00:11:22:33:44:55");
+    ccpService->HandleVoipStart(devAddr);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    uint32_t inOutBeforeHangUp = MockCcsGetRecord().inOutUpdateCount;
+
+    std::vector<Telephony::CallAttributeInfo> hangupVec = {
+        MakeCallInfo(2, TelCallState::CALL_STATUS_DISCONNECTED)
+    };
+    ccpService->HandleCallDetailChange(2, static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED),
+        "", hangupVec);
+    EXPECT_GT(MockCcsGetRecord().inOutUpdateCount, inOutBeforeHangUp);
+
+    ccpService->HandleVoipStop(devAddr);
+    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    ClearPhoneCallMappings(ccpService);
+}
+
+/**
+ * @tc.number: CcpHandleHangUpRejectAndHangUp001
+ * @tc.name: Test hang up splits reject and hang up by ringing state.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpHandleHangUpRejectAndHangUp001, TestSize.Level1)
+{
+    // 振铃中挂断走拒接；非振铃走挂断；未知标识直接忽略
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+    RawAddress devAddr("00:11:22:33:44:55");
+
+    std::vector<Telephony::CallAttributeInfo> incomingVec = {
+        MakeCallInfo(6, TelCallState::CALL_STATUS_INCOMING, Telephony::CallDirection::CALL_DIRECTION_IN)
+    };
+    ccpService->HandleCallDetailChange(6, static_cast<int32_t>(TelCallState::CALL_STATUS_INCOMING),
+        "", incomingVec);
+    ccpService->HandleHangUp(devAddr, 1, 55, 1);
+    EXPECT_EQ(MockCcsGetRecord().callControlResultCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(MockCcsGetRecord().lastCallControlRequestId, static_cast<uint32_t>(55));
+
+    ccpService->HandleHangUp(devAddr, 1, 56, 99);
+    EXPECT_EQ(MockCcsGetRecord().callControlResultCount, static_cast<uint32_t>(1));
+
+    std::vector<Telephony::CallAttributeInfo> activeVec = {
+        MakeCallInfo(6, TelCallState::CALL_STATUS_ACTIVE, Telephony::CallDirection::CALL_DIRECTION_IN)
+    };
+    ccpService->ProcessCallStateInfo(activeVec);
+    ccpService->HandleHangUp(devAddr, 1, 57, 1);
+    EXPECT_EQ(MockCcsGetRecord().callControlResultCount, static_cast<uint32_t>(2));
+    EXPECT_EQ(MockCcsGetRecord().lastCallControlRequestId, static_cast<uint32_t>(57));
+
+    ClearPhoneCallMappings(ccpService);
+}
+
+/**
+ * @tc.number: CcpEnableDisableRepeat001
+ * @tc.name: Test repeated enable and disable are idempotent.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpEnableDisableRepeat001, TestSize.Level1)
+{
+    // 重复使能不重复建栈实例；重复去使能不重复销毁
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    ccpService->Disable();
+    MockCcsResetRecord();
+
+    ccpService->Enable();
+    ccpService->Enable();
+    EXPECT_EQ(MockCcsGetRecord().createInstanceCount, static_cast<uint32_t>(1));
+
+    ccpService->Disable();
+    ccpService->Disable();
+    EXPECT_EQ(MockCcsGetRecord().deleteInstanceCount, static_cast<uint32_t>(1));
+}
+
+/**
+ * @tc.number: CcpNumberFallback001
+ * @tc.name: Test number fallback fills account info.
+ * @tc.desc: FUNC
+ */
+HWTEST_F(CcpServiceTest, CcpNumberFallback001, TestSize.Level1)
+{
+    // 列表反查不到时用事件号码兜底填充用户信息
+    CcpService *ccpService = CcpService::GetService();
+    ASSERT_NE(ccpService, nullptr);
+    MockCcsResetRecord();
+
+    ccpService->HandleCallDetailChange(3, static_cast<int32_t>(TelCallState::CALL_STATUS_DIALING),
+        "12345678", {});
+    EXPECT_EQ(MockCcsGetRecord().inOutUpdateCount, static_cast<uint32_t>(1));
+    EXPECT_EQ(MockCcsGetRecord().lastInOutUserInfoLen, static_cast<uint32_t>(strlen("tel:12345678")));
+
+    ClearPhoneCallMappings(ccpService);
 }
 
 } // namespace TEST
