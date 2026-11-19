@@ -70,6 +70,8 @@ config("nearlink_device_manager_public_config") {
 }
 
 ohos_shared_library("nearlink_device_manager") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_device_manager.versionscript"
   branch_protector_ret = "pac_ret"
   stack_protector_ret = false
   

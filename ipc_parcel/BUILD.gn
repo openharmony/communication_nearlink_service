@@ -44,6 +44,8 @@ config("nearlink_ipc_parcel_config") {
 }
 
 ohos_shared_library("nearlink_ipc_parcel") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_ipc_parcel.versionscript"
     branch_protector_ret = "pac_ret"
 
     configs = [ ":nearlink_ipc_parcel_config" ]

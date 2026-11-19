@@ -65,6 +65,9 @@ public:
     void ProcessEvent(const McpMessage &event);
     McpRenderState GetMcpRealTimeRenderState();
 
+    /* 所有音频设备断连后清理媒体播放状态 */
+    void ResetMediaPlaybackState();
+
     /**
     * @brief This class implement the <b>SessionListener</b> interface for observing the state change.
     */
@@ -378,6 +381,8 @@ void McpServerServiceManager::impl::StartStateTimer()
         auto func = [pimplSptr]() {
             auto ptr = pimplSptr.lock();
             NL_CHECK_RETURN(ptr, "[McpServer]ptr is null");
+            // 复位时已置空定时器，丢弃复位前已触发并入队的旧回调
+            NL_CHECK_RETURN(ptr->stateTimer_ != nullptr, "[McpServer]state timer already reset");
             ptr->renderState_ = McpRenderState::KPausing;
             ptr->stateTimer_ = nullptr;
             ptr->UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE);
@@ -746,6 +751,28 @@ void McpServerServiceManager::impl::UpdateMediaPlaybackState(int32_t state)
     HILOGI("[McpServer]McpUpdateMediaProperty-PlaybackState success.");
 }
 
+void McpServerServiceManager::impl::ResetMediaPlaybackState()
+{
+    HILOGI("[McpServer]all audio devices disconnected, reset media playback state.");
+    // 判定在ASC线程完成，这里在执行侧复核一次，避免判定与清理之间设备重连后被误复位
+    NL_CHECK_RETURN(!CheckNowHasDeviceConnected(), "[McpServer]device connected again, skip reset playback state.");
+    NLSTK_McpReadyState_E mcpState = NLSTK_MCP_STATE_READY;
+    uint32_t ret = NLSTK_McpUpdateMediaProperty(mcpInstanceId_, NLSTK_MCP_PLAYBACK_STATE, &mcpState);
+    if (ret != NLSTK_ERRCODE_SUCCESS) {
+        DftReportAudioError("", ERROR_NEARLINK_INNER, SUB_ERRCODE_CASE1);
+        HILOGE("[McpServer]McpUpdateMediaProperty-ResetPlaybackState error ret=%{public}d.", ret);
+    }
+    // 复位本地缓存，保证设备重连后可重新同步真实播放状态
+    currPlaybackState_.SetState(AVSession::AVPlaybackState::PLAYBACK_STATE_INITIAL);
+    currentReportState_ = NLSTK_MCP_STATE_READY;
+    renderState_ = McpRenderState::KUninitalize;
+    realTimeRenderState_ = McpRenderState::KUninitalize;
+    if (stateTimer_ != nullptr) {
+        stateTimer_->Stop();
+        stateTimer_ = nullptr;
+    }
+}
+
 void McpServerServiceManager::impl::UpdateMediaPlaybackLocation()
 {
     HILOGI("[McpServer][UpdateMediaPlaybackLocation] mcpInstanceId=%{public}d", mcpInstanceId_);
@@ -996,6 +1023,12 @@ void McpServerServiceManager::InitMediaListener()
 {
     HILOGD("enter");
     pimpl->InitMediaListener();
+}
+
+void McpServerServiceManager::ResetMediaPlaybackState()
+{
+    HILOGI("enter");
+    pimpl->ResetMediaPlaybackState();
 }
 
 void McpServerServiceManager::SendKeyEventToAvSession(const RawAddress &device, uint8_t key)

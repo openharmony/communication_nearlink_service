@@ -21,6 +21,8 @@
 #include "nearlink_native_token_mock.h"
 #include "nearlink_access_token_mock.h"
 #include "DeviceBatteryManager.h"
+#include "SleRemoteDeviceManager.h"
+#include "sle_service_data.h"
 #include "IRemoteDeviceQuery.h"
 #include "SleUtils.h"
 #include "log.h"
@@ -246,6 +248,160 @@ HWTEST_F(NearlinkBattaryManagerTest, BatteryInfo_SizeofCompat_001, TestSize.Leve
     HILOGI("NearlinkBattaryManagerTest:BatteryInfo_SizeofCompat_001 start");
     EXPECT_EQ(sizeof(BatteryInfo), 13);
     HILOGI("NearlinkBattaryManagerTest:BatteryInfo_SizeofCompat_001 end");
+}
+
+
+/**
+ * @tc.name: BatteryCalcAndCurrent_001
+ * @tc.desc: 电量上报值取双耳较低值，仅一只耳有电量时取该值，双耳无电量取常规电量，全无效为 -1；
+ *           当前电量设备优先取支持电量的激活设备，激活无效时取最近连接的支持电量设备
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryCalcAndCurrent_001, TestSize.Level1)
+{
+    auto &mgr = DeviceBatteryManager::GetInstance();
+    BatteryInfo bothSides = {};
+    bothSides.leftBattery_ = 60;
+    bothSides.rightBattery_ = 80;
+    EXPECT_EQ(60, mgr.CalculateBatteryLevel(bothSides));
+    BatteryInfo singleSide = {};
+    singleSide.leftBattery_ = 90;
+    EXPECT_EQ(90, mgr.CalculateBatteryLevel(singleSide));
+    BatteryInfo devOnly = {};
+    devOnly.devBattery_ = 70;
+    EXPECT_EQ(70, mgr.CalculateBatteryLevel(devOnly));
+    BatteryInfo nothing = {};
+    EXPECT_EQ(-1, mgr.CalculateBatteryLevel(nothing));
+
+    mgr.connectedDevices_ = {{"A1:B2:C3:D4:E5:21", false}, {"A1:B2:C3:D4:E5:22", true}};
+    mgr.activeDevice_ = "A1:B2:C3:D4:E5:22";
+    EXPECT_EQ("A1:B2:C3:D4:E5:22", mgr.GetCurrentBatteryDevice(true));
+    mgr.activeDevice_ = "A1:B2:C3:D4:E5:21";
+    EXPECT_EQ("A1:B2:C3:D4:E5:22", mgr.GetCurrentBatteryDevice(true));
+    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.GetLastConnectedDevice(false));
+    mgr.activeDevice_ = "";
+    EXPECT_EQ("A1:B2:C3:D4:E5:22", mgr.GetCurrentBatteryDevice(true));
+    mgr.connectedDevices_.clear();
+    EXPECT_EQ("", mgr.GetCurrentBatteryDevice(true));
+}
+
+/**
+ * @tc.name: BatteryNotify_001
+ * @tc.desc: 电量通知只对当前电量设备生效且电量变化才上报；空设备变更清空
+ *           当前电量设备，未知设备被忽略，双无效电量只切换当前设备不上报
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryNotify_001, TestSize.Level1)
+{
+    auto &mgr = DeviceBatteryManager::GetInstance();
+    mgr.connectedDevices_ = {{"A1:B2:C3:D4:E5:21", true}, {"A1:B2:C3:D4:E5:22", true}};
+    mgr.currentBatteryDevice_ = "A1:B2:C3:D4:E5:21";
+    mgr.reportBatteryLevel_ = 50;
+    BatteryInfo info = {};
+    info.leftBattery_ = 60;
+    mgr.batteryDeviceMap_["A1:B2:C3:D4:E5:21"] = info;
+
+    mgr.NotifyForBatteryInfoChanged("A1:B2:C3:D4:E5:22", 60);
+    EXPECT_EQ(50, mgr.reportBatteryLevel_);
+    mgr.NotifyForBatteryInfoChanged("A1:B2:C3:D4:E5:21", 50);
+    EXPECT_EQ(50, mgr.reportBatteryLevel_);
+    mgr.NotifyForBatteryInfoChanged("A1:B2:C3:D4:E5:21", 60);
+    EXPECT_EQ(60, mgr.reportBatteryLevel_);
+
+    // 空设备变更：清空当前电量设备并按无电量上报
+    mgr.NotifyForDeviceChanged("");
+    EXPECT_EQ("", mgr.currentBatteryDevice_);
+    EXPECT_EQ(-1, mgr.reportBatteryLevel_);
+    // 未连接的未知设备：直接忽略
+    mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:31");
+    EXPECT_EQ("", mgr.currentBatteryDevice_);
+    // 切回有电量记录的设备：切换并上报其电量
+    mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:21");
+    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.currentBatteryDevice_);
+    EXPECT_EQ(60, mgr.reportBatteryLevel_);
+    // 双无效电量：只切换当前设备不上报
+    mgr.reportBatteryLevel_ = -1;
+    mgr.NotifyForDeviceChanged("A1:B2:C3:D4:E5:22");
+    EXPECT_EQ("A1:B2:C3:D4:E5:22", mgr.currentBatteryDevice_);
+    EXPECT_EQ(-1, mgr.reportBatteryLevel_);
+}
+
+/**
+ * @tc.name: BatteryAddUpdate_001
+ * @tc.desc: 已连接设备重复添加时移到队尾并重置电量标记；已有电量记录的设备
+ *           重新添加时立即成为当前电量设备
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryAddUpdate_001, TestSize.Level1)
+{
+    auto &mgr = DeviceBatteryManager::GetInstance();
+    mgr.connectedDevices_.clear();
+    mgr.batteryDeviceMap_.clear();
+    mgr.currentBatteryDevice_ = "";
+    mgr.reportBatteryLevel_ = -1;
+
+    mgr.AddConnectedDevice("A1:B2:C3:D4:E5:21");
+    mgr.AddConnectedDevice("A1:B2:C3:D4:E5:22");
+    ASSERT_EQ(2U, mgr.connectedDevices_.size());
+    mgr.UpdateBatteryStatus("A1:B2:C3:D4:E5:21", true);
+    EXPECT_TRUE(mgr.FindConnectedDevice("A1:B2:C3:D4:E5:21").second);
+
+    mgr.AddConnectedDevice("A1:B2:C3:D4:E5:21");
+    ASSERT_EQ(2U, mgr.connectedDevices_.size());
+    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.connectedDevices_.back().first);
+    EXPECT_FALSE(mgr.connectedDevices_.back().second);
+
+    mgr.UpdateBatteryStatus("A1:B2:C3:D4:E5:21", true);
+    mgr.currentBatteryDevice_ = "";
+    BatteryInfo info = {};
+    info.leftBattery_ = 40;
+    mgr.batteryDeviceMap_["A1:B2:C3:D4:E5:21"] = info;
+    mgr.AddConnectedDevice("A1:B2:C3:D4:E5:21");
+    EXPECT_EQ("A1:B2:C3:D4:E5:21", mgr.currentBatteryDevice_);
+}
+
+/**
+ * @tc.name: BatteryDisconnect_001
+ * @tc.desc: 档案断开清理电量记录与连接表项并清空激活设备；非法地址直接忽略
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, BatteryDisconnect_001, TestSize.Level1)
+{
+    auto &mgr = DeviceBatteryManager::GetInstance();
+    mgr.connectedDevices_ = {{"A1:B2:C3:D4:E5:21", true}};
+    mgr.batteryDeviceMap_ = {{"A1:B2:C3:D4:E5:21", BatteryInfo()}};
+    mgr.activeDevice_ = "A1:B2:C3:D4:E5:21";
+
+    mgr.ProcessProfileDisconnected("not-an-addr");
+    EXPECT_EQ(1U, mgr.connectedDevices_.size());
+
+    mgr.ProcessProfileDisconnected("A1:B2:C3:D4:E5:21");
+    EXPECT_TRUE(mgr.connectedDevices_.empty());
+    EXPECT_TRUE(mgr.batteryDeviceMap_.empty());
+    EXPECT_EQ("", mgr.activeDevice_);
+}
+
+/**
+ * @tc.name: PublishBatteryLevel003
+ * @tc.desc: 音频标记设备因 TWS 档案未启动不落电量记录；非音频设备直接忽略
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkBattaryManagerTest, PublishBatteryLevel003, TestSize.Level1)
+{
+    auto &mgr = DeviceBatteryManager::GetInstance();
+    mgr.batteryDeviceMap_.clear();
+
+    auto audioDev = std::make_shared<SlePeripheralDevice>();
+    audioDev->SetAddress(RawAddress("A1:B2:C3:D4:E5:21"));
+    audioDev->SetIsAudioDeviceFlag(true);
+    SleRemoteDeviceManager::GetInstance()->AddPeripheralDevice("A1:B2:C3:D4:E5:21", audioDev);
+    mgr.PublishBatteryLevel(RawAddress("A1:B2:C3:D4:E5:21"), BatteryInfo());
+    EXPECT_TRUE(mgr.batteryDeviceMap_.empty());
+
+    mgr.PublishBatteryLevel(RawAddress("B2:C3:D4:E5:F6:32"), BatteryInfo());
+    EXPECT_TRUE(mgr.batteryDeviceMap_.empty());
+
+    SleRemoteDeviceManager::GetInstance()->RemovePeripheralDevice("A1:B2:C3:D4:E5:21");
 }
 
 } // namespace TEST

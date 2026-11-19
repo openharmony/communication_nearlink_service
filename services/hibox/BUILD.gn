@@ -31,6 +31,8 @@ config("hibox_config") {
 }
 
 ohos_shared_library("nearlink_hibox") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_hibox.versionscript"
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   # stack_protector_ret = true
   

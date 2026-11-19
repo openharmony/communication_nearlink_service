@@ -102,5 +102,10 @@ McpRenderState McpServerServiceManagerLoader::GetMcpRealTimeRenderState()
     return mcpServerServiceManager->GetMcpRealTimeRenderState();
 }
 
+void McpServerServiceManagerLoader::ResetMediaPlaybackState()
+{
+    CALL_FUNC_IF_AVSESSION_MEDIA_LIB_LOADED(ResetMediaPlaybackState);
+}
+
 }  // namespace Nearlink
 }  // namespace OHOS

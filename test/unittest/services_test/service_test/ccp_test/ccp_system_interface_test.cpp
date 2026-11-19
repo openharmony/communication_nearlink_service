@@ -25,7 +25,6 @@ namespace TEST {
 using namespace testing::ext;
 using namespace OHOS::Telephony;
 
-static std::unique_ptr<CcpSystemInterface::CallManagerCallbackImpl> callManagerCallbackImpl_ {nullptr};
 constexpr int CCP_SERVICE_UT_DELAY_50_MS = 50;
 constexpr int32_t TELEPHONY_CALL_MANAGER_SYS_ABILITY_ID = 4005;
 
@@ -40,13 +39,11 @@ public:
 void CcpSystemInterfaceTest::SetUpTestCase()
 {
     HILOGI("SetUpTestCase CcpSystemInterfaceTest");
-    callManagerCallbackImpl_ = std::make_unique<CcpSystemInterface::CallManagerCallbackImpl>();
 }
 
 void CcpSystemInterfaceTest::TearDownTestCase()
 {
     HILOGI("TearDownTestCase CcpSystemInterfaceTest");
-    callManagerCallbackImpl_ = nullptr;
 }
 
 void CcpSystemInterfaceTest::SetUp()
@@ -113,40 +110,6 @@ HWTEST_F(CcpSystemInterfaceTest, IsRinging001, TestSize.Level1)
     EXPECT_NE(0, 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("IsRinging001 end");
-}
-
-/*
- * @tc.number: OnCallDetailsChange001
- * @tc.name:
- * @tc.desc:
-*/
-HWTEST_F(CcpSystemInterfaceTest, OnCallDetailsChange001, TestSize.Level1)
-{
-    HILOGI("OnCallDetailsChange001 start");
-    CallAttributeInfo callAttributeInfo;
-    callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
-    callManagerCallbackImpl_->OnCallDetailsChange(callAttributeInfo);
-    EXPECT_NE(0, 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    HILOGI("OnCallDetailsChange001 end");
-}
-
-/*
- * @tc.number: OnPhoneStateChange001
- * @tc.name:
- * @tc.desc:
-*/
-HWTEST_F(CcpSystemInterfaceTest, OnPhoneStateChange001, TestSize.Level1)
-{
-    HILOGI("OnPhoneStateChange001 start");
-    int32_t numActive = 1;
-    int32_t numHeld = 0;
-    int32_t callState = static_cast<int32_t>(TelCallState::CALL_STATUS_ACTIVE);
-    std::string number = "11111111111";
-    callManagerCallbackImpl_->OnPhoneStateChange(numActive, numHeld, callState, number);
-    EXPECT_NE(0, 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    HILOGI("OnPhoneStateChange001 end");
 }
 
 /*

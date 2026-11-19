@@ -134,5 +134,8 @@ group("nl_native_unittest") {
     "ssap_event_framework_test:nl_ssap_event_framework_unittest",
     "ssap_property_framework_test:nl_ssap_property_framework_unittest",
     "ssap_descriptor_framework_test:nl_ssap_descriptor_framework_unittest",
+    "scanner_framework_test:nl_scanner_framework_unittest",
+    "advertiser_framework_test:nl_advertiser_framework_unittest",
+    "datatransfer_framework_test:nl_datatransfer_framework_unittest",
   ]
 }

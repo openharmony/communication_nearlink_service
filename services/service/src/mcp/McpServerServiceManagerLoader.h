@@ -41,6 +41,7 @@ public:
     void PostEvent(const McpMessage &event);
     void RendererStreamStateChange(int state);
     McpRenderState GetMcpRealTimeRenderState();
+    void ResetMediaPlaybackState();
 
     /**
      * @brief Load the dynamic library, may cost 20ms ~ 50ms。

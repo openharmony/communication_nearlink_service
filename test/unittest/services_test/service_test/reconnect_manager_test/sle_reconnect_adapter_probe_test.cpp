@@ -103,6 +103,8 @@ void SleReconnectAdapterProbeTest::SetUp()
     // CDSM 调用在测试线程内同步完成
     ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
         THREAD_ID_CDSM, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
+    ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
+        THREAD_ID_DEVICE_ADAPTER, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
 
     // 快照本用例会触碰的进程态，TearDown 原样恢复
     savedReconnList_ = SleConfig::GetInstance().GetReconnectDeviceAddressList();
@@ -486,6 +488,190 @@ HWTEST_F(SleReconnectAdapterProbeTest, WindowEdges_001, TestSize.Level1)
     Mgr().SetBgConnMaxNum(0);
     EXPECT_EQ(1U, Mgr().pairedQueue_.size());
     EXPECT_EQ(0U, Mgr().windowStartIndex_);
+}
+
+/**
+ * @tc.name: GetReconnectList_002
+ * @tc.desc: 窗口起点越过终点时回连列表返回空，队列内容保留不丢设备
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, GetReconnectList_002, TestSize.Level1)
+{
+    Mgr().OnDeviceStartPair(RawAddress(kMouseM));
+    ASSERT_EQ(1U, Mgr().pairedQueue_.size());
+
+    // 破坏窗口为非法区间后重新加载：列表为空，但设备仍在队列中
+    Mgr().windowStartIndex_ = Mgr().windowEndIndex_ + 1;
+    EXPECT_TRUE(Mgr().GetReconnectList().empty());
+    EXPECT_EQ(1U, Mgr().pairedQueue_.size());
+    EXPECT_EQ(kMouseM, Mgr().pairedQueue_.front().reportAddr_);
+}
+
+/**
+ * @tc.name: ParseAddressList_001
+ * @tc.desc: 地址列表解析跳过连续分隔符产生的空段，尾部分隔符不产生空地址，空串解析为空列表
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, ParseAddressList_001, TestSize.Level1)
+{
+    // 连续分隔符与首尾分隔符都不产生空地址
+    EXPECT_EQ((std::vector<std::string>{kMouseM, kHeadsetL}),
+        Mgr().ParseAddressList(kMouseM + "||" + kHeadsetL));
+    EXPECT_EQ((std::vector<std::string>{kMouseM}), Mgr().ParseAddressList("|" + kMouseM + "|"));
+    EXPECT_EQ((std::vector<std::string>{kMouseM, kHeadsetL}),
+        Mgr().ParseAddressList(kMouseM + "|" + kHeadsetL));
+
+    // 空串与纯分隔符都解析为空列表
+    EXPECT_TRUE(Mgr().ParseAddressList("").empty());
+    EXPECT_TRUE(Mgr().ParseAddressList("|").empty());
+}
+
+/**
+ * @tc.name: LoadDefaultPairedDevices_001
+ * @tc.desc: 回连列表为空时从配对表加载：合作集只入队一次且带全组成员；
+ *           用户断连设备在允许回连策略下不降优先级
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, LoadDefaultPairedDevices_001, TestSize.Level1)
+{
+    // 合作集两个成员都登记在配对表：任一成员加载后，另一成员命中去重直接跳过
+    InjectCdsmGroup(201, kHeadsetL, {kHeadsetL, kHeadsetR});
+    ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kHeadsetL, false));
+    ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kHeadsetR, false));
+    ASSERT_TRUE(SleConfig::GetInstance().SetCdsmMemberList(kHeadsetL, {kHeadsetL, kHeadsetR}));
+
+    ASSERT_TRUE(SleConfig::GetInstance().SetReconnectDeviceAddressList(""));
+    std::vector<std::string> list = Mgr().GetReconnectList();
+    EXPECT_NE(list.end(), std::find(list.begin(), list.end(), kHeadsetL));
+    EXPECT_NE(list.end(), std::find(list.begin(), list.end(), kHeadsetR));
+    auto groupEntry = std::find_if(Mgr().pairedQueue_.begin(), Mgr().pairedQueue_.end(),
+        [](const ReconnectDeviceInfo &info) { return info.reportAddr_ == kHeadsetL; });
+    ASSERT_NE(Mgr().pairedQueue_.end(), groupEntry);
+    EXPECT_EQ(2U, groupEntry->cdsmMemberCount_);
+
+    // 用户断连设备：默认策略允许回连用户断连设备，加载后不做降优先级处理
+    ASSERT_TRUE(SleConfig::GetInstance().SetUserDisconnectedFlag(kUserDiscC, true));
+    ASSERT_TRUE(SleConfig::GetInstance().SetReconnectDeviceAddressList(""));
+    std::vector<std::string> reload = Mgr().GetReconnectList();
+    EXPECT_NE(reload.end(), std::find(reload.begin(), reload.end(), kHeadsetL));
+    EXPECT_NE(reload.end(), std::find(reload.begin(), reload.end(), kHeadsetR));
+    EXPECT_NE(Mgr().pairedQueue_.end(), std::find_if(Mgr().pairedQueue_.begin(), Mgr().pairedQueue_.end(),
+        [](const ReconnectDeviceInfo &info) { return info.reportAddr_ == kUserDiscC; }));
+}
+
+/**
+ * @tc.name: OnDeviceConnected_002
+ * @tc.desc: 不需要后台回连的断连不进入白名单；该设备随后连接成功时直接移到队尾，不触发名单清理
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, OnDeviceConnected_002, TestSize.Level1)
+{
+    Mgr().OnDeviceStartPair(RawAddress(kMouseM));
+    ASSERT_EQ(1U, Mgr().pairedQueue_.size());
+
+    Mgr().OnDeviceDisConnected(RawAddress(kMouseM), false);
+    EXPECT_TRUE(Mgr().inBgListDevices_.empty());
+
+    Mgr().OnDeviceConnected(RawAddress(kMouseM), true);
+    EXPECT_TRUE(Mgr().inBgListDevices_.empty());
+    ASSERT_EQ(1U, Mgr().pairedQueue_.size());
+    EXPECT_EQ(kMouseM, Mgr().pairedQueue_.back().reportAddr_);
+}
+
+/**
+ * @tc.name: OnDeviceUnpaired_001
+ * @tc.desc: 移除窗口内设备时窗口起点不动、终点随队列收缩，其余设备相对顺序保持
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, OnDeviceUnpaired_001, TestSize.Level1)
+{
+    Mgr().OnDeviceStartPair(RawAddress(kMouseM));
+    Mgr().OnDeviceStartPair(RawAddress(kHeadsetL));
+    Mgr().OnDeviceStartPair(RawAddress(kCoopA));
+    ASSERT_EQ(3U, Mgr().pairedQueue_.size());
+
+    Mgr().OnDeviceUnpaired(RawAddress(kHeadsetL));
+    EXPECT_EQ(2U, Mgr().pairedQueue_.size());
+    EXPECT_EQ(kMouseM, Mgr().pairedQueue_[0].reportAddr_);
+    EXPECT_EQ(kCoopA, Mgr().pairedQueue_[1].reportAddr_);
+    EXPECT_EQ(0U, Mgr().windowStartIndex_);
+    EXPECT_EQ(2U, Mgr().windowEndIndex_);
+}
+
+/**
+ * @tc.name: SetReconnDeviceParam_001
+ * @tc.desc: 回连目标没有映射的蓝牙地址时回连参数保持原值；无回连目标时参数重置为无效地址
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, SetReconnDeviceParam_001, TestSize.Level1)
+{
+    OHOS::system::SetParameter(RECONN_BT_PARAM_KEY, kBtAddr);
+
+    // 回连目标存在但没有 BT 映射：参数不刷新
+    ASSERT_TRUE(SleConfig::GetInstance().SetLastASCActiveDevice(kMouseM));
+    Mgr().SetReconnDeviceParam();
+    EXPECT_EQ(kBtAddr, OHOS::system::GetParameter(RECONN_BT_PARAM_KEY, ""));
+
+    // 无回连目标：参数重置
+    ASSERT_TRUE(SleConfig::GetInstance().RemoveLastASCActiveDevice());
+    Mgr().SetReconnDeviceParam();
+    EXPECT_EQ(INVALID_MAC_ADDRESS, OHOS::system::GetParameter(RECONN_BT_PARAM_KEY, ""));
+}
+
+/**
+ * @tc.name: WindowRecover_001
+ * @tc.desc: 窗口容量不足时最老设备被挤出且不在后台回连名单时不回收白名单；
+ *           移除队尾设备腾出空间后被挤出设备重新回到窗口
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, WindowRecover_001, TestSize.Level1)
+{
+    Mgr().SetBgConnMaxNum(2);
+    Mgr().OnDeviceStartPair(RawAddress(kMouseM));
+    Mgr().OnDeviceStartPair(RawAddress(kHeadsetL));
+    Mgr().OnDeviceStartPair(RawAddress(kCoopA));
+
+    // 第三个设备入队把 kMouseM 挤出窗口；全程无人进入后台回连名单
+    ASSERT_EQ(3U, Mgr().pairedQueue_.size());
+    EXPECT_EQ(1U, Mgr().windowStartIndex_);
+    EXPECT_EQ(3U, Mgr().windowEndIndex_);
+    EXPECT_TRUE(Mgr().inBgListDevices_.empty());
+
+    // 移除队尾设备后窗口回扩，被挤出的 kMouseM 重新入窗
+    Mgr().OnDeviceUnpaired(RawAddress(kCoopA));
+    EXPECT_EQ(2U, Mgr().pairedQueue_.size());
+    EXPECT_EQ(0U, Mgr().windowStartIndex_);
+    EXPECT_EQ(2U, Mgr().windowEndIndex_);
+    EXPECT_EQ(2U, Mgr().GetWindowDeviceCount());
+}
+
+/**
+ * @tc.name: WindowEdges_002
+ * @tc.desc: 窗口终点越过队列长度时设备计数为 0；对窗口外或不存在的设备做窗口内搬移是无效操作
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleReconnectAdapterProbeTest, WindowEdges_002, TestSize.Level1)
+{
+    Mgr().OnDeviceStartPair(RawAddress(kMouseM));
+    ASSERT_EQ(1U, Mgr().pairedQueue_.size());
+
+    // 终点越过队列长度：计数按非法窗口处理
+    Mgr().windowEndIndex_ = Mgr().pairedQueue_.size() + 1;
+    EXPECT_EQ(0U, Mgr().GetWindowDeviceCount());
+    Mgr().windowEndIndex_ = 1;
+
+    // 不存在的设备：搬移无效
+    Mgr().MoveDeviceFromWindowToHead(kUnknownU);
+    EXPECT_EQ(kMouseM, Mgr().pairedQueue_.front().reportAddr_);
+
+    // 窗口外设备：搬移无效，队列顺序不变
+    Mgr().OnDeviceStartPair(RawAddress(kHeadsetL));
+    Mgr().windowStartIndex_ = 1;
+    Mgr().windowEndIndex_ = 2;
+    Mgr().MoveDeviceFromWindowToHead(kMouseM);
+    EXPECT_EQ(kMouseM, Mgr().pairedQueue_[0].reportAddr_);
+    EXPECT_EQ(kHeadsetL, Mgr().pairedQueue_[1].reportAddr_);
+    EXPECT_EQ(1U, Mgr().windowStartIndex_);
 }
 } // namespace TEST
 } // namespace Nearlink
