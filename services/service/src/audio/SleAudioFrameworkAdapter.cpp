@@ -91,7 +91,7 @@ void SleAudioFrameworkAdapter::SetStreamMuted(uint32_t streamId, StreamMuteType 
 {
     for (auto &it : routeFlagList_) {
         if (it.streamId == streamId) {
-            if (Type == StreamMuteType::DATA) {
+            if (type == StreamMuteType::DATA) {
                 it.dataMuted = muted;
             } else {
                 it.volumeMuted = muted;
@@ -672,7 +672,8 @@ void SleAudioFrameworkAdapter::StopAllEmptyMuteScMcpPauseTimers()
 
 void SleAudioFrameworkAdapter::RegisterRendererDataTransferListener()
 {
-    if (audioOutputPipeCallback_ != nullptr) {
+    if (audioRendererDataCallback_
+     != nullptr) {
         HILOGI("[SleAudioFrameworkAdapter] renderer data listener already registered, skip");
         return;
     }
