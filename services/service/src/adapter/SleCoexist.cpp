@@ -137,7 +137,7 @@ void SleCoexist::UpdateConnParam()
     bool isNeedAdjustExt = adjustDevCount >= CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM;
     int deviceCount = 0;
     manager->IterateConnInfo(
-        [this, sleCoexist = selfWeak_.lock(), &deviceCount, isNeedAdjustInterval, isNeedAdjustExt](
+        [sleCoexist = selfWeak_.lock(), &deviceCount, isNeedAdjustInterval, isNeedAdjustExt](
             const CoexistConnInfo& info) {
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
         sleCoexist->RefreshAppearanceAndCustomFlag(info);
