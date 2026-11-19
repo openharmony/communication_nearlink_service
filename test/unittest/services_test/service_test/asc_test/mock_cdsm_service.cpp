@@ -217,6 +217,16 @@ NlErrCode CdsmService::DeregisterCdsmClientCallback()
     return NL_NO_ERROR;
 }
 
+namespace {
+bool g_mockCoMemberEnabled = false;
+}
+
+void SetMockCdsmCoMemberEnabled(bool enabled)
+{
+    HILOGI("[CdsmService Mocker]:co member visible = %{public}d", enabled);
+    g_mockCoMemberEnabled = enabled;
+}
+
 NlErrCode CdsmService::CdsmGetAllMemberInfo(const RawAddress &memberAddr, std::vector<NearlinkCdsmInfo> &cdsmInfo)
 {
     NearlinkCdsmInfo tmpDevInfo;
@@ -224,6 +234,10 @@ NlErrCode CdsmService::CdsmGetAllMemberInfo(const RawAddress &memberAddr, std::v
     tmpDevInfo.state_ = static_cast<uint8_t>(CdsmConnectState::CONNECTED);
     cdsmInfo.push_back(tmpDevInfo);
     if (memberAddr.GetAddress() == coDeviceStr) {
+        return NL_NO_ERROR;
+    }
+    // 默认只返回请求成员自身（与既有套件行为一致）；需要双耳联动路径的用例显式打开
+    if (!g_mockCoMemberEnabled) {
         return NL_NO_ERROR;
     }
     NearlinkCdsmInfo tmpDevInfo2;
