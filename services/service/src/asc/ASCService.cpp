@@ -4684,6 +4684,13 @@ void ASCService::CbkDisconnect(const RawAddress& device, uint8_t result)
         // 双耳都断联，才清除播放记录
         SetPlayRecord({}, Qos::NL_SLE_QOS_NONE, 0, 0);
     }
+
+    // 所有音频设备断连后，通知MCP清理媒体状态，避免重连后耳机查询到残留播放状态
+    if (GetConnectState() == 0) {
+        McpServerService* mcpService = McpServerService::GetService();
+        NL_CHECK_RETURN(mcpService, "[ASCService]mcpService is null.");
+        mcpService->ResetMediaStateOnAllDevicesDisconnected();
+    }
 }
 
 void ASCService::DisconnectAcb(const RawAddress& device)

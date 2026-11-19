@@ -16,6 +16,8 @@
 #include "nlstk_mcp_media_server.h"
 #include "log.h"
 
+int32_t g_mockLastPlaybackState = -1; // 最后一次PLAYBACK_STATE写入值，供用例断言
+
 uint32_t NLSTK_McpCreateMediaInstance(NLSTK_McpMediaInfo_S *basicInfo)
 {
     HILOGI("[McpStack Mocker] NLSTK_McpCreateMediaInstance enter");
@@ -38,6 +40,9 @@ uint32_t NLSTK_McpMediaAuthorizeResult(uint16_t requestId, int32_t instanceId, N
 uint32_t NLSTK_McpUpdateMediaProperty(int32_t instanceId, NLSTK_McpPropertyType_E property, void *value)
 {
     HILOGI("[McpStack Mocker] NLSTK_McpUpdateMediaProperty enter");
+    if (property == NLSTK_MCP_PLAYBACK_STATE && value != nullptr) {
+        g_mockLastPlaybackState = static_cast<int32_t>(*static_cast<NLSTK_McpReadyState_E *>(value));
+    }
     return NLSTK_ERRCODE_SUCCESS;
 }
 
