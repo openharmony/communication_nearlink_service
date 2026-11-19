@@ -28,6 +28,7 @@
 
 #include "SleCoexistManager.h"
 #include "SleControllerService.h"
+#include "SleServiceManager.h"
 #include "SleInterfaceManager.h"
 #include "nearlink_access_token_mock.h"
 #include "nearlink_def.h"
@@ -63,8 +64,10 @@ public:
     static void SetUpTestCase(void)
     {
         NearlinkAccessTokenMock::SetNativeTokenInfo();
-        SleInterfaceManager::GetInstance()->Start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_1000_MS));
+        /* 裸进程栈初始化失败使 Start() 中止并回收适配器（GetAdapter 返回空，共存路径全被
+         * 空守卫拦下）；按 reconnect 套件先例只建适配器对象，供参数计算与状态迁移查询 */
+        SleServiceManager::GetInstance()->CreateAdapters();
+        ASSERT_NE(nullptr, SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     }
 
     static void TearDownTestCase(void) {}

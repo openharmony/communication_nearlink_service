@@ -14,6 +14,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <memory>
 #include <thread>
 
 #include "log.h"
@@ -28,6 +29,7 @@
 #include "ssap_utils.h"
 #include "HidHostStackAdapter.h"
 #include "SleServiceManager.h"
+#include "ProfileServiceManager.cpp"
 #include "nearlink_native_token_mock.h"
 #include "nearlink_access_token_mock.h"
 
@@ -46,6 +48,9 @@ public:
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    std::unique_ptr<HidHostService> service_;
 };
 
 void HidHostServiceTest::SetUpTestCase()
@@ -67,12 +72,19 @@ void HidHostServiceTest::TearDownTestCase()
 void HidHostServiceTest::SetUp()
 {
     HILOGI("SetUp start");
-
+    // 裸进程栈初始化失败使 Start() 中止，profile 注册链不创建服务实例；
+    // 挂入真实 HidHostService 供 GetService() 取到，用例内断言即注入自检
+    service_ = std::make_unique<HidHostService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, service_.get());
 }
 
 void HidHostServiceTest::TearDown()
 {
     HILOGI("TearDown start");
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, nullptr);
+    service_.reset();
 }
 
 /**
@@ -235,5 +247,12 @@ HWTEST_F(HidHostServiceTest, HidHostServiceTest003, TestSize.Level1)
 
 
 } // namespace TEST
+
+/* 供同二进制 hid_tail 套件复用本 TU 的 pimpl 注入缝（ProfileServiceManager.cpp 仅本 TU 直编） */
+void InjectHidHostServiceForTailSuite(HidHostService *service)
+{
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, service);
+}
 } // namespace Nearlink
 } // namespace OHOS

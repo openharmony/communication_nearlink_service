@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <thread>
 
 #include "HidHostService.h"
@@ -49,6 +50,9 @@ constexpr const char *HID_ADDR = "11:22:33:44:55:66";
 namespace OHOS {
 namespace Nearlink {
 
+/* hid_host_service_test.cpp 内定义，把服务实例写入 profile 注册表 */
+void InjectHidHostServiceForTailSuite(HidHostService *service);
+
 class HidTailTest : public testing::Test {
 public:
     HidTailTest() {}
@@ -59,14 +63,27 @@ public:
         NearlinkAccessTokenMock::SetNativeTokenInfo();
         OHOS::Nearlink::SleInterfaceManager::GetInstance()->Start();
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_1000_MS));
+        /* 裸进程 profile 注册链不建服务实例，GetService() 取到空；借 hid_host TU 的注入缝
+         * 挂入真实 HidHostService，供服务态与 uhid 特征/设置报告分发用例使用 */
+        hidService_ = std::make_unique<HidHostService>();
+        InjectHidHostServiceForTailSuite(hidService_.get());
     }
 
-    static void TearDownTestCase(void) {}
+    static void TearDownTestCase(void)
+    {
+        InjectHidHostServiceForTailSuite(nullptr);
+        hidService_.reset();
+    }
 
     void SetUp(void) {}
 
     void TearDown(void) {}
+
+private:
+    static std::unique_ptr<HidHostService> hidService_;
 };
+
+std::unique_ptr<HidHostService> HidTailTest::hidService_ = nullptr;
 
 /* uhid 发送路径：未打开设备直接失败；重试等待超限后失败；就绪后按任务类型
  *   分发获取/设置回包与未知类型，任务字段分发后复位，超长报告安全拒绝 */
