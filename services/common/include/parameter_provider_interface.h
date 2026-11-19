@@ -35,6 +35,11 @@ public:
     virtual uint8_t GetDevicePowerLevel() const = 0;
     virtual uint8_t GetMuteControlEnable() const = 0;
 
+    /**
+     * VCP设置音量时是否需要将所有流类型（通话流和媒体流)的音量都下发给对端设备
+     * @return 0 不需要(默认)，非0 需要
+     */
+    virtual uint8_t IsNeedSetAllStreamVolume() const { return 0; }
     using ParameterChangedCallback = std::function<void(int paramType)>;
     virtual void RegisterParameterChangedCallback(ParameterChangedCallback callback) {}
     virtual void UnregisterParameterChangedCallback() {}

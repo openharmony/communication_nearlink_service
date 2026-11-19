@@ -24,6 +24,7 @@
 #include "CdsmService.h"
 #include "SleServiceFfrtLog.h"
 #include "nearlink_dft_ue.h"
+#include "parameter_manager.h"
 #include "audio_errors.h"
 
 namespace OHOS {
@@ -221,8 +222,16 @@ void VcpService::SetVolumeAdapter(const RawAddress &device, int32_t vcpVolume, u
 
     if (streamVolumeAbility) {
         std::list<StreamVolume> streamVolumes;
-        StreamVolume streamVolume(vcpVolume, streamType);
-        streamVolumes.emplace_back(streamVolume);
+        if (ParameterManager::IsNeedSetAllStreamVolume() != 0) {
+            // 需要将通话流和媒体流的类型都传递给耳机，值都为vcpVolume
+            StreamVolume callStreamVolume(vcpVolume, static_cast<uint8_t>(VolumeStreamType::SLE_STREAM_CALL));
+            StreamVolume mediaStreamVolume(vcpVolume, static_cast<uint8_t>(VolumeStreamType::SLE_STREAM_MEDIA));
+            streamVolumes.emplace_back(callStreamVolume);
+            streamVolumes.emplace_back(mediaStreamVolume);
+        } else {
+            StreamVolume streamVolume(vcpVolume, streamType);
+            streamVolumes.emplace_back(streamVolume);
+        }
         pimpl->stackAdapter_.SetStreamVolume(device, streamVolumes);
     } else if (isNeedReport) {
         pimpl->stackAdapter_.SetVolume(device, vcpVolume);
