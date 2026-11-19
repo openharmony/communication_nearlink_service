@@ -766,14 +766,14 @@ HWTEST_F(NearlinkDataTransferTest, ConnectPeerPortInner_NoParamFallback001, Test
     uint16_t port = instance.CreatePort(PORT_UUID);
 
     instance.ConnectPeerPortInner(MakeConnectParams(PORT_UUID, DEVICE_SLE_ADDR, port));
+    DataTransferConnectionParams query = MakeConnectParams(PORT_UUID, DEVICE_SLE_ADDR, port);
+    int32_t finalState = instance.GetConnectionState(query);
     instance.DestroyPort(PORT_UUID, port);
     instance.DeregisterSleDataTransferServiceCallback();
 
     ASSERT_EQ(callback->events_.size(), static_cast<size_t>(1));
     EXPECT_EQ(callback->events_[0].state, static_cast<int32_t>(SleConnectState::DISCONNECTED));
-    DataTransferConnectionParams query = MakeConnectParams(PORT_UUID, DEVICE_SLE_ADDR, port);
-    EXPECT_EQ(instance.GetConnectionState(query),
-        static_cast<int32_t>(SleConnectState::DISCONNECTED));
+    EXPECT_EQ(finalState, static_cast<int32_t>(SleConnectState::DISCONNECTED));
 }
 
 /**
@@ -799,13 +799,16 @@ HWTEST_F(NearlinkDataTransferTest, ConnectCarInner_AcbSplit001, TestSize.Level1)
 
     MockSleAdapterSetAcbConnected(true);
     instance.ConnectCarInner(params);
+    size_t eventCount = callback->events_.size();
+    int32_t firstState = eventCount > 0 ? callback->events_[0].state : -1;
+    int firstFd = eventCount > 0 ? callback->events_[0].fd : -1;
     instance.Disconnect(params);
     instance.DestroyPort(CAR_UUID, carPort);
     instance.DeregisterSleDataTransferServiceCallback();
 
-    ASSERT_GE(callback->events_.size(), static_cast<size_t>(1));
-    EXPECT_EQ(callback->events_.back().state, static_cast<int32_t>(SleConnectState::CONNECTED));
-    EXPECT_GT(callback->events_.back().fd, 0);
+    ASSERT_GE(eventCount, static_cast<size_t>(1));
+    EXPECT_EQ(firstState, static_cast<int32_t>(SleConnectState::CONNECTED));
+    EXPECT_GT(firstFd, 0);
 }
 
 /**
@@ -826,13 +829,16 @@ HWTEST_F(NearlinkDataTransferTest, ConnectCarChannelAfterAcb_IccePortFail001, Te
 
     DataTransferConnectionParams params = MakeConnectParams(CAR_UUID, DEVICE_SLE_ADDR, carPort);
     instance.ConnectCarChannelAfterAcb(params);
+    size_t eventCount = callback->events_.size();
+    int32_t firstState = eventCount > 0 ? callback->events_[0].state : -1;
+    int firstFd = eventCount > 0 ? callback->events_[0].fd : -1;
     instance.Disconnect(params);
     instance.DestroyPort(CAR_UUID, carPort);
     instance.DeregisterSleDataTransferServiceCallback();
 
-    ASSERT_EQ(callback->events_.size(), static_cast<size_t>(1));
-    EXPECT_EQ(callback->events_[0].state, static_cast<int32_t>(SleConnectState::CONNECTED));
-    EXPECT_GT(callback->events_[0].fd, 0);
+    ASSERT_EQ(eventCount, static_cast<size_t>(1));
+    EXPECT_EQ(firstState, static_cast<int32_t>(SleConnectState::CONNECTED));
+    EXPECT_GT(firstFd, 0);
 }
 
 /**
@@ -947,13 +953,16 @@ HWTEST_F(NearlinkDataTransferTest, AcbObserver_ConnectedBuildCarChannel001, Test
         static_cast<int32_t>(SleConnectState::DISCONNECTED), 0);
 
     DataTransferConnectionParams params = MakeConnectParams(CAR_UUID, DEVICE_SLE_ADDR, carPort);
+    size_t eventCount = callback->events_.size();
+    int32_t firstState = eventCount > 0 ? callback->events_[0].state : -1;
+    int firstFd = eventCount > 0 ? callback->events_[0].fd : -1;
     instance.Disconnect(params);
     instance.DestroyPort(CAR_UUID, carPort);
     instance.DeregisterSleDataTransferServiceCallback();
 
-    ASSERT_EQ(callback->events_.size(), static_cast<size_t>(1));
-    EXPECT_EQ(callback->events_[0].state, static_cast<int32_t>(SleConnectState::CONNECTED));
-    EXPECT_GT(callback->events_[0].fd, 0);
+    ASSERT_EQ(eventCount, static_cast<size_t>(1));
+    EXPECT_EQ(firstState, static_cast<int32_t>(SleConnectState::CONNECTED));
+    EXPECT_GT(firstFd, 0);
 }
 
 /**
@@ -978,14 +987,16 @@ HWTEST_F(NearlinkDataTransferTest, AcbObserver_DisconnectedUpdatesState001, Test
 
     instance.pimpl->sleDataTransferAcbObserverImp_->OnAcbStateChanged(
         RawAddress(DEVICE_SLE_ADDR), static_cast<int32_t>(SleConnState::SLE_CONNECTION_STATE_DISCONNECTED), 0);
+    size_t eventCount = callback->events_.size();
+    int32_t eventState = eventCount > 0 ? callback->events_[0].state : -1;
+    DataTransferConnectionParams query = MakeConnectParams(CAR_UUID, DEVICE_SLE_ADDR, carPort);
+    int32_t finalState = instance.GetConnectionState(query);
     instance.DestroyPort(CAR_UUID, carPort);
     instance.DeregisterSleDataTransferServiceCallback();
 
-    ASSERT_EQ(callback->events_.size(), static_cast<size_t>(1));
-    EXPECT_EQ(callback->events_[0].state, static_cast<int32_t>(SleConnectState::DISCONNECTED));
-    DataTransferConnectionParams query = MakeConnectParams(CAR_UUID, DEVICE_SLE_ADDR, carPort);
-    EXPECT_EQ(instance.GetConnectionState(query),
-        static_cast<int32_t>(SleConnectState::DISCONNECTED));
+    ASSERT_EQ(eventCount, static_cast<size_t>(1));
+    EXPECT_EQ(eventState, static_cast<int32_t>(SleConnectState::DISCONNECTED));
+    EXPECT_EQ(finalState, static_cast<int32_t>(SleConnectState::DISCONNECTED));
 }
 
 /**

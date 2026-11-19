@@ -16,12 +16,14 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <thread>
 #include "CcpService.h"
 #include "CcpDefines.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
 #include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 #include "mock_nearlink_call_client.h"
 #include "mock_ccs_record.h"
 #include "log.h"
@@ -85,6 +87,13 @@ void CcpServiceTest::SetUpTestCase()
         THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_1000_MS));
+    /* 裸测试进程 Start 链注册不上 CCP（GetService 为空会使既有用例解引用空指针崩溃）：
+     * 按 mcp 套件先例自建实例写入 profile 注册表兜底；套件级静态生命周期随进程退出销毁 */
+    if (CcpService::GetService() == nullptr) {
+        static std::unique_ptr<CcpService> ccpInstance = std::make_unique<CcpService>();
+        ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+            SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, ccpInstance.get());
+    }
     HILOGI("SetUpTestCase CcpServiceTest end");
 }
 

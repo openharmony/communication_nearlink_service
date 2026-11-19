@@ -1767,9 +1767,7 @@ HWTEST_F(ScanServiceTest, ScanService_ClearOldPeripheralDevice_001, TestSize.Lev
         scanResult.SetPeripheralDevice(device);
         return scanResult;
     };
-    InterfaceScanService::GetInstance().ClearScanResultInfo();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
-
+    // 本用例地址与主耳标识均为独占值，不依赖缓存清空；不再自清缓存，避免异步清理晚到误删本用例数据
     ScanService::GetInstance().AddPeripheralDevice(
         makeResult("00:11:22:33:44:81", "00:11:22:33:44:80", "OldAdv", false));
     EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81"), "OldAdv");
@@ -1803,8 +1801,7 @@ HWTEST_F(ScanServiceTest, ScanService_AddPeripheralDevice_ReconnectKeep_001, Tes
         scanResult.SetPeripheralDevice(device);
         return scanResult;
     };
-    InterfaceScanService::GetInstance().ClearScanResultInfo();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    // 地址独占，不自清缓存，避免异步清理晚到误删本用例数据
     const std::string addr = "00:11:22:33:44:90";
 
     ScanService::GetInstance().AddPeripheralDevice(makeResult(addr, "PairingAdv", 0x01));
@@ -1823,9 +1820,7 @@ HWTEST_F(ScanServiceTest, ScanService_AddPeripheralDevice_ReconnectKeep_001, Tes
  */
 HWTEST_F(ScanServiceTest, ScanService_QueryMissDefaults_001, TestSize.Level1)
 {
-    // 空缓存下全量查询：每个接口返回各自默认值
-    InterfaceScanService::GetInstance().ClearScanResultInfo();
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    // 查询独占地址：无论缓存存量如何都应返回默认值，不自清缓存避免异步清理竞态
     const std::string missing = "00:11:22:33:44:F0";
     InterfaceScanService &scan = InterfaceScanService::GetInstance();
 
