@@ -572,7 +572,11 @@ void McpServerServiceManager::impl::SendKeyEventToAvSession(const RawAddress &de
     NL_CHECK_RETURN(getAscProfileFunc_, "[McpServer]getAscProfileFunc_ is null");
     ProfileASC *ascService = getAscProfileFunc_();
     NL_CHECK_RETURN(ascService != nullptr, "[McpServer]Get ascService error!");
-    NL_CHECK_RETURN(!ascService->IsCalling(), "[McpServer]in call!");
+    if (ascService->IsCalling()) {
+        HILOGE("[McpServer]in call!");
+        UpdateMediaControlResult(device, requestId, instanceId, NLSTK_MCP_CONTROL_FAILED);
+        return;
+    }
     NearlinkRawAddress activeDevice = ascService->GetActiveSinkDevice();
     int32_t result = 0;
     // 判断激活设备是否为空
