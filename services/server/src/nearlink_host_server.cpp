@@ -32,6 +32,7 @@
 #include "nearlink_vcp_client_server.h"
 #include "nearlink_cdsm_client_server.h"
 #include "nearlink_cloud_pair_server.h"
+#include "nearlink_ccp_client_server.h"
 #include "SleInterfaceProfileManager.h"
 #include "SleInterfaceProfileHidHost.h"
 #include "log.h"
@@ -66,6 +67,9 @@
 #include "parameter_manager.h"
 #include "nearlink_system_config.h"
 #include "UnloadSa.h"
+#ifdef NEARLINK_EDM_ENABLE
+#include "SleEdmManager.h"
+#endif
 #ifdef HICOLLIE_ENABLE
 #include "xcollie/watchdog.h"
 #endif
@@ -748,6 +752,10 @@ bool NearlinkHostServer::impl::createAudioServers()
     NL_CHECK_RETURN_RET(vcpClientServer, false, "vcpClientServer is nullptr");
     sleServers_[PROFILE_VCP_SERVER] = vcpClientServer->AsObject();
 
+    sptr<NearlinkCcpClientServer> ccpClientServer = new (std::nothrow) NearlinkCcpClientServer();
+    NL_CHECK_RETURN_RET(ccpClientServer, false, "ccpClientServer is nullptr");
+    sleServers_[PROFILE_CCP_SERVER] = ccpClientServer->AsObject();
+
     sptr<NearlinkTwsClientServer> twsClientServer = new (std::nothrow) NearlinkTwsClientServer();
     NL_CHECK_RETURN_RET(twsClientServer, false, "twsClientServer is nullptr");
     sleServers_[NEARLINK_TWS_CLIENT_SERVER] = twsClientServer->AsObject();
@@ -909,7 +917,14 @@ NlErrCode NearlinkHostServer::EnableSle(const SleAutoConnectPolicy autoConnPolic
 {
     HILOGD("Enter!");
     // if nearlink is disallowed by pc edm, don't enable.
-    NL_CHECK_RETURN_RET(!IsNearlinkEdmDisallowed(), NL_ERR_PROHIBITED_BY_EDM, "nearlink pc edm disallowed");
+    if (IsNearlinkEdmDisallowed()) {
+#ifdef NEARLINK_EDM_ENABLE
+        SwitchCallerInfo edmCallerInfo = SleInterfaceManager::GetCallerInfo();
+        SleEdmManager::GetInstance()->ReportRefuseInfo(edmCallerInfo.callerUid);
+#endif
+        HILOGW("nearlink pc edm disallowed");
+        return NL_ERR_PROHIBITED_BY_EDM;
+    }
 
     NL_CHECK_RETURN_RET(SleInterfaceManager::GetInstance() != nullptr, NL_ERR_INTERNAL_ERROR,
         "GetInstance is nullptr!");

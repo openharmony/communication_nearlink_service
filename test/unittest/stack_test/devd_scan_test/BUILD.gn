@@ -71,15 +71,30 @@ ohos_unittest("nl_stack_devd_scan_test") {
   foreach(s, shared_stack_source) {
     if (s != "$STACK_DIR/src/cp/nlstkfwk/schedule/src/nlstk_schedule.c" &&
       s != "$STACK_DIR/src/cp/bsl/sle/devd/src/nlstk_devd_api.c" &&
-      s != "$STACK_DIR/src/utils/src/chip_type.c") {
+      s != "$STACK_DIR/src/utils/src/chip_type.c" &&
+      s != "$STACK_DIR/src/dli/cmd/src/dli_cmd.c" &&
+      s != "$STACK_DIR/src/cp/bsl/sle/cm/link/src/cm_api.c" &&
+      s != "$STACK_DIR/src/dp/dtap/src/dtap.c" &&
+      s != "$STACK_DIR/src/sdf/oal/memm/src/sdf_mem.c") {
       sources += [ s ]
     }
   }
   sources += [
     "devd_scan_test.cpp",
+    "devd_scan_stm_test.cpp",
+    "devd_report_parse_test.cpp",
+    "devd_scan_filter_test.cpp",
+    "devd_adv_test.cpp",
     "nlstk_devd_api_stub.c",
+    "dli_cmd_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_stub.c",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_mock.cpp",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_stub.c",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dtap_mock.cpp",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_dtap_stub.c",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_sdf_mem_mock.cpp",
+    "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_sdf_mem_stub.c",
   ]
 
   configs = [ ":stack_unit_test_config" ]

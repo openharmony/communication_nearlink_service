@@ -26,6 +26,15 @@
 #define HADM_MULTI_CHNL_NUM 4
 #define HADM_CHNL_MAP_INDEX_MAXNUM 9
 #define HADM_CHNL_HIGH_SEVEN_BIT 0x7F
+/* 线上固定头26字节：status(1)+connHandle(2)+slemIdx(1)+slemInfoType(2)+timeStampSn(4)
+ * +chmap(10)+tofResult(4)+rssi(1)+iqBitLen(1)。
+ * DLI_CsIqReportEvt在头文件里按1字节对齐（无填充），sizeof为10，等于逐字段相加；
+ * HADM_IQ_FIXED_LEN 26 = 头部sizeof(DLI_CsIqReportEvt) 10 + sizeof(HadmSlemChmap_S) 10 + 4 + 1 + 1；
+ * 上述字段或HadmSlemChmap_S布局调整时，必须同步复核本常量。
+ */
+#define HADM_IQ_FIXED_LEN 26
+#define HADM_IQ_MULTITONE_INFO_LEN 1  // 多音信息附加1字节
+#define HADM_IQ_TAIL_LEN 3            // 尾部三字段共3字节
 
 #define PARSER_DATA_BY_LEN(TAG, DATA, LEN) do { \
     if (memcpy_s(TAG, LEN, DATA, LEN) != EOK) { \
@@ -100,7 +109,9 @@ static HadmIqValue_S *HadmGetIqData(uint8_t *data, uint32_t iqChnlNum)
 
 HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
 {
-    NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%d) ", dataLen);
+    NLSTK_CHECK_RETURN(data != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli data is NULL dataLen(%zu)", dataLen);
+    NLSTK_CHECK_RETURN(dataLen >= HADM_IQ_FIXED_LEN, NULL,
+        "[HADM] iq report too short, dataLen(%zu) minLen(%u)", dataLen, (uint32_t)HADM_IQ_FIXED_LEN);
     uint8_t *iqInfoFromDli = data;
     HadmIqInfoFromDli_S *iqInfo = (HadmIqInfoFromDli_S *)SDF_MemZalloc(sizeof(HadmIqInfoFromDli_S));
     NLSTK_CHECK_RETURN(iqInfo != NULL, NULL, "[HADM] HadmPaserIqInfoFromDli malloc iqInfo fail");
@@ -113,17 +124,25 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     PARSER_DATA_BY_LEN(&(iqInfo->slemChmap), iqInfoFromDli, sizeof(HadmSlemChmap_S));
     // 2. 判断是否为多音
     uint16_t slemInfoTypeValue = *(uint16_t *)&iqInfo->slemInfoType;
-    uint8_t isBit10Set = ((slemInfoTypeValue >> 10) & 0x1);
-    iqInfo->isMultiTone = isBit10Set;
+    uint8_t isBit10MultiSet = ((slemInfoTypeValue >> 10) & 0x1);
+    iqInfo->isMultiTone = isBit10MultiSet;
     // 3. 计算 chnlNum
-    iqInfo->iqChnlNum = HadmGetChnlNum(&(iqInfo->slemChmap), isBit10Set);
+    iqInfo->iqChnlNum = HadmGetChnlNum(&(iqInfo->slemChmap), isBit10MultiSet);
     // 4. 解析 tofResult, rssi, iqBitLen
     PARSER_DATA_BY_LEN(&iqInfo->tofResult, iqInfoFromDli, sizeof(uint32_t));
     PARSER_DATA_BY_LEN(&iqInfo->rssi, iqInfoFromDli, sizeof(uint8_t));
     PARSER_DATA_BY_LEN(&iqInfo->iqBitLen, iqInfoFromDli, sizeof(uint8_t));
     // 5. 比特 10=1 时有 1 字节多音信息
-    if (isBit10Set) {
+    if (isBit10MultiSet) {
         iqInfoFromDli += sizeof(uint8_t);
+    }
+    uint32_t needLen = HADM_IQ_FIXED_LEN + (isBit10MultiSet ? HADM_IQ_MULTITONE_INFO_LEN : 0) +
+        iqInfo->iqChnlNum * HADM_IQ_LEN + HADM_IQ_TAIL_LEN;
+    if (dataLen < needLen) {
+        NLSTK_LOG_ERROR("[HADM] iq report insufficient, dataLen(%zu) needLen(%u) iqChnlNum(%u)",
+            dataLen, needLen, iqInfo->iqChnlNum);
+        SDF_MemFree(iqInfo);
+        return NULL;
     }
     // 6. 解析 IQ 数据
     iqInfo->iqData = HadmGetIqData(iqInfoFromDli, iqInfo->iqChnlNum);
@@ -133,7 +152,8 @@ HadmIqInfoFromDli_S *HadmPaserIqInfoFromDli(uint8_t *data, size_t dataLen)
     }
     iqInfoFromDli += iqInfo->iqChnlNum * HADM_IQ_LEN;
     // 7. 解析尾部 (localId/remoteId/venderLen)
-    if (isBit10Set) {
+    uint8_t isBit14IdSet = ((slemInfoTypeValue >> 14) & 0x1);
+    if (isBit14IdSet) {
         PARSER_DATA_BY_LEN(&iqInfo->localId, iqInfoFromDli, sizeof(uint8_t));
         PARSER_DATA_BY_LEN(&iqInfo->remoteId, iqInfoFromDli, sizeof(uint8_t));
         PARSER_DATA_BY_LEN(&iqInfo->venderLen, iqInfoFromDli, sizeof(uint8_t));

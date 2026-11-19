@@ -64,6 +64,8 @@ if (nearlink_deps_power_manager_exist) {
 }
 
 ohos_shared_library("nearlink_dft_manager") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlink_dft_manager.versionscript"
   defines = nearlink_dft_defines
 
   branch_protector_ret = "pac_ret"  # Enable PAC CFI

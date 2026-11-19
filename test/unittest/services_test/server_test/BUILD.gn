@@ -106,6 +106,7 @@ ohos_unittest("nl_server_test") {
     "nearlink_central_manager_server_test.cpp",
     "nearlink_sle_advertiser_server_test.cpp",
     "nearlink_vcp_client_server_test.cpp",
+    "nearlink_ccp_client_server_test.cpp",
     "nearlink_asc_server_test.cpp",
   ]
   sources += [

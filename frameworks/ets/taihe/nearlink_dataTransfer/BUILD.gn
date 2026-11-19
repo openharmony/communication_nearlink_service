@@ -40,6 +40,8 @@ ohos_taihe("run_taihe") {
 }
 
 taihe_shared_library("nearlinkDataTransferTaihe_native") {
+  # Used to control the export of dynamic library symbols.
+  version_script = "libnearlinkDataTransferTaihe_native.versionscript"
   branch_protector_ret = "pac_ret"  # Enable PAC CFI
   shlib_type = "ani"
   taihe_generated_file_path = "$taihe_generated_file_path_dataTransfer"

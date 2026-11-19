@@ -142,7 +142,7 @@ void SleCoexist::UpdateConnParam()
         NL_CHECK_RETURN(sleCoexist, "sleCoexist is null");
         sleCoexist->RefreshAppearanceAndCustomFlag(info);
         bool isFastSlotDevice = info.interval < CM_CONN_COEXIST_INTERAL_LOW;
-        if (!isFastSlotDevice || isNeedCustomParam_) {
+        if (!isFastSlotDevice || sleCoexist->isNeedCustomParam_) {
             sleCoexist->UpdateCustomParamDevice(info);
             return;
         }
@@ -177,7 +177,8 @@ void SleCoexist::UpdateFastSlotDeviceParam(const CoexistConnInfo& info, int devi
     bool isNeedAdjustInterval, bool isNeedAdjustExt)
 {
     // 规则3：已有3个设备小于4ms时，第4个起小于7.5ms的设备最高只能用7.5ms
-    bool isMiddleSpeedDevice = info.interval > CM_CONN_COEXIST_INTERAL_THRED && info.interval < CM_CONN_COEXIST_INTERAL_LOW;
+    bool isMiddleSpeedDevice =
+        info.interval > CM_CONN_COEXIST_INTERAL_THRED && info.interval < CM_CONN_COEXIST_INTERAL_LOW;
     bool isHighSpeedDevice = info.interval <= CM_CONN_COEXIST_INTERAL_THRED;
     if ((isMiddleSpeedDevice && isNeedAdjustExt) ||                                 // 4~7.5的设备需要调整为7.5
         (isHighSpeedDevice && deviceCount > CM_CONN_COEXIST_HIGH_SPEED_DEV_NUM)) {  // 第四个及以后高速设备需要调整为7.5
