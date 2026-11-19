@@ -115,11 +115,7 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
 {
     HILOGD("[SleAudioFrameworkAdapter] enter");
     std::string bundleName = "";
-    /* Key：流id；value：两种静音类型 */
-    std::map<uint32_t, std::pair<bool, bool>> mutedSnapshot;
-    for (const auto &it : routeFlagList_) {
-        mutedSnapshot[it.streamId] = {it.dataMuted, it.volumeMuted};
-    }
+    std::vector<RouteFlagInfo> mutedSnapshot = routeFlagList_;
     RemoveMemberRouteFlagList(flag);
     // 遍历新增插入,所有pipe中的流加起来最多256条
     for (const auto &rendererStream : rendererStreams) {
@@ -136,10 +132,12 @@ void SleAudioFrameworkAdapter::UpdateRouteFlagList(
         }
         bool dataMuted = false;
         bool volumeMuted = false;
-        auto snapIter = mutedSnapshot.find(info.streamId_);
-        if (snapIter != mutedSnapshot.end()) {
-            dataMuted = snapIter->second.first;
-            volumeMuted = snapIter->second.second;
+        for (const auto &snap : mutedSnapshot) {
+            if (snap.streamId == info.streamId_) {
+                dataMuted = snap.dataMuted;
+                volumeMuted = snap.volumeMuted;
+                break;
+            }
         }
         RouteFlagInfo newInfo = {
             .routeFlag = flag,
