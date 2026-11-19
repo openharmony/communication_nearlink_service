@@ -65,6 +65,10 @@ public:
         pAdapterTurningOnState_.reset();
         pAdapterTurnOnState_.reset();
         pAdapterTurningOffState_.reset();
+        pAdapterTurningHalfToOffState_.reset();
+        pAdapterTurningOffToHalfState_.reset();
+        pAdapterTurningHalfToOnState_.reset();
+        pAdapterTurnHalfState_.reset();
         adapter = nullptr;
     }
 
@@ -386,6 +390,62 @@ HWTEST_F(AdapterStateMachineTest, StateMachineTest_PostTargetMessageTest_001, Te
     EXPECT_EQ(stateMachine->GetNextTargetState(), SleStateID::STATE_TURN_OFF);
 
     HILOGI("StateMachineTest_PostTargetMessageTest_001 end");
+}
+
+
+/*
+ * @tc.number: StateMachineTest_TurningHalfToOnTest_001
+ * @tc.name: Dispatch
+ * @tc.desc: half→on 迁移态：任务完成消息被接受
+ */
+HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_001, TestSize.Level1)
+{
+    HILOGI("StateMachineTest_TurningHalfToOnTest_001 start");
+    int msgId = static_cast<int>(AdapterStateMachine::AdapterStateMessage::MSG_TURNING_TASK_CMP);
+    EXPECT_TRUE(pAdapterTurningHalfToOnState_->Dispatch(utility::Message(msgId)));
+    HILOGI("StateMachineTest_TurningHalfToOnTest_001 end");
+}
+
+/*
+ * @tc.number: StateMachineTest_TurningHalfToOnTest_002
+ * @tc.name: Dispatch
+ * @tc.desc: half→on 迁移态：超时消息被接受，未知消息拒绝
+ */
+HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurningHalfToOnTest_002, TestSize.Level1)
+{
+    HILOGI("StateMachineTest_TurningHalfToOnTest_002 start");
+    int timeoutId = static_cast<int>(AdapterStateMachine::AdapterStateMessage::MSG_TURNING_TASK_TIME_OUT);
+    EXPECT_TRUE(pAdapterTurningHalfToOnState_->Dispatch(utility::Message(timeoutId)));
+    EXPECT_FALSE(pAdapterTurningHalfToOnState_->Dispatch(utility::Message(0x99)));
+    HILOGI("StateMachineTest_TurningHalfToOnTest_002 end");
+}
+
+/*
+ * @tc.number: StateMachineTest_TurnOnEntryTest_002
+ * @tc.name: Entry
+ * @tc.desc: 开启态进入流程在目标态非开启时安全完成
+ */
+HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurnOnEntryTest_002, TestSize.Level1)
+{
+    HILOGI("StateMachineTest_TurnOnEntryTest_002 start");
+    stateMachine->nextTargetState_ = SleStateID::STATE_TURN_OFF;
+    pAdapterTurnOnState_->Entry();
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, stateMachine->GetNextTargetState());
+    HILOGI("StateMachineTest_TurnOnEntryTest_002 end");
+}
+
+/*
+ * @tc.number: StateMachineTest_TurnHalfEntryTest_002
+ * @tc.name: Entry
+ * @tc.desc: 半开态进入流程在目标态非半开时安全完成
+ */
+HWTEST_F(AdapterStateMachineTest, StateMachineTest_TurnHalfEntryTest_002, TestSize.Level1)
+{
+    HILOGI("StateMachineTest_TurnHalfEntryTest_002 start");
+    stateMachine->nextTargetState_ = SleStateID::STATE_TURN_OFF;
+    pAdapterTurnHalfState_->Entry();
+    EXPECT_EQ(SleStateID::STATE_TURN_OFF, stateMachine->GetNextTargetState());
+    HILOGI("StateMachineTest_TurnHalfEntryTest_002 end");
 }
 
 }  // namespace Nearlink

@@ -340,6 +340,7 @@ typedef struct {
     uint32_t failCount;         // 距上次上报以来的失败次数
     std::string firstFailTime;  // 距上次上报以来首次失败时间
     int64_t lastReportMs;       // 上次上报时间，0表示尚未上报过
+    std::string appName;        // 当前建链发起方应用名，发起方变更时先冲刷旧窗口再移交
 } ConnTimeoutRecord;
 
 void DftCacheAcbStartConn(const std::string &addr);

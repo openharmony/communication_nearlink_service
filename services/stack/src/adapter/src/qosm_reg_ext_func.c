@@ -33,28 +33,12 @@ void QOSM_RegisterExtFunc(void *soHandle)
 
     g_funcList.antennaDfxSendQueryCmd =
         (QOSM_AntennaDfxSendQueryCmdPtr)dlsym(soHandle, "QOSM_AntennaDfxSendQueryCmd");
-    if (g_funcList.antennaDfxSendQueryCmd == NULL) {
-        ADAPTER_LOGE("null antennaDfxSendQueryCmd\n");
-        return;
-    }
     g_funcList.antennaDfxGetAntennaPolicy =
         (QOSM_AntennaDfxGetAntennaPolicyPtr)dlsym(soHandle, "QOSM_AntennaDfxGetAntennaPolicy");
-    if (g_funcList.antennaDfxGetAntennaPolicy == NULL) {
-        ADAPTER_LOGE("null antennaDfxGetAntennaPolicy\n");
-        return;
-    }
     g_funcList.isLastEnableFreqBandByRecommend =
         (QOSM_IsLastEnableFreqBandByRecommendPtr)dlsym(soHandle, "IsLastEnableFreqBandByRecommend");
-    if (g_funcList.isLastEnableFreqBandByRecommend == NULL) {
-        ADAPTER_LOGE("null isLastEnableFreqBandByRecommend\n");
-        return;
-    }
     g_funcList.isNeedRecoverFreqBandAbility =
         (QOSM_IsNeedRecoverFreqBandAbilityPtr)dlsym(soHandle, "IsNeedRecoverFreqBandAbility");
-    if (g_funcList.isNeedRecoverFreqBandAbility == NULL) {
-        ADAPTER_LOGE("null isNeedRecoverFreqBandAbility\n");
-        return;
-    }
 
     ADAPTER_LOGI("qosm register ext func finished\n");
 }

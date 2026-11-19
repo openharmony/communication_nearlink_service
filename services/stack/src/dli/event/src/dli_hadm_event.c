@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,18 +20,13 @@
 #include "dli_event.h"
 #include "dli_layer_callback.h"
 
-#define SLE_IQ_MAX_CHNL_NUM 79
-static uint32_t DLI_GetSlemInfoDataLen(DLI_CsIqReportEvt *evt);
-
 void DLI_CsIqReportCbk(void *context, void *arg, uint32_t len, uint16_t evtOpcode)
 {
     DLI_LOGI("read local cs caps cbk in, evtOpcode: 0x%04X.", evtOpcode);
     // arg在回调入口处有做统一校验
+    // 仅校验固定头，完整长度校验由HADM解析器按chmap/多音口径执行
     DLI_CHECK_RETURN(len >= sizeof(DLI_CsIqReportEvt), "check len=%u, minDataLen=%zu", len, sizeof(DLI_CsIqReportEvt));
     DLI_CsIqReportEvt *ev = (DLI_CsIqReportEvt *)arg;
-    uint32_t size = DLI_GetSlemInfoDataLen(ev);
-    DLI_CHECK_RETURN(len >= sizeof(DLI_CsIqReportEvt) + size, "check len=%u, minDataLen=%u",
-        len, sizeof(DLI_CsIqReportEvt) + size);
     DLI_RunRegCbk(DLI_CBK_MEASURE_IQ_REPORT, context, arg, len, evtOpcode, ev->status);
 }
 
@@ -126,19 +121,4 @@ void DLI_MeasureStateChangeCbk(void *context, void *arg, uint32_t len, uint16_t 
         param->posMeasureSigConfigIdx);
     DLI_RunRegCbk(DLI_CBK_MEASURE_STATE, context, arg, (uint32_t)(sizeof(DLI_MeasureStateChangeEvt)), evtOpcode,
         param->status);
-}
-
-static uint32_t DLI_GetSlemInfoDataLen(DLI_CsIqReportEvt *evt)
-{
-    uint32_t dataLen = 0;
-    if (evt->slemInfoType.tof) {
-        dataLen += sizeof(DLI_SlemTof);
-    }
-    if (evt->slemInfoType.chnlMeas) {
-        dataLen += sizeof(DLI_SlemChnlMeas) + sizeof(DLI_SlemIqData) * SLE_IQ_MAX_CHNL_NUM;
-    }
-    if (evt->slemInfoType.vender) {
-        dataLen += sizeof(DLI_SlemVender);
-    }
-    return dataLen;
 }

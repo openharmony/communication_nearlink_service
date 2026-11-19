@@ -161,6 +161,16 @@ void McpServerService::InitMediaListener()
     });
 }
 
+void McpServerService::ResetMediaStateOnAllDevicesDisconnected()
+{
+    HILOGD("Enter");
+    // 加载器指针在投递前取出并按值带入任务，避免任务执行时本对象已释放仍去读成员
+    DoInMcpThread([mediaLoader = pimpl->mediaLoader_] ()-> void {
+        NL_CHECK_RETURN(mediaLoader, "[McpServer]mediaLoader is null.");
+        mediaLoader->ResetMediaPlaybackState();
+    });
+}
+
 void McpServerService::SendKeyEventByWearDetection(const RawAddress &device, uint8_t key)
 {
     HILOGD("Enter");

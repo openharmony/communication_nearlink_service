@@ -80,12 +80,5 @@ bool SleAudioFrameworkAdapter::IsNearlinkOut()
 void SleAudioFrameworkAdapter::RegisterCollaborativeAudioListener()
 {}
 
-
-
-bool SleAudioFrameworkAdapter::IsInVoipCallKit()
-{
-    return false;
-}
-
 } // namespace Nearlink
 } // namespace OHOS

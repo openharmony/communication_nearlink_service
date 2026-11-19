@@ -226,6 +226,8 @@ NlErrCode NearlinkBaseSwitchModule::FinishSwitchAction(
 NlErrCode NearlinkBaseSwitchModule::ProcessEnableNearlinkEvent(
     const SleAutoConnectPolicy autoConnPolicy, int32_t loadSaTimeoutMs)
 {
+    HILOGI("[NearlinkBaseSwitchModule] enable nearlink event, autoConnPolicy=%{public}d, loadSaTimeoutMs=%{public}d",
+        static_cast<int>(autoConnPolicy), loadSaTimeoutMs);
     return ProcessNearlinkSwitchAction([switchWptr = weak_from_this(), autoConnPolicy,
         loadSaTimeoutMs](const NearlinkSwitchActionValidChecker &actionValidChecker) -> NlErrCode {
             auto switchSptr = switchWptr.lock();
@@ -355,6 +357,11 @@ NlErrCode NearlinkBaseSwitchModule::ProcessNearlinkSwitchCachedEvent(NearlinkSwi
 {
     // 缓存事件的下发不带 SA 加载超时参数，由开关动作使用默认超时
     HILOGI("[NearlinkBaseSwitchModule] Process cached %{public}s event", ToEventString(event));
+    if (event == NearlinkSwitchEvent::ENABLE_NEARLINK) {
+        // 缓存只记事件不记策略，此处下发用的是默认策略，调用方请求的策略在入队时已丢失
+        HILOGW("[NearlinkBaseSwitchModule] cached enable event is replayed with default autoConnPolicy=%{public}d",
+            static_cast<int>(SleAutoConnectPolicy::AUTO_CONN_GENERAL));
+    }
     ffrtQueue_.submit([switchWptr = weak_from_this(), event]() -> void {
         auto switchSptr = switchWptr.lock();
         if (switchSptr == nullptr) {

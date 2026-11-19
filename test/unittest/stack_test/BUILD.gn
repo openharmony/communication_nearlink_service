@@ -20,6 +20,7 @@ group("nl_stack_test") {
     "cm_dyntrans_test:nl_stack_cm_dyntrans_unittest",
     "cm_signaling_test:nl_stack_cm_signaling_unittest",
     "dli_test:nl_stack_dli_unittest",
+    "dli_full_test:nl_stack_dli_full_test",
     "devd_test:nl_stack_devd_unittest",
     "devd_api_test:nl_stack_devd_api_unittest",
     "devd_scan_test:nl_stack_devd_scan_unittest",
@@ -70,11 +71,14 @@ group("nl_stack_test") {
     "ssap_app_test:nl_stack_ssap_app_unittest",
     "ssapc_client_test:nl_stack_ssapc_client_unittest",
     "ssapc_value_ntf_test:nl_stack_ssapc_value_ntf_unittest",
+    "ssapc_app_test:nl_ssapc_app_unittest",
     "ssap_client_hisiold_test:nl_stack_ssap_client_hisiold_unittest",
     "ssaps_server_test:nl_stack_ssaps_server_unittest",
+    "nl_ssaps_server_test:nl_ssaps_server_unittest",
     "ssap_link_state_replay_test:nl_stack_ssap_link_state_replay_unittest",
     "ssap_test:nl_stack_ssap_unittest",
     "sdf_test:nl_stack_sdf_unittest",
     "nai_test:nl_stack_nai_unittest",
+    "adapter_wrapper_test:nl_stack_adapter_wrapper_unittest",
   ]
 }

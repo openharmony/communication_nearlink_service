@@ -19,10 +19,8 @@
 #include "nearlink_call_client.h"
 #include "telephony_errors.h"
 #include "ThreadUtil.h"
-#include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileManager.h"
-#include "nearlink_dft_exception.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -63,23 +61,12 @@ void CcpSystemInterface::InitNearlinkCallClient()
 {
     HILOGI("[CcpService]enter");
     DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().Init();
-    int32_t ret = DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().RegisterCallBack(
-        std::make_unique<CallManagerCallbackImpl>());
-    if (ret != Telephony::TELEPHONY_SUCCESS) {
-        DftReportAudioError("", ERROR_TELEPHONY, SUB_ERRCODE_CASE1);
-        HILOGE("[CcpService] NearlinkCallClient register telephony callback fail, ret = %{public}d", ret);
-    }
 }
 
 void CcpSystemInterface::DeInitNearlinkCallClient()
 {
     HILOGI("[CcpService]enter");
     DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnInit();
-    int32_t ret = DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnRegisterCallBack();
-    if (ret != Telephony::TELEPHONY_SUCCESS) {
-        DftReportAudioError("", ERROR_TELEPHONY, SUB_ERRCODE_CASE1);
-        HILOGE("[CcpService] unregister telephony callback fail, ret = %{public}d", ret);
-    }
 }
 
 bool CcpSystemInterface::CheckNowHasDeviceConnected()
@@ -165,47 +152,5 @@ void CcpSystemInterface::SystemAbilityStatusChange::OnRemoveSystemAbility(
     });
 }
 
-// 蜂窝通话的状态回调
-int32_t CcpSystemInterface::CallManagerCallbackImpl::OnPhoneStateChange(
-    int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
-{
-    HILOGI("[CcpService]numActive=%{public}d, numHeld=%{public}d, state=%{public}d", numActive, numHeld, callState);
-    DoInCcpThread([numActive, numHeld, callState, number]() {
-        CcpService *service = CcpService::GetService();
-        NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-        NearlinkCallPhoneState state;
-        state.SetActiveNum(numActive);
-        state.SetHeldNum(numHeld);
-        state.SetNumber(number);
-        service->HandlePhoneStateChange(state);
-    });
-    return NL_NO_ERROR;
-}
-
-// 只回调某一路的回调信息
-int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
-{
-    HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
-    DoInCcpThread([info]() {
-        CcpService *service = CcpService::GetService();
-        NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
-        CcpSystemInterface &systemInterface = CcpSystemInterface::GetInstance();
-        if (info.callType == Telephony::CallType::TYPE_VOIP) {
-            if (SleAudioFrameworkAdapter::GetInstance().IsInVoipCallKit()) {
-                systemInterface.allowedVoipCallIdSet_.insert(info.callId);
-            } else if (systemInterface.allowedVoipCallIdSet_.find(info.callId) ==
-                systemInterface.allowedVoipCallIdSet_.end()) {
-                // 未接入call kit的voip通话，拦截不处理
-                HILOGI("[CcpService]not support call kit for voip type, id=%{public}d", info.callId);
-                return;
-            }
-            if (info.callState == Telephony::TelCallState::CALL_STATUS_DISCONNECTED) {
-                systemInterface.allowedVoipCallIdSet_.erase(info.callId);
-            }
-        }
-        service->HandleCallDetailChange(info);
-    });
-    return NL_NO_ERROR;
-}
 }  // namespace Nearlink
 }  // namespace OHOS

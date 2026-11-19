@@ -1,0 +1,119 @@
+# Copyright (C) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/test.gni")
+import("../../../../nearlink_config.gni")
+import("../../../../test/utils/test_utils.gni")
+import("../../../utils/stack_tdd.gni")
+
+config("stack_unit_test_config") {
+  visibility = [ ":*" ]
+
+  include_dirs = shared_stack_include_dirs
+
+  defines = [
+    "LOG_TAG = \"nearlink_test\"",
+    "LOG_DOMAIN = 0xD000151",
+  ]
+  cflags_cc = [ "-fexceptions" ]
+  cflags = [ "--coverage" ]
+  cflags += [ "-DNEARLINK_SERVICE_STACK_LOCAL_TEST" ]
+  ldflags = [ "--coverage" ]
+}
+
+unit_test_external_deps = [
+  "c_utils:utils",
+  "hilog:libhilog",
+  "googletest:gtest_main",
+  "googletest:gmock_main",
+  "hisysevent:libhisysevent",
+  "hisysevent:libhisyseventmanager",
+]
+
+test_out_path = "nearlink_service/nearlink_service"
+
+ohos_unittest("nl_stack_adapter_wrapper_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    cfi = true
+    boundary_sanitize = true
+    cfi_cross_dso = true
+    integer_overflow = true
+    ubsan = true
+    debug = false
+  }
+
+  sources = [
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/bnl_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/collab_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/common_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/devd_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/dli_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/hadm_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/qosm_ext_func_wrapper.c",
+    "$NEARLINK_ROOT/services/stack/src/sdf/dfx/log/src/sdf_log_api.c",
+    "adapter_wrapper_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += [ "${nearlink_test_utils_path}:test_utils_config" ]
+
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+ohos_unittest("nl_stack_adapter_reg_ext_func_test") {
+  module_out_path = test_out_path
+
+  branch_protector_ret = "pac_ret"
+  sanitize = {
+    cfi = true
+    boundary_sanitize = true
+    cfi_cross_dso = true
+    integer_overflow = true
+    ubsan = true
+    debug = false
+  }
+
+  sources = [
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/bnl_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/collab_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/common_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/devd_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/dli_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/hadm_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/adapter/src/qosm_reg_ext_func.c",
+    "$NEARLINK_ROOT/services/stack/src/sdf/dfx/log/src/sdf_log_api.c",
+    "adapter_reg_ext_func_test.cpp",
+  ]
+
+  configs = [ ":stack_unit_test_config" ]
+  configs += [ "${nearlink_test_utils_path}:test_utils_config" ]
+
+  external_deps = unit_test_external_deps
+
+  part_name = "nearlink"
+  subsystem_name = "communication"
+}
+
+group("nl_stack_adapter_wrapper_unittest") {
+  testonly = true
+  deps = [
+    ":nl_stack_adapter_reg_ext_func_test",
+    ":nl_stack_adapter_wrapper_test",
+  ]
+}

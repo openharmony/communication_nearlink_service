@@ -192,6 +192,8 @@ group("nl_service_unittest") {
     "nl_cloud_pair_test:nl_cloud_pair_unittest",
     "nl_reconnect_manager_test:nl_reconnect_manager_unittest",
     "reconnect_manager_test:nl_reconnect_adapter_probe_unittest",
+    "remote_device_adapter_test:nl_remote_device_adapter_unittest",
+    "service_common_tail_test:nl_service_common_tail_unittest",
     "nl_datatransfer_test:nl_datatransfer_unittest",
     "hadm_test:nl_hadm_service_unittest",
     "nearlink_adv_test:nl_adv_service_unittest",
@@ -211,7 +213,9 @@ group("nl_service_unittest") {
     "bas_service_test:bas_service_unittest",
     "battery_manager_test:nl_battery_manager_unittest",
     "antenna_mgr_test:nl_antenna_mgr_unittest",
-    "nl_hibox_test:nl_hibox_local_unittest"
+    "nl_hibox_test:nl_hibox_local_unittest",
+    "profile_connect_test:nl_profile_connect_unittest",
+    "sle_adapter_test:nl_sle_adapter_service_unittest"
   ]
   if (nearlink_service_kia_enable) {
     deps += [

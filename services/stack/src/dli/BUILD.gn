@@ -97,6 +97,7 @@ ohos_shared_library("nearlink_stack_base") {
   ]
   defines += product_defines
 
+  # Used to control the export of dynamic library symbols.
   version_script = "libnearlink_stack_base.versionscript"
   configs = [ ":nearlink_base_config" ]
   public_configs = [ ":nearlink_base_public_config" ]

@@ -43,6 +43,11 @@ public:
 
     void InitMediaListener();
 
+    /**
+     * @brief 所有音频设备断连后重置媒体播放状态，避免重连后耳机查询到残留状态
+     */
+    void ResetMediaStateOnAllDevicesDisconnected();
+
     void SendKeyEventByWearDetection(const RawAddress &device, uint8_t key);
     void PostMediaEvent(const McpMessage &event);
     void LoadMediaSo() const;

@@ -26,6 +26,7 @@ nearlink_server_sources = [
     "src/nearlink_hadm_client_server.cpp",
     "src/nearlink_asc_server.cpp",
     "src/nearlink_vcp_client_server.cpp",
+    "src/nearlink_ccp_client_server.cpp",
     "src/nearlink_tws_client_server.cpp",
     "src/nearlink_cdsm_client_server.cpp",
     "src/nearlink_cloud_pair_server.cpp",
@@ -145,6 +146,7 @@ ohos_shared_library("nearlink_server") {
   }
 
   defines += product_defines
+  # Used to control the export of dynamic library symbols.
   version_script = "libnearlink_server.versionscript"
 
   part_name = "nearlink_service"

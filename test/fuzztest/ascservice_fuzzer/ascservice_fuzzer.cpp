@@ -364,7 +364,6 @@ void AudioAdapterQueryFuzzTest(const uint8_t *fuzzData, size_t size)
     (void)adapter.IsAudioServiceActivate();
     (void)adapter.IsNearlinkOut();
     (void)adapter.IsBtOut();
-    (void)adapter.IsInVoipCallKit();
     adapter.GetCurrentOutputPipeInfos();
     adapter.RegisterAudioFrameworkAdapterListener();
     adapter.UnregisterAudioFrameworkAdapterListener();

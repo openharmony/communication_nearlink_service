@@ -78,6 +78,8 @@ ohos_unittest("nl_stack_actm_test") {
   }
   sources += [
     "actm_test.cpp",
+    "actm_qosm_adapter_test.cpp",
+    "actm_control_test.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_mock.cpp",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_schedule_stub.c",
     "$NEARLINK_ROOT/test/unittest/stack_test/stack_mock/stack_cm_mock.cpp",
