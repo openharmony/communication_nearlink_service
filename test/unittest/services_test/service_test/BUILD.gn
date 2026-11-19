@@ -127,6 +127,11 @@ ohos_unittest("nl_service_test") {
     "ffrt:libffrt",
     "init:libbegetutil"
   ]
+  # small_domain_tail_test.cpp 直接含 SleDliCallbacks.h，需要 HDI v1_0 头路径与 hdf 基础头
+  external_deps += [
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
+    "hdf_core:libhdf_utils",
+  ]
 
   deps += shared_service_deps
   external_deps += shared_service_external_deps

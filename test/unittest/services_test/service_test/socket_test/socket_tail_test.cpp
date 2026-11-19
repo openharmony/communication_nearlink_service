@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,11 @@
 #include "nearlink_datatransfer_def.h"
 #include "nearlink_fdsan_tag.h"
 #include "nearlink_datatransfer_parcel.h"
+// ponytail: 产品头文件将 SetNonblock 定义为非内联函数，两个 TU 同时含入即 ODR 重定义；
+// 本测试 TU 内重命名规避（升级路径：产品侧改 inline 后可去掉本宏）。
+#define SetNonblock SetNonblockSocketTailLocal
 #include "nearlink_socket_manager.h"
+#undef SetNonblock
 #include "nearlink_socket_outputstream.h"
 
 using namespace testing;

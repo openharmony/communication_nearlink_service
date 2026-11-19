@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  */
 #include <gtest/gtest.h>
 #include "SleAdvertiserAdapter.h"
+// pimpl 完整类型需含入产品实现文件（惯例：含入后须在 BUILD.gn sources -= 同名产品源）
+#include "SleAdvertiserAdapter.cpp"
 #include <tuple>
 #include <thread>
 #include "nlstk_devd_def.h"
@@ -589,9 +591,9 @@ HWTEST_F(NearlinkAdvTest, AdvNullGuardFamilyTest_001, TestSize.Level1)
     adapter.RegisterSleAdvertiserCallback(emptyCb);
     adapter.RegisterSleConnectableAdvertiserCallback(emptyCb);
     adapter.DeregisterSleAdvertiserCallback();
-    EXPECT_EQ(adapter.GetAdvertiserHandle(), SLE_INVALID_ADVERTISING_HANDLE);
-    EXPECT_EQ(adapter.GetConnectableAdvertiserHandle(), SLE_INVALID_ADVERTISING_HANDLE);
-    EXPECT_EQ(adapter.GetAdvertisingStatus(), SLE_ADV_STATE_IDLE);
+    EXPECT_EQ(adapter.GetAdvertiserHandle(), static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
+    EXPECT_EQ(adapter.GetConnectableAdvertiserHandle(), static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
+    EXPECT_EQ(adapter.GetAdvertisingStatus(), static_cast<int>(SleAdvState::SLE_ADV_STATE_IDLE));
     adapter.StartAdvertising(settings, advData, advData, 0);
     adapter.SetAdvertisingData(advData, advData, 0);
     adapter.StopAdvertising(0);
