@@ -33,7 +33,6 @@ public:
 
     virtual uint8_t Get5GFeatureEnable() const = 0;
     virtual uint8_t GetDevicePowerLevel() const = 0;
-    virtual uint8_t GetMuteControlEnable() const = 0;
 
     /**
      * VCP设置音量时是否需要将所有流类型（通话流和媒体流)的音量都下发给对端设备
@@ -46,7 +45,6 @@ public:
 
     virtual void Update5GFeatureEnable(uint8_t value) {}
     virtual void UpdateDevicePowerLevel(uint8_t value) {}
-    virtual void UpdateMuteControlEnable(uint8_t value) {}
 
     virtual void TriggerInitialization() {}
 };

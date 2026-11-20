@@ -29,13 +29,11 @@ public:
 
     uint8_t Get5GFeatureEnable() const override;
     uint8_t GetDevicePowerLevel() const override;
-    uint8_t GetMuteControlEnable() const override;
     void RegisterParameterChangedCallback(ParameterChangedCallback callback) override;
     void UnregisterParameterChangedCallback() override;
 
     void Update5GFeatureEnable(uint8_t value) override;
     void UpdateDevicePowerLevel(uint8_t value) override;
-    void UpdateMuteControlEnable(uint8_t value) override;
 
     void TriggerInitialization() override;
 
@@ -49,7 +47,6 @@ private:
 
     std::atomic<uint8_t> feature5GEnable_{0};
     std::atomic<uint8_t> devicePowerLevel_{0};
-    std::atomic<uint8_t> muteControlEnable_{0};
 
     ParameterChangedCallback callback_;
 };
