@@ -165,7 +165,7 @@ void CcpSystemInterface::SystemAbilityStatusChange::OnRemoveSystemAbility(
 }
 
 // 蜂窝通话的状态回调
-int32_t CcpSystemInterface::CallManagerCallbackImpl::OnBtCallStateChange(
+int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
     int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
 {
     HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
