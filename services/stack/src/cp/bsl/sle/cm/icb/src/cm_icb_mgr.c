@@ -267,7 +267,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyMultiChannelCallback(CM_ICB_STATE_IOG_CREATED, CM_ICB_SUCCESS, channelNode);
         return;
     }
-    CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
+    CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_MEMORY_CAPACITY_EXCEEDED);
     NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
     CM_LOGE("malloc channel failed, id=%u", param->id);
 }
@@ -324,7 +324,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyMultiChannelCallback(CM_ICB_STATE_IMG_CREATED, CM_ICB_SUCCESS, channelNode);
         return;
     }
-    CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
+    CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_MEMORY_CAPACITY_EXCEEDED);
     NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
     CM_LOGE("malloc channel failed, id=%u", param->id);
 }
