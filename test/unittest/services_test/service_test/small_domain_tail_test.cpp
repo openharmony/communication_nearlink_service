@@ -246,6 +246,9 @@ HWTEST_F(SmallDomainTailTest, DliThreadAndAdapterErrorsTest_001, TestSize.Level1
     EXPECT_NE(SleSendDliPacket(nullptr), 0);
     // 未初始化关闭：安全返回
     SleHalClose();
+    // 还原共享单例：销毁队列的副作用不能外溢到同进程后续套件与 repeat 下一轮
+    //（否则 snoop 族异步写投递到已销毁队列，落盘恒空导致 lines[0] 越界崩溃）
+    util.InitThread();
 }
 
 /* ICCE 适配层状态回调：断开自连接中走建链失败上报分支，
