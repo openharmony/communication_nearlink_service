@@ -170,7 +170,6 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
 {
     HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
         callId, numActive, numHeld, callState);
-    // 蜂窝在推送通话状态给蓝牙时，也会同步给该回调接口发送但callId为-1，该场景需过滤
     NL_CHECK_RETURN_RET(callId != INVALID_CCP_VOIP_ID, NL_NO_ERROR, "[CcpService]callId is invalid.");
     DoInCcpThread([callId, callState, number]() {
         CcpService *service = CcpService::GetService();

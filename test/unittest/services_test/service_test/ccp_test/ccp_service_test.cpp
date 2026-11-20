@@ -20,7 +20,6 @@
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
 #include "ThreadUtil.h"
-#include "mock_nearlink_call_client.h"
 #include "log.h"
 
 namespace OHOS {
@@ -28,8 +27,6 @@ namespace Nearlink {
 namespace TEST {
 using namespace testing::ext;
 using namespace OHOS::Telephony;
-using ::testing::Return;
-using ::testing::_;
 
 namespace {
 constexpr int CCP_SERVICE_UT_DELAY_50_MS = 50;
