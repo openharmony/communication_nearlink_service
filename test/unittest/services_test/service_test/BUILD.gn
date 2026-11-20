@@ -118,6 +118,7 @@ ohos_unittest("nl_service_test") {
   sources -= [
     "$NEARLINK_ROOT/services/service/src/common/SleDataShareCheckUtils.cpp",
     "$NEARLINK_ROOT/services/service/src/common/SleCommonEventSubscriber.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps
