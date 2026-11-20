@@ -21,6 +21,8 @@
 #include "audio_stream_enum.h"
 #include "audio_collaborative_manager.h"
 
+#include <set>
+
 #include "nearlink_types.h"
 #include "McpMessage.h"
 #include "raw_address.h"
@@ -38,6 +40,15 @@ struct RouteFlagInfo {
     uint32_t streamUsage;
     AudioStandard::RendererState status;
     std::string bundleName;
+    bool silentMode = false;   // 特殊静音流（应用主动静音，pipe上报刷新）
+    bool dataMuted = false;    // 数据静音记忆（OnData上报）
+    bool volumeMuted = false;  // 音量静音记忆（OnMute上报）
+};
+
+/* 普通静音流的两个独立来源维度，各自上报各自恢复，互不覆盖 */
+enum class StreamMuteType : uint8_t {
+    DATA,
+    VOLUME,
 };
 
 class SleAudioFrameworkAdapter {
@@ -66,8 +77,10 @@ private:
     void GetCurrentOutputPipeInfosInner();
     void AddMemberRouteFlagList(const RouteFlagInfo &newInfo);
     void RemoveMemberRouteFlagList(const uint32_t &flag);
+    void RemoveVanishedPipeMembers(const std::set<uint32_t> &presentFlags);
     const std::vector<RouteFlagInfo> &GetRouteFlagList() const;
     std::string GetBundleName(uint32_t streamId);
+    void SetStreamMuted(uint32_t streamId, StreamMuteType type, bool muted);
     void ClearRouteFlagList();
     bool isCallStreamType(uint32_t streamUsage);
     std::shared_ptr<NearlinkTimer> GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL type);
@@ -79,6 +92,8 @@ private:
     void DftEmptyMuteCheck(const RawAddress &device, MCP_MUTE_CONTROL type, uint32_t streamId);
     void HandleAudioPipeStatusChangeInner(const AudioStandard::AudioPipeChangeType changeType,
         const std::shared_ptr<AudioStandard::AudioOutputPipeInfo> &changedPipeInfo);
+    /* 将全量列表中的可闻流转换为AudioRendererChangeInfo后通知MCP（跨管道全量，非本次事件增量） */
+    void NotifyMcpRendererStateChange();
 
     void JudgeEmptyStreamByRendererState(const RawAddress &device);
     bool IsSlePipe(AudioStandard::HdiAdapterType adapterType);

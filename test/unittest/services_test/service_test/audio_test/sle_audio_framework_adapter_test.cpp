@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ constexpr int TEST_INDEX_2 = 2;
 constexpr int LOOP_COUNT_TWO = 2;
 constexpr int LOOP_COUNT_THREE = 3;
 constexpr size_t LIST_SIZE_ONE = 1;
+constexpr size_t LIST_SIZE_TWO = 2;
 constexpr size_t LIST_SIZE_THREE = 3;
 constexpr size_t BUNDLE_NAME_LENGTH_ZERO = 0;
 constexpr uint32_t TIMER_STREAM_ID = 100;
@@ -92,7 +93,8 @@ void SleAudioFrameworkAdapterTest::TearDown()
 }
 
 RouteFlagInfo CreateRouteFlagInfo(uint32_t routeFlag, uint32_t streamId,
-    uint32_t streamUsage, AudioStandard::RendererState status, const std::string& bundleName)
+    uint32_t streamUsage, AudioStandard::RendererState status, const std::string& bundleName,
+    bool silentMode = false, bool dataMuted = false, bool volumeMuted = false)
 {
     return RouteFlagInfo {
         .routeFlag = routeFlag,
@@ -100,18 +102,22 @@ RouteFlagInfo CreateRouteFlagInfo(uint32_t routeFlag, uint32_t streamId,
         .streamUsage = streamUsage,
         .status = status,
         .bundleName = bundleName,
+        .silentMode = silentMode,
+        .dataMuted = dataMuted,
+        .volumeMuted = volumeMuted,
     };
 }
 
 AudioStandard::RendererStreamInfo CreateRendererStreamInfo(
     AudioStandard::RendererState state, AudioStandard::StreamUsage usage, uint32_t streamId,
-    const std::string& bundleName)
+    const std::string& bundleName, bool silentMode = false)
 {
     return AudioStandard::RendererStreamInfo {
         .state_ = state,
         .usage_ = usage,
         .streamId_ = streamId,
         .bundleName_ = bundleName,
+        .silentMode_ = silentMode,
     };
 }
 
@@ -420,6 +426,175 @@ HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList003, TestSize.Level1)
 }
 
 /**
+ * @tc.number: UpdateRouteFlagList004
+ * @tc.name:
+ * @tc.desc: 测试静音记忆跨管道重建保留与清除，数据/音量两维度独立互不覆盖
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, UpdateRouteFlagList004, TestSize.Level1)
+{
+    HILOGI("UpdateRouteFlagList004 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> rendererStreams;
+    rendererStreams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID,
+        "com.merge.test");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::DATA, true);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
+    EXPECT_EQ(list.size(), LIST_SIZE_ONE);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
+
+    // 数据维度静音期间，音量维度恢复不得清除数据维度记忆（W2回归）
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, false);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
+
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, true);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::DATA, false);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+    HILOGI("UpdateRouteFlagList004 end");
+}
+
+/**
+ * @tc.number: PipeCloseIncrementalRemove001
+ * @tc.name:
+ * @tc.desc: 测试按管道标识增量移除：关闭一条管道只删本管道条目，其他管道流与其静音记忆保留
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, PipeCloseIncrementalRemove001, TestSize.Level1)
+{
+    HILOGI("PipeCloseIncrementalRemove001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe1Streams;
+    pipe1Streams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID, "com.pipe1");
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe2Streams;
+    pipe2Streams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1, "com.pipe2");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, pipe1Streams);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG + 1, pipe2Streams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteType::VOLUME, true);
+
+    adapter.RemoveMemberRouteFlagList(DEFAULT_ROUTE_FLAG);
+    const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
+    EXPECT_EQ(list.size(), LIST_SIZE_ONE);
+    EXPECT_EQ(list[TEST_INDEX_0].streamId, DEFAULT_STREAM_ID + 1);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+    HILOGI("PipeCloseIncrementalRemove001 end");
+}
+
+/**
+ * @tc.number: RebuildKeepMuteMemory001
+ * @tc.name:
+ * @tc.desc: 测试重建前增量清理：仅清本次未出现的管道残留，留存管道条目连同静音记忆保留
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, RebuildKeepMuteMemory001, TestSize.Level1)
+{
+    HILOGI("RebuildKeepMuteMemory001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe1Streams;
+    pipe1Streams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID, "com.pipe1");
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> pipe2Streams;
+    pipe2Streams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1, "com.pipe2");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, pipe1Streams);
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG + 1, pipe2Streams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID, StreamMuteType::VOLUME, true);
+
+    // 本次两管道均在：全保留，静音记忆不随重建清理丢失
+    std::set<uint32_t> allFlags = {DEFAULT_ROUTE_FLAG, DEFAULT_ROUTE_FLAG + 1};
+    adapter.RemoveVanishedPipeMembers(allFlags);
+    const std::vector<RouteFlagInfo>& listAll = adapter.GetRouteFlagList();
+    EXPECT_EQ(listAll.size(), LIST_SIZE_TWO);
+    EXPECT_TRUE(listAll[TEST_INDEX_0].volumeMuted);
+    EXPECT_FALSE(listAll[TEST_INDEX_1].volumeMuted);
+
+    // 本次仅pipe2在：pipe1条目清除，pipe2条目保留
+    std::set<uint32_t> pipe2Only = {DEFAULT_ROUTE_FLAG + 1};
+    adapter.RemoveVanishedPipeMembers(pipe2Only);
+    const std::vector<RouteFlagInfo>& listRemain = adapter.GetRouteFlagList();
+    EXPECT_EQ(listRemain.size(), LIST_SIZE_ONE);
+    EXPECT_EQ(listRemain[TEST_INDEX_0].streamId, DEFAULT_STREAM_ID + 1);
+    HILOGI("RebuildKeepMuteMemory001 end");
+}
+
+/**
+ * @tc.number: JudgeMuteStreamNormalOther001
+ * @tc.name:
+ * @tc.desc: 测试B/C判定中普通RUNNING其他流仍拦截静音管控（防回归）
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, JudgeMuteStreamNormalOther001, TestSize.Level1)
+{
+    HILOGI("JudgeMuteStreamNormalOther001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_STOPPED, "app1"));
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID + 1,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_RUNNING, "app2"));
+
+    RawAddress device = CreateTestDevice();
+    adapter.JudgeDataMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
+    adapter.JudgeVolumeMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
+    EXPECT_EQ(adapter.GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO), nullptr);
+    EXPECT_EQ(adapter.GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO), nullptr);
+    HILOGI("JudgeMuteStreamNormalOther001 end");
+}
+
+/**
+ * @tc.number: JudgeMuteStreamMutedOther001
+ * @tc.name:
+ * @tc.desc: 测试B/C判定中静音维度其他流不再拦截静音管控
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, JudgeMuteStreamMutedOther001, TestSize.Level1)
+{
+    HILOGI("JudgeMuteStreamMutedOther001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_STOPPED, "app1"));
+    // 其他流处于静音维度（数据维/特殊流），RUNNING不再拦截本流的静音管控；
+    // 测试桩下McpServerService经ProfileManager获取为空，管控发起的正向断言不可观测，此处验证判定跑通不崩溃
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID + 1,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_RUNNING, "app2", false, true));
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID + TWO,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_RUNNING, "app3", true));
+
+    RawAddress device = CreateTestDevice();
+    adapter.JudgeDataMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
+    adapter.JudgeVolumeMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
+    EXPECT_EQ(adapter.GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_DATA_ZERO), nullptr);
+    EXPECT_EQ(adapter.GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO), nullptr);
+    HILOGI("JudgeMuteStreamMutedOther001 end");
+}
+
+/**
  * @tc.number: JudgeEmptyStream001
  * @tc.name:
  * @tc.desc:
@@ -494,6 +669,140 @@ HWTEST_F(SleAudioFrameworkAdapterTest, JudgeVolumeMuteStream001, TestSize.Level1
     RawAddress device = CreateTestDevice();
     adapter.JudgeVolumeMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
     HILOGI("JudgeVolumeMuteStream001 end");
+}
+
+/**
+ * @tc.number: JudgeVolumeMuteStream002
+ * @tc.name:
+ * @tc.desc: 测试特殊静音流（silentMode）豁免音量静音管控，不启动防抖定时器
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, JudgeVolumeMuteStream002, TestSize.Level1)
+{
+    HILOGI("JudgeVolumeMuteStream002 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+    adapter.StopEmptyMuteScMcpPauseTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO);
+
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_STOPPED, "app1", true));
+
+    RawAddress device = CreateTestDevice();
+    adapter.JudgeVolumeMuteStreamByRendererState(device, DEFAULT_STREAM_ID, true);
+    EXPECT_EQ(adapter.GetEmptyMuteCheckTimer(MCP_MUTE_CONTROL::NL_SLE_MCP_MUTE_STREAM_VOL_ZERO), nullptr);
+    HILOGI("JudgeVolumeMuteStream002 end");
+}
+
+/**
+ * @tc.number: HandleVolumeMuteStateInner001
+ * @tc.name:
+ * @tc.desc: 测试OnMute上报维护普通静音流记忆（静音置位、恢复清除）
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, HandleVolumeMuteStateInner001, TestSize.Level1)
+{
+    HILOGI("HandleVolumeMuteStateInner001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_RUNNING, "app1"));
+    const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
+
+    adapter.HandleVolumeMuteStateInner(DEFAULT_STREAM_ID, true);
+    EXPECT_TRUE(list[TEST_INDEX_0].volumeMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
+    adapter.HandleVolumeMuteStateInner(DEFAULT_STREAM_ID, false);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
+    HILOGI("HandleVolumeMuteStateInner001 end");
+}
+
+/**
+ * @tc.number: HandleDataTransferStateInner001
+ * @tc.name:
+ * @tc.desc: 测试数据静音上报维护普通静音流记忆（STOP置位、RESUME清除）
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, HandleDataTransferStateInner001, TestSize.Level1)
+{
+    HILOGI("HandleDataTransferStateInner001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+    adapter.AddMemberRouteFlagList(CreateRouteFlagInfo(DEFAULT_ROUTE_FLAG, DEFAULT_STREAM_ID,
+        DEFAULT_STREAM_USAGE, AudioStandard::RendererState::RENDERER_RUNNING, "app1"));
+    const std::vector<RouteFlagInfo>& list = adapter.GetRouteFlagList();
+
+    AudioStandard::AudioRendererDataTransferStateChangeInfo info = {};
+    info.sessionId = DEFAULT_STREAM_ID;
+    info.stateChangeType = AudioStandard::DataTransferStateChangeType::DATA_TRANS_STOP;
+    adapter.HandleDataTransferStateInner(info);
+    EXPECT_TRUE(list[TEST_INDEX_0].dataMuted);
+    EXPECT_FALSE(list[TEST_INDEX_0].volumeMuted);
+
+    info.stateChangeType = AudioStandard::DataTransferStateChangeType::DATA_TRANS_RESUME;
+    adapter.HandleDataTransferStateInner(info);
+    EXPECT_FALSE(list[TEST_INDEX_0].dataMuted);
+    HILOGI("HandleDataTransferStateInner001 end");
+}
+
+/**
+ * @tc.number: NotifyMcpRendererStateChange001
+ * @tc.name:
+ * @tc.desc: 测试含特殊静音流/普通静音流的混合管道通知（静音维度流被过滤，不崩溃）
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange001, TestSize.Level1)
+{
+    HILOGI("NotifyMcpRendererStateChange001 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> rendererStreams;
+    rendererStreams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID,
+        "com.notify.normal");
+    rendererStreams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1,
+        "com.notify.special", true);
+    rendererStreams[DEFAULT_STREAM_ID + TWO] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + TWO,
+        "com.notify.muted");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + TWO, StreamMuteType::VOLUME, true);
+
+    adapter.NotifyMcpRendererStateChange();
+    HILOGI("NotifyMcpRendererStateChange001 end");
+}
+
+/**
+ * @tc.number: NotifyMcpRendererStateChange002
+ * @tc.name:
+ * @tc.desc: 测试全部流被过滤时跳过通知，不向MCP发送任何播放状态
+ */
+HWTEST_F(SleAudioFrameworkAdapterTest, NotifyMcpRendererStateChange002, TestSize.Level1)
+{
+    HILOGI("NotifyMcpRendererStateChange002 start");
+    SleAudioFrameworkAdapter& adapter = SleAudioFrameworkAdapter::GetInstance();
+    adapter.ClearRouteFlagList();
+
+    // 一条特殊静音流 + 一条普通静音流，全部命中过滤
+    std::map<uint32_t, AudioStandard::RendererStreamInfo> rendererStreams;
+    rendererStreams[DEFAULT_STREAM_ID] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID,
+        "com.allmuted.special", true);
+    rendererStreams[DEFAULT_STREAM_ID + 1] = CreateRendererStreamInfo(
+        AudioStandard::RendererState::RENDERER_RUNNING,
+        OHOS::AudioStandard::STREAM_USAGE_UNKNOWN,
+        DEFAULT_STREAM_ID + 1,
+        "com.allmuted.normal");
+    adapter.UpdateRouteFlagList(DEFAULT_ROUTE_FLAG, rendererStreams);
+    adapter.SetStreamMuted(DEFAULT_STREAM_ID + 1, StreamMuteType::VOLUME, true);
+
+    adapter.NotifyMcpRendererStateChange();
+    HILOGI("NotifyMcpRendererStateChange002 end");
 }
 
 /**
