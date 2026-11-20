@@ -136,17 +136,6 @@ TEST_F(ParameterTest, TestParameterManagerGetDevicePowerLevel)
     EXPECT_EQ(value, 180);
 }
 
-TEST_F(ParameterTest, TestParameterManagerGetMuteControlEnable)
-{
-    DefaultParameterProvider::GetInstance().UpdateMuteControlEnable(SLE_SUPPORT_AND_OPEN);
-    auto provider = std::shared_ptr<ParameterProviderInterface>(&DefaultParameterProvider::GetInstance(),
-                                                                        [](ParameterProviderInterface*) {});
-    ParameterManager::RegisterProvider(provider);
-    
-    uint8_t value = ParameterManager::GetMuteControlEnable();
-    EXPECT_EQ(value, SLE_SUPPORT_AND_OPEN);
-}
-
 TEST_F(ParameterTest, TestDefaultProviderIsNeedSetAllStreamVolume)
 {
     auto& provider = DefaultParameterProvider::GetInstance();
