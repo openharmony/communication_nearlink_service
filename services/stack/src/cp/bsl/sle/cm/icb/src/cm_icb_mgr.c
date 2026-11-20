@@ -232,6 +232,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
         cmdRes->size < sizeof(DLI_SetIOGParamEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
     }
@@ -241,6 +242,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT ||
         cmdRes->size < sizeof(DLI_SetIOGParamEvt) + param->paramCnt * sizeof(uint16_t)) {
         CM_LOGE("illegal param, id=%u, param count=%u", cbkParam->id, param->paramCnt);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
         return;
     }
@@ -265,6 +267,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyMultiChannelCallback(CM_ICB_STATE_IOG_CREATED, CM_ICB_SUCCESS, channelNode);
         return;
     }
+    CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
     NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
     CM_LOGE("malloc channel failed, id=%u", param->id);
 }
@@ -285,6 +288,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
         cmdRes->size < sizeof(DLI_SetIMGParamEvt)) {
         CM_LOGE("param is null, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
     }
@@ -294,6 +298,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     if (cbkParam->id != param->id || param->paramCnt == 0 || param->paramCnt > CM_MAX_CHANNEL_COUNT ||
         cmdRes->size < sizeof(DLI_SetIMGParamEvt) + param->paramCnt * sizeof(uint16_t)) {
         CM_LOGE("illegal param, id=%u, param count=%u", cbkParam->id, param->paramCnt);
+        CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
         NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
         return;
     }
@@ -319,6 +324,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
         NotifyMultiChannelCallback(CM_ICB_STATE_IMG_CREATED, CM_ICB_SUCCESS, channelNode);
         return;
     }
+    CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
     NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
     CM_LOGE("malloc channel failed, id=%u", param->id);
 }
