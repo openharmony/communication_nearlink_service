@@ -14,12 +14,11 @@
  */
 
 #include <gtest/gtest.h>
-#include <thread>
+#include <memory>
+#include "ThreadUtil.h"
+#include "ProfileServiceManager.cpp"
 #include "CcpService.h"
 #include "CcpDefines.h"
-#include "SleInterfaceManager.h"
-#include "SleServiceManager.h"
-#include "ThreadUtil.h"
 #include "log.h"
 
 namespace OHOS {
@@ -29,8 +28,6 @@ using namespace testing::ext;
 using namespace OHOS::Telephony;
 
 namespace {
-constexpr int CCP_SERVICE_UT_DELAY_50_MS = 50;
-constexpr int CCP_SERVICE_UT_DELAY_1000_MS = 1000;
 /* 清场时遍历的蜂窝 callId 上界，用例内使用的 callId 均不得超过该值 */
 constexpr int32_t CCP_SERVICE_UT_CALL_ID_CLEAR_MAX = 8;
 /* 蜂窝路取值：不依赖 call_manager 里其它枚举项的具体数值，只保证不等于 TYPE_VOIP */
@@ -47,8 +44,7 @@ void SetupPhoneCallMapping(CcpService *ccpService, int32_t callId)
     ccpService->ProcessCallStateInfo(callInfoVec);
 }
 
-/* 清场：CcpService 为进程级单例且用例按注册顺序执行，蜂窝映射必须逐条用例自行归还，
- * 否则后续用例会因守卫判定依赖全局状态而静默走进非预期分支 */
+/* 清场：把上界以内的蜂窝 callId 逐条以 DISCONNECTED 归还映射，用例可直接断言回收结果 */
 void ClearPhoneCallMappings(CcpService *ccpService)
 {
     for (int32_t callId = 1; callId <= CCP_SERVICE_UT_CALL_ID_CLEAR_MAX; callId++) {
@@ -61,55 +57,48 @@ void ClearPhoneCallMappings(CcpService *ccpService)
 }
 }
 
-class CcpServiceTest : public testing::Test {
+class NearlinkCcpServiceTest : public testing::Test {
 public:
     static void SetUpTestCase();
     static void TearDownTestCase();
     void SetUp();
     void TearDown();
+
+private:
+    std::unique_ptr<CcpService> service_;
 };
 
-void CcpServiceTest::SetUpTestCase()
+void NearlinkCcpServiceTest::SetUpTestCase()
 {
-    HILOGI("SetUpTestCase CcpServiceTest start");
-    /* 单测未启动 ccp 线程：置为同步执行，保证投递入口的断言即时生效。
-     * 必须先 InitThreadStateMap 再覆盖 CCP 项：Init 内部用 EnsureInsert 把全部线程重置为
-     * ENABLED，而 EnsureInsert 是覆盖语义，顺序颠倒会让 NOT_SWITCH_THREAD 设置失效 */
-    ThreadUtil::GetInstance().InitThreadStateMap();
+    HILOGI("SetUpTestCase NearlinkCcpServiceTest start");
+    // CCP service tests own their service; vendor stack startup is an integration dependency.
+    HILOGI("SetUpTestCase NearlinkCcpServiceTest end");
+}
+
+void NearlinkCcpServiceTest::TearDownTestCase()
+{
+    HILOGI("TearDownTestCase NearlinkCcpServiceTest");
+}
+
+void NearlinkCcpServiceTest::SetUp()
+{
+    HILOGI("SetUp NearlinkCcpServiceTest.");
+    // CCP tasks execute synchronously in the test thread; no sleep is needed after calls.
     ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
         THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
-    SleInterfaceManager::GetInstance()->Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_1000_MS));
-    HILOGI("SetUpTestCase CcpServiceTest end");
+    service_ = std::make_unique<CcpService>();
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, service_.get());
+    ASSERT_EQ(service_.get(), CcpService::GetService());
 }
 
-void CcpServiceTest::TearDownTestCase()
+void NearlinkCcpServiceTest::TearDown()
 {
-    HILOGI("TearDownTestCase CcpServiceTest");
-}
-
-void CcpServiceTest::SetUp()
-{
-    HILOGI("SetUp CcpServiceTest.");
-    CcpService *ccpService = CcpService::GetService();
-    if (ccpService == nullptr) {
-        return;
-    }
-    /* CcpService 为进程级单例：每个用例开始前把通话映射归零，避免断言依赖用例注册顺序。
-     * 必须先清自造 VoIP 再清蜂窝：蜂窝挂断会按 voipIdSet_ 恢复 VoIP 状态，顺序颠倒会把 VoIP 状态带回来 */
-    if (ccpService->HasVoipCallId()) {
-        RawAddress devAddr("00:11:22:33:44:55");
-        ccpService->HandleVoipStop(devAddr);
-        std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
-    }
-    if (ccpService->HasPhoneCallId()) {
-        ClearPhoneCallMappings(ccpService);
-    }
-}
-
-void CcpServiceTest::TearDown()
-{
-    HILOGI("TearDown CcpServiceTest.");
+    HILOGI("TearDown NearlinkCcpServiceTest.");
+    ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
+        SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, nullptr);
+    service_.reset();
+    ThreadUtil::GetInstance().InitThreadStateMap();
 }
 
 /**
@@ -117,11 +106,11 @@ void CcpServiceTest::TearDown()
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, GetService001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, GetService001, TestSize.Level1)
 {
     HILOGI("GetService001 start");
     CcpService* ccpService = CcpService::GetService();
-    EXPECT_NE(nullptr, ccpService);
+    ASSERT_NE(nullptr, ccpService);
     HILOGI("GetService001 end");
 }
 
@@ -130,16 +119,22 @@ HWTEST_F(CcpServiceTest, GetService001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, Disable001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, Disable001, TestSize.Level1)
 {
     HILOGI("Disable001 start");
     CcpService* ccpService = CcpService::GetService();
-    ccpService->Disable();
-    EXPECT_NE(nullptr, ccpService);
+    ASSERT_NE(nullptr, ccpService);
+    /* 预置一路蜂窝映射：Disable 必须把通话缓存清空 */
+    SetupPhoneCallMapping(ccpService, 1);
+    ASSERT_TRUE(ccpService->HasPhoneCallId());
 
     ccpService->Disable();
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
+
+    /* 重复 Disable 幂等 */
+    ccpService->Disable();
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
     HILOGI("Disable001 end");
 }
 
@@ -148,16 +143,19 @@ HWTEST_F(CcpServiceTest, Disable001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, Enable001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, Enable001, TestSize.Level1)
 {
     HILOGI("Enable001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     ccpService->Enable();
-    EXPECT_NE(nullptr, ccpService);
+    /* Enable 只起协议栈实例，不得凭空产生通话映射 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
 
+    /* 重复 Enable 幂等 */
     ccpService->Enable();
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
     HILOGI("Enable001 end");
 }
 
@@ -166,10 +164,11 @@ HWTEST_F(CcpServiceTest, Enable001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleAnswer001, TestSize.Level1)
 {
     HILOGI("HandleAnswer001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t instanceId = 0;
@@ -177,8 +176,6 @@ HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
     uint8_t callId = 0;
 
     ccpService->HandleAnswer(*device, instanceId, requestId, callId);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleAnswer001 end");
 }
 
@@ -187,10 +184,11 @@ HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleHangUp001, TestSize.Level1)
 {
     HILOGI("HandleHangUp001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int32_t instanceId = 0;
@@ -198,14 +196,14 @@ HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
     uint8_t callId = 0;
 
     ccpService->HandleHangUp(*device, instanceId, requestId, callId);
-    EXPECT_NE(nullptr, ccpService);
 
     instanceId = 1;
     requestId = 1;
     callId = 1;
     ccpService->HandleHangUp(*device, instanceId, requestId, callId);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    /* 空表时挂断入口被在表守卫拦截，不得凭空建映射 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleHangUp001 end");
 }
 
@@ -214,16 +212,15 @@ HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandleAuthorize001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleAuthorize001, TestSize.Level1)
 {
     HILOGI("HandleAuthorize001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     int32_t instanceId = 0;
     uint32_t requestId = 0;
     int32_t property = 0;
     ccpService->HandleAuthorize(instanceId, requestId, property);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandleAuthorize001 end");
 }
 
@@ -232,33 +229,36 @@ HWTEST_F(CcpServiceTest, HandleAuthorize001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 {
     HILOGI("HandlePhoneStateChange001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：入口内部回查 GetCurrentCallList 做全量同步，空列表也要同步给对端 */
     ccpService->HandlePhoneStateChange(
         INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HandlePhoneStateChange001 end");
 }
 
 /**
  * @tc.number: HandleCallDetailChange001
  * @tc.name:
- * @tc.desc:
+ * @tc.desc: 单路明细入口按状态分流：非挂断只更新明细保留映射，DISCONNECTED 回收映射，UNKNOWN 走默认分支
  */
-HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 {
     HILOGI("HandleCallDetailChange001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 1;
+    /* 每个用例独占服务实例，喂入前必须是干净态 */
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
+    ASSERT_FALSE(ccpService->HasVoipCallId());
     /* 非挂断首报不要求在表，但挂断依赖在表记录：先用全量入口铺底 */
     SetupPhoneCallMapping(ccpService, callId);
+    ASSERT_TRUE(ccpService->HasPhoneCallId());
 
     CallAttributeInfo callAttributeInfo{};
     callAttributeInfo.callId = callId;
@@ -271,13 +271,19 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
     callAttributeInfo.callState = TelCallState::CALL_STATUS_WAITING;
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
+    /* 非挂断状态只更新明细，映射不得误清 */
+    EXPECT_TRUE(ccpService->HasPhoneCallId());
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
+    /* 挂断明细生效：该路映射被回收 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
     callAttributeInfo.callState = TelCallState::CALL_STATUS_UNKNOWN;
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    /* UNKNOWN 走默认分支，不得新建任何映射 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleCallDetailChange001 end");
 }
 
@@ -286,22 +292,19 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 全量通话状态刷新不带 callId，不得新建 callId 映射（不污染 VoIP 判定）
  */
-HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, PhoneStateChanged001, TestSize.Level1)
 {
     HILOGI("PhoneStateChanged001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
-    /* CcpService 为进程级单例，记录基线以免受其它用例遗留状态影响 */
-    bool voipBefore = ccpService->HasVoipCallId();
+    /* 每个用例独占服务实例，喂入前必须是干净态 */
+    ASSERT_FALSE(ccpService->HasVoipCallId());
     /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：仅做全量刷新 */
     ccpService->HandlePhoneStateChange(
         INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
-    /* 全量刷新不做 callId 入表，绝不能新增 VoIP 映射：喂入前后 HasVoipCallId() 必须一致 */
-    EXPECT_EQ(voipBefore, ccpService->HasVoipCallId());
-    /* SetUp 已将单例状态归零，期望干净态为 false */
+    /* 全量刷新不做 callId 入表，绝不能新增 VoIP 映射 */
     EXPECT_FALSE(ccpService->HasVoipCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("PhoneStateChanged001 end");
 }
 
@@ -310,23 +313,22 @@ HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时不得入表，由在表校验兜底拦截，不污染 callId 映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged001, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
-    /* CcpService 为进程级单例，记录基线以免受其它用例遗留状态影响 */
-    bool voipBefore = ccpService->HasVoipCallId();
+    /* 每个用例独占服务实例，喂入前必须是干净态 */
+    ASSERT_FALSE(ccpService->HasVoipCallId());
     CallAttributeInfo callAttributeInfo{};
     callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    /* callId=-1 仅表示无特定通话，绝不能新增 VoIP 映射：喂入前后 HasVoipCallId() 必须一致 */
-    EXPECT_EQ(voipBefore, ccpService->HasVoipCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    /* callId=-1 仅表示无特定通话，绝不能新增 VoIP 映射 */
+    EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("CallDetailsChanged001 end");
 }
 
@@ -335,11 +337,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 存在蜂窝映射时挂断分支放行，DISCONNECTED 清理该 callId 映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged002, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged002 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 1;
     ClearPhoneCallMappings(ccpService);
@@ -355,7 +357,6 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     /* 挂断明细生效：该路 callId 映射被清理 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged002 end");
 }
 
@@ -364,11 +365,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 无蜂窝映射时守卫拦截，任何状态都不得新建映射（ccp 自造场景排除）
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged003, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged003 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 5;
     ClearPhoneCallMappings(ccpService);
@@ -383,7 +384,6 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
     /* 无在表蜂窝通话时直接返回：不得反手分配 index 并写入映射 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged003 end");
 }
 
@@ -392,11 +392,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 非 DISCONNECTED 状态只更新明细，映射不得误清；结尾自行清场
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged004, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged004 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 2;
     ClearPhoneCallMappings(ccpService);
@@ -412,12 +412,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
     /* 非挂断状态只更新明细，不得提前清映射 */
     EXPECT_TRUE(ccpService->HasPhoneCallId());
 
-    /* 清场，避免残留蜂窝映射影响后续用例的守卫判定 */
+    /* 挂断明细生效：该路映射必须被回收 */
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged004 end");
 }
 
@@ -426,11 +425,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 守卫放行后 callId 为 -1（no specific call）仍被拦截，不得污染映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged005, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged005 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 3;
     ClearPhoneCallMappings(ccpService);
@@ -448,7 +447,6 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
     EXPECT_FALSE(ccpService->HasVoipCallId());
 
     ClearPhoneCallMappings(ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged005 end");
 }
 
@@ -457,19 +455,18 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 在表的 VoIP callId（自造 VoIP，voipId=-2）挂断经单路明细入口清理
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged006, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged006 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
     constexpr int32_t voipId = NEARLINK_CCP_VOIP_MAX - 1;
     ClearPhoneCallMappings(ccpService);
-    /* HandleVoipStart 内部投递到 CCP 线程，需等待完成后取基线 */
+    /* CCP 任务在测试线程内联执行，HandleVoipStart 返回即可取基线 */
     ccpService->HandleVoipStart(*device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     ASSERT_TRUE(ccpService->HasVoipCallId());
     ASSERT_FALSE(ccpService->HasPhoneCallId());
 
@@ -482,9 +479,8 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
     /* 在表的 VoIP callId 同样经受在表守卫，挂断后映射被清理 */
     EXPECT_FALSE(ccpService->HasVoipCallId());
 
-    /* 清场：自造 VoIP 属于全局状态，结尾必须自行释放，不得遗给后续用例 */
+    /* 收尾：显式停止自造 VoIP，验证 stop 入口能把映射清干净 */
     ccpService->HandleVoipStop(*device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("CallDetailsChanged006 end");
 }
@@ -494,11 +490,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
  * @tc.name:
  * @tc.desc: callType 不参与挂断判定：TYPE_VOIP 挂断与 002 同行为，映射被清理
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged007, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged007 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 7;
     ClearPhoneCallMappings(ccpService);
@@ -515,10 +511,9 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
     /* callType 不参与挂断判定，映射与 002 一样被清理 */
     EXPECT_FALSE(ccpService->HasPhoneCallId());
 
-    /* 自行归还，避免残留影响后续用例 */
+    /* 把剩余 callId 一并归还，确认清场后回到空表 */
     ClearPhoneCallMappings(ccpService);
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CallDetailsChanged007 end");
 }
 
@@ -527,11 +522,11 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 蜂窝标识判定：空表为 false，存在 callId>0 映射为 true，清场后回到 false
  */
-HWTEST_F(CcpServiceTest, HasPhoneCallId001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HasPhoneCallId001, TestSize.Level1)
 {
     HILOGI("HasPhoneCallId001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
 
     constexpr int32_t callId = 4;
     ClearPhoneCallMappings(ccpService);
@@ -543,7 +538,6 @@ HWTEST_F(CcpServiceTest, HasPhoneCallId001, TestSize.Level1)
     ClearPhoneCallMappings(ccpService);
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     /* 仅负数 key（自造 VoIP）不算蜂窝路，该分支由 CallDetailsChanged006 覆盖 */
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HasPhoneCallId001 end");
 }
 
@@ -552,11 +546,11 @@ HWTEST_F(CcpServiceTest, HasPhoneCallId001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 存在蜂窝通话时不得自造 VoIP 状态（与 CallDetailsChanged 守卫同一判定）
  */
-HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart002, TestSize.Level1)
 {
     HILOGI("HandleVoipStart002 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
@@ -566,7 +560,6 @@ HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
     ASSERT_TRUE(ccpService->HasPhoneCallId());
 
     ccpService->HandleVoipStart(*device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     /* 蜂窝通话在表时守卫拦住，不得创建自造 VoIP */
     EXPECT_FALSE(ccpService->HasVoipCallId());
 
@@ -574,7 +567,6 @@ HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
      * 若只清蜂窝映射，挂断时会触发 VoIP 补建，故先显式停止 VoIP */
     ccpService->HandleVoipStop(*device);
     ClearPhoneCallMappings(ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleVoipStart002 end");
@@ -585,19 +577,24 @@ HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleVoipStop001, TestSize.Level1)
 {
     HILOGI("HandleVoipStop001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
-    ccpService->HandleVoipStop(*device);
-    EXPECT_NE(nullptr, ccpService);
+    /* 先起一路自造 VoIP：否则 currentVoipCallId_ 为无效值，stop 入口首句即返回、清理分支零覆盖 */
+    ccpService->HandleVoipStart(*device);
+    ASSERT_TRUE(ccpService->HasVoipCallId());
 
     ccpService->HandleVoipStop(*device);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    EXPECT_FALSE(ccpService->HasVoipCallId());
+
+    /* 重复停止必须幂等：无在途 VoIP 时再停一次不得产生新映射 */
+    ccpService->HandleVoipStop(*device);
+    EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleVoipStop001 end");
 }
 
@@ -606,21 +603,22 @@ HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart001, TestSize.Level1)
 {
     HILOGI("HandleVoipStart001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
 
     ccpService->HandleVoipStart(*device);
-    EXPECT_NE(nullptr, ccpService);
+    EXPECT_TRUE(ccpService->HasVoipCallId());
 
+    /* 重复启动幂等：仍只登记同一路自造 VoIP */
     ccpService->HandleVoipStart(*device);
-    EXPECT_NE(nullptr, ccpService);
-    /* 清场：自造 VoIP 属于全局状态，结尾必须自行释放，不得遗给后续用例 */
+    EXPECT_TRUE(ccpService->HasVoipCallId());
+    /* 收尾：显式停止，验证 stop 入口能把映射清干净 */
     ccpService->HandleVoipStop(*device);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleVoipStart001 end");
 }
@@ -630,13 +628,12 @@ HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
 {
     HILOGI("TryResumeCurrentCalls001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     ccpService->TryResumeCurrentCalls();
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("TryResumeCurrentCalls001 end");
 }
 
@@ -645,16 +642,15 @@ HWTEST_F(CcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
 {
     HILOGI("NotifyAudioDeviceAction001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
     std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
     int action = 0;
     ccpService->NotifyAudioDeviceAction(*device, action);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceAction001 end");
 }
 
@@ -663,10 +659,11 @@ HWTEST_F(CcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
 {
     HILOGI("ProcessCallStateInfo001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     /* 蜂窝 callId 必须为正：喂 0 会在映射表留下 HasPhoneCallId/HasVoipCallId 都清不到的 key=0 条目 */
     constexpr int32_t callId = 1;
     std::vector<Telephony::CallAttributeInfo> callInfoVec;
@@ -676,33 +673,33 @@ HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
     callInfoVec.push_back(callAttributeInfo);
 
     ccpService->ProcessCallStateInfo(callInfoVec);
-    EXPECT_NE(nullptr, ccpService);
     EXPECT_TRUE(ccpService->HasPhoneCallId());
 
-    /* 清场：映射由本用例建立，结尾自行归还，避免残留影响后续用例 */
+    /* 挂断后映射必须回收：结尾清场同时作为回收断言 */
     ClearPhoneCallMappings(ccpService);
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("ProcessCallStateInfo001 end");
 }
 
 /**
  * @tc.number: ProcessAccountInfo001
  * @tc.name:
- * @tc.desc:
+ * @tc.desc: 号码为空时仍写入协议前缀，别名保持为空，返回成功
  */
-HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
 {
     HILOGI("ProcessAccountInfo001 start");
     CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
     std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
     prop->callId = 1;
     prop->callFlag = 0;
     CallAttributeInfo callAttributeInfo{};
     callAttributeInfo.callState = TelCallState::CALL_STATUS_INCOMING;
-    ccpService->ProcessAccountInfo(prop, callAttributeInfo);
-    EXPECT_NE(nullptr, ccpService);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
+    EXPECT_TRUE(ccpService->ProcessAccountInfo(prop, callAttributeInfo));
+    /* 号码为空：userInfo 只保留协议前缀，userAlias 不写入 */
+    EXPECT_STREQ(CCP_SUPPORT_PROTOCOLS, prop->userInfo);
+    EXPECT_STREQ("", prop->userAlias);
     HILOGI("ProcessAccountInfo001 end");
 }
 
@@ -711,14 +708,13 @@ HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
  * @tc.name: NotifyAudioDeviceAction via ProfileASC interface
  * @tc.desc: Test NotifyAudioDeviceAction uses ProfileASC from profile manager, should not crash
  */
-HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Level1)
+HWTEST_F(NearlinkCcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Level1)
 {
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 start");
     CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(ccpService, nullptr);
+    ASSERT_NE(nullptr, ccpService);
     RawAddress devAddr("11:22:33:44:55:66");
     ccpService->NotifyAudioDeviceAction(devAddr, 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 end");
 }
 
