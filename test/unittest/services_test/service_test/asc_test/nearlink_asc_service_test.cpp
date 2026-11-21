@@ -26,6 +26,7 @@
 #include "SleAudioFrameworkAdapter.h"
 #include "SleInterfaceManager.h"
 #include "SleServiceManager.h"
+#include "SleAdapter.h"
 #include "SleRemoteDeviceAdapter.h"
 #include "ASCUtils.h"
 #include "SleDliSnoop.h"
@@ -7062,8 +7063,10 @@ HWTEST_F(ASCServiceTest, JudgeQosWhenStopPlaying_001, TestSize.Level1)
 HWTEST_F(ASCServiceTest, HandleChangeFrameType_001, TestSize.Level1)
 {
     HILOGI("HandleChangeFrameType_001 start");
-    // 裸进程下栈初始化不成功，管理器的建适配器链不会随启动执行；这里显式触发一次，
+    // 裸进程下栈初始化不成功，管理器的建适配器链不会随启动执行；这里在用例内完成
+    // 注册并触发一次（注册随用例首次执行生效，不引入全局静态初始化），
     // 只创建进程内对象（mock 适配器+状态机），不触碰协议栈
+    static const ClassRegister sleAdapterRegister(ADAPTER_NAME_SLE, []() -> void * { return new SleAdapter(); });
     SleServiceManager *sleManager = SleServiceManager::GetInstance();
     if (sleManager->GetAdapter(SleTransport::ADAPTER_SLE) == nullptr) {
         sleManager->CreateAdapters();
@@ -7202,6 +7205,8 @@ HWTEST_F(ASCServiceTest, DeviceReprotDelayCheck_CoSet_001, TestSize.Level1)
 HWTEST_F(ASCServiceTest, ProcessSetActiveSinkDeviceEvent_FormerRecord_001, TestSize.Level1)
 {
     HILOGI("ProcessSetActiveSinkDeviceEvent_FormerRecord_001 start");
+    // 本例需要组内可见请求设备自身（在席成员判定），结束即关闭，不影响其余用例
+    SetMockCdsmCoMemberEnabled(true);
     ASCService *asc = new ASCService();
     RawAddress device = RawAddress(deviceStr);
     RawAddress coDevice = RawAddress(coDeviceStr);
@@ -7242,6 +7247,7 @@ HWTEST_F(ASCServiceTest, ProcessSetActiveSinkDeviceEvent_FormerRecord_001, TestS
     EXPECT_EQ(true, asc3->activeSinkDevice_.GetAddress().empty());
     EXPECT_EQ(false, asc3->IsStopDelaying(device));
 
+    SetMockCdsmCoMemberEnabled(false);
     delete asc;
     delete asc2;
     delete asc3;
