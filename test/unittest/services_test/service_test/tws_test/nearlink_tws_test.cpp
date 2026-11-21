@@ -2255,7 +2255,7 @@ static uint8_t StreamState(TwsStreamUsability state)
 
 /**
  * @tc.name: CapsuleEnableShow001
- * @tc.desc: 校验媒体可用胶囊：耳机上报媒体可用且非用户强选、设备活跃通话中时弹窗上报远端信息
+ * @tc.desc: 校验媒体可用胶囊：耳机上报媒体可用且非用户强选、星闪出声、设备活跃通话中时弹窗上报远端信息
  * @tc.type: FUNC
  */
 HWTEST_F(NearlinkTwsDeepTest, CapsuleEnableShow001, TestSize.Level1)
@@ -2264,6 +2264,7 @@ HWTEST_F(NearlinkTwsDeepTest, CapsuleEnableShow001, TestSize.Level1)
     service_->RegisterApplication(observerPtr_);
     ascMock_.activeSinkAddr = dev.GetAddress();
     ascMock_.isCalling = true;
+    SetMockNearlinkOut(true);
 
     // 第一轮建立基线（禁用），第二轮变可用触发胶囊
     TwsClientData data(dev);
