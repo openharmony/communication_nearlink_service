@@ -57,7 +57,7 @@ void ClearPhoneCallMappings(CcpService *ccpService)
 }
 }
 
-class NearlinkCcpServiceTest : public testing::Test {
+class CcpServiceTest : public testing::Test {
 public:
     static void SetUpTestCase();
     static void TearDownTestCase();
@@ -68,21 +68,21 @@ private:
     std::unique_ptr<CcpService> service_;
 };
 
-void NearlinkCcpServiceTest::SetUpTestCase()
+void CcpServiceTest::SetUpTestCase()
 {
-    HILOGI("SetUpTestCase NearlinkCcpServiceTest start");
+    HILOGI("SetUpTestCase CcpServiceTest start");
     // CCP service tests own their service; vendor stack startup is an integration dependency.
-    HILOGI("SetUpTestCase NearlinkCcpServiceTest end");
+    HILOGI("SetUpTestCase CcpServiceTest end");
 }
 
-void NearlinkCcpServiceTest::TearDownTestCase()
+void CcpServiceTest::TearDownTestCase()
 {
-    HILOGI("TearDownTestCase NearlinkCcpServiceTest");
+    HILOGI("TearDownTestCase CcpServiceTest");
 }
 
-void NearlinkCcpServiceTest::SetUp()
+void CcpServiceTest::SetUp()
 {
-    HILOGI("SetUp NearlinkCcpServiceTest.");
+    HILOGI("SetUp CcpServiceTest.");
     // CCP tasks execute synchronously in the test thread; no sleep is needed after calls.
     ThreadUtil::GetInstance().threadStateMap_.EnsureInsert(
         THREAD_ID_CCP, ThreadUtil::ThreadState::NOT_SWITCH_THREAD);
@@ -92,9 +92,9 @@ void NearlinkCcpServiceTest::SetUp()
     ASSERT_EQ(service_.get(), CcpService::GetService());
 }
 
-void NearlinkCcpServiceTest::TearDown()
+void CcpServiceTest::TearDown()
 {
-    HILOGI("TearDown NearlinkCcpServiceTest.");
+    HILOGI("TearDown CcpServiceTest.");
     ProfileServiceManager::GetInstance().pimpl->startedProfiles_.SetProfile(
         SleTransport::ADAPTER_SLE, PROFILE_NAME_CCP, nullptr);
     service_.reset();
@@ -106,7 +106,7 @@ void NearlinkCcpServiceTest::TearDown()
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, GetService001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, GetService001, TestSize.Level1)
 {
     HILOGI("GetService001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -119,7 +119,7 @@ HWTEST_F(NearlinkCcpServiceTest, GetService001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, Disable001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, Disable001, TestSize.Level1)
 {
     HILOGI("Disable001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -143,7 +143,7 @@ HWTEST_F(NearlinkCcpServiceTest, Disable001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, Enable001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, Enable001, TestSize.Level1)
 {
     HILOGI("Enable001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -164,7 +164,7 @@ HWTEST_F(NearlinkCcpServiceTest, Enable001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleAnswer001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleAnswer001, TestSize.Level1)
 {
     HILOGI("HandleAnswer001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -184,7 +184,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleAnswer001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleHangUp001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleHangUp001, TestSize.Level1)
 {
     HILOGI("HandleHangUp001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -212,7 +212,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleHangUp001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleAuthorize001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleAuthorize001, TestSize.Level1)
 {
     HILOGI("HandleAuthorize001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -229,7 +229,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleAuthorize001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 {
     HILOGI("HandlePhoneStateChange001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -246,7 +246,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 单路明细入口按状态分流：非挂断只更新明细保留映射，DISCONNECTED 回收映射，UNKNOWN 走默认分支
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 {
     HILOGI("HandleCallDetailChange001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -292,7 +292,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 全量通话状态刷新不带 callId，不得新建 callId 映射（不污染 VoIP 判定）
  */
-HWTEST_F(NearlinkCcpServiceTest, PhoneStateChanged001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
 {
     HILOGI("PhoneStateChanged001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -313,7 +313,7 @@ HWTEST_F(NearlinkCcpServiceTest, PhoneStateChanged001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时不得入表，由在表校验兜底拦截，不污染 callId 映射
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -337,7 +337,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 存在蜂窝映射时挂断分支放行，DISCONNECTED 清理该 callId 映射
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged002, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged002 start");
     CcpService* ccpService = CcpService::GetService();
@@ -365,7 +365,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged002, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 无蜂窝映射时守卫拦截，任何状态都不得新建映射（ccp 自造场景排除）
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged003, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged003 start");
     CcpService* ccpService = CcpService::GetService();
@@ -392,7 +392,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged003, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 非 DISCONNECTED 状态只更新明细，映射不得误清；结尾自行清场
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged004, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged004 start");
     CcpService* ccpService = CcpService::GetService();
@@ -425,7 +425,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged004, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 守卫放行后 callId 为 -1（no specific call）仍被拦截，不得污染映射
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged005, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged005 start");
     CcpService* ccpService = CcpService::GetService();
@@ -455,7 +455,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged005, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 在表的 VoIP callId（自造 VoIP，voipId=-2）挂断经单路明细入口清理
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged006, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged006 start");
     CcpService* ccpService = CcpService::GetService();
@@ -490,7 +490,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged006, TestSize.Level1)
  * @tc.name:
  * @tc.desc: callType 不参与挂断判定：TYPE_VOIP 挂断与 002 同行为，映射被清理
  */
-HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged007, TestSize.Level1)
+HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
 {
     HILOGI("CallDetailsChanged007 start");
     CcpService* ccpService = CcpService::GetService();
@@ -522,7 +522,7 @@ HWTEST_F(NearlinkCcpServiceTest, CallDetailsChanged007, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 蜂窝标识判定：空表为 false，存在 callId>0 映射为 true，清场后回到 false
  */
-HWTEST_F(NearlinkCcpServiceTest, HasPhoneCallId001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HasPhoneCallId001, TestSize.Level1)
 {
     HILOGI("HasPhoneCallId001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -546,7 +546,7 @@ HWTEST_F(NearlinkCcpServiceTest, HasPhoneCallId001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 存在蜂窝通话时不得自造 VoIP 状态（与 CallDetailsChanged 守卫同一判定）
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart002, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
 {
     HILOGI("HandleVoipStart002 start");
     CcpService* ccpService = CcpService::GetService();
@@ -577,7 +577,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart002, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleVoipStop001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
 {
     HILOGI("HandleVoipStop001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -603,7 +603,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleVoipStop001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
 {
     HILOGI("HandleVoipStart001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -628,7 +628,7 @@ HWTEST_F(NearlinkCcpServiceTest, HandleVoipStart001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
 {
     HILOGI("TryResumeCurrentCalls001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -642,7 +642,7 @@ HWTEST_F(NearlinkCcpServiceTest, TryResumeCurrentCalls001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
 {
     HILOGI("NotifyAudioDeviceAction001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -659,7 +659,7 @@ HWTEST_F(NearlinkCcpServiceTest, NotifyAudioDeviceAction001, TestSize.Level1)
  * @tc.name:
  * @tc.desc:
  */
-HWTEST_F(NearlinkCcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
 {
     HILOGI("ProcessCallStateInfo001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -686,7 +686,7 @@ HWTEST_F(NearlinkCcpServiceTest, ProcessCallStateInfo001, TestSize.Level1)
  * @tc.name:
  * @tc.desc: 号码为空时仍写入协议前缀，别名保持为空，返回成功
  */
-HWTEST_F(NearlinkCcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
 {
     HILOGI("ProcessAccountInfo001 start");
     CcpService* ccpService = CcpService::GetService();
@@ -708,7 +708,7 @@ HWTEST_F(NearlinkCcpServiceTest, ProcessAccountInfo001, TestSize.Level1)
  * @tc.name: NotifyAudioDeviceAction via ProfileASC interface
  * @tc.desc: Test NotifyAudioDeviceAction uses ProfileASC from profile manager, should not crash
  */
-HWTEST_F(NearlinkCcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, NotifyAudioDeviceActionViaProfileAsc_001, TestSize.Level1)
 {
     HILOGI("NotifyAudioDeviceActionViaProfileAsc_001 start");
     CcpService* ccpService = CcpService::GetService();
