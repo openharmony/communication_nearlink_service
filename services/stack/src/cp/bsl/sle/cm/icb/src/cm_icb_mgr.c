@@ -68,11 +68,23 @@ typedef struct {
     CM_FreqBandListener listener;
 } FreqBandListenerNode;
 
+typedef struct {
+    uint32_t evtSize;        /* 事件参数最小长度 */
+    CM_ICBConnectionState state;
+    uint16_t dftScene;       /* DFT异常场景 */
+} ICBSetParamInfo;
+
 static SDF_DListHead_S g_icgConnectionListHead;
 static CM_ICBCallback g_icbCallback = {NULL};
 static CM_ICBConnectionStatusCbk g_icbConnStatusCb = NULL;
 static SDF_DListHead_S g_freqBandListener = {{&g_freqBandListener.list, &g_freqBandListener.list}, 0};
 static CM_InnerSetACBSubratePtr g_innerSetACBSubrate = NULL;
+static const ICBSetParamInfo g_iogSetParamInfo = {
+    (uint32_t)sizeof(DLI_SetIOGParamEvt), CM_ICB_STATE_IOG_CREATED, ICB_DFT_SCENE_IOG_SET_PARAM
+};
+static const ICBSetParamInfo g_imgSetParamInfo = {
+    (uint32_t)sizeof(DLI_SetIMGParamEvt), CM_ICB_STATE_IMG_CREATED, ICB_DFT_SCENE_IMG_SET_PARAM
+};
 
 void CM_ICBMgrSetInnerSetACBSubrate(CM_InnerSetACBSubratePtr func)
 {
@@ -214,6 +226,27 @@ static void NotifySingleChannelCallback(CM_ICBConnectionState state, CM_ICBError
 }
 
 /**
+ * @brief 校验命令执行结果，失败时上报DFT异常并通知上层
+ */
+static bool CheckSetParamResult(uint16_t status, DLI_ExecuteCmdRetParam *cmdRes, DLI_ICGCbkParam *cbkParam,
+    const ICBSetParamInfo *info)
+{
+    if (status != DLI_SUCCESS) {
+        CM_LOGE("set param failed, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(info->dftScene, cbkParam->id, status);
+        NotifyParamChangeFailedCbk(info->state, cbkParam);
+        return false;
+    }
+    if (cmdRes == NULL || cmdRes->eventParameter == NULL || cmdRes->size < info->evtSize) {
+        CM_LOGE("param is null, id=%u", cbkParam->id);
+        CMIcbDftReportExcep(info->dftScene, cbkParam->id, DLI_INVALID_PARAMETERS);
+        NotifyParamChangeFailedCbk(info->state, cbkParam);
+        return false;
+    }
+    return true;
+}
+
+/**
  * @brief 收到dli的回调已经切换到CP线程
  */
 static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetParam *cmdRes)
@@ -223,17 +256,7 @@ static void CM_IOGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
 
     DLI_ICGCbkParam *cbkParam = (DLI_ICGCbkParam *)context;
     CM_LOGI("status=%u, id=%u", status, cbkParam->id);
-    if (status != DLI_SUCCESS) {
-        CM_LOGE("set param failed, id=%u", cbkParam->id);
-        CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, status);
-        NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
-        return;
-    }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
-        cmdRes->size < sizeof(DLI_SetIOGParamEvt)) {
-        CM_LOGE("param is null, id=%u", cbkParam->id);
-        CMIcbDftReportExcep(ICB_DFT_SCENE_IOG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
-        NotifyParamChangeFailedCbk(CM_ICB_STATE_IOG_CREATED, cbkParam);
+    if (!CheckSetParamResult(status, cmdRes, cbkParam, &g_iogSetParamInfo)) {
         return;
     }
 
@@ -279,17 +302,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
 
     DLI_ICGCbkParam *cbkParam = (DLI_ICGCbkParam *)context;
     CM_LOGI("status=%u, id=%u", status, cbkParam->id);
-    if (status != DLI_SUCCESS) {
-        CM_LOGE("set param failed, id=%u", cbkParam->id);
-        CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, status);
-        NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
-        return;
-    }
-    if (cmdRes == NULL || cmdRes->eventParameter == NULL ||
-        cmdRes->size < sizeof(DLI_SetIMGParamEvt)) {
-        CM_LOGE("param is null, id=%u", cbkParam->id);
-        CMIcbDftReportExcep(ICB_DFT_SCENE_IMG_SET_PARAM, cbkParam->id, DLI_INVALID_PARAMETERS);
-        NotifyParamChangeFailedCbk(CM_ICB_STATE_IMG_CREATED, cbkParam);
+    if (!CheckSetParamResult(status, cmdRes, cbkParam, &g_imgSetParamInfo)) {
         return;
     }
 
@@ -306,7 +319,7 @@ static void CM_IMGSetParamCbk(void *context, uint16_t status, DLI_ExecuteCmdRetP
     ICGConnectionNode *channelNode = FindICGConnectionNodeByTypeId(CM_IMB, param->id);
     if (channelNode != NULL) {
         CM_LOGI("imb channel node already existed");
-        NotifyMultiChannelCallback(CM_ICB_STATE_IOG_CREATED, CM_ICB_SUCCESS, channelNode);
+        NotifyMultiChannelCallback(CM_ICB_STATE_IMG_CREATED, CM_ICB_SUCCESS, channelNode);
         return;
     }
 
