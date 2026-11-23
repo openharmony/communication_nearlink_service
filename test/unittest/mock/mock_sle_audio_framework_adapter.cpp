@@ -21,6 +21,7 @@ namespace Nearlink {
 namespace {
     bool g_mockAudioServiceActivate = false;
     bool g_mockBtOut = false;
+    bool g_mockNearlinkOut = false;
 }
 
 void SetMockAudioServiceActivate(bool isActivate)
@@ -33,10 +34,16 @@ void SetMockBtOut(bool isBtOut)
     g_mockBtOut = isBtOut;
 }
 
+void SetMockNearlinkOut(bool isNearlinkOut)
+{
+    g_mockNearlinkOut = isNearlinkOut;
+}
+
 void ClearMockAudioFwkState()
 {
     g_mockAudioServiceActivate = false;
     g_mockBtOut = false;
+    g_mockNearlinkOut = false;
 }
 
 SleAudioFrameworkAdapter& SleAudioFrameworkAdapter::GetInstance(void)
@@ -74,7 +81,7 @@ bool SleAudioFrameworkAdapter::IsMusicActive()
 
 bool SleAudioFrameworkAdapter::IsNearlinkOut()
 {
-    return false;
+    return g_mockNearlinkOut;
 }
 
 void SleAudioFrameworkAdapter::RegisterCollaborativeAudioListener()
