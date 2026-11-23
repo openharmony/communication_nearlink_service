@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C) 2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  */
 #include <gtest/gtest.h>
 #include "SleAdvertiserAdapter.h"
+// pimpl 完整类型需含入产品实现文件（惯例：含入后须在 BUILD.gn sources -= 同名产品源）
+#include "SleAdvertiserAdapter.cpp"
 #include <tuple>
 #include <thread>
 #include "nlstk_devd_def.h"
@@ -569,6 +571,37 @@ HWTEST_F(NearlinkAdvTest, Sle_AdvertiserImpl_Test007, TestSize.Level1)
     std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 涉及切线程异步操作与回调，延迟1s
     EXPECT_EQ(std::get<1>(advEventTestTuple_), -1);
     HILOGI("Sle_AdvertiserImpl_Test007 end");
+}
+
+/**
+ * @tc.name: NearlinkAdvNullGuardFamilyTest
+ * @tc.desc: 广播实例为空时十二个入口全部安全返回：取句柄回退无效值，
+ *   取状态回退空闲态，其余入口静默完成
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkAdvTest, AdvNullGuardFamilyTest_001, TestSize.Level1)
+{
+    auto &adapter = SleAdvertiserAdapter::GetInstance();
+    std::weak_ptr<ISleAdvertiserCallback> emptyCb;
+    SleAdvertiserSettingsImpl settings;
+    SleAdvertiserDataImpl advData;
+    // 进程级单例状态先保存，用例结束还原，保证重复运行时既有用例不受置空影响
+    auto savedAdvertiser = adapter.pimpl->sleAdvertiser_;
+    adapter.pimpl->sleAdvertiser_ = nullptr;
+    adapter.RegisterSleAdvertiserCallback(emptyCb);
+    adapter.RegisterSleConnectableAdvertiserCallback(emptyCb);
+    adapter.DeregisterSleAdvertiserCallback();
+    EXPECT_EQ(adapter.GetAdvertiserHandle(), static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
+    EXPECT_EQ(adapter.GetConnectableAdvertiserHandle(), static_cast<uint8_t>(SleAdvertisingHandle::SLE_INVALID_ADVERTISING_HANDLE));
+    EXPECT_EQ(adapter.GetAdvertisingStatus(), static_cast<int>(SleAdvState::SLE_ADV_STATE_IDLE));
+    adapter.StartAdvertising(settings, advData, advData, 0);
+    adapter.SetAdvertisingData(advData, advData, 0);
+    adapter.StopAdvertising(0);
+    adapter.StopAdvertisingAll();
+    adapter.EnableAdvertising(0);
+    adapter.DisableAdvertising(0);
+    adapter.pimpl->sleAdvertiser_ = savedAdvertiser;
+    SUCCEED();
 }
 } // namespace TEST
 } // namespace Nearlink

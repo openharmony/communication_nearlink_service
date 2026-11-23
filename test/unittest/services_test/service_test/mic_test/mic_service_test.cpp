@@ -364,6 +364,18 @@ HWTEST_F(NearlinkMicServiceTest, NotifyStateChanged002, TestSize.Level1)
     HILOGI("NotifyStateChanged002 end");
 }
 
+
+/**
+ * @tc.name: NearlinkMicServiceDisableFirstTest
+ * @tc.desc: 未启用先停用：幂等早退分支安全返回
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkMicServiceTest, MicDisableFirstTest_001, TestSize.Level1)
+{
+    MicService service;
+    service.Disable();
+    SUCCEED();
+}
 } // namespace TEST
 } // namespace Nearlink
 } // namespace OHOS

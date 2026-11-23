@@ -101,6 +101,9 @@ ohos_unittest("nl_service_test") {
     "sle_switch_dependency_test.cpp",
     "sle_dli_snoop_test.cpp",
     "nearlink_timer_test.cpp",
+    "hid_tail_test.cpp",
+    "sle_controller_tail_test.cpp",
+    "small_domain_tail_test.cpp",
     "hid_host_service_test.cpp",
     "hid_host_uhid_test.cpp",
     "sle_name_change_manager_test.cpp",
@@ -115,6 +118,7 @@ ohos_unittest("nl_service_test") {
   sources -= [
     "$NEARLINK_ROOT/services/service/src/common/SleDataShareCheckUtils.cpp",
     "$NEARLINK_ROOT/services/service/src/common/SleCommonEventSubscriber.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps
@@ -123,6 +127,10 @@ ohos_unittest("nl_service_test") {
   external_deps += [
     "ffrt:libffrt",
     "init:libbegetutil"
+  ]
+  external_deps += [
+    "drivers_interface_nearlink:libnearlink_hci_proxy_1.0",
+    "hdf_core:libhdf_utils",
   ]
 
   deps += shared_service_deps
@@ -204,6 +212,7 @@ group("nl_service_unittest") {
     "ccp_test:nl_ccp_service_unittest",
     "asc_test:nl_asc_service_unittest",
     "mic_test:nl_mic_service_unittest",
+    "socket_test:nl_socket_service_unittest",
     "utils_test:nl_utils_unittest",
     "manufacturer_ability_test:nl_manufacturer_ability_unittest",
     "scan_test:nl_scan_service_test",

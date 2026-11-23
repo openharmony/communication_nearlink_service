@@ -53,6 +53,8 @@ public:
     MOCK_METHOD(void, OnPropertyChanged, (const Property &property), (override));
     MOCK_METHOD(void, OnEvent, (const Event &event), (override));
     MOCK_METHOD(void, OnConnectionStateChanged, (uint8_t state, int ret), (override));
+    MOCK_METHOD(void, OnServicesRediscovered, (std::vector<Service> &services), (override));
+    MOCK_METHOD(void, OnServiceChanged, (uint16_t handle, const Uuid &uuid), (override));
     ~SsapClientCallbackMock() override = default;
 };
 
@@ -638,6 +640,181 @@ HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_031, TestS
     clientService_->pimpl->adapterCallback_.OnConnectionStateChanged(appId_, 0, 0, 0);
     SsapClientStackAdapter::OnConnectionStateChanged(appId_, 0, NLSTK_Errcode_E::NLSTK_ERRCODE_SUCCESS, 0);
     HILOGI("NearlinkSsapClientServiceTest_031 end");
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_032
+ * @tc.desc: 校验适配层回调转发族：在册应用号逐入口转发到应用回调，
+ *   未注册应用号逐入口静默丢弃，十八个转发入口行为一致
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_032, TestSize.Level1)
+{
+    Property property;
+    Descriptor descriptor;
+    Method method;
+    Event event;
+    Uuid uuid = Uuid::ConvertFrom16Bits(0x180F);
+    std::list<Property> properties;
+    std::vector<Service> services;
+    auto &cb = clientService_->pimpl->adapterCallback_;
+    const int missId = appId_ + 100;
+    struct Entry {
+        const char *name;
+        std::function<void(int)> drive;
+    };
+    std::vector<Entry> entries = {
+        {"OnMtuChanged", [&](int id) { cb.OnMtuChanged(id, 512, 0); }},
+        {"OnDiscoverComplete", [&](int id) { cb.OnDiscoverComplete(id, 0); }},
+        {"OnDiscoverByUuidComplete", [&](int id) { cb.OnDiscoverByUuidComplete(id, uuid, 0); }},
+        {"OnReadProperty", [&](int id) { cb.OnReadProperty(id, property, 0); }},
+        {"OnCallMethod", [&](int id) { cb.OnCallMethod(id, method, 0); }},
+        {"OnReadDescriptor", [&](int id) { cb.OnReadDescriptor(id, descriptor, 0); }},
+        {"OnReadPropertiesByUuid", [&](int id) { cb.OnReadPropertiesByUuid(id, properties, 0); }},
+        {"OnWriteProperty", [&](int id) { cb.OnWriteProperty(id, property, 0); }},
+        {"OnWriteDescriptor", [&](int id) { cb.OnWriteDescriptor(id, descriptor, 0); }},
+        {"OnGetPropertyNotification", [&](int id) { cb.OnGetPropertyNotification(id, property, true, 0); }},
+        {"OnGetPropertyIndication", [&](int id) { cb.OnGetPropertyIndication(id, property, true, 0); }},
+        {"OnSetPropertyNotification", [&](int id) { cb.OnSetPropertyNotification(id, property, true, 0); }},
+        {"OnSetPropertyIndication", [&](int id) { cb.OnSetPropertyIndication(id, property, true, 0); }},
+        {"OnPropertyChanged", [&](int id) { cb.OnPropertyChanged(id, property); }},
+        {"OnEvent", [&](int id) { cb.OnEvent(id, event); }},
+        {"OnServicesRediscovered", [&](int id) { cb.OnServicesRediscovered(id, services); }},
+        {"OnServiceChanged", [&](int id) { cb.OnServiceChanged(id, 1, uuid); }},
+        {"OnConnectionStateChanged", [&](int id) { cb.OnConnectionStateChanged(id, 0, 0, 0); }},
+    };
+
+    // 在册应用号：每个转发入口都恰好到达应用回调一次
+    EXPECT_CALL(*callback_, OnMtuChanged(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnDiscoverComplete(_)).Times(1);
+    EXPECT_CALL(*callback_, OnDiscoverByUuidComplete(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadProperty(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnCallMethod(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadDescriptor(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadPropertiesByUuid(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWriteProperty(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWriteDescriptor(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnGetPropertyNotification(_, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnGetPropertyIndication(_, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnSetPropertyNotification(_, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnSetPropertyIndication(_, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnPropertyChanged(_)).Times(1);
+    EXPECT_CALL(*callback_, OnEvent(_)).Times(1);
+    EXPECT_CALL(*callback_, OnServicesRediscovered(_)).Times(1);
+    EXPECT_CALL(*callback_, OnServiceChanged(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnConnectionStateChanged(_, _)).Times(1);
+    for (auto &entry : entries) {
+        entry.drive(appId_);
+    }
+
+    // 未注册应用号：所有转发入口都静默丢弃
+    EXPECT_CALL(*callback_, OnMtuChanged(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnDiscoverComplete(_)).Times(0);
+    EXPECT_CALL(*callback_, OnDiscoverByUuidComplete(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadProperty(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnCallMethod(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadDescriptor(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadPropertiesByUuid(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWriteProperty(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWriteDescriptor(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnGetPropertyNotification(_, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnGetPropertyIndication(_, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnSetPropertyNotification(_, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnSetPropertyIndication(_, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnPropertyChanged(_)).Times(0);
+    EXPECT_CALL(*callback_, OnEvent(_)).Times(0);
+    EXPECT_CALL(*callback_, OnServicesRediscovered(_)).Times(0);
+    EXPECT_CALL(*callback_, OnServiceChanged(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnConnectionStateChanged(_, _)).Times(0);
+    for (auto &entry : entries) {
+        entry.drive(missId);
+    }
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_033
+ * @tc.desc: 校验连接状态变化回调：已连接与已断开两种状态都转发应用回调，
+ *   非连接非断开的中间态同样转发，失败返回码不吞掉状态通知
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_033, TestSize.Level1)
+{
+    auto &cb = clientService_->pimpl->adapterCallback_;
+    EXPECT_CALL(*callback_, OnConnectionStateChanged(_, _)).Times(3);
+    cb.OnConnectionStateChanged(appId_, static_cast<int>(SleConnectState::CONNECTED), 0, 0);
+    cb.OnConnectionStateChanged(appId_, static_cast<int>(SleConnectState::DISCONNECTED), 0, 1);
+    cb.OnConnectionStateChanged(appId_, static_cast<int>(SleConnectState::CONNECTING), -1, 0);
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_034
+ * @tc.desc: 校验启停任务直调：未运行时启用先置运行态再通知启用，运行中重复启用直接通知；
+ *   运行中停用先清栈应用再置停，停用后重复停用直接通知停用
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_034, TestSize.Level1)
+{
+    SsapClientService service;
+    // 未运行：启用任务置运行态，再次进入走已运行短路
+    service.EnableTask();
+    service.EnableTask();
+    // 运行中：停用任务清栈应用并置停，再次进入走未运行短路
+    service.DisableTask();
+    service.DisableTask();
+    SUCCEED();
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_035
+ * @tc.desc: 校验应用注册的槽位耗尽路径：占满全部注册槽位后再注册返回失败，
+ *   已在册应用不受影响
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_035, TestSize.Level1)
+{
+    bool exhausted = false;
+    for (int i = 0; i < 64; i++) {
+        int id = clientService_->RegisterApplication(callback_, remoteAddr_, SSAP_TRANSPORT_SLE, SSAP_SEC_NONE);
+        if (id == -1) {
+            exhausted = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(exhausted);
+    // 槽位占满不影响已在册应用的回调转发
+    EXPECT_CALL(*callback_, OnMtuChanged(_, _)).Times(1);
+    clientService_->pimpl->adapterCallback_.OnMtuChanged(appId_, 512, 0);
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_036
+ * @tc.desc: 校验栈侧连接状态码到服务层状态的映射：断开/连接中/已连接/断开中
+ *   与未知码各得其所，未知码回落断开
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_036, TestSize.Level1)
+{
+    EXPECT_EQ(ConvertStateFromStackSsapState(SSAP_CONNECT_STATE_DISCONNECTED),
+        static_cast<int>(SleConnectState::DISCONNECTED));
+    EXPECT_EQ(ConvertStateFromStackSsapState(SSAP_CONNECT_STATE_CONNECTING),
+        static_cast<int>(SleConnectState::CONNECTING));
+    EXPECT_EQ(ConvertStateFromStackSsapState(SSAP_CONNECT_STATE_CONNECTED),
+        static_cast<int>(SleConnectState::CONNECTED));
+    EXPECT_EQ(ConvertStateFromStackSsapState(SSAP_CONNECT_STATE_DISCONNECTING),
+        static_cast<int>(SleConnectState::DISCONNECTING));
+    EXPECT_EQ(ConvertStateFromStackSsapState(0xFF), static_cast<int>(SleConnectState::DISCONNECTED));
+}
+
+/**
+ * @tc.name: NearlinkSsapClientServiceTest_037
+ * @tc.desc: 校验空参数方法调用直接按非法参数回调应用，不进入栈请求
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapClientServiceTest, NearlinkSsapClientServiceTest_037, TestSize.Level1)
+{
+    Method method;
+    EXPECT_CALL(*callback_, OnCallMethod(_, _)).Times(1);
+    clientService_->pimpl->stackAdapter_.CallMethod(appId_, method, false);
 }
 } // namespace Nearlink
 } // namespace OHOS

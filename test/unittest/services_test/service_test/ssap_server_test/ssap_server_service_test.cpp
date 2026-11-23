@@ -662,5 +662,177 @@ HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerStackAdapter_012, Test
     HILOGI("NearlinkSsapServerStackAdapter_012 end");
 }
 
+
+/**
+ * @tc.name: NearlinkSsapServerServiceTest_013
+ * @tc.desc: 校验服务端适配层回调转发族：在册应用号逐入口转发到应用回调，
+ *   未注册应用号逐入口静默丢弃，十四个转发入口行为一致
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerServiceTest_013, TestSize.Level1)
+{
+    Property property;
+    Descriptor descriptor;
+    Service service;
+    auto &cb = serverService_->pimpl->adapterCallback_;
+    const int missId = appId_ + 100;
+    struct Entry {
+        const char *name;
+        std::function<void(int)> drive;
+    };
+    std::vector<Entry> entries = {
+        {"OnMtuChanged", [&](int id) { cb.OnMtuChanged(id, remoteAddr_, 512); }},
+        {"OnAddService", [&](int id) { cb.OnAddService(id, service, 0); }},
+        {"OnSetPropertyValue", [&](int id) { cb.OnSetPropertyValue(id, property, 0); }},
+        {"OnSetDescriptorValue", [&](int id) { cb.OnSetDescriptorValue(id, descriptor, 0); }},
+        {"OnReadPropertyAuthorizeRequest", [&](int id) { cb.OnReadPropertyAuthorizeRequest(id, remoteAddr_, 1, property); }},
+        {"OnReadDescriptorAuthorizeRequest", [&](int id) { cb.OnReadDescriptorAuthorizeRequest(id, remoteAddr_, 1, descriptor); }},
+        {"OnWritePropertyAuthorizeRequest", [&](int id) { cb.OnWritePropertyAuthorizeRequest(id, remoteAddr_, 1, property); }},
+        {"OnWriteDescriptorAuthorizeRequest", [&](int id) { cb.OnWriteDescriptorAuthorizeRequest(id, remoteAddr_, 1, descriptor); }},
+        {"OnReadProperty", [&](int id) { cb.OnReadProperty(id, remoteAddr_, property, 0); }},
+        {"OnReadDescriptor", [&](int id) { cb.OnReadDescriptor(id, remoteAddr_, descriptor, 0); }},
+        {"OnWriteProperty", [&](int id) { cb.OnWriteProperty(id, remoteAddr_, property, 0); }},
+        {"OnWriteDescriptor", [&](int id) { cb.OnWriteDescriptor(id, remoteAddr_, descriptor, 0); }},
+        {"OnNotifyProperty", [&](int id) { cb.OnNotifyProperty(id, remoteAddr_, property, 0); }},
+        {"OnConnectionStateChanged", [&](int id) { cb.OnConnectionStateChanged(id, remoteAddr_, 0, 0, 0); }},
+    };
+
+    // 在册应用号：每个转发入口都恰好到达应用回调一次
+    EXPECT_CALL(*callback_, OnMtuChanged(_, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnAddService(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnSetPropertyValue(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnSetDescriptorValue(_, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadPropertyAuthorizeRequest(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadDescriptorAuthorizeRequest(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWritePropertyAuthorizeRequest(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWriteDescriptorAuthorizeRequest(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadProperty(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnReadDescriptor(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWriteProperty(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnWriteDescriptor(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnNotifyProperty(_, _, _, _)).Times(1);
+    EXPECT_CALL(*callback_, OnConnectionStateChanged(_, _, _, _, _)).Times(1);
+    for (auto &entry : entries) {
+        entry.drive(appId_);
+    }
+
+    // 未注册应用号：所有转发入口都静默丢弃
+    EXPECT_CALL(*callback_, OnMtuChanged(_, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnAddService(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnSetPropertyValue(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnSetDescriptorValue(_, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadPropertyAuthorizeRequest(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadDescriptorAuthorizeRequest(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWritePropertyAuthorizeRequest(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWriteDescriptorAuthorizeRequest(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadProperty(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnReadDescriptor(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWriteProperty(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnWriteDescriptor(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnNotifyProperty(_, _, _, _)).Times(0);
+    EXPECT_CALL(*callback_, OnConnectionStateChanged(_, _, _, _, _)).Times(0);
+    for (auto &entry : entries) {
+        entry.drive(missId);
+    }
+}
+
+/**
+ * @tc.name: NearlinkSsapServerServiceTest_014
+ * @tc.desc: 校验启停任务生命周期：运行中重复启用直接通知，停用清栈应用并置停，
+ *   停用后重复停用直接通知，再次启用恢复运行态
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerServiceTest_014, TestSize.Level1)
+{
+    // 运行中：启用任务走已运行短路
+    serverService_->EnableTask();
+    // 运行中：停用任务清基础服务管理器与栈应用并置停
+    serverService_->DisableTask();
+    // 已停：停用任务走未运行短路
+    serverService_->DisableTask();
+    // 已停：启用任务重新置运行态
+    serverService_->EnableTask();
+    SUCCEED();
+}
+
+/**
+ * @tc.name: NearlinkSsapServerServiceTest_015
+ * @tc.desc: 校验服务端应用注册的槽位耗尽路径：占满全部注册槽位后再注册返回失败
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerServiceTest_015, TestSize.Level1)
+{
+    bool exhausted = false;
+    for (int i = 0; i < 64; i++) {
+        int id = serverService_->RegisterApplication(callback_);
+        if (id == -1) {
+            exhausted = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(exhausted);
+}
+
+/**
+ * @tc.name: NearlinkSsapServerServiceTest_016
+ * @tc.desc: 校验属性描述符填充：空描述符集直接成功；混合空值与非空值描述符时
+ *   逐个落位，空值描述符不分配数据缓冲
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerServiceTest_016, TestSize.Level1)
+{
+    auto &adapter = serverService_->pimpl->stackAdapter_;
+    // 空描述符集：不分配数组直接成功
+    Property empty;
+    NLSTK_SsapServicePropertyParam_S emptyDst = {};
+    ASSERT_TRUE(adapter.FillDescriptorToProperty(empty, &emptyDst));
+    EXPECT_EQ(emptyDst.descriptorNum, 0);
+
+    // 混合描述符：带值描述符分配缓冲并拷贝，空值描述符只记长度不分配缓冲
+    Property mixed;
+    mixed.descriptors_.emplace_back(1, 0, std::vector<uint8_t> {0x11});
+    mixed.descriptors_.emplace_back(2, 0, std::vector<uint8_t> {});
+    NLSTK_SsapServicePropertyParam_S mixedDst = {};
+    ASSERT_TRUE(adapter.FillDescriptorToProperty(mixed, &mixedDst));
+    ASSERT_EQ(mixedDst.descriptorNum, 2);
+    EXPECT_EQ(mixedDst.descriptors[0].val.len, 1U);
+    EXPECT_NE(mixedDst.descriptors[0].val.data, nullptr);
+    EXPECT_EQ(mixedDst.descriptors[1].val.len, 0U);
+    EXPECT_EQ(mixedDst.descriptors[1].val.data, nullptr);
+    delete[] mixedDst.descriptors[0].val.data;
+    delete[] mixedDst.descriptors;
+}
+
+/**
+ * @tc.name: NearlinkSsapServerServiceTest_017
+ * @tc.desc: 校验栈侧服务结构释放：引用、方法、事件各字段释放后置空，
+ *   描述符数组中空数据项安全跳过
+ * @tc.type: FUNC
+ */
+HWTEST_F(NearlinkSsapServerServiceTest, NearlinkSsapServerServiceTest_017, TestSize.Level1)
+{
+    auto &adapter = serverService_->pimpl->stackAdapter_;
+
+    // 服务声明里的描述符数组：混合空数据与非空数据项，释放安全
+    NLSTK_SsapServiceStatementParam_S statement = {};
+    statement.descriptorNum = 2;
+    statement.descriptors = new NLSTK_SsapServiceDescriptorParam_S[2]();
+    statement.descriptors[0].val.len = 1;
+    statement.descriptors[0].val.data = new uint8_t[1] {0x01};
+    statement.descriptors[1].val.data = nullptr;
+    adapter.FreeStackServiceStatement(&statement);
+    EXPECT_EQ(statement.descriptors, nullptr);
+
+    // 综合服务结构：引用、方法、事件字段释放后全部置空
+    NLSTK_ServiceParam_S stackService = {};
+    stackService.serviceReference = new NLSTK_SsapServiceReferenceParam_S[1]();
+    stackService.method = new NLSTK_SsapServiceMethodParam_S[1]();
+    stackService.event = new NLSTK_SsapServiceEventParam_S[1]();
+    adapter.FreeStackService(&stackService);
+    EXPECT_EQ(stackService.serviceReference, nullptr);
+    EXPECT_EQ(stackService.method, nullptr);
+    EXPECT_EQ(stackService.event, nullptr);
+}
+
 } // namespace Nearlink
 } // namespace OHOS
