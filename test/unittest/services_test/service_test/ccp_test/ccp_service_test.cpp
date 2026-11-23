@@ -311,7 +311,7 @@ HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
 /**
  * @tc.number: CallDetailsChanged001
  * @tc.name:
- * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时不得入表，由在表校验兜底拦截，不污染 callId 映射
+ * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时由入口守卫拦截：DIALING 不得分配 index 入表，DISCONNECTED 不得污染映射
  */
 HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
 {
@@ -320,14 +320,22 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
     ASSERT_NE(nullptr, ccpService);
 
     /* 每个用例独占服务实例，喂入前必须是干净态 */
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
     ASSERT_FALSE(ccpService->HasVoipCallId());
     CallAttributeInfo callAttributeInfo{};
     callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
-    callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
+    /* 旧实现会经 GetIndexForCall 给 -1 分配 index 入表，造成 VoIP 判定假阳性 */
+    callAttributeInfo.callState = TelCallState::CALL_STATUS_DIALING;
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    /* callId=-1 仅表示无特定通话，绝不能新增 VoIP 映射 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
+    /* 挂断冗余保护同样不得新增映射 */
+    callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("CallDetailsChanged001 end");
 }

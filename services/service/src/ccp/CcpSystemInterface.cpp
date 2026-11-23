@@ -170,7 +170,6 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
 {
     HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
         callId, numActive, numHeld, callState);
-    NL_CHECK_RETURN_RET(callId != INVALID_CCP_VOIP_ID, NL_NO_ERROR, "[CcpService]callId is invalid.");
     DoInCcpThread([callId, callState, number]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");

@@ -303,6 +303,8 @@ Telephony::CallAttributeInfo CcpService::FilterCallAttributeInfo(int32_t callId,
 void CcpService::HandleCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
     const std::vector<Telephony::CallAttributeInfo> &callInfoVec)
 {
+    // -1仅表示无特定通话，不得入表
+    NL_CHECK_RETURN(callId != INVALID_CCP_VOIP_ID, "[CcpService]invalid callId, skip detail update");
     // 从全量通话列表中过滤出需要处理的单路通话明细
     Telephony::CallAttributeInfo info = FilterCallAttributeInfo(callId, callState, number, callInfoVec);
     ProcessCallDetailChange(info);
