@@ -312,7 +312,8 @@ void CcpService::HandleCallDetailChange(int32_t callId, int32_t callState, const
 
 void CcpService::ProcessCallDetailChange(const Telephony::CallAttributeInfo &info)
 {
-    HILOGI("[CcpService]ProcessCallDetailChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
+    HILOGI("[CcpService]ProcessCallDetailChange: id=%{public}d, state=%{public}d",
+        info.callId, static_cast<int32_t>(info.callState));
     switch (info.callState) {
         case TelCallState::CALL_STATUS_DIALING:
         case TelCallState::CALL_STATUS_INCOMING:
@@ -366,7 +367,7 @@ void CcpService::ProcessCallStateInfo(const std::vector<Telephony::CallAttribute
         auto iter = pimpl->callStatusMap_.find(callAttr.callState);
         if (iter == pimpl->callStatusMap_.end()) {
             HILOGW("[CcpService]not support state, skip update this call: callId=%{public}d, callState=%{public}d",
-                callAttr.callId, callAttr.callState);
+                callAttr.callId, static_cast<int32_t>(callAttr.callState));
             continue;
         }
         // 通话标识
@@ -381,7 +382,8 @@ void CcpService::ProcessCallStateInfo(const std::vector<Telephony::CallAttribute
         // 通话标记
         singleCallState.callFlag = GetCallFlag(callAttr).value;
         HILOGI("[CcpService] callId=%{public}d, telStatus=%{public}d, ccpStatus=%{public}d, flag=0x%{public}02x",
-            singleCallState.callId, callAttr.callState, singleCallState.callStatus, singleCallState.callFlag);
+            singleCallState.callId, static_cast<int32_t>(callAttr.callState), singleCallState.callStatus,
+            singleCallState.callFlag);
         prop->callStateVec.push_back(singleCallState);
     }
 
@@ -453,7 +455,8 @@ bool CcpService::ProcessAccountInfo(std::shared_ptr<CallInOutInfoProp> prop, con
 
 void CcpService::ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info)
 {
-    HILOGI("[CcpService]ProcessCallInOutInfo: id=%{public}d, telStatus=%{public}d", info.callId, info.callState);
+    HILOGI("[CcpService]ProcessCallInOutInfo: id=%{public}d, telStatus=%{public}d",
+        info.callId, static_cast<int32_t>(info.callState));
     std::shared_ptr<CallInOutInfoProp> prop = std::make_shared<CallInOutInfoProp>();
     /**< 通话标识 */
     uint8_t callId = pimpl->GetIndexForCall(info.callId, info.callState);
@@ -472,7 +475,8 @@ void CcpService::ProcessCallInOutInfo(const Telephony::CallAttributeInfo &info)
 
 void CcpService::ProcessCallTerminateInfo(const Telephony::CallAttributeInfo &info)
 {
-    HILOGI("[CcpService]ProcessCallTerminateInfo: id=%{public}d, telStatus=%{public}d", info.callId, info.callState);
+    HILOGI("[CcpService]ProcessCallTerminateInfo: id=%{public}d, telStatus=%{public}d",
+        info.callId, static_cast<int32_t>(info.callState));
     // 映射中没有该 callId，说明本次挂断已被另一入口处理过（或该路从未上报），避免重复处理挂断事件
     NL_CHECK_RETURN(pimpl->callIdMap_.FindIf(info.callId), "[CcpService]unknown callId %{public}d", info.callId);
     std::shared_ptr<CallTerminateInfoProp> prop = std::make_shared<CallTerminateInfoProp>();

@@ -73,12 +73,13 @@ void CcpSystemInterface::InitNearlinkCallClient()
 void CcpSystemInterface::DeInitNearlinkCallClient()
 {
     HILOGI("[CcpService]enter");
-    DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnInit();
+    // 先注销回调，再停客户端，与 InitNearlinkCallClient 顺序互逆
     int32_t ret = DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnRegisterCallBack();
     if (ret != Telephony::TELEPHONY_SUCCESS) {
         DftReportAudioError("", ERROR_TELEPHONY, SUB_ERRCODE_CASE1);
         HILOGE("[CcpService] unregister telephony callback fail, ret = %{public}d", ret);
     }
+    DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnInit();
 }
 
 bool CcpSystemInterface::CheckNowHasDeviceConnected()
@@ -170,6 +171,8 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
 {
     HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
         callId, numActive, numHeld, callState);
+    CcpService *service = CcpService::GetService();
+    NL_CHECK_RETURN_RET(service, NL_ERR_INTERNAL_ERROR, "[CcpService]ccpService is null.");
     DoInCcpThread([callId, callState, number]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
@@ -178,10 +181,11 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
     return NL_NO_ERROR;
 }
 
-// 只回调某一路的回调信息（不可删除覆写）
+// 只回调某一路的回调信息（是纯虚函数，派生类必须实现它，不可删除覆写）
 int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
 {
-    HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d", info.callId, info.callState);
+    HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d",
+        info.callId, static_cast<int32_t>(info.callState));
     return NL_NO_ERROR;
 }
 }  // namespace Nearlink

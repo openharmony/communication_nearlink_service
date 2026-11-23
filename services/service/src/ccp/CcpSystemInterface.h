@@ -66,51 +66,51 @@ private:
 
         int32_t OnCallEventChange(const Telephony::CallEventInfo &info) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnCallDisconnectedCause(const Telephony::DisconnectedDetails &details) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnReportAsyncResults(Telephony::CallResultReportId id, AppExecFwk::PacMap &resultInfo) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnOttCallRequest(Telephony::OttCallRequestId requestId, AppExecFwk::PacMap &info) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnReportMmiCodeResult(const Telephony::MmiCodeInfo &info) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnReportAudioDeviceChange(const Telephony::AudioDeviceInfo &info) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnReportPostDialDelay(const std::string &str) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnUpdateImsCallModeChange(const Telephony::CallMediaModeInfo &imsCallModeInfo) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnCallSessionEventChange(const Telephony::CallSessionEvent &callSessionEventOptions) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnPeerDimensionsChange(const Telephony::PeerDimensionsDetail &peerDimensionsDetail) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnCallDataUsageChange(const int64_t dataUsage) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
         int32_t OnUpdateCameraCapabilities(const Telephony::CameraCapabilities &cameraCapabilities) override
         {
-            return 0;
+            return NL_NO_ERROR;
         }
     };
 
