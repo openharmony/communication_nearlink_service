@@ -22,6 +22,7 @@
 #include "sdf_worker.h"
 #include "sdf_thread.h"
 #include "sdf_sem.h"
+#include "sdf_lock_err.h"
 #include "nlstk_init_api.h"
 #include "nlstk_schedule.h"
 #include "cp_worker.h"
@@ -207,3 +208,65 @@ TEST_F(UT_SCHEDULE_TEST, Test_SchedulePostTaskFail2)
     SDF_ThreadDeinit();
 }
 
+
+static uint32_t FailingSemInit(SDF_Sem sem, int flag, uint32_t value)
+{
+    (void)sem;
+    (void)flag;
+    (void)value;
+    return SDF_LOCK_ERROR_INIT_FAIL;
+}
+
+// 工作队列内存分配失败时使能失败，恢复后可正常使能
+TEST_F(UT_SCHEDULE_TEST, Test_ScheduleEnableWorkerAllocFail)
+{
+    SDF_ThreadInit(3);
+    SDF_EvcInit();
+
+    g_sdfMemZallocFunc = TEST_SDF_MemZallocFail;
+    uint32_t ret = ScheduleEnable();
+    ASSERT_EQ(ret, NLSTK_ERR);
+    g_sdfMemZallocFunc = TEST_SDF_MemZalloc;
+
+    ret = ScheduleEnable();
+    ASSERT_EQ(ret, NLSTK_OK);
+    ScheduleDisable();
+
+    SDF_EvcDeinit();
+    SDF_ThreadDeinit();
+}
+
+// 空任务函数的阻塞投递只走信号量通知路径并正常返回
+TEST_F(UT_SCHEDULE_TEST, Test_SchedulePostTaskBlockedNullFunc)
+{
+    SDF_ThreadInit(3);
+    SDF_EvcInit();
+    ASSERT_EQ(ScheduleEnable(), NLSTK_OK);
+
+    uint32_t ret = SchedulePostTaskBlocked(NULL, NULL, NULL, 1000);
+    ASSERT_EQ(ret, NLSTK_OK);
+
+    ScheduleDisable();
+    SDF_EvcDeinit();
+    SDF_ThreadDeinit();
+}
+
+// 信号量初始化失败时阻塞投递走回收分支并报错
+TEST_F(UT_SCHEDULE_TEST, Test_SchedulePostTaskBlockedSemInitFail)
+{
+    SDF_ThreadInit(3);
+    SDF_EvcInit();
+    ASSERT_EQ(ScheduleEnable(), NLSTK_OK);
+
+    SDF_SemHooks_S savedHooks = g_semHooks;
+    SDF_SemHooks_S failingHooks = savedHooks;
+    failingHooks.initHook = FailingSemInit;
+    g_semHooks = failingHooks;
+    uint32_t ret = SchedulePostTaskBlocked(TaskFunc, NULL, NULL, 1000);
+    g_semHooks = savedHooks;
+    ASSERT_EQ(ret, NLSTK_ERR);
+
+    ScheduleDisable();
+    SDF_EvcDeinit();
+    SDF_ThreadDeinit();
+}

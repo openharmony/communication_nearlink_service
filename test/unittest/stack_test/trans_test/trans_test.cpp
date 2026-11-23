@@ -23,6 +23,7 @@
 #include "dtap_errno.h"
 #include "cm_errno.h"
 #include "cm_logic_link_api.h"
+#include "cm_trans_channel_mgr.h"
 #include "transport.h"
 #include "transport_cltp.h"
 #include "transport_errno.h"
@@ -390,4 +391,139 @@ TEST_F(UT_TRANS_TEST, TRANS_ChannelStatusChange)
     DTAP_UnRegisterDataSendCbks();
     free(ch);
     free(reliable);
+}
+static int g_transSendCbkCalls = 0;
+static uint16_t g_transSendCbkSrcPort = 0;
+static int g_transRecvCbkCalls = 0;
+
+static void CountingSendDataCbk(const SLE_Addr_S *addr, uint8_t tcid, uint16_t srcPort, uint8_t result)
+{
+    (void)addr;
+    (void)tcid;
+    (void)result;
+    g_transSendCbkCalls++;
+    g_transSendCbkSrcPort = srcPort;
+}
+
+static int CountingRecvDataCbk(const TRANS_Addr_S *addr, uint8_t *data, uint16_t len)
+{
+    (void)addr;
+    (void)data;
+    (void)len;
+    g_transRecvCbkCalls++;
+    return 0;
+}
+
+// 发往未知传输模式通道的数据被映射为内部错误
+TEST_F(UT_TRANS_TEST, TRANS_SendDataToUnknownModeChannel)
+{
+    CM_TransChannelStateList_S stateLists;
+    SDF_Traits transChannelTraits = {.dtor = SDF_MemFree};
+    stateLists.channelVector = SDF_CreateVector(transChannelTraits);
+    ASSERT_NE(stateLists.channelVector, nullptr);
+    CM_TransChan_S *chan = CM_TransChanCreate(0, 0, CM_TCID_SLE_CUTC, CM_TCID_SLE_CUTC, 0xFF);
+    ASSERT_NE(chan, nullptr);
+    ASSERT_TRUE(SDF_VectorEmplaceBack(stateLists.channelVector, chan));
+    stateLists.result = CM_TRANS_CHANNEL_STATE_ACTIVATED;
+    TEST_CM_TransChannelDo(&stateLists);
+
+    TRANS_Addr_S addr = {};
+    addr.tcid = CM_TCID_SLE_CUTC;
+    addr.proto = TRANS_PROTO_CONNECTIONLESS;
+    addr.srcPort = 2;
+    addr.dstPort = 3;
+    uint8_t data[4] = {1, 2, 3, 4};
+    EXPECT_EQ(TRANS_SendData(&addr, data, sizeof(data)), TRANS_RESULT_INTERNAL_FAULT);
+
+    stateLists.result = CM_TRANS_CHANNEL_STATE_RELEASED;
+    TEST_CM_TransChannelDo(&stateLists);
+}
+
+// 链路查询失败时收包被丢弃，不再回调接收方
+TEST_F(UT_TRANS_TEST, TRANS_RecvDataWithLinkLookupFail)
+{
+    TRANS_Cbks_S cbks = {NULL};
+    cbks.recvDataCbk = CountingRecvDataCbk;
+    cbks.sendDataCbk = myTestSendDataCbk;
+    ASSERT_EQ(TRANS_RegisterCbks(&cbks), TRANS_SUCCESS);
+
+    CM_TransChannelStateList_S stateLists;
+    SDF_Traits transChannelTraits = {.dtor = SDF_MemFree};
+    stateLists.channelVector = SDF_CreateVector(transChannelTraits);
+    ASSERT_NE(stateLists.channelVector, nullptr);
+    CM_TransChan_S *chan = CM_TransChanCreate(0, 0, CM_TCID_SLE_CUTC, CM_TCID_SLE_CUTC, CM_TRANS_MODE_BASIC);
+    ASSERT_NE(chan, nullptr);
+    ASSERT_TRUE(SDF_VectorEmplaceBack(stateLists.channelVector, chan));
+    stateLists.result = CM_TRANS_CHANNEL_STATE_ACTIVATED;
+    TEST_CM_TransChannelDo(&stateLists);
+
+    SDF_Buff_S *buff = SDF_BuffNew(sizeof(DTAP_BasicFrameHeader_S) + sizeof(uint8_t) + sizeof(TRANS_CltpHeader_S));
+    ASSERT_NE(buff, nullptr);
+    DTAP_BasicFrameHeader_S *dtapHdr =
+        (DTAP_BasicFrameHeader_S *)SDF_BuffAppend(buff, sizeof(DTAP_BasicFrameHeader_S) + sizeof(uint8_t));
+    ASSERT_NE(dtapHdr, nullptr);
+    dtapHdr->header.tcid = CM_TCID_SLE_CUTC;
+    dtapHdr->header.frameType = DTAP_FRAME_BASIC;
+    ENCODE2BYTE_LITTLE(&dtapHdr->header.length, sizeof(uint8_t) + sizeof(TRANS_CltpHeader_S));
+    *(uint8_t *)(dtapHdr->pi) = DTAP_PI_LWCLTP;
+    ASSERT_NE(SDF_BuffAppend(buff, sizeof(TRANS_CltpHeader_S)), nullptr);
+    TRANS_CltpHeader_S *cltpHdr =
+        (TRANS_CltpHeader_S *)(SDF_DataOffset(buff) + sizeof(DTAP_BasicFrameHeader_S) + sizeof(uint8_t));
+    cltpHdr->basic.version = TRANS_PROTO_VERSION;
+    cltpHdr->basic.optionLen = 0;
+
+    EXPECT_CALL(cmMock, CM_GetLogicLinkByLcid).WillRepeatedly(Return(1u));
+    g_transRecvCbkCalls = 0;
+    DLI_AcbRecvHander(0, buff);
+    EXPECT_EQ(g_transRecvCbkCalls, 0);
+
+    SDF_BuffFree(buff);
+    stateLists.result = CM_TRANS_CHANNEL_STATE_RELEASED;
+    TEST_CM_TransChannelDo(&stateLists);
+    TRANS_UnregisterCbks();
+}
+
+// 通道状态变更经注册回调通知发送方，携带本端端口
+TEST_F(UT_TRANS_TEST, TRANS_ChannelStatusChangeNotifiesSender)
+{
+    TRANS_Cbks_S cbks = {NULL};
+    cbks.recvDataCbk = myTestRecvDataCbk;
+    cbks.sendDataCbk = CountingSendDataCbk;
+    ASSERT_EQ(TRANS_RegisterCbks(&cbks), TRANS_SUCCESS);
+
+    CM_TransChannelMgrInit();
+    SLE_Addr_S linkAddr = {};
+    SleLogicLink_S *logicLink = SleLogicLinkAdd(&linkAddr);
+    ASSERT_NE(logicLink, nullptr);
+    logicLink->lcid = 0;
+    SleTransLcidParam_S chanParams = {0};
+    chanParams.srcPort = 7;
+    ASSERT_EQ(CM_ActivateFixedTransChannel(0, &chanParams), CM_SUCCESS);
+
+    DTAP_Channel_S *ch = (DTAP_Channel_S *)malloc(sizeof(DTAP_Channel_S));
+    ASSERT_NE(ch, nullptr);
+    memset_s(ch, sizeof(DTAP_Channel_S), 0x00, sizeof(DTAP_Channel_S));
+    DTAP_ReliableChannel_S *reliable = (DTAP_ReliableChannel_S *)malloc(sizeof(DTAP_ReliableChannel_S));
+    ASSERT_NE(reliable, nullptr);
+    memset_s(reliable, sizeof(DTAP_ReliableChannel_S), 0x00, sizeof(DTAP_ReliableChannel_S));
+    reliable->isTxWindowFull = true;
+    reliable->txWindow.txList.size = 1;
+    reliable->txWindow.size = 100;
+    ch->attr = reliable;
+    ch->mode = CM_TRANS_MODE_RELIABLE;
+    ch->lcid = 0;
+    ch->srcTcid = CM_TCID_SLE_CUTC;
+
+    g_transSendCbkCalls = 0;
+    g_transSendCbkSrcPort = 0;
+    DTAP_TransChannelStatusChange(ch, 0x00);
+    EXPECT_EQ(g_transSendCbkCalls, 1);
+    EXPECT_EQ(g_transSendCbkSrcPort, 7);
+    EXPECT_EQ(reliable->isTxWindowFull, false);
+
+    free(ch);
+    free(reliable);
+    CM_ReleaseFixedTransChannel(0);
+    SleLogicLinkRemove(logicLink);
+    TRANS_UnregisterCbks();
 }

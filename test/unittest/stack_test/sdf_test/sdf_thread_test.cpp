@@ -311,3 +311,32 @@ TEST_F(SdfThreadFaultTest, InitDescAllocFails)
     g_allocSkip = -1;
     EXPECT_EQ(SDF_ThreadInit(2), SDF_OK);
 }
+
+TEST_F(SdfThreadFaultTest, CreateWorkerAllocFailsCleanly)
+{
+    // 工作队列结构或互斥锁内存分配失败时创建返回空，恢复后可创建并销毁
+    g_allocSkip = 0;
+    EXPECT_EQ(SDF_CreateWorker(), nullptr);
+    g_allocSeq = 0;
+    g_allocSkip = 1;
+    EXPECT_EQ(SDF_CreateWorker(), nullptr);
+    g_allocSkip = -1;
+    SDF_Worker_S *worker = SDF_CreateWorker();
+    ASSERT_NE(worker, nullptr);
+    SDF_DestroyWorker(worker);
+}
+
+TEST_F(SdfThreadFaultTest, AddWorkAllocFailsKeepsQueueUsable)
+{
+    // 任务节点分配失败时入队报错，工作队列仍可正常销毁
+    SDF_Worker_S *worker = SDF_CreateWorker();
+    ASSERT_NE(worker, nullptr);
+    int arg = 0;
+    g_allocSkip = 0;
+    EXPECT_NE(SDF_AddWork(worker, nullptr, &arg, nullptr), SDF_OK);
+    g_allocSkip = -1;
+    SDF_DestroyWorker(worker);
+}
+
+// 线程局部键非法删除：OHOS musl pthread_key_delete 无键值越界检查（越界键直接段错误、
+// 界内未用键返回成功），错误返回路径在本平台不可达，登记不硬凑

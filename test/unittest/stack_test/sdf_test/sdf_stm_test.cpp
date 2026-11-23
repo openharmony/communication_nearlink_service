@@ -137,6 +137,21 @@ TEST(SdfStmTest, ProcessMessageWithoutCurrentStateIsSafe)
     StateMachineSoftBaseDtor(&stm);
 }
 
+TEST(SdfStmTest, ProcessMessageWithoutDispatchIsSafe)
+{
+    // 当前状态未配置分发函数时投递消息是空操作
+    g_dispatchCount = 0;
+    Message msg = {1, nullptr};
+    StateMachine stm;
+    ASSERT_TRUE(StateMachineSoftBaseCtor(&stm));
+    AddState(&stm, "idle", nullptr, nullptr);
+    stm.Transition(&stm, "idle");
+    stm.ProcessMessage(&stm, msg);
+    EXPECT_EQ(g_dispatchCount, 0);
+
+    StateMachineSoftBaseDtor(&stm);
+}
+
 TEST(SdfStmTest, StateNameIsCopiedOnCtor)
 {
     // 构造状态时名字被复制，改源字符串不影响状态名

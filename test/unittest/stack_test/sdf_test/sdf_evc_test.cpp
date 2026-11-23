@@ -21,6 +21,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <poll.h>
 #include <thread>
 
 #include "sdf_event.h"
@@ -61,6 +63,30 @@ uint32_t BumpArgs(void *arg)
 {
     (static_cast<std::atomic<int> *>(arg))->operator++();
     return SDF_OK;
+}
+
+bool WaitFdReadable(int fd, int timeoutMs)
+{
+    struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
+    for (int waited = 0; waited < timeoutMs; waited += 5) {
+        if (poll(&pfd, 1, 0) == 1 && (pfd.revents & POLLIN) != 0) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return false;
+}
+
+bool WaitFdNotReadable(int fd, int timeoutMs)
+{
+    struct pollfd pfd = {.fd = fd, .events = POLLIN, .revents = 0};
+    for (int waited = 0; waited < timeoutMs; waited += 5) {
+        if (poll(&pfd, 1, 0) >= 0 && (pfd.revents & POLLIN) == 0) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return false;
 }
 
 bool WaitDeadline(const std::atomic<int> &counter, int expect, int timeoutMs)
@@ -409,5 +435,181 @@ TEST_F(SdfEvcEnvTest, UserEventCallbackConsumesItself)
     SDF_EvcCancelEvent(fds[0]);
     close(fds[0]);
     close(fds[1]);
+    SDF_EvcInstanceClose(evcHandle);
+}
+
+namespace {
+void NoopThreadHook(uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3)
+{
+    (void)arg0;
+    (void)arg1;
+    (void)arg2;
+    (void)arg3;
+}
+} // namespace
+
+TEST_F(SdfEvcEnvTest, NullCallbackEventsAreConsumedSafely)
+{
+    // 空回调的事件型与用户型事件被事件循环安全跳过：计数型代读后清零，用户型不代读
+    int evcHandle = 0;
+    ASSERT_EQ(SDF_EvcInstanceCreate(&evcHandle, "ut_nullcb"), SDF_OK);
+
+    int eFd = eventfd(0, EFD_NONBLOCK);
+    ASSERT_GE(eFd, 0);
+    SDF_EvcEvent event = {};
+    event.type = SDF_EVC_EVENT;
+    event.eventHandle = eFd;
+    event.callback = nullptr;
+    event.args = nullptr;
+    event.freeFunc = nullptr;
+    ASSERT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_OK);
+    uint64_t val = 1;
+    ASSERT_EQ(write(eFd, &val, sizeof(val)), static_cast<ssize_t>(sizeof(val)));
+    EXPECT_TRUE(WaitFdNotReadable(eFd, 2000)); // 计数被事件循环代读清零
+    SDF_EvcCancelEvent(eFd);
+    close(eFd);
+
+    int fds[2] = {-1, -1};
+    ASSERT_EQ(pipe(fds), 0);
+    SDF_EvcEvent userEvent = {};
+    userEvent.type = SDF_EVC_USER_EVENT;
+    userEvent.eventHandle = fds[0];
+    userEvent.callback = nullptr;
+    userEvent.args = nullptr;
+    userEvent.freeFunc = nullptr;
+    ASSERT_EQ(SDF_EvcListenEvent(evcHandle, &userEvent), SDF_OK);
+    ASSERT_EQ(write(fds[1], "x", 1), 1);
+    EXPECT_TRUE(WaitFdReadable(fds[0], 2000)); // 用户事件不代读，数据保留
+    char byte = 0;
+    EXPECT_EQ(read(fds[0], &byte, 1), 1);
+    SDF_EvcCancelEvent(fds[0]);
+    close(fds[0]);
+    close(fds[1]);
+    SDF_EvcInstanceClose(evcHandle);
+}
+
+TEST_F(SdfEvcEnvTest, EventPostOnForeignEventWithNullArgsRejected)
+{
+    // 直接监听的外来事件（未携带事件描述）不接受投递，返回未知句柄
+    int evcHandle = 0;
+    ASSERT_EQ(SDF_EvcInstanceCreate(&evcHandle, "ut_foreign"), SDF_OK);
+
+    int eFd = eventfd(0, EFD_NONBLOCK);
+    ASSERT_GE(eFd, 0);
+    SDF_EvcEvent event = {};
+    event.type = SDF_EVC_EVENT;
+    event.eventHandle = eFd;
+    event.callback = nullptr;
+    event.args = nullptr;
+    event.freeFunc = nullptr;
+    ASSERT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_OK);
+    EXPECT_EQ(SDF_EventPost(eFd), SDF_EVENT_ERROR_WRONG_HANDLE);
+    SDF_EvcCancelEvent(eFd);
+    close(eFd);
+    SDF_EvcInstanceClose(evcHandle);
+}
+
+TEST_F(SdfEvcEnvTest, ListenEventOnRegularFileFailsAndCleans)
+{
+    // 普通文件句柄无法注册进 epoll：监听失败并回收半成品，之后仍可正常监听
+    int evcHandle = 0;
+    ASSERT_EQ(SDF_EvcInstanceCreate(&evcHandle, "ut_epoll"), SDF_OK);
+
+    FILE *file = tmpfile();
+    ASSERT_NE(file, nullptr);
+    SDF_EvcEvent event = {};
+    event.type = SDF_EVC_USER_EVENT;
+    event.eventHandle = fileno(file);
+    event.callback = nullptr;
+    event.args = nullptr;
+    event.freeFunc = nullptr;
+    EXPECT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_EVC_ERROR_EPOLL_CTL_FAILED);
+
+    int eFd = eventfd(0, EFD_NONBLOCK);
+    ASSERT_GE(eFd, 0);
+    event.eventHandle = eFd;
+    EXPECT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_OK);
+    SDF_EvcCancelEvent(eFd);
+    close(eFd);
+    fclose(file);
+    SDF_EvcInstanceClose(evcHandle);
+}
+
+TEST_F(SdfEvcEnvTest, EventVectorFullRejectsNewEvent)
+{
+    // 事件数达到单实例上限后拒绝新监听，删除一个事件后槽位可复用
+    int evcHandle = 0;
+    ASSERT_EQ(SDF_EvcInstanceCreate(&evcHandle, "ut_full"), SDF_OK);
+
+    int fds[SDF_EVC_MAX_EVENT_NUM] = {0};
+    SDF_EvcEvent event = {};
+    event.type = SDF_EVC_EVENT;
+    event.callback = nullptr;
+    event.args = nullptr;
+    event.freeFunc = nullptr;
+    for (int i = 0; i < SDF_EVC_MAX_EVENT_NUM; i++) {
+        fds[i] = eventfd(0, EFD_NONBLOCK);
+        ASSERT_GE(fds[i], 0);
+        event.eventHandle = fds[i];
+        ASSERT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_OK);
+    }
+    int extra = eventfd(0, EFD_NONBLOCK);
+    ASSERT_GE(extra, 0);
+    event.eventHandle = extra;
+    EXPECT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_EVC_ERROR_WRONG_HANDLE);
+    close(extra);
+
+    SDF_EvcCancelEvent(fds[0]);
+    event.eventHandle = fds[0];
+    EXPECT_EQ(SDF_EvcListenEvent(evcHandle, &event), SDF_OK);
+
+    for (int i = 0; i < SDF_EVC_MAX_EVENT_NUM; i++) {
+        close(fds[i]);
+    }
+    SDF_EvcInstanceClose(evcHandle);
+}
+
+TEST_F(SdfEvcEnvTest, InstanceCreateFailsWhenThreadPoolExhausted)
+{
+    // 线程池槽位耗尽时实例创建失败并回收半成品，释放槽位后可重新创建
+    SDF_ThreadDeinit();
+    ASSERT_EQ(SDF_ThreadInit(1), SDF_OK);
+    uint32_t id = 0;
+    SDF_ThreadCreateParam_S param = {};
+    param.name = "ut_hold";
+    param.policy = SDF_THREAD_SCHED_OTHER;
+    param.priority = 0;
+    param.stackSize = 0;
+    param.hook = NoopThreadHook;
+    ASSERT_EQ(SDF_ThreadCreate(&id, &param), SDF_OK);
+
+    int handle = 0;
+    EXPECT_EQ(SDF_EvcInstanceCreate(&handle, "ut_exhaust"), SDF_EVC_ERROR_THREAD_FAILED);
+    ASSERT_EQ(SDF_ThreadJoin(id), SDF_OK);
+    EXPECT_EQ(SDF_EvcInstanceCreate(&handle, "ut_recover"), SDF_OK);
+    SDF_EvcInstanceClose(handle);
+
+    SDF_ThreadDeinit();
+    ASSERT_EQ(SDF_ThreadInit(4), SDF_OK); // 恢复夹具容量
+}
+
+TEST_F(SdfEvcFaultTest, TimerAddDescAllocFails)
+{
+    // 定时器描述分配失败时创建报内存错误，恢复后可正常建删
+    int evcHandle = 0;
+    ASSERT_EQ(SDF_EvcInstanceCreate(&evcHandle, "ut_t_fault"), SDF_OK);
+
+    FailAfterMainAllocs(0);
+    SDF_TimerParam param = {};
+    param.handle = evcHandle;
+    param.expires = 10;
+    param.period = false;
+    param.callback = CountingTimerCb;
+    param.args = nullptr;
+    int tFd = 0;
+    EXPECT_EQ(SDF_TimerAdd(&tFd, &param), SDF_TIMER_ERROR_MEM_FAILED);
+    g_allocSkip = -1;
+    EXPECT_EQ(SDF_TimerAdd(&tFd, &param), SDF_OK);
+    SDF_TimerDel(tFd);
     SDF_EvcInstanceClose(evcHandle);
 }

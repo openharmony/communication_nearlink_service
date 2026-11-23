@@ -328,3 +328,18 @@ TEST_F(SdfSemTest, CountSemInitRejectsValueAboveLimit)
     // 计数信号量初值越过系统上限时初始化失败
     EXPECT_EQ(SDF_SemInit(sem, SDF_SEM_COUNT_TYPE, 0x80000000u), SDF_LOCK_ERROR_INIT_FAIL);
 }
+
+TEST_F(SdfSemTest, TryWaitRejectsNull)
+{
+    // 空信号量尝试等待被立即拒绝
+    EXPECT_EQ(SDF_SemTryWait(nullptr), SDF_LOCK_ERROR_INVALID_PARAM);
+}
+
+TEST_F(SdfSemTest, TimeWaitMillisecondCarryIsStable)
+{
+    // 亚秒毫秒超时经过纳秒进位归一，连续限时等待行为稳定
+    ASSERT_EQ(SDF_SemInit(sem, SDF_SEM_COUNT_TYPE, 0), SDF_OK);
+    for (int i = 0; i < 3; i++) {
+        EXPECT_EQ(SDF_SemTimeWait(sem, 999), SDF_LOCK_ERROR_TIME_FAIL);
+    }
+}
