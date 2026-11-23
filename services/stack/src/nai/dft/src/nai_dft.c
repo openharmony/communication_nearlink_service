@@ -54,6 +54,13 @@ DftParamC CreateUi16ParamC(uint16_t paramId, uint16_t value)
     return p;
 }
 
+DftParamC CreateI32ParamC(uint16_t paramId, int32_t value)
+{
+    DftParamC p = {paramId, DFT_INT32};
+    p.u.v.i32 = value;
+    return p;
+}
+
 DftParamC CreateStrParamC(int paramId, uint16_t size, const char *str)
 {
     DftParamC p = {paramId, DFT_STRING};
@@ -142,10 +149,37 @@ void NAI_DftCacheStr(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, void 
     DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_2);
 }
 
+static void NAI_DftCacheIcb(uint16_t eventId, uint16_t paramId, NLSTK_DftParamValueType_E paramType, void *param)
+{
+    CP_CHECK_LOG_RETURN_VOID(param != NULL, "[DFT] icb cache param is null");
+    CP_CHECK_LOG_RETURN_VOID(paramType == NLSTK_DFT_PARAM_VALUE_TYPE_UINT16 ||
+        paramType == NLSTK_DFT_PARAM_VALUE_TYPE_INT32 ||
+        paramType == NLSTK_DFT_PARAM_VALUE_TYPE_STRING, "[DFT] icb cache param type is invalid");
+
+    DftParamC *params = (DftParamC *)SDF_MemZalloc(NAI_DFT_PARAM_SIZE_1 * sizeof(DftParamC));
+    CP_CHECK_LOG_RETURN_VOID(params != NULL, "DftParamC create failed");
+
+    if (paramType == NLSTK_DFT_PARAM_VALUE_TYPE_UINT16) {
+        params[PARAM_INDEX_0] = CreateUi16ParamC(paramId, *(uint16_t *)param);
+    } else if (paramType == NLSTK_DFT_PARAM_VALUE_TYPE_INT32) {
+        params[PARAM_INDEX_0] = CreateI32ParamC(paramId, *(int32_t *)param);
+    } else {
+        NLSTK_DftParamValueString_S *inParam = (NLSTK_DftParamValueString_S *)param;
+        params[PARAM_INDEX_0] = CreateStrParamC(paramId, DFT_STRING_LEN, inParam->str);
+    }
+
+    DftManagerCache((DftEventEnum)eventId, params, NAI_DFT_PARAM_SIZE_1);
+    DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_1);
+}
+
 void NAI_DftCache(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, NLSTK_DftParamValueType_E paramType,
     void *param)
 {
     CP_LOG_DEBUG("[DFT] NAI_DftCache, eventId: %u, paramId: %u", eventId, paramId);
+    if (eventId == NLSTK_DFT_EVENT_ICB_EXCEP) {
+        NAI_DftCacheIcb(eventId, paramId, paramType, param);
+        return;
+    }
     switch (paramType) {
         case NLSTK_DFT_PARAM_VALUE_TYPE_UINT16:
             {
@@ -206,9 +240,23 @@ static void NAI_DftReportHadm(SLE_Addr_S *addr, uint16_t eventId, uint16_t param
     DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_2);
 }
 
+static void NAI_DftReportIcb(uint16_t eventId, uint16_t paramId, uint16_t res)
+{
+    DftParamC *params = (DftParamC *)SDF_MemZalloc(NAI_DFT_PARAM_SIZE_1 * sizeof(DftParamC));
+    CP_CHECK_LOG_RETURN_VOID(params != NULL, "DftParamC create failed");
+
+    params[PARAM_INDEX_0] = CreateI32ParamC(paramId, (int32_t)res);
+    DftManagerReport((DftEventEnum)eventId, params, NAI_DFT_PARAM_SIZE_1);
+    DftFreeBasicTypeParams(params, NAI_DFT_PARAM_SIZE_1);
+}
+
 void NAI_DftReport(SLE_Addr_S *addr, uint16_t eventId, uint16_t paramId, uint16_t res)
 {
     CP_LOG_DEBUG("[DFT] NAI_DftReport, eventId: %u, paramId: %u, res: %u", eventId, paramId, res);
+    if (eventId == NLSTK_DFT_EVENT_ICB_EXCEP) {
+        NAI_DftReportIcb(eventId, paramId, res);
+        return;
+    }
     CP_CHECK_LOG_RETURN_VOID(addr != NULL, "[DFT] DftParamC create failed");
 
     switch ((DftEventEnum)eventId) {

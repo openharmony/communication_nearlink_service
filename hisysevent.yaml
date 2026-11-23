@@ -112,11 +112,6 @@ NEARLINK_DIS_EXPOSED_EXCEP:
   SUB_ERROR_CODE: {type: INT32, desc: sub error code}
   SLE_DEVICE_NAME: {type: STRING, desc: sle device name}
 
-NEARLINK_ICCE_EXPOSED_EXCEP:
-  __BASE: {type: FAULT, level: CRITICAL, desc: icce exposed excep event}
-  ERROR_CODE: {type: INT32, desc: error code}
-  SUB_ERROR_CODE: {type: INT32, desc: sub error code}
-
 NEARLINK_ICCE_CAR_PROFILE_EXCEP:
   __BASE: {type: FAULT, level: CRITICAL, desc: icce profile excep event}
   DEVICE_ADDR: {type: STRING, desc: device addr}
@@ -404,4 +399,13 @@ NEARLINK_DISCOVERY_EXCEPTION:
   DISCOVERY_START_TIME: {type: STRING, desc: when start advertise or scan}
   DISCOVERY_PKG_NAME: {type: STRING, desc: who start advertise or scan}
   DISCOVERY_RESULT_CALLBACK_TIME: {type: STRING, desc: when scan result callback}
+
+NEARLINK_ICB_EXCEP:
+  __BASE: {type: FAULT, level: CRITICAL, desc: nearlink stack icb excep event}
+  DEVICE_ADDR: {type: STRING, desc: device address}
+  DEVICE_NAME: {type: STRING, desc: device name}
+  DEVICE_APPEARANCE: {type: INT32, desc: device appearance}
+  ICB_SCENE: {type: UINT16, desc: the scene of icb set param}
+  ICB_ID: {type: UINT16, desc: icb id}
+  ERROR_CODE: {type: INT32, desc: icb set param fail error code}
 # nearLink dft event end

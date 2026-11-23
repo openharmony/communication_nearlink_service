@@ -236,6 +236,7 @@ nearlink_stack_sources = [
     "src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_chan_state_mgr.c",
     "src/cp/bsl/sle/cm/dyntrans/src/cm_dyn_trans_channel_mgr.c",
     "src/cp/bsl/sle/cm/icb/src/cm_icb_api.c",
+    "src/cp/bsl/sle/cm/icb/src/cm_icb_dft.c",
     "src/cp/bsl/sle/cm/icb/src/cm_icb_init.c",
     "src/cp/bsl/sle/cm/icb/src/cm_icb_mgr.c",
     "src/cp/bsl/sle/cm/link/src/cm_access_mgr.c",
