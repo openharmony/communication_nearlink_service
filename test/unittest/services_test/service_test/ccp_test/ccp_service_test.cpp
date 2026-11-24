@@ -227,17 +227,20 @@ HWTEST_F(CcpServiceTest, HandleAuthorize001, TestSize.Level1)
 /**
  * @tc.number: HandlePhoneStateChange001
  * @tc.name:
- * @tc.desc:
+ * @tc.desc: -1/IDLE 全量刷新：入口回查 GetCurrentCallList 空列表也同步给对端，且不得新建 callId 映射（不污染 VoIP 判定）
  */
 HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 {
     HILOGI("HandlePhoneStateChange001 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
+    ASSERT_FALSE(ccpService->HasVoipCallId());
 
     /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：入口内部回查 GetCurrentCallList 做全量同步，空列表也要同步给对端 */
     ccpService->HandlePhoneStateChange(
         INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
+    /* 全量刷新不做 callId 入表，绝不能新增 VoIP 映射 */
+    EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandlePhoneStateChange001 end");
 }
 
@@ -288,34 +291,13 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange001, TestSize.Level1)
 }
 
 /**
- * @tc.number: PhoneStateChanged001
- * @tc.name:
- * @tc.desc: 全量通话状态刷新不带 callId，不得新建 callId 映射（不污染 VoIP 判定）
- */
-HWTEST_F(CcpServiceTest, PhoneStateChanged001, TestSize.Level1)
-{
-    HILOGI("PhoneStateChanged001 start");
-    CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(nullptr, ccpService);
-
-    /* 每个用例独占服务实例，喂入前必须是干净态 */
-    ASSERT_FALSE(ccpService->HasVoipCallId());
-    /* 无特定通话时传 INVALID_CCP_VOIP_ID/IDLE：仅做全量刷新 */
-    ccpService->HandlePhoneStateChange(
-        INVALID_CCP_VOIP_ID, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_IDLE), "");
-    /* 全量刷新不做 callId 入表，绝不能新增 VoIP 映射 */
-    EXPECT_FALSE(ccpService->HasVoipCallId());
-    HILOGI("PhoneStateChanged001 end");
-}
-
-/**
- * @tc.number: CallDetailsChanged001
+ * @tc.number: HandleCallDetailChange002
  * @tc.name:
  * @tc.desc: 单路明细入口 callId 为 -1（no specific call）时由入口守卫拦截：DIALING 不得分配 index 入表，DISCONNECTED 不得污染映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleCallDetailChange002, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged001 start");
+    HILOGI("HandleCallDetailChange002 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
 
@@ -337,72 +319,47 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged001, TestSize.Level1)
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     EXPECT_FALSE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
-    HILOGI("CallDetailsChanged001 end");
+    HILOGI("HandleCallDetailChange002 end");
 }
 
 /**
- * @tc.number: CallDetailsChanged002
+ * @tc.number: HandleCallDetailChange003
  * @tc.name:
- * @tc.desc: 存在蜂窝映射时挂断分支放行，DISCONNECTED 清理该 callId 映射
+ * @tc.desc: 守卫放行后 callId 为 -1（no specific call）仍被拦截，不得污染映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged002, TestSize.Level1)
+HWTEST_F(CcpServiceTest, HandleCallDetailChange003, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged002 start");
+    HILOGI("HandleCallDetailChange003 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
 
-    constexpr int32_t callId = 1;
+    constexpr int32_t callId = 3;
     ClearPhoneCallMappings(ccpService);
-    ASSERT_FALSE(ccpService->HasPhoneCallId());
     SetupPhoneCallMapping(ccpService, callId);
     ASSERT_TRUE(ccpService->HasPhoneCallId());
 
     CallAttributeInfo callAttributeInfo{};
-    callAttributeInfo.callId = callId;
+    callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    /* 挂断明细生效：该路 callId 映射被清理 */
-    EXPECT_FALSE(ccpService->HasPhoneCallId());
-    HILOGI("CallDetailsChanged002 end");
-}
-
-/**
- * @tc.number: CallDetailsChanged003
- * @tc.name:
- * @tc.desc: 无蜂窝映射时守卫拦截，任何状态都不得新建映射（ccp 自造场景排除）
- */
-HWTEST_F(CcpServiceTest, CallDetailsChanged003, TestSize.Level1)
-{
-    HILOGI("CallDetailsChanged003 start");
-    CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(nullptr, ccpService);
-
-    constexpr int32_t callId = 5;
-    ClearPhoneCallMappings(ccpService);
-    ASSERT_FALSE(ccpService->HasPhoneCallId());
-
-    CallAttributeInfo callAttributeInfo{};
-    callAttributeInfo.callId = callId;
-    callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
-    callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
-    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
-        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    /* 无在表蜂窝通话时直接返回：不得反手分配 index 并写入映射 */
-    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    /* -1 仅表示无特定通话：既不能清掉在册的蜂窝映射，也不能自己入表 */
+    EXPECT_TRUE(ccpService->HasPhoneCallId());
     EXPECT_FALSE(ccpService->HasVoipCallId());
-    HILOGI("CallDetailsChanged003 end");
+
+    ClearPhoneCallMappings(ccpService);
+    HILOGI("HandleCallDetailChange003 end");
 }
 
 /**
- * @tc.number: CallDetailsChanged004
+ * @tc.number: ProcessCallInOutInfo001
  * @tc.name:
  * @tc.desc: 非 DISCONNECTED 状态只更新明细，映射不得误清；结尾自行清场
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessCallInOutInfo001, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged004 start");
+    HILOGI("ProcessCallInOutInfo001 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
 
@@ -425,47 +382,45 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged004, TestSize.Level1)
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    HILOGI("CallDetailsChanged004 end");
+    HILOGI("ProcessCallInOutInfo001 end");
 }
 
 /**
- * @tc.number: CallDetailsChanged005
+ * @tc.number: ProcessCallTerminateInfo001
  * @tc.name:
- * @tc.desc: 守卫放行后 callId 为 -1（no specific call）仍被拦截，不得污染映射
+ * @tc.desc: 存在蜂窝映射时挂断分支放行，DISCONNECTED 清理该 callId 映射
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged005, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessCallTerminateInfo001, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged005 start");
+    HILOGI("ProcessCallTerminateInfo001 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
 
-    constexpr int32_t callId = 3;
+    constexpr int32_t callId = 1;
     ClearPhoneCallMappings(ccpService);
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
     SetupPhoneCallMapping(ccpService, callId);
     ASSERT_TRUE(ccpService->HasPhoneCallId());
 
     CallAttributeInfo callAttributeInfo{};
-    callAttributeInfo.callId = INVALID_CCP_VOIP_ID;
+    callAttributeInfo.callId = callId;
     callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
     callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
     ccpService->HandleCallDetailChange(callAttributeInfo.callId,
         static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
-    /* -1 仅表示无特定通话：既不能清掉在册的蜂窝映射，也不能自己入表 */
-    EXPECT_TRUE(ccpService->HasPhoneCallId());
-    EXPECT_FALSE(ccpService->HasVoipCallId());
-
-    ClearPhoneCallMappings(ccpService);
-    HILOGI("CallDetailsChanged005 end");
+    /* 挂断明细生效：该路 callId 映射被清理 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    HILOGI("ProcessCallTerminateInfo001 end");
 }
 
 /**
- * @tc.number: CallDetailsChanged006
+ * @tc.number: ProcessCallTerminateInfo002
  * @tc.name:
  * @tc.desc: 在表的 VoIP callId（自造 VoIP，voipId=-2）挂断经单路明细入口清理
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessCallTerminateInfo002, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged006 start");
+    HILOGI("ProcessCallTerminateInfo002 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
     std::string addr = "00:11:22:33:44:55";
@@ -490,17 +445,17 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged006, TestSize.Level1)
     /* 收尾：显式停止自造 VoIP，验证 stop 入口能把映射清干净 */
     ccpService->HandleVoipStop(*device);
     EXPECT_FALSE(ccpService->HasVoipCallId());
-    HILOGI("CallDetailsChanged006 end");
+    HILOGI("ProcessCallTerminateInfo002 end");
 }
 
 /**
- * @tc.number: CallDetailsChanged007
+ * @tc.number: ProcessCallTerminateInfo003
  * @tc.name:
- * @tc.desc: callType 不参与挂断判定：TYPE_VOIP 挂断与 002 同行为，映射被清理
+ * @tc.desc: callType 不参与挂断判定：TYPE_VOIP 挂断与 ProcessCallTerminateInfo001 同行为，映射被清理
  */
-HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
+HWTEST_F(CcpServiceTest, ProcessCallTerminateInfo003, TestSize.Level1)
 {
-    HILOGI("CallDetailsChanged007 start");
+    HILOGI("ProcessCallTerminateInfo003 start");
     CcpService* ccpService = CcpService::GetService();
     ASSERT_NE(nullptr, ccpService);
 
@@ -522,7 +477,34 @@ HWTEST_F(CcpServiceTest, CallDetailsChanged007, TestSize.Level1)
     /* 把剩余 callId 一并归还，确认清场后回到空表 */
     ClearPhoneCallMappings(ccpService);
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    HILOGI("CallDetailsChanged007 end");
+    HILOGI("ProcessCallTerminateInfo003 end");
+}
+
+/**
+ * @tc.number: ProcessCallTerminateInfo004
+ * @tc.name:
+ * @tc.desc: 无蜂窝映射时守卫拦截，任何状态都不得新建映射（ccp 自造场景排除）
+ */
+HWTEST_F(CcpServiceTest, ProcessCallTerminateInfo004, TestSize.Level1)
+{
+    HILOGI("ProcessCallTerminateInfo004 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
+
+    constexpr int32_t callId = 5;
+    ClearPhoneCallMappings(ccpService);
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
+
+    CallAttributeInfo callAttributeInfo{};
+    callAttributeInfo.callId = callId;
+    callAttributeInfo.callState = TelCallState::CALL_STATUS_DISCONNECTED;
+    callAttributeInfo.callType = static_cast<CallType>(CCP_SERVICE_UT_CALL_TYPE_NOT_VOIP);
+    ccpService->HandleCallDetailChange(callAttributeInfo.callId,
+        static_cast<int32_t>(callAttributeInfo.callState), "", { callAttributeInfo });
+    /* 无在表蜂窝通话时直接返回：不得反手分配 index 并写入映射 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    EXPECT_FALSE(ccpService->HasVoipCallId());
+    HILOGI("ProcessCallTerminateInfo004 end");
 }
 
 /**
@@ -545,14 +527,39 @@ HWTEST_F(CcpServiceTest, HasPhoneCallId001, TestSize.Level1)
 
     ClearPhoneCallMappings(ccpService);
     EXPECT_FALSE(ccpService->HasPhoneCallId());
-    /* 仅负数 key（自造 VoIP）不算蜂窝路，该分支由 CallDetailsChanged006 覆盖 */
+    /* 仅负数 key（自造 VoIP）不算蜂窝路，该分支由 ProcessCallTerminateInfo002 覆盖 */
     HILOGI("HasPhoneCallId001 end");
+}
+
+/**
+ * @tc.number: HandleVoipStart001
+ * @tc.name:
+ * @tc.desc:
+ */
+HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
+{
+    HILOGI("HandleVoipStart001 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
+    std::string addr = "00:11:22:33:44:55";
+    std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
+
+    ccpService->HandleVoipStart(*device);
+    EXPECT_TRUE(ccpService->HasVoipCallId());
+
+    /* 重复启动幂等：仍只登记同一路自造 VoIP */
+    ccpService->HandleVoipStart(*device);
+    EXPECT_TRUE(ccpService->HasVoipCallId());
+    /* 收尾：显式停止，验证 stop 入口能把映射清干净 */
+    ccpService->HandleVoipStop(*device);
+    EXPECT_FALSE(ccpService->HasVoipCallId());
+    HILOGI("HandleVoipStart001 end");
 }
 
 /**
  * @tc.number: HandleVoipStart002
  * @tc.name:
- * @tc.desc: 存在蜂窝通话时不得自造 VoIP 状态（与 CallDetailsChanged 守卫同一判定）
+ * @tc.desc: 存在蜂窝通话时不得自造 VoIP 状态（与 HandleCallDetailChange 入口守卫同一判定）
  */
 HWTEST_F(CcpServiceTest, HandleVoipStart002, TestSize.Level1)
 {
@@ -604,31 +611,6 @@ HWTEST_F(CcpServiceTest, HandleVoipStop001, TestSize.Level1)
     ccpService->HandleVoipStop(*device);
     EXPECT_FALSE(ccpService->HasVoipCallId());
     HILOGI("HandleVoipStop001 end");
-}
-
-/**
- * @tc.number: HandleVoipStart001
- * @tc.name:
- * @tc.desc:
- */
-HWTEST_F(CcpServiceTest, HandleVoipStart001, TestSize.Level1)
-{
-    HILOGI("HandleVoipStart001 start");
-    CcpService* ccpService = CcpService::GetService();
-    ASSERT_NE(nullptr, ccpService);
-    std::string addr = "00:11:22:33:44:55";
-    std::shared_ptr<RawAddress> device = std::make_shared<RawAddress>(addr);
-
-    ccpService->HandleVoipStart(*device);
-    EXPECT_TRUE(ccpService->HasVoipCallId());
-
-    /* 重复启动幂等：仍只登记同一路自造 VoIP */
-    ccpService->HandleVoipStart(*device);
-    EXPECT_TRUE(ccpService->HasVoipCallId());
-    /* 收尾：显式停止，验证 stop 入口能把映射清干净 */
-    ccpService->HandleVoipStop(*device);
-    EXPECT_FALSE(ccpService->HasVoipCallId());
-    HILOGI("HandleVoipStart001 end");
 }
 
 /**

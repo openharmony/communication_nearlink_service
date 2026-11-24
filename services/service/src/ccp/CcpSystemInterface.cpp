@@ -171,8 +171,6 @@ int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
 {
     HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
         callId, numActive, numHeld, callState);
-    CcpService *service = CcpService::GetService();
-    NL_CHECK_RETURN_RET(service, NL_ERR_INTERNAL_ERROR, "[CcpService]ccpService is null.");
     DoInCcpThread([callId, callState, number]() {
         CcpService *service = CcpService::GetService();
         NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
