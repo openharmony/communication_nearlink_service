@@ -48,7 +48,15 @@ ohos_unittest("nl_hibox_local_test") {
   sources = [
     "$NEARLINK_ROOT/services/hibox/src/hibox_audio.c",
     "$NEARLINK_ROOT/services/hibox/src/hibox_dts.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_hitws.c",
     "$NEARLINK_ROOT/services/hibox/src/hibox_local.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_pairconn.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_process.c",
+    "$NEARLINK_ROOT/services/hibox/src/hibox_service.c",
+    "nl_hibox_pairconn_test.cpp",
+    "nl_hibox_process_test.cpp",
+    "nl_hibox_hitws_service_test.cpp",
+    "nl_hibox_residual_test.cpp",
     "nl_hibox_test.cpp",
   ]
 
