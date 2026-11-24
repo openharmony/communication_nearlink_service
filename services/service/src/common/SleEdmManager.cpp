@@ -20,6 +20,7 @@
 #include "cJSON.h"
 #include "log.h"
 #include "SleEdmManager.h"
+#include "nearlink_caller_identity.h"
 #include "nearlink_datashare_helper.h"
 #include "nearlink_permission_manager.h"
 #include "sg_collect_client.h"
@@ -84,12 +85,28 @@ void SleEdmManager::Init()
 
 bool SleEdmManager::IsAllowedConnect(const std::string &profile)
 {
+    return IsAllowedConnectInternal(profile, nullptr);
+}
+
+bool SleEdmManager::IsAllowedConnect(const std::string &profile, const CallerIdentity &caller)
+{
+    return IsAllowedConnectInternal(profile, &caller);
+}
+
+bool SleEdmManager::IsAllowedConnectInternal(const std::string &profile, const CallerIdentity *caller)
+{
     int osAccountId = NearlinkDataShareHelper::GetInstance().GetActiveOsAccountIds();
     HILOGI("[EDM MODE]:GetActiveOsAccountId %{public}d", osAccountId);
     std::vector<std::string> forbiddenlist;
     bool hasKey = accountForbiddenlist_.GetValue(std::to_string(osAccountId), forbiddenlist);
-    if (NearLinkPermissionManager::IsNativeCaller() || NearLinkPermissionManager::IsSystemHap()) {
-        HILOGI("[EDM MODE]:system app");
+    bool isNative = (caller != nullptr) ? caller->IsNative() : NearLinkPermissionManager::IsNativeCaller();
+    if (isNative) {
+        HILOGI("[EDM MODE]:native caller");
+        return true;
+    }
+    bool isSystemHap = (caller != nullptr) ? caller->IsSystemHap() : NearLinkPermissionManager::IsSystemHap();
+    if (isSystemHap) {
+        HILOGI("[EDM MODE]:system hap");
         return true;
     } else if (!hasKey) {
         HILOGI("[EDM MODE]:osAccountId not found");

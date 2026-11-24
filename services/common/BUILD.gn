@@ -125,6 +125,7 @@ ohos_shared_library("nearlink_service_common") {
     "src/nearlink_timer.cpp",
     "src/nearlink_permission_item.cpp",
     "src/nearlink_permission_manager.cpp",
+    "src/nearlink_caller_identity.cpp",
     "src/nearlink_verification_manager.cpp",
     "src/nearlink_system_ability_subscriber.cpp",
     "src/nearlink_common_event_helper.cpp",

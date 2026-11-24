@@ -46,6 +46,7 @@
     _ZN4OHOS8Nearlink11SleSecurityC2ERNS0_22SleInterfaceAdapterSubE;
     _ZN4OHOS8Nearlink13SleEdmManager11GetInstanceEv;
     _ZN4OHOS8Nearlink13SleEdmManager16IsAllowedConnectERKNSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE;
+    _ZN4OHOS8Nearlink13SleEdmManager16IsAllowedConnectERKNSt3__h12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEERKNS0_14CallerIdentityE;
     _ZN4OHOS8Nearlink13SleEdmManager16OnEdmListChangedEv;
     _ZN4OHOS8Nearlink13SleEdmManager16ReportRefuseInfoEi;
     _ZN4OHOS8Nearlink13SleEdmManager26UpdateAccountForbiddenlistEv;
