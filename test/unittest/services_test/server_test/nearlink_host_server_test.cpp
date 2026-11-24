@@ -50,9 +50,6 @@ void NearlinkHostServerStubTest::SetUpTestCase()
     HILOGI("HostServerTest OnStart");
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::HOST_SERVER_TDD_DELAY_1000_MS));
-    // Start() 内部 CreateAdapters 会把状态重置为 OFF，须在其后再置 ON
-    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
-        SleStateID::STATE_TURN_ON);
 }
 
 void NearlinkHostServerStubTest::TearDownTestCase()
@@ -63,6 +60,12 @@ void NearlinkHostServerStubTest::TearDownTestCase()
 void NearlinkHostServerStubTest::SetUp()
 {
     HILOGI("SetUp NearlinkHostServerStubTest.");
+    // 开关用例需要从 OFF 起步（状态机初始处于 TurnOff），其余用例需要 ON 才能通过半开态门禁。
+    const std::string caseName = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    if (caseName != "DisableSle001" && caseName != "EnableSle001") {
+        SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+            SleStateID::STATE_TURN_ON);
+    }
 }
 
 void NearlinkHostServerStubTest::TearDown()
