@@ -21,6 +21,12 @@
 #include "CcpDefines.h"
 #include "log.h"
 
+/* 测试桩 mock_nlstk_ccp_ccs_server.cpp 提供的上报记录查询 */
+int MockCcpGetCallTerminationReportCount();
+int MockCcpGetLastCallInOutFlag();
+void MockCcpClearCallTerminationRecords();
+void MockCcpClearCallInOutReports();
+
 namespace OHOS {
 namespace Nearlink {
 namespace TEST {
@@ -245,6 +251,37 @@ HWTEST_F(CcpServiceTest, HandlePhoneStateChange001, TestSize.Level1)
 }
 
 /**
+ * @tc.number: HandlePhoneStateChange002
+ * @tc.name:
+ * @tc.desc: 状态回调携带有效 callId + DISCONNECTED：列表反查不到该路也经事件兜底完成挂断，映射被清理
+ */
+HWTEST_F(CcpServiceTest, HandlePhoneStateChange002, TestSize.Level1)
+{
+    HILOGI("HandlePhoneStateChange002 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
+
+    constexpr int32_t callId = 6;
+    ClearPhoneCallMappings(ccpService);
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
+    SetupPhoneCallMapping(ccpService, callId);
+    ASSERT_TRUE(ccpService->HasPhoneCallId());
+
+    /* 铺底路径不产生挂断上报，清空桩记录后本轮断言才有意义 */
+    MockCcpClearCallTerminationRecords();
+    EXPECT_EQ(0, MockCcpGetCallTerminationReportCount());
+
+    /* 挂断瞬间全量列表已不含该路（单测环境 GetCurrentCallList 为空），入口必须用事件携带字段兜底完成挂断 */
+    ccpService->HandlePhoneStateChange(
+        callId, static_cast<int32_t>(Telephony::TelCallState::CALL_STATUS_DISCONNECTED), "10086");
+    /* 挂断生效：该路 callId 映射被清理 */
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    /* 终止事件已上报且只上报一次（桩记录的是协议栈侧通话标识，不与蜂窝 callId 同值） */
+    EXPECT_EQ(1, MockCcpGetCallTerminationReportCount());
+    HILOGI("HandlePhoneStateChange002 end");
+}
+
+/**
  * @tc.number: HandleCallDetailChange001
  * @tc.name:
  * @tc.desc: 单路明细入口按状态分流：非挂断只更新明细保留映射，DISCONNECTED 回收映射，UNKNOWN 走默认分支
@@ -350,6 +387,72 @@ HWTEST_F(CcpServiceTest, HandleCallDetailChange003, TestSize.Level1)
 
     ClearPhoneCallMappings(ccpService);
     HILOGI("HandleCallDetailChange003 end");
+}
+
+/**
+ * @tc.number: FilterCallAttributeInfo001
+ * @tc.name:
+ * @tc.desc: 列表反查不到该路但事件携带号码：走回填 accountNumber 兜底分支，DIALING 推断为主叫上报并正常建映射
+ */
+HWTEST_F(CcpServiceTest, FilterCallAttributeInfo001, TestSize.Level1)
+{
+    HILOGI("FilterCallAttributeInfo001 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
+
+    constexpr int32_t callId = 6;
+    ClearPhoneCallMappings(ccpService);
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
+
+    /* 列表为空（反查不到该路），事件携带号码：走"反查不到时用事件号码兜底"分支 */
+    MockCcpClearCallInOutReports();
+    ccpService->HandleCallDetailChange(callId,
+        static_cast<int32_t>(TelCallState::CALL_STATUS_DIALING), "10086", {});
+    /* 兜底后 callId/状态完整下发到呼入呼出链路，按 callId 建映射 */
+    EXPECT_TRUE(ccpService->HasPhoneCallId());
+    /* 方向推断：反查不到时 DIALING 必须按主叫（呼出）上报，callFlag bit0 置 1 */
+    int32_t callInOutFlag = MockCcpGetLastCallInOutFlag();
+    ASSERT_NE(-1, callInOutFlag);
+    EXPECT_EQ(1, callInOutFlag & 0x01);
+
+    /* 收尾：挂断该路并回收映射 */
+    ccpService->HandleCallDetailChange(callId,
+        static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED), "", {});
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    HILOGI("FilterCallAttributeInfo001 end");
+}
+
+/**
+ * @tc.number: FilterCallAttributeInfo002
+ * @tc.name:
+ * @tc.desc: 列表反查不到该路且号码为空：走提前返回分支，INCOMING 推断为呼入上报且不影响呼入呼出链路
+ */
+HWTEST_F(CcpServiceTest, FilterCallAttributeInfo002, TestSize.Level1)
+{
+    HILOGI("FilterCallAttributeInfo002 start");
+    CcpService* ccpService = CcpService::GetService();
+    ASSERT_NE(nullptr, ccpService);
+
+    constexpr int32_t callId = 6;
+    ClearPhoneCallMappings(ccpService);
+    ASSERT_FALSE(ccpService->HasPhoneCallId());
+
+    /* 列表为空且号码为空：matched=false 且 number.empty()，直接返回仅含 callId/状态的兜底对象 */
+    MockCcpClearCallInOutReports();
+    ccpService->HandleCallDetailChange(callId,
+        static_cast<int32_t>(TelCallState::CALL_STATUS_INCOMING), "", {});
+    /* 缺省明细不影响 callId 下发，呼入呼出链路照常建映射 */
+    EXPECT_TRUE(ccpService->HasPhoneCallId());
+    /* 方向推断：反查不到时 INCOMING 必须按呼入上报，callFlag bit0 保持 0 */
+    int32_t callInOutFlag = MockCcpGetLastCallInOutFlag();
+    ASSERT_NE(-1, callInOutFlag);
+    EXPECT_EQ(0, callInOutFlag & 0x01);
+
+    /* 收尾：挂断该路并回收映射 */
+    ccpService->HandleCallDetailChange(callId,
+        static_cast<int32_t>(TelCallState::CALL_STATUS_DISCONNECTED), "", {});
+    EXPECT_FALSE(ccpService->HasPhoneCallId());
+    HILOGI("FilterCallAttributeInfo002 end");
 }
 
 /**

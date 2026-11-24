@@ -288,7 +288,13 @@ Telephony::CallAttributeInfo CcpService::FilterCallAttributeInfo(int32_t callId,
         matched = true;
         break;
     }
-    if (matched || number.empty()) {
+    if (matched) {
+        return info;
+    }
+    /* 反查不到时按事件状态推断方向：DIALING 为主叫（呼出），INCOMING/WAITING 为呼入 */
+    info.callDirection = (info.callState == Telephony::TelCallState::CALL_STATUS_DIALING)
+        ? Telephony::CallDirection::CALL_DIRECTION_OUT : Telephony::CallDirection::CALL_DIRECTION_IN;
+    if (number.empty()) {
         return info;
     }
     /* 反查不到时用事件携带的号码兜底：目标容量取自数组自身，不依赖仓外上限声明 */
