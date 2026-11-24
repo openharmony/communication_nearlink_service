@@ -59,6 +59,11 @@ uint8_t ParameterManager::GetDevicePowerLevel()
     return GetProvider()->GetDevicePowerLevel();
 }
 
+uint8_t ParameterManager::IsNeedSetAllStreamVolume()
+{
+    return GetProvider()->IsNeedSetAllStreamVolume();
+}
+
 void ParameterManager::NotifyTriggerInitialization()
 {
     GetProvider()->TriggerInitialization();

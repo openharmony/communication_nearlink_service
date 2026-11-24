@@ -136,6 +136,21 @@ TEST_F(ParameterTest, TestParameterManagerGetDevicePowerLevel)
     EXPECT_EQ(value, 180);
 }
 
+TEST_F(ParameterTest, TestDefaultProviderIsNeedSetAllStreamVolume)
+{
+    auto& provider = DefaultParameterProvider::GetInstance();
+    EXPECT_EQ(provider.IsNeedSetAllStreamVolume(), 0);
+}
+
+TEST_F(ParameterTest, TestParameterManagerIsNeedSetAllStreamVolume)
+{
+    auto provider = std::shared_ptr<ParameterProviderInterface>(&DefaultParameterProvider::GetInstance(),
+                                                                         [](ParameterProviderInterface*) {});
+    ParameterManager::RegisterProvider(provider);
+
+    EXPECT_EQ(ParameterManager::IsNeedSetAllStreamVolume(), 0);
+}
+
 TEST_F(ParameterTest, TestParameterManagerProviderReplacement)
 {
     DefaultParameterProvider::GetInstance().Update5GFeatureEnable(100);

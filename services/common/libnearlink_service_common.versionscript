@@ -117,6 +117,7 @@
     _ZN4OHOS8Nearlink16ParameterManager18Get5GFeatureEnableEv;
     _ZN4OHOS8Nearlink16ParameterManager19GetDevicePowerLevelEv;
     _ZN4OHOS8Nearlink16ParameterManager20GetMuteControlEnableEv;
+    _ZN4OHOS8Nearlink16ParameterManager24IsNeedSetAllStreamVolumeEv;
     _ZN4OHOS8Nearlink16ParameterManager27NotifyTriggerInitializationEv;
     _ZN4OHOS8Nearlink16ParameterManager9provider_E;
     _ZN4OHOS8Nearlink17DoInAdapterThreadERKNSt3__h8functionIFvvEEEm;
