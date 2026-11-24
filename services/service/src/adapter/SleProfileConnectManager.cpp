@@ -900,6 +900,9 @@ void SleProfileConnectManager::SsapConnectionStateChangedTask(const RawAddress &
             SleConnectionChangedParam connChangedParam(static_cast<int>(SleConnectState::CONNECTED), preState,
                 static_cast<int>(SleConnectReason::CONNECT_SUCCESS));
             funcs_.notifyConnectionStateChanged(device, connChangedParam);
+#ifdef NEARLINK_SYNC_AP_TO_MCU
+            ProfileConnectedNotifyDataShare(PROFILE_NAME_DIS, device);
+#endif
             DftReportPairInfo(device.GetAddress(), PAIR_CONN_PATH_ALL_PROFILE, ALL_PROFILE_CONNECT_SUCCESS);
             return;
         }
