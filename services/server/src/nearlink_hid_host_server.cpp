@@ -16,6 +16,7 @@
 #include "nearlink_hid_host_server.h"
 #include "SleInterfaceProfileManager.h"
 #include "SleInterfaceProfileHidHost.h"
+#include "SleInterfaceManager.h"
 #include "i_nearlink_hid_host.h"
 #include "log_util.h"
 
@@ -36,6 +37,8 @@ NlErrCode NearlinkHidHostServer::HidHostSetReport(std::string device, uint8_t ty
     std::string &report, int& result)
 {
     HILOGI("address: %{public}s", GetEncryptAddr(device).c_str());
+    NlErrCode checkRet = CheckSleEnabled();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     ProfileHidHost *hidHostService = static_cast<ProfileHidHost *>
         (SleInterfaceProfileManager::GetInstance().GetProfileService(PROFILE_NAME_HID_HOST));
     NL_CHECK_RETURN_RET(hidHostService, NL_ERR_INTERNAL_ERROR, "hidHostService is nullptr.");

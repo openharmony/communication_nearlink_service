@@ -50,6 +50,9 @@ void NearlinkHostServerStubTest::SetUpTestCase()
     HILOGI("HostServerTest OnStart");
     SleInterfaceManager::GetInstance()->Start();
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::HOST_SERVER_TDD_DELAY_1000_MS));
+    // Start() 内部 CreateAdapters 会把状态重置为 OFF，须在其后再置 ON
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
 }
 
 void NearlinkHostServerStubTest::TearDownTestCase()

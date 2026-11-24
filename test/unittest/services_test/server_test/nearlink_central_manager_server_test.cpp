@@ -23,6 +23,7 @@
 #include "nearlink_access_token_mock.h"
 #include "nearlink_uuid_parcel.h"
 #include "log.h"
+#include "SleServiceManager.h"
 #include "ipc_types.h"
 #include "string_ex.h"
 
@@ -109,6 +110,8 @@ public:
 
 void NearlinkCentralManagerServerTest::SetUpTestCase()
 {
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
     HILOGI("SetUpTestCase NearlinkCentralManagerServerTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
     g_centralManagerServer = new (std::nothrow) NearlinkSleCentralManagerServer();

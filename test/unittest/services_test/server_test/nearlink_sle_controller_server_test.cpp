@@ -21,6 +21,7 @@
 #include "nearlink_native_token_mock.h"
 #include "nearlink_access_token_mock.h"
 #include "log.h"
+#include "SleServiceManager.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -41,6 +42,8 @@ public:
 
 void NearlinkSleControllerServerStubTest::SetUpTestCase()
 {
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
     HILOGI("SetUpTestCase start NearlinkSleControllerServerTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
 }

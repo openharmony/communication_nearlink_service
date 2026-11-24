@@ -298,6 +298,8 @@ NlErrCode NearlinkHadmClientServer::StartSounding(uint32_t hadmId, const Nearlin
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);
     HILOGI("sle hadm start address:%{public}s, hadmId:%{public}u, toneControl:%{public}d",
         GetEncryptAddr(addr.GetAddress()).c_str(), hadmId, toneControl);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmId(hadmId), NL_ERR_INVALID_PARAM,
         "hadmId is invalid.");
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
@@ -315,6 +317,8 @@ NlErrCode NearlinkHadmClientServer::StopSounding(uint32_t hadmId, const Nearlink
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);
     HILOGI("sle hadm stop address:%{public}s, hadmId:%{public}u",
         GetEncryptAddr(addr.GetAddress()).c_str(), hadmId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckHadmId(hadmId), NL_ERR_INVALID_PARAM,
         "hadmId is invalid.");
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
@@ -328,6 +332,8 @@ NlErrCode NearlinkHadmClientServer::StopSounding(uint32_t hadmId, const Nearlink
 NlErrCode NearlinkHadmClientServer::GetHadmFeature(uint8_t &capability)
 {
     HILOGI("enter");
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl, NL_ERR_IMPL_ERROR, "pimpl is null");
     int status = SleInterfaceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE);
     if (status != SleStateID::STATE_TURN_ON && status != SleStateID::STATE_TURN_HALF) {

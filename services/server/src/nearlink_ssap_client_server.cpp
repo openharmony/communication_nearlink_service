@@ -532,6 +532,8 @@ NlErrCode NearlinkSsapClientServer::DeregisterApplication(int32_t appId)
 NlErrCode NearlinkSsapClientServer::Connect(int32_t appId, bool isAutoConnect)
 {
     HILOGI("appId: %{public}d, isautoConnect: %{public}d", appId, isAutoConnect);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
 #ifdef NEARLINK_KIA_ENABLE
     int32_t pid = IPCSkeleton::GetCallingPid();
     NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_SSAP, pid),
@@ -554,6 +556,8 @@ NlErrCode NearlinkSsapClientServer::Connect(int32_t appId, bool isAutoConnect)
 NlErrCode NearlinkSsapClientServer::Disconnect(int32_t appId)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -567,6 +571,8 @@ NlErrCode NearlinkSsapClientServer::Disconnect(int32_t appId)
 NlErrCode NearlinkSsapClientServer::DiscoveryServices(int32_t appId)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -580,6 +586,8 @@ NlErrCode NearlinkSsapClientServer::DiscoveryServices(int32_t appId)
 NlErrCode NearlinkSsapClientServer::DiscoverServiceByUuid(int32_t appId, const Uuid &uuid)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -594,6 +602,8 @@ NlErrCode NearlinkSsapClientServer::DiscoverServiceByUuid(int32_t appId, const U
 NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSsapPropertyParcel &property)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -612,6 +622,8 @@ NlErrCode NearlinkSsapClientServer::ReadProperty(int32_t appId, const NearlinkSs
 NlErrCode NearlinkSsapClientServer::ReadPropertiesByUuid(int32_t appId, const NearlinkSsapPropertyParcel &property)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -624,6 +636,8 @@ NlErrCode NearlinkSsapClientServer::ReadPropertiesByUuid(int32_t appId, const Ne
 NlErrCode NearlinkSsapClientServer::CallMethod(int32_t appId, NearlinkSsapMethodParcel *method, bool withoutRespond)
 {
     HILOGI("appId: %{public}d, withoutRespond: %{public}d", appId, withoutRespond);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     Method methd(method->handle_);
     methd.parameter_.swap(method->parameter_);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
@@ -640,6 +654,8 @@ NlErrCode NearlinkSsapClientServer::WriteProperty(
     int32_t appId, NearlinkSsapPropertyParcel *property, bool withoutRespond)
 {
     HILOGI("appId: %{public}d, withoutRespond: %{public}d", appId, withoutRespond);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     Property proper(property->handle_);
     proper.value_.swap(property->value_);
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
@@ -655,6 +671,8 @@ NlErrCode NearlinkSsapClientServer::WriteProperty(
 NlErrCode NearlinkSsapClientServer::ReadDescriptor(int32_t appId, const NearlinkSsapDescriptorParcel &descriptor)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -669,6 +687,8 @@ NlErrCode NearlinkSsapClientServer::WriteDescriptor(int32_t appId, NearlinkSsapD
     bool withoutRespond)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     Descriptor desc(descriptor->handle_, descriptor->type_);
     desc.value_.swap(descriptor->value_);
 
@@ -685,6 +705,8 @@ NlErrCode NearlinkSsapClientServer::WriteDescriptor(int32_t appId, NearlinkSsapD
 NlErrCode NearlinkSsapClientServer::RequestExchangeMtu(int32_t appId, int32_t mtu)
 {
     HILOGI("appId: %{public}d, mtu: %{public}d", appId, mtu);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -698,6 +720,8 @@ NlErrCode NearlinkSsapClientServer::RequestExchangeMtu(int32_t appId, int32_t mt
 NlErrCode NearlinkSsapClientServer::RequestConnectionPriority(int32_t appId, int32_t connPriority)
 {
     HILOGI("appId: %{public}d, connPriority: %{public}d", appId, connPriority);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
         "caller identity check failed.");
     // NOTE: placeholder implementation, no real service call yet, the record below counts the
@@ -710,6 +734,8 @@ NlErrCode NearlinkSsapClientServer::RequestConnectionPriority(int32_t appId, int
 NlErrCode NearlinkSsapClientServer::GetServices(int32_t appId, ::std::vector<NearlinkSsapServiceParcel> &service)
 {
     HILOGI("appId: %{public}d", appId);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -725,6 +751,8 @@ NlErrCode NearlinkSsapClientServer::GetServicesByUuid(int32_t appId, const Uuid 
     std::vector<NearlinkSsapServiceParcel> &service)
 {
     HILOGI("appId: %{public}d uuid:%{public}s", appId, GET_ENCRYPT_UUID(uuid));
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,
@@ -741,6 +769,8 @@ NlErrCode NearlinkSsapClientServer::RequestPropertyNotification(int32_t appId, u
     uint8_t notifyOption)
 {
     HILOGI("appId: %{public}d, property: %{public}u, enable: %{public}d", appId, propertyhandle, enable);
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     InterfaceProfileSsapClient *clientService = pimpl->GetServicePtr();
     NL_CHECK_RETURN_RET(clientService, NL_ERR_INTERNAL_ERROR, "clientService invalid.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckSsapClientApp(appId), NL_ERR_INTERNAL_ERROR,

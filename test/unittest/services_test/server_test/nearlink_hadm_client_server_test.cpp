@@ -23,6 +23,7 @@
 #include "nearlink_hadm_client_callback_stub.h"
 #include "nearlink_hadm_client_server.cpp"
 #include "log.h"
+#include "SleServiceManager.h"
 #include <gmock/gmock.h>
 
 namespace OHOS {
@@ -99,6 +100,8 @@ public:
 
 void NearlinkHadmClientSeverStubTest::SetUpTestCase()
 {
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
     HILOGI("SetUpTestCase start NearlinkHadmClientSeverStubTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
 }

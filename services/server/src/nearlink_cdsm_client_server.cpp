@@ -241,6 +241,8 @@ NlErrCode NearlinkCdsmClientServer::DeregisterCdsmClientCallback(const NearlinkR
 NlErrCode NearlinkCdsmClientServer::GetCdsmInfo(const NearlinkRawAddress &addr, NearlinkCdsInfoParcel &cdsInfo)
 {
     HILOGI("[CdsmServer]address: %{public}s", GetEncryptAddr(addr.GetAddress()).c_str());
+    NlErrCode checkRet = CheckSleAvailableToCaller();
+    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     RawAddress realAddr(addr);
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);
 
