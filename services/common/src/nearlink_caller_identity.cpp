@@ -30,29 +30,12 @@ CallerIdentity CallerIdentity::Capture()
     return caller;
 }
 
-bool CallerIdentity::IsNative() const
+bool CallerIdentity::IsNative()
 {
     if (nativeFlag_ < 0) {
         nativeFlag_ = NearLinkPermissionManager::IsNativeCaller(tokenId) ? 1 : 0;
     }
     return nativeFlag_ == 1;
-}
-
-uint64_t CallerIdentity::GetFullTokenId() const
-{
-    if (fullTokenFlag_ < 0) {
-        fullTokenId_ = IPCSkeleton::GetCallingFullTokenID();
-        fullTokenFlag_ = 1;
-    }
-    return fullTokenId_;
-}
-
-bool CallerIdentity::IsSystemHap() const
-{
-    if (systemHapFlag_ < 0) {
-        systemHapFlag_ = NearLinkPermissionManager::IsSystemHap(GetFullTokenId()) ? 1 : 0;
-    }
-    return systemHapFlag_ == 1;
 }
 
 } // namespace Nearlink

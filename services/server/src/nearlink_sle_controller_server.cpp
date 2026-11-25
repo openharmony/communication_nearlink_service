@@ -17,6 +17,7 @@
 #include "interface_sle_controller.h"
 #include "SleInterfaceAdapterSub.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "nearlink_permission_manager.h"
 #include "nearlink_verification_manager.h"
 #include "log_util.h"
@@ -67,8 +68,7 @@ bool NearlinkSleControllerServer::IsSetSleCoexParamAllowed()
 NlErrCode NearlinkSleControllerServer::SetSleCoexParam(uint16_t maxBitRate, uint8_t dutyCycle)
 {
     HILOGI("Enter, maxBitRate: %{public}u, dutyCycle: %{public}u", maxBitRate, dutyCycle);
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
 
     // Permission check
     NL_CHECK_RETURN_RET(IsSetSleCoexParamAllowed(),
@@ -87,8 +87,7 @@ NlErrCode NearlinkSleControllerServer::UpdateConnectInterval(const std::string &
 {
     HILOGI("Enter, device: %{public}s, intervalType: %{public}d",
            GetEncryptAddr(device).c_str(), intervalType);
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
 
     // Validate device
     NL_CHECK_RETURN_RET(!device.empty(),
@@ -118,8 +117,7 @@ NlErrCode NearlinkSleControllerServer::SetSleCoexMode(int32_t mode, const std::v
     const std::vector<ConnectionInterval> &paramList)
 {
     HILOGI("Enter, mode: %{public}d", mode);
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
  
     // Permission check
     NL_CHECK_RETURN_RET(IsSetSleCoexParamAllowed(),

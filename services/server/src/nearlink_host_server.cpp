@@ -39,6 +39,7 @@
 #include "nearlink_errorcode.h"
 #include "system_ability_definition.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "SleInterfaceAdapterSub.h"
 #include "ipc_skeleton.h"
 #include "remote_observer_list.h"
@@ -1295,8 +1296,7 @@ NlErrCode NearlinkHostServer::GetSleMaxAdvertisingDataLength(uint32_t &maxAdvDat
 
 NlErrCode NearlinkHostServer::GetDeviceName(int32_t transport, const std::string &address, std::string &name)
 {
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     if (transport != static_cast<int>(NlTransportType::NL_TRANSPORT_SLE)) {
         HILOGE("transport(%{public}d) is invalid.", transport);
         return NL_ERR_INVALID_PARAM;
@@ -1315,8 +1315,7 @@ NlErrCode NearlinkHostServer::GetDeviceName(int32_t transport, const std::string
 
 NlErrCode NearlinkHostServer::GetDeviceAlias(int32_t transport, const std::string &address, std::string &alias)
 {
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     if (transport != static_cast<int>(NlTransportType::NL_TRANSPORT_SLE)) {
         HILOGW("transport is not NL_TRANSPORT_SLE");
         return NL_ERR_INVALID_STATE;
@@ -1744,11 +1743,10 @@ NlErrCode NearlinkHostServer::SetFreqHopping(const std::vector<uint8_t> &freq)
 
 NlErrCode NearlinkHostServer::UpdateSleVirtualDevice(int32_t cmd, const std::string &address)
 {
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(address, realAddr);
     HILOGI("cmd: %{public}d, realAddr: %{public}s", cmd, GetEncryptAddr(realAddr).c_str());
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     RawAddress addr(realAddr);
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>
         (SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
@@ -1873,8 +1871,7 @@ NlErrCode NearlinkHostServer::GetBtAddrBySleAddr(const std::string &sleAddr, std
 
 NlErrCode NearlinkHostServer::SetBtAddrBySleAddr(const std::string &sleAddr, const std::string &btAddr)
 {
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
@@ -1889,8 +1886,7 @@ NlErrCode NearlinkHostServer::SetBtAddrBySleAddr(const std::string &sleAddr, con
 
 NlErrCode NearlinkHostServer::IsFeatureSupported(int32_t feature, bool &isSupported)
 {
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     SleInterfaceAdapterSub *sleService = static_cast<SleInterfaceAdapterSub *>(
         SleInterfaceManager::GetInstance()->GetAdapter(SleTransport::ADAPTER_SLE));
     NL_CHECK_RETURN_RET(sleService, NL_ERR_INTERNAL_ERROR, "sleService invalid.");
@@ -1918,8 +1914,7 @@ NlErrCode NearlinkHostServer::IsConnectionExist(bool &isConnectionExist)
 
 NlErrCode NearlinkHostServer::GetBatteryLevel(const std::string &address)
 {
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(address, realAddr);
     HILOGI("address: %{public}s", GetEncryptAddr(realAddr).c_str());

@@ -216,9 +216,7 @@
     _ZN7utility12StateMachine4MoveERNSt3__h10unique_ptrINS0_5StateENS1_14default_deleteIS3_EEEE;
     _ZN7utility12StateMachine9InitStateERKNSt3__h12basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE;
     _ZNK4OHOS8Nearlink12TimerManager10OnCallbackENSt3__h10shared_ptrINS0_13NearlinkTimer9TimerInfoEEE;
-    _ZNK4OHOS8Nearlink14CallerIdentity11IsSystemHapEv;
-    _ZNK4OHOS8Nearlink14CallerIdentity14GetFullTokenIdEv;
-    _ZNK4OHOS8Nearlink14CallerIdentity8IsNativeEv;
+    _ZN4OHOS8Nearlink14CallerIdentity8IsNativeEv;
     _ZNK4OHOS8Nearlink24DefaultParameterProvider18Get5GFeatureEnableEv;
     _ZNK4OHOS8Nearlink24DefaultParameterProvider19GetDevicePowerLevelEv;
     _ZNK4OHOS8Nearlink24DefaultParameterProvider20GetMuteControlEnableEv;

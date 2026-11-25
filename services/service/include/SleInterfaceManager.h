@@ -237,34 +237,6 @@ public:
      */
     virtual SleInterfaceAdapter *GetAdapter(const SleTransport transport) const = 0;
 };
-
-/**
- * @brief 与 framework IsSleAvailableToCaller 等价：STATE_TURN_ON 全放行；
- *        STATE_TURN_HALF 仅 native 放行（framework 唯一实现只认 IsNativeCaller）；其余拒绝。
- * @return Returns <b>NL_NO_ERROR</b> if allowed; returns <b>NL_ERR_SLE_OFF</b> otherwise.
- */
-inline NlErrCode CheckSleAvailableToCaller()
-{
-    SleStateID state = SleInterfaceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE);
-    if (state == SleStateID::STATE_TURN_ON) {
-        return NL_NO_ERROR;
-    }
-    if (state == SleStateID::STATE_TURN_HALF && NearLinkPermissionManager::IsNativeCaller()) {
-        return NL_NO_ERROR;
-    }
-    return NL_ERR_SLE_OFF;
-}
-
-/**
- * @brief 与 framework IS_SLE_ENABLED 等价：仅 STATE_TURN_ON 放行，半开/关闭/切换中
- *        对所有调用方（含 native）均视为关。
- * @return Returns <b>NL_NO_ERROR</b> if allowed; returns <b>NL_ERR_SLE_OFF</b> otherwise.
- */
-inline NlErrCode CheckSleEnabled()
-{
-    return SleInterfaceManager::GetInstance()->GetState(SleTransport::ADAPTER_SLE) == SleStateID::STATE_TURN_ON
-        ? NL_NO_ERROR : NL_ERR_SLE_OFF;
-}
 }  // namespace Sle
 }  // namespace OHOS
 

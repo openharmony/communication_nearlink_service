@@ -20,6 +20,7 @@
 #include "nearlink_errorcode.h"
 #include "SleInterfaceDataTransfer.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "SleInterfaceAdapterSub.h"
 #include "nearlink_system_config.h"
 #include "log.h"
@@ -235,11 +236,10 @@ NearlinkSleDataTransferServer::~NearlinkSleDataTransferServer()
 
 NlErrCode NearlinkSleDataTransferServer::CreatePort(const std::string &uuid, uint16_t &port)
 {
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     int64_t pid = IPCSkeleton::GetCallingPid();
     int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
 #ifdef NEARLINK_KIA_ENABLE
     NL_CHECK_RETURN_RET(!SleKiaManager::GetInstance().ShouldRefuseConnect(REFUSE_PROTOCOL_TYPE_DATA_TRANSFER,
         static_cast<int32_t>(pid)), NL_ERR_PROFILE_PROHIBITED_BY_EDM, "kia refuse.");
@@ -271,13 +271,12 @@ NlErrCode NearlinkSleDataTransferServer::DestroyPort(const std::string &uuid, ui
 NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnectionParams &params)
 {
     HILOGD("enter");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     int64_t pid = IPCSkeleton::GetCallingPid();
     int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->CheckApp(pid, uid, tokenId, params.port_), NL_ERR_INVALID_PARAM,
         "tokenId is invalid.");
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     uint8_t frameType = params.GetFrameType();
     NL_CHECK_RETURN_RET(frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_1) ||
         frameType == static_cast<uint8_t>(SleConnFrameType::SLE_CONN_FRAME_TYPE_4),
@@ -306,8 +305,7 @@ NlErrCode NearlinkSleDataTransferServer::Connect(NearlinkSleDataTransferConnecti
 NlErrCode NearlinkSleDataTransferServer::Disconnect(NearlinkSleDataTransferConnectionParams &params)
 {
     HILOGI("enter");
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     int64_t pid = IPCSkeleton::GetCallingPid();
     int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();
@@ -326,8 +324,7 @@ NlErrCode NearlinkSleDataTransferServer::GetConnectionState(
     NearlinkSleDataTransferConnectionParams &params, int32_t &connState)
 {
     HILOGD("enter");
-    NlErrCode checkRet = CheckSleEnabled();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
     int64_t pid = IPCSkeleton::GetCallingPid();
     int64_t uid = IPCSkeleton::GetCallingUid();
     uint64_t tokenId = IPCSkeleton::GetCallingFullTokenID();

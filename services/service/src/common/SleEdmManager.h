@@ -27,7 +27,6 @@
 
 namespace OHOS {
 namespace Nearlink {
-struct CallerIdentity;
 const std::string ALLOW_PROTOCOL_TYPE_SSAP = "SSAP";
 const std::string ALLOW_PROTOCOL_TYPE_DATA_TRANSFER = "DATA_TRANSFER";
 
@@ -44,7 +43,6 @@ public:
      */
     static std::shared_ptr<SleEdmManager> GetInstance();
     bool IsAllowedConnect(const std::string &profile);
-    bool IsAllowedConnect(const std::string &profile, const CallerIdentity &caller);
     void OnEdmListChanged();
     void Init();
     /**
@@ -58,7 +56,6 @@ public:
     SleEdmManager() = default;
     ~SleEdmManager() = default;
 private:
-    bool IsAllowedConnectInternal(const std::string &profile, const CallerIdentity *caller);
     std::shared_ptr<SleCommonEventSubscriber> accountDisallowedEventSubscriber_ = nullptr;
 
     NearlinkSafeHashMap<std::string, std::vector<std::string>> accountForbiddenlist_;

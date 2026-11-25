@@ -18,6 +18,7 @@
 #include <set>
 #include "nearlink_utils_server.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "interface_scan_service.h"
 #include "nearlink_errorcode.h"
 #include "remote_observer_list.h"
@@ -325,9 +326,8 @@ NlErrCode NearlinkSleCentralManagerServer::StartFullScan(uint32_t scannerId, con
 NlErrCode NearlinkSleCentralManagerServer::StartScan(uint32_t scannerId, const NearlinkSleScanSettings &settings,
     const std::vector<NearlinkSleScanFilter> &filters)
 {
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     HILOGI("scannerId(%{public}d), filter size (%{public}zu)", scannerId, filters.size());
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteScannerId(scannerId), NL_ERR_INTERNAL_ERROR,
         "scannerId is invalid.");
     NL_CHECK_RETURN_RET(scannerId != SLE_SCAN_INVALID_ID, NL_ERR_INTERNAL_ERROR, "invalid scannerId");
@@ -382,8 +382,7 @@ void NearlinkSleCentralManagerServer::ConvertToScanFilterImpl(const std::vector<
 NlErrCode NearlinkSleCentralManagerServer::StopScan(uint32_t scannerId)
 {
     HILOGI("Enter!");
-    NlErrCode checkRet = CheckSleAvailableToCaller();
-    NL_CHECK_RETURN_RET(checkRet == NL_NO_ERROR, checkRet, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteScannerId(scannerId), NL_ERR_INTERNAL_ERROR,
         "scannerId is invalid.");
     NL_CHECK_RETURN_RET(scannerId != SLE_SCAN_INVALID_ID, NL_ERR_INTERNAL_ERROR, "invalid scannerId");
