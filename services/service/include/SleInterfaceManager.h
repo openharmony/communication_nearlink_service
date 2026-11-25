@@ -18,7 +18,6 @@
 #include <memory>
 #include "SleInterfaceAdapter.h"
 #include "IAdapterStateObserver.h"
-#include "nearlink_permission_manager.h"
 
 namespace OHOS {
 namespace Nearlink {
