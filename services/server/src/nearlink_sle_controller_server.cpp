@@ -87,7 +87,7 @@ NlErrCode NearlinkSleControllerServer::UpdateConnectInterval(const std::string &
 {
     HILOGI("Enter, device: %{public}s, intervalType: %{public}d",
            GetEncryptAddr(device).c_str(), intervalType);
-    NL_CHECK_RETURN_RET(CheckSleEnabled(), NL_ERR_SLE_OFF, "nearlink is off.");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
 
     // Validate device
     NL_CHECK_RETURN_RET(!device.empty(),
