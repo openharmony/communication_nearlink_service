@@ -919,6 +919,148 @@ HWTEST_F(SleProfileConnectTest, ClearAllAndSilentPortDisconnect_019, TestSize.Le
     EXPECT_TRUE(idle->GetSilentPortFlag());
 }
 
+/**
+ * @tc.name: NotifyAcbDisconnectedPaths_012
+ * @tc.desc: ACB断连通知遇到非连接中的档案时不收口也不上报，档案保持原状态
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, NotifyAcbDisconnectedPaths_012, TestSize.Level1)
+{
+    // 已连接态的档案：断连通知不产生任何动作
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    manager_->NotifyAcbDisconnected(RawAddress(kAddrL));
+    auto inst = GetInst(kAddrL);
+    ASSERT_NE(nullptr, inst);
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_CONNECTED, inst->GetState());
+    EXPECT_TRUE(calls_->notify.empty());
+    EXPECT_TRUE(calls_->allDiscAddrs.empty());
+}
+
+/**
+ * @tc.name: ProcessProfileDisconnectedPaths_009
+ * @tc.desc: 非静默档案仍有已连业务时，断连事件不触发清档与全断通知，档案保留
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, ProcessProfileDisconnectedPaths_009, TestSize.Level1)
+{
+    // 已连接档案上还有存活业务：断连事件静默略过
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    auto inst = GetInst(kAddrL);
+    ASSERT_NE(nullptr, inst);
+    inst->SetProfileConnected(PROFILE_NAME_ASC);
+
+    manager_->ProcessProfileDisconnected(PROFILE_NAME_BAS, RawAddress(kAddrL));
+    EXPECT_TRUE(HasInst(kAddrL));
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_CONNECTED, inst->GetState());
+    EXPECT_TRUE(calls_->allDiscAddrs.empty());
+    EXPECT_TRUE(calls_->notify.empty());
+}
+
+/**
+ * @tc.name: ProcessProfileConnectedStateMismatch_001
+ * @tc.desc: 已连接档案再收业务连接事件直接忽略，不上报不迁移
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, ProcessProfileConnectedStateMismatch_001, TestSize.Level1)
+{
+    // 状态不匹配的业务连接事件：无动作
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    auto inst = GetInst(kAddrL);
+    ASSERT_NE(nullptr, inst);
+
+    manager_->ProcessProfileConnected(PROFILE_NAME_BAS, RawAddress(kAddrL));
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_CONNECTED, inst->GetState());
+    EXPECT_TRUE(calls_->notify.empty());
+}
+
+/**
+ * @tc.name: ProcessProfileConnectedInnerScenarios_008
+ * @tc.desc: 等待对端期间识别为组网设备、或DIS服务未登记而本端按手表兜底时，
+ *           均恢复业务连接不再断连
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, ProcessProfileConnectedInnerScenarios_008, TestSize.Level1)
+{
+    // 对端是组网设备：保留连接
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_WAIT_DISCONNECTED);
+    SetAppearance(kAddrL, DEVICE_NETWORKING);
+    auto networking = GetInst(kAddrL);
+    ASSERT_NE(nullptr, networking);
+    networking->AddSupportProfile(PROFILE_NAME_ASC);
+    manager_->ProcessProfileConnected(PROFILE_NAME_DIS, RawAddress(kAddrL));
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, networking->GetState());
+    EXPECT_TRUE(calls_->notify.empty());
+
+    // DIS未登记：本端外观兜底为手表，同样保留连接
+    InsertInst(kAddrM, SLE_ADAPTER_PROF_CONN_STATE_WAIT_DISCONNECTED);
+    SetAppearance(kAddrM, 100);
+    auto fallback = GetInst(kAddrM);
+    ASSERT_NE(nullptr, fallback);
+    fallback->AddSupportProfile(PROFILE_NAME_ASC);
+    SetStartedProfile(PROFILE_NAME_DIS, nullptr);
+    manager_->ProcessProfileConnected(PROFILE_NAME_DIS, RawAddress(kAddrM));
+    SetStartedProfile(PROFILE_NAME_DIS, disService_.get());
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, fallback->GetState());
+    EXPECT_TRUE(calls_->notify.empty());
+}
+
+/**
+ * @tc.name: NotifyProfileStateSingleConnected_001
+ * @tc.desc: 音频流与音量业务只有一个连接完成时不通知耳机服务，实例继续连下一个业务
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, NotifyProfileStateSingleConnected_001, TestSize.Level1)
+{
+    // 仅音量连上：不满足耳机通知条件，链式继续连音频流
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING);
+    auto inst = GetInst(kAddrL);
+    ASSERT_NE(nullptr, inst);
+    inst->AddSupportProfile(PROFILE_NAME_ASC);
+    inst->AddSupportProfile(PROFILE_NAME_VCP);
+
+    manager_->ProcessProfileConnected(PROFILE_NAME_VCP, RawAddress(kAddrL));
+    EXPECT_EQ(static_cast<int>(SleConnectState::CONNECTED), inst->GetProfileState(PROFILE_NAME_VCP));
+    EXPECT_EQ(static_cast<int>(SleConnectState::DISCONNECTED), inst->GetProfileState(PROFILE_NAME_ASC));
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, inst->GetState());
+    EXPECT_TRUE(calls_->notify.empty());
+}
+
+/**
+ * @tc.name: DisconnectAcbAbnormalAliveBusiness_001
+ * @tc.desc: 异常断连时档案仍有已连业务则只断ACB链路，不收口不上报
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, DisconnectAcbAbnormalAliveBusiness_001, TestSize.Level1)
+{
+    // 业务连接中且已有存活业务：只断ACB，档案保持
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING);
+    auto inst = GetInst(kAddrL);
+    ASSERT_NE(nullptr, inst);
+    inst->SetProfileConnected(PROFILE_NAME_ASC);
+
+    manager_->DisconnectAcbInAbnormalSituations(RawAddress(kAddrL),
+        static_cast<uint8_t>(SleDiscReason::SLE_DISC_REASON_REMOTE_USER_TERMINATED),
+        static_cast<int>(SleConnectReason::CONNECT_LOCAL_DISCONNECT));
+    EXPECT_EQ(1, calls_->disconnectAcb);
+    EXPECT_TRUE(calls_->notify.empty());
+    EXPECT_EQ(SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING, inst->GetState());
+}
+
+/**
+ * @tc.name: GetProConnDeviceCount_001
+ * @tc.desc: 已连接设备计数只统计处于已连接态的连接档案
+ * @tc.type: FUNC
+ */
+HWTEST_F(SleProfileConnectTest, GetProConnDeviceCount_001, TestSize.Level1)
+{
+    // 空表为零，仅已连接态档案计入
+    EXPECT_EQ(0, manager_->GetProConnDeviceCount());
+    InsertInst(kAddrL, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    InsertInst(kAddrM, SLE_ADAPTER_PROF_CONN_STATE_PROFILE_CONNECTING);
+    InsertInst(kAddrR, SLE_ADAPTER_PROF_CONN_STATE_CONNECTED);
+    EXPECT_EQ(2, manager_->GetProConnDeviceCount());
+}
+
 // ===========================================================================
 // 套件二：ProfileServiceManager（业务启停编排 + 查询）
 // ===========================================================================
@@ -1271,6 +1413,254 @@ HWTEST_F(ProfileServiceManagerTest, ProfileStartWithoutAdapter_010, TestSize.Lev
     SleInterfaceProfile *profile = nullptr;
     EXPECT_FALSE(Psm().pimpl->startedProfiles_.Find(PROFILE_NAME_HID_HOST, profile));
     EXPECT_EQ(nullptr, Psm().GetProfileService(PROFILE_NAME_HID_HOST));
+}
+
+/**
+ * @tc.name: ProfileDisableCompleteAndWaitEnable_007
+ * @tc.desc: 另一通道业务停用完成时先收口该通道状态；同通道还有停用中业务时不发停用完成，
+ *           等待通道上挂起的业务随即被重新拉起
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileDisableCompleteAndWaitEnable_007, TestSize.Level1)
+{
+    const SleTransport self = SleTransport::ADAPTER_SLE;
+    const SleTransport other = SleTransport::ADAPTER_SLB;
+
+    // 双通道同一业务：对端关中、本端挂起等待；对端另有业务也在关中
+    auto hidFake = std::make_unique<FakeProfile>();
+    FakeProfile *hid = hidFake.get();
+    fakes_.push_back(std::move(hidFake));
+    Psm().pimpl->startedProfiles_.SetProfile(self, PROFILE_NAME_HID_HOST, hid);
+    Psm().pimpl->startedProfiles_.SetProfile(other, PROFILE_NAME_HID_HOST, hid);
+    Psm().pimpl->profilesState_.SetProfile(self, PROFILE_NAME_HID_HOST, ServiceStateID::WAIT_TURN_ON);
+    Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_OFF);
+    Psm().pimpl->profilesState_.SetProfile(other, PROFILE_NAME_MIC, ServiceStateID::TURNING_OFF);
+
+    Psm().OnDisable(PROFILE_NAME_HID_HOST, true);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(other, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+    EXPECT_EQ(1, hid->context_.enableCount);
+
+    // 最后一个业务也停用完成：该通道全部收口
+    Psm().OnDisable(PROFILE_NAME_MIC, true);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(other, PROFILE_NAME_MIC, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(self, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+}
+
+/**
+ * @tc.name: ProfileWaitEnableProfilesGuards_001
+ * @tc.desc: 挂起等待业务复查只在等待开启态且有启动档案时拉起，其余组合不动状态表
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileWaitEnableProfilesGuards_001, TestSize.Level1)
+{
+    // 非等待态：不拉起
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    Psm().CheckWaitEnableProfiles(PROFILE_NAME_HID_HOST, SleTransport::ADAPTER_SLE);
+    ServiceStateID state = ServiceStateID::TURN_OFF;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+    EXPECT_EQ(0, hid->context_.enableCount);
+
+    // 等待态但无启动档案：状态保持等待
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, ServiceStateID::WAIT_TURN_ON);
+    Psm().CheckWaitEnableProfiles(PROFILE_NAME_MIC, SleTransport::ADAPTER_SLE);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, state));
+    EXPECT_EQ(ServiceStateID::WAIT_TURN_ON, state);
+}
+
+/**
+ * @tc.name: ProfileEnableDisableNoStartedEntry_001
+ * @tc.desc: 状态表有记录但启动表无档案的业务：逐业务启停照常推进状态，不触发上下文调用
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableDisableNoStartedEntry_001, TestSize.Level1)
+{
+    // 仅状态表登记：开启流程推进到开启中
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_OFF);
+    Psm().EnableProfiles(SleTransport::ADAPTER_SLE);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+
+    // 仅状态表登记的开启态业务：停用流程推进到停用中
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, ServiceStateID::TURN_ON);
+    Psm().DisableProfiles(SleTransport::ADAPTER_SLE);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, state));
+    EXPECT_EQ(ServiceStateID::TURNING_OFF, state);
+}
+
+/**
+ * @tc.name: ProfileEnableProfilesOtherTransportOff_001
+ * @tc.desc: 对端通道业务处于关闭态时不继承其状态，本端照常走开启流程
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableProfilesOtherTransportOff_001, TestSize.Level1)
+{
+    // 对端已关闭：走默认分支正常开启
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_OFF));
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_OFF);
+    Psm().EnableProfiles(SleTransport::ADAPTER_SLE);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+    EXPECT_EQ(1, hid->context_.enableCount);
+}
+
+/**
+ * @tc.name: ProfileDisableProfilesOtherTransportTurningOn_001
+ * @tc.desc: 对端通道业务仍在开启中时本端直接置为关闭且不停用上下文；
+ *           全部关闭的非空启动表判定为已全停
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileDisableProfilesOtherTransportTurningOn_001, TestSize.Level1)
+{
+    // 对端开启中：本端直接置关、不调停用
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURNING_ON);
+    Psm().DisableProfiles(SleTransport::ADAPTER_SLE);
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_OFF, state);
+    EXPECT_EQ(0, hid->context_.disableCount);
+    EXPECT_TRUE(Psm().IsAllDisabled(SleTransport::ADAPTER_SLE));
+}
+
+/**
+ * @tc.name: ProfileCompleteNotifyEmptyAndMixed_001
+ * @tc.desc: 逐业务启停与完成通知在空表上直接返回；状态未齐活时完成通知走未齐活分支，
+ *           状态表不被改写
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileCompleteNotifyEmptyAndMixed_001, TestSize.Level1)
+{
+    // 空表：逐业务启停与两个完成通知都直接返回
+    Psm().EnableProfiles(SleTransport::ADAPTER_SLE);
+    Psm().DisableProfiles(SleTransport::ADAPTER_SLE);
+    Psm().EnableCompleteNotify(SleTransport::ADAPTER_SLE);
+    Psm().DisableCompleteNotify(SleTransport::ADAPTER_SLE);
+    EXPECT_TRUE(Psm().pimpl->profilesState_.GetProfiles(SleTransport::ADAPTER_SLE) == nullptr);
+
+    // 混合状态：完成通知走未齐活分支，状态不变
+    NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    NewFake(PROFILE_NAME_MIC, static_cast<int>(ServiceStateID::TURNING_ON));
+    Psm().EnableCompleteNotify(SleTransport::ADAPTER_SLE);
+    Psm().DisableCompleteNotify(SleTransport::ADAPTER_SLE);
+    ServiceStateID state = ServiceStateID::TURN_OFF;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, state));
+    EXPECT_EQ(ServiceStateID::TURNING_ON, state);
+}
+
+/**
+ * @tc.name: ProfileQueryUuidsOtherTransport_001
+ * @tc.desc: 支持服务号清单同时收集另一通道开启态业务并按UUID去重，双通道同一业务只记一次
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileQueryUuidsOtherTransport_001, TestSize.Level1)
+{
+    // 对端通道开启态业务进清单
+    std::string hidUuid;
+    std::string micUuid;
+    for (auto &info : SupportProfilesInfo::GetSupportProfiles()) {
+        if (info.mName == PROFILE_NAME_HID_HOST) {
+            hidUuid = info.mUuid;
+        }
+        if (info.mName == PROFILE_NAME_MIC) {
+            micUuid = info.mUuid;
+        }
+    }
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_MIC, ServiceStateID::TURN_ON);
+
+    std::vector<std::string> uuids;
+    Psm().GetProfileServicesSupportedUuids(uuids);
+    EXPECT_NE(uuids.end(), std::find(uuids.begin(), uuids.end(), hidUuid));
+    EXPECT_NE(uuids.end(), std::find(uuids.begin(), uuids.end(), micUuid));
+    EXPECT_EQ(2U, uuids.size());
+
+    // 本端同业务也开启：去重后仍为两个
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+    uuids.clear();
+    Psm().GetProfileServicesSupportedUuids(uuids);
+    EXPECT_EQ(2U, uuids.size());
+}
+
+/**
+ * @tc.name: ProfileEnableInheritInstantComplete_001
+ * @tc.desc: 全部业务可从另一通道直接继承开启时，使能入口拉起后立即按全使能收口，
+ *           不调用业务上下文
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileEnableInheritInstantComplete_001, TestSize.Level1)
+{
+    // 对端已开、本端关闭：使能即继承收口
+    auto hidFake = std::make_unique<FakeProfile>();
+    FakeProfile *hid = hidFake.get();
+    fakes_.push_back(std::move(hidFake));
+    Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, hid);
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_OFF);
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+
+    EXPECT_TRUE(Psm().Enable(SleTransport::ADAPTER_SLB));
+    ServiceStateID state = ServiceStateID::TURN_OFF;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURN_ON, state);
+    EXPECT_EQ(0, hid->context_.enableCount);
+}
+
+/**
+ * @tc.name: ProfileDisableWithAdapterInPlace_001
+ * @tc.desc: 适配器在位时停用入口先取消全部连接再逐业务停用，业务进入停用中
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileDisableWithAdapterInPlace_001, TestSize.Level1)
+{
+    // 临时挂一个适配器对象：停用入口会先走取消全部连接
+    auto hid = NewFake(PROFILE_NAME_HID_HOST, static_cast<int>(ServiceStateID::TURN_ON));
+    auto *mgr = SleServiceManager::GetInstance();
+    auto savedAdapter = mgr->pimpl->instance_;
+    mgr->pimpl->instance_.reset(ClassCreator<SleInterfaceAdapter>::NewInstance(ADAPTER_NAME_SLE));
+    // 临时实例析构后全局注册指针悬空，套件三重建前无解引用路径
+    EXPECT_TRUE(Psm().Disable(SleTransport::ADAPTER_SLE));
+    mgr->pimpl->instance_ = savedAdapter;
+
+    ServiceStateID state = ServiceStateID::TURN_ON;
+    ASSERT_TRUE(Psm().pimpl->profilesState_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_HID_HOST, state));
+    EXPECT_EQ(ServiceStateID::TURNING_OFF, state);
+    EXPECT_EQ(1, hid->context_.disableCount);
+}
+
+/**
+ * @tc.name: ProfileStopDeletesStartedProfiles_001
+ * @tc.desc: 停止业务管理器删除双通道全部已启动业务档案并清空状态表，未登记的业务名不做删除
+ * @tc.type: FUNC
+ */
+HWTEST_F(ProfileServiceManagerTest, ProfileStopDeletesStartedProfiles_001, TestSize.Level1)
+{
+    // 停止会删除业务对象，注入对象须为独立堆对象、不由夹具持有
+    SleInterfaceProfile *slbOne = new FakeProfile();
+    SleInterfaceProfile *sleOne = new FakeProfile();
+    Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, slbOne);
+    Psm().pimpl->startedProfiles_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, sleOne);
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, ServiceStateID::TURN_ON);
+    Psm().pimpl->profilesState_.SetProfile(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, ServiceStateID::TURN_ON);
+
+    Psm().Stop();
+
+    SleInterfaceProfile *profile = nullptr;
+    EXPECT_FALSE(Psm().pimpl->startedProfiles_.Find(SleTransport::ADAPTER_SLB, PROFILE_NAME_HID_HOST, profile));
+    EXPECT_FALSE(Psm().pimpl->startedProfiles_.Find(SleTransport::ADAPTER_SLE, PROFILE_NAME_MIC, profile));
+    EXPECT_TRUE(Psm().pimpl->startedProfiles_.IsEmpty(SleTransport::ADAPTER_SLB));
+    EXPECT_TRUE(Psm().pimpl->startedProfiles_.IsEmpty(SleTransport::ADAPTER_SLE));
+    EXPECT_TRUE(Psm().pimpl->profilesState_.GetProfiles(SleTransport::ADAPTER_SLE) == nullptr);
+    EXPECT_TRUE(Psm().pimpl->profilesState_.GetProfiles(SleTransport::ADAPTER_SLB) == nullptr);
 }
 
 // ===========================================================================
