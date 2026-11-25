@@ -25,6 +25,9 @@ namespace Nearlink {
 
 /**
  * @brief 与 framework IsSleAvailableToCaller 等价：全开放行；半开仅 native 放行。
+ *
+ * 契约：本函数与 NearlinkHostServer::IsSleAvailableToCaller 弱符号实现、
+ * identity 重载三处判定必须同步；任一处语义变更需同步修改其余两处。
  */
 inline bool CheckSleAvailableToCaller()
 {
@@ -35,6 +38,8 @@ inline bool CheckSleAvailableToCaller()
 
 /**
  * @brief 复用入口采集的调用方身份，半开态下 IsNative 只查询一次。
+ *
+ * 契约：与无参重载、framework 弱符号实现保持同一判定。
  */
 inline bool CheckSleAvailableToCaller(CallerIdentity &caller)
 {
@@ -45,6 +50,8 @@ inline bool CheckSleAvailableToCaller(CallerIdentity &caller)
 
 /**
  * @brief 与 framework IS_SLE_ENABLED 等价：仅 STATE_TURN_ON 放行。
+ *
+ * 契约：与 NearlinkHostServer::IsSleEnabled 弱符号实现保持同一判定。
  */
 inline bool CheckSleEnabled()
 {
