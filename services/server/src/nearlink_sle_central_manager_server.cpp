@@ -317,6 +317,7 @@ NlErrCode NearlinkSleCentralManagerServer::StartScanWithFilter(uint32_t scannerI
 NlErrCode NearlinkSleCentralManagerServer::StartFullScan(uint32_t scannerId, const NearlinkSleScanSettings &settings)
 {
     HILOGI("scannerId(%{public}d)", scannerId);
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteScannerId(scannerId), NL_ERR_INTERNAL_ERROR,
         "scannerId is invalid.");
     std::vector<NearlinkSleScanFilter> emptyFilters;

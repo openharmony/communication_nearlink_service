@@ -1301,7 +1301,6 @@ NlErrCode NearlinkHostServer::GetDeviceName(int32_t transport, const std::string
         HILOGE("transport(%{public}d) is invalid.", transport);
         return NL_ERR_INVALID_PARAM;
     }
-    // 与 framework 的 IsSleAvailableToCaller 门控一致：半开态仅 native 可用，关闭态对所有调用方不可用。
     std::string realAddr = "";
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(address, realAddr);
     RawAddress addr(realAddr);

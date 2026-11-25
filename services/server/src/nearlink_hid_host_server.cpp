@@ -16,7 +16,6 @@
 #include "nearlink_hid_host_server.h"
 #include "SleInterfaceProfileManager.h"
 #include "SleInterfaceProfileHidHost.h"
-#include "SleInterfaceManager.h"
 #include "SleServerStateCheck.h"
 #include "i_nearlink_hid_host.h"
 #include "log_util.h"

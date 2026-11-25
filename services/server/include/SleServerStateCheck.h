@@ -28,6 +28,11 @@ namespace Nearlink {
  *
  * 契约：本函数与 NearlinkHostServer::IsSleAvailableToCaller 弱符号实现、
  * identity 重载三处判定必须同步；任一处语义变更需同步修改其余两处。
+ *
+ * 弱符号边界：产品构建如重写 NearlinkHostServer::IsSleAvailableToCaller，
+ * 本函数不跟随（当前发布构建不重写）。走弱符号的是
+ * NearlinkHostServer::IsSleAvailableToCallerInner 族入口，它们把失败折算为
+ * NL_ERR_SLE_OFF；本函数用于其余 server IPC 入口，直接返回 NL_ERR_SLE_OFF。
  */
 inline bool CheckSleAvailableToCaller()
 {
@@ -52,6 +57,9 @@ inline bool CheckSleAvailableToCaller(CallerIdentity &caller)
  * @brief 与 framework IS_SLE_ENABLED 等价：仅 STATE_TURN_ON 放行。
  *
  * 契约：与 NearlinkHostServer::IsSleEnabled 弱符号实现保持同一判定。
+ * 产品构建如重写该弱符号，本函数不跟随（当前发布构建不重写）；
+ * 走弱符号的 NearlinkHostServer::IsSleEnabledInner 族入口失败折算为
+ * NL_ERR_SLE_OFF，与本函数返回值一致。
  */
 inline bool CheckSleEnabled()
 {
