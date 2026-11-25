@@ -354,7 +354,6 @@ void McpServerServiceManager::impl::StartStateTimer()
             NL_CHECK_RETURN(ptr->stateTimer_ != nullptr, "[McpServer]state timer already reset");
             ptr->renderState_ = McpRenderState::KPausing;
             ptr->stateTimer_ = nullptr;
-            ptr->currPlaybackState_.SetState(AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE);
             ptr->UpdateMediaPlaybackState(AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE);
         };
         DoInMcpThread([func]() { func(); });
@@ -663,10 +662,8 @@ bool McpServerServiceManager::impl::CheckPlaybackStateChanged(const AVSession::A
             reportState = AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE;
         }
         HILOGI("[McpServer]reportState=%{public}d, newMcpState=%{public}d, renderState_=%{public}d, avState=%{public}d",
-            reportState, newMcpState, renderState_, avState);
-        if (currentReportState_ != ConvertAVPlaybackStateToMcpState(reportState)) {
-            UpdateMediaPlaybackState(reportState);
-        }
+            reportState, newMcpState, static_cast<int>(renderState_), avState);
+        UpdateMediaPlaybackState(reportState);
         currPlaybackState_ = state;
 
         /* 播放状态变化，处理暂停记录 */
