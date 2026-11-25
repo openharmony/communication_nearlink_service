@@ -58,7 +58,6 @@
 #include "nearlink_dft_exception.h"
 #include "nearlink_remote_container.h"
 #include "interface_cloud_pair_service.h"
-#include "ipc_skeleton.h"
 #include "SleInterfaceProfileBas.h"
 #include "ProfileServiceManager.h"
 #include "SleInterfaceProfileDis.h"
