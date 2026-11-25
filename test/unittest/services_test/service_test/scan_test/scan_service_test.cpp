@@ -1588,6 +1588,269 @@ HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerDataAudio_Exception_001, 
     HILOGI("ScanService_ParseManufacturerDataAudio_Exception_001 end");
 }
 
+/* ==================== 扫描事件与解析补充用例 ==================== */
+
+/**
+ * @tc.name: ScanService_ScanEvent_FailResult_001
+ * @tc.desc: 扫描启动或停止失败时不再发布公共事件，但结果码原样透传给已注册回调
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ScanEvent_FailResult_001, TestSize.Level1)
+{
+    // 失败结果码的启停事件：回调仍收到事件与码，只是不走成功分支
+    MockTriggerScanStartEvent(NLSTK_ERRCODE_PARAM_ERR);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    EXPECT_TRUE(mockCallback_->lastScanEvent_.second);
+    EXPECT_EQ(mockCallback_->lastScanEvent_.first, static_cast<int>(NLSTK_ERRCODE_PARAM_ERR));
+
+    MockTriggerScanStopEvent(NLSTK_ERRCODE_PARAM_ERR);
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_MS));
+    EXPECT_FALSE(mockCallback_->lastScanEvent_.second);
+    EXPECT_EQ(mockCallback_->lastScanEvent_.first, static_cast<int>(NLSTK_ERRCODE_PARAM_ERR));
+}
+
+/**
+ * @tc.name: ScanService_ParseAdvResult_MinimalFields_001
+ * @tc.desc: 广播报文不带数据段与设备名时，解析仍产出地址与信号强度等基本字段
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseAdvResult_MinimalFields_001, TestSize.Level1)
+{
+    // 空名空数据的广播：基础字段照常解析，名字保持为空
+    std::string addr = "00:11:22:33:44:71";
+    NLSTK_DevdAdvResult_S mockResult = CreateMockAdvResult(addr, "", 0x01, -42);
+    delete[] mockResult.advData.data;
+    mockResult.advData.data = nullptr;
+    mockResult.advData.len = 0;
+
+    std::vector<uint32_t> scannerIds;
+    SleScanResultImpl scanResult;
+    ScanService::GetInstance().ParseAdvResult(&mockResult, scannerIds, scanResult);
+    CleanupMockAdvResult(mockResult);
+
+    EXPECT_EQ(scannerIds.size(), static_cast<size_t>(1));
+    SlePeripheralDevice device = scanResult.GetPeripheralDevice();
+    EXPECT_EQ(device.GetRawAddress().GetAddress(), addr);
+    EXPECT_EQ(device.GetCurrentRawAddress().GetAddress(), addr);
+    EXPECT_EQ(device.GetName(), "");
+    EXPECT_EQ(device.GetRSSI(), -42);
+}
+
+/**
+ * @tc.name: ScanService_ParseAdvData_AbltyUuid_001
+ * @tc.desc: 广播携带音频能力服务标识时设备被标记为音频设备，无关标识不触发标记
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseAdvData_AbltyUuid_001, TestSize.Level1)
+{
+    // 能力位标识与未知标识各解析一次，只有音频标识置音频标志
+    std::string abltyAddr = "00:11:22:33:44:72";
+    NLSTK_DevdAdvResult_S abltyResult = CreateMockAdvResult(abltyAddr, "AbltyDevice", 0x01, -50);
+    if (abltyResult.serviceUuids != NULL) {
+        uint8_t abltyUuid[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06};
+        NLSTK_DevdAdvServiceUuid_S *uuidEntry = new NLSTK_DevdAdvServiceUuid_S;
+        (void)memcpy_s(uuidEntry->uuid, sizeof(abltyUuid), abltyUuid, sizeof(abltyUuid));
+        SDF_VectorEmplaceBack(abltyResult.serviceUuids, uuidEntry);
+    }
+    std::vector<uint32_t> abltyIds;
+    SleScanResultImpl abltyScan;
+    ScanService::GetInstance().ParseAdvResult(&abltyResult, abltyIds, abltyScan);
+    CleanupMockAdvResult(abltyResult);
+    EXPECT_TRUE(abltyScan.GetPeripheralDevice().GetIsAudioDeviceFlag());
+
+    std::string plainAddr = "00:11:22:33:44:73";
+    NLSTK_DevdAdvResult_S plainResult = CreateMockAdvResult(plainAddr, "PlainDevice", 0x01, -50);
+    if (plainResult.serviceUuids != NULL) {
+        uint8_t plainUuid[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x77};
+        NLSTK_DevdAdvServiceUuid_S *uuidEntry = new NLSTK_DevdAdvServiceUuid_S;
+        (void)memcpy_s(uuidEntry->uuid, sizeof(plainUuid), plainUuid, sizeof(plainUuid));
+        SDF_VectorEmplaceBack(plainResult.serviceUuids, uuidEntry);
+    }
+    std::vector<uint32_t> plainIds;
+    SleScanResultImpl plainScan;
+    ScanService::GetInstance().ParseAdvResult(&plainResult, plainIds, plainScan);
+    CleanupMockAdvResult(plainResult);
+    EXPECT_FALSE(plainScan.GetPeripheralDevice().GetIsAudioDeviceFlag());
+}
+
+/**
+ * @tc.name: ScanService_ParseManufacturerData_OtherVendor_001
+ * @tc.desc: 非目标厂商标识的厂商数据整体忽略，业务类型保持默认零
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ParseManufacturerData_OtherVendor_001, TestSize.Level1)
+{
+    // 厂商标识不匹配时数据不进解析，业务类型不被置位
+    std::string addr = "00:11:22:33:44:74";
+    NLSTK_DevdAdvResult_S mockResult = CreateMockAdvResult(addr, "OtherVendor", 0x01, -50);
+    if (mockResult.manufacturerDataList != NULL) {
+        uint8_t manuData[] = {0x01, 0x01, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
+        size_t totalSize = sizeof(NLSTK_DevdAdvManufacturerData_S) + sizeof(manuData);
+        NLSTK_DevdAdvManufacturerData_S *manuEntry =
+            (NLSTK_DevdAdvManufacturerData_S *)new uint8_t[totalSize];
+        manuEntry->manufacturerId = 0x000A;
+        manuEntry->len = static_cast<uint16_t>(sizeof(manuData));
+        (void)memcpy_s(manuEntry->data, sizeof(manuData), manuData, sizeof(manuData));
+        SDF_VectorEmplaceBack(mockResult.manufacturerDataList, manuEntry);
+    }
+
+    std::vector<uint32_t> scannerIds;
+    SleScanResultImpl scanResult;
+    ScanService::GetInstance().ParseAdvResult(&mockResult, scannerIds, scanResult);
+    CleanupMockAdvResult(mockResult);
+    EXPECT_EQ(scanResult.GetPeripheralDevice().GetManufacturerBusiness(), 0);
+}
+
+/**
+ * @tc.name: ScanService_AudioAddrSwitchToReport_001
+ * @tc.desc: 音频设备广播携带与广播地址不同的上报地址时，扫描结果以真实地址为设备地址
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_AudioAddrSwitchToReport_001, TestSize.Level1)
+{
+    // 上报地址与广播地址不同：设备地址切到上报地址，当前地址保留广播地址
+    std::string advAddr = "00:11:22:33:44:75";
+    std::string reportAddr = "00:11:22:33:44:99";
+    NLSTK_DevdAdvResult_S mockResult = CreateMockAdvResult(advAddr, "SwitchDevice", 0x01, -50);
+    if (mockResult.manufacturerDataList != NULL) {
+        RawAddress reportRaw(reportAddr);
+        uint8_t reportBytes[6] = {0};
+        reportRaw.ConvertToUint8(reportBytes);
+        uint8_t pairBytes[] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+        uint8_t manuData[] = {
+            0x01,
+            0x01,
+            reportBytes[0], reportBytes[1], reportBytes[2], reportBytes[3], reportBytes[4], reportBytes[5],
+            0x02,
+            pairBytes[0], pairBytes[1], pairBytes[2], pairBytes[3], pairBytes[4], pairBytes[5]
+        };
+        size_t totalSize = sizeof(NLSTK_DevdAdvManufacturerData_S) + sizeof(manuData);
+        NLSTK_DevdAdvManufacturerData_S *manuEntry =
+            (NLSTK_DevdAdvManufacturerData_S *)new uint8_t[totalSize];
+        manuEntry->manufacturerId = 0x0009;
+        manuEntry->len = static_cast<uint16_t>(sizeof(manuData));
+        (void)memcpy_s(manuEntry->data, sizeof(manuData), manuData, sizeof(manuData));
+        SDF_VectorEmplaceBack(mockResult.manufacturerDataList, manuEntry);
+    }
+
+    std::vector<uint32_t> scannerIds;
+    SleScanResultImpl scanResult;
+    ScanService::GetInstance().ParseAdvResult(&mockResult, scannerIds, scanResult);
+    CleanupMockAdvResult(mockResult);
+    SlePeripheralDevice device = scanResult.GetPeripheralDevice();
+    EXPECT_EQ(device.GetManufacturerBusiness(), SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+    EXPECT_EQ(device.GetRawAddress().GetAddress(), reportAddr);
+    EXPECT_EQ(device.GetCurrentRawAddress().GetAddress(), advAddr);
+    EXPECT_EQ(device.GetCollaborateAddress().GetAddress(), "AA:BB:CC:DD:EE:FF");
+}
+
+/**
+ * @tc.name: ScanService_ClearOldPeripheralDevice_001
+ * @tc.desc: 同一主耳换新广播地址后旧地址缓存被清掉；非音频设备不触发清理
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_ClearOldPeripheralDevice_001, TestSize.Level1)
+{
+    // 直接构造扫描结果验证清理规则：主耳地址相同即清旧，业务类型不符直接跳过
+    auto makeResult = [](const std::string &key, const std::string &master,
+        const std::string &name, bool audioBusiness) {
+        SleScanResultImpl scanResult;
+        SlePeripheralDevice device;
+        device.SetAddress(RawAddress(key));
+        device.SetCurrentRawAddress(RawAddress(master));
+        device.SetName(name);
+        if (audioBusiness) {
+            device.SetManufacturerBusiness(SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+        }
+        scanResult.SetPeripheralDevice(device);
+        return scanResult;
+    };
+    // 本用例地址与主耳标识均为独占值，不依赖缓存清空；不再自清缓存，避免异步清理晚到误删本用例数据
+    ScanService::GetInstance().AddPeripheralDevice(
+        makeResult("00:11:22:33:44:81", "00:11:22:33:44:80", "OldAdv", false));
+    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81"), "OldAdv");
+
+    ScanService::GetInstance().AddPeripheralDevice(
+        makeResult("00:11:22:33:44:82", "00:11:22:33:44:80", "NewAdv", false));
+    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81"), "OldAdv");
+
+    ScanService::GetInstance().AddPeripheralDevice(
+        makeResult("00:11:22:33:44:83", "00:11:22:33:44:80", "AudioNewAdv", true));
+    // 产品 NearlinkSafeHashMap::FindAndRmv 只清首个命中项（无序容器，命中序不指定），
+    // 两条同主耳旧地址恰清一条，不承诺清具体哪一条
+    int staleLeft = 0;
+    if (!InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:81").empty()) {
+        staleLeft++;
+    }
+    if (!InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:82").empty()) {
+        staleLeft++;
+    }
+    EXPECT_EQ(staleLeft, 1);
+    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName("00:11:22:33:44:83"), "AudioNewAdv");
+}
+
+/**
+ * @tc.name: ScanService_AddPeripheralDevice_ReconnectKeep_001
+ * @tc.desc: 已缓存的音频配对广播不被同地址的回连广播覆盖，可发现的更新广播仍然生效
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_AddPeripheralDevice_ReconnectKeep_001, TestSize.Level1)
+{
+    // 回连广播（不可发现标记）不覆盖已缓存音频设备信息；可发现广播正常覆盖
+    auto makeResult = [](const std::string &key, const std::string &name, uint8_t adFlag) {
+        SleScanResultImpl scanResult;
+        SlePeripheralDevice device;
+        device.SetAddress(RawAddress(key));
+        device.SetCurrentRawAddress(RawAddress(key));
+        device.SetName(name);
+        device.SetAdFlag(adFlag);
+        device.SetManufacturerBusiness(SLE_PRIVATE_AUDIO_BUSINESS_TYPE);
+        scanResult.SetPeripheralDevice(device);
+        return scanResult;
+    };
+    // 地址独占，不自清缓存，避免异步清理晚到误删本用例数据
+    const std::string addr = "00:11:22:33:44:90";
+
+    ScanService::GetInstance().AddPeripheralDevice(makeResult(addr, "PairingAdv", 0x01));
+    ScanService::GetInstance().AddPeripheralDevice(
+        makeResult(addr, "ReconnectAdv", static_cast<uint8_t>(SleAdvertiserFlag::SLE_ADV_FLAG_NON_DISC)));
+    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName(addr), "PairingAdv");
+
+    ScanService::GetInstance().AddPeripheralDevice(makeResult(addr, "UpdatedAdv", 0x01));
+    EXPECT_EQ(InterfaceScanService::GetInstance().GetDeviceName(addr), "UpdatedAdv");
+}
+
+/**
+ * @tc.name: ScanService_QueryMissDefaults_001
+ * @tc.desc: 查询不存在的设备地址时各查询接口返回约定的默认值而不是报错
+ * @tc.type: FUNC
+ */
+HWTEST_F(ScanServiceTest, ScanService_QueryMissDefaults_001, TestSize.Level1)
+{
+    // 查询独占地址：无论缓存存量如何都应返回默认值，不自清缓存避免异步清理竞态
+    const std::string missing = "00:11:22:33:44:F0";
+    InterfaceScanService &scan = InterfaceScanService::GetInstance();
+
+    EXPECT_EQ(scan.GetDeviceName(missing), "");
+    EXPECT_EQ(scan.GetDeviceAppearance(missing), INVALID_APPEARANCE);
+    EXPECT_EQ(scan.GetDeviceManufacturerAbility(missing), (std::array<uint8_t, SLE_MANU_ABILITY_LEN> {}));
+    EXPECT_EQ(scan.GetDeviceAddrType(missing), static_cast<int>(SLE_ADDR_TYPE_END));
+    EXPECT_EQ(scan.GetManufacturerBusinessType(missing), 0);
+    EXPECT_FALSE(scan.IsAudioDevice(missing));
+    EXPECT_EQ(scan.GetModelId(missing), "");
+    EXPECT_EQ(scan.GetNewModelId(missing), "");
+    EXPECT_EQ(scan.GetSubModelId(missing), "");
+    EXPECT_EQ(scan.GetIconId(missing), "");
+    EXPECT_EQ(scan.GetBtAddr(missing), "");
+
+    RawAddress input(missing);
+    EXPECT_EQ(scan.GetCurrentAddress(input).GetAddress(), missing);
+    EXPECT_EQ(scan.GetCollaborateAddress(input).GetAddress(), missing);
+    EXPECT_EQ(scan.GetReportAddrByCurrentAddress(input).GetAddress(), "");
+}
+
 } // namespace
 } // namespace Nearlink
 } // namespace OHOS

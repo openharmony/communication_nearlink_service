@@ -13,14 +13,24 @@
  * limitations under the License.
  */
 #include <future>
+#include <atomic>
 #include "ClassCreator.h"
 #include "SleServiceFfrtLog.h"
 #include "IcceService.h"
 #include "IcceDefines.h"
+#include "mock_control.h"
 
 namespace OHOS {
 namespace Nearlink {
 constexpr uint8_t ICCE_MAX_CONNECTION_NUM = 6;
+namespace {
+static std::atomic<int32_t> g_mockIcceGetPort {40960};
+}
+
+void MockIcceServiceSetGetPort(int32_t port)
+{
+    g_mockIcceGetPort.store(port);
+}
 
 struct IcceService::impl {
     impl() = default;
@@ -95,7 +105,7 @@ int32_t IcceService::GetPortTask(const RawAddress &device)
 int32_t IcceService::GetPort(const RawAddress &device)
 {
     HILOGI("[ICCE Profile Mock] GetPort");
-    return 40960;
+    return g_mockIcceGetPort.load();
 }
 
 void IcceService::RegisterObserver(IcceObserver &icceObserver)

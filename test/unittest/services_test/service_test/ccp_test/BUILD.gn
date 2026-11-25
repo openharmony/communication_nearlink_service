@@ -107,6 +107,7 @@ ohos_unittest("nl_ccp_service_test") {
   sources += shared_service_source
   sources -= [
     "$NEARLINK_ROOT/services/service/src/ccp/CcpStackAdapter.cpp",
+    "$NEARLINK_ROOT/services/service/src/common/ProfileServiceManager.cpp",
   ]
 
   deps = unit_test_deps
