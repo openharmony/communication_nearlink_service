@@ -69,8 +69,8 @@ void CcpSystemInterfaceTest::TearDown()
 HWTEST_F(CcpSystemInterfaceTest, HangUpCall001, TestSize.Level1)
 {
     HILOGI("HangUpCall001 start");
-    CcpSystemInterface::GetInstance().HangUpCall();
-    EXPECT_NE(0, 1);
+    NlErrCode ret = CcpSystemInterface::GetInstance().HangUpCall();
+    EXPECT_TRUE(ret == NL_NO_ERROR || ret == NL_ERR_INTERNAL_ERROR);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("HangUpCall001 end");
 }
@@ -83,8 +83,8 @@ HWTEST_F(CcpSystemInterfaceTest, HangUpCall001, TestSize.Level1)
 HWTEST_F(CcpSystemInterfaceTest, RejectCall001, TestSize.Level1)
 {
     HILOGI("RejectCall001 start");
-    CcpSystemInterface::GetInstance().RejectCall();
-    EXPECT_NE(0, 1);
+    NlErrCode ret = CcpSystemInterface::GetInstance().RejectCall();
+    EXPECT_TRUE(ret == NL_NO_ERROR || ret == NL_ERR_INTERNAL_ERROR);
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("RejectCall001 end");
 }
@@ -97,8 +97,7 @@ HWTEST_F(CcpSystemInterfaceTest, RejectCall001, TestSize.Level1)
 HWTEST_F(CcpSystemInterfaceTest, CheckNowHasDeviceConnected001, TestSize.Level1)
 {
     HILOGI("CheckNowHasDeviceConnected001 start");
-    CcpSystemInterface::GetInstance().CheckNowHasDeviceConnected();
-    EXPECT_NE(0, 1);
+    EXPECT_NO_THROW(CcpSystemInterface::GetInstance().CheckNowHasDeviceConnected());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("CheckNowHasDeviceConnected001 end");
 }
@@ -111,8 +110,9 @@ HWTEST_F(CcpSystemInterfaceTest, CheckNowHasDeviceConnected001, TestSize.Level1)
 HWTEST_F(CcpSystemInterfaceTest, IsRinging001, TestSize.Level1)
 {
     HILOGI("IsRinging001 start");
-    CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_INCOMING);
-    EXPECT_NE(0, 1);
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_INCOMING));
+    EXPECT_TRUE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_WAITING));
+    EXPECT_FALSE(CcpSystemInterface::GetInstance().IsRinging(Telephony::TelCallState::CALL_STATUS_ACTIVE));
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("IsRinging001 end");
 }
@@ -125,8 +125,7 @@ HWTEST_F(CcpSystemInterfaceTest, IsRinging001, TestSize.Level1)
 HWTEST_F(CcpSystemInterfaceTest, DeInitNearlinkCallClient001, TestSize.Level1)
 {
     HILOGI("DeInitNearlinkCallClient001 start");
-    CcpSystemInterface::GetInstance().DeInitNearlinkCallClient();
-    EXPECT_NE(0, 1);
+    EXPECT_NO_THROW(CcpSystemInterface::GetInstance().DeInitNearlinkCallClient());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("DeInitNearlinkCallClient001 end");
 }
@@ -139,8 +138,7 @@ HWTEST_F(CcpSystemInterfaceTest, DeInitNearlinkCallClient001, TestSize.Level1)
 HWTEST_F(CcpSystemInterfaceTest, Stop001, TestSize.Level1)
 {
     HILOGI("Stop001 start");
-    CcpSystemInterface::GetInstance().Stop();
-    EXPECT_NE(0, 1);
+    EXPECT_NO_THROW(CcpSystemInterface::GetInstance().Stop());
     std::this_thread::sleep_for(std::chrono::milliseconds(OHOS::Nearlink::TEST::CCP_SERVICE_UT_DELAY_50_MS));
     HILOGI("Stop001 end");
 }

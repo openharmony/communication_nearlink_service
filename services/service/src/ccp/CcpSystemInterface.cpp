@@ -21,6 +21,7 @@
 #include "ThreadUtil.h"
 #include "SleInterfaceProfileASC.h"
 #include "SleInterfaceProfileManager.h"
+#include "nearlink_dft_exception.h"
 
 namespace OHOS {
 namespace Nearlink {
@@ -61,11 +62,23 @@ void CcpSystemInterface::InitNearlinkCallClient()
 {
     HILOGI("[CcpService]enter");
     DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().Init();
+    int32_t ret = DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().RegisterCallBack(
+        std::make_unique<CallManagerCallbackImpl>());
+    if (ret != Telephony::TELEPHONY_SUCCESS) {
+        DftReportAudioError("", ERROR_TELEPHONY, SUB_ERRCODE_CASE1);
+        HILOGE("[CcpService] NearlinkCallClient register telephony callback fail, ret = %{public}d", ret);
+    }
 }
 
 void CcpSystemInterface::DeInitNearlinkCallClient()
 {
     HILOGI("[CcpService]enter");
+    // 先注销回调，再停客户端，与 InitNearlinkCallClient 顺序互逆
+    int32_t ret = DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnRegisterCallBack();
+    if (ret != Telephony::TELEPHONY_SUCCESS) {
+        DftReportAudioError("", ERROR_TELEPHONY, SUB_ERRCODE_CASE1);
+        HILOGE("[CcpService] unregister telephony callback fail, ret = %{public}d", ret);
+    }
     DelayedRefSingleton<Telephony::NearlinkCallClient>::GetInstance().UnInit();
 }
 
@@ -152,5 +165,26 @@ void CcpSystemInterface::SystemAbilityStatusChange::OnRemoveSystemAbility(
     });
 }
 
+// 蜂窝通话的状态回调
+int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallStateChange(
+    int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number)
+{
+    HILOGI("[CcpService]callId=%{public}d, numActive=%{public}d, numHeld=%{public}d, state=%{public}d",
+        callId, numActive, numHeld, callState);
+    DoInCcpThread([callId, callState, number]() {
+        CcpService *service = CcpService::GetService();
+        NL_CHECK_RETURN(service, "[CcpService]ccpService is null.");
+        service->HandlePhoneStateChange(callId, callState, number);
+    });
+    return NL_NO_ERROR;
+}
+
+// 只回调某一路的回调信息（是纯虚函数，派生类必须实现它，不可删除覆写）
+int32_t CcpSystemInterface::CallManagerCallbackImpl::OnCallDetailsChange(const Telephony::CallAttributeInfo &info)
+{
+    HILOGI("[CcpService]OnCallDetailsChange: id=%{public}d, state=%{public}d",
+        info.callId, static_cast<int32_t>(info.callState));
+    return NL_NO_ERROR;
+}
 }  // namespace Nearlink
 }  // namespace OHOS

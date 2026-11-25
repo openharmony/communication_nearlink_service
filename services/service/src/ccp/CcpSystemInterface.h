@@ -17,10 +17,12 @@
 
 #include <cstdint>
 
+#include "pac_map.h"
 #include "system_ability_definition.h"
 #include "system_ability_status_change_stub.h"
+#include "call_manager_callback.h"
 #include "call_manager_info.h"
-#include "nearlink_errorcode.h"
+#include "CcpService.h"
 #include "SleServiceFfrtLog.h"
 
 namespace OHOS {
@@ -52,6 +54,64 @@ private:
     public:
         void OnAddSystemAbility(int32_t systemAbilityId, const std::string &deviceId) override;
         void OnRemoveSystemAbility(int32_t systemAbilityId, const std::string &deviceId) override;
+    };
+
+    class CallManagerCallbackImpl : public Telephony::CallManagerCallback {
+    public:
+        CallManagerCallbackImpl() = default;
+        ~CallManagerCallbackImpl() override = default;
+        int32_t OnCallDetailsChange(const Telephony::CallAttributeInfo &info) override;
+        int32_t OnCallStateChange(
+            int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState, const std::string &number) override;
+
+        int32_t OnCallEventChange(const Telephony::CallEventInfo &info) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnCallDisconnectedCause(const Telephony::DisconnectedDetails &details) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnReportAsyncResults(Telephony::CallResultReportId id, AppExecFwk::PacMap &resultInfo) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnOttCallRequest(Telephony::OttCallRequestId requestId, AppExecFwk::PacMap &info) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnReportMmiCodeResult(const Telephony::MmiCodeInfo &info) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnReportAudioDeviceChange(const Telephony::AudioDeviceInfo &info) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnReportPostDialDelay(const std::string &str) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnUpdateImsCallModeChange(const Telephony::CallMediaModeInfo &imsCallModeInfo) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnCallSessionEventChange(const Telephony::CallSessionEvent &callSessionEventOptions) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnPeerDimensionsChange(const Telephony::PeerDimensionsDetail &peerDimensionsDetail) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnCallDataUsageChange(const int64_t dataUsage) override
+        {
+            return NL_NO_ERROR;
+        }
+        int32_t OnUpdateCameraCapabilities(const Telephony::CameraCapabilities &cameraCapabilities) override
+        {
+            return NL_NO_ERROR;
+        }
     };
 
     sptr<SystemAbilityStatusChange> statusChangeListener_{nullptr};
