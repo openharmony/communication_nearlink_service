@@ -392,10 +392,9 @@ void McpServerServiceManager::impl::OnRendererStateChange(
         StartStateTimer();
     } else {
         if (stateTimer_ != nullptr) {
-            HILOGI("[McpServer] stop timer and ignore");
+            HILOGI("[McpServer] stop timer");
             stateTimer_->Stop();
             stateTimer_ = nullptr;
-            return;
         }
         if (ascService->IsCalling() && renderState_ != McpRenderState::KPlaying) {
             renderState_ = McpRenderState::KPlaying;
@@ -654,16 +653,17 @@ bool McpServerServiceManager::impl::CheckPlaybackStateChanged(const AVSession::A
         int32_t avState = state.GetState();
         HILOGI("[McpServer]Playback state has changed, prepared to update, new avState=%{public}d", avState);
         // 更新播放状态
-        int32_t oldMcpState = ConvertAVPlaybackStateToMcpState(currPlaybackState_.GetState());
-        int32_t newMcpState = ConvertAVPlaybackStateToMcpState(state.GetState());
-        if (oldMcpState != newMcpState) {
-            int32_t reportState = state.GetState();
-            if (newMcpState != NLSTK_MCP_STATE_SEEKING && renderState_ != McpRenderState::KUninitalize) {
-                reportState = (renderState_ == McpRenderState::KPausing ?
-                    AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE : AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY);
-            }
-            UpdateMediaPlaybackState(reportState);
+        int32_t reportState = avState;
+        int32_t newMcpState = ConvertAVPlaybackStateToMcpState(avState);
+        if ((avState == AVSession::AVPlaybackState::PLAYBACK_STATE_PLAY ||
+             avState == AVSession::AVPlaybackState::PLAYBACK_STATE_BUFFERING) &&
+            newMcpState != NLSTK_MCP_STATE_SEEKING && 
+            renderState_ == McpRenderState::KPausing) {
+            reportState = AVSession::AVPlaybackState::PLAYBACK_STATE_PAUSE;
         }
+        HILOGI("[McpServer]reportState=%{public}d, newMcpState=%{public}d, renderState_=%{public}d, avState=%{public}d",
+            reportState, newMcpState, static_cast<int>(renderState_), avState);
+        UpdateMediaPlaybackState(reportState);
         currPlaybackState_ = state;
 
         /* 播放状态变化，处理暂停记录 */
@@ -701,12 +701,12 @@ void McpServerServiceManager::impl::UpdateMediaPlaybackState(int32_t state)
     HILOGI("[McpServer][UpdateMediaPlaybackState] mcpInstanceId=%{public}d, avState=%{public}d, mcpState=%{public}d",
            mcpInstanceId_, state, mcpState);
     uint32_t ret = NLSTK_McpUpdateMediaProperty(mcpInstanceId_, NLSTK_MCP_PLAYBACK_STATE, &mcpState);
-    currentReportState_ = mcpState;
     if (ret != NLSTK_ERRCODE_SUCCESS) {
         DftReportAudioError("", ERROR_NEARLINK_INNER, SUB_ERRCODE_CASE1);
         HILOGE("[McpServer]McpUpdateMediaProperty-PlaybackState error ret=%{public}d.", ret);
         return;
     }
+    currentReportState_ = mcpState;
     HILOGI("[McpServer]McpUpdateMediaProperty-PlaybackState success.");
 }
 
