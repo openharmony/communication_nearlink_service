@@ -31,6 +31,7 @@
 #include "nearlink_permission_manager.h"
 #include "log_util.h"
 #include "nearlink_common_event_helper.h"
+#include "nearlink_permission_manager.h"
 #include "nearlink_raw_address.h"
 #include "nearlink_def.h"
 #include "nearlink_app_wakeup_ue.h"
