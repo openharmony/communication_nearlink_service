@@ -687,6 +687,7 @@ private:
     void SetASCSubRateStatus(const RawAddress &device, ASCSubRateState state, uint16_t subrate);
     void SetSubratePreConfigStream(const RawAddress &device);
     void SetOnlySubrate(const RawAddress &device, uint16_t subrate);
+    void SyncInactiveDeviceSubrateOnStart(const RawAddress &activeDevice);
     bool IsVendorAudioDevice(const RawAddress &device);
     void ContrSubrateOneNumInMulConn(const RawAddress &device, uint16_t subrate);
     void ClearASCSubrateInfo(const RawAddress &device);

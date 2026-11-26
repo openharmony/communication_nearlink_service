@@ -2242,6 +2242,10 @@ int ASCService::ConfigStream(const RawAddress &device, AudioStreamType streamTyp
         default:
             break;
     }
+    // 起播场景（不含重配置）同步非活跃设备链路的subrate
+    if (state == NL_SLE_ASC_CONFIGURING) {
+        SyncInactiveDeviceSubrateOnStart(device);
+    }
 
     // 状态：音频流属性配置中/重配置中
     SetASCStatus(device, state);
@@ -6961,6 +6965,47 @@ void ASCService::SetOnlySubrate(const RawAddress &device, uint16_t subrate)
     subrateParam.onlySubrate = true;
     subrateParam.subrate = static_cast<NLSTK_SubrateType_E>(subrate);
     SetSubrate(device, subrateParam);
+}
+
+/**
+ * @brief 活跃设备起播时，同步非活跃设备（其他合作集）链路的subrate
+ * @param activeDevice 起播的活跃设备
+ * 非活跃设备链路subrate小于默认值6（如此前唤醒提速到2、AI提速到1）时，切换为6；
+ * 活跃设备本身已由SetSubratePreConfigStream切为6；
+ * 大于等于6（如多连接场景12）不处理
+ */
+void ASCService::SyncInactiveDeviceSubrateOnStart(const RawAddress &activeDevice)
+{
+    // 仅活跃合作集起播时处理，避免非活跃组起播时反向处理正在出声的活跃组
+    RawAddress activeReportAddr {};
+    if (!activeSinkDevice_.GetAddress().empty()) {
+        activeReportAddr = GetReportAddr(activeDevice);
+    }
+    if (activeSinkDevice_.GetAddress().empty() || (activeReportAddr != activeSinkDevice_)) {
+        HILOGD("[ASCService]%{public}s is not active sink, skip inactive subrate sync",
+            GetEncryptAddr(activeDevice.GetAddress()).c_str());
+        return;
+    }
+
+    for (auto it = ascSubrateMap_.begin(); it != ascSubrateMap_.end(); ++it) {
+        // 跳过活跃合作集自身（同一合作集内report地址相同，如双耳）
+        if (GetReportAddr(RawAddress(it->first)) == activeReportAddr) {
+            continue;
+        }
+        // 仅处理已设置成功的链路，切换中/未确认的链路不动
+        if (it->second.subrateState != NL_SLE_ASC_SETTED) {
+            continue;
+        }
+        // 大于等于默认值6（如多连接场景12）不处理
+        if (it->second.subrateValue >= static_cast<uint16_t>(NLSTK_DEFAULT_SUBRATE)) {
+            continue;
+        }
+        HILOGI("[ASCService]active dev %{public}s start, switch inactive dev %{public}s "
+            "subrate %{public}d to %{public}d",
+            GetEncryptAddr(activeDevice.GetAddress()).c_str(), GetEncryptAddr(it->first).c_str(),
+            it->second.subrateValue, static_cast<uint16_t>(NLSTK_DEFAULT_SUBRATE));
+        SetOnlySubrate(RawAddress(it->first), NLSTK_DEFAULT_SUBRATE);
+    }
 }
 
 /**
