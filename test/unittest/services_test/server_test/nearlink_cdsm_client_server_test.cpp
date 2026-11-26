@@ -44,6 +44,8 @@ public:
 
 void NearlinkCdsmClientServerStubTest::SetUpTestCase()
 {
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
     HILOGI("SetUpTestCase start NearlinkCdsmClientServerStubTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
 }

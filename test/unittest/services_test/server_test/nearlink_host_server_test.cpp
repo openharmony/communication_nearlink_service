@@ -60,11 +60,23 @@ void NearlinkHostServerStubTest::TearDownTestCase()
 void NearlinkHostServerStubTest::SetUp()
 {
     HILOGI("SetUp NearlinkHostServerStubTest.");
+    // 除 EnableSle001 外（需从 OFF 起步）统一置 ON：
+    // DisableSle001 期望“关闭成功”，前提本就是 ON；其余查询类用例需 ON 才能通过半开态门禁。
+    const std::string caseName = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    if (caseName != "EnableSle001") {
+        SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+            SleStateID::STATE_TURN_ON);
+    }
 }
 
 void NearlinkHostServerStubTest::TearDown()
 {
     HILOGI("TearDown NearlinkHostServerStubTest.");
+    const std::string caseName = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    if (caseName == "DisableSle001") {
+        SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+            SleStateID::STATE_TURN_OFF);
+    }
 }
 
 int32_t HostOnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply)

@@ -24,6 +24,7 @@ nearlink_server_sources = [
     "src/nearlink_ssap_client_server.cpp",
     "src/nearlink_ssap_server_server.cpp",
     "src/nearlink_hadm_client_server.cpp",
+    "src/nearlink_caller_identity.cpp",
     "src/nearlink_asc_server.cpp",
     "src/nearlink_vcp_client_server.cpp",
     "src/nearlink_tws_client_server.cpp",

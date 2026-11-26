@@ -19,6 +19,7 @@
 #include "remote_observer_list.h"
 #include "SleInterfaceProfileCdsm.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "SleInterfaceProfileManager.h"
 #include "nearlink_utils_server.h"
 #include "nearlink_permission_manager.h"
@@ -240,6 +241,7 @@ NlErrCode NearlinkCdsmClientServer::DeregisterCdsmClientCallback(const NearlinkR
 
 NlErrCode NearlinkCdsmClientServer::GetCdsmInfo(const NearlinkRawAddress &addr, NearlinkCdsInfoParcel &cdsInfo)
 {
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     HILOGI("[CdsmServer]address: %{public}s", GetEncryptAddr(addr.GetAddress()).c_str());
     RawAddress realAddr(addr);
     NearlinkDeviceManager::GetInstance()->GetDeviceRealAddr(addr, realAddr);

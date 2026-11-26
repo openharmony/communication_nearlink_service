@@ -19,6 +19,7 @@
 #include "SleInterfaceAdapterSub.h"
 #include "interface_advertiser_service.h"
 #include "SleInterfaceManager.h"
+#include "SleServerStateCheck.h"
 #include "nearlink_system_config.h"
 #include "log_util.h"
 #include "ipc_skeleton.h"
@@ -418,6 +419,7 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
     const NearlinkSleAdvertiserData &advData, const NearlinkSleAdvertiserData &scanResponse, int32_t advHandle)
 {
     HILOGI("enter");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INTERNAL_ERROR,
         "advHandle is invalid.");
     if (settings.GetPrimaryFrameType() ==
@@ -452,6 +454,7 @@ NlErrCode NearlinkSleAdvertiserServer::StartAdvertising(const NearlinkSleAdverti
 
 NlErrCode NearlinkSleAdvertiserServer::StopAdvertising(int32_t advHandle)
 {
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     HILOGI("advHandle: %{public}d", advHandle);
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INVALID_PARAM,
         "advHandle is invalid.");
@@ -495,9 +498,10 @@ NlErrCode NearlinkSleAdvertiserServer::DeregisterSleAdvertiserCallback(
 
 NlErrCode NearlinkSleAdvertiserServer::GetAdvertiserHandle(int32_t &advHandle)
 {
+    HILOGI("enter");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     int32_t pid = IPCSkeleton::GetCallingPid();
     int32_t uid = IPCSkeleton::GetCallingUid();
-    HILOGI("enter");
     advHandle = InterfaceAdvertiserService::GetInstance().GetAdvertiserHandle();
     pimpl->remoteContainer_->AddAdvHandle(pid, uid, advHandle);
     return NL_NO_ERROR;
@@ -507,6 +511,7 @@ NlErrCode NearlinkSleAdvertiserServer::SetAdvertisingData(const NearlinkSleAdver
     const NearlinkSleAdvertiserData &scanResponse, int32_t advHandle)
 {
     HILOGI("enter");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INVALID_PARAM,
         "advHandle is invalid.");
     SleAdvertiserDataImpl sleAdvertiserData = pimpl->ConvertAdvertisingData(advData);
@@ -518,6 +523,7 @@ NlErrCode NearlinkSleAdvertiserServer::SetAdvertisingData(const NearlinkSleAdver
 NlErrCode NearlinkSleAdvertiserServer::EnableAdvertising(int32_t advHandle)
 {
     HILOGI("enter");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INVALID_PARAM,
         "advHandle is invalid.");
     InterfaceAdvertiserService::GetInstance().EnableAdvertising(advHandle);
@@ -527,6 +533,7 @@ NlErrCode NearlinkSleAdvertiserServer::EnableAdvertising(int32_t advHandle)
 NlErrCode NearlinkSleAdvertiserServer::DisableAdvertising(int32_t advHandle)
 {
     HILOGI("enter");
+    NL_CHECK_RETURN_RET(CheckSleAvailableToCaller(), NL_ERR_SLE_OFF, "nearlink is off.");
     NL_CHECK_RETURN_RET(pimpl->remoteContainer_->IsRemoteAdv(advHandle), NL_ERR_INVALID_PARAM,
         "advHandle is invalid.");
     InterfaceAdvertiserService::GetInstance().DisableAdvertising(advHandle);

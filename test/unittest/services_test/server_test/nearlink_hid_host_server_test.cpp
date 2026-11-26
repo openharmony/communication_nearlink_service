@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include "log.h"
+#include "SleServiceManager.h"
 #include "SleInterfaceManager.h"
 #include "nearlink_hid_host_server.h"
 #include "nearlink_access_token_mock.h"
@@ -36,6 +37,8 @@ public:
 
 void NearlinkHidHostServerTest::SetUpTestCase()
 {
+    SleServiceManager::GetInstance()->OnAdapterStateChangeTask(SleTransport::ADAPTER_SLE,
+        SleStateID::STATE_TURN_ON);
     HILOGI("SetUpTestCase start NearlinkHidHostServerTest");
     NearlinkAccessTokenMock::SetNativeTokenInfo();
 }
