@@ -60,13 +60,7 @@ public:
     void HandleHangUp(const RawAddress &device, int32_t instanceId, uint32_t requestId, uint8_t callId);
     void HandleStartInstance(int32_t instanceId, bool isSuccess);
     void HandleAuthorize(int32_t instanceId, uint32_t requestId, int32_t property);
-    void HandlePhoneStateChange(const std::vector<Telephony::CallAttributeInfo> &callInfoVec);
-    /* 蜂窝直调入口：任意线程可调，内部投递至 ccp 线程串行执行 */
-    void PhoneStateChanged(int32_t callId, int32_t numActive, int32_t numHeld, int32_t callState,
-        const std::string &number) override;
-    /* 蜂窝单路明细直调入口：仅蜂窝路（callType 非 TYPE_VOIP）的 DISCONNECTED 清理 callId 映射，
-     * VoIP 路及其余状态的明细由 PhoneStateChanged 承载 */
-    void CallDetailsChanged(int32_t callId, int32_t callState, int32_t callType) override;
+    void HandlePhoneStateChange(int32_t callId, int32_t callState, const std::string &number);
     void HandleCallDetailChange(int32_t callId, int32_t callState, const std::string &number,
         const std::vector<Telephony::CallAttributeInfo> &callVec);
 

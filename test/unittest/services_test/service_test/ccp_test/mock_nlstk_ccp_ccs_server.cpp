@@ -13,11 +13,18 @@
  * limitations under the License.
  */
 
+#include <vector>
+
 #include "nlstk_ccp_ccs_server.h"
 #include "mock_ccs_record.h"
 #include "securec.h"
 #include "log.h"
 
+/* 记录挂断上报的 callId，用于单测断言"终止事件已上报" */
+static std::vector<int32_t> g_callTerminationIds;
+/* 记录最近一次呼入呼出上报的 callFlag，用于单测断言方向推断 */
+static uint8_t g_lastCallInOutFlag = 0;
+static bool g_hasCallInOutReport = false;
 static struct MockCcsRecord g_ccsRecord = {0};
 
 struct MockCcsRecord MockCcsGetRecord(void)
@@ -64,8 +71,11 @@ uint32_t NLSTK_CcpUpdateCcsProperty(int32_t instanceId, NLSTK_CcpCcsPropertyType
         g_ccsRecord.lastInOutUserInfoLen = inOut->userInfo.len;
         g_ccsRecord.lastInOutUserAliasLen = inOut->userAlias.len;
         g_ccsRecord.lastInOutCallId = inOut->callId;
+        g_lastCallInOutFlag = inOut->callFlag;
+        g_hasCallInOutReport = true;
     } else if (property == NLSTK_CCP_CCS_CALL_TERMINATION) {
         g_ccsRecord.terminateUpdateCount++;
+        g_callTerminationIds.push_back(reinterpret_cast<NLSTK_CcpCallTermination_S *>(value)->callId);
     }
     return NLSTK_ERRCODE_SUCCESS;
 }
@@ -83,4 +93,29 @@ uint32_t NLSTK_CcpCcsAuthorizeResult(uint32_t requestId, int32_t instanceId, NLS
     HILOGI("[CcpStack Mocker] NLSTK_CcpCcsAuthorizeResult enter");
     g_ccsRecord.authorizeResultCount++;
     return NLSTK_ERRCODE_SUCCESS;
+}
+
+/* 单测查询：清空后收到的通话终止上报条数（上报值为协议栈侧通话标识） */
+int MockCcpGetCallTerminationReportCount()
+{
+    return static_cast<int>(g_callTerminationIds.size());
+}
+
+/* 单测查询：清空通话终止上报记录 */
+void MockCcpClearCallTerminationRecords()
+{
+    g_callTerminationIds.clear();
+}
+
+/* 单测查询：最近一次呼入呼出上报的 callFlag（bit0 为方向，1 呼出/0 呼入），未上报返回 -1 */
+int MockCcpGetLastCallInOutFlag()
+{
+    return g_hasCallInOutReport ? static_cast<int>(g_lastCallInOutFlag) : -1;
+}
+
+/* 单测查询：清空呼入呼出上报记录 */
+void MockCcpClearCallInOutReports()
+{
+    g_hasCallInOutReport = false;
+    g_lastCallInOutFlag = 0;
 }

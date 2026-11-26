@@ -385,16 +385,6 @@ enum NearlinkCloudPairInterfaceCode {
     NL_CLOUD_PAIR_BUTT
 };
 
-/**
- * @brief Call Control Profile 客户端 IPC 接口码。
- *        stub 与 proxy 共用，新增接口码需同时更新两侧。
- */
-enum NearlinkCcpInterfaceCode {
-    NL_CCP_CLIENT_PHONE_STATE_CHANGED = 0,
-    NL_CCP_CLIENT_CALL_DETAILS_CHANGED,
-    // The last code, if you want to add a new code, please add it before this
-    NL_CCP_CLIENT_BUTT
-};
 }  // namespace Nearlink
 }  // namespace OHOS
 #endif  // NEARLINK_SERVICE_IPC_INTERFACE_CODE_H
